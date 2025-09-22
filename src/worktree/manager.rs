@@ -1213,6 +1213,248 @@ impl WorktreeManager {
         }
     }
     /// Execute a custom merge workflow
+    /// Initialize variables for merge workflow execution
+    fn init_merge_variables(
+        &self,
+        worktree_name: &str,
+        source_branch: &str,
+        target_branch: &str,
+    ) -> (HashMap<String, String>, String) {
+        let mut session_id = String::new();
+        if let Ok(state) = self.load_session_state(worktree_name) {
+            session_id = state.session_id;
+        }
+
+        let mut variables = HashMap::new();
+        variables.insert("merge.worktree".to_string(), worktree_name.to_string());
+        variables.insert("merge.source_branch".to_string(), source_branch.to_string());
+        variables.insert("merge.target_branch".to_string(), target_branch.to_string());
+        variables.insert("merge.session_id".to_string(), session_id.clone());
+
+        (variables, session_id)
+    }
+
+    /// Create checkpoint manager for merge workflow
+    fn create_merge_checkpoint_manager(
+        &self,
+    ) -> Result<crate::cook::workflow::checkpoint::CheckpointManager> {
+        use crate::storage::{extract_repo_name, GlobalStorage};
+        use std::fs;
+
+        let storage = GlobalStorage::new()
+            .map_err(|e| anyhow::anyhow!("Failed to create global storage: {}", e))?;
+
+        let repo_name = extract_repo_name(&self.repo_path)
+            .map_err(|e| anyhow::anyhow!("Failed to extract repository name: {}", e))?;
+
+        // Create checkpoint directory synchronously
+        let checkpoint_dir = storage.base_dir().join("state").join(&repo_name).join("checkpoints");
+        fs::create_dir_all(&checkpoint_dir)
+            .context("Failed to create checkpoint directory")?;
+
+        Ok(crate::cook::workflow::checkpoint::CheckpointManager::new(
+            checkpoint_dir,
+        ))
+    }
+
+    /// Execute a shell command in the merge workflow
+    async fn execute_merge_shell_command(
+        &self,
+        shell_cmd: &str,
+        variables: &HashMap<String, String>,
+        step_index: usize,
+        total_steps: usize,
+    ) -> Result<String> {
+        let shell_cmd_interpolated = self.interpolate_merge_variables(shell_cmd, variables);
+
+        let step_name = format!("shell: {}", shell_cmd_interpolated);
+        println!(
+            "🔄 Executing step {}/{}: {}",
+            step_index + 1,
+            total_steps,
+            step_name
+        );
+        println!("🔄 Executing: {}", step_name);
+
+        self.log_execution_context(&step_name, variables);
+
+        tracing::info!("Executing shell command: {}", shell_cmd_interpolated);
+        tracing::info!("  Working directory: {}", self.repo_path.display());
+
+        let shell_command = ProcessCommandBuilder::new("sh")
+            .current_dir(&self.repo_path)
+            .args(["-c", &shell_cmd_interpolated])
+            .build();
+
+        let result = self.subprocess.runner().run(shell_command).await?;
+        if !result.status.success() {
+            anyhow::bail!(
+                "Merge workflow shell command failed: {}",
+                shell_cmd_interpolated
+            );
+        }
+        if !result.stdout.is_empty() {
+            println!("{}", result.stdout.trim());
+        }
+        Ok(result.stdout)
+    }
+
+    /// Execute a Claude command in the merge workflow
+    async fn execute_merge_claude_command(
+        &self,
+        claude_cmd: &str,
+        variables: &HashMap<String, String>,
+        step_index: usize,
+        total_steps: usize,
+    ) -> Result<String> {
+        let claude_cmd_interpolated = self.interpolate_merge_variables(claude_cmd, variables);
+
+        let step_name = format!("claude: {}", claude_cmd_interpolated);
+        println!(
+            "🔄 Executing step {}/{}: {}",
+            step_index + 1,
+            total_steps,
+            step_name
+        );
+        println!("🔄 Executing: {}", step_name);
+
+        self.log_execution_context(&step_name, variables);
+
+        let mut env_vars = HashMap::new();
+        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+
+        if self.verbosity >= 1 {
+            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
+        }
+
+        if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
+            env_vars.insert(
+                "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+                "true".to_string(),
+            );
+        }
+
+        self.log_claude_execution_details(&env_vars);
+
+        use crate::cook::execution::runner::RealCommandRunner;
+        let command_runner = RealCommandRunner::new();
+        let claude_executor =
+            ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity);
+
+        let result = claude_executor
+            .execute_claude_command(&claude_cmd_interpolated, &self.repo_path, env_vars)
+            .await?;
+
+        if !result.success {
+            anyhow::bail!(
+                "Merge workflow Claude command failed: {}",
+                claude_cmd_interpolated
+            );
+        }
+        Ok(result.stdout)
+    }
+
+    /// Interpolate merge-specific variables in a string
+    fn interpolate_merge_variables(
+        &self,
+        input: &str,
+        variables: &HashMap<String, String>,
+    ) -> String {
+        let mut result = input.to_string();
+        for (key, value) in variables {
+            let placeholder = format!("${{{}}}", key);
+            result = result.replace(&placeholder, value);
+        }
+        result
+    }
+
+    /// Log execution context for debugging
+    fn log_execution_context(&self, step_name: &str, variables: &HashMap<String, String>) {
+        tracing::info!("=== Step Execution Context ===");
+        tracing::info!("Step: {}", step_name);
+        tracing::info!("Working Directory: {}", self.repo_path.display());
+        tracing::info!("Project Directory: {}", self.repo_path.display());
+        tracing::info!("Variables:");
+        for (key, value) in variables {
+            let display_value = if value.len() > 100 {
+                format!("{}... (truncated)", &value[..100])
+            } else {
+                value.clone()
+            };
+            tracing::info!("  {} = {}", key, display_value);
+        }
+        tracing::info!("Environment Variables:");
+        tracing::info!("  PRODIGY_AUTOMATION = true");
+        if self.verbosity >= 1 {
+            tracing::info!("  PRODIGY_CLAUDE_STREAMING = true");
+        }
+        tracing::info!("Actual execution directory: {}", self.repo_path.display());
+        tracing::info!("==============================");
+    }
+
+    /// Log Claude-specific execution details
+    fn log_claude_execution_details(&self, env_vars: &HashMap<String, String>) {
+        tracing::info!("Environment Variables:");
+        for (key, value) in env_vars {
+            tracing::info!("  {} = {}", key, value);
+        }
+        tracing::info!("Actual execution directory: {}", self.repo_path.display());
+        tracing::info!("==============================");
+
+        tracing::info!(
+            "Claude execution mode: streaming={}, env_var={:?}",
+            self.verbosity >= 1,
+            env_vars.get("PRODIGY_CLAUDE_STREAMING")
+        );
+        if self.verbosity >= 1 {
+            tracing::info!("Using streaming mode for Claude command");
+        } else {
+            tracing::info!("Using print mode for Claude command");
+        }
+    }
+
+    /// Save checkpoint after a successful step
+    async fn save_merge_checkpoint(
+        &self,
+        checkpoint_manager: &crate::cook::workflow::checkpoint::CheckpointManager,
+        worktree_name: &str,
+        step_index: usize,
+        total_steps: usize,
+        variables: &HashMap<String, String>,
+    ) -> Result<()> {
+        let checkpoint = crate::cook::workflow::checkpoint::WorkflowCheckpoint {
+            workflow_id: format!("merge-workflow-{}", worktree_name),
+            execution_state: crate::cook::workflow::checkpoint::ExecutionState {
+                current_step_index: step_index,
+                total_steps,
+                status: crate::cook::workflow::checkpoint::WorkflowStatus::Running,
+                start_time: chrono::Utc::now(),
+                last_checkpoint: chrono::Utc::now(),
+                current_iteration: Some(1),
+                total_iterations: Some(1),
+            },
+            completed_steps: vec![],
+            variable_state: variables
+                .clone()
+                .into_iter()
+                .map(|(k, v)| (k, serde_json::Value::String(v)))
+                .collect(),
+            mapreduce_state: None,
+            timestamp: chrono::Utc::now(),
+            version: 1,
+            workflow_hash: format!("merge-{}", worktree_name),
+            total_steps,
+            workflow_name: Some(format!("merge-workflow-{}", worktree_name)),
+            workflow_path: None,
+            error_recovery_state: None,
+            retry_checkpoint_state: None,
+            variable_checkpoint_state: None,
+        };
+        checkpoint_manager.save_checkpoint(&checkpoint).await?;
+        tracing::info!("Saved checkpoint for merge workflow at step {}", step_index);
+        Ok(())
+    }
+
     async fn execute_custom_merge_workflow(
         &self,
         merge_workflow: &MergeWorkflow,
@@ -1220,290 +1462,76 @@ impl WorktreeManager {
         source_branch: &str,
         target_branch: &str,
     ) -> Result<String> {
-        // For now, execute each command in the merge workflow directly
-        // We'll use variable interpolation to replace merge-specific variables
         let mut output = String::new();
 
-        // Create merge context variables for interpolation
-        let mut session_id = String::new();
-        if let Ok(state) = self.load_session_state(worktree_name) {
-            session_id = state.session_id;
-        }
+        // Initialize merge variables and checkpoint manager
+        let (variables, _session_id) = self.init_merge_variables(worktree_name, source_branch, target_branch);
+        let checkpoint_manager = self.create_merge_checkpoint_manager()?;
 
-        // Initialize variables map for step context
-        let mut variables = HashMap::new();
-        variables.insert("merge.worktree".to_string(), worktree_name.to_string());
-        variables.insert("merge.source_branch".to_string(), source_branch.to_string());
-        variables.insert("merge.target_branch".to_string(), target_branch.to_string());
-        variables.insert("merge.session_id".to_string(), session_id.clone());
-
-        // Initialize checkpoint manager for merge workflow using global storage
-        let checkpoint_manager = {
-            use crate::storage::{extract_repo_name, GlobalStorage};
-
-            // Create global storage instance
-            let storage = GlobalStorage::new()
-                .map_err(|e| anyhow::anyhow!("Failed to create global storage: {}", e))?;
-
-            // Extract repository name and get global checkpoint directory
-            let repo_name = extract_repo_name(&self.repo_path)
-                .map_err(|e| anyhow::anyhow!("Failed to extract repository name: {}", e))?;
-            let checkpoint_dir = storage
-                .get_state_dir(&repo_name, "checkpoints")
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to get checkpoint directory: {}", e))?;
-
-            crate::cook::workflow::checkpoint::CheckpointManager::new(checkpoint_dir)
-        };
-
+        // Execute each command in the merge workflow
         let mut step_index = 0;
         for command in &merge_workflow.commands {
-            // Perform variable interpolation for merge-specific variables
-            let cmd_str = format!("{:?}", command);
-            let interpolated = cmd_str
-                .replace("${merge.worktree}", worktree_name)
-                .replace("${merge.source_branch}", source_branch)
-                .replace("${merge.target_branch}", target_branch)
-                .replace("${merge.session_id}", &session_id);
-
-            // For now, we'll execute shell commands directly and Claude commands through the executor
-            // This is a simplified implementation - a full implementation would use the workflow executor
             match command {
                 crate::cook::workflow::WorkflowStep {
                     shell: Some(shell_cmd),
                     ..
                 } => {
-                    // Execute shell command
-                    let shell_cmd_interpolated = shell_cmd
-                        .replace("${merge.worktree}", worktree_name)
-                        .replace("${merge.source_branch}", source_branch)
-                        .replace("${merge.target_branch}", target_branch)
-                        .replace("${merge.session_id}", &session_id);
+                    let cmd_output = self
+                        .execute_merge_shell_command(
+                            shell_cmd,
+                            &variables,
+                            step_index,
+                            merge_workflow.commands.len(),
+                        )
+                        .await?;
+                    output.push_str(&cmd_output);
 
-                    // Log shell command execution similar to regular workflow
-                    let step_name = format!("shell: {}", shell_cmd_interpolated);
-                    println!(
-                        "🔄 Executing step {}/{}: {}",
-                        step_index + 1,
-                        merge_workflow.commands.len(),
-                        step_name
-                    );
-                    println!("🔄 Executing: {}", step_name);
-
-                    // Log verbose execution context
-                    tracing::info!("=== Step Execution Context ===");
-                    tracing::info!("Step: {}", step_name);
-                    tracing::info!("Working Directory: {}", self.repo_path.display());
-                    tracing::info!("Project Directory: {}", self.repo_path.display());
-                    tracing::info!("Worktree: {}", worktree_name);
-                    tracing::info!("Session ID: {}", session_id);
-                    tracing::info!("Variables:");
-                    for (key, value) in &variables {
-                        let display_value = if value.len() > 100 {
-                            format!("{}... (truncated)", &value[..100])
-                        } else {
-                            value.clone()
-                        };
-                        tracing::info!("  {} = {}", key, display_value);
-                    }
-                    tracing::info!("Environment Variables:");
-                    tracing::info!("  PRODIGY_AUTOMATION = true");
-                    if self.verbosity >= 1 {
-                        tracing::info!("  PRODIGY_CLAUDE_STREAMING = true");
-                    }
-                    tracing::info!("Actual execution directory: {}", self.repo_path.display());
-                    tracing::info!("==============================");
-
-                    tracing::info!("Executing shell command: {}", shell_cmd_interpolated);
-                    tracing::info!("  Working directory: {}", self.repo_path.display());
-
-                    let shell_command = ProcessCommandBuilder::new("sh")
-                        .current_dir(&self.repo_path)
-                        .args(["-c", &shell_cmd_interpolated])
-                        .build();
-
-                    let result = self.subprocess.runner().run(shell_command).await?;
-                    if !result.status.success() {
-                        anyhow::bail!(
-                            "Merge workflow shell command failed: {}",
-                            shell_cmd_interpolated
-                        );
-                    }
-                    if !result.stdout.is_empty() {
-                        println!("{}", result.stdout.trim());
-                    }
-                    output.push_str(&result.stdout);
-
-                    // Save checkpoint after successful step
                     step_index += 1;
-                    let checkpoint = crate::cook::workflow::checkpoint::WorkflowCheckpoint {
-                        workflow_id: format!("merge-workflow-{}", worktree_name),
-                        execution_state: crate::cook::workflow::checkpoint::ExecutionState {
-                            current_step_index: step_index,
-                            total_steps: merge_workflow.commands.len(),
-                            status: crate::cook::workflow::checkpoint::WorkflowStatus::Running,
-                            start_time: chrono::Utc::now(),
-                            last_checkpoint: chrono::Utc::now(),
-                            current_iteration: Some(1),
-                            total_iterations: Some(1),
-                        },
-                        completed_steps: vec![],
-                        variable_state: variables
-                            .clone()
-                            .into_iter()
-                            .map(|(k, v)| (k, serde_json::Value::String(v)))
-                            .collect(),
-                        mapreduce_state: None,
-                        timestamp: chrono::Utc::now(),
-                        version: 1,
-                        workflow_hash: format!("merge-{}", worktree_name),
-                        total_steps: merge_workflow.commands.len(),
-                        workflow_name: Some(format!("merge-workflow-{}", worktree_name)),
-                        workflow_path: None,
-                        error_recovery_state: None,
-                        retry_checkpoint_state: None,
-                        variable_checkpoint_state: None,
-                    };
-                    if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
+                    if let Err(e) = self
+                        .save_merge_checkpoint(
+                            &checkpoint_manager,
+                            worktree_name,
+                            step_index,
+                            merge_workflow.commands.len(),
+                            &variables,
+                        )
+                        .await
+                    {
                         tracing::warn!("Failed to save merge workflow checkpoint: {}", e);
-                    } else {
-                        tracing::info!(
-                            "Saved checkpoint for merge workflow at step {}",
-                            step_index
-                        );
                     }
                 }
                 crate::cook::workflow::WorkflowStep {
                     claude: Some(claude_cmd),
                     ..
                 } => {
-                    // Execute Claude command with streaming support
-                    let claude_cmd_interpolated = claude_cmd
-                        .replace("${merge.worktree}", worktree_name)
-                        .replace("${merge.source_branch}", source_branch)
-                        .replace("${merge.target_branch}", target_branch)
-                        .replace("${merge.session_id}", &session_id);
-
-                    // Log Claude command execution similar to regular workflow
-                    let step_name = format!("claude: {}", claude_cmd_interpolated);
-                    println!(
-                        "🔄 Executing step {}/{}: {}",
-                        step_index + 1,
-                        merge_workflow.commands.len(),
-                        step_name
-                    );
-                    println!("🔄 Executing: {}", step_name);
-
-                    // Log verbose execution context
-                    tracing::info!("=== Step Execution Context ===");
-                    tracing::info!("Step: {}", step_name);
-                    tracing::info!("Working Directory: {}", self.repo_path.display());
-                    tracing::info!("Project Directory: {}", self.repo_path.display());
-                    tracing::info!("Worktree: {}", worktree_name);
-                    tracing::info!("Session ID: {}", session_id);
-                    tracing::info!("Variables:");
-                    for (key, value) in &variables {
-                        let display_value = if value.len() > 100 {
-                            format!("{}... (truncated)", &value[..100])
-                        } else {
-                            value.clone()
-                        };
-                        tracing::info!("  {} = {}", key, display_value);
-                    }
-
-                    let mut env_vars = HashMap::new();
-                    env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-
-                    // Enable streaming if verbosity is high enough
-                    if self.verbosity >= 1 {
-                        env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
-                    }
-
-                    // Check for console output override
-                    if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true"
-                    {
-                        env_vars.insert(
-                            "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
-                            "true".to_string(),
-                        );
-                    }
-
-                    tracing::info!("Environment Variables:");
-                    for (key, value) in &env_vars {
-                        tracing::info!("  {} = {}", key, value);
-                    }
-                    tracing::info!("Actual execution directory: {}", self.repo_path.display());
-                    tracing::info!("==============================");
-
-                    tracing::info!(
-                        "Claude execution mode: streaming={}, env_var={:?}",
-                        self.verbosity >= 1,
-                        env_vars.get("PRODIGY_CLAUDE_STREAMING")
-                    );
-                    if self.verbosity >= 1 {
-                        tracing::info!("Using streaming mode for Claude command");
-                    } else {
-                        tracing::info!("Using print mode for Claude command");
-                    }
-
-                    use crate::cook::execution::runner::RealCommandRunner;
-                    let command_runner = RealCommandRunner::new();
-                    let claude_executor =
-                        ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity);
-
-                    let result = claude_executor
-                        .execute_claude_command(&claude_cmd_interpolated, &self.repo_path, env_vars)
+                    let cmd_output = self
+                        .execute_merge_claude_command(
+                            claude_cmd,
+                            &variables,
+                            step_index,
+                            merge_workflow.commands.len(),
+                        )
                         .await?;
+                    output.push_str(&cmd_output);
 
-                    if !result.success {
-                        anyhow::bail!(
-                            "Merge workflow Claude command failed: {}",
-                            claude_cmd_interpolated
-                        );
-                    }
-                    output.push_str(&result.stdout);
-
-                    // Save checkpoint after successful step
                     step_index += 1;
-                    let checkpoint = crate::cook::workflow::checkpoint::WorkflowCheckpoint {
-                        workflow_id: format!("merge-workflow-{}", worktree_name),
-                        execution_state: crate::cook::workflow::checkpoint::ExecutionState {
-                            current_step_index: step_index,
-                            total_steps: merge_workflow.commands.len(),
-                            status: crate::cook::workflow::checkpoint::WorkflowStatus::Running,
-                            start_time: chrono::Utc::now(),
-                            last_checkpoint: chrono::Utc::now(),
-                            current_iteration: Some(1),
-                            total_iterations: Some(1),
-                        },
-                        completed_steps: vec![],
-                        variable_state: variables
-                            .clone()
-                            .into_iter()
-                            .map(|(k, v)| (k, serde_json::Value::String(v)))
-                            .collect(),
-                        mapreduce_state: None,
-                        timestamp: chrono::Utc::now(),
-                        version: 1,
-                        workflow_hash: format!("merge-{}", worktree_name),
-                        total_steps: merge_workflow.commands.len(),
-                        workflow_name: Some(format!("merge-workflow-{}", worktree_name)),
-                        workflow_path: None,
-                        error_recovery_state: None,
-                        retry_checkpoint_state: None,
-                        variable_checkpoint_state: None,
-                    };
-                    if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
+                    if let Err(e) = self
+                        .save_merge_checkpoint(
+                            &checkpoint_manager,
+                            worktree_name,
+                            step_index,
+                            merge_workflow.commands.len(),
+                            &variables,
+                        )
+                        .await
+                    {
                         tracing::warn!("Failed to save merge workflow checkpoint: {}", e);
-                    } else {
-                        tracing::info!(
-                            "Saved checkpoint for merge workflow at step {}",
-                            step_index
-                        );
                     }
                 }
                 _ => {
                     // For other command types, just log them for now
+                    let cmd_str = format!("{:?}", command);
+                    let interpolated = self.interpolate_merge_variables(&cmd_str, &variables);
                     eprintln!(
                         "Skipping unsupported merge workflow command: {}",
                         interpolated
@@ -1553,195 +1581,6 @@ impl WorktreeManager {
         variables
     }
 
-    /// Execute shell command in merge workflow
-    async fn execute_merge_shell_command(
-        &self,
-        shell_cmd: &str,
-        step_num: usize,
-        total_steps: usize,
-        worktree_name: &str,
-        session_id: &str,
-        variables: &HashMap<String, String>,
-    ) -> Result<String> {
-        let step_name = format!("shell: {}", shell_cmd);
-        self.log_step_execution(step_num, total_steps, &step_name);
-        self.log_execution_context(&step_name, worktree_name, session_id, variables);
-
-        tracing::info!("Executing shell command: {}", shell_cmd);
-        tracing::info!("  Working directory: {}", self.repo_path.display());
-
-        let shell_command = ProcessCommandBuilder::new("sh")
-            .current_dir(&self.repo_path)
-            .args(["-c", shell_cmd])
-            .build();
-
-        let result = self.subprocess.runner().run(shell_command).await?;
-        if !result.status.success() {
-            anyhow::bail!("Merge workflow shell command failed: {}", shell_cmd);
-        }
-        if !result.stdout.is_empty() {
-            println!("{}", result.stdout.trim());
-        }
-        Ok(result.stdout)
-    }
-
-    /// Execute Claude command in merge workflow
-    async fn execute_merge_claude_command(
-        &self,
-        claude_cmd: &str,
-        step_num: usize,
-        total_steps: usize,
-        worktree_name: &str,
-        session_id: &str,
-        variables: &HashMap<String, String>,
-    ) -> Result<String> {
-        let step_name = format!("claude: {}", claude_cmd);
-        self.log_step_execution(step_num, total_steps, &step_name);
-        self.log_execution_context(&step_name, worktree_name, session_id, variables);
-
-        let env_vars = self.build_claude_env_vars();
-        self.log_claude_execution_mode(&env_vars);
-
-        use crate::cook::execution::runner::RealCommandRunner;
-        let command_runner = RealCommandRunner::new();
-        let claude_executor =
-            ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity);
-
-        let result = claude_executor
-            .execute_claude_command(claude_cmd, &self.repo_path, env_vars)
-            .await?;
-
-        if !result.success {
-            anyhow::bail!("Merge workflow Claude command failed: {}", claude_cmd);
-        }
-        Ok(result.stdout)
-    }
-
-    /// Build environment variables for Claude execution
-    fn build_claude_env_vars(&self) -> HashMap<String, String> {
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-
-        if self.verbosity >= 1 {
-            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
-        }
-
-        if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
-            env_vars.insert(
-                "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
-                "true".to_string(),
-            );
-        }
-
-        env_vars
-    }
-
-    /// Log step execution
-    fn log_step_execution(&self, step_num: usize, total_steps: usize, step_name: &str) {
-        println!(
-            "🔄 Executing step {}/{}: {}",
-            step_num, total_steps, step_name
-        );
-        println!("🔄 Executing: {}", step_name);
-    }
-
-    /// Log execution context for debugging
-    fn log_execution_context(
-        &self,
-        step_name: &str,
-        worktree_name: &str,
-        session_id: &str,
-        variables: &HashMap<String, String>,
-    ) {
-        tracing::info!("=== Step Execution Context ===");
-        tracing::info!("Step: {}", step_name);
-        tracing::info!("Working Directory: {}", self.repo_path.display());
-        tracing::info!("Project Directory: {}", self.repo_path.display());
-        tracing::info!("Worktree: {}", worktree_name);
-        tracing::info!("Session ID: {}", session_id);
-        tracing::info!("Variables:");
-        for (key, value) in variables {
-            let display_value = if value.len() > 100 {
-                format!("{}... (truncated)", &value[..100])
-            } else {
-                value.clone()
-            };
-            tracing::info!("  {} = {}", key, display_value);
-        }
-        tracing::info!("Environment Variables:");
-        tracing::info!("  PRODIGY_AUTOMATION = true");
-        if self.verbosity >= 1 {
-            tracing::info!("  PRODIGY_CLAUDE_STREAMING = true");
-        }
-        tracing::info!("Actual execution directory: {}", self.repo_path.display());
-        tracing::info!("==============================");
-    }
-
-    /// Log Claude execution mode
-    fn log_claude_execution_mode(&self, env_vars: &HashMap<String, String>) {
-        tracing::info!("Environment Variables:");
-        for (key, value) in env_vars {
-            tracing::info!("  {} = {}", key, value);
-        }
-        tracing::info!("Actual execution directory: {}", self.repo_path.display());
-        tracing::info!("==============================");
-
-        tracing::info!(
-            "Claude execution mode: streaming={}, env_var={:?}",
-            self.verbosity >= 1,
-            env_vars.get("PRODIGY_CLAUDE_STREAMING")
-        );
-        if self.verbosity >= 1 {
-            tracing::info!("Using streaming mode for Claude command");
-        } else {
-            tracing::info!("Using print mode for Claude command");
-        }
-    }
-
-    /// Save merge workflow checkpoint
-    async fn save_merge_checkpoint(
-        &self,
-        checkpoint_manager: &crate::cook::workflow::checkpoint::CheckpointManager,
-        worktree_name: &str,
-        step_index: usize,
-        total_steps: usize,
-        variables: &HashMap<String, String>,
-    ) {
-        let checkpoint = crate::cook::workflow::checkpoint::WorkflowCheckpoint {
-            workflow_id: format!("merge-workflow-{}", worktree_name),
-            execution_state: crate::cook::workflow::checkpoint::ExecutionState {
-                current_step_index: step_index,
-                total_steps,
-                status: crate::cook::workflow::checkpoint::WorkflowStatus::Running,
-                start_time: chrono::Utc::now(),
-                last_checkpoint: chrono::Utc::now(),
-                current_iteration: Some(1),
-                total_iterations: Some(1),
-            },
-            completed_steps: vec![],
-            variable_state: variables
-                .clone()
-                .into_iter()
-                .map(|(k, v)| (k, serde_json::Value::String(v)))
-                .collect(),
-            mapreduce_state: None,
-            timestamp: chrono::Utc::now(),
-            version: 1,
-            workflow_hash: format!("merge-{}", worktree_name),
-            total_steps,
-            workflow_name: Some(format!("merge-workflow-{}", worktree_name)),
-            workflow_path: None,
-            error_recovery_state: None,
-            retry_checkpoint_state: None,
-            variable_checkpoint_state: None,
-        };
-
-        if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
-            tracing::warn!("Failed to save merge workflow checkpoint: {}", e);
-        } else {
-            tracing::info!("Saved checkpoint for merge workflow at step {}", step_index);
-        }
-    }
 }
 
 #[cfg(test)]

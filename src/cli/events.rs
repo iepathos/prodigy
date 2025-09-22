@@ -2091,6 +2091,7 @@ fn format_event_details(event: &Value) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
+    use chrono::TimeZone;
 
     #[test]
     fn test_get_event_type_job_started() {
@@ -2145,6 +2146,110 @@ mod tests {
             }
         });
         assert_eq!(get_event_type(&event), "JobResumed");
+    }
+
+    #[test]
+    fn test_build_retention_policy_with_all_options() {
+        let policy = build_retention_policy(
+            Some("30d".to_string()),
+            Some(100),
+            Some("1GB".to_string()),
+            false,
+            None
+        ).unwrap();
+        assert_eq!(policy.max_age_days, Some(30));
+        assert_eq!(policy.max_events, Some(100));
+        assert_eq!(policy.max_file_size_bytes, Some(1_073_741_824));
+        assert_eq!(policy.archive_old_events, false);
+        assert_eq!(policy.archive_path, None);
+    }
+
+    #[test]
+    fn test_parse_duration_to_days() {
+        assert_eq!(parse_duration_to_days("30d").unwrap(), 30);
+        assert_eq!(parse_duration_to_days("7d").unwrap(), 7);
+        assert_eq!(parse_duration_to_days("1d").unwrap(), 1);
+        assert_eq!(parse_duration_to_days("365d").unwrap(), 365);
+        assert_eq!(parse_duration_to_days("30").unwrap(), 30); // Default to days
+        assert!(parse_duration_to_days("invalid").is_err());
+    }
+
+    #[test]
+    fn test_parse_size_to_bytes() {
+        assert_eq!(parse_size_to_bytes("1KB").unwrap(), 1_024);
+        assert_eq!(parse_size_to_bytes("1MB").unwrap(), 1_048_576);
+        assert_eq!(parse_size_to_bytes("1GB").unwrap(), 1_073_741_824);
+        assert_eq!(parse_size_to_bytes("500MB").unwrap(), 524_288_000);
+        assert!(parse_size_to_bytes("invalid").is_err());
+        assert!(parse_size_to_bytes("100").is_err());
+    }
+
+    #[test]
+    fn test_format_job_info() {
+        let job = JobInfo {
+            id: "test-123".to_string(),
+            status: JobStatus::Completed,
+            start_time: Some(Local.with_ymd_and_hms(2024, 1, 1, 10, 0, 0).unwrap()),
+            end_time: Some(Local.with_ymd_and_hms(2024, 1, 1, 10, 30, 0).unwrap()),
+            success_count: 95,
+            failure_count: 5,
+        };
+
+        let formatted = format_job_info(&job);
+        assert!(formatted.contains("test-123"));
+        assert!(formatted.contains("Completed"));
+        assert!(formatted.contains("95 succeeded"));
+        assert!(formatted.contains("5 failed"));
+        assert!(formatted.contains(" in 30m0s"));
+    }
+
+    #[test]
+    fn test_calculate_duration() {
+        let start = Some(Local.with_ymd_and_hms(2024, 1, 1, 10, 0, 0).unwrap());
+        let end = Some(Local.with_ymd_and_hms(2024, 1, 1, 10, 30, 45).unwrap());
+        assert_eq!(calculate_duration(start, end), " in 30m45s");
+
+        let end2 = Some(Local.with_ymd_and_hms(2024, 1, 1, 11, 0, 0).unwrap());
+        assert_eq!(calculate_duration(start, end2), " in 60m0s");
+
+        assert_eq!(calculate_duration(None, end), "");
+        assert_eq!(calculate_duration(start, None), "");
+    }
+
+    #[test]
+    fn test_event_matches_field() {
+        let event = json!({
+            "JobStarted": {
+                "job_id": "test-123",
+                "workflow_name": "test-workflow"
+            },
+            "timestamp": "2024-01-01T00:00:00Z"
+        });
+
+        assert!(event_matches_field(&event, "job_id", "test-123"));
+        assert!(event_matches_field(&event, "workflow_name", "test-workflow"));
+        assert!(!event_matches_field(&event, "job_id", "different-id"));
+        assert!(!event_matches_field(&event, "nonexistent", "value"));
+    }
+
+    #[test]
+    fn test_extract_nested_field() {
+        let event = json!({
+            "outer": {
+                "inner": {
+                    "value": "test"
+                }
+            }
+        });
+
+        let result = extract_nested_field(&event, "outer.inner.value");
+        assert_eq!(result, Some(&json!("test")));
+
+        let result2 = extract_nested_field(&event, "outer.inner");
+        assert_eq!(result2, Some(&json!({"value": "test"})));
+
+        let result3 = extract_nested_field(&event, "nonexistent.field");
+        assert_eq!(result3, None);
     }
 
     #[test]
