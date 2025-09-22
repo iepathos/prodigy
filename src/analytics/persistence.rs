@@ -1,7 +1,7 @@
 //! SQLite persistence layer for analytics data
 
 #[cfg(feature = "postgres")]
-use anyhow::Result;
+use anyhow::{Context, Result};
 #[cfg(feature = "postgres")]
 use chrono::{DateTime, Utc};
 #[cfg(feature = "postgres")]
@@ -35,10 +35,14 @@ impl AnalyticsDatabase {
         }
 
         let database_url = format!("sqlite://{}?mode=rwc", database_path.as_ref().display());
-        let pool = SqlitePool::connect(&database_url).await?;
+        let pool = SqlitePool::connect(&database_url)
+            .await
+            .with_context(|| format!("Failed to connect to analytics database at {}", database_path.as_ref().display()))?;
 
         let db = Self { pool };
-        db.initialize_schema().await?;
+        db.initialize_schema()
+            .await
+            .with_context(|| "Failed to initialize analytics database schema")?;
 
         info!(
             "Analytics database initialized at {}",

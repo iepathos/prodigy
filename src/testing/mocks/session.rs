@@ -118,8 +118,8 @@ impl SessionManager for MockSessionManager {
         })
     }
 
-    fn get_state(&self) -> SessionState {
-        self.state.lock().unwrap().clone()
+    fn get_state(&self) -> Result<SessionState> {
+        Ok(self.state.lock().unwrap().clone())
     }
 
     async fn save_state(&self, path: &Path) -> Result<()> {

@@ -126,7 +126,11 @@ impl GitReader for GitCommandRunner {
         let result = self
             .run_git_command(path, &["rev-parse", "--git-dir"])
             .await;
-        Ok(result.is_ok() && result.unwrap().status.success())
+
+        match result {
+            Ok(output) => Ok(output.status.success()),
+            Err(_) => Ok(false), // If git command fails, it's not a repository
+        }
     }
 
     async fn get_status(&self, path: &Path) -> LibResult<GitStatus> {
@@ -388,7 +392,7 @@ mod tests {
     #[tokio::test]
     async fn test_is_repository_success() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -401,7 +405,7 @@ mod tests {
         )
         .await;
 
-        let result = git.is_repository(temp_dir.path()).await.unwrap();
+        let result = git.is_repository(temp_dir.path()).await.expect("is_repository should not fail");
         assert!(result);
 
         // Verify the command was called correctly
@@ -414,7 +418,7 @@ mod tests {
     #[tokio::test]
     async fn test_is_repository_failure() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -427,14 +431,14 @@ mod tests {
         )
         .await;
 
-        let result = git.is_repository(temp_dir.path()).await.unwrap();
+        let result = git.is_repository(temp_dir.path()).await.expect("is_repository should not fail even for non-repositories");
         assert!(!result);
     }
 
     #[tokio::test]
     async fn test_get_current_branch() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -447,14 +451,14 @@ mod tests {
         )
         .await;
 
-        let branch = git.get_current_branch(temp_dir.path()).await.unwrap();
+        let branch = git.get_current_branch(temp_dir.path()).await.expect("get_current_branch should succeed for test");
         assert_eq!(branch, "main");
     }
 
     #[tokio::test]
     async fn test_get_current_branch_detached_head() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -470,14 +474,14 @@ mod tests {
         let result = git.get_current_branch(temp_dir.path()).await;
         assert!(result.is_err());
 
-        let error = result.unwrap_err();
+        let error = result.expect_err("Expected get_current_branch to fail for detached HEAD");
         assert!(error.to_string().contains("detached"));
     }
 
     #[tokio::test]
     async fn test_stage_all() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -490,7 +494,7 @@ mod tests {
         )
         .await;
 
-        git.stage_all(temp_dir.path()).await.unwrap();
+        git.stage_all(temp_dir.path()).await.expect("stage_all should succeed for test");
 
         let calls = mock.get_calls().await;
         assert_eq!(calls.len(), 1);
@@ -500,7 +504,7 @@ mod tests {
     #[tokio::test]
     async fn test_commit_success() {
         let (git, mut mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         // Mock commit command
         mock.expect_command("git")
@@ -514,7 +518,7 @@ mod tests {
             .returns_stdout("abc1234567890abcdef1234567890abcdef123456\n")
             .finish();
 
-        let commit_id = git.commit(temp_dir.path(), "test commit").await.unwrap();
+        let commit_id = git.commit(temp_dir.path(), "test commit").await.expect("commit should succeed for test");
         assert_eq!(
             commit_id.hash(),
             "abc1234567890abcdef1234567890abcdef123456",
@@ -531,7 +535,7 @@ mod tests {
     #[tokio::test]
     async fn test_commit_nothing_to_commit() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -547,14 +551,14 @@ mod tests {
         let result = git.commit(temp_dir.path(), "test commit").await;
         assert!(result.is_err());
 
-        let error = result.unwrap_err();
+        let error = result.expect_err("Expected commit to fail when nothing to commit");
         assert!(error.to_string().contains("Nothing to commit"));
     }
 
     #[tokio::test]
     async fn test_get_status() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -567,7 +571,7 @@ mod tests {
         )
         .await;
 
-        let status = git.get_status(temp_dir.path()).await.unwrap();
+        let status = git.get_status(temp_dir.path()).await.expect("get_status should succeed for test");
         assert_eq!(status.added.len(), 0);
         assert_eq!(status.modified.len(), 1);
         assert_eq!(status.untracked.len(), 0);
@@ -576,7 +580,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_files() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -589,7 +593,7 @@ mod tests {
         )
         .await;
 
-        let files = git.list_files(temp_dir.path()).await.unwrap();
+        let files = git.list_files(temp_dir.path()).await.expect("list_files should succeed for test");
         assert_eq!(files.len(), 3);
         assert_eq!(files[0], PathBuf::from("src/main.rs"));
         assert_eq!(files[1], PathBuf::from("src/lib.rs"));
@@ -599,7 +603,7 @@ mod tests {
     #[tokio::test]
     async fn test_is_clean() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -612,14 +616,14 @@ mod tests {
         )
         .await;
 
-        let is_clean = git.is_clean(temp_dir.path()).await.unwrap();
+        let is_clean = git.is_clean(temp_dir.path()).await.expect("is_clean should succeed for test");
         assert!(is_clean);
     }
 
     #[tokio::test]
     async fn test_create_branch() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -634,7 +638,7 @@ mod tests {
 
         git.create_branch(temp_dir.path(), "feature-branch")
             .await
-            .unwrap();
+            .expect("create_branch should succeed for test");
 
         let calls = mock.get_calls().await;
         assert_eq!(calls.len(), 1);
@@ -644,7 +648,7 @@ mod tests {
     #[tokio::test]
     async fn test_switch_branch() {
         let (git, mock) = create_test_runner();
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temporary directory for test");
 
         mock.add_response(
             "git",
@@ -657,7 +661,7 @@ mod tests {
         )
         .await;
 
-        git.switch_branch(temp_dir.path(), "main").await.unwrap();
+        git.switch_branch(temp_dir.path(), "main").await.expect("switch_branch should succeed for test");
 
         let calls = mock.get_calls().await;
         assert_eq!(calls.len(), 1);

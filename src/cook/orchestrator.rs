@@ -356,7 +356,8 @@ impl DefaultCookOrchestrator {
                 }
                 Err(e) => {
                     // Check if session was interrupted again
-                    let current_state = self.session_manager.get_state();
+                    let current_state = self.session_manager.get_state()
+                        .context("Failed to get session state after resume error")?;
                     if current_state.status == SessionStatus::Interrupted {
                         self.user_interaction.display_warning(&format!(
                             "\nSession interrupted again. Resume with: prodigy cook {} --resume {}",
@@ -470,7 +471,8 @@ impl DefaultCookOrchestrator {
         ));
 
         // Load existing completed steps from session state
-        let existing_state = self.session_manager.get_state();
+        let existing_state = self.session_manager.get_state()
+            .context("Failed to get session state before workflow execution")?;
         let completed_steps = existing_state
             .workflow_state
             .as_ref()
@@ -1050,7 +1052,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             }
             Err(e) => {
                 // Check if session was interrupted
-                let state = self.session_manager.get_state();
+                let state = self.session_manager.get_state()
+                    .context("Failed to get session state after cook error")?;
                 if state.status == SessionStatus::Interrupted {
                     self.user_interaction.display_warning(&format!(
                         "\nSession interrupted. Resume with: prodigy cook {} --resume {}",
@@ -1103,7 +1106,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                         .display_error(&format!("Cook session failed: {e}"));
 
                     // Display how to resume the session
-                    let state = self.session_manager.get_state();
+                    let state = self.session_manager.get_state()
+                        .context("Failed to get session state for resume info")?;
                     if state.is_resumable() {
                         self.user_interaction.display_info(&format!(
                             "\n💡 To resume this session, run: prodigy cook {} --resume {}",

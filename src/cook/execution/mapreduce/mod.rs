@@ -6,6 +6,9 @@
 // Declare the agent module for agent lifecycle management
 pub mod agent;
 
+// Declare the no-op writer module for fallback event logging
+pub mod noop_writer;
+
 // Declare the utils module for pure functions
 pub mod utils;
 
@@ -938,13 +941,15 @@ impl MapReduceExecutor {
                     );
                     // Fallback to temp directory
                     let temp_path = std::env::temp_dir().join("prodigy_events.jsonl");
-                    let event_writers: Vec<Box<dyn EventWriter>> = vec![Box::new(
-                        JsonlEventWriter::new(temp_path.clone())
-                            .await
-                            .unwrap_or_else(|_| {
-                                panic!("Failed to create fallback event logger at {:?}", temp_path);
-                            }),
-                    )];
+                    let writer: Box<dyn EventWriter> = match JsonlEventWriter::new(temp_path.clone()).await {
+                        Ok(w) => Box::new(w),
+                        Err(e) => {
+                            error!("Failed to create fallback event logger at {:?}: {}", temp_path, e);
+                            error!("Using no-op event writer - events will not be persisted!");
+                            Box::new(noop_writer::NoOpEventWriter::new())
+                        }
+                    };
+                    let event_writers: Vec<Box<dyn EventWriter>> = vec![writer];
                     Arc::new(EventLogger::new(event_writers))
                 }
             };

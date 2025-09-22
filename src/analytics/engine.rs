@@ -1,6 +1,6 @@
 //! Analytics engine for Claude session analysis
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Duration, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -32,7 +32,9 @@ impl AnalyticsEngine {
     /// Calculate the cost of a specific session
     pub async fn calculate_session_cost(&self, session_id: &str) -> Result<Cost> {
         let index = self.index.read().await;
-        let session = index.get_session(session_id).await?;
+        let session = index.get_session(session_id)
+            .await
+            .with_context(|| format!("Failed to retrieve session {} for cost calculation", session_id))?;
 
         let cost = Cost {
             input_tokens: session.total_input_tokens(),
@@ -65,7 +67,9 @@ impl AnalyticsEngine {
     /// Analyze tool usage across sessions in a time range
     pub async fn analyze_tool_usage(&self, time_range: TimeRange) -> Result<ToolStats> {
         let index = self.index.read().await;
-        let sessions = index.query_sessions(time_range).await?;
+        let sessions = index.query_sessions(time_range)
+            .await
+            .with_context(|| format!("Failed to query sessions in time range {} to {}", time_range.start, time_range.end))?;
 
         let mut tool_stats: HashMap<String, ToolStat> = HashMap::new();
         let session_count = sessions.len();
@@ -163,7 +167,7 @@ impl AnalyticsEngine {
             .enumerate()
             .max_by_key(|(_, count)| *count)
             .map(|(hour, _)| hour)
-            .unwrap_or(0);
+            .unwrap_or(0); // Safe: hourly_distribution is always 24 elements, so max() will always find a value
 
         // Find most used tools
         let mut tool_list: Vec<_> = tool_frequency.into_iter().collect();

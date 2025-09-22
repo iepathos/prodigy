@@ -4673,7 +4673,7 @@ mod tests {
                 unreachable!("Not used in format_variable_value tests")
             }
 
-            fn get_state(&self) -> SessionState {
+            fn get_state(&self) -> Result<SessionState> {
                 unreachable!("Not used in format_variable_value tests")
             }
 
