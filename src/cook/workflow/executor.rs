@@ -419,7 +419,8 @@ impl WorkflowContext {
                 );
 
                 // Provide detailed error information
-                let available_variables = WorkflowExecutor::get_available_variable_summary(&context);
+                let available_variables =
+                    WorkflowExecutor::get_available_variable_summary(&context);
                 tracing::debug!("Available variables: {}", available_variables);
 
                 // Fallback to original template on error (non-strict mode behavior)
@@ -1427,71 +1428,6 @@ impl WorkflowExecutor {
         evaluator
             .evaluate(when_expr, &variable_context)
             .with_context(|| format!("Failed to evaluate when condition: {}", when_expr))
-    }
-
-    fn should_fail_workflow(&self, result: &StepResult, step: &WorkflowStep) -> bool {
-        if !result.success {
-            // Command failed, check on_failure configuration
-            if let Some(on_failure_config) = &step.on_failure {
-                on_failure_config.should_fail_workflow()
-            } else if let Some(test_cmd) = &step.test {
-                // Legacy test command handling
-                if let Some(test_on_failure) = &test_cmd.on_failure {
-                    test_on_failure.fail_workflow
-                } else {
-                    true // No on_failure config, fail on error
-                }
-            } else {
-                true // No on_failure handler, fail on error
-            }
-        } else {
-            false // Command succeeded, don't fail
-        }
-    }
-
-    /// Build a detailed error message for a failed step
-    fn build_error_message(&self, step: &WorkflowStep, result: &StepResult) -> String {
-        let step_display = self.get_step_display_name(step);
-        let mut error_msg = format!("Step '{}' failed", step_display);
-
-        if let Some(exit_code) = result.exit_code {
-            error_msg.push_str(&format!(" with exit code {}", exit_code));
-        }
-
-        // Add stderr if available
-        if !result.stderr.trim().is_empty() {
-            error_msg.push_str("\n\n=== Error Output (stderr) ===");
-            self.append_truncated_output(&mut error_msg, &result.stderr);
-        }
-
-        // Add stdout if stderr was empty but stdout has content
-        if result.stderr.trim().is_empty() && !result.stdout.trim().is_empty() {
-            error_msg.push_str("\n\n=== Standard Output (stdout) ===");
-            self.append_truncated_output(&mut error_msg, &result.stdout);
-        }
-
-        error_msg
-    }
-
-    /// Append output to error message, truncating if necessary
-    fn append_truncated_output(&self, error_msg: &mut String, output: &str) {
-        let lines: Vec<&str> = output.lines().collect();
-        if lines.len() <= 50 {
-            error_msg.push('\n');
-            error_msg.push_str(output);
-        } else {
-            // Show first 25 and last 25 lines for large outputs
-            error_msg.push('\n');
-            for line in lines.iter().take(25) {
-                error_msg.push_str(line);
-                error_msg.push('\n');
-            }
-            error_msg.push_str("\n... [output truncated] ...\n\n");
-            for line in lines.iter().rev().take(25).rev() {
-                error_msg.push_str(line);
-                error_msg.push('\n');
-            }
-        }
     }
 
     /// Execute command based on its type
@@ -2646,30 +2582,6 @@ impl WorkflowExecutor {
         }
     }
 
-    /// Calculate effective iterations for dry-run mode
-    fn get_effective_iterations(&self, workflow: &ExtendedWorkflowConfig) -> usize {
-        if self.dry_run && workflow.max_iterations > 10 {
-            println!(
-                "[DRY RUN] Limiting iterations to 10 for simulation (requested: {})",
-                workflow.max_iterations
-            );
-            10
-        } else {
-            workflow.max_iterations as usize
-        }
-    }
-
-    /// Check if step should be skipped based on resume context
-    fn should_skip_step(&self, step_index: usize) -> bool {
-        if let Some(ref resume_ctx) = self.resume_context {
-            return resume_ctx
-                .skip_steps
-                .iter()
-                .any(|s| s.step_index == step_index);
-        }
-        false
-    }
-
     /// Restore error recovery state from resume context
     fn restore_error_recovery_state(
         &self,
@@ -2680,9 +2592,9 @@ impl WorkflowExecutor {
             if let Some(recovery_state_value) =
                 resume_ctx.variable_state.get("__error_recovery_state")
             {
-                if let Ok(error_recovery_state) = serde_json::from_value::<ErrorRecoveryState>(
-                    recovery_state_value.clone(),
-                ) {
+                if let Ok(error_recovery_state) =
+                    serde_json::from_value::<ErrorRecoveryState>(recovery_state_value.clone())
+                {
                     if !error_recovery_state.active_handlers.is_empty() {
                         tracing::info!(
                             "Restored {} error handlers for step {}",
@@ -2763,7 +2675,8 @@ impl WorkflowExecutor {
     fn determine_execution_flags() -> ExecutionFlags {
         ExecutionFlags {
             test_mode: std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true",
-            skip_validation: std::env::var("PRODIGY_NO_COMMIT_VALIDATION").unwrap_or_default() == "true",
+            skip_validation: std::env::var("PRODIGY_NO_COMMIT_VALIDATION").unwrap_or_default()
+                == "true",
         }
     }
 
@@ -2774,29 +2687,6 @@ impl WorkflowExecutor {
         } else {
             workflow.max_iterations
         }
-    }
-
-    /// Pure function to determine if workflow should continue iterations
-    fn should_continue_workflow_iteration(
-        workflow: &ExtendedWorkflowConfig,
-        iteration: u32,
-        max_iterations: u32,
-        any_changes: bool,
-        _test_mode: bool,
-    ) -> bool {
-        if !workflow.iterate {
-            return false;
-        }
-
-        if iteration >= max_iterations {
-            return false;
-        }
-
-        if !any_changes {
-            return false;
-        }
-
-        true
     }
 
     /// Pure function to build iteration context variables
@@ -2833,10 +2723,14 @@ impl WorkflowExecutor {
     }
 
     /// Pure function to determine if a step should be skipped
-    fn should_skip_step_execution(step_index: usize, completed_steps: &[crate::cook::session::StepResult]) -> bool {
-        completed_steps.iter().any(|completed| completed.step_index == step_index && completed.success)
+    fn should_skip_step_execution(
+        step_index: usize,
+        completed_steps: &[crate::cook::session::StepResult],
+    ) -> bool {
+        completed_steps
+            .iter()
+            .any(|completed| completed.step_index == step_index && completed.success)
     }
-
 
     /// Pure function to determine if workflow should continue based on state
     fn determine_iteration_continuation(
@@ -2897,7 +2791,8 @@ impl WorkflowExecutor {
         self.display_dry_run_info(workflow);
 
         // Calculate effective max iterations
-        let effective_max_iterations = Self::calculate_effective_max_iterations(workflow, self.dry_run);
+        let effective_max_iterations =
+            Self::calculate_effective_max_iterations(workflow, self.dry_run);
 
         // Only show workflow info for non-empty workflows
         if !workflow.steps.is_empty() {
@@ -2948,7 +2843,7 @@ impl WorkflowExecutor {
                     .update_session(SessionUpdate::IncrementIteration)
                     .await?;
                 self.session_manager
-                    .update_session(SessionUpdate::StartIteration(iteration as u32))
+                    .update_session(SessionUpdate::StartIteration(iteration))
                     .await?;
             }
 
@@ -2982,7 +2877,10 @@ impl WorkflowExecutor {
                 ));
 
                 // Get HEAD before command execution if we need to verify commits
-                let head_before = if !execution_flags.skip_validation && step.commit_required && !execution_flags.test_mode {
+                let head_before = if !execution_flags.skip_validation
+                    && step.commit_required
+                    && !execution_flags.test_mode
+                {
                     Some(self.get_current_head(&env.working_dir).await?)
                 } else {
                     None
@@ -3088,7 +2986,8 @@ impl WorkflowExecutor {
                 }
 
                 // Save workflow state after step execution
-                self.save_workflow_state(env, iteration as usize, step_index).await?;
+                self.save_workflow_state(env, iteration as usize, step_index)
+                    .await?;
 
                 // Check for commits if required (skip in dry-run mode)
                 if !self.dry_run {
@@ -3120,7 +3019,8 @@ impl WorkflowExecutor {
 
             should_continue = match continuation {
                 IterationContinuation::Stop(reason) => {
-                    self.user_interaction.display_info(&format!("Stopping: {}", reason));
+                    self.user_interaction
+                        .display_info(&format!("Stopping: {}", reason));
                     false
                 }
                 IterationContinuation::Continue => true,
@@ -3367,7 +3267,10 @@ impl WorkflowExecutor {
                 error_msg.push_str(line);
                 error_msg.push('\n');
             }
-            error_msg.push_str(&format!("\n... ({} lines truncated) ...\n\n", lines.len() - 50));
+            error_msg.push_str(&format!(
+                "\n... ({} lines truncated) ...\n\n",
+                lines.len() - 50
+            ));
             for line in lines.iter().skip(lines.len() - 25) {
                 error_msg.push_str(line);
                 error_msg.push('\n');
@@ -3588,7 +3491,11 @@ impl WorkflowExecutor {
                 step_name.clone()
             };
 
-            if self.assumed_commits.iter().any(|c| c.contains(&command_desc)) {
+            if self
+                .assumed_commits
+                .iter()
+                .any(|c| c.contains(&command_desc))
+            {
                 println!(
                     "[DRY RUN] Skipping commit validation - assumed commit from: {}",
                     step_name

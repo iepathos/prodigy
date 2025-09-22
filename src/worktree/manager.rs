@@ -629,13 +629,17 @@ impl WorktreeManager {
 
         // Determine target branch and validate merge
         let target_branch = self.determine_default_branch().await?;
-        self.validate_merge_preconditions(name, worktree_branch, &target_branch).await?;
+        self.validate_merge_preconditions(name, worktree_branch, &target_branch)
+            .await?;
 
         // Execute merge workflow
-        let merge_output = self.execute_merge_workflow(name, worktree_branch, &target_branch).await?;
+        let merge_output = self
+            .execute_merge_workflow(name, worktree_branch, &target_branch)
+            .await?;
 
         // Verify merge completed successfully
-        self.verify_merge_completion(worktree_branch, &target_branch, &merge_output).await?;
+        self.verify_merge_completion(worktree_branch, &target_branch, &merge_output)
+            .await?;
 
         // Update session state and handle cleanup
         self.finalize_merge_session(name).await?;
@@ -680,7 +684,10 @@ impl WorktreeManager {
     }
 
     /// Pure function to build branch check command
-    fn build_branch_check_command(repo_path: &Path, branch: &str) -> crate::subprocess::ProcessCommand {
+    fn build_branch_check_command(
+        repo_path: &Path,
+        branch: &str,
+    ) -> crate::subprocess::ProcessCommand {
         ProcessCommandBuilder::new("git")
             .current_dir(repo_path)
             .args(["rev-parse", "--verify", &format!("refs/heads/{}", branch)])
@@ -694,7 +701,9 @@ impl WorktreeManager {
         worktree_branch: &str,
         target_branch: &str,
     ) -> Result<()> {
-        let commit_count = self.get_commit_count_between_branches(target_branch, worktree_branch).await?;
+        let commit_count = self
+            .get_commit_count_between_branches(target_branch, worktree_branch)
+            .await?;
         Self::validate_commits_exist(name, target_branch, commit_count)
     }
 
@@ -704,7 +713,8 @@ impl WorktreeManager {
         target_branch: &str,
         worktree_branch: &str,
     ) -> Result<String> {
-        let command = Self::build_commit_diff_command(&self.repo_path, target_branch, worktree_branch);
+        let command =
+            Self::build_commit_diff_command(&self.repo_path, target_branch, worktree_branch);
         let output = self
             .subprocess
             .runner()
@@ -756,9 +766,16 @@ impl WorktreeManager {
     ) -> Result<String> {
         match &self.custom_merge_workflow {
             Some(merge_workflow) => {
-                println!("🔄 Executing custom merge workflow for '{name}' into '{target_branch}'...");
-                self.execute_custom_merge_workflow(merge_workflow, name, worktree_branch, target_branch)
-                    .await
+                println!(
+                    "🔄 Executing custom merge workflow for '{name}' into '{target_branch}'..."
+                );
+                self.execute_custom_merge_workflow(
+                    merge_workflow,
+                    name,
+                    worktree_branch,
+                    target_branch,
+                )
+                .await
             }
             None => {
                 println!("🔄 Merging worktree '{name}' into '{target_branch}' using Claude-assisted merge...");
@@ -808,7 +825,9 @@ impl WorktreeManager {
     }
 
     /// Create Claude executor - factory function
-    fn create_claude_executor(&self) -> ClaudeExecutorImpl<crate::cook::execution::runner::RealCommandRunner> {
+    fn create_claude_executor(
+        &self,
+    ) -> ClaudeExecutorImpl<crate::cook::execution::runner::RealCommandRunner> {
         use crate::cook::execution::runner::RealCommandRunner;
         let command_runner = RealCommandRunner::new();
         ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity)
@@ -837,7 +856,12 @@ impl WorktreeManager {
         merge_output: &str,
     ) -> Result<()> {
         let merged_branches = self.get_merged_branches(target_branch).await?;
-        Self::validate_merge_success(worktree_branch, target_branch, &merged_branches, merge_output)
+        Self::validate_merge_success(
+            worktree_branch,
+            target_branch,
+            &merged_branches,
+            merge_output,
+        )
     }
 
     /// Get merged branches - I/O operation
@@ -858,7 +882,10 @@ impl WorktreeManager {
     }
 
     /// Pure function to build merge check command
-    fn build_merge_check_command(repo_path: &Path, target_branch: &str) -> crate::subprocess::ProcessCommand {
+    fn build_merge_check_command(
+        repo_path: &Path,
+        target_branch: &str,
+    ) -> crate::subprocess::ProcessCommand {
         ProcessCommandBuilder::new("git")
             .current_dir(repo_path)
             .args(["branch", "--merged", target_branch])
@@ -1386,9 +1413,12 @@ impl WorktreeManager {
             .map_err(|e| anyhow::anyhow!("Failed to extract repository name: {}", e))?;
 
         // Create checkpoint directory synchronously
-        let checkpoint_dir = storage.base_dir().join("state").join(&repo_name).join("checkpoints");
-        fs::create_dir_all(&checkpoint_dir)
-            .context("Failed to create checkpoint directory")?;
+        let checkpoint_dir = storage
+            .base_dir()
+            .join("state")
+            .join(&repo_name)
+            .join("checkpoints");
+        fs::create_dir_all(&checkpoint_dir).context("Failed to create checkpoint directory")?;
 
         Ok(crate::cook::workflow::checkpoint::CheckpointManager::new(
             checkpoint_dir,
@@ -1603,7 +1633,8 @@ impl WorktreeManager {
         let mut output = String::new();
 
         // Initialize merge variables and checkpoint manager
-        let (variables, _session_id) = self.init_merge_variables(worktree_name, source_branch, target_branch);
+        let (variables, _session_id) =
+            self.init_merge_variables(worktree_name, source_branch, target_branch);
         let checkpoint_manager = self.create_merge_checkpoint_manager()?;
 
         // Execute each command in the merge workflow
@@ -1693,32 +1724,6 @@ impl WorktreeManager {
 
         Ok(output)
     }
-
-    /// Get session ID for a worktree
-    fn get_session_id(&self, worktree_name: &str) -> String {
-        if let Ok(state) = self.load_session_state(worktree_name) {
-            state.session_id
-        } else {
-            String::new()
-        }
-    }
-
-    /// Create merge variables map
-    fn create_merge_variables(
-        &self,
-        worktree_name: &str,
-        source_branch: &str,
-        target_branch: &str,
-        session_id: &str,
-    ) -> HashMap<String, String> {
-        let mut variables = HashMap::new();
-        variables.insert("merge.worktree".to_string(), worktree_name.to_string());
-        variables.insert("merge.source_branch".to_string(), source_branch.to_string());
-        variables.insert("merge.target_branch".to_string(), target_branch.to_string());
-        variables.insert("merge.session_id".to_string(), session_id.to_string());
-        variables
-    }
-
 }
 
 #[cfg(test)]
@@ -2075,7 +2080,10 @@ branch refs/heads/main"#;
     }
 
     // Test helper functions for common setup patterns
-    async fn setup_test_git_repo(temp_dir: &TempDir, subprocess: &SubprocessManager) -> anyhow::Result<()> {
+    async fn setup_test_git_repo(
+        temp_dir: &TempDir,
+        subprocess: &SubprocessManager,
+    ) -> anyhow::Result<()> {
         // Initialize a git repository
         let init_command = ProcessCommandBuilder::new("git")
             .current_dir(temp_dir.path())
@@ -2115,7 +2123,11 @@ branch refs/heads/main"#;
         Ok(())
     }
 
-    fn create_test_worktree_state_with_checkpoint(session_id: &str, iteration: u32, command: &str) -> WorktreeState {
+    fn create_test_worktree_state_with_checkpoint(
+        session_id: &str,
+        iteration: u32,
+        command: &str,
+    ) -> WorktreeState {
         use crate::worktree::Checkpoint;
 
         WorktreeState {
@@ -2125,8 +2137,15 @@ branch refs/heads/main"#;
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             status: WorktreeStatus::InProgress,
-            iterations: super::IterationInfo { completed: 0, max: 5 },
-            stats: super::WorktreeStats { files_changed: 0, commits: 0, last_commit_sha: None },
+            iterations: super::IterationInfo {
+                completed: 0,
+                max: 5,
+            },
+            stats: super::WorktreeStats {
+                files_changed: 0,
+                commits: 0,
+                last_commit_sha: None,
+            },
             merged: false,
             merged_at: None,
             error: None,
@@ -2158,7 +2177,10 @@ branch refs/heads/main"#;
         // Create the metadata directory and save state
         let metadata_dir = manager.base_dir.join(".metadata");
         std::fs::create_dir_all(&metadata_dir)?;
-        std::fs::write(metadata_dir.join("test-session.json"), serde_json::to_string_pretty(&state)?)?;
+        std::fs::write(
+            metadata_dir.join("test-session.json"),
+            serde_json::to_string_pretty(&state)?,
+        )?;
 
         // Update and verify checkpoint
         manager.update_checkpoint("test-session", |checkpoint| {
@@ -2173,7 +2195,15 @@ branch refs/heads/main"#;
         Ok(())
     }
 
-    fn create_test_session_state(session_id: &str, status: &str, hours_ago: i64, minutes_ago: i64, files_changed: u32, commits: u32, error_msg: Option<&str>) -> serde_json::Value {
+    fn create_test_session_state(
+        session_id: &str,
+        status: &str,
+        hours_ago: i64,
+        minutes_ago: i64,
+        files_changed: u32,
+        commits: u32,
+        error_msg: Option<&str>,
+    ) -> serde_json::Value {
         serde_json::json!({
             "session_id": session_id,
             "status": status,
@@ -2211,7 +2241,14 @@ branch refs/heads/main"#;
         Ok(manager)
     }
 
-    fn assert_session_properties(sessions: &[crate::worktree::display::EnhancedSessionInfo], session_id: &str, expected_status: WorktreeStatus, expected_files: u32, expected_commits: u32, expected_error: Option<&str>) {
+    fn assert_session_properties(
+        sessions: &[crate::worktree::display::EnhancedSessionInfo],
+        session_id: &str,
+        expected_status: WorktreeStatus,
+        expected_files: u32,
+        expected_commits: u32,
+        expected_error: Option<&str>,
+    ) {
         let session = sessions
             .iter()
             .find(|s| s.session_id == session_id)
@@ -2226,7 +2263,10 @@ branch refs/heads/main"#;
         }
     }
 
-    fn create_mock_worktree_dirs(manager: &WorktreeManager, session_ids: &[&str]) -> anyhow::Result<()> {
+    fn create_mock_worktree_dirs(
+        manager: &WorktreeManager,
+        session_ids: &[&str],
+    ) -> anyhow::Result<()> {
         for session_id in session_ids {
             let wt_dir = manager.base_dir.join(session_id);
             std::fs::create_dir_all(&wt_dir)?;
@@ -2236,13 +2276,25 @@ branch refs/heads/main"#;
         Ok(())
     }
 
-    async fn create_test_worktree_with_session_state(manager: &WorktreeManager, temp_dir: &TempDir, session_id: &str, branch: &str, session_state: &serde_json::Value) -> anyhow::Result<()> {
+    async fn create_test_worktree_with_session_state(
+        manager: &WorktreeManager,
+        temp_dir: &TempDir,
+        session_id: &str,
+        branch: &str,
+        session_state: &serde_json::Value,
+    ) -> anyhow::Result<()> {
         let wt_dir = manager.base_dir.join(session_id);
         let subprocess = SubprocessManager::production();
 
         let add_worktree = ProcessCommandBuilder::new("git")
             .current_dir(temp_dir.path())
-            .args(["worktree", "add", "-b", branch, wt_dir.to_string_lossy().as_ref()])
+            .args([
+                "worktree",
+                "add",
+                "-b",
+                branch,
+                wt_dir.to_string_lossy().as_ref(),
+            ])
             .build();
         subprocess.runner().run(add_worktree).await?;
 
@@ -2266,7 +2318,10 @@ branch refs/heads/main"#;
         // Create metadata directory and save state
         let metadata_dir = manager.base_dir.join(".metadata");
         std::fs::create_dir_all(&metadata_dir)?;
-        std::fs::write(metadata_dir.join("test-session.json"), serde_json::to_string_pretty(&state)?)?;
+        std::fs::write(
+            metadata_dir.join("test-session.json"),
+            serde_json::to_string_pretty(&state)?,
+        )?;
 
         // Update and verify checkpoint iteration
         manager.update_checkpoint("test-session", |checkpoint| {
@@ -2338,17 +2393,39 @@ branch refs/heads/main"#;
         let metadata_dir = manager.base_dir.join(".metadata");
 
         // Create test session states with helper function
-        let state1_json = create_test_session_state("session-test-1", "in_progress", 2, 30, 5, 2, None);
-        let state2_json = create_test_session_state("session-test-2", "completed", 3, 60, 10, 5, None);
-        let state3_json = create_test_session_state("session-test-3", "failed", 1, 10, 2, 1, Some("Test error message"));
+        let state1_json =
+            create_test_session_state("session-test-1", "in_progress", 2, 30, 5, 2, None);
+        let state2_json =
+            create_test_session_state("session-test-2", "completed", 3, 60, 10, 5, None);
+        let state3_json = create_test_session_state(
+            "session-test-3",
+            "failed",
+            1,
+            10,
+            2,
+            1,
+            Some("Test error message"),
+        );
 
         // Save states to metadata
-        std::fs::write(metadata_dir.join("session-test-1.json"), serde_json::to_string(&state1_json)?)?;
-        std::fs::write(metadata_dir.join("session-test-2.json"), serde_json::to_string(&state2_json)?)?;
-        std::fs::write(metadata_dir.join("session-test-3.json"), serde_json::to_string(&state3_json)?)?;
+        std::fs::write(
+            metadata_dir.join("session-test-1.json"),
+            serde_json::to_string(&state1_json)?,
+        )?;
+        std::fs::write(
+            metadata_dir.join("session-test-2.json"),
+            serde_json::to_string(&state2_json)?,
+        )?;
+        std::fs::write(
+            metadata_dir.join("session-test-3.json"),
+            serde_json::to_string(&state3_json)?,
+        )?;
 
         // Create mock worktree directories
-        create_mock_worktree_dirs(&manager, &["session-test-1", "session-test-2", "session-test-3"])?;
+        create_mock_worktree_dirs(
+            &manager,
+            &["session-test-1", "session-test-2", "session-test-3"],
+        )?;
 
         // Get detailed list and verify
         let result = manager.list_detailed().await?;
@@ -2362,9 +2439,30 @@ branch refs/heads/main"#;
         assert_eq!(result.sessions.len(), 3);
 
         // Verify session properties using helper
-        assert_session_properties(&result.sessions, "session-test-1", WorktreeStatus::InProgress, 5, 2, None);
-        assert_session_properties(&result.sessions, "session-test-2", WorktreeStatus::Completed, 10, 5, None);
-        assert_session_properties(&result.sessions, "session-test-3", WorktreeStatus::Failed, 2, 1, Some("Test error message"));
+        assert_session_properties(
+            &result.sessions,
+            "session-test-1",
+            WorktreeStatus::InProgress,
+            5,
+            2,
+            None,
+        );
+        assert_session_properties(
+            &result.sessions,
+            "session-test-2",
+            WorktreeStatus::Completed,
+            10,
+            5,
+            None,
+        );
+        assert_session_properties(
+            &result.sessions,
+            "session-test-3",
+            WorktreeStatus::Failed,
+            2,
+            1,
+            Some("Test error message"),
+        );
 
         Ok(())
     }
@@ -2380,8 +2478,12 @@ branch refs/heads/main"#;
         std::fs::create_dir_all(&metadata_dir)?;
 
         // Create test state and save to metadata
-        let state_json = create_test_session_state("workflow-session", "in_progress", 1, 5, 3, 1, None);
-        std::fs::write(metadata_dir.join("workflow-session.json"), serde_json::to_string(&state_json)?)?;
+        let state_json =
+            create_test_session_state("workflow-session", "in_progress", 1, 5, 3, 1, None);
+        std::fs::write(
+            metadata_dir.join("workflow-session.json"),
+            serde_json::to_string(&state_json)?,
+        )?;
 
         // Create session state with workflow information
         let session_state = serde_json::json!({
@@ -2394,13 +2496,23 @@ branch refs/heads/main"#;
             }
         });
 
-        create_test_worktree_with_session_state(&manager, &temp_dir, "workflow-session", "workflow-branch", &session_state).await?;
+        create_test_worktree_with_session_state(
+            &manager,
+            &temp_dir,
+            "workflow-session",
+            "workflow-branch",
+            &session_state,
+        )
+        .await?;
 
         let result = manager.list_detailed().await?;
         assert_eq!(result.sessions.len(), 1);
 
         let session = &result.sessions[0];
-        assert_eq!(session.workflow_path, Some(PathBuf::from("workflows/test.yaml")));
+        assert_eq!(
+            session.workflow_path,
+            Some(PathBuf::from("workflows/test.yaml"))
+        );
         assert_eq!(session.workflow_args, vec!["arg1", "arg2"]);
         assert_eq!(session.current_step, 3);
         assert_eq!(session.total_steps, Some(5));
@@ -2419,8 +2531,12 @@ branch refs/heads/main"#;
         std::fs::create_dir_all(&metadata_dir)?;
 
         // Create test state and save to metadata
-        let state_json = create_test_session_state("mapreduce-session", "in_progress", 2, 10, 0, 0, None);
-        std::fs::write(metadata_dir.join("mapreduce-session.json"), serde_json::to_string(&state_json)?)?;
+        let state_json =
+            create_test_session_state("mapreduce-session", "in_progress", 2, 10, 0, 0, None);
+        std::fs::write(
+            metadata_dir.join("mapreduce-session.json"),
+            serde_json::to_string(&state_json)?,
+        )?;
 
         // Create session state with MapReduce information
         let session_state = serde_json::json!({
@@ -2434,7 +2550,14 @@ branch refs/heads/main"#;
             }
         });
 
-        create_test_worktree_with_session_state(&manager, &temp_dir, "mapreduce-session", "mapreduce-branch", &session_state).await?;
+        create_test_worktree_with_session_state(
+            &manager,
+            &temp_dir,
+            "mapreduce-session",
+            "mapreduce-branch",
+            &session_state,
+        )
+        .await?;
 
         let result = manager.list_detailed().await?;
         assert_eq!(result.sessions.len(), 1);

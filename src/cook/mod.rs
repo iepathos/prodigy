@@ -171,7 +171,11 @@ async fn create_event_logger(
     match crate::storage::create_global_event_logger(project_path, session_id).await {
         Ok(logger) => Some(Arc::new(logger)),
         Err(e) => {
-            tracing::warn!("Failed to create event logger for session {}: {}", session_id, e);
+            tracing::warn!(
+                "Failed to create event logger for session {}: {}",
+                session_id,
+                e
+            );
             None
         }
     }

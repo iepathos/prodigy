@@ -395,7 +395,8 @@ impl EventFilter {
         agent_id: Option<String>,
         since: Option<u64>,
     ) -> Self {
-        let since_time = since.map(|minutes| Utc::now() - chrono::Duration::minutes(minutes as i64));
+        let since_time =
+            since.map(|minutes| Utc::now() - chrono::Duration::minutes(minutes as i64));
         Self {
             job_id,
             event_type,
@@ -490,7 +491,10 @@ fn format_statistics_human(
 
     for (key, count) in sorted_stats {
         let percentage = (*count as f64 / total as f64) * 100.0;
-        output.push_str(&format!("{:<30} {:>6} ({:>5.1}%)\n", key, count, percentage));
+        output.push_str(&format!(
+            "{:<30} {:>6} ({:>5.1}%)\n",
+            key, count, percentage
+        ));
     }
 
     output.push_str(&"=".repeat(50));
@@ -500,11 +504,7 @@ fn format_statistics_human(
 }
 
 /// Pure function to check if event matches search pattern
-fn event_matches_search(
-    event: &Value,
-    pattern: &regex::Regex,
-    fields: Option<&[String]>,
-) -> bool {
+fn event_matches_search(event: &Value, pattern: &regex::Regex, fields: Option<&[String]>) -> bool {
     if let Some(fields) = fields {
         fields.iter().any(|field| {
             event
@@ -516,18 +516,6 @@ fn event_matches_search(
     } else {
         search_in_value(event, pattern)
     }
-}
-
-/// Pure function to filter events by criteria and limit
-fn filter_and_limit_events(
-    events: impl Iterator<Item = Value>,
-    filter: &EventFilter,
-    limit: usize,
-) -> Vec<Value> {
-    events
-        .filter(|event| filter.matches_event(event))
-        .take(limit)
-        .collect()
 }
 
 /// Pure function to process a single event line into a JSON Value
@@ -786,7 +774,10 @@ fn create_cleanup_summary_human(
     let mut summary = String::new();
 
     if dry_run {
-        summary.push_str(&format!("Summary (dry run): {} events would be cleaned\n", total_cleaned));
+        summary.push_str(&format!(
+            "Summary (dry run): {} events would be cleaned\n",
+            total_cleaned
+        ));
         if total_archived > 0 {
             summary.push_str(&format!("  {} events would be archived\n", total_archived));
         }
@@ -1009,7 +1000,7 @@ fn read_and_filter_events(
 
     let events = reader
         .lines()
-        .filter_map(|line| line.ok())
+        .map_while(Result::ok)
         .filter_map(|line| parse_event_line(&line))
         .filter(|event| filter.matches_event(event))
         .take(limit)
@@ -1129,7 +1120,7 @@ fn read_events_from_single_file(file: &PathBuf) -> Result<Vec<Value>> {
 
     let events = reader
         .lines()
-        .filter_map(|line| line.ok())
+        .map_while(Result::ok)
         .filter_map(|line| parse_event_line(&line))
         .collect();
 
@@ -1177,8 +1168,16 @@ fn display_search_results(matching_events: &[Value], is_aggregated: bool) -> Res
         display_event(event);
     }
 
-    let suffix = if is_aggregated { " across all jobs" } else { "" };
-    println!("\nFound {} matching events{}", matching_events.len(), suffix);
+    let suffix = if is_aggregated {
+        " across all jobs"
+    } else {
+        ""
+    };
+    println!(
+        "\nFound {} matching events{}",
+        matching_events.len(),
+        suffix
+    );
     Ok(())
 }
 
@@ -1249,9 +1248,9 @@ fn setup_file_watcher(
 }
 
 /// Determine the path to watch based on file existence
-fn determine_watch_path(file: &PathBuf) -> PathBuf {
+fn determine_watch_path(file: &Path) -> PathBuf {
     if file.exists() {
-        file.clone()
+        file.to_path_buf()
     } else {
         file.parent().unwrap().to_path_buf()
     }
@@ -1259,7 +1258,7 @@ fn determine_watch_path(file: &PathBuf) -> PathBuf {
 
 /// Watch existing file for new events
 async fn watch_existing_file(
-    file: &PathBuf,
+    file: &Path,
     job_id: &Option<String>,
     event_type: &Option<String>,
     rx: std::sync::mpsc::Receiver<notify::Event>,
@@ -1285,7 +1284,7 @@ async fn watch_existing_file(
 
 /// Wait for file to be created and then start monitoring
 async fn wait_for_file_creation(
-    file: &PathBuf,
+    file: &Path,
     job_id: &Option<String>,
     event_type: &Option<String>,
     rx: std::sync::mpsc::Receiver<notify::Event>,
@@ -1751,7 +1750,6 @@ async fn clean_local_storage(
         Ok((stats.events_removed, archived))
     }
 }
-
 
 /// Display cleanup summary (refactored to use pure functions)
 fn display_cleanup_summary(
@@ -2267,8 +2265,8 @@ fn format_event_details(event: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
     use chrono::TimeZone;
+    use serde_json::json;
 
     #[test]
     fn test_get_event_type_job_started() {
@@ -2332,8 +2330,9 @@ mod tests {
             Some(100),
             Some("1GB".to_string()),
             false,
-            None
-        ).unwrap();
+            None,
+        )
+        .unwrap();
         assert_eq!(policy.max_age_days, Some(30));
         assert_eq!(policy.max_events, Some(100));
         assert_eq!(policy.max_file_size_bytes, Some(1_073_741_824));
@@ -2406,7 +2405,11 @@ mod tests {
         });
 
         assert!(event_matches_field(&event, "job_id", "test-123"));
-        assert!(event_matches_field(&event, "workflow_name", "test-workflow"));
+        assert!(event_matches_field(
+            &event,
+            "workflow_name",
+            "test-workflow"
+        ));
         assert!(!event_matches_field(&event, "job_id", "different-id"));
         assert!(!event_matches_field(&event, "nonexistent", "value"));
     }
