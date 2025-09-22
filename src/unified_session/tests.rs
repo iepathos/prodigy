@@ -8,7 +8,8 @@ use tempfile::TempDir;
 
 #[tokio::test]
 async fn test_session_manager_creation() {
-    let storage = GlobalStorage::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
+    let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
     let manager = SessionManager::new(storage).await.unwrap();
 
     // Should be able to list sessions (empty initially)
@@ -18,7 +19,8 @@ async fn test_session_manager_creation() {
 
 #[tokio::test]
 async fn test_session_lifecycle() {
-    let storage = GlobalStorage::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
+    let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
     let manager = SessionManager::new(storage).await.unwrap();
 
     // Create a session
@@ -64,7 +66,8 @@ async fn test_session_lifecycle() {
 
 #[tokio::test]
 async fn test_session_progress_tracking() {
-    let storage = GlobalStorage::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
+    let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
     let manager = SessionManager::new(storage).await.unwrap();
 
     // Create a workflow session
@@ -110,7 +113,8 @@ async fn test_session_progress_tracking() {
 
 #[tokio::test]
 async fn test_session_filtering() {
-    let storage = GlobalStorage::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
+    let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
     let manager = SessionManager::new(storage).await.unwrap();
 
     // Create multiple sessions
@@ -188,7 +192,8 @@ async fn test_session_filtering() {
 #[tokio::test]
 async fn test_cook_session_adapter() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = GlobalStorage::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
+    let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
     let adapter = CookSessionAdapter::new(temp_dir.path().to_path_buf(), storage)
         .await
         .unwrap();
@@ -218,7 +223,8 @@ async fn test_cook_session_adapter() {
 
 #[tokio::test]
 async fn test_session_checkpointing() {
-    let storage = GlobalStorage::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
+    let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
     let manager = SessionManager::new(storage).await.unwrap();
 
     // Create a session
@@ -257,7 +263,8 @@ async fn test_session_checkpointing() {
 
 #[tokio::test]
 async fn test_mapreduce_session() {
-    let storage = GlobalStorage::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
+    let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
     let manager = SessionManager::new(storage).await.unwrap();
 
     // Create a MapReduce session
@@ -301,7 +308,8 @@ async fn test_mapreduce_session() {
 
 #[tokio::test]
 async fn test_session_error_handling() {
-    let storage = GlobalStorage::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
+    let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
     let manager = SessionManager::new(storage).await.unwrap();
 
     // Try to load non-existent session
@@ -353,7 +361,8 @@ fn test_format_duration() {
 
 #[tokio::test]
 async fn test_session_metadata_update() {
-    let storage = GlobalStorage::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
+    let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
     let manager = SessionManager::new(storage).await.unwrap();
 
     // Create a session
