@@ -853,12 +853,20 @@ impl DlqReprocessor {
 
         // Create temporary work items file
         let work_items_json = serde_json::to_string_pretty(&work_items)?;
-        let temp_file = format!("/tmp/dlq_retry_{}.json", Utc::now().timestamp());
-        std::fs::write(&temp_file, work_items_json)?;
+        let mut temp_file = tempfile::Builder::new()
+            .prefix("dlq_retry_")
+            .suffix(".json")
+            .tempfile()?;
+
+        use std::io::Write;
+        temp_file.write_all(work_items_json.as_bytes())?;
+
+        // Convert to a persistent temporary file that we manage
+        let (_, temp_path) = temp_file.keep()?;
 
         // Build MapReduce configuration
         Ok(MapReduceConfig {
-            input: temp_file,
+            input: temp_path.to_string_lossy().to_string(),
             json_path: "$[*]".to_string(),
             max_parallel: options.parallel,
             max_items: None,
