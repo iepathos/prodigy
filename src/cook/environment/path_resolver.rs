@@ -182,13 +182,13 @@ mod tests {
         // Set HOME for test
         std::env::set_var("HOME", "/home/user");
 
-        let expanded = resolver.expand_home_dir("~/Documents".to_string());
+        let expanded = resolver.expand_home_dir("~/Documents".into());
         assert_eq!(expanded, "/home/user/Documents");
 
-        let expanded = resolver.expand_home_dir("~".to_string());
+        let expanded = resolver.expand_home_dir("~".into());
         assert_eq!(expanded, "/home/user");
 
-        let expanded = resolver.expand_home_dir("/absolute/path".to_string());
+        let expanded = resolver.expand_home_dir("/absolute/path".into());
         assert_eq!(expanded, "/absolute/path");
     }
 
@@ -199,13 +199,13 @@ mod tests {
         std::env::set_var("TEST_VAR", "value");
         std::env::set_var("TEST_PATH", "/test/path");
 
-        let expanded = resolver.expand_env_vars("${TEST_VAR}/file".to_string());
+        let expanded = resolver.expand_env_vars("${TEST_VAR}/file".into());
         assert_eq!(expanded, "value/file");
 
-        let expanded = resolver.expand_env_vars("$TEST_PATH/file".to_string());
+        let expanded = resolver.expand_env_vars("$TEST_PATH/file".into());
         assert_eq!(expanded, "/test/path/file");
 
-        let expanded = resolver.expand_env_vars("${TEST_VAR}/${TEST_PATH}".to_string());
+        let expanded = resolver.expand_env_vars("${TEST_VAR}/${TEST_PATH}".into());
         assert_eq!(expanded, "value//test/path");
     }
 

@@ -9,10 +9,10 @@ use std::sync::Arc;
 
 fn create_test_environment() -> ExecutionEnvironment {
     ExecutionEnvironment {
-        working_dir: PathBuf::from("/tmp/test"),
-        project_dir: PathBuf::from("/tmp/test"),
-        worktree_name: Some("test-worktree".to_string()),
-        session_id: "test-session".to_string(),
+        working_dir: Arc::new(PathBuf::from("/tmp/test")),
+        project_dir: Arc::new(PathBuf::from("/tmp/test")),
+        worktree_name: Some(Arc::from("test-worktree")),
+        session_id: Arc::from("test-session"),
     }
 }
 
