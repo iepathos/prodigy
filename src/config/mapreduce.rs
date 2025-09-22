@@ -62,7 +62,7 @@ pub struct MapReduceWorkflowConfig {
 }
 
 /// Custom merge workflow configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MergeWorkflow {
     /// Commands to execute for merge process
     pub commands: Vec<WorkflowStep>,
@@ -70,6 +70,36 @@ pub struct MergeWorkflow {
     /// Timeout for the entire merge phase (in seconds)
     #[serde(default = "default_merge_timeout")]
     pub timeout: u64,
+}
+
+impl<'de> Deserialize<'de> for MergeWorkflow {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum MergeValue {
+            // Direct list of commands (simplified format)
+            Commands(Vec<WorkflowStep>),
+            // Full config with commands and timeout
+            Config {
+                commands: Vec<WorkflowStep>,
+                #[serde(default = "default_merge_timeout")]
+                timeout: u64,
+            },
+        }
+
+        let value = MergeValue::deserialize(deserializer)?;
+
+        match value {
+            MergeValue::Commands(commands) => Ok(MergeWorkflow {
+                commands,
+                timeout: default_merge_timeout(),
+            }),
+            MergeValue::Config { commands, timeout } => Ok(MergeWorkflow { commands, timeout }),
+        }
+    }
 }
 
 fn default_merge_timeout() -> u64 {

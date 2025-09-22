@@ -33,8 +33,7 @@
     fail_workflow: false
 
 # Custom merge workflow - ensures clean integration back to master
-merge:
-  commands:
+- merge:
     # Step 1: Fetch latest changes and merge master into worktree
     - shell: "git fetch origin"
     - claude: "/merge-master"  # Handles merge conflicts if any
@@ -47,5 +46,3 @@ merge:
 
     # Step 4: Confirm successful merge
     - shell: "echo 'Successfully merged ${merge.worktree} to ${merge.target_branch}'"
-
-  timeout: 900  # 15 minutes timeout for merge operations
