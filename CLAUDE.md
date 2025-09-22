@@ -274,11 +274,6 @@ Prodigy uses a global storage architecture by default, storing all events, state
 - **Centralized monitoring**: All job data accessible from a single location
 - **Efficient storage**: Deduplication across worktrees
 
-### Automatic Migration
-- Prodigy automatically detects existing local storage on first run
-- Data is migrated from `.prodigy/` to `~/.prodigy/` automatically
-- Local storage is removed after successful migration
-
 ## MapReduce Features
 
 ### Parallel Execution
