@@ -192,7 +192,6 @@ async fn test_session_filtering() {
 #[tokio::test]
 async fn test_cook_session_adapter() {
     let temp_dir = TempDir::new().unwrap();
-    let temp_dir = TempDir::new().unwrap();
     let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
     let adapter = CookSessionAdapter::new(temp_dir.path().to_path_buf(), storage)
         .await
