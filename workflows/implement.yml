@@ -31,3 +31,21 @@
     claude: "/prodigy-lint ${shell.output}"
     max_attempts: 5
     fail_workflow: false
+
+# Custom merge workflow - ensures clean integration back to master
+merge:
+  commands:
+    # Step 1: Fetch latest changes and merge master into worktree
+    - shell: "git fetch origin"
+    - claude: "/merge-master"  # Handles merge conflicts if any
+
+    # Step 2: Run CI checks and fix any issues
+    - claude: "/ci"
+
+    # Step 3: Merge worktree back to master
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+
+    # Step 4: Confirm successful merge
+    - shell: "echo 'Successfully merged ${merge.worktree} to ${merge.target_branch}'"
+
+  timeout: 900  # 15 minutes timeout for merge operations
