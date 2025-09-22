@@ -9,11 +9,16 @@ use crate::cook::execution::mapreduce::{
     state::StateManager,
     types::{MapReduceConfig, SetupPhase, MapPhase, ReducePhase},
 };
+use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::errors::{MapReduceError, MapReduceResult, ErrorContext};
+use crate::cook::execution::input_source::InputSource;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::interaction::UserInteraction;
+use crate::subprocess::SubprocessManager;
 use serde_json::Value;
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{debug, info, warn};
 
 /// Main coordinator for MapReduce execution
@@ -26,6 +31,10 @@ pub struct MapReduceCoordinator {
     user_interaction: Arc<dyn UserInteraction>,
     /// Result collector
     result_collector: Arc<ResultCollector>,
+    /// Subprocess manager for command execution
+    subprocess: Arc<SubprocessManager>,
+    /// Project root directory
+    project_root: PathBuf,
 }
 
 impl MapReduceCoordinator {
@@ -34,6 +43,8 @@ impl MapReduceCoordinator {
         agent_manager: Arc<dyn AgentLifecycleManager>,
         state_manager: Arc<StateManager>,
         user_interaction: Arc<dyn UserInteraction>,
+        subprocess: Arc<SubprocessManager>,
+        project_root: PathBuf,
     ) -> Self {
         let result_collector = Arc::new(
             ResultCollector::new(CollectionStrategy::InMemory)
@@ -44,6 +55,8 @@ impl MapReduceCoordinator {
             state_manager,
             user_interaction,
             result_collector,
+            subprocess,
+            project_root,
         }
     }
 
@@ -111,9 +124,56 @@ impl MapReduceCoordinator {
     ) -> MapReduceResult<Vec<Value>> {
         debug!("Loading work items from input source");
 
-        // In a real implementation, load from input source
-        // For now, return empty vector as placeholder
-        Ok(Vec::new())
+        // Detect input source type using the project root as base
+        let input_source = InputSource::detect_with_base(&map_phase.config.input, &self.project_root);
+
+        let json_data = match input_source {
+            InputSource::Command(ref cmd) => {
+                // Execute command to get work items
+                info!("Executing command for work items: {}", cmd);
+
+                // Use subprocess manager with timeout
+                let timeout = Duration::from_secs(600); // Default 10 minute timeout
+                let items = InputSource::execute_command(cmd, timeout, &self.subprocess).await?;
+
+                // Convert array of items into a JSON value for pipeline processing
+                Value::Array(items)
+            }
+            InputSource::JsonFile(ref path) => {
+                // Load JSON file
+                InputSource::load_json_file(path, &self.project_root).await?
+            }
+        };
+
+        // Create data pipeline with JSONPath and other configurations
+        let json_path = if map_phase.json_path.as_ref().map_or(true, |p| p.is_empty()) {
+            None
+        } else {
+            map_phase.json_path.clone()
+        };
+
+        let pipeline = DataPipeline::from_full_config(
+            json_path,
+            map_phase.filter.clone(),
+            map_phase.sort_by.clone(),
+            map_phase.max_items,
+            None, // offset
+            map_phase.distinct.clone(),
+        ).map_err(|e| MapReduceError::InvalidConfiguration {
+            reason: format!("Failed to create data pipeline: {}", e),
+            field: "pipeline".to_string(),
+            value: "configuration".to_string(),
+        })?;
+
+        // Process the data through the pipeline
+        let items = pipeline.process(&json_data).map_err(|e| MapReduceError::InvalidConfiguration {
+            reason: format!("Failed to process work items: {}", e),
+            field: "input".to_string(),
+            value: map_phase.config.input.clone(),
+        })?;
+
+        debug!("Loaded {} work items", items.len());
+        Ok(items)
     }
 
     /// Execute the map phase

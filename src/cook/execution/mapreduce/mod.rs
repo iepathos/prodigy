@@ -333,6 +333,8 @@ impl MapReduceExecutor {
                 self.agent_lifecycle_manager.clone(),
                 self.enhanced_state_manager.clone(),
                 self.user_interaction.clone(),
+                self.subprocess.clone(),
+                self.project_root.clone(),
             )));
         }
 
