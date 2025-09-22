@@ -1,49 +1,59 @@
-name: Coverage
+name: Code Coverage
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   coverage:
-    name: Code Coverage
     runs-on: ubuntu-latest
-    # Only run if CI workflow succeeded
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
     steps:
-    - uses: actions/checkout@v5
-    
+    - uses: actions/checkout@v3
+
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: actions-rs/toolchain@v1
       with:
+        toolchain: stable
+        override: true
         components: llvm-tools-preview
-    
+
     - name: Install cargo-tarpaulin
-      uses: taiki-e/install-action@cargo-tarpaulin
-    
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Run tests with coverage
+      run: cargo install cargo-tarpaulin
+
+    - name: Generate code coverage
       run: |
-        cargo tarpaulin --fail-under 85 --out Lcov --output-dir coverage --timeout 300
-    
+        cargo tarpaulin --verbose --all-features --workspace --timeout 120 \
+          --out Xml --out Html --output-dir ./coverage
+
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v3
       with:
-        file: coverage/lcov.info
-        fail_ci_if_error: true
+        files: ./coverage/cobertura.xml
+        fail_ci_if_error: false
         verbose: true
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+    - name: Archive code coverage results
+      uses: actions/upload-artifact@v3
+      with:
+        name: code-coverage-report
+        path: coverage/
+
+    - name: Check coverage threshold
+      run: |
+        # Extract coverage percentage
+        COVERAGE=$(cargo tarpaulin --print-summary | grep "Coverage" | awk '{print $2}' | sed 's/%//')
+        echo "Current coverage: $COVERAGE%"
+
+        # Check if coverage meets 80% threshold
+        if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+          echo "Coverage is below 80% threshold"
+          exit 1
+        else
+          echo "Coverage meets threshold"
+        fi

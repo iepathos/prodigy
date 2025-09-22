@@ -142,44 +142,55 @@ impl YamlMigrator {
 
         // Migrate on_failure sections to remove deprecated parameters
         let mut workflow_value = Value::Mapping(workflow.clone());
-        self.migrate_on_failure_recursive(&mut workflow_value)?;
+        let had_on_failure_changes = self.migrate_on_failure_recursive(&mut workflow_value)?;
         if let Value::Mapping(updated) = workflow_value {
             *workflow = updated;
-            was_migrated = true;
+            if had_on_failure_changes {
+                was_migrated = true;
+            }
         }
 
         Ok(was_migrated)
     }
 
     /// Recursively migrate on_failure sections
-    fn migrate_on_failure_recursive(&self, value: &mut Value) -> Result<()> {
+    fn migrate_on_failure_recursive(&self, value: &mut Value) -> Result<bool> {
         Self::migrate_on_failure_recursive_impl(value)
     }
 
-    fn migrate_on_failure_recursive_impl(value: &mut Value) -> Result<()> {
+    fn migrate_on_failure_recursive_impl(value: &mut Value) -> Result<bool> {
+        let mut had_changes = false;
         match value {
             Value::Mapping(map) => {
                 // Check for on_failure
                 if let Some(Value::Mapping(ref mut on_failure)) = map.get_mut("on_failure") {
                     // Remove deprecated parameters
-                    on_failure.remove("max_attempts");
-                    on_failure.remove("fail_workflow");
+                    if on_failure.remove("max_attempts").is_some() {
+                        had_changes = true;
+                    }
+                    if on_failure.remove("fail_workflow").is_some() {
+                        had_changes = true;
+                    }
                 }
 
                 // Recurse into all values
                 for (_key, val) in map.iter_mut() {
-                    Self::migrate_on_failure_recursive_impl(val)?;
+                    if Self::migrate_on_failure_recursive_impl(val)? {
+                        had_changes = true;
+                    }
                 }
             }
             Value::Sequence(seq) => {
                 // Recurse into all items
                 for item in seq.iter_mut() {
-                    Self::migrate_on_failure_recursive_impl(item)?;
+                    if Self::migrate_on_failure_recursive_impl(item)? {
+                        had_changes = true;
+                    }
                 }
             }
             _ => {}
         }
-        Ok(())
+        Ok(had_changes)
     }
 }
 

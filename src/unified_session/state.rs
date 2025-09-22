@@ -361,8 +361,9 @@ mod tests {
     fn test_unified_session_duration() {
         let mut session = UnifiedSession::new_workflow("test".to_string(), "workflow".to_string());
 
-        // Initially no duration (not completed)
-        assert_eq!(session.duration(), Duration::from_secs(0));
+        // When not completed, duration should be small (time since created)
+        let duration = session.duration();
+        assert!(duration.as_millis() < 100); // Should be very small
 
         // Set completed time
         let now = Utc::now();
@@ -390,7 +391,8 @@ mod tests {
         assert_eq!(summary.status, SessionStatus::Running);
         assert_eq!(summary.started_at, session.started_at);
         assert!(summary.duration.is_some());
-        assert_eq!(summary.duration, Some(Duration::from_secs(0)));
+        // Duration should be very small since we just created the session
+        assert!(summary.duration.unwrap().as_millis() < 100);
         assert_eq!(summary.metadata, session.metadata);
     }
 

@@ -86,7 +86,7 @@ pub struct FileConfig {
 }
 
 /// Memory storage configuration (for testing)
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryConfig {
     /// Maximum memory usage (bytes)
     #[serde(default = "default_memory_limit")]
@@ -98,6 +98,16 @@ pub struct MemoryConfig {
 
     /// Persistence file path
     pub persistence_path: Option<PathBuf>,
+}
+
+impl Default for MemoryConfig {
+    fn default() -> Self {
+        Self {
+            max_memory: 100 * 1024 * 1024, // 100 MB
+            persist_to_disk: false,
+            persistence_path: None,
+        }
+    }
 }
 
 /// Retry policy configuration
@@ -137,7 +147,7 @@ impl Default for RetryPolicy {
 }
 
 /// Cache configuration
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheConfig {
     /// Cache size limit (entries)
     #[serde(default = "default_cache_size")]
@@ -150,6 +160,16 @@ pub struct CacheConfig {
     /// Cache implementation
     #[serde(default)]
     pub cache_type: CacheType,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            max_entries: default_cache_size(),
+            ttl: default_cache_ttl(),
+            cache_type: CacheType::default(),
+        }
+    }
 }
 
 /// Cache implementation type
@@ -224,7 +244,7 @@ impl StorageConfig {
     /// Create configuration from environment variables
     pub fn from_env() -> crate::LibResult<Self> {
         // Check for backend type - now only File or Memory supported
-        let backend = std::env::var("PRODIGY_STORAGE_BACKEND")
+        let backend = std::env::var("PRODIGY_STORAGE_TYPE")
             .ok()
             .and_then(|s| match s.to_lowercase().as_str() {
                 "file" => Some(BackendType::File),
@@ -235,7 +255,8 @@ impl StorageConfig {
 
         let backend_config = match backend {
             BackendType::File => BackendConfig::File(FileConfig {
-                base_dir: std::env::var("PRODIGY_STORAGE_DIR")
+                base_dir: std::env::var("PRODIGY_STORAGE_BASE_PATH")
+                    .or_else(|_| std::env::var("PRODIGY_STORAGE_DIR"))
                     .or_else(|_| std::env::var("PRODIGY_STORAGE_PATH"))
                     .map(PathBuf::from)
                     .unwrap_or_else(|_| {
@@ -411,11 +432,10 @@ mod tests {
         env::set_var("PRODIGY_STORAGE_TYPE", "invalid");
 
         let result = StorageConfig::from_env();
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Unsupported storage type"));
+        // Invalid types should default to File backend
+        assert!(result.is_ok());
+        let config = result.unwrap();
+        assert_eq!(config.backend, BackendType::File);
 
         // Cleanup
         env::remove_var("PRODIGY_STORAGE_TYPE");

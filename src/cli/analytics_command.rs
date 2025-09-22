@@ -348,3 +348,118 @@ async fn export_transcript(session_id: &str, output: Option<PathBuf>) -> Result<
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_analytics_command_parsing() {
+        // Test Watch command
+        let watch_cmd = AnalyticsCommand::Watch {
+            path: Some(PathBuf::from("/test/path")),
+        };
+        match watch_cmd {
+            AnalyticsCommand::Watch { path } => {
+                assert_eq!(path, Some(PathBuf::from("/test/path")));
+            }
+            _ => panic!("Expected Watch command"),
+        }
+
+        // Test Cost command
+        let cost_cmd = AnalyticsCommand::Cost {
+            session_id: "session-123".to_string(),
+        };
+        match cost_cmd {
+            AnalyticsCommand::Cost { session_id } => {
+                assert_eq!(session_id, "session-123");
+            }
+            _ => panic!("Expected Cost command"),
+        }
+
+        // Test Tools command
+        let tools_cmd = AnalyticsCommand::Tools { days: 14 };
+        match tools_cmd {
+            AnalyticsCommand::Tools { days } => {
+                assert_eq!(days, 14);
+            }
+            _ => panic!("Expected Tools command"),
+        }
+
+        // Test Bottlenecks command
+        let bottlenecks_cmd = AnalyticsCommand::Bottlenecks { threshold: 3000 };
+        match bottlenecks_cmd {
+            AnalyticsCommand::Bottlenecks { threshold } => {
+                assert_eq!(threshold, 3000);
+            }
+            _ => panic!("Expected Bottlenecks command"),
+        }
+
+        // Test Optimize command
+        let optimize_cmd = AnalyticsCommand::Optimize;
+        match optimize_cmd {
+            AnalyticsCommand::Optimize => {}
+            _ => panic!("Expected Optimize command"),
+        }
+    }
+
+    #[test]
+    fn test_replay_command_optional_fields() {
+        let replay_cmd = AnalyticsCommand::Replay {
+            session_id: "test-session".to_string(),
+            start: None,
+            end: None,
+        };
+        match replay_cmd {
+            AnalyticsCommand::Replay {
+                session_id,
+                start,
+                end,
+            } => {
+                assert_eq!(session_id, "test-session");
+                assert_eq!(start, None);
+                assert_eq!(end, None);
+            }
+            _ => panic!("Expected Replay command"),
+        }
+    }
+
+    #[test]
+    fn test_export_command_formatting() {
+        let export_cmd = AnalyticsCommand::Export {
+            session_id: "export-test".to_string(),
+            output: None,
+        };
+        match export_cmd {
+            AnalyticsCommand::Export { session_id, output } => {
+                assert_eq!(session_id, "export-test");
+                assert_eq!(output, None);
+            }
+            _ => panic!("Expected Export command"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_analytics_invalid_session() {
+        // Test with non-existent session for Cost command
+        let cmd = AnalyticsCommand::Cost {
+            session_id: "non-existent-session".to_string(),
+        };
+
+        let result = handle_analytics_command(cmd).await;
+        // Should fail gracefully
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_analytics_summary_invalid() {
+        // Test with non-existent session for Summary command
+        let cmd = AnalyticsCommand::Summary {
+            session_id: "invalid-session".to_string(),
+        };
+
+        let result = handle_analytics_command(cmd).await;
+        // Should fail gracefully
+        assert!(result.is_err());
+    }
+}
