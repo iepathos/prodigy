@@ -151,10 +151,10 @@ fn create_agent_context(agent_id: &str, item: &Value, index: usize) -> AgentCont
         std::path::PathBuf::from("."),
         agent_id.to_string(),
         crate::cook::orchestrator::ExecutionEnvironment {
-            working_dir: std::path::PathBuf::from("."),
-            project_dir: std::path::PathBuf::from("."),
-            worktree_name: Some(agent_id.to_string()),
-            session_id: format!("agent-session-{}", agent_id),
+            working_dir: Arc::new(std::path::PathBuf::from(".")),
+            project_dir: Arc::new(std::path::PathBuf::from(".")),
+            worktree_name: Some(agent_id.to_string().into()),
+            session_id: format!("agent-session-{}", agent_id).into(),
         },
     );
 

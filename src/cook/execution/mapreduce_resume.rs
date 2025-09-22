@@ -720,10 +720,10 @@ mod tests {
 
         let mut state = create_test_state("test-job", 5, 5).await;
         let env = ExecutionEnvironment {
-            working_dir: std::path::PathBuf::from("/tmp"),
-            project_dir: std::path::PathBuf::from("/tmp"),
+            working_dir: Arc::new(std::path::PathBuf::from("/tmp")),
+            project_dir: Arc::new(std::path::PathBuf::from("/tmp")),
             worktree_name: None,
-            session_id: "test-session".to_string(),
+            session_id: Arc::from("test-session"),
         };
         let options = EnhancedResumeOptions::default();
 
@@ -763,10 +763,10 @@ mod tests {
 
         let mut state = create_test_state("test-job", 3, 5).await;
         let env = ExecutionEnvironment {
-            working_dir: std::path::PathBuf::from("/tmp"),
-            project_dir: std::path::PathBuf::from("/tmp"),
+            working_dir: Arc::new(std::path::PathBuf::from("/tmp")),
+            project_dir: Arc::new(std::path::PathBuf::from("/tmp")),
             worktree_name: None,
-            session_id: "test-session".to_string(),
+            session_id: Arc::from("test-session"),
         };
         let options = EnhancedResumeOptions::default();
 
@@ -824,10 +824,10 @@ mod tests {
         });
 
         let env = ExecutionEnvironment {
-            working_dir: std::path::PathBuf::from("/tmp"),
-            project_dir: std::path::PathBuf::from("/tmp"),
+            working_dir: Arc::new(std::path::PathBuf::from("/tmp")),
+            project_dir: Arc::new(std::path::PathBuf::from("/tmp")),
             worktree_name: None,
-            session_id: "test-session".to_string(),
+            session_id: Arc::from("test-session"),
         };
         let options = EnhancedResumeOptions::default();
 

@@ -10,6 +10,7 @@ mod tests {
     use serde_json::json;
     use std::collections::HashMap;
     use std::path::PathBuf;
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     /// Create test variable checkpoint state
@@ -241,10 +242,10 @@ mod tests {
 
         // Create a test workflow
         let workflow = NormalizedWorkflow {
-            name: "test-workflow".to_string(),
-            steps: vec![],
+            name: Arc::from("test-workflow"),
+            steps: Arc::from(vec![]),
             execution_mode: super::super::normalized::ExecutionMode::Sequential,
-            variables: HashMap::new(),
+            variables: Arc::new(HashMap::new()),
         };
 
         // Create checkpoint with variable state

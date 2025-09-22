@@ -4,6 +4,7 @@
 //! across different operating systems.
 
 use regex::Regex;
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 /// Platform type for path resolution
@@ -46,12 +47,12 @@ impl PathResolver {
     pub fn resolve(&self, path: &str) -> PathBuf {
         let expanded = self.expand_variables(path);
         let normalized = self.normalize_separators(&expanded);
-        PathBuf::from(normalized)
+        PathBuf::from(normalized.into_owned())
     }
 
     /// Expand variables in path (pure function)
-    fn expand_variables(&self, path: &str) -> String {
-        let mut result = path.to_string();
+    fn expand_variables<'a>(&self, path: &'a str) -> Cow<'a, str> {
+        let mut result = Cow::Borrowed(path);
 
         // Expand ~ to home directory
         result = self.expand_home_dir(result);
@@ -63,49 +64,69 @@ impl PathResolver {
     }
 
     /// Expand home directory notation (pure function)
-    fn expand_home_dir(&self, path: String) -> String {
-        if path.starts_with("~/") || path == "~" {
+    fn expand_home_dir<'a>(&self, path: Cow<'a, str>) -> Cow<'a, str> {
+        if path.starts_with("~/") || &*path == "~" {
             if let Ok(home) = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")) {
-                if path == "~" {
-                    return home;
+                if &*path == "~" {
+                    return Cow::Owned(home);
                 }
-                return path.replacen("~", &home, 1);
+                return Cow::Owned(path.replacen("~", &home, 1));
             }
         }
         path
     }
 
     /// Expand environment variables in path (pure function)
-    fn expand_env_vars(&self, path: String) -> String {
+    fn expand_env_vars<'a>(&self, path: Cow<'a, str>) -> Cow<'a, str> {
         // Match ${VAR} or $VAR patterns
         let env_var_re = Regex::new(r"\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)").unwrap();
 
-        let mut result = path.clone();
+        let mut has_vars = false;
         for cap in env_var_re.captures_iter(&path) {
+            if cap.get(1).or_else(|| cap.get(2)).is_some() {
+                has_vars = true;
+                break;
+            }
+        }
+
+        if !has_vars {
+            return path;
+        }
+
+        let mut result = path.into_owned();
+        for cap in env_var_re.captures_iter(&result.clone()) {
             let var_name = cap.get(1).or_else(|| cap.get(2)).unwrap().as_str();
             if let Ok(value) = std::env::var(var_name) {
                 result = result.replace(cap.get(0).unwrap().as_str(), &value);
             }
         }
-        result
+        Cow::Owned(result)
     }
 
     /// Normalize path separators for platform (pure function)
-    fn normalize_separators(&self, path: &str) -> String {
+    fn normalize_separators<'a>(&self, path: &'a str) -> Cow<'a, str> {
         match self.platform {
             Platform::Windows => {
                 // Convert forward slashes to backslashes on Windows
                 // But preserve UNC paths and single forward slashes in arguments
-                if path.starts_with("\\\\") || path.starts_with("//") {
-                    // UNC path - normalize to backslashes
-                    path.replace('/', "\\")
+                if path.contains('/') {
+                    if path.starts_with("\\\\") || path.starts_with("//") {
+                        // UNC path - normalize to backslashes
+                        Cow::Owned(path.replace('/', "\\"))
+                    } else {
+                        Cow::Owned(path.replace('/', "\\"))
+                    }
                 } else {
-                    path.replace('/', "\\")
+                    Cow::Borrowed(path)
                 }
             }
             Platform::Unix => {
                 // Convert backslashes to forward slashes on Unix
-                path.replace('\\', "/")
+                if path.contains('\\') {
+                    Cow::Owned(path.replace('\\', "/"))
+                } else {
+                    Cow::Borrowed(path)
+                }
             }
         }
     }
@@ -161,13 +182,13 @@ mod tests {
         // Set HOME for test
         std::env::set_var("HOME", "/home/user");
 
-        let expanded = resolver.expand_home_dir("~/Documents".to_string());
+        let expanded = resolver.expand_home_dir("~/Documents".into());
         assert_eq!(expanded, "/home/user/Documents");
 
-        let expanded = resolver.expand_home_dir("~".to_string());
+        let expanded = resolver.expand_home_dir("~".into());
         assert_eq!(expanded, "/home/user");
 
-        let expanded = resolver.expand_home_dir("/absolute/path".to_string());
+        let expanded = resolver.expand_home_dir("/absolute/path".into());
         assert_eq!(expanded, "/absolute/path");
     }
 
@@ -178,13 +199,13 @@ mod tests {
         std::env::set_var("TEST_VAR", "value");
         std::env::set_var("TEST_PATH", "/test/path");
 
-        let expanded = resolver.expand_env_vars("${TEST_VAR}/file".to_string());
+        let expanded = resolver.expand_env_vars("${TEST_VAR}/file".into());
         assert_eq!(expanded, "value/file");
 
-        let expanded = resolver.expand_env_vars("$TEST_PATH/file".to_string());
+        let expanded = resolver.expand_env_vars("$TEST_PATH/file".into());
         assert_eq!(expanded, "/test/path/file");
 
-        let expanded = resolver.expand_env_vars("${TEST_VAR}/${TEST_PATH}".to_string());
+        let expanded = resolver.expand_env_vars("${TEST_VAR}/${TEST_PATH}".into());
         assert_eq!(expanded, "value//test/path");
     }
 

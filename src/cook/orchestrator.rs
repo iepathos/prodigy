@@ -27,11 +27,11 @@ pub struct CookConfig {
     /// Command to execute
     pub command: CookCommand,
     /// Project path
-    pub project_path: PathBuf,
+    pub project_path: Arc<PathBuf>,
     /// Workflow configuration
-    pub workflow: WorkflowConfig,
+    pub workflow: Arc<WorkflowConfig>,
     /// MapReduce configuration (if this is a MapReduce workflow)
-    pub mapreduce_config: Option<crate::config::MapReduceWorkflowConfig>,
+    pub mapreduce_config: Option<Arc<crate::config::MapReduceWorkflowConfig>>,
 }
 
 /// Trait for orchestrating cook operations
@@ -77,16 +77,27 @@ impl From<WorkflowType> for crate::cook::session::WorkflowType {
 }
 
 /// Execution environment for cook operations
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ExecutionEnvironment {
     /// Working directory (may be worktree)
-    pub working_dir: PathBuf,
+    pub working_dir: Arc<PathBuf>,
     /// Original project directory
-    pub project_dir: PathBuf,
+    pub project_dir: Arc<PathBuf>,
     /// Worktree name if using worktree
-    pub worktree_name: Option<String>,
+    pub worktree_name: Option<Arc<str>>,
     /// Session ID
-    pub session_id: String,
+    pub session_id: Arc<str>,
+}
+
+impl Clone for ExecutionEnvironment {
+    fn clone(&self) -> Self {
+        Self {
+            working_dir: Arc::clone(&self.working_dir),
+            project_dir: Arc::clone(&self.project_dir),
+            worktree_name: self.worktree_name.as_ref().map(Arc::clone),
+            session_id: Arc::clone(&self.session_id),
+        }
+    }
 }
 
 /// Default implementation of cook orchestrator
@@ -128,6 +139,61 @@ impl DefaultCookOrchestrator {
             subprocess,
             test_config: None,
         }
+    }
+
+    /// Create environment configuration from workflow config - avoids cloning
+    #[allow(dead_code)]
+    fn create_env_config(
+        &self,
+        workflow: &WorkflowConfig,
+    ) -> crate::cook::environment::EnvironmentConfig {
+        crate::cook::environment::EnvironmentConfig {
+            global_env: workflow
+                .env
+                .as_ref()
+                .map(|env| {
+                    env.iter()
+                        .map(|(k, v)| {
+                            (
+                                k.clone(),
+                                crate::cook::environment::EnvValue::Static(v.clone()),
+                            )
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            secrets: workflow.secrets.clone().unwrap_or_default(),
+            env_files: workflow.env_files.clone().unwrap_or_default(),
+            inherit: true,
+            profiles: workflow.profiles.clone().unwrap_or_default(),
+            active_profile: None,
+        }
+    }
+
+    /// Create workflow executor - avoids repeated Arc cloning
+    fn create_workflow_executor(
+        &self,
+        config: &CookConfig,
+    ) -> crate::cook::workflow::WorkflowExecutorImpl {
+        crate::cook::workflow::WorkflowExecutorImpl::new(
+            Arc::clone(&self.claude_executor),
+            Arc::clone(&self.session_manager),
+            Arc::clone(&self.user_interaction),
+        )
+        .with_workflow_path(config.command.playbook.clone())
+    }
+
+    /// Create base workflow state for session management - avoids field cloning
+    #[allow(dead_code)]
+    fn create_workflow_state_base(
+        &self,
+        config: &CookConfig,
+    ) -> (PathBuf, Vec<String>, Vec<String>) {
+        (
+            config.command.playbook.clone(),
+            config.command.args.clone(),
+            config.command.map.clone(),
+        )
     }
 
     /// Display health score for the project
@@ -411,8 +477,9 @@ impl DefaultCookOrchestrator {
         state: &SessionState,
         config: &CookConfig,
     ) -> Result<ExecutionEnvironment> {
-        let mut working_dir = state.working_directory.clone();
-        let mut worktree_name = state.worktree_name.clone();
+        let mut working_dir = Arc::new(state.working_directory.clone());
+        let mut worktree_name: Option<Arc<str>> =
+            state.worktree_name.as_ref().map(|s| Arc::from(s.as_str()));
 
         // If using a worktree, verify it still exists
         if let Some(ref name) = worktree_name {
@@ -425,7 +492,7 @@ impl DefaultCookOrchestrator {
             });
 
             let worktree_manager = WorktreeManager::with_config(
-                config.project_path.clone(),
+                config.project_path.to_path_buf(),
                 self.subprocess.clone(),
                 config.command.verbosity,
                 merge_config,
@@ -434,27 +501,27 @@ impl DefaultCookOrchestrator {
             // Check if worktree still exists
             // Check if worktree still exists by trying to list sessions
             let sessions = worktree_manager.list_sessions().await?;
-            if !sessions.iter().any(|s| &s.name == name) {
+            if !sessions.iter().any(|s| s.name.as_str() == name.as_ref()) {
                 // Recreate the worktree if it was deleted
                 self.user_interaction
                     .display_warning(&format!("Worktree {} was deleted, recreating...", name));
                 let session = worktree_manager.create_session().await?;
-                working_dir = session.path.clone();
-                worktree_name = Some(session.name.clone());
+                working_dir = Arc::new(session.path.clone());
+                worktree_name = Some(Arc::from(session.name.as_ref()));
             } else {
                 // Get the existing worktree path
                 let sessions = worktree_manager.list_sessions().await?;
-                if let Some(session) = sessions.iter().find(|s| &s.name == name) {
-                    working_dir = session.path.clone();
+                if let Some(session) = sessions.iter().find(|s| s.name.as_str() == name.as_ref()) {
+                    working_dir = Arc::new(session.path.clone());
                 }
             }
         }
 
         Ok(ExecutionEnvironment {
             working_dir,
-            project_dir: config.project_path.clone(),
+            project_dir: Arc::clone(&config.project_path),
             worktree_name,
-            session_id: state.session_id.clone(),
+            session_id: Arc::from(state.session_id.as_str()),
         })
     }
 
@@ -702,7 +769,7 @@ impl DefaultCookOrchestrator {
             let command = ProcessCommand {
                 program: "sh".to_string(),
                 args: vec!["-c".to_string(), shell_cmd.clone()],
-                working_dir: Some(env.working_dir.clone()),
+                working_dir: Some(env.working_dir.to_path_buf()),
                 env: std::collections::HashMap::new(),
                 timeout: None,
                 stdin: None,
@@ -998,22 +1065,22 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             });
 
             let worktree_manager = Arc::new(WorktreeManager::with_config(
-                config.project_path.clone(),
+                config.project_path.to_path_buf(),
                 self.subprocess.clone(),
                 config.command.verbosity,
                 merge_config,
             )?);
             super::signal_handler::setup_interrupt_handlers(
                 worktree_manager,
-                env.session_id.clone(),
+                env.session_id.to_string(),
             )?;
         } else {
             // Set up simple signal handler for immediate termination
             super::signal_handler::setup_simple_interrupt_handler()?;
         }
         let session_manager = self.session_manager.clone();
-        let worktree_name = env.worktree_name.clone();
-        let project_path = config.project_path.clone();
+        let worktree_name = env.worktree_name.as_ref().map(Arc::clone);
+        let project_path = Arc::clone(&config.project_path);
         let subprocess = self.subprocess.clone();
         let interrupt_handler = tokio::spawn(async move {
             tokio::signal::ctrl_c().await.ok();
@@ -1026,9 +1093,9 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             // Also update worktree state if using a worktree
             if let Some(ref name) = worktree_name {
                 if let Ok(worktree_manager) =
-                    WorktreeManager::new(project_path.clone(), subprocess.clone())
+                    WorktreeManager::new(project_path.to_path_buf(), subprocess.clone())
                 {
-                    let _ = worktree_manager.update_session_state(name, |state| {
+                    let _ = worktree_manager.update_session_state(name.as_ref(), |state| {
                         state.status = crate::worktree::WorktreeStatus::Interrupted;
                         state.interrupted_at = Some(chrono::Utc::now());
                         state.interruption_type =
@@ -1088,12 +1155,12 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                         });
 
                         let worktree_manager = WorktreeManager::with_config(
-                            config.project_path.clone(),
+                            config.project_path.to_path_buf(),
                             self.subprocess.clone(),
                             config.command.verbosity,
                             merge_config,
                         )?;
-                        worktree_manager.update_session_state(name, |state| {
+                        worktree_manager.update_session_state(name.as_ref(), |state| {
                             state.status = crate::worktree::WorktreeStatus::Interrupted;
                             state.interrupted_at = Some(chrono::Utc::now());
                             state.interruption_type =
@@ -1171,9 +1238,9 @@ impl CookOrchestrator for DefaultCookOrchestrator {
     }
 
     async fn setup_environment(&self, config: &CookConfig) -> Result<ExecutionEnvironment> {
-        let session_id = self.generate_session_id();
-        let mut working_dir = config.project_path.clone();
-        let mut worktree_name = None;
+        let session_id = Arc::from(self.generate_session_id().as_str());
+        let mut working_dir = Arc::clone(&config.project_path);
+        let mut worktree_name: Option<Arc<str>> = None;
 
         // Setup worktree if requested (but not in dry-run mode)
         if config.command.worktree && !config.command.dry_run {
@@ -1186,7 +1253,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             });
 
             let worktree_manager = WorktreeManager::with_config(
-                config.project_path.clone(),
+                config.project_path.to_path_buf(),
                 self.subprocess.clone(),
                 config.command.verbosity,
                 merge_config,
@@ -1194,8 +1261,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             // Pass the unified session ID to the worktree manager
             let session = worktree_manager.create_session_with_id(&session_id).await?;
 
-            working_dir = session.path.clone();
-            worktree_name = Some(session.name.clone());
+            working_dir = Arc::new(session.path.clone());
+            worktree_name = Some(Arc::from(session.name.as_ref()));
 
             self.user_interaction
                 .display_info(&format!("Created worktree at: {}", working_dir.display()));
@@ -1207,7 +1274,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         Ok(ExecutionEnvironment {
             working_dir,
-            project_dir: config.project_path.clone(),
+            project_dir: Arc::clone(&config.project_path),
             worktree_name,
             session_id,
         })
@@ -1286,14 +1353,10 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         ));
         let workflow_id = format!("workflow-{}", chrono::Utc::now().timestamp_millis());
 
-        let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
-            self.claude_executor.clone(),
-            self.session_manager.clone(),
-            self.user_interaction.clone(),
-        )
-        .with_workflow_path(config.command.playbook.clone())
-        .with_checkpoint_manager(checkpoint_manager, workflow_id)
-        .with_dry_run(config.command.dry_run);
+        let mut executor = self
+            .create_workflow_executor(config)
+            .with_checkpoint_manager(checkpoint_manager, workflow_id)
+            .with_dry_run(config.command.dry_run);
 
         // Set global environment configuration if present in workflow
         if config.workflow.env.is_some()
@@ -1365,7 +1428,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 });
 
                 let worktree_manager = WorktreeManager::with_config(
-                    env.project_dir.clone(),
+                    env.project_dir.to_path_buf(),
                     self.subprocess.clone(),
                     config.command.verbosity,
                     merge_config,
@@ -1969,14 +2032,10 @@ impl DefaultCookOrchestrator {
         ));
         let workflow_id = format!("workflow-{}", chrono::Utc::now().timestamp_millis());
 
-        let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
-            self.claude_executor.clone(),
-            self.session_manager.clone(),
-            self.user_interaction.clone(),
-        )
-        .with_workflow_path(config.command.playbook.clone())
-        .with_checkpoint_manager(checkpoint_manager, workflow_id)
-        .with_dry_run(config.command.dry_run);
+        let mut executor = self
+            .create_workflow_executor(config)
+            .with_checkpoint_manager(checkpoint_manager, workflow_id)
+            .with_dry_run(config.command.dry_run);
 
         // Set test config if available
         if let Some(test_config) = &self.test_config {
@@ -2047,7 +2106,7 @@ impl DefaultCookOrchestrator {
         // Determine execution mode based on workflow type
         let mode = match workflow_type {
             WorkflowType::MapReduce => ExecutionMode::MapReduce {
-                config: crate::cook::workflow::normalized::MapReduceConfig {
+                config: Arc::new(crate::cook::workflow::normalized::MapReduceConfig {
                     max_iterations: None,
                     max_concurrent: config
                         .mapreduce_config
@@ -2055,10 +2114,10 @@ impl DefaultCookOrchestrator {
                         .map(|m| Some(m.map.max_parallel))
                         .unwrap_or(None),
                     partition_strategy: None,
-                },
+                }),
             },
             WorkflowType::WithArguments => ExecutionMode::WithArguments {
-                args: config.command.args.clone(),
+                args: config.command.args.clone().into(),
             },
             _ => ExecutionMode::Sequential,
         };
@@ -2163,13 +2222,9 @@ impl DefaultCookOrchestrator {
         };
 
         // Create workflow executor
-        let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
-            self.claude_executor.clone(),
-            self.session_manager.clone(),
-            self.user_interaction.clone(),
-        )
-        .with_workflow_path(config.command.playbook.clone())
-        .with_dry_run(config.command.dry_run);
+        let mut executor = self
+            .create_workflow_executor(config)
+            .with_dry_run(config.command.dry_run);
 
         // Set global environment configuration if present in workflow
         if config.workflow.env.is_some()
@@ -2290,7 +2345,7 @@ impl DefaultCookOrchestrator {
         let mut has_arg_reference = false;
 
         // Check if this is a shell or test command based on the name
-        let display_prefix = match command.name.as_str() {
+        let display_prefix = match command.name.as_ref() {
             "shell" => "shell: ",
             "test" => "test: ",
             _ => "/",
@@ -2562,7 +2617,7 @@ impl DefaultCookOrchestrator {
                     program: "git".to_string(),
                     args: vec!["status".to_string(), "--porcelain".to_string()],
                     env: HashMap::new(),
-                    working_dir: Some(env.working_dir.clone()),
+                    working_dir: Some(env.working_dir.to_path_buf()),
                     timeout: None,
                     stdin: None,
                     suppress_stderr: false,
@@ -2577,7 +2632,7 @@ impl DefaultCookOrchestrator {
                         program: "git".to_string(),
                         args: vec!["add".to_string(), ".prodigy/".to_string()],
                         env: HashMap::new(),
-                        working_dir: Some(env.working_dir.clone()),
+                        working_dir: Some(env.working_dir.to_path_buf()),
                         timeout: None,
                         stdin: None,
                         suppress_stderr: false,
@@ -2594,7 +2649,7 @@ impl DefaultCookOrchestrator {
                             "analysis: update project context and metrics".to_string(),
                         ],
                         env: HashMap::new(),
-                        working_dir: Some(env.working_dir.clone()),
+                        working_dir: Some(env.working_dir.to_path_buf()),
                         timeout: None,
                         stdin: None,
                         suppress_stderr: false,
@@ -2641,18 +2696,14 @@ mod tests {
 
     #[test]
     fn test_classify_workflow_type_structured_with_outputs() {
-        let mut config = CookConfig {
-            command: create_test_cook_command(),
-            project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig {
-                commands: vec![],
-                env: None,
-                secrets: None,
-                env_files: None,
-                profiles: None,
-                merge: None,
-            },
-            mapreduce_config: None,
+        // Create mutable workflow first
+        let mut workflow = WorkflowConfig {
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
+            merge: None,
         };
 
         // Add a structured command with outputs
@@ -2665,10 +2716,17 @@ mod tests {
             },
         );
         structured.outputs = Some(outputs);
-        config
-            .workflow
+        workflow
             .commands
             .push(WorkflowCommand::Structured(Box::new(structured)));
+
+        // Now create the config with Arc'd workflow
+        let config = CookConfig {
+            command: create_test_cook_command(),
+            project_path: Arc::new(PathBuf::from("/test")),
+            workflow: Arc::new(workflow),
+            mapreduce_config: None,
+        };
 
         assert_eq!(
             DefaultCookOrchestrator::classify_workflow_type(&config),
@@ -2683,15 +2741,15 @@ mod tests {
 
         let config = CookConfig {
             command,
-            project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig {
+            project_path: Arc::new(PathBuf::from("/test")),
+            workflow: Arc::new(WorkflowConfig {
                 commands: vec![],
                 env: None,
                 secrets: None,
                 env_files: None,
                 profiles: None,
                 merge: None,
-            },
+            }),
             mapreduce_config: None,
         };
 
@@ -2708,15 +2766,15 @@ mod tests {
 
         let config = CookConfig {
             command,
-            project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig {
+            project_path: Arc::new(PathBuf::from("/test")),
+            workflow: Arc::new(WorkflowConfig {
                 commands: vec![],
                 env: None,
                 secrets: None,
                 env_files: None,
                 profiles: None,
                 merge: None,
-            },
+            }),
             mapreduce_config: None,
         };
 
@@ -2730,15 +2788,15 @@ mod tests {
     fn test_classify_workflow_type_standard() {
         let config = CookConfig {
             command: create_test_cook_command(),
-            project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig {
+            project_path: Arc::new(PathBuf::from("/test")),
+            workflow: Arc::new(WorkflowConfig {
                 commands: vec![],
                 env: None,
                 secrets: None,
                 env_files: None,
                 profiles: None,
                 merge: None,
-            },
+            }),
             mapreduce_config: None,
         };
 

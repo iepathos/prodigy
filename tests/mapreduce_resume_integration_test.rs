@@ -376,10 +376,10 @@ async fn test_resume_workflow_from_checkpoint() {
     // Resume the job
     let options = EnhancedResumeOptions::default();
     let env = prodigy::cook::orchestrator::ExecutionEnvironment {
-        working_dir: project_root.clone(),
-        project_dir: project_root.clone(),
+        working_dir: Arc::new(project_root.clone()),
+        project_dir: Arc::new(project_root.clone()),
         worktree_name: None,
-        session_id: "test-session".to_string(),
+        session_id: Arc::from("test-session"),
     };
     let result = resume_manager
         .resume_job(job_id, options, &env)
@@ -489,10 +489,10 @@ async fn test_resume_with_dlq_recovery() {
         ..Default::default()
     };
     let env = prodigy::cook::orchestrator::ExecutionEnvironment {
-        working_dir: project_root.clone(),
-        project_dir: project_root.clone(),
+        working_dir: Arc::new(project_root.clone()),
+        project_dir: Arc::new(project_root.clone()),
         worktree_name: None,
-        session_id: "test-session".to_string(),
+        session_id: Arc::from("test-session"),
     };
     let result = resume_manager
         .resume_job(job_id, options, &env)
@@ -558,10 +558,10 @@ async fn test_resume_completed_workflow() {
     // Attempt to resume completed job
     let options = EnhancedResumeOptions::default();
     let env = prodigy::cook::orchestrator::ExecutionEnvironment {
-        working_dir: project_root.clone(),
-        project_dir: project_root.clone(),
+        working_dir: Arc::new(project_root.clone()),
+        project_dir: Arc::new(project_root.clone()),
         worktree_name: None,
-        session_id: "test-session".to_string(),
+        session_id: Arc::from("test-session"),
     };
     let result = resume_manager
         .resume_job(job_id, options, &env)
@@ -735,10 +735,10 @@ async fn test_resume_with_environment_validation() {
     };
 
     let env = prodigy::cook::orchestrator::ExecutionEnvironment {
-        working_dir: project_root.clone(),
-        project_dir: project_root.clone(),
+        working_dir: Arc::new(project_root.clone()),
+        project_dir: Arc::new(project_root.clone()),
         worktree_name: None,
-        session_id: "test-session".to_string(),
+        session_id: Arc::from("test-session"),
     };
     let result = resume_manager.resume_job(job_id, options, &env).await;
 
@@ -785,10 +785,10 @@ async fn test_force_resume_completed_job() {
     };
 
     let env = prodigy::cook::orchestrator::ExecutionEnvironment {
-        working_dir: project_root.clone(),
-        project_dir: project_root.clone(),
+        working_dir: Arc::new(project_root.clone()),
+        project_dir: Arc::new(project_root.clone()),
         worktree_name: None,
-        session_id: "test-session".to_string(),
+        session_id: Arc::from("test-session"),
     };
     let result = resume_manager
         .resume_job(job_id, options, &env)

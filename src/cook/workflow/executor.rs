@@ -769,7 +769,7 @@ impl WorkflowExecutor {
                             normalized::StepCommand::Test { command, .. } => {
                                 format!("test: {}", command)
                             }
-                            normalized::StepCommand::Simple(cmd) => cmd.clone(),
+                            normalized::StepCommand::Simple(cmd) => cmd.to_string(),
                             _ => "complex command".to_string(),
                         }
                     } else {
@@ -837,10 +837,10 @@ impl WorkflowExecutor {
 
         // Create a minimal execution environment
         let env = ExecutionEnvironment {
-            working_dir: std::env::current_dir()?,
-            project_dir: std::env::current_dir()?,
+            working_dir: Arc::new(std::env::current_dir()?),
+            project_dir: Arc::new(std::env::current_dir()?),
             worktree_name: None,
-            session_id: "resume-session".to_string(),
+            session_id: Arc::from("resume-session"),
         };
 
         // Execute the step
@@ -856,7 +856,7 @@ impl WorkflowExecutor {
         use normalized::StepCommand;
 
         let mut workflow_step = WorkflowStep {
-            name: Some(step.id.clone()),
+            name: Some(step.id.to_string()),
             claude: None,
             shell: None,
             test: None,
@@ -870,55 +870,73 @@ impl WorkflowExecutor {
             output_file: None,
             capture_output: CaptureOutput::Disabled,
             timeout: step.timeout.map(|d| d.as_secs()),
-            working_dir: step.working_dir.clone(),
-            env: step.env.clone(),
-            on_failure: step.handlers.on_failure.clone(),
+            working_dir: step.working_dir.as_ref().map(|p| (**p).to_path_buf()),
+            env: step
+                .env
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            on_failure: step
+                .handlers
+                .on_failure
+                .as_ref()
+                .map(|config| (**config).clone()),
             retry: None,
-            on_success: step.handlers.on_success.clone(),
-            on_exit_code: step.handlers.on_exit_code.clone(),
+            on_success: step
+                .handlers
+                .on_success
+                .as_ref()
+                .map(|s| Box::new((**s).clone())),
+            on_exit_code: step
+                .handlers
+                .on_exit_code
+                .iter()
+                .map(|(code, s)| (*code, Box::new((**s).clone())))
+                .collect(),
             commit_required: step.commit_required,
             auto_commit: false,
             commit_config: None,
-            validate: step.validation.clone(),
+            validate: step.validation.as_ref().map(|v| (**v).clone()),
             step_validate: None,
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            when: step.when.clone(),
+            when: step.when.as_ref().map(|w| w.to_string()),
         };
 
         // Set command based on step type
         match &step.command {
             StepCommand::Claude(cmd) => {
-                workflow_step.claude = Some(cmd.clone());
+                workflow_step.claude = Some(cmd.to_string());
             }
             StepCommand::Shell(cmd) => {
-                workflow_step.shell = Some(cmd.clone());
+                workflow_step.shell = Some(cmd.to_string());
             }
             StepCommand::Test {
                 command,
                 on_failure,
             } => {
                 workflow_step.test = Some(crate::config::command::TestCommand {
-                    command: command.clone(),
-                    on_failure: on_failure.clone(),
+                    command: command.to_string(),
+                    on_failure: on_failure.as_ref().map(|f| (**f).clone()),
                 });
             }
             StepCommand::GoalSeek(config) => {
-                workflow_step.goal_seek = Some(config.clone());
+                workflow_step.goal_seek = Some((**config).clone());
             }
             StepCommand::Handler(handler) => {
                 workflow_step.handler = Some(HandlerStep {
-                    name: handler.name.clone(),
-                    attributes: handler.attributes.clone(),
+                    name: handler.name.to_string(),
+                    attributes: Arc::try_unwrap(handler.attributes.clone())
+                        .unwrap_or_else(|arc| (*arc).clone()),
                 });
             }
             StepCommand::Simple(cmd) => {
                 // For simple commands, use the legacy command field
-                workflow_step.command = Some(cmd.clone());
+                workflow_step.command = Some(cmd.to_string());
             }
             StepCommand::Foreach(config) => {
-                workflow_step.foreach = Some(config.clone());
+                workflow_step.foreach = Some((**config).clone());
             }
         }
 
@@ -1290,7 +1308,7 @@ impl WorkflowExecutor {
 
         // Create execution context for validation
         let exec_context = crate::cook::execution::ExecutionContext {
-            working_directory: env.working_dir.clone(),
+            working_directory: env.working_dir.to_path_buf(),
             env_vars: std::collections::HashMap::new(),
             capture_output: true,
             timeout_seconds: step.validation_timeout,
@@ -2513,7 +2531,7 @@ impl WorkflowExecutor {
         let mut workflow_context = WorkflowContext::default();
 
         // Initialize git change tracker
-        if let Ok(tracker) = GitChangeTracker::new(&env.working_dir) {
+        if let Ok(tracker) = GitChangeTracker::new(&**env.working_dir) {
             if tracker.is_active() {
                 workflow_context.git_tracker = Some(Arc::new(std::sync::Mutex::new(tracker)));
                 tracing::debug!("Git change tracker initialized for workflow");
@@ -2749,10 +2767,10 @@ impl WorkflowExecutor {
                         let mut checkpoint = create_checkpoint_with_total_steps(
                             workflow_id.clone(),
                             &normalized::NormalizedWorkflow {
-                                name: workflow.name.clone(),
-                                steps: vec![], // We'd need to convert, but for now use empty
+                                name: Arc::from(workflow.name.clone()),
+                                steps: Arc::from([]), // We'd need to convert, but for now use empty
                                 execution_mode: normalized::ExecutionMode::Sequential,
-                                variables: workflow_context.variables.clone(),
+                                variables: Arc::new(workflow_context.variables.clone()),
                             },
                             &workflow_context,
                             self.checkpoint_completed_steps.clone(),
@@ -2955,7 +2973,7 @@ impl WorkflowExecutor {
                         let git_ops = Arc::new(crate::abstractions::git::RealGitOperations::new());
                         let commit_tracker = crate::cook::commit_tracker::CommitTracker::new(
                             git_ops,
-                            env.working_dir.clone(),
+                            env.working_dir.to_path_buf(),
                         );
 
                         // Generate squash message
@@ -3090,7 +3108,7 @@ impl WorkflowExecutor {
 
         // Initialize CommitTracker for this step using the executor's git operations (enables mocking)
         let git_ops = self.git_operations.clone();
-        let working_dir = env.working_dir.clone();
+        let working_dir = env.working_dir.to_path_buf();
         let mut commit_tracker =
             crate::cook::commit_tracker::CommitTracker::new(git_ops, working_dir);
         commit_tracker.initialize().await?;
@@ -3114,7 +3132,7 @@ impl WorkflowExecutor {
                     .await?;
 
                 // Update working directory if overridden
-                let working_dir_override = if env_context.working_dir != env.working_dir {
+                let working_dir_override = if env_context.working_dir != **env.working_dir {
                     Some(env_context.working_dir.clone())
                 } else {
                     None
@@ -3131,7 +3149,7 @@ impl WorkflowExecutor {
         // Update execution environment if working directory is overridden
         let mut actual_env = env.clone();
         if let Some(ref dir) = working_dir_override {
-            actual_env.working_dir = dir.clone();
+            actual_env.working_dir = Arc::new(dir.clone());
             tracing::info!("Working directory overridden to: {}", dir.display());
         }
 
@@ -3448,7 +3466,7 @@ impl WorkflowExecutor {
         })?;
 
         // Create execution context for the handler
-        let mut exec_context = ExecutionContext::new(env.working_dir.clone());
+        let mut exec_context = ExecutionContext::new(env.working_dir.to_path_buf());
         exec_context.add_env_vars(env_vars);
 
         // Add session information if available
@@ -3540,7 +3558,7 @@ impl WorkflowExecutor {
         cmd.args(["-c", command]);
 
         // Set working directory
-        cmd.current_dir(&env.working_dir);
+        cmd.current_dir(&**env.working_dir);
 
         // Set environment variables
         for (key, value) in env_vars {
@@ -4214,7 +4232,7 @@ impl WorkflowExecutor {
 
         // Create worktree manager
         let worktree_manager = Arc::new(WorktreeManager::new(
-            env.project_dir.clone(),
+            env.project_dir.to_path_buf(),
             self.subprocess.clone(),
         )?);
 
@@ -4224,7 +4242,7 @@ impl WorkflowExecutor {
             self.session_manager.clone(),
             self.user_interaction.clone(),
             worktree_manager,
-            env.working_dir.clone(), // Use working_dir instead of project_dir to handle worktrees correctly
+            env.working_dir.to_path_buf(), // Use working_dir instead of project_dir to handle worktrees correctly
         )
         .await;
 

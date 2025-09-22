@@ -119,7 +119,7 @@ impl SetupPhaseExecutor {
         );
 
         // Track files before setup to detect created files
-        let files_before_setup = std::fs::read_dir(working_dir)
+        let files_before_setup = std::fs::read_dir(&**working_dir)
             .map(|entries| {
                 entries
                     .filter_map(|e| e.ok())
@@ -132,7 +132,7 @@ impl SetupPhaseExecutor {
         let captured_outputs = self.execute(commands, executor, env, context).await?;
 
         // Detect created files
-        let files_after_setup = std::fs::read_dir(working_dir)
+        let files_after_setup = std::fs::read_dir(&**working_dir)
             .map(|entries| {
                 entries
                     .filter_map(|e| e.ok())
@@ -165,6 +165,7 @@ mod tests {
     use crate::cook::workflow::{StepResult, WorkflowStep};
     use async_trait::async_trait;
     use std::path::PathBuf;
+    use std::sync::Arc;
 
     struct MockExecutor {
         results: Vec<StepResult>,
@@ -221,10 +222,10 @@ mod tests {
         };
 
         let env = ExecutionEnvironment {
-            working_dir: PathBuf::from("."),
-            project_dir: PathBuf::from("."),
-            session_id: "test-session".to_string(),
-            worktree_name: Some("test-worktree".to_string()),
+            working_dir: Arc::new(PathBuf::from(".")),
+            project_dir: Arc::new(PathBuf::from(".")),
+            session_id: Arc::from("test-session"),
+            worktree_name: Some(Arc::from("test-worktree")),
         };
 
         let mut context = WorkflowContext::default();
@@ -273,10 +274,10 @@ mod tests {
 
         let mut slow_executor = SlowExecutor;
         let env = ExecutionEnvironment {
-            working_dir: PathBuf::from("."),
-            project_dir: PathBuf::from("."),
-            session_id: "test-session".to_string(),
-            worktree_name: Some("test-worktree".to_string()),
+            working_dir: Arc::new(PathBuf::from(".")),
+            project_dir: Arc::new(PathBuf::from(".")),
+            session_id: Arc::from("test-session"),
+            worktree_name: Some(Arc::from("test-worktree")),
         };
         let mut context = WorkflowContext::default();
 

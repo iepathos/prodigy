@@ -153,7 +153,7 @@ impl AgentLifecycleManager for DefaultLifecycleManager {
         // First, fetch the agent branch in the parent worktree
         let output = Command::new("git")
             .args(["fetch", ".", &format!("{}:{}", agent_branch, agent_branch)])
-            .current_dir(parent_worktree_path)
+            .current_dir(&**parent_worktree_path)
             .output()
             .await
             .map_err(|e| LifecycleError::GitError(e.to_string()))?;
@@ -169,7 +169,7 @@ impl AgentLifecycleManager for DefaultLifecycleManager {
         // Now merge the branch
         let output = Command::new("git")
             .args(["merge", "--no-ff", agent_branch])
-            .current_dir(parent_worktree_path)
+            .current_dir(&**parent_worktree_path)
             .output()
             .await
             .map_err(|e| LifecycleError::GitError(e.to_string()))?;

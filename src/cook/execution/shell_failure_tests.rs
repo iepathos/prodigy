@@ -224,6 +224,7 @@ map:
     async fn test_shell_command_error_propagation() {
         use crate::cook::orchestrator::ExecutionEnvironment;
         use crate::cook::workflow::{CaptureOutput, WorkflowStep};
+        use std::sync::Arc;
 
         let _step = WorkflowStep {
             name: Some("failing-command".to_string()),
@@ -260,10 +261,10 @@ map:
         // Create a minimal execution environment
         let temp_dir = TempDir::new().unwrap();
         let _env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test-session".to_string(),
+            session_id: Arc::from("test-session"),
         };
 
         // TODO: Create executor and run the step

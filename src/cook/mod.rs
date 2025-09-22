@@ -5,6 +5,7 @@
 
 pub mod command;
 pub mod commit_tracker;
+pub mod common_strings;
 pub mod coordinators;
 pub mod environment;
 pub mod execution;
@@ -124,15 +125,15 @@ pub async fn cook(mut cmd: CookCommand) -> Result<()> {
     // Create cook configuration
     let mut cook_config = CookConfig {
         command: cmd,
-        project_path,
-        workflow,
+        project_path: Arc::new(project_path),
+        workflow: Arc::new(workflow),
         mapreduce_config: None,
     };
 
     // If this is a MapReduce workflow, we need special handling
     if let Some(mr_config) = mapreduce_config {
         // Store the MapReduce config for the orchestrator to use
-        cook_config.mapreduce_config = Some(mr_config);
+        cook_config.mapreduce_config = Some(Arc::new(mr_config));
     }
 
     // Run the orchestrator

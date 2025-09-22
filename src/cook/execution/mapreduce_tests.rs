@@ -99,10 +99,10 @@ fn test_mapreduce_config_defaults() {
 #[test]
 fn test_agent_context_creation() {
     let env = ExecutionEnvironment {
-        working_dir: PathBuf::from("/test/worktree"),
-        project_dir: PathBuf::from("/test/project"),
-        worktree_name: Some("test-worktree".to_string()),
-        session_id: "test-session".to_string(),
+        working_dir: Arc::new(PathBuf::from("/test/worktree")),
+        project_dir: Arc::new(PathBuf::from("/test/project")),
+        worktree_name: Some(Arc::from("test-worktree")),
+        session_id: Arc::from("test-session"),
     };
 
     let context = AgentContext::new(
@@ -123,10 +123,10 @@ fn test_agent_context_creation() {
 #[test]
 fn test_agent_context_update_with_output() {
     let env = ExecutionEnvironment {
-        working_dir: PathBuf::from("/test/worktree"),
-        project_dir: PathBuf::from("/test/project"),
-        worktree_name: Some("test-worktree".to_string()),
-        session_id: "test-session".to_string(),
+        working_dir: Arc::new(PathBuf::from("/test/worktree")),
+        project_dir: Arc::new(PathBuf::from("/test/project")),
+        worktree_name: Some(Arc::from("test-worktree")),
+        session_id: Arc::from("test-session"),
     };
 
     let mut context = AgentContext::new(
@@ -153,10 +153,10 @@ fn test_agent_context_update_with_output() {
 #[test]
 fn test_agent_context_to_interpolation_context() {
     let env = ExecutionEnvironment {
-        working_dir: PathBuf::from("/test/worktree"),
-        project_dir: PathBuf::from("/test/project"),
-        worktree_name: Some("test-worktree".to_string()),
-        session_id: "test-session".to_string(),
+        working_dir: Arc::new(PathBuf::from("/test/worktree")),
+        project_dir: Arc::new(PathBuf::from("/test/project")),
+        worktree_name: Some(Arc::from("test-worktree")),
+        session_id: Arc::from("test-session"),
     };
 
     let mut context = AgentContext::new(
@@ -362,10 +362,10 @@ fn test_reduce_phase_configuration() {
 fn test_reduce_phase_variable_substitution() {
     // Test that map results are properly available as variables in reduce phase
     let env = ExecutionEnvironment {
-        working_dir: PathBuf::from("/test/worktree"),
-        project_dir: PathBuf::from("/test/project"),
-        worktree_name: Some("test-worktree".to_string()),
-        session_id: "test-session".to_string(),
+        working_dir: Arc::new(PathBuf::from("/test/worktree")),
+        project_dir: Arc::new(PathBuf::from("/test/project")),
+        worktree_name: Some(Arc::from("test-worktree")),
+        session_id: Arc::from("test-session"),
     };
 
     let mut reduce_context = AgentContext::new(
@@ -417,10 +417,10 @@ fn test_reduce_phase_variable_substitution() {
 fn test_reduce_phase_complex_variable_substitution() {
     // Test complex variable substitution including claude output
     let env = ExecutionEnvironment {
-        working_dir: PathBuf::from("/test/worktree"),
-        project_dir: PathBuf::from("/test/project"),
-        worktree_name: Some("test-worktree".to_string()),
-        session_id: "test-session".to_string(),
+        working_dir: Arc::new(PathBuf::from("/test/worktree")),
+        project_dir: Arc::new(PathBuf::from("/test/project")),
+        worktree_name: Some(Arc::from("test-worktree")),
+        session_id: Arc::from("test-session"),
     };
 
     let mut reduce_context = AgentContext::new(
@@ -493,16 +493,16 @@ fn test_reduce_context_has_map_variables() {
     // Before the fix, these variables were NOT added to the reduce context
 
     let env = ExecutionEnvironment {
-        working_dir: PathBuf::from("/test/worktree"),
-        project_dir: PathBuf::from("/test/project"),
-        worktree_name: Some("test-worktree".to_string()),
-        session_id: "test-session".to_string(),
+        working_dir: Arc::new(PathBuf::from("/test/worktree")),
+        project_dir: Arc::new(PathBuf::from("/test/project")),
+        worktree_name: Some(Arc::from("test-worktree")),
+        session_id: Arc::from("test-session"),
     };
 
     // Simulate what execute_reduce_phase does after our fix
     let mut reduce_context = AgentContext::new(
         "reduce".to_string(),
-        env.working_dir.clone(),
+        (*env.working_dir).clone(),
         "test-worktree".to_string(),
         env.clone(),
     );

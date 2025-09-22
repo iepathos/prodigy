@@ -1928,10 +1928,10 @@ async fn run_resume_job_command(
     let session_id = format!("resume-{}-{}", job_id, chrono::Utc::now().timestamp());
 
     let env = ExecutionEnvironment {
-        working_dir: project_root.clone(),
-        project_dir: project_root.clone(),
+        working_dir: Arc::new(project_root.clone()),
+        project_dir: Arc::new(project_root.clone()),
         worktree_name: None,
-        session_id,
+        session_id: Arc::from(session_id.as_str()),
     };
 
     // Create resume options - only use fields that exist

@@ -9,6 +9,7 @@ use prodigy::config::{WorkflowCommand, WorkflowConfig};
 use prodigy::cook::command::CookCommand;
 use prodigy::cook::orchestrator::CookConfig;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Helper to create a basic cook config for testing
 fn create_test_config(workflow: WorkflowConfig) -> CookConfig {
@@ -28,8 +29,8 @@ fn create_test_config(workflow: WorkflowConfig) -> CookConfig {
             quiet: false,
             dry_run: false,
         },
-        project_path: PathBuf::from("/tmp/test"),
-        workflow,
+        project_path: Arc::new(PathBuf::from("/tmp/test")),
+        workflow: Arc::new(workflow),
         mapreduce_config: None,
     }
 }
@@ -175,8 +176,8 @@ mod mapreduce_workflow {
                 quiet: false,
                 dry_run: false,
             },
-            project_path: PathBuf::from("/tmp/test"),
-            workflow,
+            project_path: Arc::new(PathBuf::from("/tmp/test")),
+            workflow: Arc::new(workflow),
             mapreduce_config: None,
         };
 

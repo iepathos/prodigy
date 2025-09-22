@@ -904,10 +904,10 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let working_dir = temp_dir.path();
         let env = ExecutionEnvironment {
-            working_dir: working_dir.to_path_buf(),
-            project_dir: working_dir.to_path_buf(),
+            working_dir: Arc::new(working_dir.to_path_buf()),
+            project_dir: Arc::new(working_dir.to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         let mut env_vars = HashMap::new();
@@ -943,10 +943,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         let env_vars = HashMap::new();
@@ -969,10 +969,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         // Set up test mode to avoid actual command execution
@@ -1024,10 +1024,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         let mut context = WorkflowContext::default();
@@ -1054,10 +1054,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         let mut context = WorkflowContext::default();
@@ -1097,9 +1097,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
-            session_id: "test-session".to_string(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
+            session_id: Arc::from("test-session"),
             worktree_name: None,
         };
 
@@ -1155,9 +1155,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
-            session_id: "test-session".to_string(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
+            session_id: Arc::from("test-session"),
             worktree_name: None,
         };
 
@@ -1198,9 +1198,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
-            session_id: "test-session".to_string(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
+            session_id: Arc::from("test-session"),
             worktree_name: None,
         };
 
@@ -1233,9 +1233,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
-            session_id: "test-session".to_string(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
+            session_id: Arc::from("test-session"),
             worktree_name: None,
         };
 
@@ -1311,10 +1311,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         // Create a workflow with conditional steps
@@ -1368,9 +1368,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
-            session_id: "test-session".to_string(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
+            session_id: Arc::from("test-session"),
             worktree_name: None,
         };
 
@@ -1396,9 +1396,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
-            session_id: "test-session".to_string(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
+            session_id: Arc::from("test-session"),
             worktree_name: None,
         };
 
@@ -1422,9 +1422,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
-            session_id: "test-session".to_string(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
+            session_id: Arc::from("test-session"),
             worktree_name: None,
         };
 
@@ -1451,9 +1451,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let _env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
-            session_id: "test-session".to_string(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
+            session_id: Arc::from("test-session"),
             worktree_name: None,
         };
 
@@ -1502,9 +1502,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
-            session_id: "test-session".to_string(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
+            session_id: Arc::from("test-session"),
             worktree_name: None,
         };
 
@@ -1541,10 +1541,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         // Create a workflow with error recovery
@@ -1598,10 +1598,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         // Add mock responses for goal seek iterations
@@ -1652,10 +1652,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         // Save current directory and change to temp dir for test
@@ -1741,10 +1741,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
-            worktree_name: Some("test-worktree".to_string()),
-            session_id: "integration-test".to_string(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
+            worktree_name: Some(Arc::from("test-worktree")),
+            session_id: Arc::from("integration-test"),
         };
 
         // Create a comprehensive workflow
@@ -1836,10 +1836,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "iterative-test".to_string(),
+            session_id: Arc::from("iterative-test"),
         };
 
         // Create an iterative workflow
@@ -1878,10 +1878,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "env-test".to_string(),
+            session_id: Arc::from("env-test"),
         };
 
         // Create workflow with environment configuration
@@ -1930,10 +1930,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let _env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "validation-test".to_string(),
+            session_id: Arc::from("validation-test"),
         };
 
         // Create workflow with validation
@@ -1990,10 +1990,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "validation-streaming-test".to_string(),
+            session_id: Arc::from("validation-streaming-test"),
         };
 
         // Create workflow with validation step
@@ -2055,10 +2055,10 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "resume-test".to_string(),
+            session_id: Arc::from("resume-test"),
         };
 
         // Create workflow that tracks completed steps
@@ -2171,6 +2171,7 @@ pub(crate) mod timeout_tests {
     use crate::cook::orchestrator::ExecutionEnvironment;
     use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowMode, WorkflowStep};
     use std::collections::HashMap;
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     #[tokio::test]
@@ -2180,10 +2181,10 @@ pub(crate) mod timeout_tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         // Create a workflow with a timeout
@@ -2223,10 +2224,10 @@ pub(crate) mod timeout_tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         // Test shell command with timeout
@@ -2245,10 +2246,10 @@ pub(crate) mod timeout_tests {
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
-            working_dir: temp_dir.path().to_path_buf(),
-            project_dir: temp_dir.path().to_path_buf(),
+            working_dir: Arc::new(temp_dir.path().to_path_buf()),
+            project_dir: Arc::new(temp_dir.path().to_path_buf()),
             worktree_name: None,
-            session_id: "test".to_string(),
+            session_id: Arc::from("test"),
         };
 
         // Test shell command that completes within timeout
