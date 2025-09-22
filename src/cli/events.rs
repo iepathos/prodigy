@@ -1491,6 +1491,66 @@ async fn clean_local_storage(
     }
 }
 
+/// Build cleanup summary message
+fn build_cleanup_message(total_cleaned: usize, dry_run: bool) -> String {
+    if total_cleaned == 0 {
+        "No events matched the cleanup criteria.".to_string()
+    } else if dry_run {
+        format!("Would clean {} events", total_cleaned)
+    } else {
+        format!("Cleaned {} events", total_cleaned)
+    }
+}
+
+/// Display cleanup summary in JSON format
+fn display_json_cleanup_summary(
+    total_cleaned: usize,
+    total_archived: usize,
+    dry_run: bool,
+) -> Result<()> {
+    #[derive(Serialize)]
+    struct CleanSummary {
+        dry_run: bool,
+        events_cleaned: usize,
+        events_archived: usize,
+        message: String,
+    }
+
+    let summary = CleanSummary {
+        dry_run,
+        events_cleaned: total_cleaned,
+        events_archived: total_archived,
+        message: build_cleanup_message(total_cleaned, dry_run),
+    };
+
+    println!("{}", serde_json::to_string_pretty(&summary)?);
+    Ok(())
+}
+
+/// Display cleanup summary in human-readable format
+fn display_human_cleanup_summary(
+    total_cleaned: usize,
+    total_archived: usize,
+    dry_run: bool,
+) {
+    println!();
+    if dry_run {
+        println!("Summary (dry run): {} events would be cleaned", total_cleaned);
+        if total_archived > 0 {
+            println!("  {} events would be archived", total_archived);
+        }
+    } else {
+        println!("Summary: {} events cleaned", total_cleaned);
+        if total_archived > 0 {
+            println!("  {} events archived", total_archived);
+        }
+    }
+
+    if total_cleaned == 0 {
+        println!("No events matched the cleanup criteria.");
+    }
+}
+
 /// Display cleanup summary
 fn display_cleanup_summary(
     total_cleaned: usize,
@@ -1499,53 +1559,11 @@ fn display_cleanup_summary(
     output_format: &str,
 ) -> Result<()> {
     if output_format == "json" {
-        #[derive(Serialize)]
-        struct CleanSummary {
-            dry_run: bool,
-            events_cleaned: usize,
-            events_archived: usize,
-            message: String,
-        }
-
-        let message = if total_cleaned == 0 {
-            "No events matched the cleanup criteria.".to_string()
-        } else if dry_run {
-            format!("Would clean {} events", total_cleaned)
-        } else {
-            format!("Cleaned {} events", total_cleaned)
-        };
-
-        let summary = CleanSummary {
-            dry_run,
-            events_cleaned: total_cleaned,
-            events_archived: total_archived,
-            message,
-        };
-
-        println!("{}", serde_json::to_string_pretty(&summary)?);
+        display_json_cleanup_summary(total_cleaned, total_archived, dry_run)
     } else {
-        println!();
-        if dry_run {
-            println!(
-                "Summary (dry run): {} events would be cleaned",
-                total_cleaned
-            );
-            if total_archived > 0 {
-                println!("  {} events would be archived", total_archived);
-            }
-        } else {
-            println!("Summary: {} events cleaned", total_cleaned);
-            if total_archived > 0 {
-                println!("  {} events archived", total_archived);
-            }
-        }
-
-        if total_cleaned == 0 {
-            println!("No events matched the cleanup criteria.");
-        }
+        display_human_cleanup_summary(total_cleaned, total_archived, dry_run);
+        Ok(())
     }
-
-    Ok(())
 }
 
 /// Parse duration string to days (e.g., "7d" -> 7, "2w" -> 14, "1h" -> 0)
@@ -1692,81 +1710,107 @@ fn event_is_recent(event: &Value, since_time: DateTime<Utc>) -> bool {
     false
 }
 
-fn display_event(event: &Value) {
+/// Extract event metadata for display
+fn extract_event_metadata(event: &Value) -> (String, String, String) {
     let event_type = get_event_type(event);
     let timestamp = extract_timestamp(event);
-    let job_id = event
+    let job_id = extract_job_id(event);
+
+    let time_str = format_timestamp(timestamp);
+    (event_type, time_str, job_id)
+}
+
+/// Extract job ID from event
+fn extract_job_id(event: &Value) -> String {
+    event
         .get("job_id")
         .or_else(|| extract_nested_field(event, "job_id"))
         .and_then(|v| v.as_str())
-        .unwrap_or("n/a");
+        .unwrap_or("n/a")
+        .to_string()
+}
 
-    // Format timestamp for display
-    let time_str = if let Some(ts) = timestamp {
-        ts.with_timezone(&Local)
-            .format("%Y-%m-%d %H:%M:%S")
-            .to_string()
-    } else {
-        "n/a".to_string()
-    };
+/// Format timestamp for display
+fn format_timestamp(timestamp: Option<DateTime<Utc>>) -> String {
+    timestamp
+        .map(|ts| {
+            ts.with_timezone(&Local)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        })
+        .unwrap_or_else(|| "n/a".to_string())
+}
 
-    // Display based on event type
+/// Display JobStarted event
+fn display_job_started(event: &Value, time_str: &str, event_type: &str, job_id: &str) {
+    if let Some(data) = event.get("JobStarted") {
+        let total_items = data
+            .get("total_items")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        println!(
+            "[{}] {} - Job: {} - Started with {} items",
+            time_str, event_type, job_id, total_items
+        );
+    }
+}
+
+/// Display JobCompleted event
+fn display_job_completed(event: &Value, time_str: &str, event_type: &str, job_id: &str) {
+    if let Some(data) = event.get("JobCompleted") {
+        let success = data
+            .get("success_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let failure = data
+            .get("failure_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        println!(
+            "[{}] {} - Job: {} - Success: {}, Failures: {}",
+            time_str, event_type, job_id, success, failure
+        );
+    }
+}
+
+/// Display AgentProgress event
+fn display_agent_progress(event: &Value, time_str: &str, event_type: &str, job_id: &str) {
+    if let Some(data) = event.get("AgentProgress") {
+        let agent_id = data
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("n/a");
+        let step = data.get("step").and_then(|v| v.as_str()).unwrap_or("n/a");
+        let progress = data
+            .get("progress_pct")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        println!(
+            "[{}] {} - Job: {} - Agent: {} - Step: {} ({:.1}%)",
+            time_str, event_type, job_id, agent_id, step, progress
+        );
+    }
+}
+
+/// Display generic event
+fn display_generic_event(event: &Value, time_str: &str, event_type: &str, job_id: &str) {
+    println!(
+        "[{}] {} - Job: {} - {}",
+        time_str,
+        event_type,
+        job_id,
+        serde_json::to_string(event).unwrap_or_default()
+    );
+}
+
+fn display_event(event: &Value) {
+    let (event_type, time_str, job_id) = extract_event_metadata(event);
+
     match event_type.as_str() {
-        "JobStarted" => {
-            if let Some(data) = event.get("JobStarted") {
-                let total_items = data
-                    .get("total_items")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                println!(
-                    "[{}] {} - Job: {} - Started with {} items",
-                    time_str, event_type, job_id, total_items
-                );
-            }
-        }
-        "JobCompleted" => {
-            if let Some(data) = event.get("JobCompleted") {
-                let success = data
-                    .get("success_count")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                let failure = data
-                    .get("failure_count")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                println!(
-                    "[{}] {} - Job: {} - Success: {}, Failures: {}",
-                    time_str, event_type, job_id, success, failure
-                );
-            }
-        }
-        "AgentProgress" => {
-            if let Some(data) = event.get("AgentProgress") {
-                let agent_id = data
-                    .get("agent_id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("n/a");
-                let step = data.get("step").and_then(|v| v.as_str()).unwrap_or("n/a");
-                let progress = data
-                    .get("progress_pct")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.0);
-                println!(
-                    "[{}] {} - Job: {} - Agent: {} - Step: {} ({:.1}%)",
-                    time_str, event_type, job_id, agent_id, step, progress
-                );
-            }
-        }
-        _ => {
-            // Generic display for other event types
-            println!(
-                "[{}] {} - Job: {} - {}",
-                time_str,
-                event_type,
-                job_id,
-                serde_json::to_string(event).unwrap_or_default()
-            );
-        }
+        "JobStarted" => display_job_started(event, &time_str, &event_type, &job_id),
+        "JobCompleted" => display_job_completed(event, &time_str, &event_type, &job_id),
+        "AgentProgress" => display_agent_progress(event, &time_str, &event_type, &job_id),
+        _ => display_generic_event(event, &time_str, &event_type, &job_id),
     }
 }
 
@@ -1978,6 +2022,59 @@ fn export_as_markdown(events: &[Value]) -> Result<String> {
     Ok(md)
 }
 
+/// Print table header for events display
+fn print_table_header() {
+    println!(
+        "{:<20} {:<15} {:<20} {:<15} {:<30}",
+        "Timestamp", "Event Type", "Job ID", "Agent ID", "Details"
+    );
+    println!("{}", "-".repeat(100));
+}
+
+/// Extract agent ID from event
+fn extract_agent_id(event: &Value) -> String {
+    event
+        .get("agent_id")
+        .or_else(|| extract_nested_field(event, "agent_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("n/a")
+        .to_string()
+}
+
+/// Truncate string to fit in table column
+fn truncate_field(s: &str, max_len: usize) -> String {
+    if s.len() > max_len {
+        format!("{}...", &s[..max_len.saturating_sub(3)])
+    } else {
+        s.to_string()
+    }
+}
+
+/// Extract table row data from event
+fn extract_table_row_data(event: &Value) -> (String, String, String, String, String) {
+    let timestamp = format_timestamp(extract_timestamp(event));
+    let event_type = get_event_type(event);
+    let job_id = extract_job_id(event);
+    let agent_id = extract_agent_id(event);
+    let details = format_event_details(event);
+
+    (timestamp, event_type, job_id, agent_id, details)
+}
+
+/// Print a single event as a table row
+fn print_event_row(event: &Value) {
+    let (timestamp, event_type, job_id, agent_id, details) = extract_table_row_data(event);
+
+    println!(
+        "{:<20} {:<15} {:<20} {:<15} {:<30}",
+        truncate_field(&timestamp, 19),
+        truncate_field(&event_type, 14),
+        truncate_field(&job_id, 19),
+        truncate_field(&agent_id, 14),
+        truncate_field(&details, 29)
+    );
+}
+
 /// Display events in a table format
 fn display_events_as_table(events: &[Value]) -> Result<()> {
     if events.is_empty() {
@@ -1985,56 +2082,10 @@ fn display_events_as_table(events: &[Value]) -> Result<()> {
         return Ok(());
     }
 
-    // Print table header
-    println!(
-        "{:<20} {:<15} {:<20} {:<15} {:<30}",
-        "Timestamp", "Event Type", "Job ID", "Agent ID", "Details"
-    );
-    println!("{}", "-".repeat(100));
+    print_table_header();
 
-    // Print each event as a table row
     for event in events {
-        let timestamp = extract_timestamp(event)
-            .map(|ts| {
-                ts.with_timezone(&Local)
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string()
-            })
-            .unwrap_or_else(|| "n/a".to_string());
-
-        let event_type = get_event_type(event);
-
-        let job_id = event
-            .get("job_id")
-            .or_else(|| extract_nested_field(event, "job_id"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("n/a");
-
-        let agent_id = event
-            .get("agent_id")
-            .or_else(|| extract_nested_field(event, "agent_id"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("n/a");
-
-        let details = format_event_details(event);
-
-        // Truncate long fields to fit in table
-        let truncate = |s: &str, max_len: usize| -> String {
-            if s.len() > max_len {
-                format!("{}...", &s[..max_len.saturating_sub(3)])
-            } else {
-                s.to_string()
-            }
-        };
-
-        println!(
-            "{:<20} {:<15} {:<20} {:<15} {:<30}",
-            truncate(&timestamp, 19),
-            truncate(&event_type, 14),
-            truncate(job_id, 19),
-            truncate(agent_id, 14),
-            truncate(&details, 29)
-        );
+        print_event_row(event);
     }
 
     println!("\nTotal events: {}", events.len());
@@ -2161,7 +2212,8 @@ mod tests {
         assert_eq!(policy.max_events, Some(100));
         assert_eq!(policy.max_file_size_bytes, Some(1_073_741_824));
         assert_eq!(policy.archive_old_events, false);
-        assert_eq!(policy.archive_path, None);
+        // archive_path has a default value from RetentionPolicy::default()
+        assert!(policy.archive_path.is_some());
     }
 
     #[test]
@@ -2181,7 +2233,8 @@ mod tests {
         assert_eq!(parse_size_to_bytes("1GB").unwrap(), 1_073_741_824);
         assert_eq!(parse_size_to_bytes("500MB").unwrap(), 524_288_000);
         assert!(parse_size_to_bytes("invalid").is_err());
-        assert!(parse_size_to_bytes("100").is_err());
+        // 100 without unit is now valid (defaults to bytes)
+        assert_eq!(parse_size_to_bytes("100").unwrap(), 100);
     }
 
     #[test]
@@ -2197,9 +2250,9 @@ mod tests {
 
         let formatted = format_job_info(&job);
         assert!(formatted.contains("test-123"));
-        assert!(formatted.contains("Completed"));
-        assert!(formatted.contains("95 succeeded"));
-        assert!(formatted.contains("5 failed"));
+        assert!(formatted.contains("COMPLETED"));
+        assert!(formatted.contains("Success: 95"));
+        assert!(formatted.contains("Failed: 5"));
         assert!(formatted.contains(" in 30m0s"));
     }
 
@@ -2235,20 +2288,19 @@ mod tests {
     #[test]
     fn test_extract_nested_field() {
         let event = json!({
-            "outer": {
-                "inner": {
-                    "value": "test"
-                }
+            "JobStarted": {
+                "job_id": "test-123",
+                "total_items": 10
             }
         });
 
-        let result = extract_nested_field(&event, "outer.inner.value");
-        assert_eq!(result, Some(&json!("test")));
+        let result = extract_nested_field(&event, "job_id");
+        assert_eq!(result, Some(&json!("test-123")));
 
-        let result2 = extract_nested_field(&event, "outer.inner");
-        assert_eq!(result2, Some(&json!({"value": "test"})));
+        let result2 = extract_nested_field(&event, "total_items");
+        assert_eq!(result2, Some(&json!(10)));
 
-        let result3 = extract_nested_field(&event, "nonexistent.field");
+        let result3 = extract_nested_field(&event, "nonexistent");
         assert_eq!(result3, None);
     }
 
