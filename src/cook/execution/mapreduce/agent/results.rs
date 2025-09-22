@@ -36,18 +36,19 @@ pub struct AggregatedResults {
 impl AggregatedResults {
     /// Create new aggregated results from a list of agent results
     pub fn from_results(results: Vec<AgentResult>) -> Self {
-        let mut successful = Vec::new();
-        let mut failed = Vec::new();
-        let mut total_duration = 0.0;
-
-        for result in results {
-            total_duration += result.duration.as_secs_f64();
-            if result.is_success() {
-                successful.push(result);
-            } else {
-                failed.push(result);
-            }
-        }
+        // Partition results and calculate total duration in one pass
+        let (successful, failed, total_duration) = results.into_iter().fold(
+            (Vec::new(), Vec::new(), 0.0),
+            |(mut succ, mut fail, dur), result| {
+                let new_duration = dur + result.duration.as_secs_f64();
+                if result.is_success() {
+                    succ.push(result);
+                } else {
+                    fail.push(result);
+                }
+                (succ, fail, new_duration)
+            },
+        );
 
         let total = successful.len() + failed.len();
         let average_duration = if total > 0 {
@@ -173,24 +174,28 @@ impl AgentResultAggregator for DefaultResultAggregator {
             context.set("map.results", results_value);
         }
 
-        // Add individual successful results
-        for (i, result) in results.successful.iter().enumerate() {
-            context.set(
-                format!("map.successful.{}.item_id", i),
-                json!(result.item_id),
-            );
-            if let Some(output) = &result.output {
-                context.set(format!("map.successful.{}.output", i), json!(output));
-            }
-        }
+        // Add individual successful results using iterator
+        results
+            .successful
+            .iter()
+            .enumerate()
+            .for_each(|(i, result)| {
+                context.set(
+                    format!("map.successful.{}.item_id", i),
+                    json!(result.item_id),
+                );
+                if let Some(output) = &result.output {
+                    context.set(format!("map.successful.{}.output", i), json!(output));
+                }
+            });
 
-        // Add individual failed results
-        for (i, result) in results.failed.iter().enumerate() {
+        // Add individual failed results using iterator
+        results.failed.iter().enumerate().for_each(|(i, result)| {
             context.set(format!("map.failed.{}.item_id", i), json!(result.item_id));
             if let Some(error) = &result.error {
                 context.set(format!("map.failed.{}.error", i), json!(error));
             }
-        }
+        });
 
         context
     }

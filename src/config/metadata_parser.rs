@@ -115,38 +115,27 @@ impl MetadataParser {
 
     /// Generic section extraction helper
     fn extract_section(&self, content: &str, section_header: &str) -> Result<Vec<String>> {
-        let lines: Vec<&str> = content.lines().collect();
-        let mut in_section = false;
-        let mut section_lines = Vec::new();
+        let lines = content.lines();
 
-        for line in lines {
-            let trimmed = line.trim();
-
-            if trimmed == section_header {
-                in_section = true;
-                continue;
-            }
-
-            if in_section {
-                if trimmed.starts_with("##") {
-                    break;
-                }
-
-                if !trimmed.is_empty() {
-                    section_lines.push(trimmed.to_string());
-                }
-            }
-        }
+        // Use iterators to find section and collect non-empty lines
+        let section_lines: Vec<String> = lines
+            .skip_while(|line| line.trim() != section_header)
+            .skip(1) // Skip the header itself
+            .map(|line| line.trim())
+            .take_while(|line| !line.starts_with("##"))
+            .filter(|line| !line.is_empty())
+            .map(|line| line.to_string())
+            .collect();
 
         Ok(section_lines)
     }
 
     /// Parse variable lines into argument definitions
     fn parse_variables_to_args(&self, variables: &[String]) -> Result<Vec<ArgumentDef>> {
-        let mut args = Vec::new();
-
-        for var_line in variables {
-            if let Some(captures) = self.variable_regex.captures(var_line) {
+        let args = variables
+            .iter()
+            .filter_map(|var_line| self.variable_regex.captures(var_line))
+            .filter_map(|captures| {
                 let name = captures.get(1).unwrap().as_str();
                 let spec = captures.get(2).unwrap().as_str();
 
@@ -155,19 +144,21 @@ impl MetadataParser {
                     || spec.contains("Environment variable")
                     || spec.contains("optional")
                 {
-                    continue;
+                    return None;
                 }
 
                 // Check if it's a required argument
                 if spec.contains("$ARGUMENTS") {
-                    args.push(ArgumentDef {
+                    Some(ArgumentDef {
                         name: name.to_lowercase(),
                         description: spec.to_string(),
                         arg_type: ArgumentType::String,
-                    });
+                    })
+                } else {
+                    None
                 }
-            }
-        }
+            })
+            .collect();
 
         Ok(args)
     }

@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, Timelike, Utc};
+use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -138,24 +139,26 @@ impl AnalyticsEngine {
         };
         let sessions = index.query_sessions(last_week).await?;
 
+        // Generate hourly distribution using functional approach
         let mut hourly_distribution = vec![0u64; 24];
-        let mut daily_sessions = HashMap::new();
-        let mut tool_frequency = HashMap::new();
+        sessions.iter().for_each(|session| {
+            hourly_distribution[session.started_at.hour() as usize] += 1;
+        });
 
-        for session in sessions {
-            // Hourly distribution
-            let hour = session.started_at.hour() as usize;
-            hourly_distribution[hour] += 1;
+        // Generate daily sessions map using fold
+        let daily_sessions = sessions.iter()
+            .fold(HashMap::new(), |mut acc, session| {
+                *acc.entry(session.started_at.date_naive()).or_insert(0u64) += 1;
+                acc
+            });
 
-            // Daily sessions
-            let date = session.started_at.date_naive();
-            *daily_sessions.entry(date).or_insert(0u64) += 1;
-
-            // Tool frequency
-            for tool in &session.tool_invocations {
-                *tool_frequency.entry(tool.name.clone()).or_insert(0u64) += 1;
-            }
-        }
+        // Generate tool frequency map using fold
+        let tool_frequency = sessions.iter()
+            .flat_map(|session| &session.tool_invocations)
+            .fold(HashMap::new(), |mut acc, tool| {
+                *acc.entry(tool.name.clone()).or_insert(0u64) += 1;
+                acc
+            })
 
         // Find peak hours
         let peak_hour = hourly_distribution
@@ -165,7 +168,7 @@ impl AnalyticsEngine {
             .map(|(hour, _)| hour)
             .unwrap_or(0);
 
-        // Find most used tools
+        // Find most used tools using functional approach
         let mut tool_list: Vec<_> = tool_frequency.into_iter().collect();
         tool_list.sort_by(|a, b| b.1.cmp(&a.1));
         let most_used_tools: Vec<String> = tool_list
@@ -192,15 +195,14 @@ impl AnalyticsEngine {
         let index = self.index.read().await;
         let sessions = index.query_sessions(past_period).await?;
 
-        let mut total_cost = 0.0;
-        let mut total_tokens = TokenSummary::default();
-
-        for session in sessions {
-            total_cost += self.calculate_cost(&session);
-            total_tokens.input += session.total_input_tokens();
-            total_tokens.output += session.total_output_tokens();
-            total_tokens.cache += session.total_cache_tokens();
-        }
+        // Calculate total cost and tokens using fold
+        let (total_cost, total_tokens) = sessions.iter()
+            .fold((0.0, TokenSummary::default()), |(cost, mut tokens), session| {
+                tokens.input += session.total_input_tokens();
+                tokens.output += session.total_output_tokens();
+                tokens.cache += session.total_cache_tokens();
+                (cost + self.calculate_cost(session), tokens)
+            })
 
         let days_in_period = days_ahead as f64;
         let daily_average_cost = total_cost / days_in_period;
@@ -224,48 +226,53 @@ impl AnalyticsEngine {
         session_ids: Vec<String>,
     ) -> Result<CrossSessionAnalysis> {
         let index = self.index.read().await;
-        let mut sessions = Vec::new();
 
-        for session_id in &session_ids {
-            if let Ok(session) = index.get_session(session_id).await {
-                sessions.push(session);
-            }
-        }
+        // Collect sessions using filter_map
+        let sessions: Vec<_> = futures::stream::iter(session_ids.iter())
+            .then(|id| async {
+                index.get_session(id).await.ok()
+            })
+            .filter_map(|session| async move { session })
+            .collect::<Vec<_>>()
+            .await
 
         if sessions.is_empty() {
             return Ok(CrossSessionAnalysis::default());
         }
 
-        // Analyze common tools
-        let mut tool_usage = HashMap::new();
-        let mut total_cost = 0.0;
-        let mut total_duration_ms = 0u64;
-        let mut error_patterns = HashMap::new();
+        // Analyze sessions using functional approach
+        let tool_usage = sessions.iter()
+            .flat_map(|session| &session.tool_invocations)
+            .fold(HashMap::new(), |mut acc, tool| {
+                *acc.entry(tool.name.clone()).or_insert(0u64) += 1;
+                acc
+            });
 
-        for session in &sessions {
-            // Track tool usage
-            for tool in &session.tool_invocations {
-                *tool_usage.entry(tool.name.clone()).or_insert(0u64) += 1;
-            }
+        let total_cost = sessions.iter()
+            .map(|session| self.calculate_cost(session))
+            .sum::<f64>();
 
-            // Calculate total cost
-            total_cost += self.calculate_cost(session);
+        let total_duration_ms = sessions.iter()
+            .filter_map(|session| session.completed_at.map(|completed| {
+                (completed - session.started_at).num_milliseconds().max(0) as u64
+            }))
+            .sum::<u64>();
 
-            // Track session duration
-            if let Some(completed) = session.completed_at {
-                let duration = completed - session.started_at;
-                total_duration_ms += duration.num_milliseconds().max(0) as u64;
-            }
-
-            // Track error patterns
-            for event in &session.events {
+        let error_patterns = sessions.iter()
+            .flat_map(|session| &session.events)
+            .filter_map(|event| {
                 if let SessionEvent::Error { error_type, .. } = event {
-                    *error_patterns.entry(error_type.clone()).or_insert(0u64) += 1;
+                    Some(error_type.clone())
+                } else {
+                    None
                 }
-            }
-        }
+            })
+            .fold(HashMap::new(), |mut acc, error_type| {
+                *acc.entry(error_type).or_insert(0u64) += 1;
+                acc
+            })
 
-        // Find most common tools
+        // Find most common tools using functional approach
         let mut tool_list: Vec<_> = tool_usage.into_iter().collect();
         tool_list.sort_by(|a, b| b.1.cmp(&a.1));
         let common_tools: Vec<String> = tool_list
@@ -274,7 +281,7 @@ impl AnalyticsEngine {
             .map(|(name, _)| name)
             .collect();
 
-        // Find most common errors
+        // Find most common errors using functional approach
         let mut error_list: Vec<_> = error_patterns.into_iter().collect();
         error_list.sort_by(|a, b| b.1.cmp(&a.1));
         let common_errors: Vec<String> = error_list
@@ -358,12 +365,11 @@ impl AnalyticsEngine {
 
     /// Get optimization recommendations based on usage analysis
     pub async fn get_optimization_recommendations(&self) -> Result<Vec<Recommendation>> {
-        let mut recommendations = Vec::new();
-
-        // Check for performance issues
+        // Check for performance issues and convert to recommendations
         let bottlenecks = self.identify_bottlenecks(5000).await?;
-        for issue in bottlenecks {
-            recommendations.push(Recommendation {
+        let mut recommendations: Vec<Recommendation> = bottlenecks
+            .into_iter()
+            .map(|issue| Recommendation {
                 category: RecommendationCategory::Performance,
                 priority: if issue.average_duration_ms > 10000 {
                     Priority::High
@@ -373,8 +379,8 @@ impl AnalyticsEngine {
                 title: format!("Optimize {}", issue.tool_name),
                 description: issue.recommendation,
                 estimated_savings: None,
-            });
-        }
+            })
+            .collect()
 
         // Check token usage patterns
         let projection = self.project_costs(30).await?;
