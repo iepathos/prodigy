@@ -678,6 +678,7 @@ async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> {
 
 /// Run checkpoints command
 async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<()> {
+    use anyhow::Context;
     use prodigy::cook::workflow::CheckpointManager;
 
     match command {
@@ -686,9 +687,10 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
             path,
             verbose,
         } => {
-            let working_dir = path.unwrap_or_else(|| {
-                std::env::current_dir().expect("Failed to get current directory")
-            });
+            let working_dir = match path {
+                Some(p) => p,
+                None => std::env::current_dir().context("Failed to get current directory")?,
+            };
             let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
 
             if !checkpoint_dir.exists() {
@@ -779,9 +781,10 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
             force,
             path,
         } => {
-            let working_dir = path.unwrap_or_else(|| {
-                std::env::current_dir().expect("Failed to get current directory")
-            });
+            let working_dir = match path {
+                Some(p) => p,
+                None => std::env::current_dir().context("Failed to get current directory")?,
+            };
             let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
 
             if !checkpoint_dir.exists() {
@@ -850,9 +853,10 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
             version: _,
             path,
         } => {
-            let working_dir = path.unwrap_or_else(|| {
-                std::env::current_dir().expect("Failed to get current directory")
-            });
+            let working_dir = match path {
+                Some(p) => p,
+                None => std::env::current_dir().context("Failed to get current directory")?,
+            };
             let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
             let checkpoint_manager = CheckpointManager::new(checkpoint_dir);
 
@@ -1634,13 +1638,12 @@ async fn handle_list_command(
 
 /// Classify the merge operation type based on parameters
 fn classify_merge_type(name: &Option<String>, all: bool) -> MergeType {
-    match () {
-        _ if all => MergeType::All,
-        _ if name.is_some() => MergeType::Single(
-            name.clone()
-                .expect("name should be Some based on condition"),
-        ),
-        _ => MergeType::Invalid,
+    if all {
+        MergeType::All
+    } else if let Some(n) = name {
+        MergeType::Single(n.clone())
+    } else {
+        MergeType::Invalid
     }
 }
 
@@ -1860,8 +1863,17 @@ async fn handle_clean_command(
         }
         CleanupAction::All => handle_all_cleanup(worktree_manager, force).await,
         CleanupAction::Single => {
-            let name = name.expect("Name should be present based on cleanup action determination");
-            handle_single_cleanup(worktree_manager, &name, force).await
+            // We only reach this branch if name is Some (see determine_cleanup_action)
+            match name {
+                Some(n) => handle_single_cleanup(worktree_manager, &n, force).await,
+                None => {
+                    // This should be unreachable based on determine_cleanup_action logic,
+                    // but handle gracefully instead of panicking
+                    Err(anyhow::anyhow!(
+                        "Internal error: cleanup action Single requires a worktree name"
+                    ))
+                }
+            }
         }
         CleanupAction::ShowMergeable => handle_show_mergeable(worktree_manager).await,
     }

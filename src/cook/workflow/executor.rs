@@ -26,6 +26,7 @@ use crate::testing::config::TestConfiguration;
 use crate::unified_session::{format_duration, TimingTracker};
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
@@ -33,6 +34,14 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+// Pre-compiled regexes for variable interpolation
+static BRACED_VAR_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\$\{([^}]+)\}").expect("Failed to compile braced variable regex"));
+
+static UNBRACED_VAR_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\$([A-Za-z_][A-Za-z0-9_]*)").expect("Failed to compile unbraced variable regex")
+});
 
 /// Capture output configuration - either a boolean or a variable name
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -317,12 +326,13 @@ impl WorkflowContext {
         let mut resolutions = Vec::new();
 
         // Find ${...} patterns in original template
-        let braced_var_regex = regex::Regex::new(r"\$\{([^}]+)\}").unwrap();
-
-        for captures in braced_var_regex.captures_iter(template) {
+        for captures in BRACED_VAR_REGEX.captures_iter(template) {
             if let Some(var_match) = captures.get(0) {
                 let full_expression = var_match.as_str();
-                let var_expression = captures.get(1).unwrap().as_str();
+                let var_expression = match captures.get(1) {
+                    Some(m) => m.as_str(),
+                    None => continue,
+                };
 
                 // Parse path segments (handle dotted paths like "map.successful")
                 let path_segments: Vec<String> =
@@ -342,12 +352,13 @@ impl WorkflowContext {
         }
 
         // Find $VAR patterns (unbraced variables)
-        let unbraced_var_regex = regex::Regex::new(r"\$([A-Za-z_][A-Za-z0-9_]*)").unwrap();
-
-        for captures in unbraced_var_regex.captures_iter(template) {
+        for captures in UNBRACED_VAR_REGEX.captures_iter(template) {
             if let Some(var_match) = captures.get(0) {
                 let full_expression = var_match.as_str();
-                let var_name = captures.get(1).unwrap().as_str();
+                let var_name = match captures.get(1) {
+                    Some(m) => m.as_str(),
+                    None => continue,
+                };
 
                 // Check if this variable was resolved by looking in the context
                 let path_segments = vec![var_name.to_string()];
@@ -594,6 +605,17 @@ fn is_false(b: &bool) -> bool {
     !b
 }
 
+/// Helper function to compile regex with fallback
+fn compile_regex(pattern: &str) -> Option<Regex> {
+    match Regex::new(pattern) {
+        Ok(regex) => Some(regex),
+        Err(e) => {
+            eprintln!("Warning: Failed to compile regex '{}': {}", pattern, e);
+            None
+        }
+    }
+}
+
 /// Configuration for sensitive variable patterns
 #[derive(Debug, Clone)]
 pub struct SensitivePatternConfig {
@@ -609,24 +631,30 @@ impl Default for SensitivePatternConfig {
     fn default() -> Self {
         Self {
             // Default patterns for common sensitive variable names
-            name_patterns: vec![
-                Regex::new(r"(?i)(password|passwd|pwd)").unwrap(),
-                Regex::new(r"(?i)(token|api[_-]?key|secret)").unwrap(),
-                Regex::new(r"(?i)(auth|authorization|bearer)").unwrap(),
-                Regex::new(r"(?i)(private[_-]?key|ssh[_-]?key)").unwrap(),
-                Regex::new(r"(?i)(access[_-]?key|client[_-]?secret)").unwrap(),
-            ],
+            name_patterns: [
+                r"(?i)(password|passwd|pwd)",
+                r"(?i)(token|api[_-]?key|secret)",
+                r"(?i)(auth|authorization|bearer)",
+                r"(?i)(private[_-]?key|ssh[_-]?key)",
+                r"(?i)(access[_-]?key|client[_-]?secret)",
+            ]
+            .iter()
+            .filter_map(|p| compile_regex(p))
+            .collect(),
             // Default patterns for common sensitive value formats
-            value_patterns: vec![
+            value_patterns: [
                 // GitHub/GitLab tokens (ghp_, glpat-, etc.)
-                Regex::new(r"^(ghp_|gho_|ghu_|ghs_|ghr_|glpat-)").unwrap(),
+                r"^(ghp_|gho_|ghu_|ghs_|ghr_|glpat-)",
                 // AWS access keys
-                Regex::new(r"^AKIA[0-9A-Z]{16}$").unwrap(),
+                r"^AKIA[0-9A-Z]{16}$",
                 // JWT tokens
-                Regex::new(r"^eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$").unwrap(),
+                r"^eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$",
                 // Basic auth headers
-                Regex::new(r"^(Basic|Bearer)\s+[A-Za-z0-9+/=]+$").unwrap(),
-            ],
+                r"^(Basic|Bearer)\s+[A-Za-z0-9+/=]+$",
+            ]
+            .iter()
+            .filter_map(|p| compile_regex(p))
+            .collect(),
             mask_string: "***REDACTED***".to_string(),
         }
     }

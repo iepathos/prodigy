@@ -380,12 +380,15 @@ impl Default for VariableContext {
 impl VariableContext {
     /// Create a new variable context
     pub fn new() -> Self {
-        let cache_size = NonZeroUsize::new(100).unwrap();
+        let cache_size = NonZeroUsize::new(100).expect("Cache size must be non-zero");
+        let variable_regex = Regex::new(r"\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)")
+            .expect("Variable regex pattern is valid");
+
         Self {
             scope: VariableScope::default(),
             computed: HashMap::new(),
             cache: Arc::new(RwLock::new(LruCache::new(cache_size))),
-            variable_regex: Regex::new(r"\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)").unwrap(),
+            variable_regex,
             max_recursion_depth: 10,
         }
     }

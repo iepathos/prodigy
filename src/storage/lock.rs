@@ -38,19 +38,35 @@ impl StorageLock {
 
     /// Check if the lock has expired
     pub fn is_expired(&self) -> bool {
-        let expiry = self.acquired_at + chrono::Duration::from_std(self.ttl).unwrap();
-        Utc::now() > expiry
+        match chrono::Duration::from_std(self.ttl) {
+            Ok(duration) => {
+                let expiry = self.acquired_at + duration;
+                Utc::now() > expiry
+            }
+            Err(_) => {
+                // If duration conversion fails, consider lock expired for safety
+                true
+            }
+        }
     }
 
     /// Remaining time before lock expires
     pub fn remaining_ttl(&self) -> Option<Duration> {
-        let expiry = self.acquired_at + chrono::Duration::from_std(self.ttl).unwrap();
-        let remaining = expiry - Utc::now();
+        match chrono::Duration::from_std(self.ttl) {
+            Ok(duration) => {
+                let expiry = self.acquired_at + duration;
+                let remaining = expiry - Utc::now();
 
-        if remaining > chrono::Duration::zero() {
-            remaining.to_std().ok()
-        } else {
-            None
+                if remaining > chrono::Duration::zero() {
+                    remaining.to_std().ok()
+                } else {
+                    None
+                }
+            }
+            Err(_) => {
+                // If duration conversion fails, return None
+                None
+            }
         }
     }
 }

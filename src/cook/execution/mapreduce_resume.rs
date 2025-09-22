@@ -430,7 +430,7 @@ impl MapReduceResumeManager {
         // If all map items are done and reduce hasn't started
         if state.reduce_commands.is_some()
             && (state.reduce_phase_state.is_none()
-                || !state.reduce_phase_state.as_ref().unwrap().started)
+                || !state.reduce_phase_state.as_ref().is_some_and(|s| s.started))
         {
             return MapReducePhase::Reduce;
         }
@@ -541,7 +541,10 @@ impl MapReduceResumeManager {
         // Prepare reduce phase for execution
         // Note: The reduce commands would need to be stored in state or reconstructed
         if state.reduce_phase_state.is_some()
-            && !state.reduce_phase_state.as_ref().unwrap().completed
+            && !state
+                .reduce_phase_state
+                .as_ref()
+                .is_none_or(|s| s.completed)
         {
             Ok(EnhancedResumeResult::ReadyToExecute {
                 phase: MapReducePhase::Reduce,

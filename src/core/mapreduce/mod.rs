@@ -26,7 +26,20 @@ pub fn filter_work_items(items: Vec<Value>, filter_expr: Option<&str>) -> Vec<Fi
             .collect();
     }
 
-    let filter = filter_expr.unwrap();
+    let filter = match filter_expr {
+        Some(f) => f,
+        None => {
+            // This should not happen due to the check above, but handle gracefully
+            return items
+                .into_iter()
+                .map(|item| FilteredWorkItem {
+                    item,
+                    passed: true,
+                    reason: None,
+                })
+                .collect();
+        }
+    };
 
     items
         .into_iter()

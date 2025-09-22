@@ -231,7 +231,9 @@ impl InterpolationEngine {
         let mut last_end = 0;
 
         for cap in self.variable_regex.captures_iter(template_str) {
-            let full_match = cap.get(0).unwrap();
+            let full_match = cap
+                .get(0)
+                .ok_or_else(|| anyhow!("Failed to get regex match group"))?;
 
             // Determine which capture group matched: ${...} or $VAR
             let var_expr = if let Some(braced_match) = cap.get(1) {
