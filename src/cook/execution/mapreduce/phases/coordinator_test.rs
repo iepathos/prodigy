@@ -33,10 +33,10 @@ fn create_test_setup_phase() -> SetupPhase {
 fn create_test_map_phase() -> MapPhase {
     MapPhase {
         config: MapReduceConfig {
-        agent_timeout_secs: None,
-        continue_on_failure: false,
-        batch_size: None,
-        enable_checkpoints: true,
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test_items.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 5,

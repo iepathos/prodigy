@@ -128,9 +128,9 @@ pub enum EnhancedResumeResult {
     },
     ReadyToExecute {
         phase: MapReducePhase,
-        map_phase: Option<MapPhase>,
-        reduce_phase: Option<ReducePhase>,
-        remaining_items: Vec<Value>,
+        map_phase: Option<Box<MapPhase>>,
+        reduce_phase: Option<Box<ReducePhase>>,
+        remaining_items: Box<Vec<Value>>,
         state: Box<MapReduceJobState>,
     },
 }
@@ -501,12 +501,14 @@ impl MapReduceResumeManager {
         // Return execution context so the caller can execute with a mutable executor
         Ok(EnhancedResumeResult::ReadyToExecute {
             phase: MapReducePhase::Map,
-            map_phase: Some(map_phase),
-            reduce_phase: state.reduce_commands.as_ref().map(|commands| ReducePhase {
-                commands: commands.clone(),
-                timeout_secs: None,
+            map_phase: Some(Box::new(map_phase)),
+            reduce_phase: state.reduce_commands.as_ref().map(|commands| {
+                Box::new(ReducePhase {
+                    commands: commands.clone(),
+                    timeout_secs: None,
+                })
             }),
-            remaining_items,
+            remaining_items: Box::new(remaining_items),
             state: Box::new(state.clone()),
         })
     }
@@ -552,11 +554,13 @@ impl MapReduceResumeManager {
             Ok(EnhancedResumeResult::ReadyToExecute {
                 phase: MapReducePhase::Reduce,
                 map_phase: None,
-                reduce_phase: state.reduce_commands.as_ref().map(|commands| ReducePhase {
-                    commands: commands.clone(),
-                    timeout_secs: None,
+                reduce_phase: state.reduce_commands.as_ref().map(|commands| {
+                    Box::new(ReducePhase {
+                        commands: commands.clone(),
+                        timeout_secs: None,
+                    })
                 }),
-                remaining_items: Vec::new(), // No remaining items for reduce phase
+                remaining_items: Box::new(Vec::new()), // No remaining items for reduce phase
                 state: Box::new(state.clone()),
             })
         } else {

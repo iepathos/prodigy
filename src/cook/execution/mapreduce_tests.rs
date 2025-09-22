@@ -86,10 +86,10 @@ fn test_resume_result_serialization() {
 #[test]
 fn test_mapreduce_config_defaults() {
     let config = MapReduceConfig {
-            agent_timeout_secs: None,
-            continue_on_failure: false,
-            batch_size: None,
-            enable_checkpoints: true,
+        agent_timeout_secs: None,
+        continue_on_failure: false,
+        batch_size: None,
+        enable_checkpoints: true,
         input: "test.json".to_string(),
         json_path: "$.items[*]".to_string(),
         max_parallel: 5,
@@ -1756,10 +1756,10 @@ mod additional_coverage_tests {
     fn test_map_phase_with_all_options() {
         let map_phase = MapPhase {
             config: MapReduceConfig {
-            agent_timeout_secs: None,
-            continue_on_failure: false,
-            batch_size: None,
-            enable_checkpoints: true,
+                agent_timeout_secs: None,
+                continue_on_failure: false,
+                batch_size: None,
+                enable_checkpoints: true,
                 input: "data.json".to_string(),
                 json_path: "$.items[*]".to_string(),
                 max_parallel: 50,

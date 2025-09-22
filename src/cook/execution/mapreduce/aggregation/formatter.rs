@@ -3,9 +3,9 @@
 //! This module provides formatting utilities for presenting
 //! MapReduce execution results in various formats.
 
-use crate::cook::execution::mapreduce::{AgentResult, AgentStatus};
 use super::AggregationSummary;
-use serde_json::{json, Value};
+use crate::cook::execution::mapreduce::{AgentResult, AgentStatus};
+use serde_json::json;
 use std::fmt::Write;
 
 /// Format type for output presentation
@@ -53,7 +53,12 @@ impl OutputFormatter {
         writeln!(&mut output, "Total: {}", summary.total).unwrap();
         writeln!(&mut output, "Successful: {}", summary.successful).unwrap();
         writeln!(&mut output, "Failed: {}", summary.failed).unwrap();
-        writeln!(&mut output, "Avg Duration: {:.2}s", summary.avg_duration_secs).unwrap();
+        writeln!(
+            &mut output,
+            "Avg Duration: {:.2}s",
+            summary.avg_duration_secs
+        )
+        .unwrap();
         writeln!(&mut output).unwrap();
 
         for result in results {
@@ -72,11 +77,16 @@ impl OutputFormatter {
                 status_str,
                 result.item_id,
                 result.duration.as_secs_f64()
-            ).unwrap();
+            )
+            .unwrap();
 
             if let Some(output_text) = &result.output {
-                writeln!(&mut output, "  Output: {}",
-                    output_text.lines().next().unwrap_or("")).unwrap();
+                writeln!(
+                    &mut output,
+                    "  Output: {}",
+                    output_text.lines().next().unwrap_or("")
+                )
+                .unwrap();
             }
         }
 
@@ -112,7 +122,12 @@ impl OutputFormatter {
         writeln!(&mut output, "- Total: {}", summary.total).unwrap();
         writeln!(&mut output, "- Successful: {}", summary.successful).unwrap();
         writeln!(&mut output, "- Failed: {}", summary.failed).unwrap();
-        writeln!(&mut output, "- Average Duration: {:.2}s\n", summary.avg_duration_secs).unwrap();
+        writeln!(
+            &mut output,
+            "- Average Duration: {:.2}s\n",
+            summary.avg_duration_secs
+        )
+        .unwrap();
 
         writeln!(&mut output, "| Item ID | Status | Duration | Commits |").unwrap();
         writeln!(&mut output, "|---------|--------|----------|---------|").unwrap();
@@ -134,7 +149,8 @@ impl OutputFormatter {
                 status_str,
                 result.duration.as_secs_f64(),
                 result.commits.len()
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         output
@@ -156,9 +172,11 @@ impl OutputFormatter {
                 AgentStatus::Retrying(_) => "retrying",
             };
 
-            let output_escaped = result.output.as_ref()
+            let output_escaped = result
+                .output
+                .as_ref()
                 .map(|o| format!("\"{}\"", o.replace("\"", "\"\"")))
-                .unwrap_or_else(|| String::new());
+                .unwrap_or_else(String::new);
 
             writeln!(
                 &mut output,
@@ -168,7 +186,8 @@ impl OutputFormatter {
                 result.duration.as_secs_f64(),
                 result.commits.len(),
                 output_escaped
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         output

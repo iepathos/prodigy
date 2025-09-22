@@ -23,54 +23,49 @@ pub mod types;
 pub mod utils;
 
 // Re-export commonly used types for convenience
-pub use agent::{AgentResult, AgentStatus, AgentLifecycleManager, AgentResultAggregator};
+pub use agent::{AgentLifecycleManager, AgentResult, AgentResultAggregator, AgentStatus};
 pub use aggregation::{AggregationSummary, ResultCollector, ResultReducer};
 pub use coordination::{MapReduceCoordinator, PhaseOrchestrator, WorkScheduler};
 pub use state::StateManager;
-pub use types::{MapReduceConfig, SetupPhase, MapPhase, ReducePhase, ResumeOptions, ResumeResult, AgentContext};
+pub use types::{
+    AgentContext, MapPhase, MapReduceConfig, ReducePhase, ResumeOptions, ResumeResult, SetupPhase,
+};
 pub use utils::{calculate_map_result_summary, MapResultSummary};
 
 // Standard library imports
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 // External crate imports
-use anyhow::{Context, Result as AnyhowResult};
 use chrono::Utc;
-use serde_json::{json, Value};
-use tokio::sync::{mpsc, Mutex, RwLock};
-use tracing::{debug, error, info, warn};
+use tokio::sync::Mutex;
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 // Internal imports
 use crate::commands::CommandRegistry;
-use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem};
+use crate::cook::execution::dlq::DeadLetterQueue;
 use crate::cook::execution::errors::{ErrorContext, MapReduceError, MapReduceResult, SpanInfo};
-use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter, MapReduceEvent};
-use crate::cook::execution::input_source::InputSource;
-use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
-use crate::cook::execution::progress::{CLIProgressViewer, EnhancedProgressTracker};
+use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter};
+use crate::cook::execution::interpolation::InterpolationEngine;
+use crate::cook::execution::progress::EnhancedProgressTracker;
 use crate::cook::execution::progress_tracker::ProgressTracker as NewProgressTracker;
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
-use crate::cook::execution::variables::{Variable, VariableContext};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{ErrorPolicyExecutor, StepResult, WorkflowErrorPolicy, WorkflowStep};
+use crate::cook::workflow::{ErrorPolicyExecutor, WorkflowErrorPolicy};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::{WorktreeManager, WorktreePool, WorktreePoolConfig};
 
 // Import from sub-modules
 use agent::{DefaultLifecycleManager, DefaultResultAggregator};
-use aggregation::CollectionStrategy;
-use coordination::SchedulingStrategy;
-use progress::{operations::AgentOperation, tracker::ProgressTracker};
 use state::persistence::DefaultStateStore;
 
 /// Main MapReduce executor that coordinates all operations
+#[allow(dead_code)]
 pub struct MapReduceExecutor {
     // Core executors and managers
     claude_executor: Arc<dyn ClaudeExecutor>,
@@ -118,6 +113,7 @@ pub struct MapReduceExecutor {
     orchestrator: Option<Arc<PhaseOrchestrator>>,
 }
 
+#[allow(dead_code)]
 impl MapReduceExecutor {
     /// Create a new MapReduce executor
     pub async fn new(
@@ -131,18 +127,17 @@ impl MapReduceExecutor {
         let state_manager = Self::initialize_state_manager(&project_root).await;
 
         // Initialize event logging
-        let (event_logger, job_id) = Self::initialize_event_logger(&project_root).await;
+        let (event_logger, _job_id) = Self::initialize_event_logger(&project_root).await;
 
         // Initialize agent managers
-        let agent_lifecycle_manager = Arc::new(DefaultLifecycleManager::new(worktree_manager.clone()));
+        let agent_lifecycle_manager =
+            Arc::new(DefaultLifecycleManager::new(worktree_manager.clone()));
         let agent_result_aggregator = Arc::new(DefaultResultAggregator::new());
 
         // Initialize command system
         let command_registry = Arc::new(CommandRegistry::with_defaults().await);
-        let command_router = Self::initialize_command_router(
-            claude_executor.clone(),
-            command_registry.clone(),
-        );
+        let command_router =
+            Self::initialize_command_router(claude_executor.clone(), command_registry.clone());
 
         let interpolation_engine = Arc::new(Mutex::new(InterpolationEngine::new(false)));
         let step_executor = Self::initialize_step_executor(command_router.clone());
@@ -196,7 +191,10 @@ impl MapReduceExecutor {
         match DefaultJobStateManager::new_with_global(project_root.to_path_buf()).await {
             Ok(manager) => Arc::new(manager),
             Err(e) => {
-                warn!("Failed to create global state manager: {}, falling back to local", e);
+                warn!(
+                    "Failed to create global state manager: {}, falling back to local",
+                    e
+                );
                 let state_dir = project_root.join(".prodigy").join("mapreduce");
                 Arc::new(DefaultJobStateManager::new(state_dir))
             }
@@ -207,16 +205,20 @@ impl MapReduceExecutor {
     async fn initialize_event_logger(project_root: &Path) -> (Arc<EventLogger>, String) {
         let job_id = format!("mapreduce-{}", Utc::now().format("%Y%m%d_%H%M%S"));
 
-        let event_logger = match crate::storage::create_global_event_logger(project_root, &job_id).await {
-            Ok(logger) => {
-                info!("Using global event storage for job: {}", job_id);
-                Arc::new(logger)
-            }
-            Err(e) => {
-                warn!("Failed to create global event logger: {}, using fallback", e);
-                Self::create_fallback_event_logger().await
-            }
-        };
+        let event_logger =
+            match crate::storage::create_global_event_logger(project_root, &job_id).await {
+                Ok(logger) => {
+                    info!("Using global event storage for job: {}", job_id);
+                    Arc::new(logger)
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to create global event logger: {}, using fallback",
+                        e
+                    );
+                    Self::create_fallback_event_logger().await
+                }
+            };
 
         (event_logger, job_id)
     }
@@ -258,12 +260,17 @@ impl MapReduceExecutor {
     }
 
     /// Initialize step executor
-    fn initialize_step_executor(command_router: Arc<command::CommandRouter>) -> Arc<command::StepExecutor> {
-        let step_interpolator = Arc::new(command::StepInterpolator::new(
-            Arc::new(Mutex::new(command::InterpolationEngine::new(false)))
-        ));
+    fn initialize_step_executor(
+        command_router: Arc<command::CommandRouter>,
+    ) -> Arc<command::StepExecutor> {
+        let step_interpolator = Arc::new(command::StepInterpolator::new(Arc::new(Mutex::new(
+            command::InterpolationEngine::new(false),
+        ))));
 
-        Arc::new(command::StepExecutor::new(command_router, step_interpolator))
+        Arc::new(command::StepExecutor::new(
+            command_router,
+            step_interpolator,
+        ))
     }
 
     /// Check if web dashboard is enabled
@@ -316,7 +323,8 @@ impl MapReduceExecutor {
             worktree_name: None,
             session_id: Arc::from(self.correlation_id.as_str()),
         };
-        self.execute_with_context(setup, map_phase, reduce, env).await
+        self.execute_with_context(setup, map_phase, reduce, env)
+            .await
     }
 
     /// Execute with custom environment context
@@ -340,12 +348,15 @@ impl MapReduceExecutor {
 
         // Delegate to coordinator
         let coordinator = self.coordinator.as_ref().unwrap();
-        coordinator.execute_job(setup, map_phase, reduce, &env).await
+        coordinator
+            .execute_job(setup, map_phase, reduce, &env)
+            .await
     }
 
     /// Resume a MapReduce job from checkpoint
     pub async fn resume_job(&self, job_id: &str) -> MapReduceResult<ResumeResult> {
-        self.resume_job_with_options(job_id, ResumeOptions::default()).await
+        self.resume_job_with_options(job_id, ResumeOptions::default())
+            .await
     }
 
     /// Resume with custom options
@@ -357,7 +368,10 @@ impl MapReduceExecutor {
         info!("Resuming job {} with options: {:?}", job_id, options);
 
         // Load checkpoint from state manager
-        let checkpoint = self.state_manager.get_job_state(job_id).await
+        let checkpoint = self
+            .state_manager
+            .get_job_state(job_id)
+            .await
             .map_err(|e| MapReduceError::General {
                 message: format!("Failed to load checkpoint: {}", e),
                 source: None,
@@ -392,7 +406,9 @@ impl MapReduceExecutor {
 
     /// List all resumable jobs
     pub async fn list_resumable_jobs(&self) -> MapReduceResult<Vec<String>> {
-        self.state_manager.list_resumable_jobs().await
+        self.state_manager
+            .list_resumable_jobs()
+            .await
             .map_err(|e| MapReduceError::General {
                 message: format!("Failed to list resumable jobs: {}", e),
                 source: None,
@@ -441,10 +457,7 @@ impl MapReduceExecutor {
     }
 
     /// Calculate pending items from checkpoint
-    fn calculate_pending_items(
-        &self,
-        state: &MapReduceJobState,
-    ) -> (Vec<usize>, Vec<usize>) {
+    fn calculate_pending_items(&self, state: &MapReduceJobState) -> (Vec<usize>, Vec<usize>) {
         // Use pending_items directly from state
         let pending: Vec<usize> = (0..state.pending_items.len()).collect();
 

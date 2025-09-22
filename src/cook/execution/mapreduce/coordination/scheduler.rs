@@ -5,8 +5,8 @@
 
 use serde_json::Value;
 use std::collections::VecDeque;
-use tokio::sync::{mpsc, RwLock};
 use std::sync::Arc;
+use tokio::sync::{mpsc, RwLock};
 use tracing::debug;
 
 /// Strategy for scheduling work items
@@ -70,12 +70,8 @@ impl WorkScheduler {
         let mut queue = self.work_queue.write().await;
 
         let item = match &self.strategy {
-            SchedulingStrategy::FIFO | SchedulingStrategy::RoundRobin => {
-                queue.pop_front()
-            }
-            SchedulingStrategy::LIFO => {
-                queue.pop_back()
-            }
+            SchedulingStrategy::FIFO | SchedulingStrategy::RoundRobin => queue.pop_front(),
+            SchedulingStrategy::LIFO => queue.pop_back(),
             SchedulingStrategy::Priority { .. } => {
                 // For priority scheduling, find highest priority item
                 if queue.is_empty() {
@@ -90,9 +86,7 @@ impl WorkScheduler {
                     queue.remove(max_idx)
                 }
             }
-            SchedulingStrategy::Batched { .. } => {
-                queue.pop_front()
-            }
+            SchedulingStrategy::Batched { .. } => queue.pop_front(),
         };
 
         if item.is_some() {
@@ -120,8 +114,12 @@ impl WorkScheduler {
         if !batch.is_empty() {
             let mut count = self.processed_count.write().await;
             *count += batch.len();
-            debug!("Scheduled batch of {} items ({}/{})",
-                batch.len(), *count, self.total_items);
+            debug!(
+                "Scheduled batch of {} items ({}/{})",
+                batch.len(),
+                *count,
+                self.total_items
+            );
         }
 
         batch
@@ -193,11 +191,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fifo_scheduling() {
-        let items = vec![
-            json!({"id": 1}),
-            json!({"id": 2}),
-            json!({"id": 3}),
-        ];
+        let items = vec![json!({"id": 1}), json!({"id": 2}), json!({"id": 3})];
 
         let scheduler = WorkScheduler::new(SchedulingStrategy::FIFO, items);
 
@@ -215,11 +209,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_lifo_scheduling() {
-        let items = vec![
-            json!({"id": 1}),
-            json!({"id": 2}),
-            json!({"id": 3}),
-        ];
+        let items = vec![json!({"id": 1}), json!({"id": 2}), json!({"id": 3})];
 
         let scheduler = WorkScheduler::new(SchedulingStrategy::LIFO, items);
 
@@ -242,10 +232,7 @@ mod tests {
             json!({"id": 4}),
         ];
 
-        let scheduler = WorkScheduler::new(
-            SchedulingStrategy::Batched { batch_size: 2 },
-            items
-        );
+        let scheduler = WorkScheduler::new(SchedulingStrategy::Batched { batch_size: 2 }, items);
 
         let batch1 = scheduler.next_batch(2).await;
         assert_eq!(batch1.len(), 2);

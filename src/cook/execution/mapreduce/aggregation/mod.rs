@@ -3,14 +3,14 @@
 //! This module provides functionality for aggregating and reducing results
 //! from MapReduce agent execution, following functional programming principles.
 
-pub mod reducer;
 pub mod collector;
 pub mod formatter;
+pub mod reducer;
 
 // Re-export main types for convenience
-pub use collector::{ResultCollector, CollectionStrategy};
-pub use reducer::{ResultReducer, ReductionStrategy};
-pub use formatter::{OutputFormatter, FormatType};
+pub use collector::{CollectionStrategy, ResultCollector};
+pub use formatter::{FormatType, OutputFormatter};
+pub use reducer::{ReductionStrategy, ResultReducer};
 
 use crate::cook::execution::mapreduce::{AgentResult, AgentStatus};
 use serde::{Deserialize, Serialize};
@@ -43,10 +43,7 @@ impl AggregationSummary {
             .filter(|r| matches!(r.status, AgentStatus::Failed(_) | AgentStatus::Timeout))
             .count();
 
-        let total_duration: f64 = results
-            .iter()
-            .map(|r| r.duration.as_secs_f64())
-            .sum();
+        let total_duration: f64 = results.iter().map(|r| r.duration.as_secs_f64()).sum();
 
         let avg_duration = if results.is_empty() {
             0.0

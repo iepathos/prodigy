@@ -4,9 +4,9 @@
 //! results from parallel agent execution.
 
 use crate::cook::execution::mapreduce::{AgentResult, AgentStatus};
+use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::VecDeque;
 
 /// Strategy for collecting results
 #[derive(Debug, Clone)]
@@ -158,8 +158,15 @@ mod tests {
     async fn test_in_memory_collection() {
         let collector = ResultCollector::new(CollectionStrategy::InMemory);
 
-        collector.add_result(create_test_result("1", AgentStatus::Success)).await;
-        collector.add_result(create_test_result("2", AgentStatus::Failed("error".to_string()))).await;
+        collector
+            .add_result(create_test_result("1", AgentStatus::Success))
+            .await;
+        collector
+            .add_result(create_test_result(
+                "2",
+                AgentStatus::Failed("error".to_string()),
+            ))
+            .await;
 
         let results = collector.get_results().await;
         assert_eq!(results.len(), 2);
@@ -175,9 +182,15 @@ mod tests {
     async fn test_windowed_collection() {
         let collector = ResultCollector::new(CollectionStrategy::Windowed { window_size: 2 });
 
-        collector.add_result(create_test_result("1", AgentStatus::Success)).await;
-        collector.add_result(create_test_result("2", AgentStatus::Success)).await;
-        collector.add_result(create_test_result("3", AgentStatus::Success)).await;
+        collector
+            .add_result(create_test_result("1", AgentStatus::Success))
+            .await;
+        collector
+            .add_result(create_test_result("2", AgentStatus::Success))
+            .await;
+        collector
+            .add_result(create_test_result("3", AgentStatus::Success))
+            .await;
 
         let results = collector.get_results().await;
         assert_eq!(results.len(), 2);

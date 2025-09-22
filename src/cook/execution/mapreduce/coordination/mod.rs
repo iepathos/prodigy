@@ -10,4 +10,4 @@ pub mod scheduler;
 // Re-export main types
 pub use executor::MapReduceCoordinator;
 pub use orchestrator::PhaseOrchestrator;
-pub use scheduler::{WorkScheduler, SchedulingStrategy};
+pub use scheduler::{SchedulingStrategy, WorkScheduler};

@@ -3,11 +3,11 @@
 //! This module manages the orchestration of different phases
 //! in MapReduce execution, ensuring proper sequencing and coordination.
 
+use crate::cook::execution::errors::MapReduceResult;
 use crate::cook::execution::mapreduce::{
     agent::AgentResult,
-    types::{SetupPhase, MapPhase, ReducePhase},
+    types::{MapPhase, ReducePhase, SetupPhase},
 };
-use crate::cook::execution::errors::MapReduceResult;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -17,10 +17,7 @@ use tracing::{debug, info};
 #[async_trait]
 pub trait PhaseExecutor {
     /// Execute a phase and return results
-    async fn execute(
-        &self,
-        env: &ExecutionEnvironment,
-    ) -> MapReduceResult<PhaseResult>;
+    async fn execute(&self, env: &ExecutionEnvironment) -> MapReduceResult<PhaseResult>;
 
     /// Get phase name
     fn name(&self) -> &str;
@@ -47,12 +44,16 @@ pub struct PhaseOrchestrator {
     phases: Vec<Box<dyn PhaseExecutor + Send + Sync>>,
 }
 
+impl Default for PhaseOrchestrator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PhaseOrchestrator {
     /// Create a new orchestrator
     pub fn new() -> Self {
-        Self {
-            phases: Vec::new(),
-        }
+        Self { phases: Vec::new() }
     }
 
     /// Add a phase to the orchestrator
@@ -109,22 +110,19 @@ impl PhaseOrchestrator {
 
 /// Setup phase executor
 pub struct SetupExecutor {
-    phase: SetupPhase,
+    _phase: SetupPhase,
 }
 
 impl SetupExecutor {
     /// Create a new setup executor
     pub fn new(phase: SetupPhase) -> Self {
-        Self { phase }
+        Self { _phase: phase }
     }
 }
 
 #[async_trait]
 impl PhaseExecutor for SetupExecutor {
-    async fn execute(
-        &self,
-        env: &ExecutionEnvironment,
-    ) -> MapReduceResult<PhaseResult> {
+    async fn execute(&self, _env: &ExecutionEnvironment) -> MapReduceResult<PhaseResult> {
         debug!("Executing setup phase");
         // Implementation would execute setup commands
         Ok(PhaseResult::Setup)
@@ -135,28 +133,25 @@ impl PhaseExecutor for SetupExecutor {
     }
 
     fn can_skip(&self) -> bool {
-        self.phase.commands.is_empty()
+        self._phase.commands.is_empty()
     }
 }
 
 /// Map phase executor
 pub struct MapExecutor {
-    phase: Arc<MapPhase>,
+    _phase: Arc<MapPhase>,
 }
 
 impl MapExecutor {
     /// Create a new map executor
     pub fn new(phase: Arc<MapPhase>) -> Self {
-        Self { phase }
+        Self { _phase: phase }
     }
 }
 
 #[async_trait]
 impl PhaseExecutor for MapExecutor {
-    async fn execute(
-        &self,
-        env: &ExecutionEnvironment,
-    ) -> MapReduceResult<PhaseResult> {
+    async fn execute(&self, _env: &ExecutionEnvironment) -> MapReduceResult<PhaseResult> {
         debug!("Executing map phase");
         // Implementation would execute map operations
         Ok(PhaseResult::Map(Vec::new()))
@@ -169,24 +164,27 @@ impl PhaseExecutor for MapExecutor {
 
 /// Reduce phase executor
 pub struct ReduceExecutor {
-    phase: ReducePhase,
+    _phase: ReducePhase,
     map_results: Vec<AgentResult>,
 }
 
 impl ReduceExecutor {
     /// Create a new reduce executor
     pub fn new(phase: ReducePhase, map_results: Vec<AgentResult>) -> Self {
-        Self { phase, map_results }
+        Self {
+            _phase: phase,
+            map_results,
+        }
     }
 }
 
 #[async_trait]
 impl PhaseExecutor for ReduceExecutor {
-    async fn execute(
-        &self,
-        env: &ExecutionEnvironment,
-    ) -> MapReduceResult<PhaseResult> {
-        debug!("Executing reduce phase with {} results", self.map_results.len());
+    async fn execute(&self, _env: &ExecutionEnvironment) -> MapReduceResult<PhaseResult> {
+        debug!(
+            "Executing reduce phase with {} results",
+            self.map_results.len()
+        );
         // Implementation would execute reduce operations
         Ok(PhaseResult::Reduce)
     }
@@ -196,6 +194,6 @@ impl PhaseExecutor for ReduceExecutor {
     }
 
     fn can_skip(&self) -> bool {
-        self.phase.commands.is_empty() || self.map_results.is_empty()
+        self._phase.commands.is_empty() || self.map_results.is_empty()
     }
 }

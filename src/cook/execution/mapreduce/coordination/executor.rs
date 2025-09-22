@@ -3,17 +3,17 @@
 //! This module coordinates the execution of MapReduce jobs,
 //! managing phases and resource allocation.
 
+use crate::cook::execution::data_pipeline::DataPipeline;
+use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
+use crate::cook::execution::input_source::InputSource;
 use crate::cook::execution::mapreduce::{
     agent::{AgentLifecycleManager, AgentResult},
-    aggregation::{AggregationSummary, ResultCollector, CollectionStrategy},
+    aggregation::{AggregationSummary, CollectionStrategy, ResultCollector},
     state::StateManager,
-    types::{MapReduceConfig, SetupPhase, MapPhase, ReducePhase},
+    types::{MapPhase, ReducePhase, SetupPhase},
 };
-use crate::cook::execution::data_pipeline::DataPipeline;
-use crate::cook::execution::errors::{MapReduceError, MapReduceResult, ErrorContext};
-use crate::cook::execution::input_source::InputSource;
-use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::interaction::UserInteraction;
+use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::subprocess::SubprocessManager;
 use serde_json::Value;
 use std::path::PathBuf;
@@ -24,9 +24,9 @@ use tracing::{debug, info, warn};
 /// Main coordinator for MapReduce execution
 pub struct MapReduceCoordinator {
     /// Agent lifecycle manager
-    agent_manager: Arc<dyn AgentLifecycleManager>,
+    _agent_manager: Arc<dyn AgentLifecycleManager>,
     /// State manager for job state
-    state_manager: Arc<StateManager>,
+    _state_manager: Arc<StateManager>,
     /// User interaction handler
     user_interaction: Arc<dyn UserInteraction>,
     /// Result collector
@@ -46,13 +46,11 @@ impl MapReduceCoordinator {
         subprocess: Arc<SubprocessManager>,
         project_root: PathBuf,
     ) -> Self {
-        let result_collector = Arc::new(
-            ResultCollector::new(CollectionStrategy::InMemory)
-        );
+        let result_collector = Arc::new(ResultCollector::new(CollectionStrategy::InMemory));
 
         Self {
-            agent_manager,
-            state_manager,
+            _agent_manager: agent_manager,
+            _state_manager: state_manager,
             user_interaction,
             result_collector,
             subprocess,
@@ -86,15 +84,14 @@ impl MapReduceCoordinator {
         info!("Processing {} work items", work_items.len());
 
         // Execute map phase
-        let map_results = self.execute_map_phase_internal(
-            map_phase,
-            work_items,
-            env
-        ).await?;
+        let map_results = self
+            .execute_map_phase_internal(map_phase, work_items, env)
+            .await?;
 
         // Execute reduce phase if present
         if let Some(reduce_phase) = reduce {
-            self.execute_reduce_phase(reduce_phase, &map_results, env).await?;
+            self.execute_reduce_phase(reduce_phase, &map_results, env)
+                .await?;
         }
 
         Ok(map_results)
@@ -103,29 +100,29 @@ impl MapReduceCoordinator {
     /// Execute the setup phase
     async fn execute_setup_phase(
         &self,
-        setup: SetupPhase,
-        env: &ExecutionEnvironment,
+        _setup: SetupPhase,
+        _env: &ExecutionEnvironment,
     ) -> MapReduceResult<()> {
         info!("Executing setup phase");
 
-        self.user_interaction.display_progress("Starting setup phase...");
+        self.user_interaction
+            .display_progress("Starting setup phase...");
 
         // In a real implementation, execute setup commands here
         // For now, this is a placeholder
 
-        self.user_interaction.display_success("Setup phase completed");
+        self.user_interaction
+            .display_success("Setup phase completed");
         Ok(())
     }
 
     /// Load work items for processing
-    async fn load_work_items(
-        &self,
-        map_phase: &MapPhase,
-    ) -> MapReduceResult<Vec<Value>> {
+    async fn load_work_items(&self, map_phase: &MapPhase) -> MapReduceResult<Vec<Value>> {
         debug!("Loading work items from input source");
 
         // Detect input source type using the project root as base
-        let input_source = InputSource::detect_with_base(&map_phase.config.input, &self.project_root);
+        let input_source =
+            InputSource::detect_with_base(&map_phase.config.input, &self.project_root);
 
         let json_data = match input_source {
             InputSource::Command(ref cmd) => {
@@ -146,7 +143,7 @@ impl MapReduceCoordinator {
         };
 
         // Create data pipeline with JSONPath and other configurations
-        let json_path = if map_phase.json_path.as_ref().map_or(true, |p| p.is_empty()) {
+        let json_path = if map_phase.json_path.as_ref().is_none_or(|p| p.is_empty()) {
             None
         } else {
             map_phase.json_path.clone()
@@ -159,18 +156,22 @@ impl MapReduceCoordinator {
             map_phase.max_items,
             None, // offset
             map_phase.distinct.clone(),
-        ).map_err(|e| MapReduceError::InvalidConfiguration {
+        )
+        .map_err(|e| MapReduceError::InvalidConfiguration {
             reason: format!("Failed to create data pipeline: {}", e),
             field: "pipeline".to_string(),
             value: "configuration".to_string(),
         })?;
 
         // Process the data through the pipeline
-        let items = pipeline.process(&json_data).map_err(|e| MapReduceError::InvalidConfiguration {
-            reason: format!("Failed to process work items: {}", e),
-            field: "input".to_string(),
-            value: map_phase.config.input.clone(),
-        })?;
+        let items =
+            pipeline
+                .process(&json_data)
+                .map_err(|e| MapReduceError::InvalidConfiguration {
+                    reason: format!("Failed to process work items: {}", e),
+                    field: "input".to_string(),
+                    value: map_phase.config.input.clone(),
+                })?;
 
         debug!("Loaded {} work items", items.len());
         Ok(items)
@@ -181,7 +182,7 @@ impl MapReduceCoordinator {
         &self,
         map_phase: MapPhase,
         work_items: Vec<Value>,
-        env: &ExecutionEnvironment,
+        _env: &ExecutionEnvironment,
     ) -> MapReduceResult<Vec<AgentResult>> {
         info!("Executing map phase with {} items", work_items.len());
 
@@ -196,7 +197,7 @@ impl MapReduceCoordinator {
         // Process items (simplified for extraction)
         let mut results = Vec::new();
 
-        for (index, item) in work_items.into_iter().enumerate() {
+        for (index, _item) in work_items.into_iter().enumerate() {
             // In real implementation, this would spawn agents
             debug!("Processing item {}/{}", index + 1, total_items);
 
@@ -215,7 +216,9 @@ impl MapReduceCoordinator {
             };
 
             results.push(result);
-            self.result_collector.add_result(results.last().unwrap().clone()).await;
+            self.result_collector
+                .add_result(results.last().unwrap().clone())
+                .await;
         }
 
         let summary = AggregationSummary::from_results(&results);
@@ -227,20 +230,22 @@ impl MapReduceCoordinator {
     /// Execute the reduce phase
     async fn execute_reduce_phase(
         &self,
-        reduce: ReducePhase,
+        _reduce: ReducePhase,
         map_results: &[AgentResult],
-        env: &ExecutionEnvironment,
+        _env: &ExecutionEnvironment,
     ) -> MapReduceResult<()> {
         info!("Executing reduce phase");
 
-        self.user_interaction.display_progress("Starting reduce phase...");
+        self.user_interaction
+            .display_progress("Starting reduce phase...");
 
         let summary = AggregationSummary::from_results(map_results);
         self.display_reduce_summary(&summary);
 
         // In real implementation, execute reduce commands here
 
-        self.user_interaction.display_success("Reduce phase completed");
+        self.user_interaction
+            .display_success("Reduce phase completed");
         Ok(())
     }
 

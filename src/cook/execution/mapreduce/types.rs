@@ -100,7 +100,7 @@ pub struct ReducePhase {
 }
 
 /// Options for resuming MapReduce jobs
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ResumeOptions {
     /// Whether to reprocess failed items
     pub reprocess_failed: bool,
@@ -110,17 +110,6 @@ pub struct ResumeOptions {
     pub skip_validation: bool,
     /// Custom timeout for resumed agents
     pub agent_timeout_secs: Option<u64>,
-}
-
-impl Default for ResumeOptions {
-    fn default() -> Self {
-        Self {
-            reprocess_failed: false,
-            max_parallel: None,
-            skip_validation: false,
-            agent_timeout_secs: None,
-        }
-    }
 }
 
 /// Result of a resume operation

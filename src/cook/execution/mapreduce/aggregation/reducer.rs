@@ -3,11 +3,14 @@
 //! This module contains pure functions for reducing and combining
 //! agent execution results following functional programming patterns.
 
-use crate::cook::execution::mapreduce::{AgentResult, AgentStatus};
 use crate::cook::execution::interpolation::InterpolationContext;
+use crate::cook::execution::mapreduce::{AgentResult, AgentStatus};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+/// Type alias for complex reduction function to reduce type complexity
+pub type ReductionFunction = Arc<dyn Fn(&[AgentResult]) -> Value + Send + Sync>;
 
 /// Strategy for reducing results
 #[derive(Clone)]
@@ -21,7 +24,7 @@ pub enum ReductionStrategy {
     /// Group by status
     GroupByStatus,
     /// Custom reduction function
-    Custom(Arc<dyn Fn(&[AgentResult]) -> Value + Send + Sync>),
+    Custom(ReductionFunction),
 }
 
 impl std::fmt::Debug for ReductionStrategy {
@@ -79,12 +82,10 @@ impl ResultReducer {
 
         for result in results {
             if let Some(output) = &result.output {
-                if let Ok(value) = serde_json::from_str::<Value>(output) {
-                    if let Value::Object(obj) = value {
-                        if let Value::Object(ref mut target) = merged {
-                            target.extend(obj);
-                        }
-                    }
+                if let (Ok(Value::Object(obj)), Value::Object(ref mut target)) =
+                    (serde_json::from_str::<Value>(output), &mut merged)
+                {
+                    target.extend(obj);
                 }
             }
         }
@@ -119,7 +120,8 @@ impl ResultReducer {
                 AgentStatus::Retrying(_) => "retrying",
             };
 
-            groups.entry(status_key.to_string())
+            groups
+                .entry(status_key.to_string())
                 .or_default()
                 .push(result);
         }
@@ -135,13 +137,16 @@ impl ResultReducer {
         let mut context = InterpolationContext::new();
 
         // Add summary statistics
-        context.set("map", json!({
-            "successful": summary.successful,
-            "failed": summary.failed,
-            "total": summary.total,
-            "avg_duration": summary.avg_duration_secs,
-            "total_duration": summary.total_duration_secs
-        }));
+        context.set(
+            "map",
+            json!({
+                "successful": summary.successful,
+                "failed": summary.failed,
+                "total": summary.total,
+                "avg_duration": summary.avg_duration_secs,
+                "total_duration": summary.total_duration_secs
+            }),
+        );
 
         // Add complete results
         let results_value = serde_json::to_value(results)?;
