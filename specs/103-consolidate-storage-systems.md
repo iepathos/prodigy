@@ -1,121 +1,107 @@
 ---
 number: 103
-title: Consolidate Duplicate Storage Systems
+title: Remove Migration Code and Simplify Storage
 category: foundation
 priority: critical
 status: draft
 dependencies: [101]
 created: 2025-09-22
+updated: 2025-09-22
 ---
 
-# Specification 103: Consolidate Duplicate Storage Systems
+# Specification 103: Remove Migration Code and Simplify Storage
 
 ## Context
 
-The codebase currently maintains two parallel storage implementations: legacy local storage (`.prodigy/`) and newer global storage (`~/.prodigy/`), along with migration logic. This duplication violates VISION.md principles of simplicity and creates maintenance burden, potential data consistency issues, and user confusion.
+The codebase has successfully transitioned to global storage (`~/.prodigy/`), but still contains migration code and legacy configuration structures. Since we're in early prototyping phase, backward compatibility is not a concern. This creates unnecessary complexity that violates VISION.md principles.
 
-Current duplication identified:
-- Legacy local storage in `.prodigy/`
-- Global storage in `~/.prodigy/`
-- Migration logic in `storage/migrate.rs`
-- Different session management approaches
-- Inconsistent error handling between systems
+Current unnecessary code identified:
+- Migration module in `storage/mod.rs::migration`
+- Migration file `storage/migrate.rs`
+- `LegacyStorageConfig` struct in `storage/mod.rs`
+- `StorageMigrator`, `MigrationConfig`, `MigrationStats` exports
+- Migration-related CLI commands and references
+- Automatic migration checks on startup
 
 ## Objective
 
-Consolidate to a single, unified storage system using global storage architecture, eliminating legacy local storage while ensuring zero data loss during migration and simplifying the codebase.
+Remove all migration-related code and legacy storage configurations to simplify the codebase, since backward compatibility is not needed during prototyping phase. The global storage system is already the only implementation in use.
 
 ## Requirements
 
 ### Functional Requirements
-- Remove all legacy local storage code
-- Ensure automatic migration of existing local data
-- Maintain backward compatibility during transition period
-- Provide clear migration status and error reporting
-- Support rollback if migration fails
-- Unified API for all storage operations
+- Remove all migration-related code and modules
+- Remove `LegacyStorageConfig` struct and related code
+- Remove `storage/migrate.rs` file completely
+- Clean up imports and exports in `storage/mod.rs`
+- Remove any migration CLI commands or subcommands
+- Remove migration checks from application startup
+- Ensure global storage remains the only implementation
 
 ### Non-Functional Requirements
-- Zero data loss during migration
-- Migration must be atomic (all or nothing)
-- Performance should improve with single storage system
 - Reduced binary size from code elimination
-- Clear error messages for migration issues
+- Simplified codebase with less maintenance burden
+- Clearer code structure without legacy compatibility layers
+- All existing tests should still pass after removal
 
 ## Acceptance Criteria
 
-- [ ] All legacy local storage code removed
-- [ ] Single storage implementation in global architecture
-- [ ] Automatic migration on first run with new version
-- [ ] Migration includes verification and rollback capability
-- [ ] All storage tests pass with unified system
-- [ ] Documentation updated to reflect global-only storage
-- [ ] CLI help reflects current storage behavior
-- [ ] Reduced binary size from code elimination
+- [ ] `storage/migrate.rs` file deleted
+- [ ] Migration module removed from `storage/mod.rs`
+- [ ] `LegacyStorageConfig` struct removed
+- [ ] Migration-related exports removed (`StorageMigrator`, `MigrationConfig`, `MigrationStats`)
+- [ ] No references to `.prodigy/` local storage remain in code
+- [ ] All migration CLI commands removed
+- [ ] Application starts without checking for local storage
+- [ ] All tests pass after removal
+- [ ] Documentation updated to remove migration references
 
 ## Technical Details
 
 ### Implementation Approach
 
-1. **Phase 1: Strengthen Global Storage**
-   - Ensure global storage handles all legacy use cases
-   - Add comprehensive error handling and validation
-   - Implement atomic operations for critical data
+1. **Remove Migration Module from storage/mod.rs**
+   - Delete the entire `migration` module (lines 166-297)
+   - Remove `pub mod migrate;` import
+   - Remove migration-related exports
 
-2. **Phase 2: Enhanced Migration**
-   - Improve migration robustness with verification
-   - Add rollback capability for failed migrations
-   - Provide detailed migration progress and logging
+2. **Delete storage/migrate.rs File**
+   - Remove the entire file from the codebase
+   - Update any references in other files
 
-3. **Phase 3: Legacy Code Removal**
-   - Remove local storage implementations
-   - Remove conditional logic that switches between systems
-   - Simplify API to single storage interface
+3. **Remove LegacyStorageConfig**
+   - Delete `LegacyStorageConfig` struct and its implementations
+   - Remove any usage of this struct throughout the codebase
 
-### Migration Safety Pattern
+4. **Clean Up References**
+   - Search for and remove any references to `.prodigy/` local storage
+   - Remove migration checks from application startup
+   - Remove migration-related CLI commands
 
-```rust
-pub fn migrate_to_global_storage() -> Result<MigrationResult> {
-    let backup = create_backup_of_local_storage()?;
+### Files to be Modified
 
-    match attempt_migration() {
-        Ok(result) => {
-            verify_migration_integrity(&result)?;
-            remove_local_storage()?;
-            cleanup_backup(backup)?;
-            Ok(result)
-        }
-        Err(error) => {
-            restore_from_backup(backup)?;
-            Err(error.context("Migration failed, local storage restored"))
-        }
-    }
-}
-```
-
-### Files to be Removed/Simplified
-
-- `storage/local.rs` - Legacy local storage implementation
-- `storage/migrate.rs` - Complex migration logic (simplify to one-way)
-- Conditional storage selection logic throughout codebase
-- Legacy session management in various modules
+- `storage/mod.rs` - Remove migration module, LegacyStorageConfig, and related exports
+- `storage/migrate.rs` - Delete entirely
+- `main.rs` - Remove any migration checks on startup
+- `cli/*.rs` - Remove migration-related commands
+- Any files with references to local `.prodigy/` storage
 
 ## Dependencies
 
-- **Spec 101**: Proper error handling required for safe migration
+- **Spec 101**: Proper error handling must be maintained in remaining global storage code
 
 ## Testing Strategy
 
-- Create test scenarios with various local storage states
-- Test migration failure and rollback scenarios
-- Verify data integrity after migration
-- Performance tests comparing unified vs dual systems
-- Integration tests for storage API consistency
+- Ensure all existing storage tests pass after removal
+- Verify no references to local storage remain
+- Test that application starts without migration checks
+- Confirm global storage handles all operations correctly
+- Check that binary size is reduced after code removal
 
 ## Documentation Requirements
 
-- Update storage architecture documentation
-- Remove references to local storage from user guides
-- Document migration process and troubleshooting
-- Update development setup instructions
-- Add storage layout documentation for global system
+- Remove all references to local `.prodigy/` storage from documentation
+- Remove migration instructions and troubleshooting guides
+- Update CLAUDE.md to remove migration references
+- Update README if it mentions local storage
+- Ensure all documentation reflects global-only storage architecture
