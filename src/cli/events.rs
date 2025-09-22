@@ -2336,7 +2336,7 @@ mod tests {
         assert_eq!(policy.max_age_days, Some(30));
         assert_eq!(policy.max_events, Some(100));
         assert_eq!(policy.max_file_size_bytes, Some(1_073_741_824));
-        assert_eq!(policy.archive_old_events, false);
+        assert!(!policy.archive_old_events);
         // archive_path has a default value from RetentionPolicy::default()
         assert!(policy.archive_path.is_some());
     }

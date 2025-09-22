@@ -2207,7 +2207,7 @@ branch refs/heads/main"#;
         serde_json::json!({
             "session_id": session_id,
             "status": status,
-            "branch": format!("feature-{}", session_id.split('-').last().unwrap_or("1")),
+            "branch": format!("feature-{}", session_id.split('-').next_back().unwrap_or("1")),
             "created_at": (chrono::Utc::now() - chrono::Duration::hours(hours_ago)).to_rfc3339(),
             "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(minutes_ago)).to_rfc3339(),
             "error": error_msg,
