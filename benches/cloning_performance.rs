@@ -2,16 +2,17 @@
 //!
 //! Tests the performance improvements from spec 104 implementation
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use prodigy::cook::environment::path_resolver::{PathResolver, Platform};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use prodigy::cook::PathResolver;
 use std::collections::HashMap;
+use std::hint::black_box;
 use std::sync::Arc;
 
 /// Benchmark path resolution with Cow optimizations
 fn bench_path_resolution(c: &mut Criterion) {
     let mut group = c.benchmark_group("path_resolution");
 
-    let test_paths = vec![
+    let test_paths = [
         "/home/user/project/src/main.rs",
         "~/Documents/code/test.txt",
         "$HOME/Downloads/file.zip",
@@ -31,7 +32,7 @@ fn bench_path_resolution(c: &mut Criterion) {
 
     group.bench_function("path_with_home", |b| {
         b.iter(|| {
-            black_box(resolver.resolve(&test_paths[1]));
+            black_box(resolver.resolve(test_paths[1]));
         });
     });
 
@@ -129,6 +130,7 @@ fn bench_memory_allocation(c: &mut Criterion) {
 
     // Simulate workflow data structure
     #[derive(Clone)]
+    #[allow(dead_code)]
     struct WorkflowData {
         id: String,
         name: String,

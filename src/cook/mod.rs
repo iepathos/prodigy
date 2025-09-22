@@ -43,6 +43,7 @@ use std::sync::Arc;
 
 // Re-export key types
 pub use command::CookCommand;
+pub use environment::{PathResolver, Platform};
 pub use orchestrator::{CookConfig, CookOrchestrator, DefaultCookOrchestrator};
 
 /// Main entry point for cook operations

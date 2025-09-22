@@ -107,6 +107,7 @@ fn test_cow_memory_efficiency() {
 #[test]
 fn test_workflow_data_memory_optimization() {
     #[derive(Clone)]
+    #[allow(dead_code)]
     struct OriginalWorkflow {
         id: String,
         name: String,
