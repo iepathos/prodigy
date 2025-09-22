@@ -139,14 +139,19 @@ impl SessionReplay {
 
     /// Play events automatically with configured speed
     pub async fn play(&mut self) -> Result<Vec<ReplayEvent>> {
-        let mut events = Vec::new();
         let delay_ms = self.playback_speed.delay_ms();
+        let mut events = Vec::new();
 
-        while let Some(event) = self.step_forward() {
-            events.push(event.clone());
-
-            if delay_ms > 0 {
-                tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+        // Use iterator-style approach with collect
+        loop {
+            match self.step_forward() {
+                Some(event) => {
+                    events.push(event.clone());
+                    if delay_ms > 0 {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                    }
+                }
+                None => break,
             }
         }
 
@@ -155,19 +160,26 @@ impl SessionReplay {
 
     /// Play a specific range of events
     pub async fn play_range(&mut self, start: usize, end: usize) -> Result<Vec<ReplayEvent>> {
-        let mut events = Vec::new();
         let delay_ms = self.playback_speed.delay_ms();
-
         self.current_position = start;
-        while self.current_position < end.min(self.session.events.len()) {
-            if let Some(event) = self.step_forward() {
-                events.push(event);
 
-                if delay_ms > 0 {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
-                }
-            } else {
+        let mut events = Vec::new();
+        let end_position = end.min(self.session.events.len());
+
+        // Use iterator-style approach with bounded iteration
+        loop {
+            if self.current_position >= end_position {
                 break;
+            }
+
+            match self.step_forward() {
+                Some(event) => {
+                    events.push(event);
+                    if delay_ms > 0 {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                    }
+                }
+                None => break,
             }
         }
 

@@ -717,15 +717,14 @@ async fn show_aggregated_stats(group_by: String, output_format: String) -> Resul
                 percentage: f64,
             }
 
-            let mut entries = Vec::new();
-            for (key, count) in &stats {
-                let percentage = (*count as f64 / total as f64) * 100.0;
-                entries.push(StatEntry {
+            let mut entries: Vec<StatEntry> = stats
+                .iter()
+                .map(|(key, count)| StatEntry {
                     key: key.clone(),
                     count: *count,
-                    percentage,
-                });
-            }
+                    percentage: (*count as f64 / total as f64) * 100.0,
+                })
+                .collect();
             entries.sort_by(|a, b| b.count.cmp(&a.count));
 
             let output = StatsOutput {
@@ -751,15 +750,14 @@ async fn show_aggregated_stats(group_by: String, output_format: String) -> Resul
                 percentage: f64,
             }
 
-            let mut entries = Vec::new();
-            for (key, count) in &stats {
-                let percentage = (*count as f64 / total as f64) * 100.0;
-                entries.push(StatEntry {
+            let mut entries: Vec<StatEntry> = stats
+                .iter()
+                .map(|(key, count)| StatEntry {
                     key: key.clone(),
                     count: *count,
-                    percentage,
-                });
-            }
+                    percentage: (*count as f64 / total as f64) * 100.0,
+                })
+                .collect();
             entries.sort_by(|a, b| b.count.cmp(&a.count));
 
             let output = StatsOutput {
@@ -848,15 +846,14 @@ async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> R
             percentage: f64,
         }
 
-        let mut entries = Vec::new();
-        for (key, count) in &stats {
-            let percentage = (*count as f64 / total as f64) * 100.0;
-            entries.push(StatEntry {
+        let mut entries: Vec<StatEntry> = stats
+            .iter()
+            .map(|(key, count)| StatEntry {
                 key: key.clone(),
                 count: *count,
-                percentage,
-            });
-        }
+                percentage: (*count as f64 / total as f64) * 100.0,
+            })
+            .collect();
         entries.sort_by(|a, b| b.count.cmp(&a.count));
 
         let output = StatsOutput {
