@@ -8,7 +8,6 @@ pub mod error;
 pub mod factory;
 pub mod global;
 pub mod lock;
-pub mod migrate;
 pub mod types;
 
 #[cfg(test)]
@@ -19,7 +18,6 @@ pub use error::{StorageError, StorageResult};
 pub use factory::StorageFactory;
 pub use global::GlobalStorage;
 pub use lock::{StorageLock, StorageLockGuard};
-pub use migrate::{MigrationConfig, MigrationStats, StorageMigrator};
 pub use types::{
     CheckpointFilter, DLQFilter, EventFilter, EventStats, EventStream, EventSubscription,
     HealthStatus, SessionFilter, SessionId, SessionState, WorkflowFilter,
@@ -31,39 +29,6 @@ use std::path::{Path, PathBuf};
 /// Initialize the storage subsystem
 pub async fn init_from_env() -> StorageResult<GlobalStorage> {
     StorageFactory::from_env().await
-}
-
-/// Legacy storage configuration for custom paths (deprecated - use config::StorageConfig)
-#[derive(Debug, Clone)]
-pub struct LegacyStorageConfig {
-    /// Base directory for storage (default: ~/.prodigy)
-    pub base_dir: PathBuf,
-}
-
-impl Default for LegacyStorageConfig {
-    fn default() -> Self {
-        Self {
-            base_dir: get_default_storage_dir().unwrap_or_else(|_| PathBuf::from(".prodigy")),
-        }
-    }
-}
-
-impl LegacyStorageConfig {
-    /// Create config from environment variables
-    pub fn from_env() -> Self {
-        if let Ok(dir) = std::env::var("PRODIGY_STORAGE_DIR") {
-            Self {
-                base_dir: PathBuf::from(dir),
-            }
-        } else {
-            Self::default()
-        }
-    }
-
-    /// Create config with custom base directory
-    pub fn with_base_dir(base_dir: PathBuf) -> Self {
-        Self { base_dir }
-    }
 }
 
 /// Extract repository name from a project path
@@ -161,138 +126,6 @@ pub async fn create_global_dlq(
         event_logger,
     )
     .await
-}
-
-/// Migration utilities for transitioning from local to global storage
-pub mod migration {
-    use super::*;
-    use tokio::fs;
-    use tracing::info;
-
-    /// Check if a project has local storage that needs migration
-    pub async fn has_local_storage(project_path: &Path) -> bool {
-        let local_dir = project_path.join(".prodigy");
-        local_dir.exists() && local_dir.is_dir()
-    }
-
-    /// Migrate local storage to global storage
-    pub async fn migrate_to_global(project_path: &Path) -> Result<()> {
-        let local_dir = project_path.join(".prodigy");
-
-        if !local_dir.exists() {
-            return Ok(());
-        }
-
-        let storage = GlobalStorage::new()?;
-        let repo_name = extract_repo_name(project_path)?;
-
-        info!(
-            "Migrating local storage to global for repository: {}",
-            repo_name
-        );
-
-        // Migrate events
-        let local_events = local_dir.join("events");
-        if local_events.exists() {
-            migrate_directory(
-                &local_events,
-                &storage.base_dir().join("events").join(&repo_name),
-            )
-            .await?;
-        }
-
-        // Migrate DLQ
-        let local_dlq = local_dir.join("dlq");
-        if local_dlq.exists() {
-            migrate_directory(&local_dlq, &storage.base_dir().join("dlq").join(&repo_name)).await?;
-        }
-
-        // Migrate state
-        let local_state = local_dir.join("state");
-        if local_state.exists() {
-            migrate_directory(
-                &local_state,
-                &storage.base_dir().join("state").join(&repo_name),
-            )
-            .await?;
-        }
-
-        // Migrate checkpoints
-        let local_checkpoints = local_dir.join("checkpoints");
-        if local_checkpoints.exists() {
-            migrate_directory(
-                &local_checkpoints,
-                &storage
-                    .base_dir()
-                    .join("state")
-                    .join(&repo_name)
-                    .join("checkpoints"),
-            )
-            .await?;
-        }
-
-        // Migrate session state files
-        let session_state = local_dir.join("session_state.json");
-        if session_state.exists() {
-            let target_dir = storage
-                .base_dir()
-                .join("state")
-                .join(&repo_name)
-                .join("sessions");
-            fs::create_dir_all(&target_dir).await?;
-            fs::copy(&session_state, target_dir.join("session_state.json")).await?;
-        }
-
-        info!("Migration completed successfully");
-
-        // Always remove local directory after successful migration
-        fs::remove_dir_all(&local_dir)
-            .await
-            .context("Failed to remove local storage after migration")?;
-        info!("Removed local storage directory after successful migration");
-
-        Ok(())
-    }
-
-    async fn migrate_directory(from: &Path, to: &Path) -> Result<()> {
-        use tokio::fs;
-
-        if !from.exists() {
-            return Ok(());
-        }
-
-        // Create target directory
-        fs::create_dir_all(to)
-            .await
-            .context("Failed to create target directory")?;
-
-        // Copy contents recursively
-        copy_dir_recursive(from, to).await?;
-
-        info!("Migrated {} to {}", from.display(), to.display());
-        Ok(())
-    }
-
-    async fn copy_dir_recursive(from: &Path, to: &Path) -> Result<()> {
-        let mut entries = fs::read_dir(from)
-            .await
-            .context("Failed to read source directory")?;
-
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            let file_name = entry.file_name();
-            let target_path = to.join(&file_name);
-
-            if path.is_dir() {
-                fs::create_dir_all(&target_path).await?;
-                Box::pin(copy_dir_recursive(&path, &target_path)).await?;
-            } else {
-                fs::copy(&path, &target_path).await?;
-            }
-        }
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
