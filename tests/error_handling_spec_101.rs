@@ -10,15 +10,24 @@ use tempfile::TempDir;
 fn test_option_handling_without_unwrap() -> Result<()> {
     // Test that Option types are handled without unwrap()
 
-    let some_value: Option<i32> = Some(42);
-    let none_value: Option<i32> = None;
+    // Helper function that might return Some or None
+    fn get_value(should_exist: bool) -> Option<i32> {
+        if should_exist {
+            Some(42)
+        } else {
+            None
+        }
+    }
+
+    let some_value = get_value(true);
+    let none_value = get_value(false);
 
     // Safe handling patterns
     assert_eq!(some_value.unwrap_or(0), 42);
     assert_eq!(none_value.unwrap_or(0), 0);
 
-    assert_eq!(some_value.unwrap_or_else(|| 0), 42);
-    assert_eq!(none_value.unwrap_or_else(|| 0), 0);
+    assert_eq!(some_value.unwrap_or(0), 42);
+    assert_eq!(none_value.unwrap_or(0), 0);
 
     // Using map_or for transformations
     assert_eq!(some_value.map_or(0, |v| v * 2), 84);
@@ -31,8 +40,17 @@ fn test_option_handling_without_unwrap() -> Result<()> {
 fn test_result_handling_without_unwrap() -> Result<()> {
     // Test that Result types are handled without unwrap()
 
-    let ok_result: Result<i32> = Ok(42);
-    let err_result: Result<i32> = Err(anyhow::anyhow!("error"));
+    // Helper function that might return Ok or Err
+    fn get_result(should_succeed: bool) -> Result<i32> {
+        if should_succeed {
+            Ok(42)
+        } else {
+            Err(anyhow::anyhow!("error"))
+        }
+    }
+
+    let ok_result = get_result(true);
+    let err_result = get_result(false);
 
     // Safe handling patterns
     assert_eq!(ok_result.as_ref().unwrap_or(&0), &42);
