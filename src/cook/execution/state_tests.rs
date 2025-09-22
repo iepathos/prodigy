@@ -849,7 +849,7 @@ mod tests {
             enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
-            max_parallel: Some(2),
+            max_parallel: 2,
             max_items: None,
             offset: None,
         };
@@ -1246,7 +1246,7 @@ mod tests {
             enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
-            max_parallel: Some(2),
+            max_parallel: 2,
             max_items: None,
             offset: None,
         };

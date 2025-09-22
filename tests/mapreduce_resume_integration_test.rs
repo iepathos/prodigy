@@ -154,6 +154,10 @@ async fn create_partial_job_state(
         max_parallel: 5,
         max_items: None,
         offset: None,
+        agent_timeout_secs: Some(300),
+        continue_on_failure: false,
+        batch_size: None,
+        enable_checkpoints: true,
     };
 
     let mut completed_agents = HashSet::new();

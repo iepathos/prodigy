@@ -100,7 +100,7 @@ pub struct ReducePhase {
 }
 
 /// Options for resuming MapReduce jobs
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResumeOptions {
     /// Whether to reprocess failed items
     pub reprocess_failed: bool,

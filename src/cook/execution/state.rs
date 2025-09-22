@@ -938,6 +938,10 @@ mod tests {
             max_parallel: 5,
             max_items: None,
             offset: None,
+            agent_timeout_secs: Some(300),
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
         };
 
         let work_items = vec![
@@ -986,6 +990,10 @@ mod tests {
             max_parallel: 5,
             max_items: None,
             offset: None,
+            agent_timeout_secs: Some(300),
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
         };
 
         let mut state = MapReduceJobState::new("test-job-2".to_string(), config, vec![]);
@@ -1018,6 +1026,10 @@ mod tests {
             max_parallel: 5,
             max_items: None,
             offset: None,
+            agent_timeout_secs: Some(300),
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
         };
 
         // Create two jobs: one complete, one incomplete
@@ -1068,6 +1080,10 @@ mod tests {
             max_parallel: 5,
             max_items: None,
             offset: None,
+            agent_timeout_secs: Some(300),
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
         };
 
         let work_items = vec![serde_json::json!({"id": 1}), serde_json::json!({"id": 2})];

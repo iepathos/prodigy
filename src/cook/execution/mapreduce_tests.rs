@@ -1820,16 +1820,16 @@ mod additional_coverage_tests {
         let options = vec![
             ResumeOptions::default(),
             ResumeOptions {
-                force: true,
-                max_additional_retries: 0,
+                reprocess_failed: true,
+                max_parallel: Some(5),
                 skip_validation: true,
-                from_checkpoint: Some(10),
+                agent_timeout_secs: Some(300),
             },
             ResumeOptions {
-                force: false,
-                max_additional_retries: 100,
+                reprocess_failed: false,
+                max_parallel: None,
                 skip_validation: false,
-                from_checkpoint: None,
+                agent_timeout_secs: None,
             },
         ];
 
@@ -1837,13 +1837,10 @@ mod additional_coverage_tests {
             let serialized = serde_json::to_string(&opt).unwrap();
             let deserialized: ResumeOptions = serde_json::from_str(&serialized).unwrap();
 
-            assert_eq!(deserialized.force, opt.force);
-            assert_eq!(
-                deserialized.max_additional_retries,
-                opt.max_additional_retries
-            );
+            assert_eq!(deserialized.reprocess_failed, opt.reprocess_failed);
+            assert_eq!(deserialized.max_parallel, opt.max_parallel);
             assert_eq!(deserialized.skip_validation, opt.skip_validation);
-            assert_eq!(deserialized.from_checkpoint, opt.from_checkpoint);
+            assert_eq!(deserialized.agent_timeout_secs, opt.agent_timeout_secs);
         }
     }
 
