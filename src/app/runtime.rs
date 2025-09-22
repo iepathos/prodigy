@@ -22,16 +22,19 @@ pub async fn initialize_app(config: AppConfig) -> Result<()> {
 
 /// Check for local storage and migrate to global if found
 pub async fn check_and_migrate_storage() -> Result<()> {
-    use crate::storage::migration;
+    use crate::storage::GlobalStorage;
+    use crate::unified_session::{migration::auto_migrate, SessionManager};
     use std::env;
 
     // Get current directory as project path
     let project_path = env::current_dir()?;
 
-    // Check if local storage exists
-    if migration::has_local_storage(&project_path).await {
-        debug!("Detected local storage, migrating to global storage");
-        migration::migrate_to_global(&project_path).await?;
+    // Create session manager and run auto-migration
+    let storage = GlobalStorage::new()?;
+    let manager = SessionManager::new(storage).await?;
+
+    if let Some(report) = auto_migrate(manager, project_path).await? {
+        debug!("Migration completed: {}", report.summary());
     }
 
     Ok(())
