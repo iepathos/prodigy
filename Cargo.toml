@@ -37,7 +37,7 @@ tera = "1.19"
 sha2 = "0.10"
 petgraph = "0.8"
 uuid = { version = "1.10", features = ["v4", "serde"] }
-lru = "0.12"
+lru = "0.16"
 futures = "0.3"
 futures-util = "0.3"
 pest = "2.7"
