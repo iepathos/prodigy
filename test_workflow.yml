@@ -1,3 +1,0 @@
-name: test-event-logging
-commands:
-  - claude: "/prodigy-list-commands"

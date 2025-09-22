@@ -1235,9 +1235,24 @@ impl WorktreeManager {
         variables.insert("merge.target_branch".to_string(), target_branch.to_string());
         variables.insert("merge.session_id".to_string(), session_id.clone());
 
-        // Initialize checkpoint manager for merge workflow
-        let checkpoint_manager =
-            crate::cook::workflow::checkpoint::CheckpointManager::new(self.repo_path.clone());
+        // Initialize checkpoint manager for merge workflow using global storage
+        let checkpoint_manager = {
+            use crate::storage::{extract_repo_name, GlobalStorage};
+
+            // Create global storage instance
+            let storage = GlobalStorage::new()
+                .map_err(|e| anyhow::anyhow!("Failed to create global storage: {}", e))?;
+
+            // Extract repository name and get global checkpoint directory
+            let repo_name = extract_repo_name(&self.repo_path)
+                .map_err(|e| anyhow::anyhow!("Failed to extract repository name: {}", e))?;
+            let checkpoint_dir = storage
+                .get_state_dir(&repo_name, "checkpoints")
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to get checkpoint directory: {}", e))?;
+
+            crate::cook::workflow::checkpoint::CheckpointManager::new(checkpoint_dir)
+        };
 
         let mut step_index = 0;
         for command in &merge_workflow.commands {
@@ -1494,6 +1509,18 @@ impl WorktreeManager {
                     step_index += 1;
                 }
             }
+        }
+
+        // Clean up the merge workflow checkpoint after successful completion
+        let workflow_id = format!("merge-workflow-{}", worktree_name);
+        if let Err(e) = checkpoint_manager.delete_checkpoint(&workflow_id).await {
+            tracing::warn!(
+                "Failed to delete merge workflow checkpoint for {}: {}",
+                workflow_id,
+                e
+            );
+        } else {
+            tracing::debug!("Deleted merge workflow checkpoint for {}", workflow_id);
         }
 
         Ok(output)
