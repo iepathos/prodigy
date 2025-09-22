@@ -1084,7 +1084,7 @@ impl MapReduceExecutor {
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<Vec<AgentResult>> {
         // Wrap map_phase in Arc for efficient sharing across tasks
-        let map_phase_arc = Arc::new(map_phase.clone());
+        let _map_phase_arc = Arc::new(map_phase.clone());
         self.execute_with_context(map_phase, reduce_phase, env, HashMap::new())
             .await
     }
@@ -1232,7 +1232,7 @@ impl MapReduceExecutor {
 
         // Execute reduce phase if specified AND there were items to process
         // Skip reduce if no items were processed or all failed
-        if let Some(reduce_phase) = reduce_phase {
+        if let Some(_reduce_phase) = reduce_phase {
             if map_results.is_empty() {
                 self.user_interaction.display_warning(
                     "⚠️ Skipping reduce phase: no items were processed in map phase",
@@ -1944,6 +1944,7 @@ impl MapReduceExecutor {
     }
 
     /// Run a single agent worker
+    #[allow(clippy::too_many_arguments)]
     async fn run_agent(
         executor: Arc<MapReduceExecutor>,
         agent_index: usize,
@@ -1952,7 +1953,7 @@ impl MapReduceExecutor {
         progress: Arc<ProgressTracker>,
         map_phase: Arc<MapPhase>,
         env: Arc<ExecutionEnvironment>,
-        event_logger: Arc<EventLogger>,
+        _event_logger: Arc<EventLogger>,
         dlq: Option<Arc<DeadLetterQueue>>,
     ) -> MapReduceResult<()> {
         loop {
@@ -2028,7 +2029,7 @@ impl MapReduceExecutor {
                         };
 
                         // Log error event with correlation ID
-                        event_logger
+                        _event_logger
                             .log(MapReduceEvent::AgentFailed {
                                 job_id: env.session_id.to_string(),
                                 agent_id: format!("agent_{}", agent_index),
@@ -2095,6 +2096,7 @@ impl MapReduceExecutor {
     }
 
     /// Run a single agent worker with enhanced progress tracking
+    #[allow(clippy::too_many_arguments)]
     async fn run_agent_with_enhanced_progress(
         executor: Arc<MapReduceExecutor>,
         agent_index: usize,
@@ -2103,7 +2105,7 @@ impl MapReduceExecutor {
         tracker: Arc<EnhancedProgressTracker>,
         map_phase: Arc<MapPhase>,
         env: Arc<ExecutionEnvironment>,
-        event_logger: Arc<EventLogger>,
+        _event_logger: Arc<EventLogger>,
         dlq: Option<Arc<DeadLetterQueue>>,
     ) -> MapReduceResult<()> {
         loop {
@@ -2301,7 +2303,7 @@ impl MapReduceExecutor {
         let mut context = AgentContext::new(
             item_id.to_string(),
             worktree_path,
-            worktree_name.clone().into(),
+            worktree_name.clone(),
             agent_env,
         );
 
@@ -2394,7 +2396,7 @@ impl MapReduceExecutor {
         };
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
-        let worktree_session_id = worktree_name.clone().into();
+        let worktree_session_id = worktree_name.clone();
 
         // Log agent started event
         self.event_logger
@@ -2402,7 +2404,7 @@ impl MapReduceExecutor {
                 job_id: env.session_id.to_string(),
                 agent_id: agent_id.clone(),
                 item_id: item_id.to_string(),
-                worktree: worktree_name.clone().into(),
+                worktree: worktree_name.clone(),
                 attempt,
             })
             .await
@@ -2415,8 +2417,8 @@ impl MapReduceExecutor {
         let mut context = self.initialize_agent_context_with_retry(
             item_id,
             item,
-            worktree_path.clone().into(),
-            worktree_name.clone().into(),
+            worktree_path.clone(),
+            worktree_name.clone(),
             env,
             attempt,
             previous_error,
@@ -2537,7 +2539,7 @@ impl MapReduceExecutor {
         };
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
-        let worktree_session_id = worktree_name.clone().into();
+        let worktree_session_id = worktree_name.clone();
 
         // Log agent started event
         self.event_logger
@@ -2545,7 +2547,7 @@ impl MapReduceExecutor {
                 job_id: env.session_id.to_string(),
                 agent_id: agent_id.clone(),
                 item_id: item_id.to_string(),
-                worktree: worktree_name.clone().into(),
+                worktree: worktree_name.clone(),
                 attempt: 1,
             })
             .await
@@ -2558,8 +2560,8 @@ impl MapReduceExecutor {
         let mut context = self.initialize_agent_context(
             item_id,
             item,
-            worktree_path.clone().into(),
-            worktree_name.clone().into(),
+            worktree_path.clone(),
+            worktree_name.clone(),
             env,
         );
 
@@ -2665,7 +2667,7 @@ impl MapReduceExecutor {
 
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
-        let worktree_session_id = worktree_name.clone().into();
+        let worktree_session_id = worktree_name.clone();
 
         // Create branch name for this agent
         let branch_name = generate_agent_branch_name(&env.session_id, item_id);
@@ -2674,8 +2676,8 @@ impl MapReduceExecutor {
         let mut context = self.initialize_agent_context_with_retry(
             item_id,
             item,
-            worktree_path.clone().into(),
-            worktree_name.clone().into(),
+            worktree_path.clone(),
+            worktree_name.clone(),
             env,
             attempt,
             previous_error,
@@ -2768,7 +2770,7 @@ impl MapReduceExecutor {
 
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
-        let worktree_session_id = worktree_name.clone().into();
+        let worktree_session_id = worktree_name.clone();
 
         // Create branch name for this agent
         let branch_name = generate_agent_branch_name(&env.session_id, item_id);
@@ -2777,8 +2779,8 @@ impl MapReduceExecutor {
         let mut context = self.initialize_agent_context(
             item_id,
             item,
-            worktree_path.clone().into(),
-            worktree_name.clone().into(),
+            worktree_path.clone(),
+            worktree_name.clone(),
             env,
         );
 

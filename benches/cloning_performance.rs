@@ -2,10 +2,10 @@
 //!
 //! Tests the performance improvements from spec 104 implementation
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use prodigy::cook::environment::path_resolver::{PathResolver, Platform};
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Benchmark path resolution with Cow optimizations
 fn bench_path_resolution(c: &mut Criterion) {
@@ -65,7 +65,7 @@ fn bench_string_cloning(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("String_clone", name),
             &string_version,
-            |b, s| b.iter(|| black_box(s.clone()))
+            |b, s| b.iter(|| black_box(s.clone())),
         );
 
         // Benchmark Arc<str> cloning
@@ -73,7 +73,7 @@ fn bench_string_cloning(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("Arc_str_clone", name),
             &arc_version,
-            |b, s| b.iter(|| black_box(Arc::clone(s)))
+            |b, s| b.iter(|| black_box(Arc::clone(s))),
         );
     }
 

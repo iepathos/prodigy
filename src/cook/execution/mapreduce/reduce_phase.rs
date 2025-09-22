@@ -91,8 +91,8 @@ pub fn create_reduce_context(
 ) -> AgentContext {
     let mut context = AgentContext::new(
         "reduce".to_string(),
-        config.parent_worktree_path.clone().into(),
-        config.parent_worktree_name.clone().into(),
+        config.parent_worktree_path.clone(),
+        config.parent_worktree_name.clone(),
         crate::cook::orchestrator::ExecutionEnvironment {
             working_dir: config.parent_worktree_path.clone().into(),
             project_dir: config.parent_worktree_path.clone().into(),

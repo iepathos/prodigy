@@ -9,8 +9,8 @@ mod tests {
     use chrono::Utc;
     use serde_json::json;
     use std::collections::HashMap;
-use std::sync::Arc;
     use std::path::PathBuf;
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     /// Create test variable checkpoint state

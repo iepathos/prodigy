@@ -871,17 +871,28 @@ impl WorkflowExecutor {
             capture_output: CaptureOutput::Disabled,
             timeout: step.timeout.map(|d| d.as_secs()),
             working_dir: step.working_dir.as_ref().map(|p| (**p).to_path_buf()),
-            env: step.env.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
-            on_failure: step.handlers.on_failure.as_ref().map(|config| {
-                (**config).clone()
-            }),
+            env: step
+                .env
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            on_failure: step
+                .handlers
+                .on_failure
+                .as_ref()
+                .map(|config| (**config).clone()),
             retry: None,
-            on_success: step.handlers.on_success.as_ref().map(|s| {
-                Box::new((**s).clone())
-            }),
-            on_exit_code: step.handlers.on_exit_code.iter().map(|(code, s)| {
-                (*code, Box::new((**s).clone()))
-            }).collect(),
+            on_success: step
+                .handlers
+                .on_success
+                .as_ref()
+                .map(|s| Box::new((**s).clone())),
+            on_exit_code: step
+                .handlers
+                .on_exit_code
+                .iter()
+                .map(|(code, s)| (*code, Box::new((**s).clone())))
+                .collect(),
             commit_required: step.commit_required,
             auto_commit: false,
             commit_config: None,
@@ -916,7 +927,8 @@ impl WorkflowExecutor {
             StepCommand::Handler(handler) => {
                 workflow_step.handler = Some(HandlerStep {
                     name: handler.name.to_string(),
-                    attributes: Arc::try_unwrap(handler.attributes.clone()).unwrap_or_else(|arc| (*arc).clone()),
+                    attributes: Arc::try_unwrap(handler.attributes.clone())
+                        .unwrap_or_else(|arc| (*arc).clone()),
                 });
             }
             StepCommand::Simple(cmd) => {

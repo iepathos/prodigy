@@ -109,6 +109,11 @@ impl StringInterner {
         self.cache.read().unwrap().len()
     }
 
+    /// Check if the interner is empty
+    pub fn is_empty(&self) -> bool {
+        self.cache.read().unwrap().is_empty()
+    }
+
     /// Clear all interned strings
     pub fn clear(&self) {
         self.cache.write().unwrap().clear();

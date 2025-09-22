@@ -542,14 +542,18 @@ impl ResumeExecutor {
 
         // Create execution environment
         let env = ExecutionEnvironment {
-            working_dir: Arc::new(workflow_path
-                .parent()
-                .unwrap_or_else(|| std::path::Path::new("."))
-                .to_path_buf()),
-            project_dir: Arc::new(workflow_path
-                .parent()
-                .unwrap_or_else(|| std::path::Path::new("."))
-                .to_path_buf()),
+            working_dir: Arc::new(
+                workflow_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."))
+                    .to_path_buf(),
+            ),
+            project_dir: Arc::new(
+                workflow_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."))
+                    .to_path_buf(),
+            ),
             worktree_name: None,
             session_id: Arc::from(format!("resume-{}", workflow_id)),
         };

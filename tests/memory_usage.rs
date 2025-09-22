@@ -2,9 +2,9 @@
 //!
 //! Validates that the optimizations from spec 104 reduce memory usage
 
-use std::sync::Arc;
 use std::collections::HashMap;
 use std::mem;
+use std::sync::Arc;
 
 /// Test memory size of String vs Arc<str>
 #[test]
@@ -20,24 +20,31 @@ fn test_string_vs_arc_memory() {
     let arc_size = mem::size_of_val(&arc_version);
 
     // Arc should use less memory for the handle
-    assert!(arc_size < string_size,
-            "Arc<str> handle ({} bytes) should be smaller than String ({} bytes)",
-            arc_size, string_size);
+    assert!(
+        arc_size < string_size,
+        "Arc<str> handle ({} bytes) should be smaller than String ({} bytes)",
+        arc_size,
+        string_size
+    );
 
     // Multiple clones
     let string_clones: Vec<_> = (0..10).map(|_| string_version.clone()).collect();
     let arc_clones: Vec<_> = (0..10).map(|_| Arc::clone(&arc_version)).collect();
 
-    let total_string_size = string_clones.iter()
+    let total_string_size = string_clones
+        .iter()
         .map(|s| mem::size_of_val(s) + s.capacity())
         .sum::<usize>();
 
     let total_arc_size = arc_clones.len() * mem::size_of_val(&arc_version);
 
     // Arc clones should use significantly less memory
-    assert!(total_arc_size < total_string_size / 3,
-            "Arc clones ({} bytes) should use much less memory than String clones ({} bytes)",
-            total_arc_size, total_string_size);
+    assert!(
+        total_arc_size < total_string_size / 3,
+        "Arc clones ({} bytes) should use much less memory than String clones ({} bytes)",
+        total_arc_size,
+        total_string_size
+    );
 }
 
 /// Test memory size of HashMap clone vs Arc<HashMap>
@@ -49,17 +56,20 @@ fn test_hashmap_vs_arc_memory() {
     }
 
     // Estimate HashMap memory (approximate)
-    let map_size_estimate = mem::size_of_val(&map) +
-        map.capacity() * (mem::size_of::<String>() * 2);
+    let map_size_estimate =
+        mem::size_of_val(&map) + map.capacity() * (mem::size_of::<String>() * 2);
 
     // Arc version
     let arc_map = Arc::new(map.clone());
     let arc_handle_size = mem::size_of_val(&arc_map);
 
     // Arc handle should be much smaller
-    assert!(arc_handle_size < map_size_estimate / 10,
-            "Arc<HashMap> handle ({} bytes) should be much smaller than HashMap estimate ({} bytes)",
-            arc_handle_size, map_size_estimate);
+    assert!(
+        arc_handle_size < map_size_estimate / 10,
+        "Arc<HashMap> handle ({} bytes) should be much smaller than HashMap estimate ({} bytes)",
+        arc_handle_size,
+        map_size_estimate
+    );
 }
 
 /// Test memory impact of Cow usage in path operations
@@ -81,8 +91,16 @@ fn test_cow_memory_efficiency() {
     let owned_size = mem::size_of_val(&cow_owned);
 
     // Both should be small (pointer-sized or small enum)
-    assert!(cow_size <= 32, "Cow size should be small: {} bytes", cow_size);
-    assert!(owned_size <= 32, "Owned Cow size should be small: {} bytes", owned_size);
+    assert!(
+        cow_size <= 32,
+        "Cow size should be small: {} bytes",
+        cow_size
+    );
+    assert!(
+        owned_size <= 32,
+        "Owned Cow size should be small: {} bytes",
+        owned_size
+    );
 }
 
 /// Test compound data structure memory optimization
@@ -142,7 +160,11 @@ fn test_workflow_data_memory_optimization() {
         name: Arc::from("Test Workflow"),
         description: Arc::from("A comprehensive test workflow"),
         variables: Arc::new(vars),
-        commands: commands.iter().map(|s| Arc::from(s.as_str())).collect::<Vec<_>>().into(),
+        commands: commands
+            .iter()
+            .map(|s| Arc::from(s.as_str()))
+            .collect::<Vec<_>>()
+            .into(),
     };
 
     // Test single clone
@@ -150,9 +172,12 @@ fn test_workflow_data_memory_optimization() {
     let optimized_size = mem::size_of_val(&optimized);
 
     // Optimized should have smaller stack footprint
-    assert!(optimized_size <= original_size,
-            "Optimized workflow ({} bytes) should not be larger than original ({} bytes)",
-            optimized_size, original_size);
+    assert!(
+        optimized_size <= original_size,
+        "Optimized workflow ({} bytes) should not be larger than original ({} bytes)",
+        optimized_size,
+        original_size
+    );
 
     // Test multiple clones (simulating agents)
     let original_clones: Vec<_> = (0..10).map(|_| original.clone()).collect();
@@ -162,9 +187,12 @@ fn test_workflow_data_memory_optimization() {
     let original_clone_size = original_clones.len() * mem::size_of_val(&original);
     let optimized_clone_size = optimized_clones.len() * mem::size_of_val(&optimized);
 
-    assert!(optimized_clone_size < original_clone_size,
-            "Optimized clones ({} bytes) should use less memory than original clones ({} bytes)",
-            optimized_clone_size, original_clone_size);
+    assert!(
+        optimized_clone_size < original_clone_size,
+        "Optimized clones ({} bytes) should use less memory than original clones ({} bytes)",
+        optimized_clone_size,
+        original_clone_size
+    );
 }
 
 /// Test that Arc prevents unnecessary allocations
@@ -180,8 +208,11 @@ fn test_arc_prevents_allocations() {
     let clones: Vec<_> = (0..100).map(|_| Arc::clone(&arc_string)).collect();
 
     // Verify reference count increased
-    assert_eq!(Arc::strong_count(&arc_string), initial_count + 100,
-               "Arc strong count should reflect all clones");
+    assert_eq!(
+        Arc::strong_count(&arc_string),
+        initial_count + 100,
+        "Arc strong count should reflect all clones"
+    );
 
     // Verify all point to same data (same pointer)
     let ptr1 = Arc::as_ptr(&arc_string);
@@ -192,8 +223,11 @@ fn test_arc_prevents_allocations() {
 
     // Drop clones and verify count decreases
     drop(clones);
-    assert_eq!(Arc::strong_count(&arc_string), initial_count,
-               "Strong count should return to initial after dropping clones");
+    assert_eq!(
+        Arc::strong_count(&arc_string),
+        initial_count,
+        "Strong count should return to initial after dropping clones"
+    );
 }
 
 /// Test memory efficiency in concurrent scenarios
@@ -201,9 +235,7 @@ fn test_arc_prevents_allocations() {
 fn test_concurrent_memory_efficiency() {
     use std::thread;
 
-    let data: Arc<Vec<String>> = Arc::new(
-        (0..1000).map(|i| format!("item_{}", i)).collect()
-    );
+    let data: Arc<Vec<String>> = Arc::new((0..1000).map(|i| format!("item_{}", i)).collect());
 
     let handles: Vec<_> = (0..10)
         .map(|_| {
@@ -216,9 +248,7 @@ fn test_concurrent_memory_efficiency() {
         })
         .collect();
 
-    let counts: Vec<_> = handles.into_iter()
-        .map(|h| h.join().unwrap())
-        .collect();
+    let counts: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
 
     // All threads should see multiple references
     for count in counts {
@@ -226,6 +256,9 @@ fn test_concurrent_memory_efficiency() {
     }
 
     // After all threads complete, we should be back to 1
-    assert_eq!(Arc::strong_count(&data), 1,
-               "After all threads complete, only original reference should remain");
+    assert_eq!(
+        Arc::strong_count(&data),
+        1,
+        "After all threads complete, only original reference should remain"
+    );
 }

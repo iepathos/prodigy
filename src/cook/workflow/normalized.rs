@@ -367,7 +367,8 @@ impl NormalizedWorkflow {
                     command: None,
                     handler: Some(crate::cook::workflow::HandlerStep {
                         name: handler.name.to_string(),
-                        attributes: Arc::try_unwrap(handler.attributes.clone()).unwrap_or_else(|arc| (*arc).clone()),
+                        attributes: Arc::try_unwrap(handler.attributes.clone())
+                            .unwrap_or_else(|arc| (*arc).clone()),
                     }),
                     capture: None,
                     capture_format: None,
@@ -384,7 +385,9 @@ impl NormalizedWorkflow {
                         .on_success
                         .as_ref()
                         .map(|s| Box::new((**s).clone())),
-                    on_exit_code: step.handlers.on_exit_code
+                    on_exit_code: step
+                        .handlers
+                        .on_exit_code
                         .iter()
                         .map(|(k, v)| (*k, Box::new((**v).clone())))
                         .collect(),
@@ -425,7 +428,9 @@ impl NormalizedWorkflow {
                         .on_success
                         .as_ref()
                         .map(|s| Box::new((**s).clone())),
-                    on_exit_code: step.handlers.on_exit_code
+                    on_exit_code: step
+                        .handlers
+                        .on_exit_code
                         .iter()
                         .map(|(k, v)| (*k, Box::new((**v).clone())))
                         .collect(),
@@ -461,8 +466,14 @@ impl NormalizedWorkflow {
             env: Arc::try_unwrap(step.env.clone()).unwrap_or_else(|arc| (*arc).clone()),
             on_failure: step.handlers.on_failure.as_ref().map(|f| (**f).clone()),
             retry: None,
-            on_success: step.handlers.on_success.as_ref().map(|s| Box::new((**s).clone())),
-            on_exit_code: step.handlers.on_exit_code
+            on_success: step
+                .handlers
+                .on_success
+                .as_ref()
+                .map(|s| Box::new((**s).clone())),
+            on_exit_code: step
+                .handlers
+                .on_exit_code
                 .iter()
                 .map(|(k, v)| (*k, Box::new((**v).clone())))
                 .collect(),

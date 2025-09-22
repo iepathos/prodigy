@@ -142,6 +142,7 @@ impl DefaultCookOrchestrator {
     }
 
     /// Create environment configuration from workflow config - avoids cloning
+    #[allow(dead_code)]
     fn create_env_config(
         &self,
         workflow: &WorkflowConfig,
@@ -183,6 +184,7 @@ impl DefaultCookOrchestrator {
     }
 
     /// Create base workflow state for session management - avoids field cloning
+    #[allow(dead_code)]
     fn create_workflow_state_base(
         &self,
         config: &CookConfig,
@@ -476,7 +478,8 @@ impl DefaultCookOrchestrator {
         config: &CookConfig,
     ) -> Result<ExecutionEnvironment> {
         let mut working_dir = Arc::new(state.working_directory.clone());
-        let mut worktree_name: Option<Arc<str>> = state.worktree_name.as_ref().map(|s| Arc::from(s.as_str()));
+        let mut worktree_name: Option<Arc<str>> =
+            state.worktree_name.as_ref().map(|s| Arc::from(s.as_str()));
 
         // If using a worktree, verify it still exists
         if let Some(ref name) = worktree_name {
@@ -2713,7 +2716,9 @@ mod tests {
             },
         );
         structured.outputs = Some(outputs);
-        workflow.commands.push(WorkflowCommand::Structured(Box::new(structured)));
+        workflow
+            .commands
+            .push(WorkflowCommand::Structured(Box::new(structured)));
 
         // Now create the config with Arc'd workflow
         let config = CookConfig {
