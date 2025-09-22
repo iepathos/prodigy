@@ -438,7 +438,11 @@ impl ExpressionEvaluator {
             Expression::Sum(expr) => {
                 let v = self.evaluate(expr, item)?;
                 if let Value::Array(arr) = v {
-                    let sum: f64 = arr.iter().filter_map(|v| v.as_f64()).sum();
+                    let sum: f64 = arr
+                        .iter()
+                        .filter_map(|v| v.as_f64())
+                        .filter(|f| !f.is_nan()) // Filter out NaN values
+                        .sum();
                     Ok(Value::Number(
                         serde_json::Number::from_f64(sum)
                             .unwrap_or_else(|| serde_json::Number::from(0)),
@@ -461,6 +465,7 @@ impl ExpressionEvaluator {
                     let min = arr
                         .iter()
                         .filter_map(|v| v.as_f64())
+                        .filter(|f| !f.is_nan()) // Filter out NaN values
                         .min_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
                     if let Some(min) = min {
                         Ok(Value::Number(
@@ -480,6 +485,7 @@ impl ExpressionEvaluator {
                     let max = arr
                         .iter()
                         .filter_map(|v| v.as_f64())
+                        .filter(|f| !f.is_nan()) // Filter out NaN values
                         .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
                     if let Some(max) = max {
                         Ok(Value::Number(
@@ -496,7 +502,11 @@ impl ExpressionEvaluator {
             Expression::Avg(expr) => {
                 let v = self.evaluate(expr, item)?;
                 if let Value::Array(arr) = v {
-                    let values: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
+                    let values: Vec<f64> = arr
+                        .iter()
+                        .filter_map(|v| v.as_f64())
+                        .filter(|f| !f.is_nan()) // Filter out NaN values
+                        .collect();
                     if !values.is_empty() {
                         let avg = values.iter().sum::<f64>() / values.len() as f64;
                         Ok(Value::Number(
