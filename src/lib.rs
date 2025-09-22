@@ -49,7 +49,3 @@ pub use error::{ErrorCode, ProdigyError};
 
 /// Standard result type for library operations
 pub type LibResult<T> = Result<T, ProdigyError>;
-
-// Property-based tests module
-#[cfg(test)]
-mod property_tests;

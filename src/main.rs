@@ -1582,34 +1582,11 @@ async fn main() {
 
     init_tracing(cli.verbose);
 
-    // Perform automatic migration from local to global storage if needed
-    if let Err(e) = check_and_migrate_storage().await {
-        error!("Storage migration failed: {}", e);
-        // Continue anyway - migration is best effort
-    }
-
     let result = execute_command(cli.command, cli.verbose).await;
 
     if let Err(e) = result {
         handle_fatal_error(e);
     }
-}
-
-/// Check for local storage and migrate to global if found
-async fn check_and_migrate_storage() -> anyhow::Result<()> {
-    use prodigy::storage::migration;
-    use std::env;
-
-    // Get current directory as project path
-    let project_path = env::current_dir()?;
-
-    // Check if local storage exists
-    if migration::has_local_storage(&project_path).await {
-        debug!("Detected local storage, migrating to global storage");
-        migration::migrate_to_global(&project_path).await?;
-    }
-
-    Ok(())
 }
 
 /// Handle the list command for worktrees
