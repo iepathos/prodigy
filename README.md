@@ -4,7 +4,7 @@
 [![Security](https://github.com/iepathos/prodigy/actions/workflows/security.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/security.yml)
 [![Release](https://github.com/iepathos/prodigy/actions/workflows/release.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/release.yml)
 [![Crates.io](https://img.shields.io/crates/v/prodigy)](https://crates.io/crates/prodigy)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Downloads](https://img.shields.io/crates/d/prodigy)](https://crates.io/crates/prodigy)
 
 > Transform ad-hoc Claude sessions into reproducible development pipelines with parallel execution, automatic retry, and full state management.
@@ -613,7 +613,7 @@ cargo test
 
 ## License
 
-Prodigy is dual-licensed under MIT and Apache 2.0. See [LICENSE](LICENSE) for details.
+Prodigy is licensed under MIT. See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
