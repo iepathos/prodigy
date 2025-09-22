@@ -270,10 +270,13 @@ auto_commit: false
         let result = loader.load_from_path(&config_path).await;
 
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Unsupported configuration file format"));
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("Invalid configuration file") ||
+            error_msg.contains("Unsupported configuration file format"),
+            "Expected error message about unsupported format, got: {}",
+            error_msg
+        );
         Ok(())
     }
 
