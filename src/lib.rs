@@ -27,6 +27,7 @@
 //! - `core` - Pure business logic functions without I/O operations
 pub mod abstractions;
 // Analytics module removed - no longer needed without postgres
+pub mod app;
 pub mod cli;
 pub mod commands;
 pub mod config;
