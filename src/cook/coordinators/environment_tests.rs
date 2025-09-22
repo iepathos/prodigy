@@ -17,8 +17,9 @@ mod tests {
         let config_loader = Arc::new(ConfigLoader::new().await.unwrap());
         let subprocess = SubprocessManager::production();
         // Use the home directory's .prodigy/worktrees as the base for the test
-        let worktree_base = dirs::home_dir()
-            .expect("home dir")
+        let worktree_base = directories::BaseDirs::new()
+            .expect("base dirs")
+            .home_dir()
             .join(".prodigy")
             .join("worktrees");
         std::fs::create_dir_all(&worktree_base).ok();
@@ -52,8 +53,9 @@ mod tests {
         let config_loader = Arc::new(ConfigLoader::new().await.unwrap());
         let subprocess = SubprocessManager::production();
         // Use the home directory's .prodigy/worktrees as the base for the test
-        let worktree_base = dirs::home_dir()
-            .expect("home dir")
+        let worktree_base = directories::BaseDirs::new()
+            .expect("base dirs")
+            .home_dir()
             .join(".prodigy")
             .join("worktrees");
         std::fs::create_dir_all(&worktree_base).ok();
