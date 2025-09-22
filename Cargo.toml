@@ -92,5 +92,13 @@ harness = false
 name = "regression"
 harness = false
 
+[profile.release]
+# Aggressive optimizations for binary size reduction
+opt-level = "z"        # Optimize for size
+lto = true            # Enable Link Time Optimization
+codegen-units = 1     # Single codegen unit for better optimization
+strip = true          # Strip symbols from binary
+panic = "abort"       # Smaller panic handler
+
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(never)'] }
