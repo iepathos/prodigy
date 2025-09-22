@@ -1948,10 +1948,10 @@ async fn run_resume_job_command(
 
     // Create resume options - only use fields that exist
     let options = ResumeOptions {
-        force,
-        max_additional_retries: max_retries,
+        reprocess_failed: force,
+        max_parallel: None,  // Use default from original job config
         skip_validation: false,
-        from_checkpoint: None,
+        agent_timeout_secs: None,
     };
 
     println!("\n🔄 Resuming job execution...\n");
@@ -2011,7 +2011,7 @@ async fn run_resume_job_command(
 
     // Resume the job
     match executor
-        .resume_job_with_options(&job_id, options, &env)
+        .resume_job_with_options(&job_id, options)
         .await
     {
         Ok(result) => {

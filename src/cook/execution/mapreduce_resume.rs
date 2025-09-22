@@ -490,9 +490,11 @@ impl MapReduceResumeManager {
         // We can now use the agent_template from the state
         let map_phase = MapPhase {
             config: state.config.clone(),
+            json_path: None,
             agent_template: state.agent_template.clone(),
             filter: None,
             sort_by: None,
+            max_items: None,
             distinct: None,
         };
 
@@ -502,6 +504,7 @@ impl MapReduceResumeManager {
             map_phase: Some(map_phase),
             reduce_phase: state.reduce_commands.as_ref().map(|commands| ReducePhase {
                 commands: commands.clone(),
+                timeout_secs: None,
             }),
             remaining_items,
             state: Box::new(state.clone()),
@@ -551,6 +554,7 @@ impl MapReduceResumeManager {
                 map_phase: None,
                 reduce_phase: state.reduce_commands.as_ref().map(|commands| ReducePhase {
                     commands: commands.clone(),
+                    timeout_secs: None,
                 }),
                 remaining_items: Vec::new(), // No remaining items for reduce phase
                 state: Box::new(state.clone()),
@@ -608,6 +612,10 @@ mod tests {
             input: "test.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 5,
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             max_items: None,
             offset: None,
         };

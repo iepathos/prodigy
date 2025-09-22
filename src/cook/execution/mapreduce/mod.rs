@@ -31,7 +31,7 @@ pub use types::{MapReduceConfig, SetupPhase, MapPhase, ReducePhase, ResumeOption
 pub use utils::{calculate_map_result_summary, MapResultSummary};
 
 // Standard library imports
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -474,16 +474,38 @@ mod tests {
         let executor = create_test_executor();
 
         // Valid checkpoint
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: "$.items[*]".to_string(),
+            max_parallel: 5,
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
+            max_items: None,
+            offset: None,
+        };
+
         let valid_state = MapReduceJobState {
             job_id: "test".to_string(),
-            total_items: 10,
-            completed_items: vec![0, 1, 2],
-            failed_items: vec![],
-            checkpoint_version: 1,
-            is_completed: false,
-            last_updated: Utc::now(),
+            config,
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
             work_items: vec![],
-            map_results: vec![],
+            agent_results: HashMap::new(),
+            completed_agents: HashSet::new(),
+            failed_agents: HashMap::new(),
+            pending_items: vec![],
+            checkpoint_version: 1,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 10,
+            successful_count: 3,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
         };
 
         assert!(executor.validate_checkpoint(&valid_state).is_ok());

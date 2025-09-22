@@ -42,8 +42,8 @@ fn test_agent_status_serialization() {
 #[test]
 fn test_resume_options_defaults() {
     let options = ResumeOptions::default();
-    assert!(!options.force);
-    assert_eq!(options.max_additional_retries, 2);
+    assert!(!options.reprocess_failed);
+    assert_eq!(options.max_parallel, None);
     assert!(!options.skip_validation);
 }
 
@@ -86,6 +86,10 @@ fn test_resume_result_serialization() {
 #[test]
 fn test_mapreduce_config_defaults() {
     let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
         input: "test.json".to_string(),
         json_path: "$.items[*]".to_string(),
         max_parallel: 5,
@@ -234,12 +238,17 @@ fn test_map_phase_configuration() {
 
     let map_phase = MapPhase {
         config: MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "items.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 20,
             max_items: None,
             offset: None,
         },
+        json_path: Some("$.items[*]".to_string()),
         agent_template: vec![WorkflowStep {
             name: None,
             claude: Some("/fix-issue ${item.description}".to_string()),
@@ -273,6 +282,7 @@ fn test_map_phase_configuration() {
         }],
         filter: Some("severity == 'high'".to_string()),
         sort_by: Some("priority".to_string()),
+        max_items: None,
         distinct: None,
     };
 
@@ -351,6 +361,7 @@ fn test_reduce_phase_configuration() {
                 when: None,
             },
         ],
+        timeout_secs: None,
     };
 
     assert_eq!(reduce_phase.commands.len(), 2);
@@ -987,23 +998,7 @@ mod command_type_tests {
             .contains("Multiple command types specified"));
     }
 
-    #[test]
-    fn test_format_legacy_command_with_slash() {
-        let formatted = MapReduceExecutor::format_legacy_command("/command");
-        assert_eq!(formatted, "/command");
-    }
-
-    #[test]
-    fn test_format_legacy_command_without_slash() {
-        let formatted = MapReduceExecutor::format_legacy_command("command");
-        assert_eq!(formatted, "/command");
-    }
-
-    #[test]
-    fn test_format_legacy_command_empty() {
-        let formatted = MapReduceExecutor::format_legacy_command("");
-        assert_eq!(formatted, "/");
-    }
+    // Removed format_legacy_command tests as this method no longer exists in the refactored module
 }
 
 #[cfg(test)]
@@ -1315,6 +1310,10 @@ mod concurrency_tests {
         let max_concurrent = Arc::new(AtomicUsize::new(0));
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 3,
@@ -1381,6 +1380,10 @@ mod concurrency_tests {
     async fn test_agent_timeout_handling() {
         // Test that agent timeouts are properly enforced
         let _config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 2,
@@ -1753,6 +1756,10 @@ mod additional_coverage_tests {
     fn test_map_phase_with_all_options() {
         let map_phase = MapPhase {
             config: MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
                 input: "data.json".to_string(),
                 json_path: "$.items[*]".to_string(),
                 max_parallel: 50,
@@ -1790,8 +1797,10 @@ mod additional_coverage_tests {
                 ignore_validation_failure: false,
                 when: None,
             }],
+            json_path: Some("$.items[*]".to_string()),
             filter: Some("item.priority == 'high'".to_string()),
             sort_by: Some("item.created_at DESC".to_string()),
+            max_items: Some(100),
             distinct: Some("item.id".to_string()),
         };
 
@@ -1974,6 +1983,10 @@ mod integration_tests {
 
         // Create map phase configuration
         let map_config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: input_file.to_string_lossy().to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 2,
@@ -2029,6 +2042,10 @@ mod integration_tests {
             .collect();
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "dummy".to_string(),
             json_path: "$[*]".to_string(),
             max_parallel: 5,

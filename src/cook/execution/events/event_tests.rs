@@ -61,6 +61,10 @@ mod tests {
         let event = MapReduceEvent::JobStarted {
             job_id: job_id.to_string(),
             config: MapReduceConfig {
+                agent_timeout_secs: None,
+                continue_on_failure: false,
+                batch_size: None,
+                enable_checkpoints: true,
                 input: "test.json".to_string(),
                 json_path: "$.items".to_string(),
                 max_parallel: 5,
@@ -189,6 +193,10 @@ mod tests {
         let job_event = MapReduceEvent::JobStarted {
             job_id: "job-1".to_string(),
             config: MapReduceConfig {
+                agent_timeout_secs: None,
+                continue_on_failure: false,
+                batch_size: None,
+                enable_checkpoints: true,
                 input: "test.json".to_string(),
                 json_path: "$.items".to_string(),
                 max_parallel: 5,
@@ -234,6 +242,10 @@ mod tests {
                 event: MapReduceEvent::JobStarted {
                     job_id: "job-1".to_string(),
                     config: MapReduceConfig {
+                agent_timeout_secs: None,
+                continue_on_failure: false,
+                batch_size: None,
+                enable_checkpoints: true,
                         input: "test.json".to_string(),
                         json_path: "$.items".to_string(),
                         max_parallel: 5,
@@ -297,6 +309,10 @@ mod tests {
             event: MapReduceEvent::JobStarted {
                 job_id: job_id.to_string(),
                 config: MapReduceConfig {
+                agent_timeout_secs: None,
+                continue_on_failure: false,
+                batch_size: None,
+                enable_checkpoints: true,
                     input: "test.json".to_string(),
                     json_path: "$.items".to_string(),
                     max_parallel: 5,

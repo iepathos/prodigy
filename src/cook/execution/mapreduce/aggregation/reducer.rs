@@ -7,9 +7,10 @@ use crate::cook::execution::mapreduce::{AgentResult, AgentStatus};
 use crate::cook::execution::interpolation::InterpolationContext;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Strategy for reducing results
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum ReductionStrategy {
     /// Concatenate all outputs
     Concatenate,
@@ -20,7 +21,19 @@ pub enum ReductionStrategy {
     /// Group by status
     GroupByStatus,
     /// Custom reduction function
-    Custom(Box<dyn Fn(&[AgentResult]) -> Value + Send + Sync>),
+    Custom(Arc<dyn Fn(&[AgentResult]) -> Value + Send + Sync>),
+}
+
+impl std::fmt::Debug for ReductionStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Concatenate => write!(f, "Concatenate"),
+            Self::MergeJson => write!(f, "MergeJson"),
+            Self::FilterSuccess => write!(f, "FilterSuccess"),
+            Self::GroupByStatus => write!(f, "GroupByStatus"),
+            Self::Custom(_) => write!(f, "Custom(<function>)"),
+        }
+    }
 }
 
 /// Result reducer for combining agent results

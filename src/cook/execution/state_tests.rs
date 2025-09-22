@@ -14,6 +14,10 @@ mod tests {
     #[tokio::test]
     async fn test_job_state_creation() {
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -47,6 +51,10 @@ mod tests {
     #[tokio::test]
     async fn test_find_work_item() {
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -86,6 +94,10 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -163,6 +175,10 @@ mod tests {
     #[tokio::test]
     async fn test_agent_result_update() {
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -228,6 +244,10 @@ mod tests {
         let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -295,6 +315,10 @@ mod tests {
         let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -331,6 +355,10 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -404,6 +432,10 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -486,6 +518,10 @@ mod tests {
         let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -517,6 +553,10 @@ mod tests {
     #[tokio::test]
     async fn test_phase_completion_tracking() {
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -586,6 +626,10 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -613,15 +657,15 @@ mod tests {
 
         // Create resume options with modified settings
         let resume_options = ResumeOptions {
-            force: false,
-            max_additional_retries: 0,
+            reprocess_failed: false,
+            max_parallel: None,
             skip_validation: false,
-            from_checkpoint: None,
+            agent_timeout_secs: None,
         };
 
         // Verify resume options behavior
-        assert!(!resume_options.force);
-        assert_eq!(resume_options.max_additional_retries, 0);
+        assert!(!resume_options.reprocess_failed);
+        assert_eq!(resume_options.max_parallel, None);
         assert!(!resume_options.skip_validation);
     }
 
@@ -633,6 +677,10 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -653,15 +701,15 @@ mod tests {
 
         // Create resume options
         let resume_options = ResumeOptions {
-            force: false,
-            max_additional_retries: 0,
+            reprocess_failed: false,
+            max_parallel: None,
             skip_validation: false,
-            from_checkpoint: None,
+            agent_timeout_secs: None,
         };
 
         // Verify resume options
-        assert!(!resume_options.force);
-        assert_eq!(resume_options.max_additional_retries, 0);
+        assert!(!resume_options.reprocess_failed);
+        assert_eq!(resume_options.max_parallel, None);
     }
 
     #[tokio::test]
@@ -672,6 +720,10 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -711,14 +763,14 @@ mod tests {
 
         // Create resume options with additional retries
         let resume_options = ResumeOptions {
-            force: false,
-            max_additional_retries: 2,
+            reprocess_failed: false,
+            max_parallel: Some(2),
             skip_validation: false,
-            from_checkpoint: None,
+            agent_timeout_secs: None,
         };
 
         // Verify additional retries would allow failed items to be retried
-        assert_eq!(resume_options.max_additional_retries, 2);
+        assert_eq!(resume_options.max_parallel, Some(2));
         // Total effective retries would be 1 (base) + 2 (additional) = 3
     }
 
@@ -730,6 +782,10 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
@@ -770,14 +826,14 @@ mod tests {
 
         // Create resume options with force flag
         let resume_options = ResumeOptions {
-            force: true,
-            max_additional_retries: 0,
+            reprocess_failed: true,
+            max_parallel: None,
             skip_validation: false,
-            from_checkpoint: None,
+            agent_timeout_secs: None,
         };
 
         // Verify force flag would force retry regardless of job state
-        assert!(resume_options.force);
+        assert!(resume_options.reprocess_failed);
     }
 
     #[tokio::test]
@@ -787,9 +843,13 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
-            max_parallel: 2,
+            max_parallel: Some(2),
             max_items: None,
             offset: None,
         };
@@ -969,6 +1029,10 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 3,
@@ -1176,9 +1240,13 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
-            max_parallel: 2,
+            max_parallel: Some(2),
             max_items: None,
             offset: None,
         };
@@ -1311,6 +1379,10 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 3,
@@ -1434,6 +1506,10 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 3,

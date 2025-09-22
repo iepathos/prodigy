@@ -18,6 +18,10 @@ fn create_test_environment() -> ExecutionEnvironment {
 
 fn create_test_config() -> MapReduceConfig {
     MapReduceConfig {
+        agent_timeout_secs: None,
+        continue_on_failure: false,
+        batch_size: None,
+        enable_checkpoints: true,
         input: "test_items.json".to_string(),
         json_path: "$.items[*]".to_string(),
         max_parallel: 5,
@@ -29,9 +33,11 @@ fn create_test_config() -> MapReduceConfig {
 fn create_test_map_phase() -> MapPhase {
     MapPhase {
         config: create_test_config(),
+        json_path: Some("$.items[*]".to_string()),
         agent_template: vec![],
         filter: None,
         sort_by: None,
+        max_items: Some(10),
         distinct: None,
     }
 }
