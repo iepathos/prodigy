@@ -5,6 +5,7 @@
 
 pub mod command;
 pub mod commit_tracker;
+pub mod common_strings;
 pub mod coordinators;
 pub mod environment;
 pub mod execution;

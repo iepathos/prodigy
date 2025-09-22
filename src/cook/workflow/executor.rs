@@ -769,7 +769,7 @@ impl WorkflowExecutor {
                             normalized::StepCommand::Test { command, .. } => {
                                 format!("test: {}", command)
                             }
-                            normalized::StepCommand::Simple(cmd) => cmd.clone(),
+                            normalized::StepCommand::Simple(cmd) => cmd.to_string(),
                             _ => "complex command".to_string(),
                         }
                     } else {
@@ -837,10 +837,10 @@ impl WorkflowExecutor {
 
         // Create a minimal execution environment
         let env = ExecutionEnvironment {
-            working_dir: std::env::current_dir()?,
-            project_dir: std::env::current_dir()?,
+            working_dir: Arc::new(std::env::current_dir()?),
+            project_dir: Arc::new(std::env::current_dir()?),
             worktree_name: None,
-            session_id: "resume-session".to_string(),
+            session_id: Arc::from("resume-session"),
         };
 
         // Execute the step
@@ -856,7 +856,7 @@ impl WorkflowExecutor {
         use normalized::StepCommand;
 
         let mut workflow_step = WorkflowStep {
-            name: Some(step.id.clone()),
+            name: Some(step.id.to_string()),
             claude: None,
             shell: None,
             test: None,
@@ -870,38 +870,44 @@ impl WorkflowExecutor {
             output_file: None,
             capture_output: CaptureOutput::Disabled,
             timeout: step.timeout.map(|d| d.as_secs()),
-            working_dir: step.working_dir.clone(),
-            env: step.env.clone(),
-            on_failure: step.handlers.on_failure.clone(),
+            working_dir: step.working_dir.as_ref().map(|p| (**p).to_path_buf()),
+            env: step.env.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+            on_failure: step.handlers.on_failure.as_ref().map(|config| {
+                (**config).clone()
+            }),
             retry: None,
-            on_success: step.handlers.on_success.clone(),
-            on_exit_code: step.handlers.on_exit_code.clone(),
+            on_success: step.handlers.on_success.as_ref().map(|s| {
+                Box::new((**s).clone())
+            }),
+            on_exit_code: step.handlers.on_exit_code.iter().map(|(code, s)| {
+                (*code, Box::new((**s).clone()))
+            }).collect(),
             commit_required: step.commit_required,
             auto_commit: false,
             commit_config: None,
-            validate: step.validation.clone(),
+            validate: step.validation.as_ref().map(|v| (**v).clone()),
             step_validate: None,
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            when: step.when.clone(),
+            when: step.when.as_ref().map(|w| w.to_string()),
         };
 
         // Set command based on step type
         match &step.command {
             StepCommand::Claude(cmd) => {
-                workflow_step.claude = Some(cmd.clone());
+                workflow_step.claude = Some(cmd.to_string());
             }
             StepCommand::Shell(cmd) => {
-                workflow_step.shell = Some(cmd.clone());
+                workflow_step.shell = Some(cmd.to_string());
             }
             StepCommand::Test {
                 command,
                 on_failure,
             } => {
                 workflow_step.test = Some(crate::config::command::TestCommand {
-                    command: command.clone(),
-                    on_failure: on_failure.clone(),
+                    command: command.to_string(),
+                    on_failure: on_failure.as_ref().map(|f| (**f).clone()),
                 });
             }
             StepCommand::GoalSeek(config) => {
@@ -2749,10 +2755,10 @@ impl WorkflowExecutor {
                         let mut checkpoint = create_checkpoint_with_total_steps(
                             workflow_id.clone(),
                             &normalized::NormalizedWorkflow {
-                                name: workflow.name.clone(),
-                                steps: vec![], // We'd need to convert, but for now use empty
+                                name: Arc::from(workflow.name.clone()),
+                                steps: Arc::from([]), // We'd need to convert, but for now use empty
                                 execution_mode: normalized::ExecutionMode::Sequential,
-                                variables: workflow_context.variables.clone(),
+                                variables: Arc::new(workflow_context.variables.clone()),
                             },
                             &workflow_context,
                             self.checkpoint_completed_steps.clone(),
@@ -3131,7 +3137,7 @@ impl WorkflowExecutor {
         // Update execution environment if working directory is overridden
         let mut actual_env = env.clone();
         if let Some(ref dir) = working_dir_override {
-            actual_env.working_dir = dir.clone();
+            actual_env.working_dir = Arc::new(dir.clone());
             tracing::info!("Working directory overridden to: {}", dir.display());
         }
 

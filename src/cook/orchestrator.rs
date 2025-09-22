@@ -2693,18 +2693,14 @@ mod tests {
 
     #[test]
     fn test_classify_workflow_type_structured_with_outputs() {
-        let mut config = CookConfig {
-            command: create_test_cook_command(),
-            project_path: Arc::new(PathBuf::from("/test")),
-            workflow: Arc::new(WorkflowConfig {
-                commands: vec![],
-                env: None,
-                secrets: None,
-                env_files: None,
-                profiles: None,
-                merge: None,
-            }),
-            mapreduce_config: None,
+        // Create mutable workflow first
+        let mut workflow = WorkflowConfig {
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
+            merge: None,
         };
 
         // Add a structured command with outputs
@@ -2717,10 +2713,15 @@ mod tests {
             },
         );
         structured.outputs = Some(outputs);
-        config
-            .workflow
-            .commands
-            .push(WorkflowCommand::Structured(Box::new(structured)));
+        workflow.commands.push(WorkflowCommand::Structured(Box::new(structured)));
+
+        // Now create the config with Arc'd workflow
+        let config = CookConfig {
+            command: create_test_cook_command(),
+            project_path: Arc::new(PathBuf::from("/test")),
+            workflow: Arc::new(workflow),
+            mapreduce_config: None,
+        };
 
         assert_eq!(
             DefaultCookOrchestrator::classify_workflow_type(&config),
