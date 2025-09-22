@@ -5,7 +5,6 @@ debtmap-after.json
 
 # Rust build artifacts
 /target/
-/Cargo.lock
 
 # IDE and editor files
 .vscode/
