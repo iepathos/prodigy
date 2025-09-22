@@ -595,3 +595,228 @@ reduce:
         assert_eq!(config.reduce.as_ref().unwrap().commands.len(), 1);
     }
 }
+
+#[cfg(test)]
+mod merge_workflow_tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_simplified_syntax() {
+        let yaml = r#"
+name: test
+mode: mapreduce
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo test"
+
+merge:
+  - shell: "git fetch origin"
+  - claude: "/merge-master ${merge.source_branch}"
+  - shell: "cargo test"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.merge.is_some());
+
+        let merge = config.merge.unwrap();
+        assert_eq!(merge.commands.len(), 3);
+        assert_eq!(merge.timeout, 600); // Default timeout
+
+        // Check first command
+        assert!(merge.commands[0].shell.is_some());
+        assert_eq!(
+            merge.commands[0].shell.as_ref().unwrap(),
+            "git fetch origin"
+        );
+
+        // Check second command
+        assert!(merge.commands[1].claude.is_some());
+        assert!(merge.commands[1]
+            .claude
+            .as_ref()
+            .unwrap()
+            .contains("${merge.source_branch}"));
+    }
+
+    #[test]
+    fn test_deserialize_full_syntax() {
+        let yaml = r#"
+name: test
+mode: mapreduce
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo test"
+
+merge:
+  commands:
+    - shell: "git fetch origin"
+    - claude: "/merge-master"
+    - shell: "git push"
+  timeout: 900
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.merge.is_some());
+
+        let merge = config.merge.unwrap();
+        assert_eq!(merge.commands.len(), 3);
+        assert_eq!(merge.timeout, 900); // Custom timeout
+
+        // Verify commands
+        assert!(merge.commands[0].shell.is_some());
+        assert!(merge.commands[1].claude.is_some());
+        assert!(merge.commands[2].shell.is_some());
+    }
+
+    #[test]
+    fn test_default_timeout() {
+        let yaml = r#"
+name: test
+mode: mapreduce
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo test"
+
+merge:
+  commands:
+    - shell: "git merge"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.merge.is_some());
+
+        let merge = config.merge.unwrap();
+        assert_eq!(merge.timeout, 600); // Should use default of 600
+    }
+
+    #[test]
+    fn test_empty_merge_workflow() {
+        let yaml = r#"
+name: test
+mode: mapreduce
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo test"
+
+merge: []
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.merge.is_some());
+
+        let merge = config.merge.unwrap();
+        assert_eq!(merge.commands.len(), 0);
+    }
+
+    #[test]
+    fn test_no_merge_workflow() {
+        let yaml = r#"
+name: test
+mode: mapreduce
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo test"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.merge.is_none());
+    }
+
+    #[test]
+    fn test_merge_with_variable_interpolation() {
+        let yaml = r#"
+name: test
+mode: mapreduce
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo test"
+
+merge:
+  - shell: "echo Merging ${merge.worktree}"
+  - shell: "git checkout ${merge.target_branch}"
+  - shell: "git merge ${merge.source_branch}"
+  - claude: "/log-merge ${merge.session_id}"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.merge.is_some());
+
+        let merge = config.merge.unwrap();
+        assert_eq!(merge.commands.len(), 4);
+
+        // Verify all variable placeholders are present
+        assert!(merge.commands[0]
+            .shell
+            .as_ref()
+            .unwrap()
+            .contains("${merge.worktree}"));
+        assert!(merge.commands[1]
+            .shell
+            .as_ref()
+            .unwrap()
+            .contains("${merge.target_branch}"));
+        assert!(merge.commands[2]
+            .shell
+            .as_ref()
+            .unwrap()
+            .contains("${merge.source_branch}"));
+        assert!(merge.commands[3]
+            .claude
+            .as_ref()
+            .unwrap()
+            .contains("${merge.session_id}"));
+    }
+
+    #[test]
+    fn test_invalid_merge_syntax_handled_gracefully() {
+        // Test that invalid YAML is caught by the parser
+        let yaml = r#"
+name: test
+mode: mapreduce
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo test"
+
+merge:
+  invalid_key: "should not parse"
+"#;
+
+        // This should fail to parse because invalid_key is not a valid format
+        let result = parse_mapreduce_workflow(yaml);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_merge_workflow_with_on_failure() {
+        let yaml = r#"
+name: test
+mode: mapreduce
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo test"
+
+merge:
+  - shell: "cargo test"
+    on_failure:
+      claude: "/fix-test-failures"
+  - claude: "/merge-worktree"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.merge.is_some());
+
+        let merge = config.merge.unwrap();
+        assert_eq!(merge.commands.len(), 2);
+
+        // Check that on_failure is preserved
+        assert!(merge.commands[0].on_failure.is_some());
+    }
+}

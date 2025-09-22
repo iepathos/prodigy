@@ -2324,4 +2324,200 @@ branch refs/heads/main"#;
         assert!(interpolated.contains("Target: develop"));
         assert!(interpolated.contains("Session: session-abc"));
     }
+
+    #[test]
+    fn test_filter_sessions_by_status() {
+        let now = Utc::now();
+        let states = vec![
+            WorktreeState {
+                session_id: "session1".to_string(),
+                worktree_name: "worktree1".to_string(),
+                branch: "branch1".to_string(),
+                created_at: now,
+                updated_at: now,
+                status: WorktreeStatus::InProgress,
+                iterations: IterationInfo {
+                    completed: 1,
+                    max: 5,
+                },
+                stats: WorktreeStats::default(),
+                merged: false,
+                merged_at: None,
+                error: None,
+                merge_prompt_shown: false,
+                merge_prompt_response: None,
+                interrupted_at: None,
+                interruption_type: None,
+                last_checkpoint: None,
+                resumable: false,
+            },
+            WorktreeState {
+                session_id: "session2".to_string(),
+                worktree_name: "worktree2".to_string(),
+                branch: "branch2".to_string(),
+                created_at: now,
+                updated_at: now,
+                status: WorktreeStatus::Completed,
+                iterations: IterationInfo {
+                    completed: 5,
+                    max: 5,
+                },
+                stats: WorktreeStats::default(),
+                merged: false,
+                merged_at: None,
+                error: None,
+                merge_prompt_shown: false,
+                merge_prompt_response: None,
+                interrupted_at: None,
+                interruption_type: None,
+                last_checkpoint: None,
+                resumable: false,
+            },
+            WorktreeState {
+                session_id: "session3".to_string(),
+                worktree_name: "worktree3".to_string(),
+                branch: "branch3".to_string(),
+                created_at: now,
+                updated_at: now,
+                status: WorktreeStatus::InProgress,
+                iterations: IterationInfo {
+                    completed: 2,
+                    max: 5,
+                },
+                stats: WorktreeStats::default(),
+                merged: false,
+                merged_at: None,
+                error: None,
+                merge_prompt_shown: false,
+                merge_prompt_response: None,
+                interrupted_at: None,
+                interruption_type: None,
+                last_checkpoint: None,
+                resumable: false,
+            },
+        ];
+
+        let in_progress =
+            WorktreeManager::filter_sessions_by_status(states.clone(), WorktreeStatus::InProgress);
+        assert_eq!(in_progress.len(), 2);
+        assert_eq!(in_progress[0].session_id, "session1");
+        assert_eq!(in_progress[1].session_id, "session3");
+
+        let complete =
+            WorktreeManager::filter_sessions_by_status(states, WorktreeStatus::Completed);
+        assert_eq!(complete.len(), 1);
+        assert_eq!(complete[0].session_id, "session2");
+    }
+
+    #[test]
+    fn test_load_state_from_file() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let json_path = temp_dir.path().join("test_state.json");
+
+        // Test with valid JSON
+        let state = WorktreeState {
+            session_id: "test-session".to_string(),
+            worktree_name: "test-worktree".to_string(),
+            branch: "test-branch".to_string(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            status: WorktreeStatus::InProgress,
+            iterations: IterationInfo {
+                completed: 3,
+                max: 10,
+            },
+            stats: WorktreeStats::default(),
+            merged: false,
+            merged_at: None,
+            error: None,
+            merge_prompt_shown: false,
+            merge_prompt_response: None,
+            interrupted_at: None,
+            interruption_type: None,
+            last_checkpoint: None,
+            resumable: false,
+        };
+
+        let json_content = serde_json::to_string(&state).unwrap();
+        fs::write(&json_path, json_content).unwrap();
+
+        let loaded = WorktreeManager::load_state_from_file(&json_path);
+        assert!(loaded.is_some());
+        let loaded_state = loaded.unwrap();
+        assert_eq!(loaded_state.session_id, "test-session");
+
+        // Test with non-JSON file
+        let txt_path = temp_dir.path().join("not_json.txt");
+        fs::write(&txt_path, "not json content").unwrap();
+        assert!(WorktreeManager::load_state_from_file(&txt_path).is_none());
+
+        // Test with invalid JSON
+        let bad_json_path = temp_dir.path().join("bad.json");
+        fs::write(&bad_json_path, "{ invalid json }").unwrap();
+        assert!(WorktreeManager::load_state_from_file(&bad_json_path).is_none());
+
+        // Test with non-existent file
+        let missing_path = temp_dir.path().join("missing.json");
+        assert!(WorktreeManager::load_state_from_file(&missing_path).is_none());
+    }
+
+    #[test]
+    fn test_collect_all_states() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let metadata_dir = temp_dir.path().join(".metadata");
+        fs::create_dir(&metadata_dir).unwrap();
+
+        // Create multiple state files
+        for i in 1..=3 {
+            let state = WorktreeState {
+                session_id: format!("session{}", i),
+                worktree_name: format!("worktree{}", i),
+                branch: format!("branch{}", i),
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+                status: WorktreeStatus::InProgress,
+                iterations: IterationInfo {
+                    completed: i,
+                    max: 10,
+                },
+                stats: WorktreeStats::default(),
+                merged: false,
+                merged_at: None,
+                error: None,
+                merge_prompt_shown: false,
+                merge_prompt_response: None,
+                interrupted_at: None,
+                interruption_type: None,
+                last_checkpoint: None,
+                resumable: false,
+            };
+
+            let json_path = metadata_dir.join(format!("session{}.json", i));
+            let json_content = serde_json::to_string(&state).unwrap();
+            fs::write(&json_path, json_content).unwrap();
+        }
+
+        // Also create a non-JSON file that should be ignored
+        fs::write(metadata_dir.join("readme.txt"), "ignored").unwrap();
+
+        let states = WorktreeManager::collect_all_states(&metadata_dir).unwrap();
+        assert_eq!(states.len(), 3);
+
+        // Verify all states were loaded
+        let session_ids: Vec<String> = states.iter().map(|s| s.session_id.clone()).collect();
+        assert!(session_ids.contains(&"session1".to_string()));
+        assert!(session_ids.contains(&"session2".to_string()));
+        assert!(session_ids.contains(&"session3".to_string()));
+
+        // Test with non-existent directory
+        let missing_dir = temp_dir.path().join("missing");
+        let result = WorktreeManager::collect_all_states(&missing_dir).unwrap();
+        assert_eq!(result.len(), 0);
+    }
 }
