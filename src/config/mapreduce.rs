@@ -398,12 +398,18 @@ impl MapReduceWorkflowConfig {
                 input: self.map.input.clone(),
                 json_path: self.map.json_path.clone(),
                 max_parallel: self.map.max_parallel,
+                agent_timeout_secs: None,
+                continue_on_failure: false,
+                batch_size: None,
+                enable_checkpoints: true,
                 max_items: self.map.max_items,
                 offset: self.map.offset,
             },
+            json_path: Some(self.map.json_path.clone()).filter(|s| !s.is_empty()),
             agent_template: self.map.agent_template.commands.clone(),
             filter: self.map.filter.clone(),
             sort_by: self.map.sort_by.clone(),
+            max_items: self.map.max_items,
             distinct: self.map.distinct.clone(),
         }
     }
@@ -412,6 +418,7 @@ impl MapReduceWorkflowConfig {
     pub fn to_reduce_phase(&self) -> Option<ReducePhase> {
         self.reduce.as_ref().map(|r| ReducePhase {
             commands: r.commands.clone(),
+            timeout_secs: None,
         })
     }
 

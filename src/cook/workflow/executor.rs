@@ -4490,10 +4490,10 @@ impl WorkflowExecutor {
         // Execute MapReduce workflow with setup context
         let results = mapreduce_executor
             .execute_with_context(
-                &map_phase,
-                workflow.reduce_phase.as_ref(),
-                env,
-                workflow_context.captured_outputs.clone(),
+                workflow.setup_phase.clone(),
+                map_phase,
+                workflow.reduce_phase.clone(),
+                env.clone(),
             )
             .await?;
 

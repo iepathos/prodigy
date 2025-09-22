@@ -24,6 +24,7 @@ fn create_test_reduce_phase() -> ReducePhase {
             shell: Some("echo 'Processing results'".to_string()),
             ..Default::default()
         }],
+        timeout_secs: None,
     }
 }
 

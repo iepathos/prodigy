@@ -33,15 +33,21 @@ fn create_test_setup_phase() -> SetupPhase {
 fn create_test_map_phase() -> MapPhase {
     MapPhase {
         config: MapReduceConfig {
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             input: "test_items.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 5,
             max_items: Some(10),
             offset: None,
         },
+        json_path: Some("$.items[*]".to_string()),
         agent_template: vec![],
         filter: None,
         sort_by: None,
+        max_items: Some(10),
         distinct: None,
     }
 }
@@ -52,6 +58,7 @@ fn create_test_reduce_phase() -> ReducePhase {
             shell: Some("echo 'Reduce'".to_string()),
             ..Default::default()
         }],
+        timeout_secs: None,
     }
 }
 

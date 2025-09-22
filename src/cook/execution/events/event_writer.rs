@@ -283,6 +283,10 @@ mod tests {
             event: MapReduceEvent::JobStarted {
                 job_id: "test-job".to_string(),
                 config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
                     input: "test.json".to_string(),
                     json_path: "$.items".to_string(),
                     max_parallel: 5,

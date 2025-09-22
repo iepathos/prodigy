@@ -869,6 +869,10 @@ impl DlqReprocessor {
             input: temp_path.to_string_lossy().to_string(),
             json_path: "$[*]".to_string(),
             max_parallel: options.parallel,
+            agent_timeout_secs: None,
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
             max_items: None,
             offset: None,
         })
