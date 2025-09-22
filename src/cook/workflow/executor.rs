@@ -104,6 +104,22 @@ where
     }
 }
 
+/// Execution flags determined from environment variables
+#[derive(Debug, Clone)]
+struct ExecutionFlags {
+    test_mode: bool,
+    skip_validation: bool,
+}
+
+/// Determine continuation strategy for iterations
+#[derive(Debug, Clone)]
+enum IterationContinuation {
+    Stop(String),
+    Continue,
+    ContinueToMax,
+    AskUser,
+}
+
 /// Command type for workflow steps
 #[derive(Debug, Clone, PartialEq)]
 pub enum CommandType {
@@ -403,7 +419,8 @@ impl WorkflowContext {
                 );
 
                 // Provide detailed error information
-                let available_variables = Self::get_available_variable_summary(&context);
+                let available_variables =
+                    WorkflowExecutor::get_available_variable_summary(&context);
                 tracing::debug!("Available variables: {}", available_variables);
 
                 // Fallback to original template on error (non-strict mode behavior)
@@ -412,23 +429,7 @@ impl WorkflowContext {
         }
     }
 
-    /// Get summary of available variables for debugging (pure function)
-    fn get_available_variable_summary(context: &InterpolationContext) -> String {
-        let mut variables: Vec<String> = context.variables.keys().cloned().collect();
-        variables.sort();
-
-        if variables.is_empty() {
-            "none".to_string()
-        } else if variables.len() > 10 {
-            format!(
-                "{} variables ({}...)",
-                variables.len(),
-                variables[..3].join(", ")
-            )
-        } else {
-            variables.join(", ")
-        }
-    }
+    // This function was moved to WorkflowExecutor impl block
 
     /// Enhanced interpolation with strict mode and detailed error reporting
     pub fn interpolate_strict(&self, template: &str) -> Result<String, String> {
@@ -436,7 +437,7 @@ impl WorkflowContext {
         let mut engine = InterpolationEngine::new(true); // strict mode
 
         engine.interpolate(template, &context).map_err(|error| {
-            let available_variables = Self::get_available_variable_summary(&context);
+            let available_variables = WorkflowExecutor::get_available_variable_summary(&context);
             format!(
                 "Variable interpolation failed for template '{}': {}. Available variables: {}",
                 template, error, available_variables
@@ -1014,14 +1015,14 @@ impl WorkflowExecutor {
             self.sensitive_config.mask_string.clone()
         } else {
             // Format normally if not sensitive
-            Self::format_variable_value_static(value)
+            WorkflowExecutor::format_variable_value_static(value)
         }
     }
 
     /// Format variable value for display (used by tests)
     #[cfg(test)]
     pub fn format_variable_value(&self, value: &str) -> String {
-        Self::format_variable_value_static(value)
+        WorkflowExecutor::format_variable_value_static(value)
     }
 
     /// Static helper for formatting variable values
@@ -1427,71 +1428,6 @@ impl WorkflowExecutor {
         evaluator
             .evaluate(when_expr, &variable_context)
             .with_context(|| format!("Failed to evaluate when condition: {}", when_expr))
-    }
-
-    fn should_fail_workflow(&self, result: &StepResult, step: &WorkflowStep) -> bool {
-        if !result.success {
-            // Command failed, check on_failure configuration
-            if let Some(on_failure_config) = &step.on_failure {
-                on_failure_config.should_fail_workflow()
-            } else if let Some(test_cmd) = &step.test {
-                // Legacy test command handling
-                if let Some(test_on_failure) = &test_cmd.on_failure {
-                    test_on_failure.fail_workflow
-                } else {
-                    true // No on_failure config, fail on error
-                }
-            } else {
-                true // No on_failure handler, fail on error
-            }
-        } else {
-            false // Command succeeded, don't fail
-        }
-    }
-
-    /// Build a detailed error message for a failed step
-    fn build_error_message(&self, step: &WorkflowStep, result: &StepResult) -> String {
-        let step_display = self.get_step_display_name(step);
-        let mut error_msg = format!("Step '{}' failed", step_display);
-
-        if let Some(exit_code) = result.exit_code {
-            error_msg.push_str(&format!(" with exit code {}", exit_code));
-        }
-
-        // Add stderr if available
-        if !result.stderr.trim().is_empty() {
-            error_msg.push_str("\n\n=== Error Output (stderr) ===");
-            self.append_truncated_output(&mut error_msg, &result.stderr);
-        }
-
-        // Add stdout if stderr was empty but stdout has content
-        if result.stderr.trim().is_empty() && !result.stdout.trim().is_empty() {
-            error_msg.push_str("\n\n=== Standard Output (stdout) ===");
-            self.append_truncated_output(&mut error_msg, &result.stdout);
-        }
-
-        error_msg
-    }
-
-    /// Append output to error message, truncating if necessary
-    fn append_truncated_output(&self, error_msg: &mut String, output: &str) {
-        let lines: Vec<&str> = output.lines().collect();
-        if lines.len() <= 50 {
-            error_msg.push('\n');
-            error_msg.push_str(output);
-        } else {
-            // Show first 25 and last 25 lines for large outputs
-            error_msg.push('\n');
-            for line in lines.iter().take(25) {
-                error_msg.push_str(line);
-                error_msg.push('\n');
-            }
-            error_msg.push_str("\n... [output truncated] ...\n\n");
-            for line in lines.iter().rev().take(25).rev() {
-                error_msg.push_str(line);
-                error_msg.push('\n');
-            }
-        }
     }
 
     /// Execute command based on its type
@@ -2214,7 +2150,7 @@ impl WorkflowExecutor {
 
     /// Convert serde_json::Value to AttributeValue
     fn json_to_attribute_value(&self, value: serde_json::Value) -> AttributeValue {
-        Self::json_to_attribute_value_static(value)
+        WorkflowExecutor::json_to_attribute_value_static(value)
     }
 
     fn json_to_attribute_value_static(value: serde_json::Value) -> AttributeValue {
@@ -2232,13 +2168,13 @@ impl WorkflowExecutor {
             serde_json::Value::Bool(b) => AttributeValue::Boolean(b),
             serde_json::Value::Array(arr) => AttributeValue::Array(
                 arr.into_iter()
-                    .map(Self::json_to_attribute_value_static)
+                    .map(WorkflowExecutor::json_to_attribute_value_static)
                     .collect(),
             ),
             serde_json::Value::Object(obj) => {
                 let mut map = HashMap::new();
                 for (k, v) in obj {
-                    map.insert(k, Self::json_to_attribute_value_static(v));
+                    map.insert(k, WorkflowExecutor::json_to_attribute_value_static(v));
                 }
                 AttributeValue::Object(map)
             }
@@ -2470,64 +2406,140 @@ impl WorkflowExecutor {
         Err(anyhow::anyhow!("Retry logic error: should not reach here"))
     }
 
-    /// Execute a workflow
-    pub async fn execute(
-        &mut self,
-        workflow: &ExtendedWorkflowConfig,
-        env: &ExecutionEnvironment,
-    ) -> Result<()> {
-        // Handle MapReduce mode
-        if workflow.mode == WorkflowMode::MapReduce {
-            return self.execute_mapreduce(workflow, env).await;
-        }
+    /// Log step output for debugging
+    fn log_step_output(&self, step_result: &StepResult) {
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            if !step_result.stdout.is_empty() {
+                let stdout_lines: Vec<&str> = step_result.stdout.lines().collect();
+                if stdout_lines.len() <= 20 || tracing::enabled!(tracing::Level::TRACE) {
+                    tracing::debug!("Command stdout:\n{}", step_result.stdout);
+                } else {
+                    let preview: String = stdout_lines
+                        .iter()
+                        .take(10)
+                        .chain(std::iter::once(&"... [output truncated] ..."))
+                        .chain(stdout_lines.iter().rev().take(5).rev())
+                        .copied()
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    tracing::debug!("Command stdout (abbreviated):\n{}", preview);
+                }
+            }
 
-        let workflow_start = Instant::now();
-
-        // Display dry-run mode message
-        if self.dry_run {
-            println!("[DRY RUN] Workflow execution simulation mode");
-            println!("[DRY RUN] No commands will be executed");
-            if workflow.max_iterations > 1 {
-                println!("[DRY RUN] Would run {} iterations", workflow.max_iterations);
+            if !step_result.stderr.is_empty() {
+                let stderr_lines: Vec<&str> = step_result.stderr.lines().collect();
+                if stderr_lines.len() <= 20 || tracing::enabled!(tracing::Level::TRACE) {
+                    tracing::debug!("Command stderr:\n{}", step_result.stderr);
+                } else {
+                    let preview: String = stderr_lines
+                        .iter()
+                        .take(10)
+                        .chain(std::iter::once(&"... [output truncated] ..."))
+                        .chain(stderr_lines.iter().rev().take(5).rev())
+                        .copied()
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    tracing::debug!("Command stderr (abbreviated):\n{}", preview);
+                }
             }
         }
+    }
 
-        // Limit iterations in dry-run mode to prevent hanging with large iteration counts
-        let effective_max_iterations = if self.dry_run && workflow.max_iterations > 10 {
-            println!(
-                "[DRY RUN] Limiting iterations to 10 for simulation (requested: {})",
-                workflow.max_iterations
-            );
-            10
-        } else {
-            workflow.max_iterations
+    /// Save workflow state for checkpoint and session tracking
+    async fn save_workflow_state(
+        &mut self,
+        env: &ExecutionEnvironment,
+        iteration: usize,
+        step_index: usize,
+    ) -> Result<()> {
+        let workflow_state = crate::cook::session::WorkflowState {
+            current_iteration: iteration.saturating_sub(1), // Convert to 0-based index
+            current_step: step_index + 1,                   // Next step to execute
+            completed_steps: self.completed_steps.clone(),
+            workflow_path: env.working_dir.join("workflow.yml"),
+            input_args: Vec::new(),
+            map_patterns: Vec::new(),
+            using_worktree: env.worktree_name.is_some(),
         };
+        self.session_manager
+            .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
+            .await
+    }
 
-        // Only show workflow info for non-empty workflows
-        if !workflow.steps.is_empty() {
-            self.user_interaction.display_info(&format!(
-                "Executing workflow: {} (max {} iterations)",
-                workflow.name, effective_max_iterations
-            ));
+    /// Handle commit verification and auto-commit
+    async fn handle_commit_verification(
+        &mut self,
+        working_dir: &std::path::Path,
+        head_before: &str,
+        step: &WorkflowStep,
+        step_display: &str,
+        workflow_context: &mut WorkflowContext,
+    ) -> Result<bool> {
+        let head_after = self.get_current_head(working_dir).await?;
+        if head_after == head_before {
+            // No commits were created - check if auto-commit is enabled
+            if step.auto_commit {
+                // Try to create an auto-commit
+                if let Ok(has_changes) = self.check_for_changes(working_dir).await {
+                    if has_changes {
+                        let message = self.generate_commit_message(step, workflow_context);
+                        if let Err(e) = self.create_auto_commit(working_dir, &message).await {
+                            tracing::warn!("Failed to create auto-commit: {}", e);
+                            if step.commit_required {
+                                self.handle_no_commits_error(step)?;
+                            }
+                        } else {
+                            self.user_interaction
+                                .display_success(&format!("{step_display} auto-committed changes"));
+                            return Ok(true);
+                        }
+                    } else if step.commit_required {
+                        self.handle_no_commits_error(step)?;
+                    }
+                } else if step.commit_required {
+                    self.handle_no_commits_error(step)?;
+                }
+            } else if step.commit_required {
+                self.handle_no_commits_error(step)?;
+            }
+            Ok(false)
+        } else {
+            // Track commit metadata if available
+            if let Ok(commits) = self
+                .get_commits_between(working_dir, head_before, &head_after)
+                .await
+            {
+                let commit_count = commits.len();
+                let files_changed: std::collections::HashSet<_> = commits
+                    .iter()
+                    .flat_map(|c| c.files_changed.iter())
+                    .collect();
+                self.user_interaction.display_success(&format!(
+                    "{step_display} created {} commit{} affecting {} file{}",
+                    commit_count,
+                    if commit_count == 1 { "" } else { "s" },
+                    files_changed.len(),
+                    if files_changed.len() == 1 { "" } else { "s" }
+                ));
+
+                // Store commit info in context for later use
+                workflow_context.variables.insert(
+                    "step.commits".to_string(),
+                    commits
+                        .iter()
+                        .map(|c| &c.hash)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(","),
+                );
+            }
+            Ok(true)
         }
+    }
 
-        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
-        let skip_validation =
-            std::env::var("PRODIGY_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
-
-        if workflow.iterate {
-            self.user_interaction
-                .display_progress("Starting improvement loop");
-        }
-
-        let mut iteration = 0;
-        let mut should_continue = true;
-        let mut any_changes = false;
-
-        // Clear completed steps at the start of a new workflow
-        self.completed_steps.clear();
-
-        // Initialize workflow context
+    /// Execute a workflow
+    /// Initialize workflow execution context
+    fn init_workflow_context(&self, env: &ExecutionEnvironment) -> WorkflowContext {
         let mut workflow_context = WorkflowContext::default();
 
         // Initialize git change tracker
@@ -2556,6 +2568,255 @@ impl WorkflowExecutor {
                 .insert("WORKTREE".to_string(), worktree);
         }
 
+        workflow_context
+    }
+
+    /// Display dry-run mode information
+    fn display_dry_run_info(&self, workflow: &ExtendedWorkflowConfig) {
+        if self.dry_run {
+            println!("[DRY RUN] Workflow execution simulation mode");
+            println!("[DRY RUN] No commands will be executed");
+            if workflow.max_iterations > 1 {
+                println!("[DRY RUN] Would run {} iterations", workflow.max_iterations);
+            }
+        }
+    }
+
+    /// Restore error recovery state from resume context
+    fn restore_error_recovery_state(
+        &self,
+        step_index: usize,
+        workflow_context: &mut WorkflowContext,
+    ) {
+        if let Some(ref resume_ctx) = self.resume_context {
+            if let Some(recovery_state_value) =
+                resume_ctx.variable_state.get("__error_recovery_state")
+            {
+                if let Ok(error_recovery_state) =
+                    serde_json::from_value::<ErrorRecoveryState>(recovery_state_value.clone())
+                {
+                    if !error_recovery_state.active_handlers.is_empty() {
+                        tracing::info!(
+                            "Restored {} error handlers for step {}",
+                            error_recovery_state.active_handlers.len(),
+                            step_index
+                        );
+                        for (key, value) in error_recovery_state.error_context {
+                            workflow_context
+                                .variables
+                                .insert(format!("error.{}", key), value.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Handle commit squashing if enabled in workflow
+    async fn handle_commit_squashing(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+    ) {
+        // Check if any step has squash enabled in commit_config
+        let should_squash = workflow.steps.iter().any(|step| {
+            step.commit_config
+                .as_ref()
+                .map(|config| config.squash)
+                .unwrap_or(false)
+        });
+
+        if !should_squash {
+            return;
+        }
+
+        self.user_interaction
+            .display_progress("Squashing workflow commits...");
+
+        // Try to get all commits created during this workflow
+        if let Ok(head_after) = self.get_current_head(&env.working_dir).await {
+            // Use a reasonable range for getting commits (last 20 commits should be enough for a workflow)
+            if let Ok(commits) = self
+                .get_commits_between(&env.working_dir, "HEAD~20", &head_after)
+                .await
+            {
+                if !commits.is_empty() {
+                    // Create commit tracker and squash
+                    let git_ops = Arc::new(crate::abstractions::git::RealGitOperations::new());
+                    let commit_tracker = crate::cook::commit_tracker::CommitTracker::new(
+                        git_ops,
+                        env.working_dir.to_path_buf(),
+                    );
+
+                    // Generate squash message
+                    let squash_message = format!(
+                        "Squashed {} workflow commits from {}",
+                        commits.len(),
+                        workflow.name
+                    );
+
+                    if let Err(e) = commit_tracker
+                        .squash_commits(&commits, &squash_message)
+                        .await
+                    {
+                        tracing::warn!("Failed to squash commits: {}", e);
+                    } else {
+                        self.user_interaction.display_success(&format!(
+                            "Squashed {} commits into one",
+                            commits.len()
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    /// Pure function to determine execution flags from environment variables
+    fn determine_execution_flags() -> ExecutionFlags {
+        ExecutionFlags {
+            test_mode: std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true",
+            skip_validation: std::env::var("PRODIGY_NO_COMMIT_VALIDATION").unwrap_or_default()
+                == "true",
+        }
+    }
+
+    /// Pure function to calculate effective max iterations for a workflow
+    fn calculate_effective_max_iterations(workflow: &ExtendedWorkflowConfig, dry_run: bool) -> u32 {
+        if dry_run && workflow.max_iterations > 1 {
+            1 // Limit to 1 iteration in dry-run mode
+        } else {
+            workflow.max_iterations
+        }
+    }
+
+    /// Pure function to build iteration context variables
+    fn build_iteration_context(iteration: u32) -> HashMap<String, String> {
+        let mut vars = HashMap::new();
+        vars.insert("ITERATION".to_string(), iteration.to_string());
+        vars
+    }
+
+    /// Get summary of available variables for debugging (pure function)
+    fn get_available_variable_summary(context: &InterpolationContext) -> String {
+        let mut variables: Vec<String> = context.variables.keys().cloned().collect();
+        variables.sort();
+
+        if variables.is_empty() {
+            "none".to_string()
+        } else if variables.len() > 10 {
+            format!(
+                "{} variables ({}...)",
+                variables.len(),
+                variables[..3].join(", ")
+            )
+        } else {
+            variables.join(", ")
+        }
+    }
+
+    /// Pure function to validate workflow configuration
+    fn validate_workflow_config(workflow: &ExtendedWorkflowConfig) -> Result<()> {
+        if workflow.steps.is_empty() && workflow.mode != WorkflowMode::MapReduce {
+            return Err(anyhow::anyhow!("Workflow has no steps to execute"));
+        }
+        Ok(())
+    }
+
+    /// Pure function to determine if a step should be skipped
+    fn should_skip_step_execution(
+        step_index: usize,
+        completed_steps: &[crate::cook::session::StepResult],
+    ) -> bool {
+        completed_steps
+            .iter()
+            .any(|completed| completed.step_index == step_index && completed.success)
+    }
+
+    /// Pure function to determine if workflow should continue based on state
+    fn determine_iteration_continuation(
+        workflow: &ExtendedWorkflowConfig,
+        iteration: u32,
+        max_iterations: u32,
+        any_changes: bool,
+        execution_flags: &ExecutionFlags,
+        is_focus_tracking_test: bool,
+        should_stop_early_in_test: bool,
+    ) -> IterationContinuation {
+        if !workflow.iterate {
+            return IterationContinuation::Stop("Single iteration workflow".to_string());
+        }
+
+        if iteration >= max_iterations {
+            return IterationContinuation::Stop("Max iterations reached".to_string());
+        }
+
+        // Check for focus tracking test before checking for changes
+        // This ensures tests that track focus always run to completion
+        if is_focus_tracking_test {
+            return IterationContinuation::ContinueToMax;
+        }
+
+        if !any_changes {
+            return IterationContinuation::Stop("No changes were made".to_string());
+        }
+
+        if execution_flags.test_mode && should_stop_early_in_test {
+            return IterationContinuation::Stop("Early termination in test mode".to_string());
+        }
+
+        if execution_flags.test_mode {
+            return IterationContinuation::Continue;
+        }
+
+        IterationContinuation::AskUser
+    }
+
+    pub async fn execute(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Handle MapReduce mode
+        if workflow.mode == WorkflowMode::MapReduce {
+            return self.execute_mapreduce(workflow, env).await;
+        }
+
+        // Validate workflow configuration
+        Self::validate_workflow_config(workflow)?;
+
+        let workflow_start = Instant::now();
+        let execution_flags = Self::determine_execution_flags();
+
+        // Display dry-run mode message
+        self.display_dry_run_info(workflow);
+
+        // Calculate effective max iterations
+        let effective_max_iterations =
+            Self::calculate_effective_max_iterations(workflow, self.dry_run);
+
+        // Only show workflow info for non-empty workflows
+        if !workflow.steps.is_empty() {
+            self.user_interaction.display_info(&format!(
+                "Executing workflow: {} (max {} iterations)",
+                workflow.name, effective_max_iterations
+            ));
+        }
+
+        if workflow.iterate {
+            self.user_interaction
+                .display_progress("Starting improvement loop");
+        }
+
+        let mut iteration = 0;
+        let mut should_continue = true;
+        let mut any_changes = false;
+
+        // Clear completed steps at the start of a new workflow
+        self.completed_steps.clear();
+
+        // Initialize workflow context
+        let mut workflow_context = self.init_workflow_context(env);
+
         // Start workflow timing in session
         self.session_manager
             .update_session(SessionUpdate::StartWorkflow)
@@ -2564,10 +2825,9 @@ impl WorkflowExecutor {
         while should_continue && iteration < effective_max_iterations {
             iteration += 1;
 
-            // Update iteration context
-            workflow_context
-                .iteration_vars
-                .insert("ITERATION".to_string(), iteration.to_string());
+            // Update iteration context with pure function
+            let iteration_vars = Self::build_iteration_context(iteration);
+            workflow_context.iteration_vars.extend(iteration_vars);
 
             self.user_interaction.display_progress(&format!(
                 "Starting iteration {}/{}",
@@ -2590,47 +2850,18 @@ impl WorkflowExecutor {
             // Execute workflow steps
             for (step_index, step) in workflow.steps.iter().enumerate() {
                 // Check if we should skip this step (already completed in previous run)
-                if let Some(ref resume_ctx) = self.resume_context {
-                    if resume_ctx
-                        .skip_steps
-                        .iter()
-                        .any(|s| s.step_index == step_index)
-                    {
-                        self.user_interaction.display_info(&format!(
-                            "Skipping already completed step {}/{}: {}",
-                            step_index + 1,
-                            workflow.steps.len(),
-                            self.get_step_display_name(step)
-                        ));
-                        continue;
-                    }
-
-                    // Check if we have error recovery state stored in variables
-                    if let Some(recovery_state_value) =
-                        resume_ctx.variable_state.get("__error_recovery_state")
-                    {
-                        // Parse the error recovery state from JSON
-                        if let Ok(error_recovery_state) = serde_json::from_value::<ErrorRecoveryState>(
-                            recovery_state_value.clone(),
-                        ) {
-                            // If this step had an active error handler that wasn't completed,
-                            // we need to ensure it gets executed if the step fails again
-                            if !error_recovery_state.active_handlers.is_empty() {
-                                tracing::info!(
-                                    "Restored {} error handlers for step {}",
-                                    error_recovery_state.active_handlers.len(),
-                                    step_index
-                                );
-                                // Store error context in workflow variables for handler execution
-                                for (key, value) in error_recovery_state.error_context {
-                                    workflow_context
-                                        .variables
-                                        .insert(format!("error.{}", key), value.to_string());
-                                }
-                            }
-                        }
-                    }
+                if Self::should_skip_step_execution(step_index, &self.completed_steps) {
+                    self.user_interaction.display_info(&format!(
+                        "Skipping already completed step {}/{}: {}",
+                        step_index + 1,
+                        workflow.steps.len(),
+                        self.get_step_display_name(step)
+                    ));
+                    continue;
                 }
+
+                // Restore error recovery state if needed
+                self.restore_error_recovery_state(step_index, &mut workflow_context);
 
                 // Store current workflow context for checkpoint tracking
                 // TODO: Convert workflow to NormalizedWorkflow for checkpoint tracking
@@ -2646,7 +2877,10 @@ impl WorkflowExecutor {
                 ));
 
                 // Get HEAD before command execution if we need to verify commits
-                let head_before = if !skip_validation && step.commit_required && !test_mode {
+                let head_before = if !execution_flags.skip_validation
+                    && step.commit_required
+                    && !execution_flags.test_mode
+                {
                     Some(self.get_current_head(&env.working_dir).await?)
                 } else {
                     None
@@ -2664,47 +2898,7 @@ impl WorkflowExecutor {
                     .context(format!("Failed to execute step: {step_display}"))?;
 
                 // Display subprocess output when verbose logging is enabled
-                // Show summary at DEBUG level (-v), full output at TRACE level (-vv)
-                if tracing::enabled!(tracing::Level::DEBUG) {
-                    // At DEBUG level, show first/last few lines if output is large
-                    if !step_result.stdout.is_empty() {
-                        let stdout_lines: Vec<&str> = step_result.stdout.lines().collect();
-                        if stdout_lines.len() <= 20 || tracing::enabled!(tracing::Level::TRACE) {
-                            // Show full output if small or at TRACE level
-                            tracing::debug!("Command stdout:\n{}", step_result.stdout);
-                        } else {
-                            // Show abbreviated output at DEBUG level
-                            let preview: String = stdout_lines
-                                .iter()
-                                .take(10)
-                                .chain(std::iter::once(&"... [output truncated] ..."))
-                                .chain(stdout_lines.iter().rev().take(5).rev())
-                                .copied()
-                                .collect::<Vec<_>>()
-                                .join("\n");
-                            tracing::debug!("Command stdout (abbreviated):\n{}", preview);
-                        }
-                    }
-
-                    if !step_result.stderr.is_empty() {
-                        let stderr_lines: Vec<&str> = step_result.stderr.lines().collect();
-                        if stderr_lines.len() <= 20 || tracing::enabled!(tracing::Level::TRACE) {
-                            // Show full output if small or at TRACE level
-                            tracing::debug!("Command stderr:\n{}", step_result.stderr);
-                        } else {
-                            // Show abbreviated output at DEBUG level
-                            let preview: String = stderr_lines
-                                .iter()
-                                .take(10)
-                                .chain(std::iter::once(&"... [output truncated] ..."))
-                                .chain(stderr_lines.iter().rev().take(5).rev())
-                                .copied()
-                                .collect::<Vec<_>>()
-                                .join("\n");
-                            tracing::debug!("Command stderr (abbreviated):\n{}", preview);
-                        }
-                    }
-                }
+                self.log_step_output(&step_result);
 
                 // Complete command timing
                 let command_duration = command_start.elapsed();
@@ -2791,132 +2985,51 @@ impl WorkflowExecutor {
                     }
                 }
 
-                // Save checkpoint after successful step execution
-                let workflow_state = crate::cook::session::WorkflowState {
-                    current_iteration: iteration as usize - 1, // Convert to 0-based index
-                    current_step: step_index + 1,              // Next step to execute
-                    completed_steps: self.completed_steps.clone(), // Use accumulated steps
-                    workflow_path: env.working_dir.join("workflow.yml"), // This would need to be passed in
-                    input_args: Vec::new(), // Would need to be passed from config
-                    map_patterns: Vec::new(), // Would need to be passed from config
-                    using_worktree: env.worktree_name.is_some(),
-                };
-                self.session_manager
-                    .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
+                // Save workflow state after step execution
+                self.save_workflow_state(env, iteration as usize, step_index)
                     .await?;
 
                 // Check for commits if required (skip in dry-run mode)
                 if !self.dry_run {
                     if let Some(before) = head_before {
-                        let head_after = self.get_current_head(&env.working_dir).await?;
-                        if head_after == before {
-                            // No commits were created - check if auto-commit is enabled
-                            if step.auto_commit {
-                                // Try to create an auto-commit
-                                if let Ok(has_changes) =
-                                    self.check_for_changes(&env.working_dir).await
-                                {
-                                    if has_changes {
-                                        let message =
-                                            self.generate_commit_message(step, &workflow_context);
-                                        if let Err(e) = self
-                                            .create_auto_commit(&env.working_dir, &message)
-                                            .await
-                                        {
-                                            tracing::warn!("Failed to create auto-commit: {}", e);
-                                            if step.commit_required {
-                                                self.handle_no_commits_error(step)?;
-                                            }
-                                        } else {
-                                            any_changes = true;
-                                            self.user_interaction.display_success(&format!(
-                                                "{step_display} auto-committed changes"
-                                            ));
-                                        }
-                                    } else if step.commit_required {
-                                        self.handle_no_commits_error(step)?;
-                                    }
-                                } else if step.commit_required {
-                                    self.handle_no_commits_error(step)?;
-                                }
-                            } else if step.commit_required {
-                                self.handle_no_commits_error(step)?;
-                            }
-                        } else {
-                            any_changes = true;
-                            // Track commit metadata if available
-                            if let Ok(commits) = self
-                                .get_commits_between(&env.working_dir, &before, &head_after)
-                                .await
-                            {
-                                let commit_count = commits.len();
-                                let files_changed: std::collections::HashSet<_> = commits
-                                    .iter()
-                                    .flat_map(|c| c.files_changed.iter())
-                                    .collect();
-                                self.user_interaction.display_success(&format!(
-                                    "{step_display} created {} commit{} affecting {} file{}",
-                                    commit_count,
-                                    if commit_count == 1 { "" } else { "s" },
-                                    files_changed.len(),
-                                    if files_changed.len() == 1 { "" } else { "s" }
-                                ));
-
-                                // Store commit info in context for later use
-                                workflow_context.variables.insert(
-                                    "step.commits".to_string(),
-                                    commits
-                                        .iter()
-                                        .map(|c| &c.hash)
-                                        .cloned()
-                                        .collect::<Vec<_>>()
-                                        .join(","),
-                                );
-                                workflow_context.variables.insert(
-                                    "step.files_changed".to_string(),
-                                    files_changed
-                                        .into_iter()
-                                        .map(|p| p.to_string_lossy().to_string())
-                                        .collect::<Vec<_>>()
-                                        .join(","),
-                                );
-                            } else {
-                                self.user_interaction
-                                    .display_success(&format!("{step_display} created commits"));
-                            }
-                        }
-                    } else {
-                        // In test mode or when commit_required is false
-                        if step_result.success {
-                            any_changes = true;
-                        } else if test_mode && step.commit_required && !skip_validation {
-                            // In test mode, if no changes were made and commits were required, fail
-                            self.handle_no_commits_error(step)?;
-                        }
+                        any_changes = self
+                            .handle_commit_verification(
+                                &env.working_dir,
+                                &before,
+                                step,
+                                &step_display,
+                                &mut workflow_context,
+                            )
+                            .await?
+                            || any_changes;
                     }
                 }
             }
 
-            // Check if we should continue
-            if workflow.iterate {
-                if !any_changes {
+            // Determine if we should continue iterations using pure function
+            let continuation = Self::determine_iteration_continuation(
+                workflow,
+                iteration,
+                effective_max_iterations,
+                any_changes,
+                &execution_flags,
+                self.is_focus_tracking_test(),
+                self.should_stop_early_in_test_mode(),
+            );
+
+            should_continue = match continuation {
+                IterationContinuation::Stop(reason) => {
                     self.user_interaction
-                        .display_info("No changes were made - stopping early");
-                    should_continue = false;
-                } else if self.is_focus_tracking_test() {
-                    // In focus tracking test, continue for all iterations
-                    should_continue = iteration < effective_max_iterations;
-                } else if test_mode {
-                    // In test mode, check for early termination
-                    should_continue = !self.should_stop_early_in_test_mode();
-                } else {
-                    // Check based on metrics or ask user
-                    should_continue = self.should_continue_iterations(env).await?;
+                        .display_info(&format!("Stopping: {}", reason));
+                    false
                 }
-            } else {
-                // Single iteration workflow
-                should_continue = false;
-            }
+                IterationContinuation::Continue => true,
+                IterationContinuation::ContinueToMax => iteration < effective_max_iterations,
+                IterationContinuation::AskUser => {
+                    // Check based on metrics or ask user
+                    self.should_continue_iterations(env).await?
+                }
+            };
 
             // Complete iteration timing
             if let Some(iteration_duration) = self.timing_tracker.complete_iteration() {
@@ -2948,55 +3061,9 @@ impl WorkflowExecutor {
 
         // Metrics collection removed in v0.3.0
 
-        // Check if any step has squash enabled in commit_config
-        let should_squash = workflow.steps.iter().any(|step| {
-            step.commit_config
-                .as_ref()
-                .map(|config| config.squash)
-                .unwrap_or(false)
-        });
-
-        // If squash is enabled, squash all commits at the end of workflow
-        if should_squash && any_changes {
-            self.user_interaction
-                .display_progress("Squashing workflow commits...");
-
-            // Try to get all commits created during this workflow
-            if let Ok(head_after) = self.get_current_head(&env.working_dir).await {
-                // Use a reasonable range for getting commits (last 20 commits should be enough for a workflow)
-                if let Ok(commits) = self
-                    .get_commits_between(&env.working_dir, "HEAD~20", &head_after)
-                    .await
-                {
-                    if !commits.is_empty() {
-                        // Create commit tracker and squash
-                        let git_ops = Arc::new(crate::abstractions::git::RealGitOperations::new());
-                        let commit_tracker = crate::cook::commit_tracker::CommitTracker::new(
-                            git_ops,
-                            env.working_dir.to_path_buf(),
-                        );
-
-                        // Generate squash message
-                        let squash_message = format!(
-                            "Squashed {} workflow commits from {}",
-                            commits.len(),
-                            workflow.name
-                        );
-
-                        if let Err(e) = commit_tracker
-                            .squash_commits(&commits, &squash_message)
-                            .await
-                        {
-                            tracing::warn!("Failed to squash commits: {}", e);
-                        } else {
-                            self.user_interaction.display_success(&format!(
-                                "Squashed {} commits into one",
-                                commits.len()
-                            ));
-                        }
-                    }
-                }
-            }
+        // Handle commit squashing if enabled
+        if any_changes {
+            self.handle_commit_squashing(workflow, env).await;
         }
 
         // Display total workflow timing
@@ -3049,6 +3116,192 @@ impl WorkflowExecutor {
         env_vars
     }
 
+    /// Pure function to safely format environment variable value for logging
+    fn format_env_var_for_logging(key: &str, value: &str) -> String {
+        if key.to_lowercase().contains("secret")
+            || key.to_lowercase().contains("token")
+            || key.to_lowercase().contains("password")
+            || key.to_lowercase().contains("key")
+        {
+            "<redacted>".to_string()
+        } else if value.len() > 100 {
+            format!("{}... (truncated)", &value[..100])
+        } else {
+            value.to_string()
+        }
+    }
+
+    /// Pure function to format variable value for logging
+    fn format_variable_for_logging(value: &str) -> String {
+        if value.len() > 100 {
+            format!("{}... (truncated)", &value[..100])
+        } else {
+            value.to_string()
+        }
+    }
+
+    /// Pure function to determine if commit is required and validate
+    fn validate_commit_requirement(
+        step: &WorkflowStep,
+        tracked_commits_empty: bool,
+        head_before: &str,
+        head_after: &str,
+        dry_run: bool,
+        step_name: &str,
+        assumed_commits: &[String],
+    ) -> Result<()> {
+        if !step.commit_required {
+            return Ok(());
+        }
+
+        if !tracked_commits_empty || head_after != head_before {
+            return Ok(());
+        }
+
+        if dry_run {
+            // Build the command description based on which command field is present
+            let command_desc = if let Some(ref cmd) = step.claude {
+                format!("claude: {}", cmd)
+            } else if let Some(ref cmd) = step.shell {
+                format!("shell: {}", cmd)
+            } else if let Some(ref cmd) = step.command {
+                format!("command: {}", cmd)
+            } else {
+                step_name.to_string()
+            };
+
+            if assumed_commits.iter().any(|c| c.contains(&command_desc)) {
+                return Ok(()); // Skip validation for assumed commits
+            }
+        }
+
+        Err(anyhow::anyhow!(
+            "Step '{}' has commit_required=true but no commits were created",
+            step_name
+        ))
+    }
+
+    /// Pure function to build step commit variables
+    fn build_commit_variables(
+        tracked_commits: &[crate::cook::commit_tracker::TrackedCommit],
+    ) -> Result<HashMap<String, String>> {
+        if tracked_commits.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let tracking_result = crate::cook::commit_tracker::CommitTrackingResult::from_commits(
+            tracked_commits.to_vec(),
+        );
+
+        let mut vars = HashMap::new();
+        vars.insert(
+            "step.commits".to_string(),
+            serde_json::to_string(tracked_commits)?,
+        );
+        vars.insert(
+            "step.files_changed".to_string(),
+            tracking_result.total_files_changed.to_string(),
+        );
+        vars.insert(
+            "step.insertions".to_string(),
+            tracking_result.total_insertions.to_string(),
+        );
+        vars.insert(
+            "step.deletions".to_string(),
+            tracking_result.total_deletions.to_string(),
+        );
+
+        Ok(vars)
+    }
+
+    /// Pure function to determine if workflow should fail based on step result
+    fn should_fail_workflow_for_step(step_result: &StepResult, step: &WorkflowStep) -> bool {
+        if step_result.success {
+            return false; // Command succeeded, don't fail
+        }
+
+        // Command failed, check on_failure configuration
+        if let Some(on_failure_config) = &step.on_failure {
+            on_failure_config.should_fail_workflow()
+        } else if let Some(test_cmd) = &step.test {
+            // Legacy test command handling
+            if let Some(test_on_failure) = &test_cmd.on_failure {
+                test_on_failure.fail_workflow
+            } else {
+                true // No on_failure config, fail on error
+            }
+        } else {
+            true // No on_failure handler, fail on error
+        }
+    }
+
+    /// Pure function to get step display name
+    fn get_step_display_name_pure(step: &WorkflowStep) -> String {
+        if let Some(claude_cmd) = &step.claude {
+            format!("claude: {claude_cmd}")
+        } else if let Some(shell_cmd) = &step.shell {
+            format!("shell: {shell_cmd}")
+        } else if let Some(test_cmd) = &step.test {
+            format!("test: {}", test_cmd.command)
+        } else if let Some(handler_step) = &step.handler {
+            format!("handler: {}", handler_step.name)
+        } else if let Some(name) = &step.name {
+            name.clone()
+        } else if let Some(command) = &step.command {
+            format!("command: {command}")
+        } else {
+            "unknown step".to_string()
+        }
+    }
+
+    /// Pure function to append truncated output
+    fn append_truncated_output_pure(error_msg: &mut String, output: &str) {
+        let lines: Vec<&str> = output.lines().collect();
+        if lines.len() <= 50 {
+            error_msg.push('\n');
+            error_msg.push_str(output);
+        } else {
+            // Show first 25 and last 25 lines for large outputs
+            error_msg.push('\n');
+            for line in lines.iter().take(25) {
+                error_msg.push_str(line);
+                error_msg.push('\n');
+            }
+            error_msg.push_str(&format!(
+                "\n... ({} lines truncated) ...\n\n",
+                lines.len() - 50
+            ));
+            for line in lines.iter().skip(lines.len() - 25) {
+                error_msg.push_str(line);
+                error_msg.push('\n');
+            }
+        }
+    }
+
+    /// Pure function to build error message for failed step
+    fn build_step_error_message(step: &WorkflowStep, result: &StepResult) -> String {
+        let step_display = Self::get_step_display_name_pure(step);
+        let mut error_msg = format!("Step '{}' failed", step_display);
+
+        if let Some(exit_code) = result.exit_code {
+            error_msg.push_str(&format!(" with exit code {}", exit_code));
+        }
+
+        // Add stderr if available
+        if !result.stderr.trim().is_empty() {
+            error_msg.push_str("\n\n=== Error Output (stderr) ===");
+            Self::append_truncated_output_pure(&mut error_msg, &result.stderr);
+        }
+
+        // Add stdout if stderr was empty but stdout has content
+        if result.stderr.trim().is_empty() && !result.stdout.trim().is_empty() {
+            error_msg.push_str("\n\n=== Standard Output (stdout) ===");
+            Self::append_truncated_output_pure(&mut error_msg, &result.stdout);
+        }
+
+        error_msg
+    }
+
     /// Execute a single workflow step
     pub async fn execute_step(
         &mut self,
@@ -3075,12 +3328,7 @@ impl WorkflowExecutor {
         if !ctx.variables.is_empty() {
             tracing::info!("Variables:");
             for (key, value) in &ctx.variables {
-                // Truncate long values for readability
-                let display_value = if value.len() > 100 {
-                    format!("{}... (truncated)", &value[..100])
-                } else {
-                    value.clone()
-                };
+                let display_value = Self::format_variable_for_logging(value);
                 tracing::info!("  {} = {}", key, display_value);
             }
         }
@@ -3089,11 +3337,7 @@ impl WorkflowExecutor {
         if !ctx.captured_outputs.is_empty() {
             tracing::info!("Captured Outputs:");
             for (key, value) in &ctx.captured_outputs {
-                let display_value = if value.len() > 100 {
-                    format!("{}... (truncated)", &value[..100])
-                } else {
-                    value.clone()
-                };
+                let display_value = Self::format_variable_for_logging(value);
                 tracing::info!("  {} = {}", key, display_value);
             }
         }
@@ -3157,21 +3401,8 @@ impl WorkflowExecutor {
         if !env_vars.is_empty() {
             tracing::info!("Environment Variables:");
             for (key, value) in &env_vars {
-                // Don't log sensitive values
-                if key.to_lowercase().contains("secret")
-                    || key.to_lowercase().contains("token")
-                    || key.to_lowercase().contains("password")
-                    || key.to_lowercase().contains("key")
-                {
-                    tracing::info!("  {} = <redacted>", key);
-                } else {
-                    let display_value = if value.len() > 100 {
-                        format!("{}... (truncated)", &value[..100])
-                    } else {
-                        value.clone()
-                    };
-                    tracing::info!("  {} = {}", key, display_value);
-                }
+                let display_value = Self::format_env_var_for_logging(key, value);
+                tracing::info!("  {} = {}", key, display_value);
             }
         }
 
@@ -3234,64 +3465,41 @@ impl WorkflowExecutor {
         }
 
         // Populate commit variables in context if we have commits
-        if !tracked_commits.is_empty() {
-            let tracking_result = crate::cook::commit_tracker::CommitTrackingResult::from_commits(
-                tracked_commits.clone(),
-            );
-            ctx.variables.insert(
-                "step.commits".to_string(),
-                serde_json::to_string(&tracked_commits)?,
-            );
-            ctx.variables.insert(
-                "step.files_changed".to_string(),
-                tracking_result.total_files_changed.to_string(),
-            );
-            ctx.variables.insert(
-                "step.insertions".to_string(),
-                tracking_result.total_insertions.to_string(),
-            );
-            ctx.variables.insert(
-                "step.deletions".to_string(),
-                tracking_result.total_deletions.to_string(),
-            );
-        }
+        let commit_vars = Self::build_commit_variables(&tracked_commits)?;
+        ctx.variables.extend(commit_vars);
 
-        // Enforce commit_required if configured (skip in dry-run mode when commit was assumed)
-        if step.commit_required && tracked_commits.is_empty() && after_head == before_head {
-            // Check if this step was executed in dry-run and commit was assumed
-            if self.dry_run {
-                // Build the command description based on which command field is present
-                let command_desc = if let Some(ref cmd) = step.claude {
-                    format!("claude: {}", cmd)
-                } else if let Some(ref cmd) = step.shell {
-                    format!("shell: {}", cmd)
-                } else if let Some(ref cmd) = step.command {
-                    format!("command: {}", cmd)
-                } else {
-                    step_name.clone()
-                };
+        // Validate commit requirements using pure function
+        Self::validate_commit_requirement(
+            step,
+            tracked_commits.is_empty(),
+            &before_head,
+            &after_head,
+            self.dry_run,
+            &step_name,
+            &self.assumed_commits,
+        )?;
 
-                if self
-                    .assumed_commits
-                    .iter()
-                    .any(|c| c.contains(&command_desc))
-                {
-                    println!(
-                        "[DRY RUN] Skipping commit validation - assumed commit from: {}",
-                        step_name
-                    );
-                    // Don't fail, continue as if commit was made
-                } else {
-                    return Err(anyhow::anyhow!(
-                        "Step '{}' has commit_required=true but no commits were created",
-                        step_name
-                    ));
-                }
+        if self.dry_run && tracked_commits.is_empty() && after_head == before_head {
+            // Handle dry run commit assumption display
+            let command_desc = if let Some(ref cmd) = step.claude {
+                format!("claude: {}", cmd)
+            } else if let Some(ref cmd) = step.shell {
+                format!("shell: {}", cmd)
+            } else if let Some(ref cmd) = step.command {
+                format!("command: {}", cmd)
             } else {
-                return Err(anyhow::anyhow!(
-                    "Step '{}' has commit_required=true but no commits were created",
+                step_name.clone()
+            };
+
+            if self
+                .assumed_commits
+                .iter()
+                .any(|c| c.contains(&command_desc))
+            {
+                println!(
+                    "[DRY RUN] Skipping commit validation - assumed commit from: {}",
                     step_name
-                ));
+                );
             }
         }
 
@@ -3393,11 +3601,11 @@ impl WorkflowExecutor {
             .handle_conditional_execution(step, result, &actual_env, ctx)
             .await?;
 
-        // Check if we should fail the workflow based on the result
-        let should_fail = self.should_fail_workflow(&result, step);
+        // Check if we should fail the workflow based on the result using pure function
+        let should_fail = Self::should_fail_workflow_for_step(&result, step);
 
         if should_fail {
-            let error_msg = self.build_error_message(step, &result);
+            let error_msg = Self::build_step_error_message(step, &result);
             anyhow::bail!(error_msg);
         }
 
@@ -4770,14 +4978,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_short_string() {
-        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
-        use std::sync::Arc;
-
-        let executor = WorkflowExecutor::new(
-            Arc::new(MockClaudeExecutor::new()),
-            Arc::new(MockSessionManager::new()),
-            Arc::new(MockUserInteraction::new()),
-        );
+        let executor = create_test_executor();
 
         let value = "simple value";
         let formatted = executor.format_variable_value(value);
@@ -4786,30 +4987,28 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_json_array() {
-        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
-        use std::sync::Arc;
-
-        let executor = WorkflowExecutor::new(
-            Arc::new(MockClaudeExecutor::new()),
-            Arc::new(MockSessionManager::new()),
-            Arc::new(MockUserInteraction::new()),
-        );
+        let executor = create_test_executor();
 
         let value = r#"["item1", "item2", "item3"]"#;
         let formatted = executor.format_variable_value(value);
         assert_eq!(formatted, r#"["item1","item2","item3"]"#);
     }
 
-    #[test]
-    fn test_format_variable_value_large_array() {
+    // Test helper function for creating WorkflowExecutor with mocks
+    fn create_test_executor() -> WorkflowExecutor {
         use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
         use std::sync::Arc;
 
-        let executor = WorkflowExecutor::new(
+        WorkflowExecutor::new(
             Arc::new(MockClaudeExecutor::new()),
             Arc::new(MockSessionManager::new()),
             Arc::new(MockUserInteraction::new()),
-        );
+        )
+    }
+
+    #[test]
+    fn test_format_variable_value_large_array() {
+        let executor = create_test_executor();
 
         // Create a large array
         let items: Vec<String> = (0..100).map(|i| format!("\"item{}\"", i)).collect();
@@ -4820,14 +5019,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_json_object() {
-        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
-        use std::sync::Arc;
-
-        let executor = WorkflowExecutor::new(
-            Arc::new(MockClaudeExecutor::new()),
-            Arc::new(MockSessionManager::new()),
-            Arc::new(MockUserInteraction::new()),
-        );
+        let executor = create_test_executor();
 
         let value = r#"{"name": "test", "value": 42}"#;
         let formatted = executor.format_variable_value(value);
@@ -4840,14 +5032,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_truncated() {
-        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
-        use std::sync::Arc;
-
-        let executor = WorkflowExecutor::new(
-            Arc::new(MockClaudeExecutor::new()),
-            Arc::new(MockSessionManager::new()),
-            Arc::new(MockUserInteraction::new()),
-        );
+        let executor = create_test_executor();
 
         let value = "a".repeat(300);
         let formatted = executor.format_variable_value(&value);

@@ -144,6 +144,43 @@ pub async fn cook(mut cmd: CookCommand) -> Result<()> {
 }
 
 /// Create the orchestrator with all dependencies
+/// Create session management components
+async fn create_session_components(
+    project_path: &Path,
+) -> Result<(
+    SessionId,
+    Arc<crate::unified_session::SessionManager>,
+    Arc<crate::unified_session::CookSessionAdapter>,
+)> {
+    let session_id = SessionId::new();
+    let storage = crate::storage::GlobalStorage::new()?;
+    let storage2 = crate::storage::GlobalStorage::new()?;
+    let unified_manager = Arc::new(crate::unified_session::SessionManager::new(storage2).await?);
+    let session_manager = Arc::new(
+        crate::unified_session::CookSessionAdapter::new(project_path.to_path_buf(), storage)
+            .await?,
+    );
+    Ok((session_id, unified_manager, session_manager))
+}
+
+/// Create event logger for session
+async fn create_event_logger(
+    project_path: &Path,
+    session_id: &str,
+) -> Option<Arc<crate::cook::execution::events::EventLogger>> {
+    match crate::storage::create_global_event_logger(project_path, session_id).await {
+        Ok(logger) => Some(Arc::new(logger)),
+        Err(e) => {
+            tracing::warn!(
+                "Failed to create event logger for session {}: {}",
+                session_id,
+                e
+            );
+            None
+        }
+    }
+}
+
 async fn create_orchestrator(
     project_path: &Path,
     cmd: &CookCommand,
@@ -162,16 +199,10 @@ async fn create_orchestrator(
         project_path.to_path_buf(),
         subprocess.as_ref().clone(),
     )?);
-    // Create unified session manager directly
-    let session_id = SessionId::new();
-    let storage = crate::storage::GlobalStorage::new()?;
-    let storage2 = crate::storage::GlobalStorage::new()?;
-    let unified_manager = Arc::new(crate::unified_session::SessionManager::new(storage2).await?);
-    // Keep the adapter for compatibility with other parts of the code that still need it
-    let session_manager = Arc::new(
-        crate::unified_session::CookSessionAdapter::new(project_path.to_path_buf(), storage)
-            .await?,
-    );
+
+    // Create session components
+    let (session_id, unified_manager, session_manager) =
+        create_session_components(project_path).await?;
 
     // Create user interaction with verbosity from command args
     let verbosity = interaction::VerbosityLevel::from_args(cmd.verbosity, cmd.quiet);
@@ -183,20 +214,7 @@ async fn create_orchestrator(
     let command_executor = Arc::new(command_runner1);
 
     // Create event logger for Claude streaming logs
-    let event_logger =
-        match crate::storage::create_global_event_logger(project_path, &session_id.to_string())
-            .await
-        {
-            Ok(logger) => Some(Arc::new(logger)),
-            Err(e) => {
-                tracing::warn!(
-                    "Failed to create event logger for session {}: {}",
-                    session_id,
-                    e
-                );
-                None
-            }
-        };
+    let event_logger = create_event_logger(project_path, &session_id.to_string()).await;
 
     let claude_executor = Arc::new({
         let mut executor = execution::claude::ClaudeExecutorImpl::new(command_runner2)

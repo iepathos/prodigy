@@ -375,6 +375,430 @@ fn get_all_event_files() -> Result<Vec<PathBuf>> {
     Ok(all_files)
 }
 
+// =============================================================================
+// Pure Data Transformation Functions
+// =============================================================================
+
+/// Pure function to build event filter criteria
+#[derive(Debug, Clone)]
+pub struct EventFilter {
+    pub job_id: Option<String>,
+    pub event_type: Option<String>,
+    pub agent_id: Option<String>,
+    pub since_time: Option<DateTime<Utc>>,
+}
+
+impl EventFilter {
+    fn new(
+        job_id: Option<String>,
+        event_type: Option<String>,
+        agent_id: Option<String>,
+        since: Option<u64>,
+    ) -> Self {
+        let since_time =
+            since.map(|minutes| Utc::now() - chrono::Duration::minutes(minutes as i64));
+        Self {
+            job_id,
+            event_type,
+            agent_id,
+            since_time,
+        }
+    }
+
+    fn matches_event(&self, event: &Value) -> bool {
+        if let Some(ref jid) = self.job_id {
+            if !event_matches_field(event, "job_id", jid) {
+                return false;
+            }
+        }
+
+        if let Some(ref etype) = self.event_type {
+            if !event_matches_type(event, etype) {
+                return false;
+            }
+        }
+
+        if let Some(ref aid) = self.agent_id {
+            if !event_matches_field(event, "agent_id", aid) {
+                return false;
+            }
+        }
+
+        if let Some(since_time) = self.since_time {
+            if !event_is_recent(event, since_time) {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+/// Pure function to transform events into statistics
+fn calculate_event_statistics(
+    events: impl Iterator<Item = Value>,
+    group_by: &str,
+) -> (std::collections::HashMap<String, usize>, usize) {
+    use std::collections::HashMap;
+
+    let mut stats = HashMap::new();
+    let mut total = 0;
+
+    for event in events {
+        total += 1;
+
+        let key = match group_by {
+            "event_type" => get_event_type(&event),
+            "job_id" => event
+                .get("job_id")
+                .or_else(|| extract_nested_field(&event, "job_id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            "agent_id" => event
+                .get("agent_id")
+                .or_else(|| extract_nested_field(&event, "agent_id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("n/a")
+                .to_string(),
+            _ => "unknown".to_string(),
+        };
+
+        *stats.entry(key).or_insert(0) += 1;
+    }
+
+    (stats, total)
+}
+
+/// Pure function to sort statistics by count
+fn sort_statistics_by_count(
+    stats: std::collections::HashMap<String, usize>,
+) -> Vec<(String, usize)> {
+    let mut sorted_stats: Vec<_> = stats.into_iter().collect();
+    sorted_stats.sort_by(|a, b| b.1.cmp(&a.1));
+    sorted_stats
+}
+
+/// Pure function to format statistics as human-readable string
+fn format_statistics_human(
+    sorted_stats: &[(String, usize)],
+    total: usize,
+    group_by: &str,
+) -> String {
+    let mut output = format!("Event Statistics (grouped by {})\n", group_by);
+    output.push_str(&"=".repeat(50));
+    output.push('\n');
+
+    for (key, count) in sorted_stats {
+        let percentage = (*count as f64 / total as f64) * 100.0;
+        output.push_str(&format!(
+            "{:<30} {:>6} ({:>5.1}%)\n",
+            key, count, percentage
+        ));
+    }
+
+    output.push_str(&"=".repeat(50));
+    output.push('\n');
+    output.push_str(&format!("Total events: {}\n", total));
+    output
+}
+
+/// Pure function to check if event matches search pattern
+fn event_matches_search(event: &Value, pattern: &regex::Regex, fields: Option<&[String]>) -> bool {
+    if let Some(fields) = fields {
+        fields.iter().any(|field| {
+            event
+                .get(field)
+                .and_then(|v| v.as_str())
+                .map(|s| pattern.is_match(s))
+                .unwrap_or(false)
+        })
+    } else {
+        search_in_value(event, pattern)
+    }
+}
+
+/// Pure function to process a single event line into a JSON Value
+fn parse_event_line(line: &str) -> Option<Value> {
+    if line.trim().is_empty() {
+        return None;
+    }
+    serde_json::from_str(line).ok()
+}
+
+/// Pure function to convert duration string to days
+fn convert_duration_to_days(duration_str: &str) -> Result<u32> {
+    let duration_str = duration_str.trim().to_lowercase();
+
+    if duration_str.is_empty() {
+        return Err(anyhow::anyhow!("Empty duration string"));
+    }
+
+    let (number_part, unit_part) =
+        if let Some(unit_pos) = duration_str.chars().position(|c| c.is_alphabetic()) {
+            let (num, unit) = duration_str.split_at(unit_pos);
+            (num, unit)
+        } else {
+            // If no unit specified, assume days
+            (duration_str.as_str(), "d")
+        };
+
+    let number: f64 = number_part
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid number in duration: '{}'", number_part))?;
+
+    let days = match unit_part {
+        "d" | "day" | "days" => number,
+        "w" | "week" | "weeks" => number * 7.0,
+        "h" | "hour" | "hours" => number / 24.0,
+        "m" | "min" | "minute" | "minutes" => number / (24.0 * 60.0),
+        "s" | "sec" | "second" | "seconds" => number / (24.0 * 60.0 * 60.0),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid duration unit: '{}'. Use d/day, w/week, h/hour, m/min, s/sec",
+                unit_part
+            ))
+        }
+    };
+
+    // Convert to u32, ensuring at least 0 days
+    Ok(days.max(0.0).ceil() as u32)
+}
+
+/// Pure function to convert size string to bytes
+fn convert_size_to_bytes(size_str: &str) -> Result<u64> {
+    let size_str = size_str.trim().to_uppercase();
+
+    if size_str.is_empty() {
+        return Err(anyhow::anyhow!("Empty size string"));
+    }
+
+    let (number_part, unit_part) =
+        if let Some(unit_pos) = size_str.chars().position(|c| c.is_alphabetic()) {
+            let (num, unit) = size_str.split_at(unit_pos);
+            (num, unit)
+        } else {
+            // If no unit specified, assume bytes
+            (size_str.as_str(), "B")
+        };
+
+    let number: f64 = number_part
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid number in size: '{}'", number_part))?;
+
+    let bytes = match unit_part {
+        "B" | "BYTE" | "BYTES" => number,
+        "KB" | "K" => number * 1024.0,
+        "MB" | "M" => number * 1024.0 * 1024.0,
+        "GB" | "G" => number * 1024.0 * 1024.0 * 1024.0,
+        "TB" | "T" => number * 1024.0 * 1024.0 * 1024.0 * 1024.0,
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid size unit: '{}'. Use B/byte, KB/K, MB/M, GB/G, TB/T",
+                unit_part
+            ))
+        }
+    };
+
+    // Convert to u64, ensuring at least 0 bytes
+    Ok(bytes.max(0.0) as u64)
+}
+
+/// Pure function to validate retention policy parameters
+fn validate_retention_policy(
+    older_than: &Option<String>,
+    max_events: &Option<usize>,
+    max_size: &Option<String>,
+) -> Result<()> {
+    if let Some(ref duration) = older_than {
+        convert_duration_to_days(duration)?;
+    }
+
+    if let Some(ref size) = max_size {
+        convert_size_to_bytes(size)?;
+    }
+
+    if older_than.is_none() && max_events.is_none() && max_size.is_none() {
+        return Err(anyhow::anyhow!(
+            "At least one retention criteria must be specified (older_than, max_events, or max_size)"
+        ));
+    }
+
+    Ok(())
+}
+
+// =============================================================================
+// Pure Formatting Functions
+// =============================================================================
+
+/// Pure function to format job info for display
+fn create_job_display_info(job: &JobInfo) -> String {
+    match job.status {
+        JobStatus::Completed => {
+            let duration = calculate_duration(job.start_time, job.end_time);
+            format!(
+                "{} [✓ COMPLETED{} - Success: {}, Failed: {}]",
+                job.id, duration, job.success_count, job.failure_count
+            )
+        }
+        JobStatus::Failed => {
+            format!("{} [✗ FAILED]", job.id)
+        }
+        JobStatus::InProgress => {
+            let elapsed = calculate_elapsed(job.start_time);
+            format!("{} [⟳ IN PROGRESS{}]", job.id, elapsed)
+        }
+        JobStatus::Unknown => {
+            format!("{} [? UNKNOWN]", job.id)
+        }
+    }
+}
+
+/// Pure function to format statistics as JSON
+fn format_statistics_json(
+    sorted_stats: &[(String, usize)],
+    total: usize,
+    group_by: &str,
+) -> Result<String> {
+    #[derive(Serialize)]
+    struct StatsOutput {
+        group_by: String,
+        stats: Vec<StatEntry>,
+        total: usize,
+    }
+
+    #[derive(Serialize)]
+    struct StatEntry {
+        key: String,
+        count: usize,
+        percentage: f64,
+    }
+
+    let entries: Vec<StatEntry> = sorted_stats
+        .iter()
+        .map(|(key, count)| StatEntry {
+            key: key.clone(),
+            count: *count,
+            percentage: (*count as f64 / total as f64) * 100.0,
+        })
+        .collect();
+
+    let output = StatsOutput {
+        group_by: group_by.to_string(),
+        stats: entries,
+        total,
+    };
+
+    Ok(serde_json::to_string_pretty(&output)?)
+}
+
+/// Pure function to format statistics as YAML
+fn format_statistics_yaml(
+    sorted_stats: &[(String, usize)],
+    total: usize,
+    group_by: &str,
+) -> Result<String> {
+    #[derive(Serialize)]
+    struct StatsOutput {
+        group_by: String,
+        stats: Vec<StatEntry>,
+        total: usize,
+    }
+
+    #[derive(Serialize)]
+    struct StatEntry {
+        key: String,
+        count: usize,
+        percentage: f64,
+    }
+
+    let entries: Vec<StatEntry> = sorted_stats
+        .iter()
+        .map(|(key, count)| StatEntry {
+            key: key.clone(),
+            count: *count,
+            percentage: (*count as f64 / total as f64) * 100.0,
+        })
+        .collect();
+
+    let output = StatsOutput {
+        group_by: group_by.to_string(),
+        stats: entries,
+        total,
+    };
+
+    Ok(serde_yaml::to_string(&output)?)
+}
+
+/// Pure function to format cleanup summary message
+fn create_cleanup_summary_message(total_cleaned: usize, dry_run: bool) -> String {
+    if total_cleaned == 0 {
+        "No events matched the cleanup criteria.".to_string()
+    } else if dry_run {
+        format!("Would clean {} events", total_cleaned)
+    } else {
+        format!("Cleaned {} events", total_cleaned)
+    }
+}
+
+/// Pure function to create cleanup summary JSON
+fn create_cleanup_summary_json(
+    total_cleaned: usize,
+    total_archived: usize,
+    dry_run: bool,
+) -> Result<String> {
+    #[derive(Serialize)]
+    struct CleanSummary {
+        dry_run: bool,
+        events_cleaned: usize,
+        events_archived: usize,
+        message: String,
+    }
+
+    let summary = CleanSummary {
+        dry_run,
+        events_cleaned: total_cleaned,
+        events_archived: total_archived,
+        message: create_cleanup_summary_message(total_cleaned, dry_run),
+    };
+
+    Ok(serde_json::to_string_pretty(&summary)?)
+}
+
+/// Pure function to create human-readable cleanup summary
+fn create_cleanup_summary_human(
+    total_cleaned: usize,
+    total_archived: usize,
+    dry_run: bool,
+) -> String {
+    let mut summary = String::new();
+
+    if dry_run {
+        summary.push_str(&format!(
+            "Summary (dry run): {} events would be cleaned\n",
+            total_cleaned
+        ));
+        if total_archived > 0 {
+            summary.push_str(&format!("  {} events would be archived\n", total_archived));
+        }
+    } else {
+        summary.push_str(&format!("Summary: {} events cleaned\n", total_cleaned));
+        if total_archived > 0 {
+            summary.push_str(&format!("  {} events archived\n", total_archived));
+        }
+    }
+
+    if total_cleaned == 0 {
+        summary.push_str("No events matched the cleanup criteria.\n");
+    }
+
+    summary
+}
+
+// =============================================================================
+// Command Execution Functions
+// =============================================================================
+
 /// Execute event viewer commands
 pub async fn execute(args: EventsArgs) -> Result<()> {
     match args.command {
@@ -513,29 +937,9 @@ fn display_available_jobs() -> Result<()> {
     Ok(())
 }
 
-/// Format job information for display
+/// Format job information for display (now delegates to pure function)
 fn format_job_info(job: &JobInfo) -> String {
-    let base = &job.id;
-
-    match job.status {
-        JobStatus::Completed => {
-            let duration = calculate_duration(job.start_time, job.end_time);
-            format!(
-                "{} [✓ COMPLETED{} - Success: {}, Failed: {}]",
-                base, duration, job.success_count, job.failure_count
-            )
-        }
-        JobStatus::Failed => {
-            format!("{} [✗ FAILED]", base)
-        }
-        JobStatus::InProgress => {
-            let elapsed = calculate_elapsed(job.start_time);
-            format!("{} [⟳ IN PROGRESS{}]", base, elapsed)
-        }
-        JobStatus::Unknown => {
-            format!("{} [? UNKNOWN]", base)
-        }
-    }
+    create_job_display_info(job)
 }
 
 /// Calculate duration between start and end times
@@ -560,7 +964,7 @@ fn calculate_elapsed(start: Option<DateTime<Local>>) -> String {
     }
 }
 
-/// List events with optional filters
+/// List events with optional filters (refactored to separate I/O from logic)
 async fn list_events(
     file: PathBuf,
     job_id: Option<String>,
@@ -575,82 +979,60 @@ async fn list_events(
         return Ok(());
     }
 
-    let since_time = since.map(|minutes| Utc::now() - chrono::Duration::minutes(minutes as i64));
+    // Create filter using pure function
+    let filter = EventFilter::new(job_id, event_type, agent_id, since);
 
+    // Read events from file
+    let events = read_and_filter_events(&file, &filter, limit)?;
+
+    // Display events using pure functions
+    display_events_with_format(&events, &output_format)
+}
+
+/// Pure I/O function to read and filter events from file
+fn read_and_filter_events(
+    file: &PathBuf,
+    filter: &EventFilter,
+    limit: usize,
+) -> Result<Vec<Value>> {
     let file_handle = fs::File::open(file)?;
     let reader = BufReader::new(file_handle);
-    let mut count = 0;
-    let mut events = Vec::new();
 
-    for line in reader.lines() {
-        if count >= limit {
-            break;
-        }
+    let events = reader
+        .lines()
+        .map_while(Result::ok)
+        .filter_map(|line| parse_event_line(&line))
+        .filter(|event| filter.matches_event(event))
+        .take(limit)
+        .collect();
 
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
-        }
+    Ok(events)
+}
 
-        let event: Value = serde_json::from_str(&line)?;
-
-        // Apply filters
-        if let Some(ref jid) = job_id {
-            if !event_matches_field(&event, "job_id", jid) {
-                continue;
-            }
-        }
-
-        if let Some(ref etype) = event_type {
-            if !event_matches_type(&event, etype) {
-                continue;
-            }
-        }
-
-        if let Some(ref aid) = agent_id {
-            if !event_matches_field(&event, "agent_id", aid) {
-                continue;
-            }
-        }
-
-        if let Some(since_time) = since_time {
-            if !event_is_recent(&event, since_time) {
-                continue;
-            }
-        }
-
-        // Format and display event based on output format
-        match output_format.as_str() {
-            "json" | "yaml" | "table" => {
-                // Collect for formatted output
-                events.push(event);
-            }
-            _ => {
-                // Default to human-readable output
-                display_event(&event);
-            }
-        }
-        count += 1;
-    }
-
-    match output_format.as_str() {
+/// Pure function to display events in the specified format
+fn display_events_with_format(events: &[Value], output_format: &str) -> Result<()> {
+    match output_format {
         "json" => {
-            println!("{}", serde_json::to_string_pretty(&events)?);
+            println!("{}", serde_json::to_string_pretty(events)?);
         }
         "yaml" => {
-            println!("{}", serde_yaml::to_string(&events)?);
+            println!("{}", serde_yaml::to_string(events)?);
         }
         "table" => {
-            display_events_as_table(&events)?;
+            display_events_as_table(events)?;
         }
         _ => {
-            println!("\nDisplayed {} events", count);
+            // Default to human-readable output
+            for event in events {
+                display_event(event);
+            }
+            println!("\nDisplayed {} events", events.len());
         }
     }
     Ok(())
 }
 
-/// Show aggregated statistics from all global event files
+/// Show aggregated statistics from all global event files (refactored)
 async fn show_aggregated_stats(group_by: String, output_format: String) -> Result<()> {
     let event_files = get_all_event_files()?;
 
@@ -659,230 +1041,93 @@ async fn show_aggregated_stats(group_by: String, output_format: String) -> Resul
         return Ok(());
     }
 
-    use std::collections::HashMap;
+    // Read all events and calculate statistics using pure functions
+    let all_events = read_events_from_files(&event_files)?;
+    let (stats, total) = calculate_event_statistics(all_events.into_iter(), &group_by);
+    let sorted_stats = sort_statistics_by_count(stats);
 
-    let mut stats: HashMap<String, usize> = HashMap::new();
-    let mut total = 0;
+    // Display statistics using pure functions
+    display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, true)
+}
 
-    // Process all event files
+/// Pure I/O function to read events from multiple files
+fn read_events_from_files(event_files: &[PathBuf]) -> Result<Vec<Value>> {
+    let mut all_events = Vec::new();
+
     for file in event_files {
-        let content = fs::File::open(&file)?;
+        let content = fs::File::open(file)?;
         let reader = BufReader::new(content);
 
         for line in reader.lines() {
             let line = line?;
-            if line.trim().is_empty() {
-                continue;
+            if let Some(event) = parse_event_line(&line) {
+                all_events.push(event);
             }
-
-            let event: Value = serde_json::from_str(&line)?;
-            total += 1;
-
-            // Group by specified field
-            let key = match group_by.as_str() {
-                "event_type" => get_event_type(&event),
-                "job_id" => event
-                    .get("job_id")
-                    .or_else(|| extract_nested_field(&event, "job_id"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-                    .to_string(),
-                "agent_id" => event
-                    .get("agent_id")
-                    .or_else(|| extract_nested_field(&event, "agent_id"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("n/a")
-                    .to_string(),
-                _ => "unknown".to_string(),
-            };
-
-            *stats.entry(key).or_insert(0) += 1;
         }
     }
 
-    // Display statistics based on output format
-    match output_format.as_str() {
+    Ok(all_events)
+}
+
+/// Pure function to display statistics in the specified format
+fn display_statistics_with_format(
+    sorted_stats: &[(String, usize)],
+    total: usize,
+    group_by: &str,
+    output_format: &str,
+    is_aggregated: bool,
+) -> Result<()> {
+    match output_format {
         "json" => {
-            #[derive(Serialize)]
-            struct StatsOutput {
-                group_by: String,
-                stats: Vec<StatEntry>,
-                total: usize,
-            }
-
-            #[derive(Serialize)]
-            struct StatEntry {
-                key: String,
-                count: usize,
-                percentage: f64,
-            }
-
-            let mut entries: Vec<StatEntry> = stats
-                .iter()
-                .map(|(key, count)| StatEntry {
-                    key: key.clone(),
-                    count: *count,
-                    percentage: (*count as f64 / total as f64) * 100.0,
-                })
-                .collect();
-            entries.sort_by(|a, b| b.count.cmp(&a.count));
-
-            let output = StatsOutput {
-                group_by,
-                stats: entries,
-                total,
-            };
-
-            println!("{}", serde_json::to_string_pretty(&output)?);
+            let json_output = format_statistics_json(sorted_stats, total, group_by)?;
+            println!("{}", json_output);
         }
         "yaml" => {
-            #[derive(Serialize)]
-            struct StatsOutput {
-                group_by: String,
-                stats: Vec<StatEntry>,
-                total: usize,
-            }
-
-            #[derive(Serialize)]
-            struct StatEntry {
-                key: String,
-                count: usize,
-                percentage: f64,
-            }
-
-            let mut entries: Vec<StatEntry> = stats
-                .iter()
-                .map(|(key, count)| StatEntry {
-                    key: key.clone(),
-                    count: *count,
-                    percentage: (*count as f64 / total as f64) * 100.0,
-                })
-                .collect();
-            entries.sort_by(|a, b| b.count.cmp(&a.count));
-
-            let output = StatsOutput {
-                group_by,
-                stats: entries,
-                total,
-            };
-
-            println!("{}", serde_yaml::to_string(&output)?);
+            let yaml_output = format_statistics_yaml(sorted_stats, total, group_by)?;
+            println!("{}", yaml_output);
         }
         _ => {
-            println!("Event Statistics (grouped by {}) - All Jobs", group_by);
-            println!("{}", "=".repeat(50));
-
-            let mut sorted_stats: Vec<_> = stats.iter().collect();
-            sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
-
-            for (key, count) in sorted_stats {
-                let percentage = (*count as f64 / total as f64) * 100.0;
-                println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
-            }
-
-            println!("{}", "=".repeat(50));
-            println!("Total events: {}", total);
+            let title_suffix = if is_aggregated { " - All Jobs" } else { "" };
+            println!("Event Statistics (grouped by {}){}", group_by, title_suffix);
+            let human_output = format_statistics_human(sorted_stats, total, group_by);
+            print!("{}", human_output);
         }
     }
 
     Ok(())
 }
 
-/// Show event statistics
+/// Show event statistics (refactored to use pure functions)
 async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> Result<()> {
     if !file.exists() {
         println!("No events found. Events file does not exist: {:?}", file);
         return Ok(());
     }
 
-    use std::collections::HashMap;
+    // Read events and calculate statistics using pure functions
+    let events = read_events_from_single_file(&file)?;
+    let (stats, total) = calculate_event_statistics(events.into_iter(), &group_by);
+    let sorted_stats = sort_statistics_by_count(stats);
 
-    let file = fs::File::open(file)?;
-    let reader = BufReader::new(file);
-    let mut stats: HashMap<String, usize> = HashMap::new();
-    let mut total = 0;
-
-    for line in reader.lines() {
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
-        }
-
-        let event: Value = serde_json::from_str(&line)?;
-        total += 1;
-
-        // Group by specified field
-        let key = match group_by.as_str() {
-            "event_type" => get_event_type(&event),
-            "job_id" => event
-                .get("job_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            "agent_id" => event
-                .get("agent_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("n/a")
-                .to_string(),
-            _ => "unknown".to_string(),
-        };
-
-        *stats.entry(key).or_insert(0) += 1;
-    }
-
-    // Display statistics
-    if output_format == "json" {
-        #[derive(Serialize)]
-        struct StatsOutput {
-            group_by: String,
-            stats: Vec<StatEntry>,
-            total: usize,
-        }
-
-        #[derive(Serialize)]
-        struct StatEntry {
-            key: String,
-            count: usize,
-            percentage: f64,
-        }
-
-        let mut entries: Vec<StatEntry> = stats
-            .iter()
-            .map(|(key, count)| StatEntry {
-                key: key.clone(),
-                count: *count,
-                percentage: (*count as f64 / total as f64) * 100.0,
-            })
-            .collect();
-        entries.sort_by(|a, b| b.count.cmp(&a.count));
-
-        let output = StatsOutput {
-            group_by,
-            stats: entries,
-            total,
-        };
-
-        println!("{}", serde_json::to_string_pretty(&output)?);
-    } else {
-        println!("Event Statistics (grouped by {})", group_by);
-        println!("{}", "=".repeat(50));
-
-        let mut sorted_stats: Vec<_> = stats.iter().collect();
-        sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
-
-        for (key, count) in sorted_stats {
-            let percentage = (*count as f64 / total as f64) * 100.0;
-            println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
-        }
-
-        println!("{}", "=".repeat(50));
-        println!("Total events: {}", total);
-    }
-
-    Ok(())
+    // Display statistics using pure functions
+    display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, false)
 }
 
-/// Search aggregated events from all global event files
+/// Pure I/O function to read events from a single file
+fn read_events_from_single_file(file: &PathBuf) -> Result<Vec<Value>> {
+    let file_handle = fs::File::open(file)?;
+    let reader = BufReader::new(file_handle);
+
+    let events = reader
+        .lines()
+        .map_while(Result::ok)
+        .filter_map(|line| parse_event_line(&line))
+        .collect();
+
+    Ok(events)
+}
+
+/// Search aggregated events from all global event files (refactored)
 async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) -> Result<()> {
     let event_files = get_all_event_files()?;
 
@@ -891,95 +1136,67 @@ async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) 
         return Ok(());
     }
 
+    // Read all events and search using pure functions
+    let all_events = read_events_from_files(&event_files)?;
+    let matching_events = search_events_with_pattern(&all_events, &pattern, fields.as_deref())?;
+
+    // Display results
+    display_search_results(&matching_events, true)
+}
+
+/// Pure function to search events with a pattern
+fn search_events_with_pattern(
+    events: &[Value],
+    pattern: &str,
+    fields: Option<&[String]>,
+) -> Result<Vec<Value>> {
     use regex::Regex;
-    let re = Regex::new(&pattern)?;
-    let mut count = 0;
+    let re = Regex::new(pattern)?;
 
-    // Process all event files
-    for file in event_files {
-        let content = fs::File::open(&file)?;
-        let reader = BufReader::new(content);
+    let matching_events = events
+        .iter()
+        .filter(|event| event_matches_search(event, &re, fields))
+        .cloned()
+        .collect();
 
-        for line in reader.lines() {
-            let line = line?;
-            if line.trim().is_empty() {
-                continue;
-            }
+    Ok(matching_events)
+}
 
-            let event: Value = serde_json::from_str(&line)?;
-
-            // Search in specified fields or all fields
-            let matches = if let Some(ref fields) = fields {
-                fields.iter().any(|field| {
-                    event
-                        .get(field)
-                        .and_then(|v| v.as_str())
-                        .map(|s| re.is_match(s))
-                        .unwrap_or(false)
-                })
-            } else {
-                // Search in all string values
-                search_in_value(&event, &re)
-            };
-
-            if matches {
-                display_event(&event);
-                count += 1;
-            }
-        }
+/// Pure function to display search results
+fn display_search_results(matching_events: &[Value], is_aggregated: bool) -> Result<()> {
+    for event in matching_events {
+        display_event(event);
     }
 
-    println!("\nFound {} matching events across all jobs", count);
+    let suffix = if is_aggregated {
+        " across all jobs"
+    } else {
+        ""
+    };
+    println!(
+        "\nFound {} matching events{}",
+        matching_events.len(),
+        suffix
+    );
     Ok(())
 }
 
-/// Search events by pattern
+/// Search events by pattern (refactored to use pure functions)
 async fn search_events(file: PathBuf, pattern: String, fields: Option<Vec<String>>) -> Result<()> {
     if !file.exists() {
         println!("No events found. Events file does not exist: {:?}", file);
         return Ok(());
     }
 
-    use regex::Regex;
-    let re = Regex::new(&pattern)?;
+    // Read events and search using pure functions
+    let events = read_events_from_single_file(&file)?;
+    let matching_events = search_events_with_pattern(&events, &pattern, fields.as_deref())?;
 
-    let file = fs::File::open(file)?;
-    let reader = BufReader::new(file);
-    let mut count = 0;
-
-    for line in reader.lines() {
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
-        }
-
-        let event: Value = serde_json::from_str(&line)?;
-
-        // Search in specified fields or all fields
-        let matches = if let Some(ref fields) = fields {
-            fields.iter().any(|field| {
-                event
-                    .get(field)
-                    .and_then(|v| v.as_str())
-                    .map(|s| re.is_match(s))
-                    .unwrap_or(false)
-            })
-        } else {
-            // Search in all string values
-            search_in_value(&event, &re)
-        };
-
-        if matches {
-            display_event(&event);
-            count += 1;
-        }
-    }
-
-    println!("\nFound {} matching events", count);
-    Ok(())
+    // Display results
+    display_search_results(&matching_events, false)
 }
 
-/// Follow events in real-time
+/// Follow events in real-time (refactored to smaller functions)
 async fn follow_events(
     file: PathBuf,
     job_id: Option<String>,
@@ -987,8 +1204,26 @@ async fn follow_events(
 ) -> Result<()> {
     use notify::{RecursiveMode, Watcher};
     use std::sync::mpsc::channel;
-    use std::time::Duration;
 
+    setup_file_for_watching(&file)?;
+
+    // Set up file watcher
+    let (tx, rx) = channel();
+    let mut watcher = setup_file_watcher(tx)?;
+    let watch_path = determine_watch_path(&file);
+    watcher.watch(&watch_path, RecursiveMode::NonRecursive)?;
+
+    println!("Following events (Ctrl+C to stop)...\n");
+
+    if file.exists() {
+        watch_existing_file(&file, &job_id, &event_type, rx).await
+    } else {
+        wait_for_file_creation(&file, &job_id, &event_type, rx).await
+    }
+}
+
+/// Setup file and directory structure for watching
+fn setup_file_for_watching(file: &PathBuf) -> Result<()> {
     if !file.exists() {
         println!("Waiting for events file to be created: {:?}", file);
         // Create parent directory if it doesn't exist
@@ -996,54 +1231,76 @@ async fn follow_events(
             fs::create_dir_all(parent)?;
         }
     }
+    Ok(())
+}
 
-    // Set up file watcher
-    let (tx, rx) = channel();
-    let mut watcher = notify::recommended_watcher(move |res: Result<notify::Event, _>| {
+/// Setup file watcher with event handling
+fn setup_file_watcher(
+    tx: std::sync::mpsc::Sender<notify::Event>,
+) -> Result<notify::RecommendedWatcher> {
+    let watcher = notify::recommended_watcher(move |res: Result<notify::Event, _>| {
         if let Ok(event) = res {
             let _ = tx.send(event);
         }
     })?;
 
-    // Watch the events file
-    let watch_path = if file.exists() {
-        file.clone()
+    Ok(watcher)
+}
+
+/// Determine the path to watch based on file existence
+fn determine_watch_path(file: &Path) -> PathBuf {
+    if file.exists() {
+        file.to_path_buf()
     } else {
         file.parent().unwrap().to_path_buf()
-    };
-    watcher.watch(&watch_path, RecursiveMode::NonRecursive)?;
+    }
+}
 
-    println!("Following events (Ctrl+C to stop)...\n");
+/// Watch existing file for new events
+async fn watch_existing_file(
+    file: &Path,
+    job_id: &Option<String>,
+    event_type: &Option<String>,
+    rx: std::sync::mpsc::Receiver<notify::Event>,
+) -> Result<()> {
+    use std::time::Duration;
 
-    // Read existing content first
-    if file.exists() {
-        let mut last_pos = display_existing_events(&file, &job_id, &event_type)?;
+    let mut last_pos = display_existing_events(file, job_id, event_type)?;
 
-        // Watch for new events
-        loop {
-            match rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(_) => {
-                    // File changed, read new events
-                    last_pos = display_new_events(&file, last_pos, &job_id, &event_type)?;
-                }
-                Err(_) => {
-                    // Timeout, continue waiting
-                    continue;
-                }
+    // Watch for new events
+    loop {
+        match rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(_) => {
+                // File changed, read new events
+                last_pos = display_new_events(file, last_pos, job_id, event_type)?;
+            }
+            Err(_) => {
+                // Timeout, continue waiting
+                continue;
             }
         }
-    } else {
-        // Wait for file to be created
-        loop {
-            match rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(_) => {
-                    if file.exists() {
-                        let _ = display_existing_events(&file, &job_id, &event_type)?;
-                        break;
-                    }
+    }
+}
+
+/// Wait for file to be created and then start monitoring
+async fn wait_for_file_creation(
+    file: &Path,
+    job_id: &Option<String>,
+    event_type: &Option<String>,
+    rx: std::sync::mpsc::Receiver<notify::Event>,
+) -> Result<()> {
+    use std::time::Duration;
+
+    // Wait for file to be created
+    loop {
+        match rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(_) => {
+                if file.exists() {
+                    let _ = display_existing_events(file, job_id, event_type)?;
+                    break;
                 }
-                Err(_) => continue,
             }
+            Err(_) => continue,
         }
     }
 
@@ -1147,14 +1404,53 @@ async fn clean_events(
     file: Option<PathBuf>,
     output_format: String,
 ) -> Result<()> {
-    use crate::cook::execution::events::retention::{RetentionManager, RetentionPolicy};
-
     // Build retention policy from arguments
+    let policy = build_retention_policy(older_than, max_events, max_size, archive, archive_path)?;
+
+    // First perform dry-run analysis to show what will be cleaned
+    let _analysis_total = if !dry_run {
+        let analysis = analyze_retention_targets(all_jobs, job_id.as_deref(), &policy).await?;
+
+        if !confirm_cleanup(&analysis).await? {
+            return Ok(());
+        }
+        analysis
+    } else {
+        crate::cook::execution::events::retention::RetentionAnalysis::default()
+    };
+
+    display_retention_policy(&policy, dry_run);
+
+    let (total_cleaned, total_archived) = if let Some(specific_file) = file {
+        clean_specific_file(&specific_file, &policy, dry_run).await?
+    } else if all_jobs || job_id.is_some() {
+        clean_global_storage(job_id.as_deref(), &policy, dry_run, &output_format).await?
+    } else {
+        clean_local_storage(&policy, dry_run, &output_format).await?
+    };
+
+    display_cleanup_summary(total_cleaned, total_archived, dry_run, &output_format)?;
+
+    Ok(())
+}
+
+/// Build retention policy from command arguments (refactored to use pure functions)
+fn build_retention_policy(
+    older_than: Option<String>,
+    max_events: Option<usize>,
+    max_size: Option<String>,
+    archive: bool,
+    archive_path: Option<PathBuf>,
+) -> Result<crate::cook::execution::events::retention::RetentionPolicy> {
+    use crate::cook::execution::events::retention::RetentionPolicy;
+
+    // Validate parameters first using pure function
+    validate_retention_policy(&older_than, &max_events, &max_size)?;
+
     let mut policy = RetentionPolicy::default();
 
-    // Parse older_than duration
     if let Some(duration_str) = older_than {
-        let days = parse_duration_to_days(&duration_str)?;
+        let days = convert_duration_to_days(&duration_str)?;
         policy.max_age_days = Some(days);
     }
 
@@ -1163,7 +1459,7 @@ async fn clean_events(
     }
 
     if let Some(size_str) = max_size {
-        let bytes = parse_size_to_bytes(&size_str)?;
+        let bytes = convert_size_to_bytes(&size_str)?;
         policy.max_file_size_bytes = Some(bytes);
     }
 
@@ -1172,95 +1468,113 @@ async fn clean_events(
         policy.archive_path = Some(path);
     }
 
-    // First perform dry-run analysis to show what will be cleaned
-    let mut analysis_total =
-        crate::cook::execution::events::retention::RetentionAnalysis::default();
+    Ok(policy)
+}
 
-    // Analyze what would be cleaned to show the user
-    if !dry_run {
-        // Perform analysis first to show user what will be cleaned
-        if all_jobs || job_id.is_some() {
-            // Analyze global storage
-            // Global storage is always enabled in the new architecture
+/// Analyze retention targets and calculate what will be cleaned
+async fn analyze_retention_targets(
+    all_jobs: bool,
+    job_id: Option<&str>,
+    policy: &crate::cook::execution::events::retention::RetentionPolicy,
+) -> Result<crate::cook::execution::events::retention::RetentionAnalysis> {
+    use crate::cook::execution::events::retention::{RetentionAnalysis, RetentionManager};
 
-            let current_dir = std::env::current_dir()?;
-            let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-            let global_base = crate::storage::get_default_storage_dir()?;
-            let global_events_dir = global_base.join("events").join(&repo_name);
+    let mut analysis_total = RetentionAnalysis::default();
 
-            if global_events_dir.exists() {
-                let job_dirs = if let Some(ref specific_job_id) = job_id {
-                    let specific_dir = global_events_dir.join(specific_job_id);
-                    if specific_dir.exists() {
-                        vec![specific_dir]
-                    } else {
-                        vec![]
-                    }
-                } else {
-                    fs::read_dir(&global_events_dir)?
-                        .filter_map(|e| e.ok())
-                        .filter(|e| e.path().is_dir())
-                        .map(|e| e.path())
-                        .collect()
-                };
+    if all_jobs || job_id.is_some() {
+        let current_dir = std::env::current_dir()?;
+        let repo_name = crate::storage::extract_repo_name(&current_dir)?;
+        let global_base = crate::storage::get_default_storage_dir()?;
+        let global_events_dir = global_base.join("events").join(&repo_name);
 
-                for job_dir in &job_dirs {
-                    let event_files = find_event_files(job_dir)?;
-                    for event_file in event_files {
-                        let retention = RetentionManager::new(policy.clone(), event_file);
-                        let analysis = retention.analyze_retention().await?;
-                        analysis_total.events_to_remove += analysis.events_to_remove;
-                        analysis_total.space_to_save += analysis.space_to_save;
-                        if policy.archive_old_events {
-                            analysis_total.events_to_archive += analysis.events_to_archive;
-                        }
+        if global_events_dir.exists() {
+            let job_dirs = get_job_directories(&global_events_dir, job_id)?;
+
+            for job_dir in job_dirs {
+                let event_files = find_event_files(&job_dir)?;
+                for event_file in event_files {
+                    let retention = RetentionManager::new(policy.clone(), event_file);
+                    let analysis = retention.analyze_retention().await?;
+                    analysis_total.events_to_remove += analysis.events_to_remove;
+                    analysis_total.space_to_save += analysis.space_to_save;
+                    if policy.archive_old_events {
+                        analysis_total.events_to_archive += analysis.events_to_archive;
                     }
                 }
-            }
-        } else {
-            // Analyze local file
-            let local_file = PathBuf::from(".prodigy/events/mapreduce_events.jsonl");
-            if local_file.exists() {
-                let retention = RetentionManager::new(policy.clone(), local_file);
-                let analysis = retention.analyze_retention().await?;
-                analysis_total = analysis;
             }
         }
-
-        // Show user what will be cleaned and ask for confirmation
-        if analysis_total.events_to_remove > 0 {
-            println!("Events cleanup preview:");
-            println!("  Events to remove: {}", analysis_total.events_to_remove);
-            if analysis_total.events_to_archive > 0 {
-                println!("  Events to archive: {}", analysis_total.events_to_archive);
-            }
-            println!(
-                "  Space to save: {:.1} MB",
-                analysis_total.space_to_save as f64 / (1024.0 * 1024.0)
-            );
-            println!();
-
-            // Ask for confirmation if not in automation mode
-            if std::env::var("PRODIGY_AUTOMATION").unwrap_or_default() != "true" {
-                let prompter = UserPrompterImpl::new();
-                let confirm = prompter
-                    .prompt_yes_no(&format!(
-                        "This will permanently remove {} events. Continue?",
-                        analysis_total.events_to_remove
-                    ))
-                    .await?;
-
-                if !confirm {
-                    println!("Cleanup cancelled.");
-                    return Ok(());
-                }
-            }
-        } else {
-            println!("No events match the cleanup criteria.");
-            return Ok(());
+    } else {
+        let local_file = PathBuf::from(".prodigy/events/mapreduce_events.jsonl");
+        if local_file.exists() {
+            let retention = RetentionManager::new(policy.clone(), local_file);
+            analysis_total = retention.analyze_retention().await?;
         }
     }
 
+    Ok(analysis_total)
+}
+
+/// Get job directories to process
+fn get_job_directories(global_events_dir: &Path, job_id: Option<&str>) -> Result<Vec<PathBuf>> {
+    if let Some(specific_job_id) = job_id {
+        let specific_dir = global_events_dir.join(specific_job_id);
+        if specific_dir.exists() {
+            Ok(vec![specific_dir])
+        } else {
+            Ok(vec![])
+        }
+    } else {
+        Ok(fs::read_dir(global_events_dir)?
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_dir())
+            .map(|e| e.path())
+            .collect())
+    }
+}
+
+/// Confirm cleanup with user if not in automation mode
+async fn confirm_cleanup(
+    analysis: &crate::cook::execution::events::retention::RetentionAnalysis,
+) -> Result<bool> {
+    if analysis.events_to_remove == 0 {
+        println!("No events match the cleanup criteria.");
+        return Ok(false);
+    }
+
+    println!("Events cleanup preview:");
+    println!("  Events to remove: {}", analysis.events_to_remove);
+    if analysis.events_to_archive > 0 {
+        println!("  Events to archive: {}", analysis.events_to_archive);
+    }
+    println!(
+        "  Space to save: {:.1} MB",
+        analysis.space_to_save as f64 / (1024.0 * 1024.0)
+    );
+    println!();
+
+    if std::env::var("PRODIGY_AUTOMATION").unwrap_or_default() != "true" {
+        let prompter = UserPrompterImpl::new();
+        let confirm = prompter
+            .prompt_yes_no(&format!(
+                "This will permanently remove {} events. Continue?",
+                analysis.events_to_remove
+            ))
+            .await?;
+
+        if !confirm {
+            println!("Cleanup cancelled.");
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
+}
+
+/// Display retention policy details
+fn display_retention_policy(
+    policy: &crate::cook::execution::events::retention::RetentionPolicy,
+    dry_run: bool,
+) {
     let action = if dry_run { "Would clean" } else { "Cleaning" };
     println!("{} events with policy:", action);
     println!("  Max age: {:?} days", policy.max_age_days);
@@ -1268,301 +1582,190 @@ async fn clean_events(
     println!("  Max file size: {:?} bytes", policy.max_file_size_bytes);
     println!("  Archive: {}", policy.archive_old_events);
     println!();
+}
+
+/// Clean a specific event file
+async fn clean_specific_file(
+    specific_file: &Path,
+    policy: &crate::cook::execution::events::retention::RetentionPolicy,
+    dry_run: bool,
+) -> Result<(usize, usize)> {
+    use crate::cook::execution::events::retention::RetentionManager;
+
+    if !specific_file.exists() {
+        return Err(anyhow::anyhow!(
+            "Event file not found: {}",
+            specific_file.display()
+        ));
+    }
+
+    let retention = RetentionManager::new(policy.clone(), specific_file.to_path_buf());
+
+    if dry_run {
+        let analysis = retention.analyze_retention().await?;
+        println!(
+            "[DRY RUN] Would remove {} events from {}",
+            analysis.events_to_remove,
+            specific_file.display()
+        );
+        if analysis.events_to_archive > 0 {
+            println!(
+                "[DRY RUN] Would archive {} events",
+                analysis.events_to_archive
+            );
+        }
+        println!(
+            "[DRY RUN] Would save {:.1} MB",
+            analysis.space_to_save as f64 / (1024.0 * 1024.0)
+        );
+        Ok((analysis.events_to_remove, analysis.events_to_archive))
+    } else {
+        let result = retention.apply_retention().await?;
+        if result.events_removed > 0 {
+            println!(
+                "Cleaned {} events from {}",
+                result.events_removed,
+                specific_file.display()
+            );
+        }
+        Ok((result.events_removed, result.events_archived))
+    }
+}
+
+/// Clean events from global storage
+async fn clean_global_storage(
+    job_id: Option<&str>,
+    policy: &crate::cook::execution::events::retention::RetentionPolicy,
+    dry_run: bool,
+    output_format: &str,
+) -> Result<(usize, usize)> {
+    use crate::cook::execution::events::retention::RetentionManager;
+
+    let current_dir = std::env::current_dir()?;
+    let repo_name = crate::storage::extract_repo_name(&current_dir)?;
+    let global_base = crate::storage::get_default_storage_dir()?;
+    let global_events_dir = global_base.join("events").join(&repo_name);
+
+    if !global_events_dir.exists() {
+        println!(
+            "No events found in global storage for repository: {}",
+            repo_name
+        );
+        return Ok((0, 0));
+    }
+
+    let job_dirs = get_job_directories(&global_events_dir, job_id)?;
+    if job_dirs.is_empty() && job_id.is_some() {
+        println!("Job '{}' not found", job_id.unwrap());
+        return Ok((0, 0));
+    }
 
     let mut total_cleaned = 0usize;
     let mut total_archived = 0usize;
 
-    // Handle specific file parameter (for testing)
-    if let Some(specific_file) = file {
-        if !specific_file.exists() {
-            return Err(anyhow::anyhow!(
-                "Event file not found: {}",
-                specific_file.display()
-            ));
-        }
+    for job_dir in job_dirs {
+        let job_id = job_dir.file_name().unwrap().to_string_lossy();
+        println!("Processing job: {}", job_id);
 
-        if dry_run {
-            // Perform dry-run analysis
-            let retention = RetentionManager::new(policy.clone(), specific_file.clone());
-            let analysis = retention.analyze_retention().await?;
+        let event_files = find_event_files(&job_dir)?;
+        for event_file in event_files {
+            let retention = RetentionManager::new(policy.clone(), event_file.clone());
 
-            println!(
-                "[DRY RUN] Would remove {} events from {}",
-                analysis.events_to_remove,
-                specific_file.display()
-            );
-            if analysis.events_to_archive > 0 {
-                println!(
-                    "[DRY RUN] Would archive {} events",
-                    analysis.events_to_archive
-                );
-            }
-            println!(
-                "[DRY RUN] Would save {:.1} MB",
-                analysis.space_to_save as f64 / (1024.0 * 1024.0)
-            );
-            total_cleaned = analysis.events_to_remove;
-            total_archived = analysis.events_to_archive;
-        } else {
-            let retention = RetentionManager::new(policy.clone(), specific_file.clone());
-            let result = retention.apply_retention().await?;
-            total_cleaned = result.events_removed;
-            total_archived = result.events_archived;
-
-            if total_cleaned > 0 {
-                println!(
-                    "Cleaned {} events from {}",
-                    total_cleaned,
-                    specific_file.display()
-                );
-            }
-        }
-    }
-    // Determine which event files to clean
-    else if all_jobs || job_id.is_some() {
-        // Clean from global storage
-        // Global storage is always enabled in the new architecture
-
-        let current_dir = std::env::current_dir()?;
-        let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-        let global_base = crate::storage::get_default_storage_dir()?;
-        let global_events_dir = global_base.join("events").join(&repo_name);
-
-        if !global_events_dir.exists() {
-            println!(
-                "No events found in global storage for repository: {}",
-                repo_name
-            );
-            return Ok(());
-        }
-
-        // Get job directories to process
-        let job_dirs = if let Some(specific_job_id) = job_id {
-            let specific_dir = global_events_dir.join(&specific_job_id);
-            if specific_dir.exists() {
-                vec![specific_dir]
-            } else {
-                println!("Job '{}' not found", specific_job_id);
-                return Ok(());
-            }
-        } else {
-            // Process all job directories
-            fs::read_dir(&global_events_dir)?
-                .filter_map(|e| e.ok())
-                .filter(|e| e.path().is_dir())
-                .map(|e| e.path())
-                .collect()
-        };
-
-        // Clean each job directory
-        for job_dir in job_dirs {
-            let job_id = job_dir.file_name().unwrap().to_string_lossy();
-            println!("Processing job: {}", job_id);
-
-            let event_files = find_event_files(&job_dir)?;
-            for event_file in event_files {
-                if dry_run {
-                    // Perform dry-run analysis
-                    let retention = RetentionManager::new(policy.clone(), event_file.clone());
-                    let analysis = retention.analyze_retention().await?;
-
-                    // Display analysis
-                    if output_format == "json" {
-                        // Aggregate for JSON output later
+            if dry_run {
+                let analysis = retention.analyze_retention().await?;
+                if output_format != "json" {
+                    println!("  Analyzing: {:?}", event_file);
+                    if analysis.events_to_remove > 0 {
+                        println!("    Would remove {} events", analysis.events_to_remove);
+                        println!("    Would save {} bytes", analysis.space_to_save);
                     } else {
-                        println!("  Analyzing: {:?}", event_file);
-                        if analysis.events_to_remove > 0 {
-                            println!("    Would remove {} events", analysis.events_to_remove);
-                            println!("    Would save {} bytes", analysis.space_to_save);
-                        } else {
-                            println!("    No events to remove");
-                        }
+                        println!("    No events to remove");
                     }
-                    total_cleaned += analysis.events_to_remove;
-                    if policy.archive_old_events {
-                        total_archived += analysis.events_to_archive;
-                    }
-                } else {
-                    let retention = RetentionManager::new(policy.clone(), event_file);
-                    let stats = retention.apply_retention().await?;
-                    println!(
-                        "  Cleaned: {} events, {:.1}% space saved",
-                        stats.events_removed,
-                        stats.space_saved_percentage()
-                    );
-                    total_cleaned += stats.events_removed;
-                    if policy.archive_old_events {
-                        total_archived += stats.events_removed;
-                    }
+                }
+                total_cleaned += analysis.events_to_remove;
+                if policy.archive_old_events {
+                    total_archived += analysis.events_to_archive;
+                }
+            } else {
+                let stats = retention.apply_retention().await?;
+                println!(
+                    "  Cleaned: {} events, {:.1}% space saved",
+                    stats.events_removed,
+                    stats.space_saved_percentage()
+                );
+                total_cleaned += stats.events_removed;
+                if policy.archive_old_events {
+                    total_archived += stats.events_removed;
                 }
             }
         }
-    } else {
-        // Clean local events file
-        let local_file = PathBuf::from(".prodigy/events/mapreduce_events.jsonl");
-        if !local_file.exists() {
-            println!("No local events file found: {:?}", local_file);
-            return Ok(());
-        }
-
-        if dry_run {
-            // Perform dry-run analysis
-            let retention = RetentionManager::new(policy.clone(), local_file.clone());
-            let analysis = retention.analyze_retention().await?;
-
-            // Display analysis based on output format
-            if output_format == "json" {
-                println!("{}", serde_json::to_string_pretty(&analysis)?);
-            } else {
-                analysis.display_human();
-            }
-
-            total_cleaned = analysis.events_to_remove;
-            if policy.archive_old_events {
-                total_archived = analysis.events_to_archive;
-            }
-        } else {
-            let retention = RetentionManager::new(policy.clone(), local_file);
-            let stats = retention.apply_retention().await?;
-            println!(
-                "Cleaned: {} events, {:.1}% space saved",
-                stats.events_removed,
-                stats.space_saved_percentage()
-            );
-            total_cleaned = stats.events_removed;
-            if policy.archive_old_events {
-                total_archived = stats.events_removed;
-            }
-        }
     }
 
-    // Summary
+    Ok((total_cleaned, total_archived))
+}
+
+/// Clean events from local storage
+async fn clean_local_storage(
+    policy: &crate::cook::execution::events::retention::RetentionPolicy,
+    dry_run: bool,
+    output_format: &str,
+) -> Result<(usize, usize)> {
+    use crate::cook::execution::events::retention::RetentionManager;
+
+    let local_file = PathBuf::from(".prodigy/events/mapreduce_events.jsonl");
+    if !local_file.exists() {
+        println!("No local events file found: {:?}", local_file);
+        return Ok((0, 0));
+    }
+
+    let retention = RetentionManager::new(policy.clone(), local_file.clone());
+
+    if dry_run {
+        let analysis = retention.analyze_retention().await?;
+        if output_format == "json" {
+            println!("{}", serde_json::to_string_pretty(&analysis)?);
+        } else {
+            analysis.display_human();
+        }
+
+        let archived = if policy.archive_old_events {
+            analysis.events_to_archive
+        } else {
+            0
+        };
+        Ok((analysis.events_to_remove, archived))
+    } else {
+        let stats = retention.apply_retention().await?;
+        println!(
+            "Cleaned: {} events, {:.1}% space saved",
+            stats.events_removed,
+            stats.space_saved_percentage()
+        );
+
+        let archived = if policy.archive_old_events {
+            stats.events_removed
+        } else {
+            0
+        };
+        Ok((stats.events_removed, archived))
+    }
+}
+
+/// Display cleanup summary (refactored to use pure functions)
+fn display_cleanup_summary(
+    total_cleaned: usize,
+    total_archived: usize,
+    dry_run: bool,
+    output_format: &str,
+) -> Result<()> {
     if output_format == "json" {
-        #[derive(Serialize)]
-        struct CleanSummary {
-            dry_run: bool,
-            events_cleaned: usize,
-            events_archived: usize,
-            message: String,
-        }
-
-        let message = if total_cleaned == 0 {
-            "No events matched the cleanup criteria.".to_string()
-        } else if dry_run {
-            format!("Would clean {} events", total_cleaned)
-        } else {
-            format!("Cleaned {} events", total_cleaned)
-        };
-
-        let summary = CleanSummary {
-            dry_run,
-            events_cleaned: total_cleaned,
-            events_archived: total_archived,
-            message,
-        };
-
-        println!("{}", serde_json::to_string_pretty(&summary)?);
+        let json_summary = create_cleanup_summary_json(total_cleaned, total_archived, dry_run)?;
+        println!("{}", json_summary);
     } else {
-        println!();
-        if dry_run {
-            println!(
-                "Summary (dry run): {} events would be cleaned",
-                total_cleaned
-            );
-            if total_archived > 0 {
-                println!("  {} events would be archived", total_archived);
-            }
-        } else {
-            println!("Summary: {} events cleaned", total_cleaned);
-            if total_archived > 0 {
-                println!("  {} events archived", total_archived);
-            }
-        }
-
-        if total_cleaned == 0 {
-            println!("No events matched the cleanup criteria.");
-        }
+        let human_summary = create_cleanup_summary_human(total_cleaned, total_archived, dry_run);
+        print!("\n{}", human_summary);
     }
-
     Ok(())
-}
-
-/// Parse duration string to days (e.g., "7d" -> 7, "2w" -> 14, "1h" -> 0)
-fn parse_duration_to_days(duration_str: &str) -> Result<u32> {
-    let duration_str = duration_str.trim().to_lowercase();
-
-    if duration_str.is_empty() {
-        return Err(anyhow::anyhow!("Empty duration string"));
-    }
-
-    let (number_part, unit_part) =
-        if let Some(unit_pos) = duration_str.chars().position(|c| c.is_alphabetic()) {
-            let (num, unit) = duration_str.split_at(unit_pos);
-            (num, unit)
-        } else {
-            // If no unit specified, assume days
-            (duration_str.as_str(), "d")
-        };
-
-    let number: f64 = number_part
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid number in duration: '{}'", number_part))?;
-
-    let days = match unit_part {
-        "d" | "day" | "days" => number,
-        "w" | "week" | "weeks" => number * 7.0,
-        "h" | "hour" | "hours" => number / 24.0,
-        "m" | "min" | "minute" | "minutes" => number / (24.0 * 60.0),
-        "s" | "sec" | "second" | "seconds" => number / (24.0 * 60.0 * 60.0),
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Invalid duration unit: '{}'. Use d/day, w/week, h/hour, m/min, s/sec",
-                unit_part
-            ))
-        }
-    };
-
-    // Convert to u32, ensuring at least 0 days
-    Ok(days.max(0.0).ceil() as u32)
-}
-
-/// Parse size string to bytes (e.g., "100MB" -> 104857600, "1GB" -> 1073741824)
-fn parse_size_to_bytes(size_str: &str) -> Result<u64> {
-    let size_str = size_str.trim().to_uppercase();
-
-    if size_str.is_empty() {
-        return Err(anyhow::anyhow!("Empty size string"));
-    }
-
-    let (number_part, unit_part) =
-        if let Some(unit_pos) = size_str.chars().position(|c| c.is_alphabetic()) {
-            let (num, unit) = size_str.split_at(unit_pos);
-            (num, unit)
-        } else {
-            // If no unit specified, assume bytes
-            (size_str.as_str(), "B")
-        };
-
-    let number: f64 = number_part
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid number in size: '{}'", number_part))?;
-
-    let bytes = match unit_part {
-        "B" | "BYTE" | "BYTES" => number,
-        "KB" | "K" => number * 1024.0,
-        "MB" | "M" => number * 1024.0 * 1024.0,
-        "GB" | "G" => number * 1024.0 * 1024.0 * 1024.0,
-        "TB" | "T" => number * 1024.0 * 1024.0 * 1024.0 * 1024.0,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Invalid size unit: '{}'. Use B/byte, KB/K, MB/M, GB/G, TB/T",
-                unit_part
-            ))
-        }
-    };
-
-    // Convert to u64, ensuring at least 0 bytes
-    Ok(bytes.max(0.0) as u64)
 }
 
 // Helper functions
@@ -1631,81 +1834,107 @@ fn event_is_recent(event: &Value, since_time: DateTime<Utc>) -> bool {
     false
 }
 
-fn display_event(event: &Value) {
+/// Extract event metadata for display
+fn extract_event_metadata(event: &Value) -> (String, String, String) {
     let event_type = get_event_type(event);
     let timestamp = extract_timestamp(event);
-    let job_id = event
+    let job_id = extract_job_id(event);
+
+    let time_str = format_timestamp(timestamp);
+    (event_type, time_str, job_id)
+}
+
+/// Extract job ID from event
+fn extract_job_id(event: &Value) -> String {
+    event
         .get("job_id")
         .or_else(|| extract_nested_field(event, "job_id"))
         .and_then(|v| v.as_str())
-        .unwrap_or("n/a");
+        .unwrap_or("n/a")
+        .to_string()
+}
 
-    // Format timestamp for display
-    let time_str = if let Some(ts) = timestamp {
-        ts.with_timezone(&Local)
-            .format("%Y-%m-%d %H:%M:%S")
-            .to_string()
-    } else {
-        "n/a".to_string()
-    };
+/// Format timestamp for display
+fn format_timestamp(timestamp: Option<DateTime<Utc>>) -> String {
+    timestamp
+        .map(|ts| {
+            ts.with_timezone(&Local)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        })
+        .unwrap_or_else(|| "n/a".to_string())
+}
 
-    // Display based on event type
+/// Display JobStarted event
+fn display_job_started(event: &Value, time_str: &str, event_type: &str, job_id: &str) {
+    if let Some(data) = event.get("JobStarted") {
+        let total_items = data
+            .get("total_items")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        println!(
+            "[{}] {} - Job: {} - Started with {} items",
+            time_str, event_type, job_id, total_items
+        );
+    }
+}
+
+/// Display JobCompleted event
+fn display_job_completed(event: &Value, time_str: &str, event_type: &str, job_id: &str) {
+    if let Some(data) = event.get("JobCompleted") {
+        let success = data
+            .get("success_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let failure = data
+            .get("failure_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        println!(
+            "[{}] {} - Job: {} - Success: {}, Failures: {}",
+            time_str, event_type, job_id, success, failure
+        );
+    }
+}
+
+/// Display AgentProgress event
+fn display_agent_progress(event: &Value, time_str: &str, event_type: &str, job_id: &str) {
+    if let Some(data) = event.get("AgentProgress") {
+        let agent_id = data
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("n/a");
+        let step = data.get("step").and_then(|v| v.as_str()).unwrap_or("n/a");
+        let progress = data
+            .get("progress_pct")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        println!(
+            "[{}] {} - Job: {} - Agent: {} - Step: {} ({:.1}%)",
+            time_str, event_type, job_id, agent_id, step, progress
+        );
+    }
+}
+
+/// Display generic event
+fn display_generic_event(event: &Value, time_str: &str, event_type: &str, job_id: &str) {
+    println!(
+        "[{}] {} - Job: {} - {}",
+        time_str,
+        event_type,
+        job_id,
+        serde_json::to_string(event).unwrap_or_default()
+    );
+}
+
+fn display_event(event: &Value) {
+    let (event_type, time_str, job_id) = extract_event_metadata(event);
+
     match event_type.as_str() {
-        "JobStarted" => {
-            if let Some(data) = event.get("JobStarted") {
-                let total_items = data
-                    .get("total_items")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                println!(
-                    "[{}] {} - Job: {} - Started with {} items",
-                    time_str, event_type, job_id, total_items
-                );
-            }
-        }
-        "JobCompleted" => {
-            if let Some(data) = event.get("JobCompleted") {
-                let success = data
-                    .get("success_count")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                let failure = data
-                    .get("failure_count")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                println!(
-                    "[{}] {} - Job: {} - Success: {}, Failures: {}",
-                    time_str, event_type, job_id, success, failure
-                );
-            }
-        }
-        "AgentProgress" => {
-            if let Some(data) = event.get("AgentProgress") {
-                let agent_id = data
-                    .get("agent_id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("n/a");
-                let step = data.get("step").and_then(|v| v.as_str()).unwrap_or("n/a");
-                let progress = data
-                    .get("progress_pct")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.0);
-                println!(
-                    "[{}] {} - Job: {} - Agent: {} - Step: {} ({:.1}%)",
-                    time_str, event_type, job_id, agent_id, step, progress
-                );
-            }
-        }
-        _ => {
-            // Generic display for other event types
-            println!(
-                "[{}] {} - Job: {} - {}",
-                time_str,
-                event_type,
-                job_id,
-                serde_json::to_string(event).unwrap_or_default()
-            );
-        }
+        "JobStarted" => display_job_started(event, &time_str, &event_type, &job_id),
+        "JobCompleted" => display_job_completed(event, &time_str, &event_type, &job_id),
+        "AgentProgress" => display_agent_progress(event, &time_str, &event_type, &job_id),
+        _ => display_generic_event(event, &time_str, &event_type, &job_id),
     }
 }
 
@@ -1917,6 +2146,59 @@ fn export_as_markdown(events: &[Value]) -> Result<String> {
     Ok(md)
 }
 
+/// Print table header for events display
+fn print_table_header() {
+    println!(
+        "{:<20} {:<15} {:<20} {:<15} {:<30}",
+        "Timestamp", "Event Type", "Job ID", "Agent ID", "Details"
+    );
+    println!("{}", "-".repeat(100));
+}
+
+/// Extract agent ID from event
+fn extract_agent_id(event: &Value) -> String {
+    event
+        .get("agent_id")
+        .or_else(|| extract_nested_field(event, "agent_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("n/a")
+        .to_string()
+}
+
+/// Truncate string to fit in table column
+fn truncate_field(s: &str, max_len: usize) -> String {
+    if s.len() > max_len {
+        format!("{}...", &s[..max_len.saturating_sub(3)])
+    } else {
+        s.to_string()
+    }
+}
+
+/// Extract table row data from event
+fn extract_table_row_data(event: &Value) -> (String, String, String, String, String) {
+    let timestamp = format_timestamp(extract_timestamp(event));
+    let event_type = get_event_type(event);
+    let job_id = extract_job_id(event);
+    let agent_id = extract_agent_id(event);
+    let details = format_event_details(event);
+
+    (timestamp, event_type, job_id, agent_id, details)
+}
+
+/// Print a single event as a table row
+fn print_event_row(event: &Value) {
+    let (timestamp, event_type, job_id, agent_id, details) = extract_table_row_data(event);
+
+    println!(
+        "{:<20} {:<15} {:<20} {:<15} {:<30}",
+        truncate_field(&timestamp, 19),
+        truncate_field(&event_type, 14),
+        truncate_field(&job_id, 19),
+        truncate_field(&agent_id, 14),
+        truncate_field(&details, 29)
+    );
+}
+
 /// Display events in a table format
 fn display_events_as_table(events: &[Value]) -> Result<()> {
     if events.is_empty() {
@@ -1924,56 +2206,10 @@ fn display_events_as_table(events: &[Value]) -> Result<()> {
         return Ok(());
     }
 
-    // Print table header
-    println!(
-        "{:<20} {:<15} {:<20} {:<15} {:<30}",
-        "Timestamp", "Event Type", "Job ID", "Agent ID", "Details"
-    );
-    println!("{}", "-".repeat(100));
+    print_table_header();
 
-    // Print each event as a table row
     for event in events {
-        let timestamp = extract_timestamp(event)
-            .map(|ts| {
-                ts.with_timezone(&Local)
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string()
-            })
-            .unwrap_or_else(|| "n/a".to_string());
-
-        let event_type = get_event_type(event);
-
-        let job_id = event
-            .get("job_id")
-            .or_else(|| extract_nested_field(event, "job_id"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("n/a");
-
-        let agent_id = event
-            .get("agent_id")
-            .or_else(|| extract_nested_field(event, "agent_id"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("n/a");
-
-        let details = format_event_details(event);
-
-        // Truncate long fields to fit in table
-        let truncate = |s: &str, max_len: usize| -> String {
-            if s.len() > max_len {
-                format!("{}...", &s[..max_len.saturating_sub(3)])
-            } else {
-                s.to_string()
-            }
-        };
-
-        println!(
-            "{:<20} {:<15} {:<20} {:<15} {:<30}",
-            truncate(&timestamp, 19),
-            truncate(&event_type, 14),
-            truncate(job_id, 19),
-            truncate(agent_id, 14),
-            truncate(&details, 29)
-        );
+        print_event_row(event);
     }
 
     println!("\nTotal events: {}", events.len());
@@ -2029,6 +2265,7 @@ fn format_event_details(event: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
     use serde_json::json;
 
     #[test]
@@ -2084,6 +2321,116 @@ mod tests {
             }
         });
         assert_eq!(get_event_type(&event), "JobResumed");
+    }
+
+    #[test]
+    fn test_build_retention_policy_with_all_options() {
+        let policy = build_retention_policy(
+            Some("30d".to_string()),
+            Some(100),
+            Some("1GB".to_string()),
+            false,
+            None,
+        )
+        .unwrap();
+        assert_eq!(policy.max_age_days, Some(30));
+        assert_eq!(policy.max_events, Some(100));
+        assert_eq!(policy.max_file_size_bytes, Some(1_073_741_824));
+        assert_eq!(policy.archive_old_events, false);
+        // archive_path has a default value from RetentionPolicy::default()
+        assert!(policy.archive_path.is_some());
+    }
+
+    #[test]
+    fn test_convert_duration_to_days() {
+        assert_eq!(convert_duration_to_days("30d").unwrap(), 30);
+        assert_eq!(convert_duration_to_days("7d").unwrap(), 7);
+        assert_eq!(convert_duration_to_days("1d").unwrap(), 1);
+        assert_eq!(convert_duration_to_days("365d").unwrap(), 365);
+        assert_eq!(convert_duration_to_days("30").unwrap(), 30); // Default to days
+        assert!(convert_duration_to_days("invalid").is_err());
+    }
+
+    #[test]
+    fn test_convert_size_to_bytes() {
+        assert_eq!(convert_size_to_bytes("1KB").unwrap(), 1_024);
+        assert_eq!(convert_size_to_bytes("1MB").unwrap(), 1_048_576);
+        assert_eq!(convert_size_to_bytes("1GB").unwrap(), 1_073_741_824);
+        assert_eq!(convert_size_to_bytes("500MB").unwrap(), 524_288_000);
+        assert!(convert_size_to_bytes("invalid").is_err());
+        // 100 without unit is now valid (defaults to bytes)
+        assert_eq!(convert_size_to_bytes("100").unwrap(), 100);
+    }
+
+    #[test]
+    fn test_format_job_info() {
+        let job = JobInfo {
+            id: "test-123".to_string(),
+            status: JobStatus::Completed,
+            start_time: Some(Local.with_ymd_and_hms(2024, 1, 1, 10, 0, 0).unwrap()),
+            end_time: Some(Local.with_ymd_and_hms(2024, 1, 1, 10, 30, 0).unwrap()),
+            success_count: 95,
+            failure_count: 5,
+        };
+
+        let formatted = format_job_info(&job);
+        assert!(formatted.contains("test-123"));
+        assert!(formatted.contains("COMPLETED"));
+        assert!(formatted.contains("Success: 95"));
+        assert!(formatted.contains("Failed: 5"));
+        assert!(formatted.contains(" in 30m0s"));
+    }
+
+    #[test]
+    fn test_calculate_duration() {
+        let start = Some(Local.with_ymd_and_hms(2024, 1, 1, 10, 0, 0).unwrap());
+        let end = Some(Local.with_ymd_and_hms(2024, 1, 1, 10, 30, 45).unwrap());
+        assert_eq!(calculate_duration(start, end), " in 30m45s");
+
+        let end2 = Some(Local.with_ymd_and_hms(2024, 1, 1, 11, 0, 0).unwrap());
+        assert_eq!(calculate_duration(start, end2), " in 60m0s");
+
+        assert_eq!(calculate_duration(None, end), "");
+        assert_eq!(calculate_duration(start, None), "");
+    }
+
+    #[test]
+    fn test_event_matches_field() {
+        let event = json!({
+            "JobStarted": {
+                "job_id": "test-123",
+                "workflow_name": "test-workflow"
+            },
+            "timestamp": "2024-01-01T00:00:00Z"
+        });
+
+        assert!(event_matches_field(&event, "job_id", "test-123"));
+        assert!(event_matches_field(
+            &event,
+            "workflow_name",
+            "test-workflow"
+        ));
+        assert!(!event_matches_field(&event, "job_id", "different-id"));
+        assert!(!event_matches_field(&event, "nonexistent", "value"));
+    }
+
+    #[test]
+    fn test_extract_nested_field() {
+        let event = json!({
+            "JobStarted": {
+                "job_id": "test-123",
+                "total_items": 10
+            }
+        });
+
+        let result = extract_nested_field(&event, "job_id");
+        assert_eq!(result, Some(&json!("test-123")));
+
+        let result2 = extract_nested_field(&event, "total_items");
+        assert_eq!(result2, Some(&json!(10)));
+
+        let result3 = extract_nested_field(&event, "nonexistent");
+        assert_eq!(result3, None);
     }
 
     #[test]
