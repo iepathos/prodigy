@@ -6,7 +6,7 @@ use chrono::Utc;
 use serde_json;
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::debug;
 use uuid::Uuid;
 
@@ -623,160 +623,286 @@ impl WorktreeManager {
     /// # Errors
     /// Returns error if merge fails or session not found
     pub async fn merge_session(&self, name: &str) -> Result<()> {
-        // Get the worktree branch name to verify merge
-        let sessions = self.list_sessions().await?;
-        let session = sessions
-            .iter()
-            .find(|s| s.name == name)
-            .ok_or_else(|| anyhow::anyhow!("Worktree '{}' not found", name))?;
+        // Find session and extract branch information
+        let session = self.find_session_by_name(name).await?;
         let worktree_branch = &session.branch;
 
-        // Determine the default branch (main or master)
-        let main_check_command = ProcessCommandBuilder::new("git")
-            .current_dir(&self.repo_path)
-            .args(["rev-parse", "--verify", "refs/heads/main"])
-            .build();
+        // Determine target branch and validate merge
+        let target_branch = self.determine_default_branch().await?;
+        self.validate_merge_preconditions(name, worktree_branch, &target_branch).await?;
 
-        let main_exists = self
-            .subprocess
-            .runner()
-            .run(main_check_command)
-            .await
-            .map(|o| o.status.success())
-            .unwrap_or(false);
+        // Execute merge workflow
+        let merge_output = self.execute_merge_workflow(name, worktree_branch, &target_branch).await?;
 
-        let target = if main_exists {
+        // Verify merge completed successfully
+        self.verify_merge_completion(worktree_branch, &target_branch, &merge_output).await?;
+
+        // Update session state and handle cleanup
+        self.finalize_merge_session(name).await?;
+
+        Ok(())
+    }
+
+    /// Find session by name - pure function that extracts session lookup logic
+    async fn find_session_by_name(&self, name: &str) -> Result<WorktreeSession> {
+        let sessions = self.list_sessions().await?;
+        sessions
+            .into_iter()
+            .find(|s| s.name == name)
+            .ok_or_else(|| anyhow::anyhow!("Worktree '{}' not found", name))
+    }
+
+    /// Determine default branch (main or master) - I/O operation separated
+    async fn determine_default_branch(&self) -> Result<String> {
+        let main_exists = self.check_branch_exists("main").await?;
+        Ok(Self::select_default_branch(main_exists))
+    }
+
+    /// Pure function to select default branch based on main existence
+    fn select_default_branch(main_exists: bool) -> String {
+        if main_exists {
             "main".to_string()
         } else {
             "master".to_string()
-        };
+        }
+    }
 
-        // Check if there are any new commits in the worktree branch
-        let diff_check_command = ProcessCommandBuilder::new("git")
-            .current_dir(&self.repo_path)
-            .args([
-                "rev-list",
-                "--count",
-                &format!("{target}..{worktree_branch}"),
-            ])
-            .build();
-
-        let diff_output = self
+    /// Check if a branch exists - I/O operation
+    async fn check_branch_exists(&self, branch: &str) -> Result<bool> {
+        let command = Self::build_branch_check_command(&self.repo_path, branch);
+        Ok(self
             .subprocess
             .runner()
-            .run(diff_check_command)
+            .run(command)
+            .await
+            .map(|o| o.status.success())
+            .unwrap_or(false))
+    }
+
+    /// Pure function to build branch check command
+    fn build_branch_check_command(repo_path: &Path, branch: &str) -> crate::subprocess::ProcessCommand {
+        ProcessCommandBuilder::new("git")
+            .current_dir(repo_path)
+            .args(["rev-parse", "--verify", &format!("refs/heads/{}", branch)])
+            .build()
+    }
+
+    /// Validate merge preconditions - combines validation logic
+    async fn validate_merge_preconditions(
+        &self,
+        name: &str,
+        worktree_branch: &str,
+        target_branch: &str,
+    ) -> Result<()> {
+        let commit_count = self.get_commit_count_between_branches(target_branch, worktree_branch).await?;
+        Self::validate_commits_exist(name, target_branch, commit_count)
+    }
+
+    /// Get commit count between branches - I/O operation
+    async fn get_commit_count_between_branches(
+        &self,
+        target_branch: &str,
+        worktree_branch: &str,
+    ) -> Result<String> {
+        let command = Self::build_commit_diff_command(&self.repo_path, target_branch, worktree_branch);
+        let output = self
+            .subprocess
+            .runner()
+            .run(command)
             .await
             .context("Failed to check for new commits")?;
 
-        if diff_output.status.success() {
-            let commit_count = diff_output.stdout.trim();
-            if commit_count == "0" {
-                anyhow::bail!(
-                    "No new commits in worktree '{}' to merge into '{}'. The branches are already in sync.",
-                    name,
-                    target
-                );
+        if output.status.success() {
+            Ok(output.stdout.trim().to_string())
+        } else {
+            Err(anyhow::anyhow!("Failed to get commit count"))
+        }
+    }
+
+    /// Pure function to build commit diff command
+    fn build_commit_diff_command(
+        repo_path: &Path,
+        target_branch: &str,
+        worktree_branch: &str,
+    ) -> crate::subprocess::ProcessCommand {
+        ProcessCommandBuilder::new("git")
+            .current_dir(repo_path)
+            .args([
+                "rev-list",
+                "--count",
+                &format!("{}..{}", target_branch, worktree_branch),
+            ])
+            .build()
+    }
+
+    /// Pure function to validate commits exist for merge
+    fn validate_commits_exist(name: &str, target_branch: &str, commit_count: String) -> Result<()> {
+        if commit_count == "0" {
+            anyhow::bail!(
+                "No new commits in worktree '{}' to merge into '{}'. The branches are already in sync.",
+                name,
+                target_branch
+            );
+        }
+        Ok(())
+    }
+
+    /// Execute merge workflow - orchestrates merge execution
+    async fn execute_merge_workflow(
+        &self,
+        name: &str,
+        worktree_branch: &str,
+        target_branch: &str,
+    ) -> Result<String> {
+        match &self.custom_merge_workflow {
+            Some(merge_workflow) => {
+                println!("🔄 Executing custom merge workflow for '{name}' into '{target_branch}'...");
+                self.execute_custom_merge_workflow(merge_workflow, name, worktree_branch, target_branch)
+                    .await
+            }
+            None => {
+                println!("🔄 Merging worktree '{name}' into '{target_branch}' using Claude-assisted merge...");
+                self.execute_claude_merge(worktree_branch).await
             }
         }
+    }
 
-        // Check if we have a custom merge workflow or use default Claude merge
-        let stdout = if let Some(ref merge_workflow) = self.custom_merge_workflow {
-            // Execute custom merge workflow
-            println!("🔄 Executing custom merge workflow for '{name}' into '{target}'...");
-            self.execute_custom_merge_workflow(merge_workflow, name, worktree_branch, &target)
-                .await?
-        } else {
-            // Use ClaudeStreamingExecutor for transparent logging
-            println!("🔄 Merging worktree '{name}' into '{target}' using Claude-assisted merge...");
+    /// Execute Claude merge - I/O operation
+    async fn execute_claude_merge(&self, worktree_branch: &str) -> Result<String> {
+        eprintln!("Running claude /prodigy-merge-worktree with branch: {worktree_branch}");
 
-            // Print what we're about to execute
-            eprintln!("Running claude /prodigy-merge-worktree with branch: {worktree_branch}");
+        let env_vars = self.build_claude_environment_variables();
+        let claude_executor = self.create_claude_executor();
 
-            // Create environment variables for Claude execution
-            let mut env_vars = HashMap::new();
-            env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+        let result = claude_executor
+            .execute_claude_command(
+                &format!("/prodigy-merge-worktree {worktree_branch}"),
+                &self.repo_path,
+                env_vars,
+            )
+            .await
+            .context("Failed to execute claude /prodigy-merge-worktree")?;
 
-            // Enable streaming if verbosity is high enough
-            if self.verbosity >= 1 {
-                env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
+        Self::validate_claude_result(&result)?;
+        println!("{}", result.stdout);
+        Ok(result.stdout)
+    }
+
+    /// Pure function to build Claude environment variables
+    fn build_claude_environment_variables(&self) -> HashMap<String, String> {
+        let mut env_vars = HashMap::new();
+        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+
+        if self.verbosity >= 1 {
+            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
+        }
+
+        if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
+            env_vars.insert(
+                "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+                "true".to_string(),
+            );
+        }
+
+        env_vars
+    }
+
+    /// Create Claude executor - factory function
+    fn create_claude_executor(&self) -> ClaudeExecutorImpl<crate::cook::execution::runner::RealCommandRunner> {
+        use crate::cook::execution::runner::RealCommandRunner;
+        let command_runner = RealCommandRunner::new();
+        ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity)
+    }
+
+    /// Pure function to validate Claude execution result
+    fn validate_claude_result(result: &crate::cook::execution::ExecutionResult) -> Result<()> {
+        if !result.success {
+            eprintln!("❌ Claude merge failed:");
+            if !result.stderr.is_empty() {
+                eprintln!("Error output: {}", result.stderr);
             }
-
-            // Check for console output override
-            if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
-                env_vars.insert(
-                    "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
-                    "true".to_string(),
-                );
+            if !result.stdout.is_empty() {
+                eprintln!("Standard output: {}", result.stdout);
             }
+            anyhow::bail!("Claude merge failed");
+        }
+        Ok(())
+    }
 
-            // Create Claude executor with streaming support
-            use crate::cook::execution::runner::RealCommandRunner;
-            let command_runner = RealCommandRunner::new();
-            let claude_executor =
-                ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity);
+    /// Verify merge completion - I/O operation with pure validation
+    async fn verify_merge_completion(
+        &self,
+        worktree_branch: &str,
+        target_branch: &str,
+        merge_output: &str,
+    ) -> Result<()> {
+        let merged_branches = self.get_merged_branches(target_branch).await?;
+        Self::validate_merge_success(worktree_branch, target_branch, &merged_branches, merge_output)
+    }
 
-            // Execute the merge command
-            let result = claude_executor
-                .execute_claude_command(
-                    &format!("/prodigy-merge-worktree {worktree_branch}"),
-                    &self.repo_path,
-                    env_vars,
-                )
-                .await
-                .context("Failed to execute claude /prodigy-merge-worktree")?;
-
-            if !result.success {
-                // Provide detailed error information
-                eprintln!("❌ Claude merge failed for worktree '{name}':");
-                if !result.stderr.is_empty() {
-                    eprintln!("Error output: {}", result.stderr);
-                }
-                if !result.stdout.is_empty() {
-                    eprintln!("Standard output: {}", result.stdout);
-                }
-
-                anyhow::bail!("Failed to merge worktree '{name}' - Claude merge failed");
-            }
-
-            // Parse the output for success confirmation
-            println!("{}", result.stdout);
-            result.stdout
-        };
-
-        // Verify the merge actually happened by checking if the worktree branch
-        // is now merged into the target branch
-        let merge_check_command = ProcessCommandBuilder::new("git")
-            .current_dir(&self.repo_path)
-            .args(["branch", "--merged", &target])
-            .build();
-
-        let merge_check = self
+    /// Get merged branches - I/O operation
+    async fn get_merged_branches(&self, target_branch: &str) -> Result<String> {
+        let command = Self::build_merge_check_command(&self.repo_path, target_branch);
+        let output = self
             .subprocess
             .runner()
-            .run(merge_check_command)
+            .run(command)
             .await
             .context("Failed to check merged branches")?;
 
-        if merge_check.status.success() {
-            let merged_branches = &merge_check.stdout;
-            if !merged_branches.contains(worktree_branch) {
-                // Check if Claude output indicates permission was denied
-                if stdout.contains("permission") || stdout.contains("grant permission") {
-                    anyhow::bail!(
-                        "Merge was not completed - Claude requires permission to proceed. \
-                        Please run the command again and grant permission when prompted."
-                    );
-                }
+        if output.status.success() {
+            Ok(output.stdout)
+        } else {
+            Err(anyhow::anyhow!("Failed to check merged branches"))
+        }
+    }
+
+    /// Pure function to build merge check command
+    fn build_merge_check_command(repo_path: &Path, target_branch: &str) -> crate::subprocess::ProcessCommand {
+        ProcessCommandBuilder::new("git")
+            .current_dir(repo_path)
+            .args(["branch", "--merged", target_branch])
+            .build()
+    }
+
+    /// Pure function to validate merge success
+    fn validate_merge_success(
+        worktree_branch: &str,
+        target_branch: &str,
+        merged_branches: &str,
+        merge_output: &str,
+    ) -> Result<()> {
+        if !merged_branches.contains(worktree_branch) {
+            if Self::is_permission_denied(merge_output) {
                 anyhow::bail!(
-                    "Merge verification failed - branch '{}' is not merged into '{}'. \
-                    The merge may have been aborted or failed silently.",
-                    worktree_branch,
-                    target
+                    "Merge was not completed - Claude requires permission to proceed. \
+                    Please run the command again and grant permission when prompted."
                 );
             }
+            anyhow::bail!(
+                "Merge verification failed - branch '{}' is not merged into '{}'. \
+                The merge may have been aborted or failed silently.",
+                worktree_branch,
+                target_branch
+            );
         }
+        Ok(())
+    }
 
-        // Update session state to mark as merged
+    /// Pure function to check if merge output indicates permission denial
+    fn is_permission_denied(output: &str) -> bool {
+        output.contains("permission") || output.contains("grant permission")
+    }
+
+    /// Finalize merge session - orchestrates post-merge operations
+    async fn finalize_merge_session(&self, name: &str) -> Result<()> {
+        self.update_session_state_after_merge(name)?;
+        self.handle_auto_cleanup_if_enabled(name).await?;
+        Ok(())
+    }
+
+    /// Update session state after merge - I/O operation
+    fn update_session_state_after_merge(&self, name: &str) -> Result<()> {
         if let Err(e) = self.update_session_state(name, |state| {
             state.merged = true;
             state.merged_at = Some(Utc::now());
@@ -784,52 +910,64 @@ impl WorktreeManager {
         }) {
             eprintln!("Warning: Failed to update session state after merge: {e}");
         }
+        Ok(())
+    }
 
-        // Check if auto-cleanup is enabled and perform cleanup
+    /// Handle auto-cleanup if enabled - orchestrates cleanup logic
+    async fn handle_auto_cleanup_if_enabled(&self, name: &str) -> Result<()> {
         let cleanup_config = Self::get_cleanup_config();
         if cleanup_config.auto_cleanup {
-            println!("🧹 Auto-cleanup is enabled, checking if session can be cleaned up...");
+            self.perform_auto_cleanup(name).await
+        } else {
+            self.show_manual_cleanup_message(name);
+            Ok(())
+        }
+    }
 
-            // Give a moment for the merge to propagate
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    /// Perform auto cleanup - I/O operation
+    async fn perform_auto_cleanup(&self, name: &str) -> Result<()> {
+        println!("🧹 Auto-cleanup is enabled, checking if session can be cleaned up...");
 
-            match self.cleanup_session_after_merge(name).await {
-                Ok(()) => {
-                    println!("✅ Successfully cleaned up merged session: {name}");
-                }
-                Err(e) => {
-                    eprintln!("⚠️  Auto-cleanup failed for session {name}: {e}");
+        // Give a moment for the merge to propagate
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-                    // Try to get more diagnostic information
-                    let worktree_path = self.base_dir.join(name);
-                    if worktree_path.exists() {
-                        let status_command = ProcessCommandBuilder::new("git")
-                            .current_dir(&worktree_path)
-                            .args(["status", "--short"])
-                            .build();
+        match self.cleanup_session_after_merge(name).await {
+            Ok(()) => {
+                println!("✅ Successfully cleaned up merged session: {name}");
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("⚠️  Auto-cleanup failed for session {name}: {e}");
+                self.show_cleanup_diagnostics(name).await;
+                eprintln!(
+                    "   You can manually clean up later with: prodigy worktree cleanup {name}"
+                );
+                Ok(())
+            }
+        }
+    }
 
-                        if let Ok(status_output) =
-                            self.subprocess.runner().run(status_command).await
-                        {
-                            if status_output.status.success()
-                                && !status_output.stdout.trim().is_empty()
-                            {
-                                eprintln!("📝 Current worktree status:");
-                                eprintln!("{}", status_output.stdout.trim());
-                            }
-                        }
-                    }
+    /// Show cleanup diagnostics - I/O operation
+    async fn show_cleanup_diagnostics(&self, name: &str) {
+        let worktree_path = self.base_dir.join(name);
+        if worktree_path.exists() {
+            let status_command = ProcessCommandBuilder::new("git")
+                .current_dir(&worktree_path)
+                .args(["status", "--short"])
+                .build();
 
-                    eprintln!(
-                        "   You can manually clean up later with: prodigy worktree cleanup {name}"
-                    );
+            if let Ok(status_output) = self.subprocess.runner().run(status_command).await {
+                if status_output.status.success() && !status_output.stdout.trim().is_empty() {
+                    eprintln!("📝 Current worktree status:");
+                    eprintln!("{}", status_output.stdout.trim());
                 }
             }
-        } else {
-            println!("ℹ️  Session '{name}' has been merged. You can clean it up with: prodigy worktree cleanup {name}");
         }
+    }
 
-        Ok(())
+    /// Pure function to show manual cleanup message
+    fn show_manual_cleanup_message(&self, name: &str) {
+        println!("ℹ️  Session '{name}' has been merged. You can clean it up with: prodigy worktree cleanup {name}");
     }
 
     /// Clean up a worktree session
@@ -1936,30 +2074,59 @@ branch refs/heads/main"#;
         }
     }
 
-    #[tokio::test]
-    async fn test_update_checkpoint_success() -> Result<()> {
-        use crate::worktree::Checkpoint;
-        let temp_dir = TempDir::new()?;
-        let subprocess = SubprocessManager::production();
-        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
+    // Test helper functions for common setup patterns
+    async fn setup_test_git_repo(temp_dir: &TempDir, subprocess: &SubprocessManager) -> anyhow::Result<()> {
+        // Initialize a git repository
+        let init_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["init"])
+            .build();
+        subprocess.runner().run(init_command).await?;
 
-        // First create a session with a checkpoint
-        let state = WorktreeState {
-            session_id: "test-session".to_string(),
-            worktree_name: "test-session".to_string(),
+        // Configure user for git (needed for commits)
+        let config_name = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.name", "Test User"])
+            .build();
+        subprocess.runner().run(config_name).await?;
+
+        let config_email = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.email", "test@example.com"])
+            .build();
+        subprocess.runner().run(config_email).await?;
+
+        // Create initial commit (required for worktrees)
+        let initial_file = temp_dir.path().join("README.md");
+        std::fs::write(&initial_file, "# Test Repository")?;
+
+        let add_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["add", "."])
+            .build();
+        subprocess.runner().run(add_command).await?;
+
+        let commit_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["commit", "-m", "Initial commit"])
+            .build();
+        subprocess.runner().run(commit_command).await?;
+
+        Ok(())
+    }
+
+    fn create_test_worktree_state_with_checkpoint(session_id: &str, iteration: u32, command: &str) -> WorktreeState {
+        use crate::worktree::Checkpoint;
+
+        WorktreeState {
+            session_id: session_id.to_string(),
+            worktree_name: session_id.to_string(),
             branch: "test-branch".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             status: WorktreeStatus::InProgress,
-            iterations: super::IterationInfo {
-                completed: 0,
-                max: 5,
-            },
-            stats: super::WorktreeStats {
-                files_changed: 0,
-                commits: 0,
-                last_commit_sha: None,
-            },
+            iterations: super::IterationInfo { completed: 0, max: 5 },
+            stats: super::WorktreeStats { files_changed: 0, commits: 0, last_commit_sha: None },
             merged: false,
             merged_at: None,
             error: None,
@@ -1968,30 +2135,37 @@ branch refs/heads/main"#;
             interrupted_at: None,
             interruption_type: None,
             last_checkpoint: Some(Checkpoint {
-                iteration: 1,
+                iteration,
                 timestamp: chrono::Utc::now(),
-                last_command: "/prodigy-test".to_string(),
+                last_command: command.to_string(),
                 last_command_type: crate::worktree::CommandType::CodeReview,
                 last_spec_id: Some("spec-123".to_string()),
                 files_modified: vec!["src/main.rs".to_string()],
                 command_output: None,
             }),
             resumable: true,
-        };
+        }
+    }
 
-        // Create the metadata directory and save state directly
+    #[tokio::test]
+    async fn test_update_checkpoint_success() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let subprocess = SubprocessManager::production();
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
+
+        let state = create_test_worktree_state_with_checkpoint("test-session", 1, "/prodigy-test");
+
+        // Create the metadata directory and save state
         let metadata_dir = manager.base_dir.join(".metadata");
         std::fs::create_dir_all(&metadata_dir)?;
-        let state_path = metadata_dir.join("test-session.json");
-        std::fs::write(&state_path, serde_json::to_string_pretty(&state)?)?;
+        std::fs::write(metadata_dir.join("test-session.json"), serde_json::to_string_pretty(&state)?)?;
 
-        // Update the checkpoint
+        // Update and verify checkpoint
         manager.update_checkpoint("test-session", |checkpoint| {
             checkpoint.iteration = 2;
             checkpoint.last_command = "/prodigy-updated".to_string();
         })?;
 
-        // Verify checkpoint was updated
         let updated_state = manager.get_session_state("test-session")?;
         let checkpoint = updated_state.last_checkpoint.unwrap();
         assert_eq!(checkpoint.iteration, 2);
@@ -1999,63 +2173,109 @@ branch refs/heads/main"#;
         Ok(())
     }
 
+    fn create_test_session_state(session_id: &str, status: &str, hours_ago: i64, minutes_ago: i64, files_changed: u32, commits: u32, error_msg: Option<&str>) -> serde_json::Value {
+        serde_json::json!({
+            "session_id": session_id,
+            "status": status,
+            "branch": format!("feature-{}", session_id.split('-').last().unwrap_or("1")),
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(hours_ago)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(minutes_ago)).to_rfc3339(),
+            "error": error_msg,
+            "stats": {
+                "files_changed": files_changed,
+                "commits": commits,
+                "last_commit_sha": null
+            },
+            "worktree_name": session_id,
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        })
+    }
+
+    async fn setup_test_worktree_manager(temp_dir: &TempDir) -> anyhow::Result<WorktreeManager> {
+        let subprocess = SubprocessManager::production();
+        setup_test_git_repo(temp_dir, &subprocess).await?;
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
+
+        // Create metadata directory
+        let metadata_dir = manager.base_dir.join(".metadata");
+        std::fs::create_dir_all(&metadata_dir)?;
+
+        Ok(manager)
+    }
+
+    fn assert_session_properties(sessions: &[crate::worktree::display::EnhancedSessionInfo], session_id: &str, expected_status: WorktreeStatus, expected_files: u32, expected_commits: u32, expected_error: Option<&str>) {
+        let session = sessions
+            .iter()
+            .find(|s| s.session_id == session_id)
+            .unwrap_or_else(|| panic!("{} not found", session_id));
+
+        assert_eq!(session.status, expected_status);
+        assert_eq!(session.files_changed, expected_files);
+        assert_eq!(session.commits, expected_commits);
+
+        if let Some(error) = expected_error {
+            assert_eq!(session.error_summary, Some(error.to_string()));
+        }
+    }
+
+    fn create_mock_worktree_dirs(manager: &WorktreeManager, session_ids: &[&str]) -> anyhow::Result<()> {
+        for session_id in session_ids {
+            let wt_dir = manager.base_dir.join(session_id);
+            std::fs::create_dir_all(&wt_dir)?;
+            // Create minimal .git file to make it appear as valid worktree
+            std::fs::write(wt_dir.join(".git"), "gitdir: /fake/path")?;
+        }
+        Ok(())
+    }
+
+    async fn create_test_worktree_with_session_state(manager: &WorktreeManager, temp_dir: &TempDir, session_id: &str, branch: &str, session_state: &serde_json::Value) -> anyhow::Result<()> {
+        let wt_dir = manager.base_dir.join(session_id);
+        let subprocess = SubprocessManager::production();
+
+        let add_worktree = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["worktree", "add", "-b", branch, wt_dir.to_string_lossy().as_ref()])
+            .build();
+        subprocess.runner().run(add_worktree).await?;
+
+        let prodigy_dir = wt_dir.join(".prodigy");
+        std::fs::create_dir_all(&prodigy_dir)?;
+
+        let session_state_file = prodigy_dir.join("session_state.json");
+        std::fs::write(&session_state_file, serde_json::to_string(session_state)?)?;
+
+        Ok(())
+    }
+
     #[tokio::test]
     async fn test_update_checkpoint_increments_iteration() -> Result<()> {
-        use crate::worktree::Checkpoint;
         let temp_dir = TempDir::new()?;
         let subprocess = SubprocessManager::production();
         let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-        // Create a session with initial checkpoint
-        let state = WorktreeState {
-            session_id: "test-session".to_string(),
-            worktree_name: "test-session".to_string(),
-            branch: "test-branch".to_string(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            status: WorktreeStatus::InProgress,
-            iterations: super::IterationInfo {
-                completed: 0,
-                max: 5,
-            },
-            stats: super::WorktreeStats {
-                files_changed: 0,
-                commits: 0,
-                last_commit_sha: None,
-            },
-            merged: false,
-            merged_at: None,
-            error: None,
-            merge_prompt_shown: false,
-            merge_prompt_response: None,
-            interrupted_at: None,
-            interruption_type: None,
-            last_checkpoint: Some(Checkpoint {
-                iteration: 1,
-                timestamp: chrono::Utc::now(),
-                last_command: "/prodigy-test1".to_string(),
-                last_command_type: crate::worktree::CommandType::CodeReview,
-                last_spec_id: None,
-                files_modified: vec![],
-                command_output: None,
-            }),
-            resumable: true,
-        };
+        let state = create_test_worktree_state_with_checkpoint("test-session", 1, "/prodigy-test1");
 
-        // Create the metadata directory and save state directly
+        // Create metadata directory and save state
         let metadata_dir = manager.base_dir.join(".metadata");
         std::fs::create_dir_all(&metadata_dir)?;
-        let state_path = metadata_dir.join("test-session.json");
-        std::fs::write(&state_path, serde_json::to_string_pretty(&state)?)?;
+        std::fs::write(metadata_dir.join("test-session.json"), serde_json::to_string_pretty(&state)?)?;
 
-        // Update checkpoint with new iteration
+        // Update and verify checkpoint iteration
         manager.update_checkpoint("test-session", |checkpoint| {
             checkpoint.iteration = 2;
             checkpoint.last_command = "/prodigy-test2".to_string();
         })?;
 
-        let state = manager.get_session_state("test-session")?;
-        assert_eq!(state.last_checkpoint.unwrap().iteration, 2);
+        let updated_state = manager.get_session_state("test-session")?;
+        assert_eq!(updated_state.last_checkpoint.unwrap().iteration, 2);
         Ok(())
     }
 
@@ -2114,150 +2334,23 @@ branch refs/heads/main"#;
     #[tokio::test]
     async fn test_list_detailed_with_sessions() -> Result<()> {
         let temp_dir = TempDir::new().unwrap();
-        let subprocess = SubprocessManager::production();
-
-        // Initialize a git repository in the temp directory
-        let init_command = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["init"])
-            .build();
-        subprocess.runner().run(init_command).await?;
-
-        // Configure user for git (needed for commits)
-        let config_name = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["config", "user.name", "Test User"])
-            .build();
-        subprocess.runner().run(config_name).await?;
-
-        let config_email = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["config", "user.email", "test@example.com"])
-            .build();
-        subprocess.runner().run(config_email).await?;
-
-        // Create initial commit (required for worktrees)
-        let initial_file = temp_dir.path().join("README.md");
-        std::fs::write(&initial_file, "# Test Repository")?;
-
-        let add_command = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["add", "."])
-            .build();
-        subprocess.runner().run(add_command).await?;
-
-        let commit_command = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["commit", "-m", "Initial commit"])
-            .build();
-        subprocess.runner().run(commit_command).await?;
-
-        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
-
-        // Create metadata directory
+        let manager = setup_test_worktree_manager(&temp_dir).await?;
         let metadata_dir = manager.base_dir.join(".metadata");
-        std::fs::create_dir_all(&metadata_dir)?;
 
-        // For testing, we'll create minimal JSON representations that match
-        // what the list_detailed method expects to parse
-        let state1_json = serde_json::json!({
-            "session_id": "session-test-1",
-            "status": "in_progress",
-            "branch": "feature-1",
-            "created_at": (chrono::Utc::now() - chrono::Duration::hours(2)).to_rfc3339(),
-            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(30)).to_rfc3339(),
-            "error": null,
-            "stats": {
-                "files_changed": 5,
-                "commits": 2,
-                "last_commit_sha": null
-            },
-            "worktree_name": "session-test-1",
-            "iterations": { "completed": 0, "max": 5 },
-            "merged": false,
-            "merged_at": null,
-            "merge_prompt_shown": false,
-            "merge_prompt_response": null,
-            "interrupted_at": null,
-            "interruption_type": null,
-            "last_checkpoint": null,
-            "resumable": false
-        });
-
-        let state2_json = serde_json::json!({
-            "session_id": "session-test-2",
-            "status": "completed",
-            "branch": "feature-2",
-            "created_at": (chrono::Utc::now() - chrono::Duration::hours(3)).to_rfc3339(),
-            "updated_at": (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
-            "error": null,
-            "stats": {
-                "files_changed": 10,
-                "commits": 5,
-                "last_commit_sha": null
-            },
-            "worktree_name": "session-test-2",
-            "iterations": { "completed": 0, "max": 5 },
-            "merged": false,
-            "merged_at": null,
-            "merge_prompt_shown": false,
-            "merge_prompt_response": null,
-            "interrupted_at": null,
-            "interruption_type": null,
-            "last_checkpoint": null,
-            "resumable": false
-        });
-
-        let state3_json = serde_json::json!({
-            "session_id": "session-test-3",
-            "status": "failed",
-            "branch": "feature-3",
-            "created_at": (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
-            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(10)).to_rfc3339(),
-            "error": "Test error message",
-            "stats": {
-                "files_changed": 2,
-                "commits": 1,
-                "last_commit_sha": null
-            },
-            "worktree_name": "session-test-3",
-            "iterations": { "completed": 0, "max": 5 },
-            "merged": false,
-            "merged_at": null,
-            "merge_prompt_shown": false,
-            "merge_prompt_response": null,
-            "interrupted_at": null,
-            "interruption_type": null,
-            "last_checkpoint": null,
-            "resumable": false
-        });
+        // Create test session states with helper function
+        let state1_json = create_test_session_state("session-test-1", "in_progress", 2, 30, 5, 2, None);
+        let state2_json = create_test_session_state("session-test-2", "completed", 3, 60, 10, 5, None);
+        let state3_json = create_test_session_state("session-test-3", "failed", 1, 10, 2, 1, Some("Test error message"));
 
         // Save states to metadata
-        let state1_file = metadata_dir.join("session-test-1.json");
-        let state2_file = metadata_dir.join("session-test-2.json");
-        let state3_file = metadata_dir.join("session-test-3.json");
+        std::fs::write(metadata_dir.join("session-test-1.json"), serde_json::to_string(&state1_json)?)?;
+        std::fs::write(metadata_dir.join("session-test-2.json"), serde_json::to_string(&state2_json)?)?;
+        std::fs::write(metadata_dir.join("session-test-3.json"), serde_json::to_string(&state3_json)?)?;
 
-        std::fs::write(&state1_file, serde_json::to_string(&state1_json)?)?;
-        std::fs::write(&state2_file, serde_json::to_string(&state2_json)?)?;
-        std::fs::write(&state3_file, serde_json::to_string(&state3_json)?)?;
+        // Create mock worktree directories
+        create_mock_worktree_dirs(&manager, &["session-test-1", "session-test-2", "session-test-3"])?;
 
-        // Create corresponding worktree directories
-        let wt1_dir = manager.base_dir.join("session-test-1");
-        let wt2_dir = manager.base_dir.join("session-test-2");
-        let wt3_dir = manager.base_dir.join("session-test-3");
-
-        std::fs::create_dir_all(&wt1_dir)?;
-        std::fs::create_dir_all(&wt2_dir)?;
-        std::fs::create_dir_all(&wt3_dir)?;
-
-        // Note: In a real environment we'd have git worktrees set up
-        // For testing, we'll simulate by creating minimal .git files
-        // to make the directories appear as valid worktrees
-        std::fs::write(wt1_dir.join(".git"), "gitdir: /fake/path")?;
-        std::fs::write(wt2_dir.join(".git"), "gitdir: /fake/path")?;
-        std::fs::write(wt3_dir.join(".git"), "gitdir: /fake/path")?;
-
-        // Get detailed list
+        // Get detailed list and verify
         let result = manager.list_detailed().await?;
 
         // Verify summary counts
@@ -2266,39 +2359,12 @@ branch refs/heads/main"#;
         assert_eq!(result.summary.completed, 1);
         assert_eq!(result.summary.failed, 1);
         assert_eq!(result.summary.interrupted, 0);
-
-        // Verify we have the expected sessions
         assert_eq!(result.sessions.len(), 3);
 
-        // Find each session and verify key fields
-        let session1 = result
-            .sessions
-            .iter()
-            .find(|s| s.session_id == "session-test-1")
-            .expect("Session 1 not found");
-        assert_eq!(session1.status, WorktreeStatus::InProgress);
-        assert_eq!(session1.files_changed, 5);
-        assert_eq!(session1.commits, 2);
-
-        let session2 = result
-            .sessions
-            .iter()
-            .find(|s| s.session_id == "session-test-2")
-            .expect("Session 2 not found");
-        assert_eq!(session2.status, WorktreeStatus::Completed);
-        assert_eq!(session2.files_changed, 10);
-        assert_eq!(session2.commits, 5);
-
-        let session3 = result
-            .sessions
-            .iter()
-            .find(|s| s.session_id == "session-test-3")
-            .expect("Session 3 not found");
-        assert_eq!(session3.status, WorktreeStatus::Failed);
-        assert_eq!(
-            session3.error_summary,
-            Some("Test error message".to_string())
-        );
+        // Verify session properties using helper
+        assert_session_properties(&result.sessions, "session-test-1", WorktreeStatus::InProgress, 5, 2, None);
+        assert_session_properties(&result.sessions, "session-test-2", WorktreeStatus::Completed, 10, 5, None);
+        assert_session_properties(&result.sessions, "session-test-3", WorktreeStatus::Failed, 2, 1, Some("Test error message"));
 
         Ok(())
     }
@@ -2307,96 +2373,15 @@ branch refs/heads/main"#;
     async fn test_list_detailed_with_workflow_info() -> Result<()> {
         let temp_dir = TempDir::new().unwrap();
         let subprocess = SubprocessManager::production();
+        setup_test_git_repo(&temp_dir, &subprocess).await?;
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-        // Initialize a git repository in the temp directory
-        let init_command = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["init"])
-            .build();
-        subprocess.runner().run(init_command).await?;
-
-        // Configure user for git (needed for commits)
-        let config_name = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["config", "user.name", "Test User"])
-            .build();
-        subprocess.runner().run(config_name).await?;
-
-        let config_email = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["config", "user.email", "test@example.com"])
-            .build();
-        subprocess.runner().run(config_email).await?;
-
-        // Create initial commit (required for worktrees)
-        let initial_file = temp_dir.path().join("README.md");
-        std::fs::write(&initial_file, "# Test Repository")?;
-
-        let add_command = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["add", "."])
-            .build();
-        subprocess.runner().run(add_command).await?;
-
-        let commit_command = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["commit", "-m", "Initial commit"])
-            .build();
-        subprocess.runner().run(commit_command).await?;
-
-        let manager =
-            WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess.clone()).unwrap();
-
-        // Create metadata directory
         let metadata_dir = manager.base_dir.join(".metadata");
         std::fs::create_dir_all(&metadata_dir)?;
 
-        // Create a test worktree state as JSON
-        let state_json = serde_json::json!({
-            "session_id": "workflow-session",
-            "status": "in_progress",
-            "branch": "workflow-branch",
-            "created_at": (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
-            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(5)).to_rfc3339(),
-            "error": null,
-            "stats": {
-                "files_changed": 3,
-                "commits": 1,
-                "last_commit_sha": null
-            },
-            "worktree_name": "workflow-session",
-            "iterations": { "completed": 0, "max": 5 },
-            "merged": false,
-            "merged_at": null,
-            "merge_prompt_shown": false,
-            "merge_prompt_response": null,
-            "interrupted_at": null,
-            "interruption_type": null,
-            "last_checkpoint": null,
-            "resumable": false
-        });
-
-        // Save state
-        let state_file = metadata_dir.join("workflow-session.json");
-        std::fs::write(&state_file, serde_json::to_string(&state_json)?)?;
-
-        // Create actual git worktree
-        let wt_dir = manager.base_dir.join("workflow-session");
-        let add_worktree = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args([
-                "worktree",
-                "add",
-                "-b",
-                "workflow-branch",
-                wt_dir.to_string_lossy().as_ref(),
-            ])
-            .build();
-        subprocess.runner().run(add_worktree).await?;
-
-        // Create session state directory
-        let prodigy_dir = wt_dir.join(".prodigy");
-        std::fs::create_dir_all(&prodigy_dir)?;
+        // Create test state and save to metadata
+        let state_json = create_test_session_state("workflow-session", "in_progress", 1, 5, 3, 1, None);
+        std::fs::write(metadata_dir.join("workflow-session.json"), serde_json::to_string(&state_json)?)?;
 
         // Create session state with workflow information
         let session_state = serde_json::json!({
@@ -2409,20 +2394,13 @@ branch refs/heads/main"#;
             }
         });
 
-        let session_state_file = prodigy_dir.join("session_state.json");
-        std::fs::write(&session_state_file, serde_json::to_string(&session_state)?)?;
+        create_test_worktree_with_session_state(&manager, &temp_dir, "workflow-session", "workflow-branch", &session_state).await?;
 
-        // Get detailed list
         let result = manager.list_detailed().await?;
-
         assert_eq!(result.sessions.len(), 1);
-        let session = &result.sessions[0];
 
-        // Verify workflow information was extracted
-        assert_eq!(
-            session.workflow_path,
-            Some(PathBuf::from("workflows/test.yaml"))
-        );
+        let session = &result.sessions[0];
+        assert_eq!(session.workflow_path, Some(PathBuf::from("workflows/test.yaml")));
         assert_eq!(session.workflow_args, vec!["arg1", "arg2"]);
         assert_eq!(session.current_step, 3);
         assert_eq!(session.total_steps, Some(5));
@@ -2434,96 +2412,15 @@ branch refs/heads/main"#;
     async fn test_list_detailed_with_mapreduce_info() -> Result<()> {
         let temp_dir = TempDir::new().unwrap();
         let subprocess = SubprocessManager::production();
+        setup_test_git_repo(&temp_dir, &subprocess).await?;
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-        // Initialize a git repository in the temp directory
-        let init_command = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["init"])
-            .build();
-        subprocess.runner().run(init_command).await?;
-
-        // Configure user for git (needed for commits)
-        let config_name = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["config", "user.name", "Test User"])
-            .build();
-        subprocess.runner().run(config_name).await?;
-
-        let config_email = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["config", "user.email", "test@example.com"])
-            .build();
-        subprocess.runner().run(config_email).await?;
-
-        // Create initial commit (required for worktrees)
-        let initial_file = temp_dir.path().join("README.md");
-        std::fs::write(&initial_file, "# Test Repository")?;
-
-        let add_command = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["add", "."])
-            .build();
-        subprocess.runner().run(add_command).await?;
-
-        let commit_command = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args(["commit", "-m", "Initial commit"])
-            .build();
-        subprocess.runner().run(commit_command).await?;
-
-        let manager =
-            WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess.clone()).unwrap();
-
-        // Create metadata directory
         let metadata_dir = manager.base_dir.join(".metadata");
         std::fs::create_dir_all(&metadata_dir)?;
 
-        // Create a test worktree state as JSON
-        let state_json = serde_json::json!({
-            "session_id": "mapreduce-session",
-            "status": "in_progress",
-            "branch": "mapreduce-branch",
-            "created_at": (chrono::Utc::now() - chrono::Duration::hours(2)).to_rfc3339(),
-            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(10)).to_rfc3339(),
-            "error": null,
-            "stats": {
-                "files_changed": 0,
-                "commits": 0,
-                "last_commit_sha": null
-            },
-            "worktree_name": "mapreduce-session",
-            "iterations": { "completed": 0, "max": 5 },
-            "merged": false,
-            "merged_at": null,
-            "merge_prompt_shown": false,
-            "merge_prompt_response": null,
-            "interrupted_at": null,
-            "interruption_type": null,
-            "last_checkpoint": null,
-            "resumable": false
-        });
-
-        // Save state
-        let state_file = metadata_dir.join("mapreduce-session.json");
-        std::fs::write(&state_file, serde_json::to_string(&state_json)?)?;
-
-        // Create actual git worktree
-        let wt_dir = manager.base_dir.join("mapreduce-session");
-        let add_worktree = ProcessCommandBuilder::new("git")
-            .current_dir(temp_dir.path())
-            .args([
-                "worktree",
-                "add",
-                "-b",
-                "mapreduce-branch",
-                wt_dir.to_string_lossy().as_ref(),
-            ])
-            .build();
-        subprocess.runner().run(add_worktree).await?;
-
-        // Create session state directory
-        let prodigy_dir = wt_dir.join(".prodigy");
-        std::fs::create_dir_all(&prodigy_dir)?;
+        // Create test state and save to metadata
+        let state_json = create_test_session_state("mapreduce-session", "in_progress", 2, 10, 0, 0, None);
+        std::fs::write(metadata_dir.join("mapreduce-session.json"), serde_json::to_string(&state_json)?)?;
 
         // Create session state with MapReduce information
         let session_state = serde_json::json!({
@@ -2537,16 +2434,12 @@ branch refs/heads/main"#;
             }
         });
 
-        let session_state_file = prodigy_dir.join("session_state.json");
-        std::fs::write(&session_state_file, serde_json::to_string(&session_state)?)?;
+        create_test_worktree_with_session_state(&manager, &temp_dir, "mapreduce-session", "mapreduce-branch", &session_state).await?;
 
-        // Get detailed list
         let result = manager.list_detailed().await?;
-
         assert_eq!(result.sessions.len(), 1);
-        let session = &result.sessions[0];
 
-        // Verify MapReduce information was extracted
+        let session = &result.sessions[0];
         assert_eq!(session.items_processed, Some(25));
         assert_eq!(session.total_items, Some(100));
 

@@ -375,6 +375,439 @@ fn get_all_event_files() -> Result<Vec<PathBuf>> {
     Ok(all_files)
 }
 
+// =============================================================================
+// Pure Data Transformation Functions
+// =============================================================================
+
+/// Pure function to build event filter criteria
+#[derive(Debug, Clone)]
+pub struct EventFilter {
+    pub job_id: Option<String>,
+    pub event_type: Option<String>,
+    pub agent_id: Option<String>,
+    pub since_time: Option<DateTime<Utc>>,
+}
+
+impl EventFilter {
+    fn new(
+        job_id: Option<String>,
+        event_type: Option<String>,
+        agent_id: Option<String>,
+        since: Option<u64>,
+    ) -> Self {
+        let since_time = since.map(|minutes| Utc::now() - chrono::Duration::minutes(minutes as i64));
+        Self {
+            job_id,
+            event_type,
+            agent_id,
+            since_time,
+        }
+    }
+
+    fn matches_event(&self, event: &Value) -> bool {
+        if let Some(ref jid) = self.job_id {
+            if !event_matches_field(event, "job_id", jid) {
+                return false;
+            }
+        }
+
+        if let Some(ref etype) = self.event_type {
+            if !event_matches_type(event, etype) {
+                return false;
+            }
+        }
+
+        if let Some(ref aid) = self.agent_id {
+            if !event_matches_field(event, "agent_id", aid) {
+                return false;
+            }
+        }
+
+        if let Some(since_time) = self.since_time {
+            if !event_is_recent(event, since_time) {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+/// Pure function to transform events into statistics
+fn calculate_event_statistics(
+    events: impl Iterator<Item = Value>,
+    group_by: &str,
+) -> (std::collections::HashMap<String, usize>, usize) {
+    use std::collections::HashMap;
+
+    let mut stats = HashMap::new();
+    let mut total = 0;
+
+    for event in events {
+        total += 1;
+
+        let key = match group_by {
+            "event_type" => get_event_type(&event),
+            "job_id" => event
+                .get("job_id")
+                .or_else(|| extract_nested_field(&event, "job_id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            "agent_id" => event
+                .get("agent_id")
+                .or_else(|| extract_nested_field(&event, "agent_id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("n/a")
+                .to_string(),
+            _ => "unknown".to_string(),
+        };
+
+        *stats.entry(key).or_insert(0) += 1;
+    }
+
+    (stats, total)
+}
+
+/// Pure function to sort statistics by count
+fn sort_statistics_by_count(
+    stats: std::collections::HashMap<String, usize>,
+) -> Vec<(String, usize)> {
+    let mut sorted_stats: Vec<_> = stats.into_iter().collect();
+    sorted_stats.sort_by(|a, b| b.1.cmp(&a.1));
+    sorted_stats
+}
+
+/// Pure function to format statistics as human-readable string
+fn format_statistics_human(
+    sorted_stats: &[(String, usize)],
+    total: usize,
+    group_by: &str,
+) -> String {
+    let mut output = format!("Event Statistics (grouped by {})\n", group_by);
+    output.push_str(&"=".repeat(50));
+    output.push('\n');
+
+    for (key, count) in sorted_stats {
+        let percentage = (*count as f64 / total as f64) * 100.0;
+        output.push_str(&format!("{:<30} {:>6} ({:>5.1}%)\n", key, count, percentage));
+    }
+
+    output.push_str(&"=".repeat(50));
+    output.push('\n');
+    output.push_str(&format!("Total events: {}\n", total));
+    output
+}
+
+/// Pure function to check if event matches search pattern
+fn event_matches_search(
+    event: &Value,
+    pattern: &regex::Regex,
+    fields: Option<&[String]>,
+) -> bool {
+    if let Some(fields) = fields {
+        fields.iter().any(|field| {
+            event
+                .get(field)
+                .and_then(|v| v.as_str())
+                .map(|s| pattern.is_match(s))
+                .unwrap_or(false)
+        })
+    } else {
+        search_in_value(event, pattern)
+    }
+}
+
+/// Pure function to filter events by criteria and limit
+fn filter_and_limit_events(
+    events: impl Iterator<Item = Value>,
+    filter: &EventFilter,
+    limit: usize,
+) -> Vec<Value> {
+    events
+        .filter(|event| filter.matches_event(event))
+        .take(limit)
+        .collect()
+}
+
+/// Pure function to process a single event line into a JSON Value
+fn parse_event_line(line: &str) -> Option<Value> {
+    if line.trim().is_empty() {
+        return None;
+    }
+    serde_json::from_str(line).ok()
+}
+
+/// Pure function to convert duration string to days
+fn convert_duration_to_days(duration_str: &str) -> Result<u32> {
+    let duration_str = duration_str.trim().to_lowercase();
+
+    if duration_str.is_empty() {
+        return Err(anyhow::anyhow!("Empty duration string"));
+    }
+
+    let (number_part, unit_part) =
+        if let Some(unit_pos) = duration_str.chars().position(|c| c.is_alphabetic()) {
+            let (num, unit) = duration_str.split_at(unit_pos);
+            (num, unit)
+        } else {
+            // If no unit specified, assume days
+            (duration_str.as_str(), "d")
+        };
+
+    let number: f64 = number_part
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid number in duration: '{}'", number_part))?;
+
+    let days = match unit_part {
+        "d" | "day" | "days" => number,
+        "w" | "week" | "weeks" => number * 7.0,
+        "h" | "hour" | "hours" => number / 24.0,
+        "m" | "min" | "minute" | "minutes" => number / (24.0 * 60.0),
+        "s" | "sec" | "second" | "seconds" => number / (24.0 * 60.0 * 60.0),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid duration unit: '{}'. Use d/day, w/week, h/hour, m/min, s/sec",
+                unit_part
+            ))
+        }
+    };
+
+    // Convert to u32, ensuring at least 0 days
+    Ok(days.max(0.0).ceil() as u32)
+}
+
+/// Pure function to convert size string to bytes
+fn convert_size_to_bytes(size_str: &str) -> Result<u64> {
+    let size_str = size_str.trim().to_uppercase();
+
+    if size_str.is_empty() {
+        return Err(anyhow::anyhow!("Empty size string"));
+    }
+
+    let (number_part, unit_part) =
+        if let Some(unit_pos) = size_str.chars().position(|c| c.is_alphabetic()) {
+            let (num, unit) = size_str.split_at(unit_pos);
+            (num, unit)
+        } else {
+            // If no unit specified, assume bytes
+            (size_str.as_str(), "B")
+        };
+
+    let number: f64 = number_part
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid number in size: '{}'", number_part))?;
+
+    let bytes = match unit_part {
+        "B" | "BYTE" | "BYTES" => number,
+        "KB" | "K" => number * 1024.0,
+        "MB" | "M" => number * 1024.0 * 1024.0,
+        "GB" | "G" => number * 1024.0 * 1024.0 * 1024.0,
+        "TB" | "T" => number * 1024.0 * 1024.0 * 1024.0 * 1024.0,
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid size unit: '{}'. Use B/byte, KB/K, MB/M, GB/G, TB/T",
+                unit_part
+            ))
+        }
+    };
+
+    // Convert to u64, ensuring at least 0 bytes
+    Ok(bytes.max(0.0) as u64)
+}
+
+/// Pure function to validate retention policy parameters
+fn validate_retention_policy(
+    older_than: &Option<String>,
+    max_events: &Option<usize>,
+    max_size: &Option<String>,
+) -> Result<()> {
+    if let Some(ref duration) = older_than {
+        convert_duration_to_days(duration)?;
+    }
+
+    if let Some(ref size) = max_size {
+        convert_size_to_bytes(size)?;
+    }
+
+    if older_than.is_none() && max_events.is_none() && max_size.is_none() {
+        return Err(anyhow::anyhow!(
+            "At least one retention criteria must be specified (older_than, max_events, or max_size)"
+        ));
+    }
+
+    Ok(())
+}
+
+// =============================================================================
+// Pure Formatting Functions
+// =============================================================================
+
+/// Pure function to format job info for display
+fn create_job_display_info(job: &JobInfo) -> String {
+    match job.status {
+        JobStatus::Completed => {
+            let duration = calculate_duration(job.start_time, job.end_time);
+            format!(
+                "{} [✓ COMPLETED{} - Success: {}, Failed: {}]",
+                job.id, duration, job.success_count, job.failure_count
+            )
+        }
+        JobStatus::Failed => {
+            format!("{} [✗ FAILED]", job.id)
+        }
+        JobStatus::InProgress => {
+            let elapsed = calculate_elapsed(job.start_time);
+            format!("{} [⟳ IN PROGRESS{}]", job.id, elapsed)
+        }
+        JobStatus::Unknown => {
+            format!("{} [? UNKNOWN]", job.id)
+        }
+    }
+}
+
+/// Pure function to format statistics as JSON
+fn format_statistics_json(
+    sorted_stats: &[(String, usize)],
+    total: usize,
+    group_by: &str,
+) -> Result<String> {
+    #[derive(Serialize)]
+    struct StatsOutput {
+        group_by: String,
+        stats: Vec<StatEntry>,
+        total: usize,
+    }
+
+    #[derive(Serialize)]
+    struct StatEntry {
+        key: String,
+        count: usize,
+        percentage: f64,
+    }
+
+    let entries: Vec<StatEntry> = sorted_stats
+        .iter()
+        .map(|(key, count)| StatEntry {
+            key: key.clone(),
+            count: *count,
+            percentage: (*count as f64 / total as f64) * 100.0,
+        })
+        .collect();
+
+    let output = StatsOutput {
+        group_by: group_by.to_string(),
+        stats: entries,
+        total,
+    };
+
+    Ok(serde_json::to_string_pretty(&output)?)
+}
+
+/// Pure function to format statistics as YAML
+fn format_statistics_yaml(
+    sorted_stats: &[(String, usize)],
+    total: usize,
+    group_by: &str,
+) -> Result<String> {
+    #[derive(Serialize)]
+    struct StatsOutput {
+        group_by: String,
+        stats: Vec<StatEntry>,
+        total: usize,
+    }
+
+    #[derive(Serialize)]
+    struct StatEntry {
+        key: String,
+        count: usize,
+        percentage: f64,
+    }
+
+    let entries: Vec<StatEntry> = sorted_stats
+        .iter()
+        .map(|(key, count)| StatEntry {
+            key: key.clone(),
+            count: *count,
+            percentage: (*count as f64 / total as f64) * 100.0,
+        })
+        .collect();
+
+    let output = StatsOutput {
+        group_by: group_by.to_string(),
+        stats: entries,
+        total,
+    };
+
+    Ok(serde_yaml::to_string(&output)?)
+}
+
+/// Pure function to format cleanup summary message
+fn create_cleanup_summary_message(total_cleaned: usize, dry_run: bool) -> String {
+    if total_cleaned == 0 {
+        "No events matched the cleanup criteria.".to_string()
+    } else if dry_run {
+        format!("Would clean {} events", total_cleaned)
+    } else {
+        format!("Cleaned {} events", total_cleaned)
+    }
+}
+
+/// Pure function to create cleanup summary JSON
+fn create_cleanup_summary_json(
+    total_cleaned: usize,
+    total_archived: usize,
+    dry_run: bool,
+) -> Result<String> {
+    #[derive(Serialize)]
+    struct CleanSummary {
+        dry_run: bool,
+        events_cleaned: usize,
+        events_archived: usize,
+        message: String,
+    }
+
+    let summary = CleanSummary {
+        dry_run,
+        events_cleaned: total_cleaned,
+        events_archived: total_archived,
+        message: create_cleanup_summary_message(total_cleaned, dry_run),
+    };
+
+    Ok(serde_json::to_string_pretty(&summary)?)
+}
+
+/// Pure function to create human-readable cleanup summary
+fn create_cleanup_summary_human(
+    total_cleaned: usize,
+    total_archived: usize,
+    dry_run: bool,
+) -> String {
+    let mut summary = String::new();
+
+    if dry_run {
+        summary.push_str(&format!("Summary (dry run): {} events would be cleaned\n", total_cleaned));
+        if total_archived > 0 {
+            summary.push_str(&format!("  {} events would be archived\n", total_archived));
+        }
+    } else {
+        summary.push_str(&format!("Summary: {} events cleaned\n", total_cleaned));
+        if total_archived > 0 {
+            summary.push_str(&format!("  {} events archived\n", total_archived));
+        }
+    }
+
+    if total_cleaned == 0 {
+        summary.push_str("No events matched the cleanup criteria.\n");
+    }
+
+    summary
+}
+
+// =============================================================================
+// Command Execution Functions
+// =============================================================================
+
 /// Execute event viewer commands
 pub async fn execute(args: EventsArgs) -> Result<()> {
     match args.command {
@@ -513,29 +946,9 @@ fn display_available_jobs() -> Result<()> {
     Ok(())
 }
 
-/// Format job information for display
+/// Format job information for display (now delegates to pure function)
 fn format_job_info(job: &JobInfo) -> String {
-    let base = &job.id;
-
-    match job.status {
-        JobStatus::Completed => {
-            let duration = calculate_duration(job.start_time, job.end_time);
-            format!(
-                "{} [✓ COMPLETED{} - Success: {}, Failed: {}]",
-                base, duration, job.success_count, job.failure_count
-            )
-        }
-        JobStatus::Failed => {
-            format!("{} [✗ FAILED]", base)
-        }
-        JobStatus::InProgress => {
-            let elapsed = calculate_elapsed(job.start_time);
-            format!("{} [⟳ IN PROGRESS{}]", base, elapsed)
-        }
-        JobStatus::Unknown => {
-            format!("{} [? UNKNOWN]", base)
-        }
-    }
+    create_job_display_info(job)
 }
 
 /// Calculate duration between start and end times
@@ -560,7 +973,7 @@ fn calculate_elapsed(start: Option<DateTime<Local>>) -> String {
     }
 }
 
-/// List events with optional filters
+/// List events with optional filters (refactored to separate I/O from logic)
 async fn list_events(
     file: PathBuf,
     job_id: Option<String>,
@@ -575,82 +988,60 @@ async fn list_events(
         return Ok(());
     }
 
-    let since_time = since.map(|minutes| Utc::now() - chrono::Duration::minutes(minutes as i64));
+    // Create filter using pure function
+    let filter = EventFilter::new(job_id, event_type, agent_id, since);
 
+    // Read events from file
+    let events = read_and_filter_events(&file, &filter, limit)?;
+
+    // Display events using pure functions
+    display_events_with_format(&events, &output_format)
+}
+
+/// Pure I/O function to read and filter events from file
+fn read_and_filter_events(
+    file: &PathBuf,
+    filter: &EventFilter,
+    limit: usize,
+) -> Result<Vec<Value>> {
     let file_handle = fs::File::open(file)?;
     let reader = BufReader::new(file_handle);
-    let mut count = 0;
-    let mut events = Vec::new();
 
-    for line in reader.lines() {
-        if count >= limit {
-            break;
-        }
+    let events = reader
+        .lines()
+        .filter_map(|line| line.ok())
+        .filter_map(|line| parse_event_line(&line))
+        .filter(|event| filter.matches_event(event))
+        .take(limit)
+        .collect();
 
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
-        }
+    Ok(events)
+}
 
-        let event: Value = serde_json::from_str(&line)?;
-
-        // Apply filters
-        if let Some(ref jid) = job_id {
-            if !event_matches_field(&event, "job_id", jid) {
-                continue;
-            }
-        }
-
-        if let Some(ref etype) = event_type {
-            if !event_matches_type(&event, etype) {
-                continue;
-            }
-        }
-
-        if let Some(ref aid) = agent_id {
-            if !event_matches_field(&event, "agent_id", aid) {
-                continue;
-            }
-        }
-
-        if let Some(since_time) = since_time {
-            if !event_is_recent(&event, since_time) {
-                continue;
-            }
-        }
-
-        // Format and display event based on output format
-        match output_format.as_str() {
-            "json" | "yaml" | "table" => {
-                // Collect for formatted output
-                events.push(event);
-            }
-            _ => {
-                // Default to human-readable output
-                display_event(&event);
-            }
-        }
-        count += 1;
-    }
-
-    match output_format.as_str() {
+/// Pure function to display events in the specified format
+fn display_events_with_format(events: &[Value], output_format: &str) -> Result<()> {
+    match output_format {
         "json" => {
-            println!("{}", serde_json::to_string_pretty(&events)?);
+            println!("{}", serde_json::to_string_pretty(events)?);
         }
         "yaml" => {
-            println!("{}", serde_yaml::to_string(&events)?);
+            println!("{}", serde_yaml::to_string(events)?);
         }
         "table" => {
-            display_events_as_table(&events)?;
+            display_events_as_table(events)?;
         }
         _ => {
-            println!("\nDisplayed {} events", count);
+            // Default to human-readable output
+            for event in events {
+                display_event(event);
+            }
+            println!("\nDisplayed {} events", events.len());
         }
     }
     Ok(())
 }
 
-/// Show aggregated statistics from all global event files
+/// Show aggregated statistics from all global event files (refactored)
 async fn show_aggregated_stats(group_by: String, output_format: String) -> Result<()> {
     let event_files = get_all_event_files()?;
 
@@ -659,230 +1050,93 @@ async fn show_aggregated_stats(group_by: String, output_format: String) -> Resul
         return Ok(());
     }
 
-    use std::collections::HashMap;
+    // Read all events and calculate statistics using pure functions
+    let all_events = read_events_from_files(&event_files)?;
+    let (stats, total) = calculate_event_statistics(all_events.into_iter(), &group_by);
+    let sorted_stats = sort_statistics_by_count(stats);
 
-    let mut stats: HashMap<String, usize> = HashMap::new();
-    let mut total = 0;
+    // Display statistics using pure functions
+    display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, true)
+}
 
-    // Process all event files
+/// Pure I/O function to read events from multiple files
+fn read_events_from_files(event_files: &[PathBuf]) -> Result<Vec<Value>> {
+    let mut all_events = Vec::new();
+
     for file in event_files {
-        let content = fs::File::open(&file)?;
+        let content = fs::File::open(file)?;
         let reader = BufReader::new(content);
 
         for line in reader.lines() {
             let line = line?;
-            if line.trim().is_empty() {
-                continue;
+            if let Some(event) = parse_event_line(&line) {
+                all_events.push(event);
             }
-
-            let event: Value = serde_json::from_str(&line)?;
-            total += 1;
-
-            // Group by specified field
-            let key = match group_by.as_str() {
-                "event_type" => get_event_type(&event),
-                "job_id" => event
-                    .get("job_id")
-                    .or_else(|| extract_nested_field(&event, "job_id"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-                    .to_string(),
-                "agent_id" => event
-                    .get("agent_id")
-                    .or_else(|| extract_nested_field(&event, "agent_id"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("n/a")
-                    .to_string(),
-                _ => "unknown".to_string(),
-            };
-
-            *stats.entry(key).or_insert(0) += 1;
         }
     }
 
-    // Display statistics based on output format
-    match output_format.as_str() {
+    Ok(all_events)
+}
+
+/// Pure function to display statistics in the specified format
+fn display_statistics_with_format(
+    sorted_stats: &[(String, usize)],
+    total: usize,
+    group_by: &str,
+    output_format: &str,
+    is_aggregated: bool,
+) -> Result<()> {
+    match output_format {
         "json" => {
-            #[derive(Serialize)]
-            struct StatsOutput {
-                group_by: String,
-                stats: Vec<StatEntry>,
-                total: usize,
-            }
-
-            #[derive(Serialize)]
-            struct StatEntry {
-                key: String,
-                count: usize,
-                percentage: f64,
-            }
-
-            let mut entries: Vec<StatEntry> = stats
-                .iter()
-                .map(|(key, count)| StatEntry {
-                    key: key.clone(),
-                    count: *count,
-                    percentage: (*count as f64 / total as f64) * 100.0,
-                })
-                .collect();
-            entries.sort_by(|a, b| b.count.cmp(&a.count));
-
-            let output = StatsOutput {
-                group_by,
-                stats: entries,
-                total,
-            };
-
-            println!("{}", serde_json::to_string_pretty(&output)?);
+            let json_output = format_statistics_json(sorted_stats, total, group_by)?;
+            println!("{}", json_output);
         }
         "yaml" => {
-            #[derive(Serialize)]
-            struct StatsOutput {
-                group_by: String,
-                stats: Vec<StatEntry>,
-                total: usize,
-            }
-
-            #[derive(Serialize)]
-            struct StatEntry {
-                key: String,
-                count: usize,
-                percentage: f64,
-            }
-
-            let mut entries: Vec<StatEntry> = stats
-                .iter()
-                .map(|(key, count)| StatEntry {
-                    key: key.clone(),
-                    count: *count,
-                    percentage: (*count as f64 / total as f64) * 100.0,
-                })
-                .collect();
-            entries.sort_by(|a, b| b.count.cmp(&a.count));
-
-            let output = StatsOutput {
-                group_by,
-                stats: entries,
-                total,
-            };
-
-            println!("{}", serde_yaml::to_string(&output)?);
+            let yaml_output = format_statistics_yaml(sorted_stats, total, group_by)?;
+            println!("{}", yaml_output);
         }
         _ => {
-            println!("Event Statistics (grouped by {}) - All Jobs", group_by);
-            println!("{}", "=".repeat(50));
-
-            let mut sorted_stats: Vec<_> = stats.iter().collect();
-            sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
-
-            for (key, count) in sorted_stats {
-                let percentage = (*count as f64 / total as f64) * 100.0;
-                println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
-            }
-
-            println!("{}", "=".repeat(50));
-            println!("Total events: {}", total);
+            let title_suffix = if is_aggregated { " - All Jobs" } else { "" };
+            println!("Event Statistics (grouped by {}){}", group_by, title_suffix);
+            let human_output = format_statistics_human(sorted_stats, total, group_by);
+            print!("{}", human_output);
         }
     }
 
     Ok(())
 }
 
-/// Show event statistics
+/// Show event statistics (refactored to use pure functions)
 async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> Result<()> {
     if !file.exists() {
         println!("No events found. Events file does not exist: {:?}", file);
         return Ok(());
     }
 
-    use std::collections::HashMap;
+    // Read events and calculate statistics using pure functions
+    let events = read_events_from_single_file(&file)?;
+    let (stats, total) = calculate_event_statistics(events.into_iter(), &group_by);
+    let sorted_stats = sort_statistics_by_count(stats);
 
-    let file = fs::File::open(file)?;
-    let reader = BufReader::new(file);
-    let mut stats: HashMap<String, usize> = HashMap::new();
-    let mut total = 0;
-
-    for line in reader.lines() {
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
-        }
-
-        let event: Value = serde_json::from_str(&line)?;
-        total += 1;
-
-        // Group by specified field
-        let key = match group_by.as_str() {
-            "event_type" => get_event_type(&event),
-            "job_id" => event
-                .get("job_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            "agent_id" => event
-                .get("agent_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("n/a")
-                .to_string(),
-            _ => "unknown".to_string(),
-        };
-
-        *stats.entry(key).or_insert(0) += 1;
-    }
-
-    // Display statistics
-    if output_format == "json" {
-        #[derive(Serialize)]
-        struct StatsOutput {
-            group_by: String,
-            stats: Vec<StatEntry>,
-            total: usize,
-        }
-
-        #[derive(Serialize)]
-        struct StatEntry {
-            key: String,
-            count: usize,
-            percentage: f64,
-        }
-
-        let mut entries: Vec<StatEntry> = stats
-            .iter()
-            .map(|(key, count)| StatEntry {
-                key: key.clone(),
-                count: *count,
-                percentage: (*count as f64 / total as f64) * 100.0,
-            })
-            .collect();
-        entries.sort_by(|a, b| b.count.cmp(&a.count));
-
-        let output = StatsOutput {
-            group_by,
-            stats: entries,
-            total,
-        };
-
-        println!("{}", serde_json::to_string_pretty(&output)?);
-    } else {
-        println!("Event Statistics (grouped by {})", group_by);
-        println!("{}", "=".repeat(50));
-
-        let mut sorted_stats: Vec<_> = stats.iter().collect();
-        sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
-
-        for (key, count) in sorted_stats {
-            let percentage = (*count as f64 / total as f64) * 100.0;
-            println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
-        }
-
-        println!("{}", "=".repeat(50));
-        println!("Total events: {}", total);
-    }
-
-    Ok(())
+    // Display statistics using pure functions
+    display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, false)
 }
 
-/// Search aggregated events from all global event files
+/// Pure I/O function to read events from a single file
+fn read_events_from_single_file(file: &PathBuf) -> Result<Vec<Value>> {
+    let file_handle = fs::File::open(file)?;
+    let reader = BufReader::new(file_handle);
+
+    let events = reader
+        .lines()
+        .filter_map(|line| line.ok())
+        .filter_map(|line| parse_event_line(&line))
+        .collect();
+
+    Ok(events)
+}
+
+/// Search aggregated events from all global event files (refactored)
 async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) -> Result<()> {
     let event_files = get_all_event_files()?;
 
@@ -891,95 +1145,59 @@ async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) 
         return Ok(());
     }
 
+    // Read all events and search using pure functions
+    let all_events = read_events_from_files(&event_files)?;
+    let matching_events = search_events_with_pattern(&all_events, &pattern, fields.as_deref())?;
+
+    // Display results
+    display_search_results(&matching_events, true)
+}
+
+/// Pure function to search events with a pattern
+fn search_events_with_pattern(
+    events: &[Value],
+    pattern: &str,
+    fields: Option<&[String]>,
+) -> Result<Vec<Value>> {
     use regex::Regex;
-    let re = Regex::new(&pattern)?;
-    let mut count = 0;
+    let re = Regex::new(pattern)?;
 
-    // Process all event files
-    for file in event_files {
-        let content = fs::File::open(&file)?;
-        let reader = BufReader::new(content);
+    let matching_events = events
+        .iter()
+        .filter(|event| event_matches_search(event, &re, fields))
+        .cloned()
+        .collect();
 
-        for line in reader.lines() {
-            let line = line?;
-            if line.trim().is_empty() {
-                continue;
-            }
+    Ok(matching_events)
+}
 
-            let event: Value = serde_json::from_str(&line)?;
-
-            // Search in specified fields or all fields
-            let matches = if let Some(ref fields) = fields {
-                fields.iter().any(|field| {
-                    event
-                        .get(field)
-                        .and_then(|v| v.as_str())
-                        .map(|s| re.is_match(s))
-                        .unwrap_or(false)
-                })
-            } else {
-                // Search in all string values
-                search_in_value(&event, &re)
-            };
-
-            if matches {
-                display_event(&event);
-                count += 1;
-            }
-        }
+/// Pure function to display search results
+fn display_search_results(matching_events: &[Value], is_aggregated: bool) -> Result<()> {
+    for event in matching_events {
+        display_event(event);
     }
 
-    println!("\nFound {} matching events across all jobs", count);
+    let suffix = if is_aggregated { " across all jobs" } else { "" };
+    println!("\nFound {} matching events{}", matching_events.len(), suffix);
     Ok(())
 }
 
-/// Search events by pattern
+/// Search events by pattern (refactored to use pure functions)
 async fn search_events(file: PathBuf, pattern: String, fields: Option<Vec<String>>) -> Result<()> {
     if !file.exists() {
         println!("No events found. Events file does not exist: {:?}", file);
         return Ok(());
     }
 
-    use regex::Regex;
-    let re = Regex::new(&pattern)?;
+    // Read events and search using pure functions
+    let events = read_events_from_single_file(&file)?;
+    let matching_events = search_events_with_pattern(&events, &pattern, fields.as_deref())?;
 
-    let file = fs::File::open(file)?;
-    let reader = BufReader::new(file);
-    let mut count = 0;
-
-    for line in reader.lines() {
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
-        }
-
-        let event: Value = serde_json::from_str(&line)?;
-
-        // Search in specified fields or all fields
-        let matches = if let Some(ref fields) = fields {
-            fields.iter().any(|field| {
-                event
-                    .get(field)
-                    .and_then(|v| v.as_str())
-                    .map(|s| re.is_match(s))
-                    .unwrap_or(false)
-            })
-        } else {
-            // Search in all string values
-            search_in_value(&event, &re)
-        };
-
-        if matches {
-            display_event(&event);
-            count += 1;
-        }
-    }
-
-    println!("\nFound {} matching events", count);
-    Ok(())
+    // Display results
+    display_search_results(&matching_events, false)
 }
 
-/// Follow events in real-time
+/// Follow events in real-time (refactored to smaller functions)
 async fn follow_events(
     file: PathBuf,
     job_id: Option<String>,
@@ -987,8 +1205,26 @@ async fn follow_events(
 ) -> Result<()> {
     use notify::{RecursiveMode, Watcher};
     use std::sync::mpsc::channel;
-    use std::time::Duration;
 
+    setup_file_for_watching(&file)?;
+
+    // Set up file watcher
+    let (tx, rx) = channel();
+    let mut watcher = setup_file_watcher(tx)?;
+    let watch_path = determine_watch_path(&file);
+    watcher.watch(&watch_path, RecursiveMode::NonRecursive)?;
+
+    println!("Following events (Ctrl+C to stop)...\n");
+
+    if file.exists() {
+        watch_existing_file(&file, &job_id, &event_type, rx).await
+    } else {
+        wait_for_file_creation(&file, &job_id, &event_type, rx).await
+    }
+}
+
+/// Setup file and directory structure for watching
+fn setup_file_for_watching(file: &PathBuf) -> Result<()> {
     if !file.exists() {
         println!("Waiting for events file to be created: {:?}", file);
         // Create parent directory if it doesn't exist
@@ -996,54 +1232,76 @@ async fn follow_events(
             fs::create_dir_all(parent)?;
         }
     }
+    Ok(())
+}
 
-    // Set up file watcher
-    let (tx, rx) = channel();
-    let mut watcher = notify::recommended_watcher(move |res: Result<notify::Event, _>| {
+/// Setup file watcher with event handling
+fn setup_file_watcher(
+    tx: std::sync::mpsc::Sender<notify::Event>,
+) -> Result<notify::RecommendedWatcher> {
+    let watcher = notify::recommended_watcher(move |res: Result<notify::Event, _>| {
         if let Ok(event) = res {
             let _ = tx.send(event);
         }
     })?;
 
-    // Watch the events file
-    let watch_path = if file.exists() {
+    Ok(watcher)
+}
+
+/// Determine the path to watch based on file existence
+fn determine_watch_path(file: &PathBuf) -> PathBuf {
+    if file.exists() {
         file.clone()
     } else {
         file.parent().unwrap().to_path_buf()
-    };
-    watcher.watch(&watch_path, RecursiveMode::NonRecursive)?;
+    }
+}
 
-    println!("Following events (Ctrl+C to stop)...\n");
+/// Watch existing file for new events
+async fn watch_existing_file(
+    file: &PathBuf,
+    job_id: &Option<String>,
+    event_type: &Option<String>,
+    rx: std::sync::mpsc::Receiver<notify::Event>,
+) -> Result<()> {
+    use std::time::Duration;
 
-    // Read existing content first
-    if file.exists() {
-        let mut last_pos = display_existing_events(&file, &job_id, &event_type)?;
+    let mut last_pos = display_existing_events(file, job_id, event_type)?;
 
-        // Watch for new events
-        loop {
-            match rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(_) => {
-                    // File changed, read new events
-                    last_pos = display_new_events(&file, last_pos, &job_id, &event_type)?;
-                }
-                Err(_) => {
-                    // Timeout, continue waiting
-                    continue;
-                }
+    // Watch for new events
+    loop {
+        match rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(_) => {
+                // File changed, read new events
+                last_pos = display_new_events(file, last_pos, job_id, event_type)?;
+            }
+            Err(_) => {
+                // Timeout, continue waiting
+                continue;
             }
         }
-    } else {
-        // Wait for file to be created
-        loop {
-            match rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(_) => {
-                    if file.exists() {
-                        let _ = display_existing_events(&file, &job_id, &event_type)?;
-                        break;
-                    }
+    }
+}
+
+/// Wait for file to be created and then start monitoring
+async fn wait_for_file_creation(
+    file: &PathBuf,
+    job_id: &Option<String>,
+    event_type: &Option<String>,
+    rx: std::sync::mpsc::Receiver<notify::Event>,
+) -> Result<()> {
+    use std::time::Duration;
+
+    // Wait for file to be created
+    loop {
+        match rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(_) => {
+                if file.exists() {
+                    let _ = display_existing_events(file, job_id, event_type)?;
+                    break;
                 }
-                Err(_) => continue,
             }
+            Err(_) => continue,
         }
     }
 
@@ -1177,7 +1435,7 @@ async fn clean_events(
     Ok(())
 }
 
-/// Build retention policy from command arguments
+/// Build retention policy from command arguments (refactored to use pure functions)
 fn build_retention_policy(
     older_than: Option<String>,
     max_events: Option<usize>,
@@ -1187,10 +1445,13 @@ fn build_retention_policy(
 ) -> Result<crate::cook::execution::events::retention::RetentionPolicy> {
     use crate::cook::execution::events::retention::RetentionPolicy;
 
+    // Validate parameters first using pure function
+    validate_retention_policy(&older_than, &max_events, &max_size)?;
+
     let mut policy = RetentionPolicy::default();
 
     if let Some(duration_str) = older_than {
-        let days = parse_duration_to_days(&duration_str)?;
+        let days = convert_duration_to_days(&duration_str)?;
         policy.max_age_days = Some(days);
     }
 
@@ -1199,7 +1460,7 @@ fn build_retention_policy(
     }
 
     if let Some(size_str) = max_size {
-        let bytes = parse_size_to_bytes(&size_str)?;
+        let bytes = convert_size_to_bytes(&size_str)?;
         policy.max_file_size_bytes = Some(bytes);
     }
 
@@ -1491,67 +1752,8 @@ async fn clean_local_storage(
     }
 }
 
-/// Build cleanup summary message
-fn build_cleanup_message(total_cleaned: usize, dry_run: bool) -> String {
-    if total_cleaned == 0 {
-        "No events matched the cleanup criteria.".to_string()
-    } else if dry_run {
-        format!("Would clean {} events", total_cleaned)
-    } else {
-        format!("Cleaned {} events", total_cleaned)
-    }
-}
 
-/// Display cleanup summary in JSON format
-fn display_json_cleanup_summary(
-    total_cleaned: usize,
-    total_archived: usize,
-    dry_run: bool,
-) -> Result<()> {
-    #[derive(Serialize)]
-    struct CleanSummary {
-        dry_run: bool,
-        events_cleaned: usize,
-        events_archived: usize,
-        message: String,
-    }
-
-    let summary = CleanSummary {
-        dry_run,
-        events_cleaned: total_cleaned,
-        events_archived: total_archived,
-        message: build_cleanup_message(total_cleaned, dry_run),
-    };
-
-    println!("{}", serde_json::to_string_pretty(&summary)?);
-    Ok(())
-}
-
-/// Display cleanup summary in human-readable format
-fn display_human_cleanup_summary(
-    total_cleaned: usize,
-    total_archived: usize,
-    dry_run: bool,
-) {
-    println!();
-    if dry_run {
-        println!("Summary (dry run): {} events would be cleaned", total_cleaned);
-        if total_archived > 0 {
-            println!("  {} events would be archived", total_archived);
-        }
-    } else {
-        println!("Summary: {} events cleaned", total_cleaned);
-        if total_archived > 0 {
-            println!("  {} events archived", total_archived);
-        }
-    }
-
-    if total_cleaned == 0 {
-        println!("No events matched the cleanup criteria.");
-    }
-}
-
-/// Display cleanup summary
+/// Display cleanup summary (refactored to use pure functions)
 fn display_cleanup_summary(
     total_cleaned: usize,
     total_archived: usize,
@@ -1559,89 +1761,13 @@ fn display_cleanup_summary(
     output_format: &str,
 ) -> Result<()> {
     if output_format == "json" {
-        display_json_cleanup_summary(total_cleaned, total_archived, dry_run)
+        let json_summary = create_cleanup_summary_json(total_cleaned, total_archived, dry_run)?;
+        println!("{}", json_summary);
     } else {
-        display_human_cleanup_summary(total_cleaned, total_archived, dry_run);
-        Ok(())
+        let human_summary = create_cleanup_summary_human(total_cleaned, total_archived, dry_run);
+        print!("\n{}", human_summary);
     }
-}
-
-/// Parse duration string to days (e.g., "7d" -> 7, "2w" -> 14, "1h" -> 0)
-fn parse_duration_to_days(duration_str: &str) -> Result<u32> {
-    let duration_str = duration_str.trim().to_lowercase();
-
-    if duration_str.is_empty() {
-        return Err(anyhow::anyhow!("Empty duration string"));
-    }
-
-    let (number_part, unit_part) =
-        if let Some(unit_pos) = duration_str.chars().position(|c| c.is_alphabetic()) {
-            let (num, unit) = duration_str.split_at(unit_pos);
-            (num, unit)
-        } else {
-            // If no unit specified, assume days
-            (duration_str.as_str(), "d")
-        };
-
-    let number: f64 = number_part
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid number in duration: '{}'", number_part))?;
-
-    let days = match unit_part {
-        "d" | "day" | "days" => number,
-        "w" | "week" | "weeks" => number * 7.0,
-        "h" | "hour" | "hours" => number / 24.0,
-        "m" | "min" | "minute" | "minutes" => number / (24.0 * 60.0),
-        "s" | "sec" | "second" | "seconds" => number / (24.0 * 60.0 * 60.0),
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Invalid duration unit: '{}'. Use d/day, w/week, h/hour, m/min, s/sec",
-                unit_part
-            ))
-        }
-    };
-
-    // Convert to u32, ensuring at least 0 days
-    Ok(days.max(0.0).ceil() as u32)
-}
-
-/// Parse size string to bytes (e.g., "100MB" -> 104857600, "1GB" -> 1073741824)
-fn parse_size_to_bytes(size_str: &str) -> Result<u64> {
-    let size_str = size_str.trim().to_uppercase();
-
-    if size_str.is_empty() {
-        return Err(anyhow::anyhow!("Empty size string"));
-    }
-
-    let (number_part, unit_part) =
-        if let Some(unit_pos) = size_str.chars().position(|c| c.is_alphabetic()) {
-            let (num, unit) = size_str.split_at(unit_pos);
-            (num, unit)
-        } else {
-            // If no unit specified, assume bytes
-            (size_str.as_str(), "B")
-        };
-
-    let number: f64 = number_part
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid number in size: '{}'", number_part))?;
-
-    let bytes = match unit_part {
-        "B" | "BYTE" | "BYTES" => number,
-        "KB" | "K" => number * 1024.0,
-        "MB" | "M" => number * 1024.0 * 1024.0,
-        "GB" | "G" => number * 1024.0 * 1024.0 * 1024.0,
-        "TB" | "T" => number * 1024.0 * 1024.0 * 1024.0 * 1024.0,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Invalid size unit: '{}'. Use B/byte, KB/K, MB/M, GB/G, TB/T",
-                unit_part
-            ))
-        }
-    };
-
-    // Convert to u64, ensuring at least 0 bytes
-    Ok(bytes.max(0.0) as u64)
+    Ok(())
 }
 
 // Helper functions
@@ -2217,24 +2343,24 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_duration_to_days() {
-        assert_eq!(parse_duration_to_days("30d").unwrap(), 30);
-        assert_eq!(parse_duration_to_days("7d").unwrap(), 7);
-        assert_eq!(parse_duration_to_days("1d").unwrap(), 1);
-        assert_eq!(parse_duration_to_days("365d").unwrap(), 365);
-        assert_eq!(parse_duration_to_days("30").unwrap(), 30); // Default to days
-        assert!(parse_duration_to_days("invalid").is_err());
+    fn test_convert_duration_to_days() {
+        assert_eq!(convert_duration_to_days("30d").unwrap(), 30);
+        assert_eq!(convert_duration_to_days("7d").unwrap(), 7);
+        assert_eq!(convert_duration_to_days("1d").unwrap(), 1);
+        assert_eq!(convert_duration_to_days("365d").unwrap(), 365);
+        assert_eq!(convert_duration_to_days("30").unwrap(), 30); // Default to days
+        assert!(convert_duration_to_days("invalid").is_err());
     }
 
     #[test]
-    fn test_parse_size_to_bytes() {
-        assert_eq!(parse_size_to_bytes("1KB").unwrap(), 1_024);
-        assert_eq!(parse_size_to_bytes("1MB").unwrap(), 1_048_576);
-        assert_eq!(parse_size_to_bytes("1GB").unwrap(), 1_073_741_824);
-        assert_eq!(parse_size_to_bytes("500MB").unwrap(), 524_288_000);
-        assert!(parse_size_to_bytes("invalid").is_err());
+    fn test_convert_size_to_bytes() {
+        assert_eq!(convert_size_to_bytes("1KB").unwrap(), 1_024);
+        assert_eq!(convert_size_to_bytes("1MB").unwrap(), 1_048_576);
+        assert_eq!(convert_size_to_bytes("1GB").unwrap(), 1_073_741_824);
+        assert_eq!(convert_size_to_bytes("500MB").unwrap(), 524_288_000);
+        assert!(convert_size_to_bytes("invalid").is_err());
         // 100 without unit is now valid (defaults to bytes)
-        assert_eq!(parse_size_to_bytes("100").unwrap(), 100);
+        assert_eq!(convert_size_to_bytes("100").unwrap(), 100);
     }
 
     #[test]
