@@ -272,8 +272,8 @@ auto_commit: false
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
         assert!(
-            error_msg.contains("Invalid configuration file") ||
-            error_msg.contains("Unsupported configuration file format"),
+            error_msg.contains("Invalid configuration file")
+                || error_msg.contains("Unsupported configuration file format"),
             "Expected error message about unsupported format, got: {}",
             error_msg
         );
