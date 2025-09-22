@@ -182,3 +182,283 @@ impl YamlMigrator {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::{NamedTempFile, TempDir};
+
+    #[test]
+    fn test_migrator_creation() {
+        let migrator = YamlMigrator::new(true);
+        assert!(migrator.create_backup);
+
+        let migrator = YamlMigrator::new(false);
+        assert!(!migrator.create_backup);
+    }
+
+    #[test]
+    fn test_migrate_regular_workflow_no_changes() -> Result<()> {
+        let migrator = YamlMigrator::new(false);
+
+        let yaml_content = r#"
+- shell: "echo hello"
+- claude: "/test command"
+"#;
+
+        let temp_file = NamedTempFile::new()?;
+        fs::write(temp_file.path(), yaml_content)?;
+
+        let result = migrator.migrate_file(temp_file.path(), false)?;
+
+        assert!(!result.was_migrated);
+        assert!(result.error.is_none());
+
+        // Content should be unchanged
+        let content = fs::read_to_string(temp_file.path())?;
+        let parsed: Value = serde_yaml::from_str(&content)?;
+        assert!(matches!(parsed, Value::Sequence(_)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_migrate_mapreduce_with_nested_commands() -> Result<()> {
+        let migrator = YamlMigrator::new(false);
+
+        let yaml_content = r#"
+name: test-mapreduce
+mode: mapreduce
+
+map:
+  input: "items.json"
+  agent_template:
+    commands:
+      - claude: "/process ${item}"
+      - shell: "echo done"
+
+reduce:
+  commands:
+    - claude: "/summarize"
+    - shell: "cleanup"
+"#;
+
+        let temp_file = NamedTempFile::new()?;
+        fs::write(temp_file.path(), yaml_content)?;
+
+        let result = migrator.migrate_file(temp_file.path(), false)?;
+
+        assert!(result.was_migrated);
+        assert!(result.error.is_none());
+
+        // Check migrated content
+        let content = fs::read_to_string(temp_file.path())?;
+        let yaml: Value = serde_yaml::from_str(&content)?;
+
+        if let Value::Mapping(root) = yaml {
+            // Check map.agent_template no longer has nested commands
+            if let Some(Value::Mapping(map)) = root.get("map") {
+                if let Some(Value::Sequence(agent_template)) = map.get("agent_template") {
+                    assert_eq!(agent_template.len(), 2);
+                    // Commands should be directly in agent_template
+                    assert!(agent_template[0].get("claude").is_some());
+                }
+            }
+
+            // Check reduce no longer has nested commands
+            if let Some(Value::Sequence(reduce)) = root.get("reduce") {
+                assert_eq!(reduce.len(), 2);
+                assert!(reduce[0].get("claude").is_some());
+            }
+        } else {
+            panic!("Expected mapping root");
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_migrate_mapreduce_already_simplified() -> Result<()> {
+        let migrator = YamlMigrator::new(false);
+
+        let yaml_content = r#"
+name: test-mapreduce
+mode: mapreduce
+
+map:
+  input: "items.json"
+  agent_template:
+    - claude: "/process ${item}"
+    - shell: "echo done"
+
+reduce:
+  - claude: "/summarize"
+  - shell: "cleanup"
+"#;
+
+        let temp_file = NamedTempFile::new()?;
+        fs::write(temp_file.path(), yaml_content)?;
+
+        let result = migrator.migrate_file(temp_file.path(), false)?;
+
+        assert!(!result.was_migrated);
+        assert!(result.error.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_migrate_with_backup() -> Result<()> {
+        let migrator = YamlMigrator::new(true);
+
+        let yaml_content = r#"
+name: test-mapreduce
+mode: mapreduce
+
+map:
+  agent_template:
+    commands:
+      - claude: "/test"
+"#;
+
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("workflow.yml");
+        fs::write(&file_path, yaml_content)?;
+
+        let result = migrator.migrate_file(&file_path, false)?;
+
+        assert!(result.was_migrated);
+
+        // Check backup was created
+        let backup_path = file_path.with_extension("yml.bak");
+        assert!(backup_path.exists());
+
+        // Backup should have original content
+        let backup_content = fs::read_to_string(backup_path)?;
+        assert!(backup_content.contains("commands:"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_migrate_dry_run() -> Result<()> {
+        let migrator = YamlMigrator::new(false);
+
+        let yaml_content = r#"
+mode: mapreduce
+map:
+  agent_template:
+    commands:
+      - claude: "/test"
+"#;
+
+        let temp_file = NamedTempFile::new()?;
+        let original_content = yaml_content;
+        fs::write(temp_file.path(), original_content)?;
+
+        let result = migrator.migrate_file(temp_file.path(), true)?;
+
+        assert!(result.was_migrated);
+
+        // Content should be unchanged (dry run)
+        let content = fs::read_to_string(temp_file.path())?;
+        assert_eq!(content, original_content);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_migrate_invalid_yaml() {
+        let migrator = YamlMigrator::new(false);
+
+        let invalid_yaml = "this is not: valid: yaml: content:";
+
+        let temp_file = NamedTempFile::new().unwrap();
+        fs::write(temp_file.path(), invalid_yaml).unwrap();
+
+        let result = migrator.migrate_file(temp_file.path(), false);
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to parse YAML"));
+    }
+
+    #[test]
+    fn test_migrate_nonexistent_file() {
+        let migrator = YamlMigrator::new(false);
+        let result = migrator.migrate_file(Path::new("/nonexistent/file.yml"), false);
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read file"));
+    }
+
+    #[test]
+    fn test_migrate_preserve_other_fields() -> Result<()> {
+        let migrator = YamlMigrator::new(false);
+
+        let yaml_content = r#"
+name: test-workflow
+mode: mapreduce
+description: "Test description"
+timeout: 3600
+
+map:
+  input: "data.json"
+  max_parallel: 10
+  agent_template:
+    commands:
+      - claude: "/process"
+  filter: "item.enabled"
+
+reduce:
+  commands:
+    - shell: "aggregate"
+"#;
+
+        let temp_file = NamedTempFile::new()?;
+        fs::write(temp_file.path(), yaml_content)?;
+
+        let result = migrator.migrate_file(temp_file.path(), false)?;
+
+        assert!(result.was_migrated);
+
+        let content = fs::read_to_string(temp_file.path())?;
+        let yaml: Value = serde_yaml::from_str(&content)?;
+
+        if let Value::Mapping(root) = yaml {
+            // Verify other fields are preserved
+            assert_eq!(
+                root.get("name"),
+                Some(&Value::String("test-workflow".to_string()))
+            );
+            assert_eq!(
+                root.get("description"),
+                Some(&Value::String("Test description".to_string()))
+            );
+            assert_eq!(
+                root.get("timeout"),
+                Some(&Value::Number(serde_yaml::Number::from(3600)))
+            );
+
+            // Verify map.filter is preserved
+            if let Some(Value::Mapping(map)) = root.get("map") {
+                assert_eq!(
+                    map.get("filter"),
+                    Some(&Value::String("item.enabled".to_string()))
+                );
+                assert_eq!(
+                    map.get("max_parallel"),
+                    Some(&Value::Number(serde_yaml::Number::from(10)))
+                );
+            }
+        }
+
+        Ok(())
+    }
+}
