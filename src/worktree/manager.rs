@@ -1251,7 +1251,10 @@ impl WorktreeManager {
                         .replace("${merge.session_id}", &session_id);
 
                     // Log shell command execution similar to regular workflow
-                    println!("🔄 Executing merge shell command: {}", shell_cmd_interpolated);
+                    println!(
+                        "🔄 Executing merge shell command: {}",
+                        shell_cmd_interpolated
+                    );
 
                     let shell_command = ProcessCommandBuilder::new("sh")
                         .current_dir(&self.repo_path)
@@ -1282,7 +1285,10 @@ impl WorktreeManager {
                         .replace("${merge.session_id}", &session_id);
 
                     // Log Claude command execution similar to regular workflow
-                    println!("🔄 Executing merge Claude command: {}", claude_cmd_interpolated);
+                    println!(
+                        "🔄 Executing merge Claude command: {}",
+                        claude_cmd_interpolated
+                    );
 
                     let mut env_vars = HashMap::new();
                     env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
@@ -1293,7 +1299,8 @@ impl WorktreeManager {
                     }
 
                     // Check for console output override
-                    if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
+                    if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true"
+                    {
                         env_vars.insert(
                             "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
                             "true".to_string(),
