@@ -678,6 +678,7 @@ async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> {
 
 /// Run checkpoints command
 async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<()> {
+    use anyhow::Context;
     use prodigy::cook::workflow::CheckpointManager;
 
     match command {
@@ -686,9 +687,10 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
             path,
             verbose,
         } => {
-            let working_dir = path.unwrap_or_else(|| {
-                std::env::current_dir().expect("Failed to get current directory")
-            });
+            let working_dir = match path {
+                Some(p) => p,
+                None => std::env::current_dir().context("Failed to get current directory")?,
+            };
             let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
 
             if !checkpoint_dir.exists() {
@@ -779,9 +781,10 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
             force,
             path,
         } => {
-            let working_dir = path.unwrap_or_else(|| {
-                std::env::current_dir().expect("Failed to get current directory")
-            });
+            let working_dir = match path {
+                Some(p) => p,
+                None => std::env::current_dir().context("Failed to get current directory")?,
+            };
             let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
 
             if !checkpoint_dir.exists() {
@@ -850,9 +853,10 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
             version: _,
             path,
         } => {
-            let working_dir = path.unwrap_or_else(|| {
-                std::env::current_dir().expect("Failed to get current directory")
-            });
+            let working_dir = match path {
+                Some(p) => p,
+                None => std::env::current_dir().context("Failed to get current directory")?,
+            };
             let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
             let checkpoint_manager = CheckpointManager::new(checkpoint_dir);
 

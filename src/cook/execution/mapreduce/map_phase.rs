@@ -58,7 +58,19 @@ where
 
     // Launch agents for each work item
     for (index, item) in work_items.into_iter().enumerate() {
-        let sem_permit = semaphore.clone().acquire_owned().await.unwrap();
+        let sem_permit = match semaphore.clone().acquire_owned().await {
+            Ok(permit) => permit,
+            Err(e) => {
+                warn!(
+                    "Failed to acquire semaphore permit for agent {}: {}",
+                    index, e
+                );
+                return Err(MapReduceError::General {
+                    message: format!("Failed to acquire semaphore permit: {}", e),
+                    source: None,
+                });
+            }
+        };
         let state_clone = state.clone();
         let pool_clone = worktree_pool.clone();
         let agent_executor = agent_executor.clone();

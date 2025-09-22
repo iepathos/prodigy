@@ -1252,7 +1252,9 @@ fn determine_watch_path(file: &Path) -> PathBuf {
     if file.exists() {
         file.to_path_buf()
     } else {
-        file.parent().unwrap().to_path_buf()
+        file.parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| file.to_path_buf())
     }
 }
 
@@ -1655,8 +1657,10 @@ async fn clean_global_storage(
     }
 
     let job_dirs = get_job_directories(&global_events_dir, job_id)?;
-    if job_dirs.is_empty() && job_id.is_some() {
-        println!("Job '{}' not found", job_id.unwrap());
+    if job_dirs.is_empty() {
+        if let Some(id) = job_id {
+            println!("Job '{}' not found", id);
+        }
         return Ok((0, 0));
     }
 
@@ -1664,7 +1668,10 @@ async fn clean_global_storage(
     let mut total_archived = 0usize;
 
     for job_dir in job_dirs {
-        let job_id = job_dir.file_name().unwrap().to_string_lossy();
+        let job_id = job_dir
+            .file_name()
+            .map(|name| name.to_string_lossy())
+            .unwrap_or_else(|| "unknown".into());
         println!("Processing job: {}", job_id);
 
         let event_files = find_event_files(&job_dir)?;

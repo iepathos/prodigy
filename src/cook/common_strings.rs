@@ -90,14 +90,26 @@ impl StringInterner {
     pub fn intern(&self, s: &str) -> Arc<str> {
         // Fast path: check if already interned with read lock
         {
-            let cache = self.cache.read().unwrap();
+            let cache = match self.cache.read() {
+                Ok(guard) => guard,
+                Err(poisoned) => {
+                    // If lock is poisoned, we can still access the data
+                    poisoned.into_inner()
+                }
+            };
             if let Some(interned) = cache.get(s) {
                 return Arc::clone(interned);
             }
         }
 
         // Slow path: intern the string with write lock
-        let mut cache = self.cache.write().unwrap();
+        let mut cache = match self.cache.write() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                // If lock is poisoned, we can still access the data
+                poisoned.into_inner()
+            }
+        };
         cache
             .entry(s.to_string())
             .or_insert_with(|| Arc::from(s))
@@ -106,17 +118,26 @@ impl StringInterner {
 
     /// Get the number of interned strings
     pub fn len(&self) -> usize {
-        self.cache.read().unwrap().len()
+        match self.cache.read() {
+            Ok(guard) => guard.len(),
+            Err(poisoned) => poisoned.into_inner().len(),
+        }
     }
 
     /// Check if the interner is empty
     pub fn is_empty(&self) -> bool {
-        self.cache.read().unwrap().is_empty()
+        match self.cache.read() {
+            Ok(guard) => guard.is_empty(),
+            Err(poisoned) => poisoned.into_inner().is_empty(),
+        }
     }
 
     /// Clear all interned strings
     pub fn clear(&self) {
-        self.cache.write().unwrap().clear();
+        match self.cache.write() {
+            Ok(mut guard) => guard.clear(),
+            Err(poisoned) => poisoned.into_inner().clear(),
+        }
     }
 }
 

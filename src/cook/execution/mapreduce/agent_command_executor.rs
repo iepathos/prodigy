@@ -252,7 +252,13 @@ impl AgentCommandExecutor {
         command: &str,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<StepResult> {
-        let claude_cmd = command.strip_prefix("claude:").unwrap().trim();
+        let claude_cmd = command
+            .strip_prefix("claude:")
+            .ok_or_else(|| MapReduceError::General {
+                message: format!("Invalid Claude command format: {}", command),
+                source: None,
+            })?
+            .trim();
 
         // Execute via command executor
         let result = self
@@ -283,7 +289,13 @@ impl AgentCommandExecutor {
         command: &str,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<StepResult> {
-        let shell_cmd = command.strip_prefix("shell:").unwrap().trim();
+        let shell_cmd = command
+            .strip_prefix("shell:")
+            .ok_or_else(|| MapReduceError::General {
+                message: format!("Invalid shell command format: {}", command),
+                source: None,
+            })?
+            .trim();
 
         // Execute via subprocess manager
         use crate::subprocess::ProcessCommandBuilder;

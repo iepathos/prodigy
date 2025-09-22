@@ -145,11 +145,13 @@ fn parse_command(cmd: &str) -> WorkflowStep {
     let mut step = WorkflowStep::default();
 
     if cmd.starts_with("claude:") {
-        let claude_cmd = cmd.strip_prefix("claude:").unwrap().trim();
-        step.claude = Some(claude_cmd.to_string());
+        if let Some(claude_cmd) = cmd.strip_prefix("claude:") {
+            step.claude = Some(claude_cmd.trim().to_string());
+        }
     } else if cmd.starts_with("shell:") {
-        let shell_cmd = cmd.strip_prefix("shell:").unwrap().trim();
-        step.shell = Some(shell_cmd.to_string());
+        if let Some(shell_cmd) = cmd.strip_prefix("shell:") {
+            step.shell = Some(shell_cmd.trim().to_string());
+        }
     } else if cmd.starts_with('/') {
         // Assume Claude command if starts with /
         step.claude = Some(cmd.to_string());
