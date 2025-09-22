@@ -247,4 +247,132 @@ fn humanize_bytes(bytes: usize) -> String {
     }
 }
 
-// TODO: Implement JsonProgressRenderer with proper serialization
+// JSON progress renderer for structured output
+pub struct JsonProgressRenderer {
+    writer: Arc<RwLock<Box<dyn std::io::Write + Send + Sync>>>,
+}
+
+impl JsonProgressRenderer {
+    pub fn new(writer: Box<dyn std::io::Write + Send + Sync>) -> Self {
+        Self {
+            writer: Arc::new(RwLock::new(writer)),
+        }
+    }
+
+    pub fn stdout() -> Self {
+        Self::new(Box::new(std::io::stdout()))
+    }
+
+    pub async fn emit_event(&self, event: ProgressEvent) -> Result<()> {
+        let json = serde_json::to_string(&event)?;
+        let mut writer = self.writer.write().await;
+        writeln!(writer, "{}", json)?;
+        writer.flush()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ProgressEvent {
+    WorkflowStarted {
+        id: String,
+        name: String,
+        total_steps: usize,
+    },
+    WorkflowUpdated {
+        id: String,
+        completed_steps: usize,
+        failed_steps: usize,
+        current_phase: Option<String>,
+        resource_usage: super::progress_tracker::ResourceUsage,
+    },
+    WorkflowCompleted {
+        id: String,
+        duration_secs: f64,
+        success: bool,
+    },
+    PhaseStarted {
+        name: String,
+        phase_type: super::progress_tracker::PhaseType,
+        total_items: usize,
+    },
+    PhaseProgress {
+        name: String,
+        processed_items: usize,
+        successful_items: usize,
+        failed_items: usize,
+        throughput: f64,
+    },
+    PhaseCompleted {
+        name: String,
+        duration_secs: f64,
+        success: bool,
+    },
+    AgentStarted {
+        id: String,
+        worktree: String,
+    },
+    AgentProgress {
+        id: String,
+        current_item: Option<String>,
+        current_step: Option<String>,
+        items_processed: usize,
+    },
+    AgentCompleted {
+        id: String,
+        items_processed: usize,
+        success: bool,
+    },
+    LogMessage {
+        level: String,
+        message: String,
+        timestamp: String,
+    },
+}
+
+use std::io::Write;
+
+#[async_trait::async_trait]
+impl super::progress_tracker::ProgressRenderer for JsonProgressRenderer {
+    async fn update_display(
+        &self,
+        workflow: &super::progress_tracker::WorkflowProgress,
+        phases: &std::collections::HashMap<String, super::progress_tracker::PhaseProgress>,
+    ) -> Result<()> {
+        // Emit workflow update event
+        self.emit_event(ProgressEvent::WorkflowUpdated {
+            id: workflow.id.clone(),
+            completed_steps: workflow.completed_steps,
+            failed_steps: workflow.failed_steps,
+            current_phase: workflow.current_phase.clone(),
+            resource_usage: workflow.resource_usage.clone(),
+        })
+        .await?;
+
+        // Emit phase progress events
+        for (phase_name, phase) in phases {
+            self.emit_event(ProgressEvent::PhaseProgress {
+                name: phase_name.clone(),
+                processed_items: phase.processed_items,
+                successful_items: phase.successful_items,
+                failed_items: phase.failed_items,
+                throughput: phase.throughput,
+            })
+            .await?;
+
+            // Emit agent progress events
+            for agent in &phase.active_agents {
+                self.emit_event(ProgressEvent::AgentProgress {
+                    id: agent.id.clone(),
+                    current_item: agent.current_item.clone(),
+                    current_step: agent.current_step.clone(),
+                    items_processed: agent.items_processed,
+                })
+                .await?;
+            }
+        }
+
+        Ok(())
+    }
+}

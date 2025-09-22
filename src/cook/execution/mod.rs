@@ -51,6 +51,8 @@ pub mod progress;
 pub mod progress_dashboard;
 pub mod progress_display;
 #[cfg(test)]
+pub mod progress_display_tests;
+#[cfg(test)]
 pub mod progress_tests;
 pub mod progress_tracker;
 pub mod runner;

@@ -23,6 +23,30 @@ pub enum ProcessError {
 
     #[error("Mock expectation not met: {0}")]
     MockExpectationNotMet(String),
+
+    #[error("Failed to spawn process: {command}")]
+    SpawnFailed {
+        command: String,
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("Command failed: {command}")]
+    CommandFailed {
+        command: String,
+        status: crate::subprocess::runner::ExitStatus,
+        stderr: String,
+    },
+
+    #[error("IO error for command: {command}")]
+    IoError {
+        command: String,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("Internal error: {message}")]
+    InternalError { message: String },
 }
 
 /// Convert ProcessError to ProdigyError
@@ -38,6 +62,23 @@ impl From<ProcessError> for ProdigyError {
             ProcessError::Io(_) => (ErrorCode::EXEC_SPAWN_FAILED, None, None),
             ProcessError::Utf8(_) => (ErrorCode::EXEC_OUTPUT_ERROR, None, None),
             ProcessError::MockExpectationNotMet(_) => (ErrorCode::EXEC_GENERIC, None, None),
+            ProcessError::SpawnFailed { command, .. } => {
+                (ErrorCode::EXEC_SPAWN_FAILED, Some(command.clone()), None)
+            }
+            ProcessError::CommandFailed {
+                command, status, ..
+            } => {
+                let exit_code = status.code();
+                (
+                    ErrorCode::EXEC_SUBPROCESS_FAILED,
+                    Some(command.clone()),
+                    exit_code,
+                )
+            }
+            ProcessError::IoError { command, .. } => {
+                (ErrorCode::EXEC_SPAWN_FAILED, Some(command.clone()), None)
+            }
+            ProcessError::InternalError { .. } => (ErrorCode::EXEC_GENERIC, None, None),
         };
 
         let mut error = ProdigyError::execution_with_code(code, err.to_string(), command);
