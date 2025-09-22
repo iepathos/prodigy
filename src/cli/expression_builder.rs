@@ -150,26 +150,29 @@ impl ExpressionBuilderCommand {
             println!();
         }
 
-        // Apply filter
-        let mut matched = 0;
-        let mut results = Vec::new();
+        // Apply filter using functional approach
+        let results: Vec<_> = items
+            .iter()
+            .enumerate()
+            .filter_map(|(i, item)| {
+                let matches = filter.evaluate(item);
+                if verbose {
+                    println!(
+                        "Item {}: {} => {}",
+                        i,
+                        serde_json::to_string(item).unwrap_or_default(),
+                        if matches { "MATCH" } else { "SKIP" }
+                    );
+                }
+                if matches {
+                    Some(item.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-        for (i, item) in items.iter().enumerate() {
-            let matches = filter.evaluate(item);
-            if matches {
-                matched += 1;
-                results.push(item.clone());
-            }
-
-            if verbose {
-                println!(
-                    "Item {}: {} => {}",
-                    i,
-                    serde_json::to_string(item)?,
-                    if matches { "MATCH" } else { "SKIP" }
-                );
-            }
-        }
+        let matched = results.len()
 
         println!("\n=== Results ===");
         println!("Matched: {}/{} items", matched, items.len());
@@ -459,7 +462,9 @@ impl ExpressionBuilderCommand {
         match filter {
             FilterExpression::Comparison { .. } => 1,
             FilterExpression::Logical { operands, .. } => {
-                operands.iter().map(|f| self.estimate_filter_complexity(f)).sum::<u32>() + 1
+                operands.iter()
+                    .map(|f| self.estimate_filter_complexity(f))
+                    .sum::<u32>() + 1
             }
             FilterExpression::Function { .. } => 3,
             FilterExpression::In { values, .. } => 1 + values.len() as u32,

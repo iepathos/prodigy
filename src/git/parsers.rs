@@ -184,23 +184,26 @@ pub fn parse_worktree_list(output: &str) -> LibResult<Vec<WorktreeInfo>> {
 
 /// Split the output into individual worktree blocks
 fn split_into_worktree_blocks(output: &str) -> Vec<Vec<&str>> {
-    let mut blocks = Vec::new();
-    let mut current_block = Vec::new();
-
-    for line in output.lines() {
-        if line.is_empty() {
-            if !current_block.is_empty() {
-                blocks.push(current_block);
-                current_block = Vec::new();
+    let (mut blocks, current) = output.lines().fold(
+        (Vec::new(), Vec::new()),
+        |(mut blocks, mut current), line| {
+            if line.is_empty() {
+                if !current.is_empty() {
+                    blocks.push(current);
+                    (blocks, Vec::new())
+                } else {
+                    (blocks, current)
+                }
+            } else {
+                current.push(line);
+                (blocks, current)
             }
-        } else {
-            current_block.push(line);
-        }
-    }
+        },
+    );
 
-    // Don't forget the last block
-    if !current_block.is_empty() {
-        blocks.push(current_block);
+    // Handle the last block if it exists
+    if !current.is_empty() {
+        blocks.push(current);
     }
 
     blocks
