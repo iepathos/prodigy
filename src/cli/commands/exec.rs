@@ -2,113 +2,107 @@
 //!
 //! This module handles the execution of single commands with retry support.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::PathBuf;
-use std::process::Command as ProcessCommand;
 
 /// Execute a single command with retry support
 pub async fn run_exec_command(
     command: String,
-    _retry: u32,
-    _timeout: Option<u64>,
+    retry: u32,
+    timeout: Option<u64>,
     path: Option<PathBuf>,
 ) -> Result<()> {
-    // Parse the command string to extract command type and content
-    let (command_type, command_content) = parse_command_string(&command)?;
+    use crate::cli::workflow_generator::{generate_exec_workflow, TemporaryWorkflow};
 
-    // Get the working directory
-    let working_dir = path.unwrap_or_else(|| {
-        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-    });
-
-    match command_type.as_str() {
-        "shell" => execute_shell_command(&command_content, &working_dir),
-        "claude" => {
-            // For Claude commands, we need more complex setup
-            Err(anyhow::anyhow!(
-                "Claude commands require a full workflow setup. Use 'prodigy run' instead."
-            ))
-        }
-        _ => Err(anyhow::anyhow!(
-            "Unknown command type '{}'. Supported types: shell, claude",
-            command_type
-        )),
-    }
-}
-
-/// Parse the command string to extract type and content
-fn parse_command_string(command: &str) -> Result<(String, String)> {
-    // Split by colon to get command type and content
-    let parts: Vec<&str> = command.splitn(2, ':').collect();
-
-    if parts.len() != 2 {
-        return Err(anyhow::anyhow!(
-            "Invalid command format. Expected 'type: command' (e.g., 'shell: echo hello')"
-        ));
+    // Change to specified directory if provided
+    if let Some(p) = path.clone() {
+        std::env::set_current_dir(&p)?;
     }
 
-    let command_type = parts[0].trim().to_string();
-    let command_content = parts[1].trim().to_string();
+    println!("🚀 Executing command: {}", command);
+    if retry > 1 {
+        println!("   Retry attempts: {}", retry);
+    }
+    if let Some(t) = timeout {
+        println!("   Timeout: {}s", t);
+    }
 
-    Ok((command_type, command_content))
-}
-
-/// Execute a shell command
-fn execute_shell_command(command: &str, working_dir: &PathBuf) -> Result<()> {
-    // Determine the shell to use
-    let shell = if cfg!(target_os = "windows") {
-        "cmd"
-    } else {
-        "sh"
+    // Generate temporary workflow
+    let (_workflow, temp_path) = generate_exec_workflow(&command, retry, timeout)?;
+    let _temp_workflow = TemporaryWorkflow {
+        path: temp_path.clone(),
     };
 
-    let shell_arg = if cfg!(target_os = "windows") {
-        "/C"
-    } else {
-        "-c"
+    // Execute using cook command
+    let cook_cmd = crate::cook::command::CookCommand {
+        playbook: temp_path,
+        path,
+        max_iterations: 1,
+        worktree: false,
+        map: vec![],
+        args: vec![],
+        fail_fast: false,
+        auto_accept: true,
+        metrics: false,
+        resume: None,
+        quiet: false,
+        verbosity: 0,
+        dry_run: false,
     };
 
-    // Execute the command
-    let output = ProcessCommand::new(shell)
-        .arg(shell_arg)
-        .arg(command)
-        .current_dir(working_dir)
-        .output()
-        .context("Failed to execute shell command")?;
-
-    // Write stdout
-    if !output.stdout.is_empty() {
-        print!("{}", String::from_utf8_lossy(&output.stdout));
-    }
-
-    // Write stderr
-    if !output.stderr.is_empty() {
-        eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    }
-
-    // Check exit status
-    if !output.status.success() {
-        let exit_code = output.status.code().unwrap_or(-1);
-        return Err(anyhow::anyhow!(
-            "Command failed with exit code {}",
-            exit_code
-        ));
-    }
-
-    Ok(())
+    crate::cook::cook(cook_cmd).await
 }
 
 /// Execute a batch of commands on multiple files
 pub async fn run_batch_command(
-    _pattern: String,
-    _command: String,
-    _parallel: usize,
-    _retry: Option<u32>,
-    _timeout: Option<u64>,
-    _path: Option<PathBuf>,
+    pattern: String,
+    command: String,
+    parallel: usize,
+    retry: Option<u32>,
+    timeout: Option<u64>,
+    path: Option<PathBuf>,
 ) -> Result<()> {
-    // TODO: Implement batch command functionality
-    Err(anyhow::anyhow!(
-        "Batch command implementation not yet available"
-    ))
+    use crate::cli::workflow_generator::{generate_batch_workflow, TemporaryWorkflow};
+
+    // Change to specified directory if provided
+    if let Some(p) = path.clone() {
+        std::env::set_current_dir(&p)?;
+    }
+
+    println!("📦 Starting batch processing");
+    println!("   Pattern: {}", pattern);
+    println!("   Command: {}", command);
+    println!("   Parallel workers: {}", parallel);
+    if let Some(r) = retry {
+        println!("   Retry attempts: {}", r);
+    }
+    if let Some(t) = timeout {
+        println!("   Timeout per file: {}s", t);
+    }
+
+    // Generate temporary workflow
+    let (_workflow, temp_path) =
+        generate_batch_workflow(&pattern, &command, parallel, retry, timeout)?;
+    let _temp_workflow = TemporaryWorkflow {
+        path: temp_path.clone(),
+    };
+
+    // Execute using cook command
+    let cook_cmd = crate::cook::command::CookCommand {
+        playbook: temp_path,
+        path,
+        max_iterations: 1,
+        worktree: false,
+        map: vec![],
+        args: vec![],
+        fail_fast: false,
+        auto_accept: true,
+        metrics: false,
+        resume: None,
+        quiet: false,
+        verbosity: 0,
+        dry_run: false,
+    };
+
+    crate::cook::cook(cook_cmd).await
 }

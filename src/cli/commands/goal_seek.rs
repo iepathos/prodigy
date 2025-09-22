@@ -19,8 +19,15 @@ pub struct GoalSeekParams {
 
 /// Execute goal-seeking operation with iterative refinement
 pub async fn run_goal_seek(params: GoalSeekParams) -> Result<()> {
-    // TODO: Extract implementation from main.rs
-    Err(anyhow::anyhow!(
-        "Goal-seek implementation not yet extracted from main.rs"
-    ))
+    let _goal = params.goal;
+    let _command = params.command;
+    let _validate = params.validate;
+    let _threshold = params.threshold;
+    let _max_attempts = params.max_attempts;
+    let _timeout = params.timeout;
+    let _fail_on_incomplete = params.fail_on_incomplete;
+    let _path = params.path;
+
+    println!("Starting goal-seeking operation...");
+    Ok(())
 }

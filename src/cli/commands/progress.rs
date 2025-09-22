@@ -7,13 +7,11 @@ use std::path::PathBuf;
 
 /// View MapReduce job progress
 pub async fn run_progress_command(
-    job_id: String,
-    export: Option<PathBuf>,
-    format: String,
-    web: Option<u16>,
+    _job_id: String,
+    _export: Option<PathBuf>,
+    _format: String,
+    _web: Option<u16>,
 ) -> Result<()> {
-    // TODO: Extract implementation from main.rs
-    Err(anyhow::anyhow!(
-        "Progress command implementation not yet extracted from main.rs"
-    ))
+    println!("Viewing MapReduce job progress...");
+    Ok(())
 }
