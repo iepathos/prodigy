@@ -1,0 +1,10 @@
+[coverage]
+ignore-panics = true
+ignored = ["tests/*", "src/main.rs"]
+exclude-files = ["target/*", ".cargo/*"]
+timeout = "120s"
+all-features = true
+
+[report]
+out = ["Html", "Lcov"]
+output-dir = "coverage"
