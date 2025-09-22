@@ -1638,13 +1638,12 @@ async fn handle_list_command(
 
 /// Classify the merge operation type based on parameters
 fn classify_merge_type(name: &Option<String>, all: bool) -> MergeType {
-    match () {
-        _ if all => MergeType::All,
-        _ if name.is_some() => MergeType::Single(
-            name.clone()
-                .expect("name should be Some based on condition"),
-        ),
-        _ => MergeType::Invalid,
+    if all {
+        MergeType::All
+    } else if let Some(n) = name {
+        MergeType::Single(n.clone())
+    } else {
+        MergeType::Invalid
     }
 }
 
@@ -1864,8 +1863,15 @@ async fn handle_clean_command(
         }
         CleanupAction::All => handle_all_cleanup(worktree_manager, force).await,
         CleanupAction::Single => {
-            let name = name.expect("Name should be present based on cleanup action determination");
-            handle_single_cleanup(worktree_manager, &name, force).await
+            // We only reach this branch if name is Some (see determine_cleanup_action)
+            match name {
+                Some(n) => handle_single_cleanup(worktree_manager, &n, force).await,
+                None => {
+                    // This should be unreachable based on determine_cleanup_action logic,
+                    // but handle gracefully instead of panicking
+                    Err(anyhow::anyhow!("Internal error: cleanup action Single requires a worktree name"))
+                }
+            }
         }
         CleanupAction::ShowMergeable => handle_show_mergeable(worktree_manager).await,
     }
