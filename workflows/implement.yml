@@ -40,6 +40,3 @@ merge:
 
   # Step 3: Merge worktree back to master
   - claude: "/prodigy-merge-worktree ${merge.source_branch}"
-
-  # Step 4: Confirm successful merge
-  - shell: "echo 'Successfully merged ${merge.worktree} to ${merge.target_branch}'"
