@@ -3,7 +3,7 @@
 //! This module provides validation functions for CLI arguments and user inputs.
 
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Validate a workflow file path exists and is readable
 pub fn validate_workflow_file(path: &PathBuf) -> Result<()> {
@@ -26,7 +26,7 @@ pub fn validate_workflow_file(path: &PathBuf) -> Result<()> {
 }
 
 /// Validate a directory path exists and is accessible
-pub fn validate_directory(path: &PathBuf) -> Result<()> {
+pub fn validate_directory(path: &Path) -> Result<()> {
     if !path.exists() {
         return Err(anyhow::anyhow!(
             "Directory '{}' does not exist",

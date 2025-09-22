@@ -5,7 +5,7 @@
 
 use crate::cli::args::CheckpointCommands;
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Find the most recent checkpoint in the checkpoint directory
 pub async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> {
@@ -199,7 +199,7 @@ async fn list_all_checkpoints(
 
 /// Clean a specific checkpoint
 async fn clean_specific_checkpoint(
-    checkpoint_dir: &PathBuf,
+    checkpoint_dir: &Path,
     workflow_id: &str,
     force: bool,
 ) -> Result<()> {

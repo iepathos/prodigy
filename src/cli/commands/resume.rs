@@ -14,7 +14,9 @@ pub async fn run_resume_workflow(
 ) -> Result<()> {
     // If no workflow ID provided, try to auto-detect
     if workflow_id.is_none() {
-        return Err(anyhow::anyhow!("No workflow ID provided and no checkpoints found"));
+        return Err(anyhow::anyhow!(
+            "No workflow ID provided and no checkpoints found"
+        ));
     }
 
     // Check if workflow exists (simulation)

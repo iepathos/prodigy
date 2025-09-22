@@ -12,11 +12,16 @@ pub async fn run_sessions_command(command: SessionCommands) -> Result<()> {
             println!("Listing resumable sessions...");
             Ok(())
         }
-        SessionCommands::Show { session_id: _session_id } => {
+        SessionCommands::Show {
+            session_id: _session_id,
+        } => {
             println!("Showing session details...");
             Ok(())
         }
-        SessionCommands::Clean { all: _all, force: _force } => {
+        SessionCommands::Clean {
+            all: _all,
+            force: _force,
+        } => {
             println!("Cleaning up old sessions...");
             Ok(())
         }

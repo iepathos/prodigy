@@ -8,22 +8,21 @@ use anyhow::Result;
 /// Execute worktree-related commands
 pub async fn run_worktree_command(command: WorktreeCommands) -> Result<()> {
     match command {
-        WorktreeCommands::Ls { json, detailed } => {
-            run_worktree_ls(json, detailed).await
-        }
-        WorktreeCommands::Merge { name, all } => {
-            run_worktree_merge(name, all).await
-        }
-        WorktreeCommands::Clean { all, name, force, merged_only } => {
-            run_worktree_clean(all, name, force, merged_only).await
-        }
+        WorktreeCommands::Ls { json, detailed } => run_worktree_ls(json, detailed).await,
+        WorktreeCommands::Merge { name, all } => run_worktree_merge(name, all).await,
+        WorktreeCommands::Clean {
+            all,
+            name,
+            force,
+            merged_only,
+        } => run_worktree_clean(all, name, force, merged_only).await,
     }
 }
 
 /// List active worktrees
 async fn run_worktree_ls(_json: bool, _detailed: bool) -> Result<()> {
-    use crate::worktree::manager::WorktreeManager;
     use crate::subprocess::SubprocessManager;
+    use crate::worktree::manager::WorktreeManager;
 
     // Get current repository path
     let repo_path = std::env::current_dir()?;
@@ -41,7 +40,8 @@ async fn run_worktree_ls(_json: bool, _detailed: bool) -> Result<()> {
         println!("{}", "-".repeat(90));
 
         for session in sessions {
-            println!("{:<40} {:<30} {:<20}",
+            println!(
+                "{:<40} {:<30} {:<20}",
                 session.name,
                 session.branch,
                 session.created_at.format("%Y-%m-%d %H:%M:%S")
@@ -67,9 +67,14 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
 }
 
 /// Clean up worktrees
-async fn run_worktree_clean(all: bool, name: Option<String>, _force: bool, _merged_only: bool) -> Result<()> {
-    use crate::worktree::manager::WorktreeManager;
+async fn run_worktree_clean(
+    all: bool,
+    name: Option<String>,
+    _force: bool,
+    _merged_only: bool,
+) -> Result<()> {
     use crate::subprocess::SubprocessManager;
+    use crate::worktree::manager::WorktreeManager;
 
     // Get current repository path
     let repo_path = std::env::current_dir()?;
