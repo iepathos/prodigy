@@ -53,7 +53,9 @@ impl ExecutionContext {
     /// Creates a context for testing
     #[cfg(test)]
     pub fn test() -> Self {
-        Self::new(std::env::current_dir().unwrap())
+        let current_dir = std::env::current_dir()
+            .expect("Failed to get current directory for test context");
+        Self::new(current_dir)
     }
 
     /// Sets the subprocess executor
