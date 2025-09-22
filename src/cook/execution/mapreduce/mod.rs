@@ -941,14 +941,18 @@ impl MapReduceExecutor {
                     );
                     // Fallback to temp directory
                     let temp_path = std::env::temp_dir().join("prodigy_events.jsonl");
-                    let writer: Box<dyn EventWriter> = match JsonlEventWriter::new(temp_path.clone()).await {
-                        Ok(w) => Box::new(w),
-                        Err(e) => {
-                            error!("Failed to create fallback event logger at {:?}: {}", temp_path, e);
-                            error!("Using no-op event writer - events will not be persisted!");
-                            Box::new(noop_writer::NoOpEventWriter::new())
-                        }
-                    };
+                    let writer: Box<dyn EventWriter> =
+                        match JsonlEventWriter::new(temp_path.clone()).await {
+                            Ok(w) => Box::new(w),
+                            Err(e) => {
+                                error!(
+                                    "Failed to create fallback event logger at {:?}: {}",
+                                    temp_path, e
+                                );
+                                error!("Using no-op event writer - events will not be persisted!");
+                                Box::new(noop_writer::NoOpEventWriter::new())
+                            }
+                        };
                     let event_writers: Vec<Box<dyn EventWriter>> = vec![writer];
                     Arc::new(EventLogger::new(event_writers))
                 }

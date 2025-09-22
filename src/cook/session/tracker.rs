@@ -43,7 +43,8 @@ impl SessionTrackerImpl {
 #[async_trait]
 impl SessionManager for SessionTrackerImpl {
     async fn start_session(&self, session_id: &str) -> Result<()> {
-        let mut state = self.state
+        let mut state = self
+            .state
             .lock()
             .map_err(|_| anyhow!("Failed to acquire session state lock for session start"))?;
         state.session_id = session_id.to_string();
@@ -56,13 +57,17 @@ impl SessionManager for SessionTrackerImpl {
             SessionUpdate::IncrementIteration => {
                 self.state
                     .lock()
-                    .map_err(|_| anyhow!("Failed to acquire session state lock for iteration increment"))?
+                    .map_err(|_| {
+                        anyhow!("Failed to acquire session state lock for iteration increment")
+                    })?
                     .increment_iteration();
             }
             SessionUpdate::AddFilesChanged(count) => {
                 self.state
                     .lock()
-                    .map_err(|_| anyhow!("Failed to acquire session state lock for files changed update"))?
+                    .map_err(|_| {
+                        anyhow!("Failed to acquire session state lock for files changed update")
+                    })?
                     .add_files_changed(count);
             }
             SessionUpdate::UpdateStatus(status) => {
@@ -74,7 +79,9 @@ impl SessionManager for SessionTrackerImpl {
             SessionUpdate::AddError(error) => {
                 self.state
                     .lock()
-                    .map_err(|_| anyhow!("Failed to acquire session state lock for error addition"))?
+                    .map_err(|_| {
+                        anyhow!("Failed to acquire session state lock for error addition")
+                    })?
                     .errors
                     .push(error);
             }
@@ -142,7 +149,8 @@ impl SessionManager for SessionTrackerImpl {
     }
 
     async fn complete_session(&self) -> Result<SessionSummary> {
-        let mut state = self.state
+        let mut state = self
+            .state
             .lock()
             .map_err(|_| anyhow!("Failed to acquire session state lock for session completion"))?;
         state.complete();
@@ -153,7 +161,8 @@ impl SessionManager for SessionTrackerImpl {
     }
 
     fn get_state(&self) -> Result<SessionState> {
-        Ok(self.state
+        Ok(self
+            .state
             .lock()
             .map_err(|_| anyhow!("Failed to acquire session state lock for state retrieval"))?
             .clone())
@@ -174,9 +183,12 @@ impl SessionManager for SessionTrackerImpl {
                 .as_nanos()
         ));
 
-        let json = serde_json::to_string_pretty(&*self.state
-            .lock()
-            .map_err(|_| anyhow!("Failed to acquire session state lock for serialization"))?)?;
+        let json = serde_json::to_string_pretty(
+            &*self
+                .state
+                .lock()
+                .map_err(|_| anyhow!("Failed to acquire session state lock for serialization"))?,
+        )?;
 
         // Write to temp file first
         fs::write(&temp_path, json).await?;
@@ -192,9 +204,11 @@ impl SessionManager for SessionTrackerImpl {
 
     async fn load_state(&self, path: &Path) -> Result<()> {
         let json = fs::read_to_string(path).await?;
-        *self.state
+        *self
+            .state
             .lock()
-            .map_err(|_| anyhow!("Failed to acquire session state lock for deserialization"))? = serde_json::from_str(&json)?;
+            .map_err(|_| anyhow!("Failed to acquire session state lock for deserialization"))? =
+            serde_json::from_str(&json)?;
         Ok(())
     }
 
@@ -300,9 +314,11 @@ impl SessionManager for SessionTrackerImpl {
         checkpoint_state.status = SessionStatus::Interrupted;
 
         // Update the internal state with Interrupted status
-        *self.state
+        *self
+            .state
             .lock()
-            .map_err(|_| anyhow!("Failed to acquire session state lock for checkpoint save"))? = checkpoint_state.clone();
+            .map_err(|_| anyhow!("Failed to acquire session state lock for checkpoint save"))? =
+            checkpoint_state.clone();
 
         // Save to both standard location and session-specific file
         let session_file = self.base_path.join("session_state.json");
@@ -414,7 +430,8 @@ pub trait SessionTracker: Send + Sync {
 #[async_trait]
 impl SessionTracker for SessionTrackerImpl {
     async fn track_iteration(&mut self, _iteration: usize, files_changed: usize) -> Result<()> {
-        let mut state = self.state
+        let mut state = self
+            .state
             .lock()
             .map_err(|_| anyhow!("Failed to acquire session state lock for iteration tracking"))?;
         state.increment_iteration();
@@ -456,23 +473,35 @@ mod tests {
             SessionTrackerImpl::new("test-session".to_string(), PathBuf::from("/tmp"));
 
         // Test initial state
-        let state = tracker.get_state().expect("Failed to get initial session state");
+        let state = tracker
+            .get_state()
+            .expect("Failed to get initial session state");
         assert_eq!(state.session_id, "test-session");
         assert_eq!(state.status, SessionStatus::InProgress);
         assert_eq!(state.iterations_completed, 0);
         assert_eq!(state.files_changed, 0);
 
         // Test iteration tracking
-        tracker.track_iteration(1, 5).await.expect("Failed to track iteration");
-        let state = tracker.get_state().expect("Failed to get state after iteration tracking");
+        tracker
+            .track_iteration(1, 5)
+            .await
+            .expect("Failed to track iteration");
+        let state = tracker
+            .get_state()
+            .expect("Failed to get state after iteration tracking");
         assert_eq!(state.iterations_completed, 1);
         assert_eq!(state.files_changed, 5);
 
         // Test session completion
-        let summary = tracker.complete_session().await.expect("Failed to complete session");
+        let summary = tracker
+            .complete_session()
+            .await
+            .expect("Failed to complete session");
         assert_eq!(summary.iterations, 1);
         assert_eq!(summary.files_changed, 5);
-        let state = tracker.get_state().expect("Failed to get state after completion");
+        let state = tracker
+            .get_state()
+            .expect("Failed to get state after completion");
         assert_eq!(state.status, SessionStatus::Completed);
     }
 
@@ -483,20 +512,33 @@ mod tests {
 
         let mut tracker =
             SessionTrackerImpl::new("persist-test".to_string(), PathBuf::from("/tmp"));
-        tracker.set_worktree("test-worktree".to_string()).expect("Failed to set worktree");
+        tracker
+            .set_worktree("test-worktree".to_string())
+            .expect("Failed to set worktree");
 
         // Update state
-        tracker.track_iteration(1, 3).await.expect("Failed to track iteration in persistence test");
+        tracker
+            .track_iteration(1, 3)
+            .await
+            .expect("Failed to track iteration in persistence test");
 
         // Save state
-        tracker.save_state(&state_path).await.expect("Failed to save session state");
+        tracker
+            .save_state(&state_path)
+            .await
+            .expect("Failed to save session state");
 
         // Load into new tracker
         let new_tracker = SessionTrackerImpl::new("dummy".to_string(), PathBuf::from("/tmp"));
-        new_tracker.load_state(&state_path).await.expect("Failed to load session state");
+        new_tracker
+            .load_state(&state_path)
+            .await
+            .expect("Failed to load session state");
 
         // Verify loaded state
-        let state = new_tracker.get_state().expect("Failed to get loaded session state");
+        let state = new_tracker
+            .get_state()
+            .expect("Failed to get loaded session state");
         assert_eq!(state.session_id, "persist-test");
         assert_eq!(state.iterations_completed, 1);
         assert_eq!(state.files_changed, 3);
@@ -512,19 +554,33 @@ mod tests {
             .update_session(SessionUpdate::IncrementIteration)
             .await
             .expect("Failed to increment iteration");
-        assert_eq!(tracker.get_state().expect("Failed to get state after increment").iterations_completed, 1);
+        assert_eq!(
+            tracker
+                .get_state()
+                .expect("Failed to get state after increment")
+                .iterations_completed,
+            1
+        );
 
         tracker
             .update_session(SessionUpdate::AddFilesChanged(10))
             .await
             .expect("Failed to add files changed");
-        assert_eq!(tracker.get_state().expect("Failed to get state after files changed").files_changed, 10);
+        assert_eq!(
+            tracker
+                .get_state()
+                .expect("Failed to get state after files changed")
+                .files_changed,
+            10
+        );
 
         tracker
             .update_session(SessionUpdate::AddError("Test error".to_string()))
             .await
             .expect("Failed to add error");
-        let state = tracker.get_state().expect("Failed to get state after error addition");
+        let state = tracker
+            .get_state()
+            .expect("Failed to get state after error addition");
         assert_eq!(state.errors.len(), 1);
         assert_eq!(state.errors[0], "Test error");
 
@@ -532,12 +588,19 @@ mod tests {
             .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
             .await
             .expect("Failed to update status");
-        assert_eq!(tracker.get_state().expect("Failed to get state after status update").status, SessionStatus::Failed);
+        assert_eq!(
+            tracker
+                .get_state()
+                .expect("Failed to get state after status update")
+                .status,
+            SessionStatus::Failed
+        );
     }
 
     #[tokio::test]
     async fn test_atomic_save_prevents_corruption() {
-        let temp_dir = TempDir::new().expect("Failed to create temp directory for atomic save test");
+        let temp_dir =
+            TempDir::new().expect("Failed to create temp directory for atomic save test");
         let state_path = temp_dir.path().join("state.json");
 
         // Create multiple trackers that will write concurrently
@@ -561,7 +624,10 @@ mod tests {
                         .expect("Failed to add files changed in concurrent test");
 
                     // Save state - should use atomic write
-                    tracker.save_state(&path).await.expect("Failed to save state in concurrent test");
+                    tracker
+                        .save_state(&path)
+                        .await
+                        .expect("Failed to save state in concurrent test");
 
                     // Small delay to increase chance of concurrent writes
                     tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
@@ -576,7 +642,9 @@ mod tests {
         }
 
         // Verify the final state file is valid JSON
-        let final_content = tokio::fs::read_to_string(&state_path).await.expect("Failed to read final state file");
+        let final_content = tokio::fs::read_to_string(&state_path)
+            .await
+            .expect("Failed to read final state file");
         let parsed: Result<SessionState, _> = serde_json::from_str(&final_content);
         assert!(
             parsed.is_ok(),
@@ -584,9 +652,15 @@ mod tests {
         );
 
         // Check no temp files are left behind
-        let mut entries = tokio::fs::read_dir(temp_dir.path()).await.expect("Failed to read temp directory");
+        let mut entries = tokio::fs::read_dir(temp_dir.path())
+            .await
+            .expect("Failed to read temp directory");
         let mut file_count = 0;
-        while let Some(entry) = entries.next_entry().await.expect("Failed to read directory entry") {
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .expect("Failed to read directory entry")
+        {
             if entry.file_name().to_string_lossy().ends_with(".json") {
                 file_count += 1;
             }

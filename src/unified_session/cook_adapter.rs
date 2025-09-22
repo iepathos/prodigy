@@ -182,7 +182,10 @@ impl CookSessionManager for CookSessionAdapter {
     fn get_state(&self) -> Result<CookSessionState> {
         // This is synchronous in the trait but we need async for unified manager
         // Return a default state with working directory
-        Ok(CookSessionState::new("default-session".to_string(), self.working_dir.clone()))
+        Ok(CookSessionState::new(
+            "default-session".to_string(),
+            self.working_dir.clone(),
+        ))
     }
 
     async fn save_state(&self, _path: &Path) -> Result<()> {

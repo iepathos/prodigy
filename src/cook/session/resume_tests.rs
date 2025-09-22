@@ -292,7 +292,9 @@ async fn test_session_persistence_across_interruption() {
         .unwrap();
 
     // Save checkpoint
-    let state = tracker.get_state().expect("Failed to get state for checkpoint in resume test");
+    let state = tracker
+        .get_state()
+        .expect("Failed to get state for checkpoint in resume test");
     tracker.save_checkpoint(&state).await.unwrap();
 
     // Create a new tracker (simulating a new session)

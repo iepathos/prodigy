@@ -405,7 +405,10 @@ mod tests {
         )
         .await;
 
-        let result = git.is_repository(temp_dir.path()).await.expect("is_repository should not fail");
+        let result = git
+            .is_repository(temp_dir.path())
+            .await
+            .expect("is_repository should not fail");
         assert!(result);
 
         // Verify the command was called correctly
@@ -431,7 +434,10 @@ mod tests {
         )
         .await;
 
-        let result = git.is_repository(temp_dir.path()).await.expect("is_repository should not fail even for non-repositories");
+        let result = git
+            .is_repository(temp_dir.path())
+            .await
+            .expect("is_repository should not fail even for non-repositories");
         assert!(!result);
     }
 
@@ -451,7 +457,10 @@ mod tests {
         )
         .await;
 
-        let branch = git.get_current_branch(temp_dir.path()).await.expect("get_current_branch should succeed for test");
+        let branch = git
+            .get_current_branch(temp_dir.path())
+            .await
+            .expect("get_current_branch should succeed for test");
         assert_eq!(branch, "main");
     }
 
@@ -494,7 +503,9 @@ mod tests {
         )
         .await;
 
-        git.stage_all(temp_dir.path()).await.expect("stage_all should succeed for test");
+        git.stage_all(temp_dir.path())
+            .await
+            .expect("stage_all should succeed for test");
 
         let calls = mock.get_calls().await;
         assert_eq!(calls.len(), 1);
@@ -518,7 +529,10 @@ mod tests {
             .returns_stdout("abc1234567890abcdef1234567890abcdef123456\n")
             .finish();
 
-        let commit_id = git.commit(temp_dir.path(), "test commit").await.expect("commit should succeed for test");
+        let commit_id = git
+            .commit(temp_dir.path(), "test commit")
+            .await
+            .expect("commit should succeed for test");
         assert_eq!(
             commit_id.hash(),
             "abc1234567890abcdef1234567890abcdef123456",
@@ -571,7 +585,10 @@ mod tests {
         )
         .await;
 
-        let status = git.get_status(temp_dir.path()).await.expect("get_status should succeed for test");
+        let status = git
+            .get_status(temp_dir.path())
+            .await
+            .expect("get_status should succeed for test");
         assert_eq!(status.added.len(), 0);
         assert_eq!(status.modified.len(), 1);
         assert_eq!(status.untracked.len(), 0);
@@ -593,7 +610,10 @@ mod tests {
         )
         .await;
 
-        let files = git.list_files(temp_dir.path()).await.expect("list_files should succeed for test");
+        let files = git
+            .list_files(temp_dir.path())
+            .await
+            .expect("list_files should succeed for test");
         assert_eq!(files.len(), 3);
         assert_eq!(files[0], PathBuf::from("src/main.rs"));
         assert_eq!(files[1], PathBuf::from("src/lib.rs"));
@@ -616,7 +636,10 @@ mod tests {
         )
         .await;
 
-        let is_clean = git.is_clean(temp_dir.path()).await.expect("is_clean should succeed for test");
+        let is_clean = git
+            .is_clean(temp_dir.path())
+            .await
+            .expect("is_clean should succeed for test");
         assert!(is_clean);
     }
 
@@ -661,7 +684,9 @@ mod tests {
         )
         .await;
 
-        git.switch_branch(temp_dir.path(), "main").await.expect("switch_branch should succeed for test");
+        git.switch_branch(temp_dir.path(), "main")
+            .await
+            .expect("switch_branch should succeed for test");
 
         let calls = mock.get_calls().await;
         assert_eq!(calls.len(), 1);

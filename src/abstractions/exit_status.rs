@@ -6,7 +6,9 @@
 pub use std::os::unix::process::ExitStatusExt;
 
 #[cfg(not(unix))]
-compile_error!("Only Unix-like systems (Linux, macOS) are supported. Windows support has been removed.");
+compile_error!(
+    "Only Unix-like systems (Linux, macOS) are supported. Windows support has been removed."
+);
 
 #[cfg(test)]
 mod tests {

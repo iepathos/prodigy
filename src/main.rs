@@ -1307,8 +1307,7 @@ async fn run_resume_workflow(
 
     let working_dir = match path {
         Some(dir) => dir,
-        None => std::env::current_dir()
-            .context("Failed to get current working directory")?,
+        None => std::env::current_dir().context("Failed to get current working directory")?,
     };
 
     // Try checkpoint-based resume first
