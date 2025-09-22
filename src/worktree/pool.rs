@@ -374,20 +374,21 @@ impl WorktreePool {
         });
 
         if let Some(pos) = position {
-            let mut worktree = available.remove(pos).unwrap();
-            worktree.status = WorktreeStatus::InUse {
-                task: "reusable".to_string(),
-            };
-            worktree.last_used = Instant::now();
-            worktree.use_count += 1;
+            if let Some(mut worktree) = available.remove(pos) {
+                worktree.status = WorktreeStatus::InUse {
+                    task: "reusable".to_string(),
+                };
+                worktree.last_used = Instant::now();
+                worktree.use_count += 1;
 
-            self.in_use
-                .write()
-                .await
-                .insert(worktree.id.clone(), worktree.clone());
+                self.in_use
+                    .write()
+                    .await
+                    .insert(worktree.id.clone(), worktree.clone());
 
-            self.metrics.total_reused.fetch_add(1, Ordering::Relaxed);
-            return Ok(WorktreeHandle::new(worktree, Arc::new(self.clone())));
+                self.metrics.total_reused.fetch_add(1, Ordering::Relaxed);
+                return Ok(WorktreeHandle::new(worktree, Arc::new(self.clone())));
+            }
         }
 
         // No suitable worktree found, create new one

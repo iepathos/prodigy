@@ -44,7 +44,14 @@ pub fn find_workflow_file(
 
     match existing.len() {
         0 => WorkflowFileResult::NotFound(paths.to_vec()),
-        1 => WorkflowFileResult::Found(existing.into_iter().next().unwrap()),
+        1 => {
+            // Safe to unwrap because we know len() == 1
+            let path = existing
+                .into_iter()
+                .next()
+                .expect("Vector has exactly one element as verified by len() check");
+            WorkflowFileResult::Found(path)
+        }
         _ => WorkflowFileResult::Multiple(existing),
     }
 }

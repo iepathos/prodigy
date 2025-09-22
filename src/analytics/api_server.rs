@@ -223,9 +223,15 @@ async fn get_session(
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
     match state.db.get_session(&id).await {
-        Ok(Some(session)) => Ok(Json(ApiResponse::success(
-            serde_json::to_value(session).unwrap(),
-        ))),
+        Ok(Some(session)) => match serde_json::to_value(session) {
+            Ok(json_value) => Ok(Json(ApiResponse::success(json_value))),
+            Err(e) => {
+                warn!("Failed to serialize session {}: {}", id, e);
+                Ok(Json(ApiResponse::error(format!(
+                    "Failed to serialize session: {}", e
+                ))))
+            }
+        },
         Ok(None) => Ok(Json(ApiResponse::error(format!(
             "Session {} not found",
             id
@@ -348,9 +354,15 @@ async fn get_cost_projection(
     State(state): State<Arc<ApiState>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
     match state.engine.project_costs(30).await {
-        Ok(projection) => Ok(Json(ApiResponse::success(
-            serde_json::to_value(projection).unwrap(),
-        ))),
+        Ok(projection) => match serde_json::to_value(projection) {
+            Ok(json_value) => Ok(Json(ApiResponse::success(json_value))),
+            Err(e) => {
+                warn!("Failed to serialize cost projection: {}", e);
+                Ok(Json(ApiResponse::error(format!(
+                    "Failed to serialize projection: {}", e
+                ))))
+            }
+        },
         Err(e) => {
             warn!("Failed to project costs: {}", e);
             Ok(Json(ApiResponse::error(format!(
@@ -382,9 +394,15 @@ async fn get_usage_patterns(
     State(state): State<Arc<ApiState>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
     match state.engine.generate_usage_patterns().await {
-        Ok(patterns) => Ok(Json(ApiResponse::success(
-            serde_json::to_value(patterns).unwrap(),
-        ))),
+        Ok(patterns) => match serde_json::to_value(patterns) {
+            Ok(json_value) => Ok(Json(ApiResponse::success(json_value))),
+            Err(e) => {
+                warn!("Failed to serialize usage patterns: {}", e);
+                Ok(Json(ApiResponse::error(format!(
+                    "Failed to serialize patterns: {}", e
+                ))))
+            }
+        },
         Err(e) => {
             warn!("Failed to generate usage patterns: {}", e);
             Ok(Json(ApiResponse::error(format!(
@@ -420,11 +438,20 @@ async fn get_recommendations(
 ) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, StatusCode> {
     match state.engine.get_optimization_recommendations().await {
         Ok(recommendations) => {
-            let json_recs: Vec<serde_json::Value> = recommendations
+            let json_recs: Result<Vec<serde_json::Value>, _> = recommendations
                 .into_iter()
-                .map(|r| serde_json::to_value(r).unwrap())
+                .map(|r| serde_json::to_value(r))
                 .collect();
-            Ok(Json(ApiResponse::success(json_recs)))
+
+            match json_recs {
+                Ok(serialized_recs) => Ok(Json(ApiResponse::success(serialized_recs))),
+                Err(e) => {
+                    warn!("Failed to serialize recommendations: {}", e);
+                    Ok(Json(ApiResponse::error(format!(
+                        "Failed to serialize recommendations: {}", e
+                    ))))
+                }
+            }
         }
         Err(e) => {
             warn!("Failed to get recommendations: {}", e);
@@ -441,11 +468,20 @@ async fn get_bottlenecks(
 ) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, StatusCode> {
     match state.engine.identify_bottlenecks(5000).await {
         Ok(bottlenecks) => {
-            let json_bottlenecks: Vec<serde_json::Value> = bottlenecks
+            let json_bottlenecks: Result<Vec<serde_json::Value>, _> = bottlenecks
                 .into_iter()
-                .map(|b| serde_json::to_value(b).unwrap())
+                .map(|b| serde_json::to_value(b))
                 .collect();
-            Ok(Json(ApiResponse::success(json_bottlenecks)))
+
+            match json_bottlenecks {
+                Ok(serialized_bottlenecks) => Ok(Json(ApiResponse::success(serialized_bottlenecks))),
+                Err(e) => {
+                    warn!("Failed to serialize bottlenecks: {}", e);
+                    Ok(Json(ApiResponse::error(format!(
+                        "Failed to serialize bottlenecks: {}", e
+                    ))))
+                }
+            }
         }
         Err(e) => {
             warn!("Failed to identify bottlenecks: {}", e);
@@ -461,9 +497,15 @@ async fn get_database_stats(
     State(state): State<Arc<ApiState>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
     match state.db.get_stats().await {
-        Ok(stats) => Ok(Json(ApiResponse::success(
-            serde_json::to_value(stats).unwrap(),
-        ))),
+        Ok(stats) => match serde_json::to_value(stats) {
+            Ok(json_value) => Ok(Json(ApiResponse::success(json_value))),
+            Err(e) => {
+                warn!("Failed to serialize database stats: {}", e);
+                Ok(Json(ApiResponse::error(format!(
+                    "Failed to serialize stats: {}", e
+                ))))
+            }
+        },
         Err(e) => {
             warn!("Failed to get database stats: {}", e);
             Ok(Json(ApiResponse::error(format!(

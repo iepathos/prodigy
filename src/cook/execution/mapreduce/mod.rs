@@ -6,6 +6,9 @@
 // Declare the agent module for agent lifecycle management
 pub mod agent;
 
+// Declare the no-op writer module for fallback event logging
+pub mod noop_writer;
+
 // Declare the utils module for pure functions
 pub mod utils;
 
@@ -938,13 +941,19 @@ impl MapReduceExecutor {
                     );
                     // Fallback to temp directory
                     let temp_path = std::env::temp_dir().join("prodigy_events.jsonl");
-                    let event_writers: Vec<Box<dyn EventWriter>> = vec![Box::new(
-                        JsonlEventWriter::new(temp_path.clone())
-                            .await
-                            .unwrap_or_else(|_| {
-                                panic!("Failed to create fallback event logger at {:?}", temp_path);
-                            }),
-                    )];
+                    let writer: Box<dyn EventWriter> =
+                        match JsonlEventWriter::new(temp_path.clone()).await {
+                            Ok(w) => Box::new(w),
+                            Err(e) => {
+                                error!(
+                                    "Failed to create fallback event logger at {:?}: {}",
+                                    temp_path, e
+                                );
+                                error!("Using no-op event writer - events will not be persisted!");
+                                Box::new(noop_writer::NoOpEventWriter::new())
+                            }
+                        };
+                    let event_writers: Vec<Box<dyn EventWriter>> = vec![writer];
                     Arc::new(EventLogger::new(event_writers))
                 }
             };
@@ -2815,16 +2824,16 @@ impl MapReduceExecutor {
 
     /// Classify the operation type of a step for progress tracking
     fn classify_step_operation(step: &WorkflowStep) -> AgentOperation {
-        match () {
-            _ if step.claude.is_some() => AgentOperation::Claude(step.claude.clone().unwrap()),
-            _ if step.shell.is_some() => AgentOperation::Shell(step.shell.clone().unwrap()),
-            _ if step.test.is_some() => {
-                AgentOperation::Test(step.test.as_ref().unwrap().command.clone())
-            }
-            _ if step.handler.is_some() => {
-                AgentOperation::Handler(step.handler.as_ref().unwrap().name.clone())
-            }
-            _ => AgentOperation::Setup(step.name.clone().unwrap_or_else(|| "step".to_string())),
+        if let Some(claude_cmd) = &step.claude {
+            AgentOperation::Claude(claude_cmd.clone())
+        } else if let Some(shell_cmd) = &step.shell {
+            AgentOperation::Shell(shell_cmd.clone())
+        } else if let Some(test) = &step.test {
+            AgentOperation::Test(test.command.clone())
+        } else if let Some(handler) = &step.handler {
+            AgentOperation::Handler(handler.name.clone())
+        } else {
+            AgentOperation::Setup(step.name.clone().unwrap_or_else(|| "step".to_string()))
         }
     }
 
@@ -3273,15 +3282,17 @@ impl MapReduceExecutor {
     fn display_worktree_instructions(&self, env: &ExecutionEnvironment) {
         // Don't merge here - let the orchestrator's cleanup handle it
         // This prevents double-merge attempts
-        if env.worktree_name.is_some() && !self.should_auto_merge(env) {
-            // Only show manual instructions if NOT auto-merging
-            // (If auto-merging, orchestrator cleanup will handle it)
-            self.user_interaction.display_info(&format!(
-                "\nParent worktree ready for review: {}\n",
-                env.worktree_name.as_ref().unwrap()
-            ));
-            self.user_interaction
-                .display_info("To create a PR: git push origin <branch> && gh pr create");
+        if let Some(worktree_name) = &env.worktree_name {
+            if !self.should_auto_merge(env) {
+                // Only show manual instructions if NOT auto-merging
+                // (If auto-merging, orchestrator cleanup will handle it)
+                self.user_interaction.display_info(&format!(
+                    "\nParent worktree ready for review: {}\n",
+                    worktree_name
+                ));
+                self.user_interaction
+                    .display_info("To create a PR: git push origin <branch> && gh pr create");
+            }
         }
     }
 

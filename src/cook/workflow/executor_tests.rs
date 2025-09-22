@@ -123,9 +123,9 @@ mod tests {
             })
         }
 
-        fn get_state(&self) -> SessionState {
+        fn get_state(&self) -> Result<SessionState> {
             let session_id = self.session_id.lock().unwrap().clone();
-            SessionState::new(session_id, PathBuf::from("/tmp"))
+            Ok(SessionState::new(session_id, PathBuf::from("/tmp")))
         }
 
         async fn save_state(&self, _path: &Path) -> Result<()> {
@@ -2095,7 +2095,9 @@ mod tests {
         // Verify session state can be saved/loaded
         // Start session to set the ID properly
         session_mock.start_session("resume-test").await.unwrap();
-        let state = session_mock.get_state();
+        let state = session_mock
+            .get_state()
+            .expect("Failed to get state in executor test");
         assert_eq!(state.session_id, "resume-test");
 
         // Verify we can save checkpoint

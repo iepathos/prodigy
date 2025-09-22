@@ -212,7 +212,9 @@ async fn test_cook_session_adapter() {
         .unwrap();
 
     // Get state
-    let state = adapter.get_state();
+    let state = adapter
+        .get_state()
+        .expect("Failed to get state in unified session test");
     assert_eq!(state.status, CookStatus::InProgress);
 
     // Complete session

@@ -81,11 +81,11 @@ impl SessionManager for MockSessionManager {
         })
     }
 
-    fn get_state(&self) -> SessionState {
-        SessionState::new(
+    fn get_state(&self) -> Result<SessionState> {
+        Ok(SessionState::new(
             "test".to_string(),
             std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp")),
-        )
+        ))
     }
 
     async fn save_checkpoint(&self, _state: &SessionState) -> Result<()> {

@@ -29,7 +29,7 @@ pub trait SessionManager: Send + Sync {
     async fn complete_session(&self) -> Result<SessionSummary>;
 
     /// Get current session state
-    fn get_state(&self) -> SessionState;
+    fn get_state(&self) -> Result<SessionState>;
 
     /// Save session state to disk
     async fn save_state(&self, path: &Path) -> Result<()>;

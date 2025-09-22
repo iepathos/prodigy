@@ -6,16 +6,9 @@
 pub use std::os::unix::process::ExitStatusExt;
 
 #[cfg(not(unix))]
-pub trait ExitStatusExt {
-    fn from_raw(raw: i32) -> Self;
-}
-
-#[cfg(not(unix))]
-impl ExitStatusExt for std::process::ExitStatus {
-    fn from_raw(_raw: i32) -> Self {
-        panic!("Only Unix-like systems (Linux, macOS) are supported. Windows support has been removed.");
-    }
-}
+compile_error!(
+    "Only Unix-like systems (Linux, macOS) are supported. Windows support has been removed."
+);
 
 #[cfg(test)]
 mod tests {

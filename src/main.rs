@@ -1297,6 +1297,7 @@ async fn run_resume_workflow(
     from_checkpoint: Option<String>,
     path: Option<PathBuf>,
 ) -> anyhow::Result<()> {
+    use anyhow::Context;
     use prodigy::cook::execution::claude::ClaudeExecutorImpl;
     use prodigy::cook::interaction::DefaultUserInteraction;
     use prodigy::cook::session::SessionManager;
@@ -1304,7 +1305,10 @@ async fn run_resume_workflow(
     use prodigy::unified_session::CookSessionAdapter;
     use std::sync::Arc;
 
-    let working_dir = path.unwrap_or_else(|| std::env::current_dir().unwrap());
+    let working_dir = match path {
+        Some(dir) => dir,
+        None => std::env::current_dir().context("Failed to get current working directory")?,
+    };
 
     // Try checkpoint-based resume first
     let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");

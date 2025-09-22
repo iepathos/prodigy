@@ -1,6 +1,6 @@
 //! Session watcher for monitoring Claude JSONL files
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
@@ -140,13 +140,17 @@ impl SessionWatcher {
 
     /// Parse JSONL file incrementally, only processing new lines
     async fn parse_jsonl_incremental(&self, path: &Path) -> Result<Vec<SessionEvent>> {
-        let file = File::open(path).await?;
+        let file = File::open(path)
+            .await
+            .with_context(|| format!("Failed to open JSONL file: {}", path.display()))?;
         let reader = BufReader::new(file);
         let mut lines = reader.lines();
         let mut events = Vec::new();
         let mut processed_lines = self.processed_lines.write().await;
 
-        while let Some(line) = lines.next_line().await? {
+        while let Some(line) = lines.next_line()
+            .await
+            .with_context(|| format!("Failed to read line from JSONL file: {}", path.display()))? {
             // Create a unique key for this line (file + content hash)
             let line_key = format!("{:?}:{}", path, &line);
 
