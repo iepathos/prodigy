@@ -1,4 +1,8 @@
-use super::{Config, ProjectConfig, WorkflowConfig};
+use super::Config;
+use crate::core::config::{
+    merge_project_config, merge_workflow_config, parse_project_config, parse_workflow_config,
+    validate_config_format,
+};
 use anyhow::{anyhow, Context, Result};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
@@ -52,62 +56,28 @@ impl ConfigLoader {
 
     /// Load configuration from a specific file path
     async fn load_from_path(&self, path: &Path) -> Result<()> {
+        // I/O operation: read file
         let content = fs::read_to_string(path)
             .await
             .with_context(|| format!("Failed to read configuration file: {}", path.display()))?;
 
-        // Determine format based on extension
+        // Extract extension for validation
         let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
 
-        match extension {
-            "yaml" | "yml" => {
-                // First try to parse as a full config with workflow section
-                if let Ok(full_config) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
-                    if let Some(workflow_value) = full_config.get("workflow") {
-                        let workflow_config: WorkflowConfig =
-                            serde_yaml::from_value(workflow_value.clone()).with_context(|| {
-                                format!(
-                                    "Failed to parse workflow configuration from YAML: {}",
-                                    path.display()
-                                )
-                            })?;
-                        let mut config = self
-                            .config
-                            .write()
-                            .map_err(|_| anyhow!("Failed to acquire write lock for config"))?;
-                        config.workflow = Some(workflow_config);
-                    } else {
-                        // Try to parse as direct WorkflowConfig
-                        let workflow_config: WorkflowConfig = serde_yaml::from_str(&content)
-                            .with_context(|| {
-                                format!("Failed to parse YAML configuration: {}", path.display())
-                            })?;
-                        let mut config = self
-                            .config
-                            .write()
-                            .map_err(|_| anyhow!("Failed to acquire write lock for config"))?;
-                        config.workflow = Some(workflow_config);
-                    }
-                } else {
-                    // Try to parse as direct WorkflowConfig
-                    let workflow_config: WorkflowConfig = serde_yaml::from_str(&content)
-                        .with_context(|| {
-                            format!("Failed to parse YAML configuration: {}", path.display())
-                        })?;
-                    let mut config = self
-                        .config
-                        .write()
-                        .map_err(|_| anyhow!("Failed to acquire write lock for config"))?;
-                    config.workflow = Some(workflow_config);
-                }
-            }
-            _ => {
-                return Err(anyhow!(
-                    "Unsupported configuration file format: {}. Use .yaml or .yml",
-                    path.display()
-                ));
-            }
-        }
+        // Pure validation
+        validate_config_format(extension)
+            .with_context(|| format!("Invalid configuration file: {}", path.display()))?;
+
+        // Pure parsing
+        let workflow_config = parse_workflow_config(&content)
+            .with_context(|| format!("Failed to parse configuration: {}", path.display()))?;
+
+        // Update state
+        let mut config = self
+            .config
+            .write()
+            .map_err(|_| anyhow!("Failed to acquire write lock for config"))?;
+        *config = merge_workflow_config(config.clone(), workflow_config);
 
         Ok(())
     }
@@ -116,14 +86,18 @@ impl ConfigLoader {
         let config_path = project_path.join(".prodigy").join("config.yml");
 
         if config_path.exists() {
+            // I/O operation: read file
             let content = fs::read_to_string(&config_path).await?;
-            let project_config: ProjectConfig = serde_yaml::from_str(&content)?;
 
+            // Pure parsing
+            let project_config = parse_project_config(&content)?;
+
+            // Update state
             let mut config = self
                 .config
                 .write()
                 .map_err(|_| anyhow!("Failed to acquire write lock for config"))?;
-            config.project = Some(project_config);
+            *config = merge_project_config(config.clone(), project_config);
         }
 
         Ok(())
