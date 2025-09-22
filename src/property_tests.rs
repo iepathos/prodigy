@@ -2,9 +2,9 @@
 
 #[cfg(test)]
 mod tests {
-    use proptest::prelude::*;
     use crate::storage::migrate::{MigrationConfig, MigrationStats};
     use chrono::{Duration, Utc};
+    use proptest::prelude::*;
 
     // Property test: Migration config validation
     proptest! {
