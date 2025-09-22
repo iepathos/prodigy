@@ -86,7 +86,7 @@ impl StringInterner {
         }
     }
 
-    /// Intern a string, returning an Arc<str> that can be cheaply cloned
+    /// Intern a string, returning an `Arc<str>` that can be cheaply cloned
     pub fn intern(&self, s: &str) -> Arc<str> {
         // Fast path: check if already interned with read lock
         {
