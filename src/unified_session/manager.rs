@@ -442,7 +442,8 @@ mod tests {
     impl TestContext {
         async fn new() -> Result<Self> {
             let _temp_dir = TempDir::new()?;
-            let storage = GlobalStorage::new()?;
+            // Use temporary directory for storage to isolate tests
+            let storage = GlobalStorage::new_with_root(_temp_dir.path().to_path_buf())?;
             let manager = SessionManager::new(storage).await?;
             Ok(Self { _temp_dir, manager })
         }
