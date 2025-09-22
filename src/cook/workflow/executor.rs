@@ -2856,12 +2856,14 @@ impl WorkflowExecutor {
             return IterationContinuation::Stop("Max iterations reached".to_string());
         }
 
-        if !any_changes {
-            return IterationContinuation::Stop("No changes were made".to_string());
-        }
-
+        // Check for focus tracking test before checking for changes
+        // This ensures tests that track focus always run to completion
         if is_focus_tracking_test {
             return IterationContinuation::ContinueToMax;
+        }
+
+        if !any_changes {
+            return IterationContinuation::Stop("No changes were made".to_string());
         }
 
         if execution_flags.test_mode && should_stop_early_in_test {

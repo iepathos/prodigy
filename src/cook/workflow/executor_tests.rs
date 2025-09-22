@@ -1821,8 +1821,34 @@ mod tests {
 
     #[tokio::test]
     async fn test_iterative_workflow() {
-        let (mut executor, claude_mock, session_mock, _, _) =
-            create_test_executor_with_git_mock().await;
+        // Create custom test configuration with focus tracking enabled to ensure all iterations run
+        let test_config = Arc::new(crate::testing::config::TestConfiguration {
+            test_mode: false,
+            track_focus: true, // This ensures we continue to max iterations
+            no_changes_commands: vec![],
+            skip_commit_validation: false,
+            worktree_name: None,
+            additional_args: Default::default(),
+        });
+
+        let claude_mock = Arc::new(MockClaudeExecutor::new());
+        let session_mock = Arc::new(MockSessionManager::new());
+        let user_interaction = Arc::new(MockUserInteraction::new());
+        let git_mock = Arc::new(MockGitOperations::new());
+
+        // Set up git mock responses
+        for _ in 0..20 {
+            git_mock.add_success_response("abc123def456").await;
+        }
+        git_mock.add_success_response("").await;
+
+        let mut executor = WorkflowExecutor::with_test_config_and_git(
+            claude_mock.clone() as Arc<dyn ClaudeExecutor>,
+            session_mock.clone() as Arc<dyn SessionManager>,
+            user_interaction.clone() as Arc<dyn UserInteraction>,
+            test_config,
+            git_mock.clone(),
+        );
 
         // Add mock responses for multiple iterations
         for _ in 0..3 {
