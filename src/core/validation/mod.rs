@@ -75,10 +75,10 @@ pub fn validate_environment(
 
     // Check for sensitive variables that shouldn't be empty
     for (key, value) in env_vars {
-        if key.contains("KEY") || key.contains("SECRET") || key.contains("TOKEN") {
-            if value.trim().is_empty() {
-                result.add_warning(format!("Sensitive variable '{}' is empty", key));
-            }
+        if (key.contains("KEY") || key.contains("SECRET") || key.contains("TOKEN"))
+            && value.trim().is_empty()
+        {
+            result.add_warning(format!("Sensitive variable '{}' is empty", key));
         }
     }
 

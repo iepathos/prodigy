@@ -90,8 +90,8 @@ pub fn extract_command_content(command: &str) -> String {
     let trimmed = command.trim();
 
     for prefix in &["shell:", "claude:", "test:", "goal_seek:", "foreach:"] {
-        if trimmed.starts_with(prefix) {
-            return trimmed[prefix.len()..].trim().to_string();
+        if let Some(content) = trimmed.strip_prefix(prefix) {
+            return content.trim().to_string();
         }
     }
 
