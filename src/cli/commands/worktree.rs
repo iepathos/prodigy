@@ -70,7 +70,7 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
 async fn run_worktree_clean(
     all: bool,
     name: Option<String>,
-    _force: bool,
+    force: bool,
     _merged_only: bool,
 ) -> Result<()> {
     use crate::subprocess::SubprocessManager;
@@ -84,19 +84,13 @@ async fn run_worktree_clean(
 
     if all {
         // Clean all inactive worktrees
-        let sessions = manager.list_sessions().await?;
-
-        if sessions.is_empty() {
-            println!("No worktrees to clean");
-        } else {
-            for session in sessions {
-                println!("Would remove: {}", session.name);
-                // TODO: Actually remove the worktree
-            }
-        }
+        println!("Cleaning all worktrees{}", if force { " (forced)" } else { "" });
+        manager.cleanup_all_sessions(force).await?;
+        println!("All worktrees cleaned successfully");
     } else if let Some(name) = name {
         println!("Removing worktree: {}", name);
-        // TODO: Remove specific worktree
+        manager.cleanup_session(&name, force).await?;
+        println!("Worktree '{}' removed successfully", name);
     } else {
         println!("No worktrees specified for cleanup. Use --all or specify a worktree name.");
     }

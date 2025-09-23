@@ -473,6 +473,7 @@ impl MapReduceExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     // TODO: Re-enable tests once mock dependencies are available
     #[ignore]
