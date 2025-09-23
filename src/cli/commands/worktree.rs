@@ -84,7 +84,10 @@ async fn run_worktree_clean(
 
     if all {
         // Clean all inactive worktrees
-        println!("Cleaning all worktrees{}", if force { " (forced)" } else { "" });
+        println!(
+            "Cleaning all worktrees{}",
+            if force { " (forced)" } else { "" }
+        );
         manager.cleanup_all_sessions(force).await?;
         println!("All worktrees cleaned successfully");
     } else if let Some(name) = name {
