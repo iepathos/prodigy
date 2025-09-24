@@ -451,6 +451,10 @@ fn bench_checkpoint_save_performance(c: &mut Criterion) {
                             max_parallel: 10,
                             max_items: Some(size),
                             offset: None,
+                            agent_timeout_secs: Some(300),
+                            continue_on_failure: true,
+                            batch_size: None,
+                            enable_checkpoints: true,
                         };
 
                         let work_items: Vec<_> = (0..size)
@@ -524,6 +528,10 @@ fn bench_checkpoint_load_performance(c: &mut Criterion) {
                             max_parallel: 10,
                             max_items: Some(size),
                             offset: None,
+                            agent_timeout_secs: Some(300),
+                            continue_on_failure: true,
+                            batch_size: None,
+                            enable_checkpoints: true,
                         };
 
                         let work_items: Vec<_> = (0..size)
@@ -597,6 +605,10 @@ fn bench_job_state_manager_with_checkpointing(c: &mut Criterion) {
                             max_parallel: 10,
                             max_items: Some(size),
                             offset: None,
+                            agent_timeout_secs: Some(300),
+                            continue_on_failure: true,
+                            batch_size: None,
+                            enable_checkpoints: true,
                         };
 
                         let work_items: Vec<_> = (0..size)
