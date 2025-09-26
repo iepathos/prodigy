@@ -63,6 +63,21 @@ impl GlobalStorage {
         Ok(path)
     }
 
+    /// Get the global checkpoints directory for a repository
+    pub async fn get_checkpoints_dir(&self, repo_name: &str) -> Result<PathBuf> {
+        let path = self
+            .base_dir
+            .join("state")
+            .join(repo_name)
+            .join("checkpoints");
+
+        fs::create_dir_all(&path)
+            .await
+            .context("Failed to create global checkpoints directory")?;
+
+        Ok(path)
+    }
+
     /// List all job IDs with DLQ data for a repository
     pub async fn list_dlq_job_ids(&self, repo_name: &str) -> Result<Vec<String>> {
         let dlq_repo_dir = self.base_dir.join("dlq").join(repo_name);

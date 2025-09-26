@@ -4,6 +4,7 @@
 //! listing, cleaning, and showing detailed checkpoint information.
 
 use crate::cli::args::CheckpointCommands;
+use crate::storage::{extract_repo_name, GlobalStorage};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
@@ -56,7 +57,15 @@ pub async fn run_checkpoints_command(command: CheckpointCommands) -> Result<()> 
                 Some(p) => p,
                 None => std::env::current_dir().context("Failed to get current directory")?,
             };
-            let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
+
+            // Use global storage for checkpoints
+            let storage = GlobalStorage::new().context("Failed to create global storage")?;
+            let repo_name =
+                extract_repo_name(&working_dir).context("Failed to extract repo name")?;
+            let checkpoint_dir = storage
+                .get_checkpoints_dir(&repo_name)
+                .await
+                .context("Failed to get global checkpoints directory")?;
 
             if !checkpoint_dir.exists() {
                 println!("No checkpoints found.");
@@ -81,7 +90,15 @@ pub async fn run_checkpoints_command(command: CheckpointCommands) -> Result<()> 
                 Some(p) => p,
                 None => std::env::current_dir().context("Failed to get current directory")?,
             };
-            let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
+
+            // Use global storage for checkpoints
+            let storage = GlobalStorage::new().context("Failed to create global storage")?;
+            let repo_name =
+                extract_repo_name(&working_dir).context("Failed to extract repo name")?;
+            let checkpoint_dir = storage
+                .get_checkpoints_dir(&repo_name)
+                .await
+                .context("Failed to get global checkpoints directory")?;
 
             if !checkpoint_dir.exists() {
                 println!("No checkpoints to clean.");
@@ -106,7 +123,15 @@ pub async fn run_checkpoints_command(command: CheckpointCommands) -> Result<()> 
                 Some(p) => p,
                 None => std::env::current_dir().context("Failed to get current directory")?,
             };
-            let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
+
+            // Use global storage for checkpoints
+            let storage = GlobalStorage::new().context("Failed to create global storage")?;
+            let repo_name =
+                extract_repo_name(&working_dir).context("Failed to extract repo name")?;
+            let checkpoint_dir = storage
+                .get_checkpoints_dir(&repo_name)
+                .await
+                .context("Failed to get global checkpoints directory")?;
             let checkpoint_manager = CheckpointManager::new(checkpoint_dir);
 
             show_checkpoint_details(&checkpoint_manager, &workflow_id).await

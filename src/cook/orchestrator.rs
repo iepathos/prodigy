@@ -18,6 +18,7 @@ use super::execution::{ClaudeExecutor, CommandExecutor};
 use super::interaction::UserInteraction;
 use super::session::{SessionManager, SessionState, SessionStatus, SessionUpdate};
 use super::workflow::{CaptureOutput, ExtendedWorkflowConfig, WorkflowStep};
+use crate::storage::{extract_repo_name, GlobalStorage};
 use crate::unified_session::{format_duration, TimingTracker};
 use std::time::Instant;
 
@@ -1346,8 +1347,14 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Analysis functionality has been removed in v0.3.0
 
-        // Create workflow executor with checkpoint support
-        let checkpoint_dir = env.working_dir.join(".prodigy/checkpoints");
+        // Create workflow executor with checkpoint support using global storage
+        let storage = GlobalStorage::new().context("Failed to create global storage")?;
+        let repo_name =
+            extract_repo_name(&env.working_dir).context("Failed to extract repo name")?;
+        let checkpoint_dir = storage
+            .get_checkpoints_dir(&repo_name)
+            .await
+            .context("Failed to get global checkpoints directory")?;
         let checkpoint_manager = Arc::new(crate::cook::workflow::CheckpointManager::new(
             checkpoint_dir,
         ));
@@ -2025,8 +2032,14 @@ impl DefaultCookOrchestrator {
         // Set the ARG environment variable so the executor can pick it up
         std::env::set_var("PRODIGY_ARG", input);
 
-        // Create workflow executor with checkpoint support
-        let checkpoint_dir = env.working_dir.join(".prodigy/checkpoints");
+        // Create workflow executor with checkpoint support using global storage
+        let storage = GlobalStorage::new().context("Failed to create global storage")?;
+        let repo_name =
+            extract_repo_name(&env.working_dir).context("Failed to extract repo name")?;
+        let checkpoint_dir = storage
+            .get_checkpoints_dir(&repo_name)
+            .await
+            .context("Failed to get global checkpoints directory")?;
         let checkpoint_manager = Arc::new(crate::cook::workflow::CheckpointManager::new(
             checkpoint_dir,
         ));
