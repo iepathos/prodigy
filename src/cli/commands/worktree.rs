@@ -70,11 +70,41 @@ async fn run_worktree_ls(_json: bool, _detailed: bool) -> Result<()> {
 
 /// Merge worktree changes
 async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
+    use crate::subprocess::SubprocessManager;
+    use crate::worktree::manager::WorktreeManager;
+
+    // Get current repository path
+    let repo_path = std::env::current_dir()?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(repo_path, subprocess)?;
+
     if all {
+        // Merge all active worktrees
         println!("Merging all worktrees...");
+        let sessions = manager.list_sessions().await?;
+        let mut merged_count = 0;
+
+        for session in sessions {
+            println!("Merging worktree '{}'...", session.name);
+            match manager.merge_session(&session.name).await {
+                Ok(_) => {
+                    println!("✅ Successfully merged worktree '{}'", session.name);
+                    merged_count += 1;
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to merge worktree '{}': {}", session.name, e);
+                }
+            }
+        }
+
+        if merged_count > 0 {
+            println!("Successfully merged {} worktree(s)", merged_count);
+        }
         Ok(())
     } else if let Some(name) = name {
         println!("Merging worktree '{}'...", name);
+        manager.merge_session(&name).await?;
+        println!("✅ Successfully merged worktree '{}'", name);
         Ok(())
     } else {
         println!("Please specify a worktree name or use --all");
