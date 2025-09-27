@@ -113,7 +113,9 @@ impl CommandValidator {
                 }
 
                 // Check for potentially dangerous commands
-                self.check_dangerous_shell_command(cmd, issues);
+                if self.check_dangerous_shell_command(cmd, issues) {
+                    *valid = false;
+                }
             }
         }
 
@@ -142,7 +144,8 @@ impl CommandValidator {
     }
 
     /// Check for dangerous shell commands
-    fn check_dangerous_shell_command(&self, cmd: &str, issues: &mut Vec<ValidationIssue>) {
+    /// Returns true if dangerous commands were found
+    fn check_dangerous_shell_command(&self, cmd: &str, issues: &mut Vec<ValidationIssue>) -> bool {
         let dangerous_patterns = [
             ("rm -rf /", "Dangerous recursive delete from root"),
             ("rm -rf /*", "Dangerous recursive delete of all files"),
@@ -152,9 +155,11 @@ impl CommandValidator {
             ("> /dev/sda", "Direct disk write"),
         ];
 
+        let mut found_dangerous = false;
         for (pattern, warning) in dangerous_patterns.iter() {
             if cmd.contains(pattern) {
                 issues.push(ValidationIssue::Error(format!("{}: {}", warning, pattern)));
+                found_dangerous = true;
             }
         }
 
@@ -164,6 +169,8 @@ impl CommandValidator {
                 "Command uses sudo which may require interactive authentication".to_string(),
             ));
         }
+
+        found_dangerous
     }
 
     /// Extract variable references from command

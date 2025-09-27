@@ -59,6 +59,8 @@ pub struct MapReduceCoordinator {
     claude_executor: Arc<dyn ClaudeExecutor>,
     /// Session manager
     _session_manager: Arc<dyn SessionManager>,
+    /// Execution mode (normal or dry-run)
+    execution_mode: crate::cook::execution::mapreduce::dry_run::ExecutionMode,
 }
 
 impl MapReduceCoordinator {
@@ -69,6 +71,25 @@ impl MapReduceCoordinator {
         user_interaction: Arc<dyn UserInteraction>,
         subprocess: Arc<SubprocessManager>,
         project_root: PathBuf,
+    ) -> Self {
+        Self::with_mode(
+            agent_manager,
+            state_manager,
+            user_interaction,
+            subprocess,
+            project_root,
+            crate::cook::execution::mapreduce::dry_run::ExecutionMode::Normal,
+        )
+    }
+
+    /// Create a new coordinator with execution mode
+    pub fn with_mode(
+        agent_manager: Arc<dyn AgentLifecycleManager>,
+        state_manager: Arc<StateManager>,
+        user_interaction: Arc<dyn UserInteraction>,
+        subprocess: Arc<SubprocessManager>,
+        project_root: PathBuf,
+        execution_mode: crate::cook::execution::mapreduce::dry_run::ExecutionMode,
     ) -> Self {
         let result_collector = Arc::new(ResultCollector::new(CollectionStrategy::InMemory));
         let job_id = format!("mapreduce-{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
@@ -94,6 +115,7 @@ impl MapReduceCoordinator {
             job_id,
             claude_executor,
             _session_manager: session_manager,
+            execution_mode,
         }
     }
 
@@ -106,6 +128,11 @@ impl MapReduceCoordinator {
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<Vec<AgentResult>> {
         info!("Starting MapReduce job execution");
+
+        // Check if we're in dry-run mode
+        if let crate::cook::execution::mapreduce::dry_run::ExecutionMode::DryRun(ref config) = self.execution_mode {
+            return self.execute_dry_run(setup.as_ref(), &map_phase, reduce.as_ref(), config).await;
+        }
 
         // Execute setup phase if present
         if let Some(setup_phase) = setup {
@@ -134,6 +161,56 @@ impl MapReduceCoordinator {
         }
 
         Ok(map_results)
+    }
+
+    /// Execute in dry-run mode
+    async fn execute_dry_run(
+        &self,
+        setup: Option<&SetupPhase>,
+        map_phase: &MapPhase,
+        reduce: Option<&ReducePhase>,
+        _config: &crate::cook::execution::mapreduce::dry_run::DryRunConfig,
+    ) -> MapReduceResult<Vec<AgentResult>> {
+        use crate::cook::execution::mapreduce::dry_run::{DryRunValidator, OutputFormatter};
+
+        info!("Executing MapReduce job in dry-run mode");
+
+        // Create validator
+        let validator = DryRunValidator::new();
+
+        // Validate the workflow
+        match validator.validate_workflow_phases(
+            setup.map(|s| s.clone()),
+            map_phase.clone(),
+            reduce.map(|r| r.clone()),
+        ).await {
+            Ok(report) => {
+                // Display the validation report
+                let formatter = OutputFormatter::new();
+                let output = formatter.format_human(&report);
+
+                // Use user interaction to display the output
+                self.user_interaction.display_info(&output);
+
+                if report.errors.is_empty() {
+                    self.user_interaction.display_success("Dry-run validation successful! Workflow is ready to execute.");
+                    Ok(Vec::new()) // Return empty results for dry-run
+                } else {
+                    self.user_interaction.display_error(&format!("Dry-run validation failed with {} error(s)", report.errors.len()));
+                    Err(MapReduceError::General {
+                        message: format!("Dry-run validation failed with {} errors", report.errors.len()),
+                        source: None,
+                    })
+                }
+            },
+            Err(e) => {
+                self.user_interaction.display_error(&format!("Dry-run validation failed: {}", e));
+                Err(MapReduceError::General {
+                    message: format!("Dry-run validation failed: {}", e),
+                    source: None,
+                })
+            }
+        }
     }
 
     /// Execute the setup phase
