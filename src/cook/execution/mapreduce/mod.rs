@@ -13,6 +13,7 @@ pub mod aggregation;
 pub mod cleanup;
 pub mod command;
 pub mod coordination;
+pub mod dry_run;
 pub mod event;
 pub mod map_phase;
 pub mod noop_writer;
@@ -113,6 +114,7 @@ pub struct MapReduceExecutor {
     // Coordination components (new)
     coordinator: Option<Arc<MapReduceCoordinator>>,
     orchestrator: Option<Arc<PhaseOrchestrator>>,
+    execution_mode: dry_run::ExecutionMode,
 }
 
 #[allow(dead_code)]
@@ -183,6 +185,7 @@ impl MapReduceExecutor {
             resource_manager,
             coordinator: None,
             orchestrator: None,
+            execution_mode: dry_run::ExecutionMode::Normal,
         }
     }
 
@@ -339,12 +342,13 @@ impl MapReduceExecutor {
     ) -> MapReduceResult<Vec<AgentResult>> {
         // Ensure coordinator is initialized
         if self.coordinator.is_none() {
-            self.coordinator = Some(Arc::new(MapReduceCoordinator::new(
+            self.coordinator = Some(Arc::new(MapReduceCoordinator::with_mode(
                 self.agent_lifecycle_manager.clone(),
                 self.enhanced_state_manager.clone(),
                 self.user_interaction.clone(),
                 self.subprocess.clone(),
                 self.project_root.clone(),
+                self.execution_mode.clone(),
             )));
         }
 
@@ -419,6 +423,12 @@ impl MapReduceExecutor {
     }
 
     // === Helper Methods (Pure Functions) ===
+
+    /// Set execution mode (for dry-run support)
+    pub fn with_execution_mode(mut self, mode: dry_run::ExecutionMode) -> Self {
+        self.execution_mode = mode;
+        self
+    }
 
     /// Create error context
     fn create_error_context(&self, span_name: &str) -> ErrorContext {
