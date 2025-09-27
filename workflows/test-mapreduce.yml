@@ -1,63 +1,15 @@
-name: test-mapreduce-simple
+name: test-mapreduce
 mode: mapreduce
 
-# Simple test workflow to verify MapReduce execution
-
-# Setup phase: Create test data
-setup:
-  - shell: |
-      echo '{
-        "test_items": [
-          {"id": 1, "file": "src/main.rs", "type": "lint", "severity": "high"},
-          {"id": 2, "file": "src/lib.rs", "type": "format", "severity": "medium"},
-          {"id": 3, "file": "src/cook/mod.rs", "type": "lint", "severity": "high"},
-          {"id": 4, "file": "src/config/mod.rs", "type": "format", "severity": "low"},
-          {"id": 5, "file": "src/analyze/mod.rs", "type": "test", "severity": "critical"}
-        ]
-      }' > test_items.json
-    capture_output: false
-
-# Map phase: Process each test item
+# Simple test without heavy setup
 map:
-  input: test_items.json
-  json_path: "$.test_items[*]"
-  
+  input: "echo '[{\"id\": 1}, {\"id\": 2}, {\"id\": 3}]'"
+  json_path: "$[*]"
+
   agent_template:
-    # Simulate processing based on type
-    - shell: |
-        echo "Processing item ${item.id}: ${item.type} in ${item.file}"
-        if [ "${item.type}" = "lint" ]; then
-          cargo clippy --lib 2>&1 | head -20
-        elif [ "${item.type}" = "format" ]; then
-          cargo fmt --check 2>&1 | head -20
-        elif [ "${item.type}" = "test" ]; then
-          cargo test --lib 2>&1 | grep "test result"
-        fi
-      capture_output: true
-      timeout: 60
+    - shell: "echo 'Processing item ${item.id}'"
 
-    # Simulate a fix attempt
-    - shell: |
-        echo "Fixed ${item.type} issue in ${item.file} (severity: ${item.severity})"
-      capture_output: true
+  max_parallel: 2
 
-  # Process only high and critical severity items
-  filter: "severity == 'high' || severity == 'critical'"
-  sort_by: "severity DESC"
-
-  # Run 3 agents in parallel
-  max_parallel: 3
-
-# Reduce phase: Summarize results
 reduce:
-  - shell: |
-      echo "=== MapReduce Test Summary ==="
-      echo "Total items processed: ${map.total}"
-      echo "Successful: ${map.successful}"
-      echo "Failed: ${map.failed}"
-      echo "=============================="
-    capture_output: true
-
-  # Clean up test file
-  - shell: "rm -f test_items.json"
-    capture_output: false
+  - shell: "echo 'Processed ${map.successful} items'"

@@ -12,6 +12,7 @@ pub mod agent_command_executor;
 pub mod aggregation;
 pub mod command;
 pub mod coordination;
+pub mod event;
 pub mod map_phase;
 pub mod noop_writer;
 pub mod phases;

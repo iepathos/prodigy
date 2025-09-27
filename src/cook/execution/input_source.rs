@@ -91,16 +91,37 @@ impl InputSource {
             });
         }
 
-        // Parse each line of output as a work item
+        // Try to parse the output as JSON first
+        let trimmed = output.stdout.trim();
+
+        // Check if the entire output is valid JSON
+        if let Ok(json_value) = serde_json::from_str::<Value>(trimmed) {
+            // If it's already an array, return it as-is
+            if let Value::Array(arr) = json_value {
+                info!("Command produced JSON array with {} items", arr.len());
+                return Ok(arr);
+            } else {
+                // If it's a single JSON object/value, wrap it in an array
+                info!("Command produced single JSON value");
+                return Ok(vec![json_value]);
+            }
+        }
+
+        // Fall back to line-based parsing if not JSON
         let items: Vec<Value> = output
             .stdout
             .lines()
             .filter(|line| !line.trim().is_empty())
             .map(|line| {
-                // Each line becomes a work item with the line as the "item" field
-                serde_json::json!({
-                    "item": line.trim()
-                })
+                // Try to parse each line as JSON
+                if let Ok(json) = serde_json::from_str::<Value>(line.trim()) {
+                    json
+                } else {
+                    // Each line becomes a work item with the line as the "item" field
+                    serde_json::json!({
+                        "item": line.trim()
+                    })
+                }
             })
             .collect();
 
