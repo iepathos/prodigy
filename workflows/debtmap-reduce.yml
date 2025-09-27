@@ -5,8 +5,10 @@ mode: mapreduce
 setup:
   timeout: 900  # 15 minutes for coverage generation
   commands:
+    # Generate coverage data with tarpaulin
     - shell: "just coverage-lcov"
 
+    # Run debtmap with coverage data
     - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output debtmap.json --format json"
 
 # Map phase: Process each debt item in parallel

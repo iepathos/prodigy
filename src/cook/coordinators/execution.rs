@@ -5,7 +5,7 @@ use crate::subprocess::SubprocessManager;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// Retry configuration
@@ -103,7 +103,7 @@ impl ExecutionCoordinator for DefaultExecutionCoordinator {
             env_vars: env.unwrap_or_default(),
             working_directory: cwd
                 .map(|p| p.to_path_buf())
-                .unwrap_or_else(|| std::env::current_dir().unwrap()),
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))),
             capture_output: true,
             timeout_seconds: None,
             stdin: None,
@@ -142,7 +142,7 @@ impl ExecutionCoordinator for DefaultExecutionCoordinator {
 
         let working_dir = cwd
             .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| std::env::current_dir().unwrap());
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
         let env_vars = env.unwrap_or_default();
 
         let output = self

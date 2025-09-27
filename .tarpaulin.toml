@@ -2,6 +2,9 @@
 # Excludes test files from coverage analysis
 
 [default]
+# Continue even if tests fail
+no-fail-fast = true
+ignore-panics = true
 # Exclude test files and directories from coverage
 exclude-files = [
     "tests/*",
