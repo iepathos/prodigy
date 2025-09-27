@@ -13,6 +13,7 @@ pub mod aggregation;
 pub mod cleanup;
 pub mod command;
 pub mod coordination;
+pub mod dry_run;
 pub mod event;
 pub mod map_phase;
 pub mod noop_writer;
