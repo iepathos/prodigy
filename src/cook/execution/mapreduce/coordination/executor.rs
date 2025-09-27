@@ -13,12 +13,12 @@ use crate::cook::execution::mapreduce::{
     state::StateManager,
     types::{MapPhase, ReducePhase, SetupPhase},
 };
-use crate::subprocess::runner::ExitStatus;
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{WorkflowStep, OnFailureConfig};
+use crate::cook::workflow::{OnFailureConfig, WorkflowStep};
+use crate::subprocess::runner::ExitStatus;
 use crate::subprocess::SubprocessManager;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -72,11 +72,7 @@ impl MapReduceCoordinator {
     ) -> Self {
         let result_collector = Arc::new(ResultCollector::new(CollectionStrategy::InMemory));
         let job_id = format!("mapreduce-{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
-        let event_logger = Arc::new(EventLogger::new(
-            project_root.clone(),
-            job_id.clone(),
-            None,
-        ));
+        let event_logger = Arc::new(EventLogger::new(project_root.clone(), job_id.clone(), None));
 
         // Create claude executor
         // In production, this would be injected
@@ -147,10 +143,17 @@ impl MapReduceCoordinator {
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<()> {
         info!("Executing setup phase");
-        info!("Setup phase executing in directory: {}", env.working_dir.display());
+        info!(
+            "Setup phase executing in directory: {}",
+            env.working_dir.display()
+        );
 
         for (index, step) in setup_phase.commands.iter().enumerate() {
-            debug!("Executing setup step {}/{}", index + 1, setup_phase.commands.len());
+            debug!(
+                "Executing setup step {}/{}",
+                index + 1,
+                setup_phase.commands.len()
+            );
 
             // Log execution context
             info!("=== Step Execution Context ===");
@@ -176,9 +179,10 @@ impl MapReduceCoordinator {
             let result = self.execute_setup_step(step, env, env_vars).await?;
 
             if !result.success {
-                return Err(MapReduceError::ProcessingError(
-                    format!("Setup step {} failed", index + 1)
-                ));
+                return Err(MapReduceError::ProcessingError(format!(
+                    "Setup step {} failed",
+                    index + 1
+                )));
             }
         }
 
@@ -205,10 +209,9 @@ impl MapReduceCoordinator {
                 .envs(env_vars)
                 .build();
 
-            let output = self.subprocess.runner().run(command).await
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Shell command failed: {}", e)
-                ))?;
+            let output = self.subprocess.runner().run(command).await.map_err(|e| {
+                MapReduceError::ProcessingError(format!("Shell command failed: {}", e))
+            })?;
 
             let exit_code = match output.status {
                 crate::subprocess::runner::ExitStatus::Success => 0,
@@ -226,12 +229,13 @@ impl MapReduceCoordinator {
         } else if let Some(claude_cmd) = &step.claude {
             info!("Executing Claude command: {}", claude_cmd);
 
-            let result = self.claude_executor
+            let result = self
+                .claude_executor
                 .execute_claude_command(claude_cmd, &env.working_dir, env_vars)
                 .await
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Claude command failed: {}", e)
-                ))?;
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!("Claude command failed: {}", e))
+                })?;
 
             Ok(StepResult {
                 success: result.success,
@@ -253,7 +257,8 @@ impl MapReduceCoordinator {
         info!("Loading work items from: {}", map_phase.config.input);
 
         // Create input source
-        let input_source = InputSource::detect_with_base(&map_phase.config.input, &self.project_root);
+        let input_source =
+            InputSource::detect_with_base(&map_phase.config.input, &self.project_root);
 
         // Load data based on input source type
         let json_data = match input_source {
@@ -261,7 +266,9 @@ impl MapReduceCoordinator {
                 InputSource::load_json_file(&path, &self.project_root).await?
             }
             InputSource::Command(cmd) => {
-                let items = InputSource::execute_command(&cmd, Duration::from_secs(300), &*self.subprocess).await?;
+                let items =
+                    InputSource::execute_command(&cmd, Duration::from_secs(300), &*self.subprocess)
+                        .await?;
                 serde_json::Value::Array(items)
             }
         };
@@ -272,20 +279,22 @@ impl MapReduceCoordinator {
             map_phase.filter.clone(),
             map_phase.sort_by.clone(),
             map_phase.max_items,
-        ).map_err(|e| MapReduceError::InvalidConfiguration {
+        )
+        .map_err(|e| MapReduceError::InvalidConfiguration {
             reason: format!("Failed to build data pipeline: {}", e),
             field: "configuration".to_string(),
             value: "configuration".to_string(),
         })?;
 
         // Process the data through the pipeline
-        let items = pipeline
-            .process(&json_data)
-            .map_err(|e| MapReduceError::InvalidConfiguration {
-                reason: format!("Failed to process work items: {}", e),
-                field: "input".to_string(),
-                value: map_phase.config.input.clone(),
-            })?;
+        let items =
+            pipeline
+                .process(&json_data)
+                .map_err(|e| MapReduceError::InvalidConfiguration {
+                    reason: format!("Failed to process work items: {}", e),
+                    field: "input".to_string(),
+                    value: map_phase.config.input.clone(),
+                })?;
 
         debug!("Loaded {} work items", items.len());
         Ok(items)
@@ -336,7 +345,10 @@ impl MapReduceCoordinator {
                 tokio::spawn(async move {
                     // Acquire semaphore permit
                     let _permit = sem.acquire().await.map_err(|e| {
-                        MapReduceError::ProcessingError(format!("Failed to acquire semaphore: {}", e))
+                        MapReduceError::ProcessingError(format!(
+                            "Failed to acquire semaphore: {}",
+                            e
+                        ))
                     })?;
 
                     let item_id = format!("item_{}", index);
@@ -344,7 +356,10 @@ impl MapReduceCoordinator {
 
                     // Log agent start
                     event_logger
-                        .log_event(MapReduceEvent::agent_started(agent_id.clone(), item_id.clone()))
+                        .log_event(MapReduceEvent::agent_started(
+                            agent_id.clone(),
+                            item_id.clone(),
+                        ))
                         .await
                         .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
 
@@ -375,7 +390,8 @@ impl MapReduceCoordinator {
                                 .log_event(MapReduceEvent::agent_completed(
                                     agent_id.clone(),
                                     item_id.clone(),
-                                    chrono::Duration::from_std(duration).unwrap_or(chrono::Duration::seconds(0)),
+                                    chrono::Duration::from_std(duration)
+                                        .unwrap_or(chrono::Duration::seconds(0)),
                                 ))
                                 .await
                                 .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
@@ -480,9 +496,9 @@ impl MapReduceCoordinator {
         let handle = agent_manager
             .create_agent(config.clone(), commands.clone())
             .await
-            .map_err(|e| MapReduceError::ProcessingError(
-                format!("Failed to create agent: {}", e)
-            ))?;
+            .map_err(|e| {
+                MapReduceError::ProcessingError(format!("Failed to create agent: {}", e))
+            })?;
 
         // Execute commands in the agent's worktree
         let mut output = String::new();
@@ -516,7 +532,10 @@ impl MapReduceCoordinator {
             }
 
             // Also store the entire item as JSON for complex cases
-            variables.insert("item_json".to_string(), serde_json::to_string(&item).unwrap_or_default());
+            variables.insert(
+                "item_json".to_string(),
+                serde_json::to_string(&item).unwrap_or_default(),
+            );
             variables.insert("item_id".to_string(), item_id.to_string());
 
             // Execute the step in the agent's worktree
@@ -583,9 +602,9 @@ impl MapReduceCoordinator {
             agent_manager
                 .merge_agent_to_parent(&config.branch_name, env)
                 .await
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Failed to merge agent changes: {}", e)
-                ))?;
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!("Failed to merge agent changes: {}", e))
+                })?;
         }
 
         Ok(AgentResult {
@@ -625,7 +644,10 @@ impl MapReduceCoordinator {
         for (key, value) in variables {
             if let Some(item_field) = key.strip_prefix("item.") {
                 // Add to item object
-                item_obj.insert(item_field.to_string(), serde_json::Value::String(value.clone()));
+                item_obj.insert(
+                    item_field.to_string(),
+                    serde_json::Value::String(value.clone()),
+                );
             } else {
                 // Add as top-level variable
                 other_vars.insert(key.clone(), serde_json::Value::String(value.clone()));
@@ -645,10 +667,11 @@ impl MapReduceCoordinator {
         // Execute based on step type
         if let Some(claude_cmd) = &step.claude {
             // Interpolate variables in command
-            let interpolated_cmd = engine.interpolate(claude_cmd, &mut interp_context)
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Variable interpolation failed: {}", e)
-                ))?;
+            let interpolated_cmd = engine
+                .interpolate(claude_cmd, &mut interp_context)
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
+                })?;
 
             // Execute Claude command
             info!("Executing Claude command in worktree: {}", interpolated_cmd);
@@ -660,9 +683,12 @@ impl MapReduceCoordinator {
             let result = claude_executor
                 .execute_claude_command(&interpolated_cmd, worktree_path, env_vars)
                 .await
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Failed to execute Claude command: {}", e)
-                ))?;
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!(
+                        "Failed to execute Claude command: {}",
+                        e
+                    ))
+                })?;
 
             Ok(StepResult {
                 success: result.success,
@@ -676,10 +702,15 @@ impl MapReduceCoordinator {
             debug!("Context variables: {:?}", interp_context);
 
             // Interpolate variables in command
-            let interpolated_cmd = engine.interpolate(shell_cmd, &mut interp_context)
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Variable interpolation failed: {}", e)
-                ))?;
+            let interpolated_cmd =
+                engine
+                    .interpolate(shell_cmd, &mut interp_context)
+                    .map_err(|e| {
+                        MapReduceError::ProcessingError(format!(
+                            "Variable interpolation failed: {}",
+                            e
+                        ))
+                    })?;
 
             // Execute shell command
             info!("Executing shell command in worktree: {}", interpolated_cmd);
@@ -690,10 +721,9 @@ impl MapReduceCoordinator {
                 .envs(variables.clone())
                 .build();
 
-            let output = subprocess.runner().run(command).await
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Failed to execute shell command: {}", e)
-                ))?;
+            let output = subprocess.runner().run(command).await.map_err(|e| {
+                MapReduceError::ProcessingError(format!("Failed to execute shell command: {}", e))
+            })?;
 
             let exit_code = match output.status {
                 crate::subprocess::runner::ExitStatus::Success => 0,
@@ -730,7 +760,9 @@ impl MapReduceCoordinator {
 
         // Extract commands based on OnFailureConfig variant
         let (claude_cmd, shell_cmd) = match on_failure {
-            OnFailureConfig::Advanced { claude, shell, .. } => (claude.as_deref(), shell.as_deref()),
+            OnFailureConfig::Advanced { claude, shell, .. } => {
+                (claude.as_deref(), shell.as_deref())
+            }
             OnFailureConfig::SingleCommand(cmd) => {
                 if cmd.starts_with("/") {
                     (Some(cmd.as_str()), None)
@@ -749,10 +781,9 @@ impl MapReduceCoordinator {
                 interp_context.set(key.clone(), value.clone());
             }
 
-            let interpolated_cmd = engine.interpolate(cmd, &mut interp_context)
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Variable interpolation failed: {}", e)
-                ))?;
+            let interpolated_cmd = engine.interpolate(cmd, &mut interp_context).map_err(|e| {
+                MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
+            })?;
 
             let mut env_vars = HashMap::new();
             env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
@@ -760,9 +791,12 @@ impl MapReduceCoordinator {
             let result = claude_executor
                 .execute_claude_command(&interpolated_cmd, worktree_path, env_vars)
                 .await
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Failed to execute on_failure handler: {}", e)
-                ))?;
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!(
+                        "Failed to execute on_failure handler: {}",
+                        e
+                    ))
+                })?;
 
             return Ok(result.success);
         }
@@ -777,10 +811,9 @@ impl MapReduceCoordinator {
                 interp_context.set(key.clone(), value.clone());
             }
 
-            let interpolated_cmd = engine.interpolate(cmd, &mut interp_context)
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Variable interpolation failed: {}", e)
-                ))?;
+            let interpolated_cmd = engine.interpolate(cmd, &mut interp_context).map_err(|e| {
+                MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
+            })?;
 
             let command = ProcessCommandBuilder::new("sh")
                 .args(["-c", &interpolated_cmd])
@@ -788,10 +821,12 @@ impl MapReduceCoordinator {
                 .envs(variables.clone())
                 .build();
 
-            let output = subprocess.runner().run(command).await
-                .map_err(|e| MapReduceError::ProcessingError(
-                    format!("Failed to execute on_failure shell command: {}", e)
-                ))?;
+            let output = subprocess.runner().run(command).await.map_err(|e| {
+                MapReduceError::ProcessingError(format!(
+                    "Failed to execute on_failure shell command: {}",
+                    e
+                ))
+            })?;
 
             let exit_code = match output.status {
                 crate::subprocess::runner::ExitStatus::Success => 0,
@@ -1000,7 +1035,10 @@ impl SessionManager for DummySessionManager {
         Ok(())
     }
 
-    async fn update_session(&self, _update: crate::cook::session::SessionUpdate) -> anyhow::Result<()> {
+    async fn update_session(
+        &self,
+        _update: crate::cook::session::SessionUpdate,
+    ) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -1026,14 +1064,20 @@ impl SessionManager for DummySessionManager {
         Ok(())
     }
 
-    async fn load_session(&self, _session_id: &str) -> anyhow::Result<crate::cook::session::SessionState> {
+    async fn load_session(
+        &self,
+        _session_id: &str,
+    ) -> anyhow::Result<crate::cook::session::SessionState> {
         Ok(crate::cook::session::SessionState::new(
             "dummy".to_string(),
             std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
         ))
     }
 
-    async fn save_checkpoint(&self, _state: &crate::cook::session::SessionState) -> anyhow::Result<()> {
+    async fn save_checkpoint(
+        &self,
+        _state: &crate::cook::session::SessionState,
+    ) -> anyhow::Result<()> {
         Ok(())
     }
 

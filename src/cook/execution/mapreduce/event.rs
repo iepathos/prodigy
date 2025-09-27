@@ -1,9 +1,9 @@
 //! Event tracking for MapReduce execution
 
-use std::path::PathBuf;
+use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use anyhow::Result;
+use std::path::PathBuf;
 
 /// Event logger for MapReduce job tracking
 pub struct EventLogger {
@@ -65,13 +65,9 @@ pub enum MapReduceEvent {
         timestamp: DateTime<Utc>,
     },
     /// Reduce phase started
-    ReducePhaseStarted {
-        timestamp: DateTime<Utc>,
-    },
+    ReducePhaseStarted { timestamp: DateTime<Utc> },
     /// Reduce phase completed
-    ReducePhaseCompleted {
-        timestamp: DateTime<Utc>,
-    },
+    ReducePhaseCompleted { timestamp: DateTime<Utc> },
 }
 
 impl MapReduceEvent {

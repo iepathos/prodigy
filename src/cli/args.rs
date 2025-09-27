@@ -632,5 +632,17 @@ pub enum WorktreeCommands {
         /// Only clean up sessions that have been merged
         #[arg(long)]
         merged_only: bool,
+        /// Clean MapReduce-specific worktrees
+        #[arg(long)]
+        mapreduce: bool,
+        /// Clean worktrees older than specified duration (e.g., "1h", "24h")
+        #[arg(long)]
+        older_than: Option<String>,
+        /// Show what would be cleaned without actually cleaning
+        #[arg(long)]
+        dry_run: bool,
+        /// Specific job ID to clean
+        #[arg(long)]
+        job_id: Option<String>,
     },
 }

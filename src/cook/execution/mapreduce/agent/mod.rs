@@ -5,6 +5,7 @@
 
 pub mod execution;
 pub mod lifecycle;
+pub mod lifecycle_with_cleanup;
 pub mod results;
 pub mod types;
 
@@ -19,6 +20,7 @@ pub use execution::{AgentExecutor, EnhancedProgressExecutor, ExecutionStrategy, 
 
 // Re-export lifecycle management
 pub use lifecycle::{AgentLifecycleManager, DefaultLifecycleManager};
+pub use lifecycle_with_cleanup::CleanupAwareLifecycleManager;
 
 // Re-export result aggregation
 pub use results::{AgentResultAggregator, AggregatedResults, DefaultResultAggregator};
