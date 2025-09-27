@@ -4,7 +4,7 @@
 
 use super::config::WorktreeCleanupConfig;
 use super::error::{CleanupError, CleanupResult};
-use super::monitor::{WorktreeResourceMonitor, CleanupRecommendation};
+use super::monitor::{CleanupRecommendation, WorktreeResourceMonitor};
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -525,4 +525,3 @@ impl Clone for WorktreeCleanupCoordinator {
         }
     }
 }
-

@@ -12,6 +12,6 @@ pub mod monitor;
 mod tests;
 
 pub use config::WorktreeCleanupConfig;
-pub use coordinator::{WorktreeCleanupCoordinator, CleanupTask};
+pub use coordinator::{CleanupTask, WorktreeCleanupCoordinator};
 pub use error::{CleanupError, CleanupResult};
-pub use monitor::{WorktreeMetrics, WorktreeResourceMonitor, CleanupRecommendation};
+pub use monitor::{CleanupRecommendation, WorktreeMetrics, WorktreeResourceMonitor};

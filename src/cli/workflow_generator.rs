@@ -68,9 +68,11 @@ fn build_map_config(
         Value::String("input".to_string()),
         Value::String(find_command),
     );
+    // Ensure max_parallel is at least 1 (0 means use default of 5)
+    let effective_parallel = if parallel == 0 { 5 } else { parallel };
     map_config.insert(
         Value::String("max_parallel".to_string()),
-        Value::Number(parallel.into()),
+        Value::Number(effective_parallel.into()),
     );
 
     // Build agent template with commands
