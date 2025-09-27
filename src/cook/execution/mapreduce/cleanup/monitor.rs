@@ -40,7 +40,7 @@ pub struct WorktreeResourceMonitor {
     /// Disk usage threshold in bytes
     disk_usage_threshold: u64,
     /// Maximum worktrees per job
-    max_worktrees_per_job: usize,
+    _max_worktrees_per_job: usize,
     /// Maximum total worktrees
     max_total_worktrees: usize,
     /// Current metrics
@@ -56,7 +56,7 @@ impl WorktreeResourceMonitor {
     ) -> Self {
         Self {
             disk_usage_threshold: disk_usage_threshold_mb * 1024 * 1024,
-            max_worktrees_per_job,
+            _max_worktrees_per_job: max_worktrees_per_job,
             max_total_worktrees,
             metrics: WorktreeMetrics::default(),
         }

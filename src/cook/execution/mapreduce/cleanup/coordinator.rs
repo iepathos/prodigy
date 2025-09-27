@@ -78,9 +78,9 @@ pub struct WorktreeCleanupCoordinator {
 #[derive(Debug, Clone)]
 struct WorktreeHandle {
     path: PathBuf,
-    created_at: Instant,
-    job_id: String,
-    agent_id: String,
+    _created_at: Instant,
+    _job_id: String,
+    _agent_id: String,
 }
 
 impl WorktreeCleanupCoordinator {
@@ -92,16 +92,14 @@ impl WorktreeCleanupCoordinator {
             config.max_total_worktrees,
         )));
 
-        let coordinator = Self {
+        Self {
             config,
             active_worktrees: Arc::new(RwLock::new(HashMap::new())),
             cleanup_queue: Arc::new(Mutex::new(VecDeque::new())),
             cleanup_worker: Arc::new(Mutex::new(None)),
             resource_monitor,
             worktree_base_path,
-        };
-
-        coordinator
+        }
     }
 
     /// Start the background cleanup worker
@@ -177,9 +175,9 @@ impl WorktreeCleanupCoordinator {
     ) -> CleanupGuard {
         let handle = WorktreeHandle {
             path: worktree_path.clone(),
-            created_at: Instant::now(),
-            job_id: job_id.to_string(),
-            agent_id: agent_id.to_string(),
+            _created_at: Instant::now(),
+            _job_id: job_id.to_string(),
+            _agent_id: agent_id.to_string(),
         };
 
         let mut active = self.active_worktrees.write().await;
@@ -356,8 +354,7 @@ impl WorktreeCleanupCoordinator {
         let output = Command::new("git")
             .args(["worktree", "remove", worktree_name, "--force"])
             .current_dir(
-                &self
-                    .worktree_base_path
+                self.worktree_base_path
                     .parent()
                     .unwrap_or(&self.worktree_base_path),
             )
@@ -386,8 +383,7 @@ impl WorktreeCleanupCoordinator {
             let _ = Command::new("git")
                 .args(["worktree", "prune"])
                 .current_dir(
-                    &self
-                        .worktree_base_path
+                    self.worktree_base_path
                         .parent()
                         .unwrap_or(&self.worktree_base_path),
                 )

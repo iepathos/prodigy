@@ -32,9 +32,9 @@ use tracing::{debug, info, warn};
 #[derive(Debug, Clone)]
 struct StepResult {
     pub success: bool,
-    pub exit_code: Option<i32>,
+    pub _exit_code: Option<i32>,
     pub stdout: Option<String>,
-    pub stderr: Option<String>,
+    pub _stderr: Option<String>,
 }
 
 /// Main coordinator for MapReduce execution
@@ -42,7 +42,7 @@ pub struct MapReduceCoordinator {
     /// Agent lifecycle manager
     agent_manager: Arc<dyn AgentLifecycleManager>,
     /// State manager for job state
-    state_manager: Arc<StateManager>,
+    _state_manager: Arc<StateManager>,
     /// User interaction handler
     user_interaction: Arc<dyn UserInteraction>,
     /// Result collector
@@ -58,7 +58,7 @@ pub struct MapReduceCoordinator {
     /// Claude executor for Claude commands
     claude_executor: Arc<dyn ClaudeExecutor>,
     /// Session manager
-    session_manager: Arc<dyn SessionManager>,
+    _session_manager: Arc<dyn SessionManager>,
 }
 
 impl MapReduceCoordinator {
@@ -85,7 +85,7 @@ impl MapReduceCoordinator {
 
         Self {
             agent_manager,
-            state_manager,
+            _state_manager: state_manager,
             user_interaction,
             result_collector,
             subprocess,
@@ -93,7 +93,7 @@ impl MapReduceCoordinator {
             event_logger,
             job_id,
             claude_executor,
-            session_manager,
+            _session_manager: session_manager,
         }
     }
 
@@ -222,9 +222,9 @@ impl MapReduceCoordinator {
 
             Ok(StepResult {
                 success: exit_code == 0,
-                exit_code: Some(exit_code),
+                _exit_code: Some(exit_code),
                 stdout: Some(output.stdout),
-                stderr: Some(output.stderr),
+                _stderr: Some(output.stderr),
             })
         } else if let Some(claude_cmd) = &step.claude {
             info!("Executing Claude command: {}", claude_cmd);
@@ -239,9 +239,9 @@ impl MapReduceCoordinator {
 
             Ok(StepResult {
                 success: result.success,
-                exit_code: result.exit_code,
+                _exit_code: result.exit_code,
                 stdout: Some(result.stdout),
-                stderr: Some(result.stderr),
+                _stderr: Some(result.stderr),
             })
         } else {
             Err(MapReduceError::InvalidConfiguration {
@@ -267,7 +267,7 @@ impl MapReduceCoordinator {
             }
             InputSource::Command(cmd) => {
                 let items =
-                    InputSource::execute_command(&cmd, Duration::from_secs(300), &*self.subprocess)
+                    InputSource::execute_command(&cmd, Duration::from_secs(300), &self.subprocess)
                         .await?;
                 serde_json::Value::Array(items)
             }
@@ -463,6 +463,7 @@ impl MapReduceCoordinator {
     }
 
     /// Execute a single agent for a work item
+    #[allow(clippy::too_many_arguments)]
     async fn execute_agent_for_item(
         agent_manager: &Arc<dyn AgentLifecycleManager>,
         agent_id: &str,
@@ -667,11 +668,15 @@ impl MapReduceCoordinator {
         // Execute based on step type
         if let Some(claude_cmd) = &step.claude {
             // Interpolate variables in command
-            let interpolated_cmd = engine
-                .interpolate(claude_cmd, &mut interp_context)
-                .map_err(|e| {
-                    MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
-                })?;
+            let interpolated_cmd =
+                engine
+                    .interpolate(claude_cmd, &interp_context)
+                    .map_err(|e| {
+                        MapReduceError::ProcessingError(format!(
+                            "Variable interpolation failed: {}",
+                            e
+                        ))
+                    })?;
 
             // Execute Claude command
             info!("Executing Claude command in worktree: {}", interpolated_cmd);
@@ -692,9 +697,9 @@ impl MapReduceCoordinator {
 
             Ok(StepResult {
                 success: result.success,
-                exit_code: result.exit_code,
+                _exit_code: result.exit_code,
                 stdout: Some(result.stdout),
-                stderr: Some(result.stderr),
+                _stderr: Some(result.stderr),
             })
         } else if let Some(shell_cmd) = &step.shell {
             // Debug: print context
@@ -702,15 +707,11 @@ impl MapReduceCoordinator {
             debug!("Context variables: {:?}", interp_context);
 
             // Interpolate variables in command
-            let interpolated_cmd =
-                engine
-                    .interpolate(shell_cmd, &mut interp_context)
-                    .map_err(|e| {
-                        MapReduceError::ProcessingError(format!(
-                            "Variable interpolation failed: {}",
-                            e
-                        ))
-                    })?;
+            let interpolated_cmd = engine
+                .interpolate(shell_cmd, &interp_context)
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
+                })?;
 
             // Execute shell command
             info!("Executing shell command in worktree: {}", interpolated_cmd);
@@ -734,9 +735,9 @@ impl MapReduceCoordinator {
 
             Ok(StepResult {
                 success: exit_code == 0,
-                exit_code: Some(exit_code),
+                _exit_code: Some(exit_code),
                 stdout: Some(output.stdout),
-                stderr: Some(output.stderr),
+                _stderr: Some(output.stderr),
             })
         } else {
             Err(MapReduceError::InvalidConfiguration {
@@ -781,7 +782,7 @@ impl MapReduceCoordinator {
                 interp_context.set(key.clone(), value.clone());
             }
 
-            let interpolated_cmd = engine.interpolate(cmd, &mut interp_context).map_err(|e| {
+            let interpolated_cmd = engine.interpolate(cmd, &interp_context).map_err(|e| {
                 MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
             })?;
 
@@ -811,7 +812,7 @@ impl MapReduceCoordinator {
                 interp_context.set(key.clone(), value.clone());
             }
 
-            let interpolated_cmd = engine.interpolate(cmd, &mut interp_context).map_err(|e| {
+            let interpolated_cmd = engine.interpolate(cmd, &interp_context).map_err(|e| {
                 MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
             })?;
 

@@ -7,18 +7,18 @@ use std::path::PathBuf;
 
 /// Event logger for MapReduce job tracking
 pub struct EventLogger {
-    project_root: PathBuf,
-    job_id: String,
-    session_id: Option<String>,
+    _project_root: PathBuf,
+    _job_id: String,
+    _session_id: Option<String>,
 }
 
 impl EventLogger {
     /// Create a new event logger
     pub fn new(project_root: PathBuf, job_id: String, session_id: Option<String>) -> Self {
         Self {
-            project_root,
-            job_id,
-            session_id,
+            _project_root: project_root,
+            _job_id: job_id,
+            _session_id: session_id,
         }
     }
 

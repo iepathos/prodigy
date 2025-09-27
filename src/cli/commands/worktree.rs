@@ -83,6 +83,7 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
 }
 
 /// Clean up worktrees
+#[allow(clippy::too_many_arguments)]
 async fn run_worktree_clean(
     all: bool,
     name: Option<String>,
