@@ -54,7 +54,7 @@ impl OutputFormatter {
         if !report.warnings.is_empty() {
             writeln!(&mut output, "\n⚠️  Warnings:").unwrap();
             for warning in &report.warnings {
-                writeln!(&mut output, "  • {}", warning.to_string()).unwrap();
+                writeln!(&mut output, "  • {}", warning).unwrap();
             }
         }
 
@@ -62,7 +62,7 @@ impl OutputFormatter {
         if !report.errors.is_empty() {
             writeln!(&mut output, "\n❌ Errors:").unwrap();
             for error in &report.errors {
-                writeln!(&mut output, "  • {}", error.to_string()).unwrap();
+                writeln!(&mut output, "  • {}", error).unwrap();
             }
         }
 

@@ -201,7 +201,7 @@ impl ResourceEstimator {
 
         // Checkpoints are saved periodically
         let checkpoint_interval = 10; // Every 10 items
-        let checkpoint_count = (work_items.len() + checkpoint_interval - 1) / checkpoint_interval;
+        let checkpoint_count = work_items.len().div_ceil(checkpoint_interval);
 
         let total_mb = (checkpoint_size_kb * checkpoint_count) / 1024;
 

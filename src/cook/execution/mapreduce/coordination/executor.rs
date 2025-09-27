@@ -130,8 +130,12 @@ impl MapReduceCoordinator {
         info!("Starting MapReduce job execution");
 
         // Check if we're in dry-run mode
-        if let crate::cook::execution::mapreduce::dry_run::ExecutionMode::DryRun(ref config) = self.execution_mode {
-            return self.execute_dry_run(setup.as_ref(), &map_phase, reduce.as_ref(), config).await;
+        if let crate::cook::execution::mapreduce::dry_run::ExecutionMode::DryRun(ref config) =
+            self.execution_mode
+        {
+            return self
+                .execute_dry_run(setup.as_ref(), &map_phase, reduce.as_ref(), config)
+                .await;
         }
 
         // Execute setup phase if present
@@ -179,11 +183,10 @@ impl MapReduceCoordinator {
         let validator = DryRunValidator::new();
 
         // Validate the workflow
-        match validator.validate_workflow_phases(
-            setup.map(|s| s.clone()),
-            map_phase.clone(),
-            reduce.map(|r| r.clone()),
-        ).await {
+        match validator
+            .validate_workflow_phases(setup.cloned(), map_phase.clone(), reduce.cloned())
+            .await
+        {
             Ok(report) => {
                 // Display the validation report
                 let formatter = OutputFormatter::new();
@@ -193,18 +196,27 @@ impl MapReduceCoordinator {
                 self.user_interaction.display_info(&output);
 
                 if report.errors.is_empty() {
-                    self.user_interaction.display_success("Dry-run validation successful! Workflow is ready to execute.");
+                    self.user_interaction.display_success(
+                        "Dry-run validation successful! Workflow is ready to execute.",
+                    );
                     Ok(Vec::new()) // Return empty results for dry-run
                 } else {
-                    self.user_interaction.display_error(&format!("Dry-run validation failed with {} error(s)", report.errors.len()));
+                    self.user_interaction.display_error(&format!(
+                        "Dry-run validation failed with {} error(s)",
+                        report.errors.len()
+                    ));
                     Err(MapReduceError::General {
-                        message: format!("Dry-run validation failed with {} errors", report.errors.len()),
+                        message: format!(
+                            "Dry-run validation failed with {} errors",
+                            report.errors.len()
+                        ),
                         source: None,
                     })
                 }
-            },
+            }
             Err(e) => {
-                self.user_interaction.display_error(&format!("Dry-run validation failed: {}", e));
+                self.user_interaction
+                    .display_error(&format!("Dry-run validation failed: {}", e));
                 Err(MapReduceError::General {
                     message: format!("Dry-run validation failed: {}", e),
                     source: None,

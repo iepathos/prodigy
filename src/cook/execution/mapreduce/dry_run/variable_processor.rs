@@ -51,7 +51,7 @@ impl VariableProcessor {
 
         if let Some(setup) = setup_phase {
             // Setup phase can capture outputs
-            for (var_name, _) in &setup.capture_outputs {
+            for var_name in setup.capture_outputs.keys() {
                 variables.insert(
                     format!("setup.{}", var_name),
                     "<captured from setup command>".to_string(),
@@ -201,10 +201,7 @@ impl VariableProcessor {
                 .goal_seek
                 .as_ref()
                 .and_then(|gs| gs.claude.as_deref()),
-            command
-                .goal_seek
-                .as_ref()
-                .map(|gs| gs.validate.as_str()),
+            command.goal_seek.as_ref().map(|gs| gs.validate.as_str()),
         ];
 
         for text in command_texts.into_iter().flatten() {

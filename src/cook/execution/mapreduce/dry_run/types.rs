@@ -10,18 +10,13 @@ use std::time::Duration;
 use thiserror::Error;
 
 /// Execution mode for MapReduce operations
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum ExecutionMode {
     /// Normal execution mode
+    #[default]
     Normal,
     /// Dry-run validation mode
     DryRun(DryRunConfig),
-}
-
-impl Default for ExecutionMode {
-    fn default() -> Self {
-        ExecutionMode::Normal
-    }
 }
 
 /// Configuration for dry-run mode

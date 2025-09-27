@@ -45,7 +45,7 @@ impl InputValidator {
             DryRunError::InputError(format!("Failed to read input file {}: {}", path, e))
         })?;
 
-        let data: Value = serde_json::from_str(&content).map_err(|e| DryRunError::JsonError(e))?;
+        let data: Value = serde_json::from_str(&content).map_err(DryRunError::JsonError)?;
 
         let item_count = self.estimate_item_count(&data);
         let structure = self.analyze_structure(&data);
@@ -82,10 +82,7 @@ impl InputValidator {
         let dangerous_commands = ["rm", "del", "format", "dd", "mkfs"];
         let first_word = cmd.split_whitespace().next().unwrap_or("");
 
-        if dangerous_commands
-            .iter()
-            .any(|&danger| first_word == danger)
-        {
+        if dangerous_commands.contains(&first_word) {
             warn!("Potentially dangerous command detected: {}", cmd);
         }
 
@@ -198,7 +195,10 @@ impl InputValidator {
         }
 
         // For unsupported patterns, return the data as-is
-        warn!("Complex JSONPath '{}' not fully supported in dry-run mode", path);
+        warn!(
+            "Complex JSONPath '{}' not fully supported in dry-run mode",
+            path
+        );
         Ok(vec![data.clone()])
     }
 

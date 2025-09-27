@@ -95,9 +95,9 @@ impl DryRunValidator {
 
         // Determine overall validity
         let is_valid = errors.is_empty()
-            && setup_validation.as_ref().map_or(true, |v| v.valid)
+            && setup_validation.as_ref().is_none_or(|v| v.valid)
             && map_validation.valid
-            && reduce_validation.as_ref().map_or(true, |v| v.valid);
+            && reduce_validation.as_ref().is_none_or(|v| v.valid);
 
         let validation_results = ValidationResults {
             setup_phase: setup_validation,
@@ -280,6 +280,7 @@ impl DryRunValidator {
     }
 
     /// Validate reduce phase
+    #[allow(clippy::ptr_arg)]
     fn validate_reduce_phase(
         &self,
         reduce: &ReducePhase,
@@ -332,7 +333,7 @@ impl DryRunValidator {
         // Calculate distribution across agents
         let mut distribution = HashMap::new();
         let agents = map_phase.config.max_parallel;
-        let items_per_agent = (work_items.len() + agents - 1) / agents;
+        let items_per_agent = work_items.len().div_ceil(agents);
 
         for agent_id in 0..agents {
             let start = agent_id * items_per_agent;
