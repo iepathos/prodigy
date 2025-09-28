@@ -6,12 +6,10 @@
 use crate::cook::execution::mapreduce::{
     agent::AgentResult,
     checkpoint::{
-        CheckpointConfig, CheckpointId, CheckpointManager, CheckpointReason, CheckpointStorage,
-        FileCheckpointStorage, MapReduceCheckpoint, MapReduceCheckpoint as Checkpoint, PhaseType,
-        ResumeState, WorkItem, WorkItemProgress, WorkItemState,
+        CheckpointConfig, CheckpointId, CheckpointManager, CheckpointReason, FileCheckpointStorage,
+        MapReduceCheckpoint as Checkpoint, PhaseType, WorkItem, WorkItemProgress, WorkItemState,
     },
     coordination::MapReduceCoordinator,
-    state::StateManager,
     types::{MapPhase, ReducePhase, SetupPhase},
 };
 use crate::cook::orchestrator::ExecutionEnvironment;
@@ -23,12 +21,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::info;
 
 /// Enhanced coordinator with checkpoint support
 pub struct CheckpointedCoordinator {
     /// Base coordinator
-    coordinator: MapReduceCoordinator,
+    _coordinator: MapReduceCoordinator,
     /// Checkpoint manager
     checkpoint_manager: Arc<CheckpointManager>,
     /// Current checkpoint state
@@ -53,7 +51,7 @@ impl CheckpointedCoordinator {
         let checkpoint_manager = Arc::new(CheckpointManager::new(storage, config, job_id.clone()));
 
         Self {
-            coordinator,
+            _coordinator: coordinator,
             checkpoint_manager,
             current_checkpoint: Arc::new(RwLock::new(None)),
             last_checkpoint_time: Arc::new(RwLock::new(Utc::now())),
@@ -192,8 +190,8 @@ impl CheckpointedCoordinator {
     /// Execute setup phase with checkpoint
     async fn execute_setup_with_checkpoint(
         &self,
-        setup: SetupPhase,
-        env: &ExecutionEnvironment,
+        _setup: SetupPhase,
+        _env: &ExecutionEnvironment,
     ) -> Result<()> {
         info!("Executing setup phase with checkpoint support");
 
@@ -276,9 +274,9 @@ impl CheckpointedCoordinator {
     /// Execute reduce phase with checkpoint
     async fn execute_reduce_with_checkpoint(
         &self,
-        reduce: ReducePhase,
-        map_results: &[AgentResult],
-        env: &ExecutionEnvironment,
+        _reduce: ReducePhase,
+        _map_results: &[AgentResult],
+        _env: &ExecutionEnvironment,
     ) -> Result<()> {
         info!("Executing reduce phase with checkpoint support");
 
@@ -440,8 +438,8 @@ impl CheckpointedCoordinator {
     async fn process_batch(
         &self,
         batch: Vec<WorkItem>,
-        map_phase: &MapPhase,
-        env: &ExecutionEnvironment,
+        _map_phase: &MapPhase,
+        _env: &ExecutionEnvironment,
     ) -> Result<Vec<AgentResult>> {
         // Placeholder for actual batch processing
         // In real implementation, this would call the coordinator's execute methods
@@ -551,7 +549,7 @@ impl CheckpointedCoordinator {
     }
 
     /// Load work items for the map phase
-    async fn load_work_items(&self, map_phase: &MapPhase) -> Result<Vec<Value>> {
+    async fn load_work_items(&self, _map_phase: &MapPhase) -> Result<Vec<Value>> {
         // Placeholder - in real implementation, this would load from input source
         Ok(vec![])
     }

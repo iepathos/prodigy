@@ -5,7 +5,7 @@
 
 use crate::cli::args::CheckpointCommands;
 use crate::storage::{extract_repo_name, GlobalStorage};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
 /// Find the most recent checkpoint in the checkpoint directory

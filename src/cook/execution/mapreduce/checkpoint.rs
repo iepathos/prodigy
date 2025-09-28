@@ -429,7 +429,7 @@ impl CheckpointManager {
         }
 
         // Validate agent state consistency
-        for (agent_id, items) in &checkpoint.agent_state.agent_assignments {
+        for agent_id in checkpoint.agent_state.agent_assignments.keys() {
             if !checkpoint.agent_state.active_agents.contains_key(agent_id) {
                 return Err(anyhow!(
                     "Agent {} has assignments but is not active",
@@ -544,10 +544,8 @@ impl CheckpointManager {
         if let Some(max_age) = policy.max_age {
             let cutoff = Utc::now() - chrono::Duration::from_std(max_age).unwrap_or_default();
             for checkpoint in &sorted {
-                if checkpoint.created_at < cutoff {
-                    if !policy.keep_final || !checkpoint.is_final {
-                        to_delete.push(CheckpointId::from_string(checkpoint.id.clone()));
-                    }
+                if checkpoint.created_at < cutoff && (!policy.keep_final || !checkpoint.is_final) {
+                    to_delete.push(CheckpointId::from_string(checkpoint.id.clone()));
                 }
             }
         }
@@ -675,7 +673,10 @@ impl CheckpointManager {
         checkpoint_id: &CheckpointId,
         export_path: PathBuf,
     ) -> Result<()> {
-        info!("Exporting checkpoint {} to {:?}", checkpoint_id, export_path);
+        info!(
+            "Exporting checkpoint {} to {:?}",
+            checkpoint_id, export_path
+        );
 
         // Load checkpoint
         let checkpoint = self
@@ -1051,11 +1052,26 @@ mod tests {
 
         // Add some work items
         let items = vec![
-            WorkItem { id: "item-1".to_string(), data: Value::String("test1".to_string()) },
-            WorkItem { id: "item-2".to_string(), data: Value::String("test2".to_string()) },
-            WorkItem { id: "item-3".to_string(), data: Value::String("test3".to_string()) },
-            WorkItem { id: "item-4".to_string(), data: Value::String("test4".to_string()) },
-            WorkItem { id: "item-5".to_string(), data: Value::String("test5".to_string()) },
+            WorkItem {
+                id: "item-1".to_string(),
+                data: Value::String("test1".to_string()),
+            },
+            WorkItem {
+                id: "item-2".to_string(),
+                data: Value::String("test2".to_string()),
+            },
+            WorkItem {
+                id: "item-3".to_string(),
+                data: Value::String("test3".to_string()),
+            },
+            WorkItem {
+                id: "item-4".to_string(),
+                data: Value::String("test4".to_string()),
+            },
+            WorkItem {
+                id: "item-5".to_string(),
+                data: Value::String("test5".to_string()),
+            },
         ];
 
         // Set up work item state: 2 completed, 3 pending
@@ -1194,7 +1210,10 @@ mod tests {
                 .await
                 .expect(&format!("Failed to resume checkpoint with {:?}", algo));
 
-            assert_eq!(loaded.checkpoint.metadata.job_id, checkpoint.metadata.job_id);
+            assert_eq!(
+                loaded.checkpoint.metadata.job_id,
+                checkpoint.metadata.job_id
+            );
         }
     }
 
@@ -1256,8 +1275,15 @@ mod tests {
         }
 
         // Retention policy is set to max 3, so after creating 5, only 3 should remain
-        let checkpoints = manager.list_checkpoints().await.expect("Failed to list checkpoints");
-        assert_eq!(checkpoints.len(), 3, "Should have only 3 checkpoints due to retention policy");
+        let checkpoints = manager
+            .list_checkpoints()
+            .await
+            .expect("Failed to list checkpoints");
+        assert_eq!(
+            checkpoints.len(),
+            3,
+            "Should have only 3 checkpoints due to retention policy"
+        );
     }
 
     #[tokio::test]
@@ -1310,7 +1336,11 @@ mod tests {
             false,
         ));
         let config = CheckpointConfig::default();
-        let manager = std::sync::Arc::new(CheckpointManager::new(storage, config, "test-job".to_string()));
+        let manager = std::sync::Arc::new(CheckpointManager::new(
+            storage,
+            config,
+            "test-job".to_string(),
+        ));
 
         // Create multiple checkpoints concurrently
         let tasks: Vec<_> = (0..10)
@@ -1334,7 +1364,10 @@ mod tests {
         }
 
         // Verify all checkpoints exist
-        let checkpoints = manager.list_checkpoints().await.expect("Failed to list checkpoints");
+        let checkpoints = manager
+            .list_checkpoints()
+            .await
+            .expect("Failed to list checkpoints");
         assert_eq!(checkpoints.len(), 10);
     }
 
@@ -1580,10 +1613,10 @@ mod tests {
         let mut checkpoint = create_test_checkpoint("test-job");
 
         // Add inconsistent agent state
-        checkpoint.agent_state.agent_assignments.insert(
-            "non-existent-agent".to_string(),
-            vec!["item1".to_string()],
-        );
+        checkpoint
+            .agent_state
+            .agent_assignments
+            .insert("non-existent-agent".to_string(), vec!["item1".to_string()]);
 
         // This should fail validation due to agent inconsistency
         let result = manager
@@ -1659,7 +1692,10 @@ mod tests {
 
         // Test ValidateAndContinue strategy moves in-progress to pending
         let resume_state = manager
-            .resume_from_checkpoint_with_strategy(Some(id.clone()), ResumeStrategy::ValidateAndContinue)
+            .resume_from_checkpoint_with_strategy(
+                Some(id.clone()),
+                ResumeStrategy::ValidateAndContinue,
+            )
             .await
             .unwrap();
 
@@ -1695,22 +1731,28 @@ mod tests {
                 .await
                 .unwrap();
 
-            let resume = manager
-                .resume_from_checkpoint(Some(id))
-                .await
-                .unwrap();
+            let resume = manager.resume_from_checkpoint(Some(id)).await.unwrap();
 
             // Verify correct strategy is chosen for each phase
             match phase {
                 PhaseType::Setup => {
-                    assert!(matches!(resume.resume_strategy, ResumeStrategy::RestartCurrentPhase));
+                    assert!(matches!(
+                        resume.resume_strategy,
+                        ResumeStrategy::RestartCurrentPhase
+                    ));
                 }
                 PhaseType::Map => {
                     // With no in-progress items, should continue
-                    assert!(matches!(resume.resume_strategy, ResumeStrategy::ContinueFromCheckpoint));
+                    assert!(matches!(
+                        resume.resume_strategy,
+                        ResumeStrategy::ContinueFromCheckpoint
+                    ));
                 }
                 PhaseType::Reduce | PhaseType::Complete => {
-                    assert!(matches!(resume.resume_strategy, ResumeStrategy::ContinueFromCheckpoint));
+                    assert!(matches!(
+                        resume.resume_strategy,
+                        ResumeStrategy::ContinueFromCheckpoint
+                    ));
                 }
             }
         }
@@ -1729,27 +1771,23 @@ mod tests {
         let mut checkpoint = create_test_checkpoint("test-job");
 
         // Add failed items
-        checkpoint.work_item_state.failed_items = vec![
-            FailedWorkItem {
-                work_item: WorkItem {
-                    id: "failed-1".to_string(),
-                    data: Value::String("data".to_string()),
-                },
-                error: "Processing failed".to_string(),
-                failed_at: Utc::now(),
-                retry_count: 2,
+        checkpoint.work_item_state.failed_items = vec![FailedWorkItem {
+            work_item: WorkItem {
+                id: "failed-1".to_string(),
+                data: Value::String("data".to_string()),
             },
-        ];
+            error: "Processing failed".to_string(),
+            failed_at: Utc::now(),
+            retry_count: 2,
+        }];
 
         // Add DLQ items
-        checkpoint.error_state.dlq_items = vec![
-            DlqItem {
-                item_id: "dlq-1".to_string(),
-                error: "DLQ error".to_string(),
-                timestamp: Utc::now(),
-                retry_count: 1,
-            },
-        ];
+        checkpoint.error_state.dlq_items = vec![DlqItem {
+            item_id: "dlq-1".to_string(),
+            error: "DLQ error".to_string(),
+            timestamp: Utc::now(),
+            retry_count: 1,
+        }];
         checkpoint.error_state.error_count = 2;
 
         let id = manager
@@ -1757,10 +1795,7 @@ mod tests {
             .await
             .unwrap();
 
-        let resume = manager
-            .resume_from_checkpoint(Some(id))
-            .await
-            .unwrap();
+        let resume = manager.resume_from_checkpoint(Some(id)).await.unwrap();
 
         // Verify error state is preserved
         assert_eq!(resume.checkpoint.work_item_state.failed_items.len(), 1);
@@ -1825,10 +1860,7 @@ mod tests {
     #[tokio::test]
     async fn test_checkpoint_storage_not_found() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = FileCheckpointStorage::new(
-            temp_dir.path().to_path_buf(),
-            false,
-        );
+        let storage = FileCheckpointStorage::new(temp_dir.path().to_path_buf(), false);
 
         let non_existent_id = CheckpointId::from_string("non-existent".to_string());
         let result = storage.load_checkpoint(&non_existent_id).await;
@@ -1878,15 +1910,18 @@ mod tests {
         let mut checkpoint = create_test_checkpoint_with_work_items("test-job");
 
         // Add a failed item
-        checkpoint.work_item_state.failed_items.push(FailedWorkItem {
-            work_item: WorkItem {
-                id: "failed-item".to_string(),
-                data: Value::String("failed".to_string()),
-            },
-            error: "Test error".to_string(),
-            failed_at: Utc::now(),
-            retry_count: 1,
-        });
+        checkpoint
+            .work_item_state
+            .failed_items
+            .push(FailedWorkItem {
+                work_item: WorkItem {
+                    id: "failed-item".to_string(),
+                    data: Value::String("failed".to_string()),
+                },
+                error: "Test error".to_string(),
+                failed_at: Utc::now(),
+                retry_count: 1,
+            });
 
         let id = manager
             .create_checkpoint(&checkpoint, CheckpointReason::Manual)
@@ -1932,10 +1967,7 @@ mod tests {
             .await
             .unwrap();
 
-        let resume = manager
-            .resume_from_checkpoint(Some(id))
-            .await
-            .unwrap();
+        let resume = manager.resume_from_checkpoint(Some(id)).await.unwrap();
 
         // Verify resource state is preserved
         assert_eq!(resume.resources.total_agents_allowed, 20);
@@ -1958,35 +1990,32 @@ mod tests {
         let mut checkpoint = create_test_checkpoint("test-job");
 
         // Set up variable state
-        checkpoint.variable_state.workflow_variables.insert(
-            "output_dir".to_string(),
-            "/tmp/output".to_string(),
-        );
-        checkpoint.variable_state.captured_outputs.insert(
-            "command_1".to_string(),
-            "Success".to_string(),
-        );
-        checkpoint.variable_state.environment_variables.insert(
-            "PRODIGY_MODE".to_string(),
-            "test".to_string(),
-        );
+        checkpoint
+            .variable_state
+            .workflow_variables
+            .insert("output_dir".to_string(), "/tmp/output".to_string());
+        checkpoint
+            .variable_state
+            .captured_outputs
+            .insert("command_1".to_string(), "Success".to_string());
+        checkpoint
+            .variable_state
+            .environment_variables
+            .insert("PRODIGY_MODE".to_string(), "test".to_string());
 
         let mut item_vars = HashMap::new();
         item_vars.insert("path".to_string(), "/src/file.rs".to_string());
-        checkpoint.variable_state.item_variables.insert(
-            "item-1".to_string(),
-            item_vars,
-        );
+        checkpoint
+            .variable_state
+            .item_variables
+            .insert("item-1".to_string(), item_vars);
 
         let id = manager
             .create_checkpoint(&checkpoint, CheckpointReason::Manual)
             .await
             .unwrap();
 
-        let resume = manager
-            .resume_from_checkpoint(Some(id))
-            .await
-            .unwrap();
+        let resume = manager.resume_from_checkpoint(Some(id)).await.unwrap();
 
         // Verify all variable state is preserved
         assert_eq!(
@@ -2019,7 +2048,11 @@ mod tests {
         // Set up current batch
         checkpoint.work_item_state.current_batch = Some(WorkItemBatch {
             batch_id: "batch-001".to_string(),
-            items: vec!["item-1".to_string(), "item-2".to_string(), "item-3".to_string()],
+            items: vec![
+                "item-1".to_string(),
+                "item-2".to_string(),
+                "item-3".to_string(),
+            ],
             started_at: Utc::now(),
         });
 
@@ -2028,10 +2061,7 @@ mod tests {
             .await
             .unwrap();
 
-        let resume = manager
-            .resume_from_checkpoint(Some(id))
-            .await
-            .unwrap();
+        let resume = manager.resume_from_checkpoint(Some(id)).await.unwrap();
 
         // Verify batch information is preserved
         let batch = resume.checkpoint.work_item_state.current_batch.unwrap();
@@ -2063,10 +2093,7 @@ mod tests {
             .await
             .unwrap();
 
-        let resume = manager
-            .resume_from_checkpoint(Some(id))
-            .await
-            .unwrap();
+        let resume = manager.resume_from_checkpoint(Some(id)).await.unwrap();
 
         // Verify map results are preserved
         let map_results = resume.checkpoint.execution_state.map_results.unwrap();
@@ -2100,10 +2127,7 @@ mod tests {
             .await
             .unwrap();
 
-        let resume = manager
-            .resume_from_checkpoint(Some(id))
-            .await
-            .unwrap();
+        let resume = manager.resume_from_checkpoint(Some(id)).await.unwrap();
 
         // Verify error state is preserved
         assert_eq!(resume.checkpoint.error_state.error_count, 10);

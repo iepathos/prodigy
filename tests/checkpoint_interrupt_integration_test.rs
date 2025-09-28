@@ -4,10 +4,10 @@
 
 use chrono::Utc;
 use prodigy::cook::execution::mapreduce::checkpoint::{
-    AgentInfo, AgentState, CheckpointConfig,
-    CheckpointManager, CheckpointMetadata, CheckpointReason, CompletedWorkItem, ErrorState,
-    ExecutionState, FailedWorkItem, FileCheckpointStorage, MapReduceCheckpoint, PhaseType,
-    ResourceState, ResumeStrategy, VariableState, WorkItem, WorkItemProgress, WorkItemState,
+    AgentInfo, AgentState, CheckpointConfig, CheckpointManager, CheckpointMetadata,
+    CheckpointReason, CompletedWorkItem, ErrorState, ExecutionState, FailedWorkItem,
+    FileCheckpointStorage, MapReduceCheckpoint, PhaseType, ResourceState, ResumeStrategy,
+    VariableState, WorkItem, WorkItemProgress, WorkItemState,
 };
 use prodigy::cook::execution::mapreduce::{AgentResult, AgentStatus};
 use serde_json::Value;
@@ -19,7 +19,11 @@ use tempfile::TempDir;
 use tokio::time::timeout;
 
 /// Helper to create a test checkpoint with realistic data
-fn create_test_checkpoint(job_id: &str, items_completed: usize, total_items: usize) -> MapReduceCheckpoint {
+fn create_test_checkpoint(
+    job_id: &str,
+    items_completed: usize,
+    total_items: usize,
+) -> MapReduceCheckpoint {
     let mut work_item_state = WorkItemState {
         pending_items: vec![],
         in_progress_items: HashMap::new(),
@@ -126,20 +130,24 @@ fn create_test_checkpoint(job_id: &str, items_completed: usize, total_items: usi
             },
             phase_start_time: Utc::now() - chrono::Duration::minutes(10),
             setup_results: if items_completed > 0 {
-                Some(prodigy::cook::execution::mapreduce::checkpoint::PhaseResult {
-                    success: true,
-                    outputs: vec!["Setup complete".to_string()],
-                    duration: Duration::from_secs(60),
-                })
+                Some(
+                    prodigy::cook::execution::mapreduce::checkpoint::PhaseResult {
+                        success: true,
+                        outputs: vec!["Setup complete".to_string()],
+                        duration: Duration::from_secs(60),
+                    },
+                )
             } else {
                 None
             },
             map_results: if items_completed > 0 {
-                Some(prodigy::cook::execution::mapreduce::checkpoint::MapPhaseResults {
-                    successful_count: items_completed,
-                    failed_count: 0,
-                    total_duration: Duration::from_secs(items_completed as u64 * 10),
-                })
+                Some(
+                    prodigy::cook::execution::mapreduce::checkpoint::MapPhaseResults {
+                        successful_count: items_completed,
+                        failed_count: 0,
+                        total_duration: Duration::from_secs(items_completed as u64 * 10),
+                    },
+                )
             } else {
                 None
             },
@@ -159,15 +167,18 @@ fn create_test_checkpoint(job_id: &str, items_completed: usize, total_items: usi
                 ("total_items".to_string(), total_items.to_string()),
             ]),
             captured_outputs: HashMap::new(),
-            environment_variables: HashMap::from([
-                ("PRODIGY_MODE".to_string(), "test".to_string()),
-            ]),
+            environment_variables: HashMap::from([(
+                "PRODIGY_MODE".to_string(),
+                "test".to_string(),
+            )]),
             item_variables: HashMap::new(),
         },
         resource_state: ResourceState {
             total_agents_allowed: 10,
             current_agents_active: active_agents.len(),
-            worktrees_created: (0..items_completed).map(|i| format!("worktree-{}", i)).collect(),
+            worktrees_created: (0..items_completed)
+                .map(|i| format!("worktree-{}", i))
+                .collect(),
             worktrees_cleaned: vec![],
             disk_usage_bytes: Some((items_completed as u64) * 1024 * 1024),
         },
@@ -183,7 +194,10 @@ fn create_test_checkpoint(job_id: &str, items_completed: usize, total_items: usi
 #[tokio::test]
 async fn test_checkpoint_save_and_load_after_interruption() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), true));
+    let storage = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        true,
+    ));
     let config = CheckpointConfig::default();
     let job_id = "interrupt-test-job";
     let manager = CheckpointManager::new(storage, config, job_id.to_string());
@@ -201,7 +215,10 @@ async fn test_checkpoint_save_and_load_after_interruption() {
     drop(manager);
 
     // Create new manager (simulating restart after interruption)
-    let storage = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), true));
+    let storage = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        true,
+    ));
     let config = CheckpointConfig::default();
     let new_manager = CheckpointManager::new(storage, config, job_id.to_string());
 
@@ -225,7 +242,10 @@ async fn test_checkpoint_save_and_load_after_interruption() {
 #[tokio::test]
 async fn test_checkpoint_periodic_saves_during_execution() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Arc::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), true));
+    let storage = Arc::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        true,
+    ));
 
     let mut config = CheckpointConfig::default();
     config.interval_items = Some(3); // Checkpoint every 3 items
@@ -233,8 +253,15 @@ async fn test_checkpoint_periodic_saves_during_execution() {
 
     let job_id = "periodic-checkpoint-job";
     // Clone the storage path rather than the storage itself
-    let storage_clone = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), true));
-    let manager = Arc::new(CheckpointManager::new(storage_clone, config, job_id.to_string()));
+    let storage_clone = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        true,
+    ));
+    let manager = Arc::new(CheckpointManager::new(
+        storage_clone,
+        config,
+        job_id.to_string(),
+    ));
 
     let mut last_checkpoint_time = Utc::now();
     let mut items_since_checkpoint = 0;
@@ -263,13 +290,19 @@ async fn test_checkpoint_periodic_saves_during_execution() {
 
     // Verify multiple checkpoints were created
     let checkpoints = manager.list_checkpoints().await.unwrap();
-    assert!(checkpoints.len() >= 3, "Should have created multiple checkpoints");
+    assert!(
+        checkpoints.len() >= 3,
+        "Should have created multiple checkpoints"
+    );
 }
 
 #[tokio::test]
 async fn test_resume_after_agent_failure() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), true));
+    let storage = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        true,
+    ));
     let config = CheckpointConfig::default();
     let job_id = "agent-failure-job";
     let manager = CheckpointManager::new(storage, config, job_id.to_string());
@@ -318,19 +351,32 @@ async fn test_resume_after_agent_failure() {
         .unwrap();
 
     // Verify failed items are preserved for retry
-    assert_eq!(resume_state.checkpoint.work_item_state.failed_items.len(), 2);
+    assert_eq!(
+        resume_state.checkpoint.work_item_state.failed_items.len(),
+        2
+    );
     assert_eq!(resume_state.checkpoint.error_state.error_count, 2);
 }
 
 #[tokio::test]
 async fn test_concurrent_checkpoint_updates() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Arc::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), false));
+    let storage = Arc::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        false,
+    ));
     let config = CheckpointConfig::default();
     let job_id = "concurrent-job";
     // Clone the storage path rather than the storage itself
-    let storage_clone = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), true));
-    let manager = Arc::new(CheckpointManager::new(storage_clone, config, job_id.to_string()));
+    let storage_clone = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        true,
+    ));
+    let manager = Arc::new(CheckpointManager::new(
+        storage_clone,
+        config,
+        job_id.to_string(),
+    ));
 
     // Simulate multiple agents updating checkpoints concurrently
     let mut tasks = vec![];
@@ -352,7 +398,10 @@ async fn test_concurrent_checkpoint_updates() {
 
     // All should succeed
     for result in results {
-        assert!(result.unwrap().is_ok(), "Checkpoint creation should succeed");
+        assert!(
+            result.unwrap().is_ok(),
+            "Checkpoint creation should succeed"
+        );
     }
 
     // Verify checkpoints were created
@@ -406,14 +455,24 @@ async fn test_checkpoint_compression_and_decompression() {
 
         // Verify data integrity after compression/decompression
         assert_eq!(resume_state.checkpoint.metadata.completed_items, 50);
-        assert_eq!(resume_state.checkpoint.variable_state.captured_outputs.len(), 50);
+        assert_eq!(
+            resume_state
+                .checkpoint
+                .variable_state
+                .captured_outputs
+                .len(),
+            50
+        );
     }
 }
 
 #[tokio::test]
 async fn test_phase_transition_checkpoints() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), true));
+    let storage = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        true,
+    ));
     let config = CheckpointConfig::default();
     let job_id = "phase-transition-job";
     let manager = CheckpointManager::new(storage, config, job_id.to_string());
@@ -434,7 +493,10 @@ async fn test_phase_transition_checkpoints() {
         .await
         .unwrap();
 
-    assert!(matches!(setup_resume.resume_strategy, ResumeStrategy::RestartCurrentPhase));
+    assert!(matches!(
+        setup_resume.resume_strategy,
+        ResumeStrategy::RestartCurrentPhase
+    ));
 
     // Test Map -> Reduce transition
     let mut map_checkpoint = create_test_checkpoint(job_id, 10, 10);
@@ -447,12 +509,12 @@ async fn test_phase_transition_checkpoints() {
         .unwrap();
 
     // Resume from map completion
-    let map_resume = manager
-        .resume_from_checkpoint(Some(map_id))
-        .await
-        .unwrap();
+    let map_resume = manager.resume_from_checkpoint(Some(map_id)).await.unwrap();
 
-    assert!(matches!(map_resume.resume_strategy, ResumeStrategy::ContinueFromCheckpoint));
+    assert!(matches!(
+        map_resume.resume_strategy,
+        ResumeStrategy::ContinueFromCheckpoint
+    ));
 }
 
 #[tokio::test]
@@ -462,7 +524,10 @@ async fn test_checkpoint_export_import_across_environments() {
     let export_path = temp_dir1.path().join("export.json");
 
     // Create checkpoint in environment 1
-    let storage1 = Box::new(FileCheckpointStorage::new(temp_dir1.path().join("checkpoints"), true));
+    let storage1 = Box::new(FileCheckpointStorage::new(
+        temp_dir1.path().join("checkpoints"),
+        true,
+    ));
     let config1 = CheckpointConfig::default();
     let job_id = "export-job";
     let manager1 = CheckpointManager::new(storage1, config1, job_id.to_string());
@@ -482,14 +547,14 @@ async fn test_checkpoint_export_import_across_environments() {
     assert!(export_path.exists(), "Export file should exist");
 
     // Import checkpoint in environment 2
-    let storage2 = Box::new(FileCheckpointStorage::new(temp_dir2.path().join("checkpoints"), true));
+    let storage2 = Box::new(FileCheckpointStorage::new(
+        temp_dir2.path().join("checkpoints"),
+        true,
+    ));
     let config2 = CheckpointConfig::default();
     let manager2 = CheckpointManager::new(storage2, config2, job_id.to_string());
 
-    let imported_id = manager2
-        .import_checkpoint(export_path)
-        .await
-        .unwrap();
+    let imported_id = manager2.import_checkpoint(export_path).await.unwrap();
 
     // Resume from imported checkpoint
     let resume_state = manager2
@@ -505,7 +570,10 @@ async fn test_checkpoint_export_import_across_environments() {
 #[tokio::test]
 async fn test_checkpoint_timeout_handling() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), false));
+    let storage = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        false,
+    ));
     let config = CheckpointConfig::default();
     let job_id = "timeout-job";
     let manager = CheckpointManager::new(storage, config, job_id.to_string());
@@ -530,14 +598,19 @@ async fn test_checkpoint_timeout_handling() {
 #[tokio::test]
 async fn test_checkpoint_retention_and_cleanup() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), false));
+    let storage = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        false,
+    ));
 
     let mut config = CheckpointConfig::default();
-    config.retention_policy = Some(prodigy::cook::execution::mapreduce::checkpoint::RetentionPolicy {
-        max_checkpoints: Some(3),
-        max_age: Some(Duration::from_secs(60)),
-        keep_final: true,
-    });
+    config.retention_policy = Some(
+        prodigy::cook::execution::mapreduce::checkpoint::RetentionPolicy {
+            max_checkpoints: Some(3),
+            max_age: Some(Duration::from_secs(60)),
+            keep_final: true,
+        },
+    );
 
     let job_id = "retention-test-job";
     let manager = CheckpointManager::new(storage, config, job_id.to_string());
@@ -567,7 +640,10 @@ async fn test_checkpoint_retention_and_cleanup() {
 #[tokio::test]
 async fn test_resume_strategy_selection() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), true));
+    let storage = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        true,
+    ));
     let config = CheckpointConfig::default();
     let job_id = "strategy-test-job";
     let manager = CheckpointManager::new(storage, config, job_id.to_string());
@@ -619,7 +695,10 @@ async fn test_resume_strategy_selection() {
 #[tokio::test]
 async fn test_checkpoint_integrity_verification() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), false));
+    let storage = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        false,
+    ));
 
     let mut config = CheckpointConfig::default();
     config.validate_on_save = true;
@@ -648,7 +727,10 @@ async fn test_checkpoint_integrity_verification() {
 #[tokio::test]
 async fn test_worktree_resource_tracking_across_resume() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Box::new(FileCheckpointStorage::new(temp_dir.path().to_path_buf(), true));
+    let storage = Box::new(FileCheckpointStorage::new(
+        temp_dir.path().to_path_buf(),
+        true,
+    ));
     let config = CheckpointConfig::default();
     let job_id = "worktree-tracking-job";
     let manager = CheckpointManager::new(storage, config, job_id.to_string());
@@ -681,5 +763,8 @@ async fn test_worktree_resource_tracking_across_resume() {
     assert_eq!(resume_state.resources.worktrees_created.len(), 4);
     assert_eq!(resume_state.resources.worktrees_cleaned.len(), 1);
     assert_eq!(resume_state.resources.current_agents_active, 3);
-    assert_eq!(resume_state.resources.disk_usage_bytes, Some(50 * 1024 * 1024));
+    assert_eq!(
+        resume_state.resources.disk_usage_bytes,
+        Some(50 * 1024 * 1024)
+    );
 }
