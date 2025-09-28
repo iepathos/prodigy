@@ -1,0 +1,1060 @@
+//! Enhanced MapReduce checkpoint management
+//!
+//! Comprehensive checkpoint creation, storage, and recovery for MapReduce jobs.
+
+use crate::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig};
+use anyhow::{anyhow, Context, Result};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+use std::time::Duration;
+use tokio::fs;
+use tracing::{debug, info, warn};
+
+/// Unique identifier for a checkpoint
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CheckpointId(String);
+
+impl CheckpointId {
+    /// Create a new checkpoint ID
+    pub fn new() -> Self {
+        Self(format!("cp-{}", uuid::Uuid::new_v4()))
+    }
+
+    /// Create from an existing string
+    pub fn from_string(id: String) -> Self {
+        Self(id)
+    }
+
+    /// Get the inner string
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Default for CheckpointId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Display for CheckpointId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Enhanced MapReduce checkpoint with comprehensive state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MapReduceCheckpoint {
+    /// Basic checkpoint metadata
+    pub metadata: CheckpointMetadata,
+    /// Complete execution state
+    pub execution_state: ExecutionState,
+    /// Work item processing status
+    pub work_item_state: WorkItemState,
+    /// Agent execution state
+    pub agent_state: AgentState,
+    /// Variable and context state
+    pub variable_state: VariableState,
+    /// Resource allocation state
+    pub resource_state: ResourceState,
+    /// Error and DLQ state
+    pub error_state: ErrorState,
+}
+
+/// Checkpoint metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointMetadata {
+    pub checkpoint_id: String,
+    pub job_id: String,
+    pub version: u32,
+    pub created_at: DateTime<Utc>,
+    pub phase: PhaseType,
+    pub total_work_items: usize,
+    pub completed_items: usize,
+    pub checkpoint_reason: CheckpointReason,
+    pub integrity_hash: String,
+}
+
+/// Reason for creating a checkpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CheckpointReason {
+    Interval,
+    PhaseTransition,
+    Manual,
+    BeforeShutdown,
+    BatchComplete,
+    ErrorRecovery,
+}
+
+/// Phase types in MapReduce execution
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PhaseType {
+    Setup,
+    Map,
+    Reduce,
+    Complete,
+}
+
+/// Complete execution state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionState {
+    pub current_phase: PhaseType,
+    pub phase_start_time: DateTime<Utc>,
+    pub setup_results: Option<PhaseResult>,
+    pub map_results: Option<MapPhaseResults>,
+    pub reduce_results: Option<PhaseResult>,
+    pub workflow_variables: HashMap<String, Value>,
+}
+
+/// Results from a phase execution
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhaseResult {
+    pub success: bool,
+    pub outputs: Vec<String>,
+    pub duration: Duration,
+}
+
+/// Results from map phase execution
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MapPhaseResults {
+    pub successful_count: usize,
+    pub failed_count: usize,
+    pub total_duration: Duration,
+}
+
+/// Work item processing state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkItemState {
+    pub pending_items: Vec<WorkItem>,
+    pub in_progress_items: HashMap<String, WorkItemProgress>,
+    pub completed_items: Vec<CompletedWorkItem>,
+    pub failed_items: Vec<FailedWorkItem>,
+    pub current_batch: Option<WorkItemBatch>,
+}
+
+/// A work item to be processed
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkItem {
+    pub id: String,
+    pub data: Value,
+}
+
+/// Progress tracking for a work item
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkItemProgress {
+    pub work_item: WorkItem,
+    pub agent_id: String,
+    pub started_at: DateTime<Utc>,
+    pub last_update: DateTime<Utc>,
+}
+
+/// A completed work item
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompletedWorkItem {
+    pub work_item: WorkItem,
+    pub result: AgentResult,
+    pub completed_at: DateTime<Utc>,
+}
+
+/// A failed work item
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailedWorkItem {
+    pub work_item: WorkItem,
+    pub error: String,
+    pub failed_at: DateTime<Utc>,
+    pub retry_count: usize,
+}
+
+/// Batch of work items being processed
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkItemBatch {
+    pub batch_id: String,
+    pub items: Vec<String>,
+    pub started_at: DateTime<Utc>,
+}
+
+/// Agent execution state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentState {
+    pub active_agents: HashMap<String, AgentInfo>,
+    pub agent_assignments: HashMap<String, Vec<String>>,
+    pub agent_results: HashMap<String, AgentResult>,
+    pub resource_allocation: HashMap<String, ResourceAllocation>,
+}
+
+/// Information about an active agent
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentInfo {
+    pub agent_id: String,
+    pub worktree_path: PathBuf,
+    pub started_at: DateTime<Utc>,
+    pub last_heartbeat: DateTime<Utc>,
+    pub status: AgentStatus,
+}
+
+/// Resource allocation for an agent
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceAllocation {
+    pub cpu_cores: Option<usize>,
+    pub memory_mb: Option<usize>,
+    pub disk_mb: Option<usize>,
+}
+
+/// Variable state for interpolation and context
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VariableState {
+    pub workflow_variables: HashMap<String, String>,
+    pub captured_outputs: HashMap<String, String>,
+    pub environment_variables: HashMap<String, String>,
+    pub item_variables: HashMap<String, HashMap<String, String>>,
+}
+
+/// Resource state for the job
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceState {
+    pub total_agents_allowed: usize,
+    pub current_agents_active: usize,
+    pub worktrees_created: Vec<String>,
+    pub worktrees_cleaned: Vec<String>,
+    pub disk_usage_bytes: Option<u64>,
+}
+
+/// Error and DLQ state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorState {
+    pub error_count: usize,
+    pub dlq_items: Vec<DlqItem>,
+    pub error_threshold_reached: bool,
+    pub last_error: Option<String>,
+}
+
+/// Dead letter queue item
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DlqItem {
+    pub item_id: String,
+    pub error: String,
+    pub timestamp: DateTime<Utc>,
+    pub retry_count: usize,
+}
+
+/// Options for checkpoint configuration
+#[derive(Debug, Clone)]
+pub struct CheckpointConfig {
+    pub interval_items: Option<usize>,
+    pub interval_duration: Option<Duration>,
+    pub enable_compression: bool,
+    pub retention_policy: Option<RetentionPolicy>,
+    pub validate_on_save: bool,
+    pub validate_on_load: bool,
+}
+
+impl Default for CheckpointConfig {
+    fn default() -> Self {
+        Self {
+            interval_items: Some(100),
+            interval_duration: Some(Duration::from_secs(300)),
+            enable_compression: true,
+            retention_policy: Some(RetentionPolicy::default()),
+            validate_on_save: true,
+            validate_on_load: true,
+        }
+    }
+}
+
+/// Retention policy for checkpoints
+#[derive(Debug, Clone)]
+pub struct RetentionPolicy {
+    pub max_checkpoints: Option<usize>,
+    pub max_age: Option<Duration>,
+    pub keep_final: bool,
+}
+
+impl Default for RetentionPolicy {
+    fn default() -> Self {
+        Self {
+            max_checkpoints: Some(10),
+            max_age: Some(Duration::from_secs(7 * 24 * 3600)), // 7 days
+            keep_final: true,
+        }
+    }
+}
+
+/// Manager for MapReduce checkpoints
+pub struct CheckpointManager {
+    storage: Box<dyn CheckpointStorage>,
+    config: CheckpointConfig,
+    job_id: String,
+}
+
+impl CheckpointManager {
+    /// Create a new checkpoint manager
+    pub fn new(
+        storage: Box<dyn CheckpointStorage>,
+        config: CheckpointConfig,
+        job_id: String,
+    ) -> Self {
+        Self {
+            storage,
+            config,
+            job_id,
+        }
+    }
+
+    /// Create a checkpoint from current state
+    pub async fn create_checkpoint(
+        &self,
+        state: &MapReduceCheckpoint,
+        reason: CheckpointReason,
+    ) -> Result<CheckpointId> {
+        let checkpoint_id = CheckpointId::new();
+
+        // Update metadata
+        let mut checkpoint = state.clone();
+        checkpoint.metadata.checkpoint_id = checkpoint_id.to_string();
+        checkpoint.metadata.created_at = Utc::now();
+        checkpoint.metadata.checkpoint_reason = reason;
+        checkpoint.metadata.integrity_hash = self.calculate_integrity_hash(&checkpoint);
+
+        // Validate before saving if configured
+        if self.config.validate_on_save {
+            self.validate_checkpoint(&checkpoint)?;
+        }
+
+        // Save checkpoint
+        self.storage.save_checkpoint(&checkpoint).await?;
+
+        // Cleanup old checkpoints if needed
+        self.cleanup_old_checkpoints().await?;
+
+        info!(
+            "Created checkpoint {} for job {}",
+            checkpoint_id, self.job_id
+        );
+
+        Ok(checkpoint_id)
+    }
+
+    /// Resume from a checkpoint
+    pub async fn resume_from_checkpoint(
+        &self,
+        checkpoint_id: Option<CheckpointId>,
+    ) -> Result<ResumeState> {
+        let checkpoint_id = match checkpoint_id {
+            Some(id) => id,
+            None => self
+                .find_latest_checkpoint()
+                .await?
+                .ok_or_else(|| anyhow!("No checkpoint found for job {}", self.job_id))?,
+        };
+
+        let checkpoint = self.storage.load_checkpoint(&checkpoint_id).await?;
+
+        // Validate if configured
+        if self.config.validate_on_load {
+            self.validate_checkpoint(&checkpoint)?;
+            self.validate_integrity(&checkpoint)?;
+        }
+
+        // Build resume state
+        let resume_state = self.build_resume_state(checkpoint)?;
+
+        Ok(resume_state)
+    }
+
+    /// List available checkpoints
+    pub async fn list_checkpoints(&self) -> Result<Vec<CheckpointInfo>> {
+        self.storage.list_checkpoints(&self.job_id).await
+    }
+
+    /// Delete a specific checkpoint
+    pub async fn delete_checkpoint(&self, checkpoint_id: &CheckpointId) -> Result<()> {
+        self.storage.delete_checkpoint(checkpoint_id).await
+    }
+
+    /// Validate checkpoint structure
+    fn validate_checkpoint(&self, checkpoint: &MapReduceCheckpoint) -> Result<()> {
+        // Validate counts
+        let total_completed = checkpoint.work_item_state.completed_items.len();
+        let total_failed = checkpoint.work_item_state.failed_items.len();
+        let total_pending = checkpoint.work_item_state.pending_items.len();
+        let total_in_progress = checkpoint.work_item_state.in_progress_items.len();
+
+        let total_accounted = total_completed + total_failed + total_pending + total_in_progress;
+
+        if total_accounted != checkpoint.metadata.total_work_items {
+            warn!(
+                "Work item count mismatch: {} accounted vs {} total",
+                total_accounted, checkpoint.metadata.total_work_items
+            );
+        }
+
+        // Validate agent state consistency
+        for (agent_id, items) in &checkpoint.agent_state.agent_assignments {
+            if !checkpoint.agent_state.active_agents.contains_key(agent_id) {
+                return Err(anyhow!(
+                    "Agent {} has assignments but is not active",
+                    agent_id
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validate checkpoint integrity
+    fn validate_integrity(&self, checkpoint: &MapReduceCheckpoint) -> Result<()> {
+        let calculated_hash = self.calculate_integrity_hash(checkpoint);
+
+        if calculated_hash != checkpoint.metadata.integrity_hash {
+            return Err(anyhow!("Checkpoint integrity check failed: hash mismatch"));
+        }
+
+        Ok(())
+    }
+
+    /// Calculate integrity hash for checkpoint
+    fn calculate_integrity_hash(&self, checkpoint: &MapReduceCheckpoint) -> String {
+        use sha2::{Digest, Sha256};
+
+        let mut hasher = Sha256::new();
+
+        // Include key fields in hash
+        hasher.update(checkpoint.metadata.job_id.as_bytes());
+        hasher.update(checkpoint.metadata.version.to_string().as_bytes());
+        hasher.update(format!("{:?}", checkpoint.metadata.phase).as_bytes());
+        hasher.update(checkpoint.metadata.total_work_items.to_string().as_bytes());
+        hasher.update(checkpoint.metadata.completed_items.to_string().as_bytes());
+
+        // Include work item counts
+        hasher.update(
+            checkpoint
+                .work_item_state
+                .completed_items
+                .len()
+                .to_string()
+                .as_bytes(),
+        );
+        hasher.update(
+            checkpoint
+                .work_item_state
+                .failed_items
+                .len()
+                .to_string()
+                .as_bytes(),
+        );
+
+        format!("{:x}", hasher.finalize())
+    }
+
+    /// Find the latest checkpoint for the job
+    async fn find_latest_checkpoint(&self) -> Result<Option<CheckpointId>> {
+        let checkpoints = self.list_checkpoints().await?;
+
+        if checkpoints.is_empty() {
+            return Ok(None);
+        }
+
+        // Sort by created_at descending
+        let latest = checkpoints
+            .into_iter()
+            .max_by_key(|cp| cp.created_at)
+            .map(|cp| CheckpointId::from_string(cp.id));
+
+        Ok(latest)
+    }
+
+    /// Clean up old checkpoints based on retention policy
+    async fn cleanup_old_checkpoints(&self) -> Result<()> {
+        if let Some(ref policy) = self.config.retention_policy {
+            let checkpoints = self.list_checkpoints().await?;
+            let to_delete = self.select_checkpoints_for_deletion(&checkpoints, policy);
+
+            for checkpoint_id in to_delete {
+                self.delete_checkpoint(&checkpoint_id).await?;
+                debug!("Deleted old checkpoint {}", checkpoint_id);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Select checkpoints for deletion based on retention policy
+    fn select_checkpoints_for_deletion(
+        &self,
+        checkpoints: &[CheckpointInfo],
+        policy: &RetentionPolicy,
+    ) -> Vec<CheckpointId> {
+        let mut to_delete = Vec::new();
+        let mut sorted = checkpoints.to_vec();
+        sorted.sort_by_key(|c| c.created_at);
+
+        // Apply max_checkpoints limit
+        if let Some(max) = policy.max_checkpoints {
+            if sorted.len() > max {
+                let excess = sorted.len() - max;
+                for checkpoint in sorted.iter().take(excess) {
+                    if !policy.keep_final || !checkpoint.is_final {
+                        to_delete.push(CheckpointId::from_string(checkpoint.id.clone()));
+                    }
+                }
+            }
+        }
+
+        // Apply max_age limit
+        if let Some(max_age) = policy.max_age {
+            let cutoff = Utc::now() - chrono::Duration::from_std(max_age).unwrap_or_default();
+            for checkpoint in &sorted {
+                if checkpoint.created_at < cutoff {
+                    if !policy.keep_final || !checkpoint.is_final {
+                        to_delete.push(CheckpointId::from_string(checkpoint.id.clone()));
+                    }
+                }
+            }
+        }
+
+        to_delete
+    }
+
+    /// Build resume state from checkpoint
+    fn build_resume_state(&self, checkpoint: MapReduceCheckpoint) -> Result<ResumeState> {
+        let strategy = self.determine_resume_strategy(&checkpoint);
+
+        // Prepare work items based on strategy
+        let work_items = self.prepare_work_items_for_resume(&checkpoint, &strategy)?;
+
+        Ok(ResumeState {
+            execution_state: checkpoint.execution_state.clone(),
+            work_items,
+            agents: checkpoint.agent_state.clone(),
+            variables: checkpoint.variable_state.clone(),
+            resources: checkpoint.resource_state.clone(),
+            resume_strategy: strategy,
+            checkpoint,
+        })
+    }
+
+    /// Determine the resume strategy based on checkpoint state
+    fn determine_resume_strategy(&self, checkpoint: &MapReduceCheckpoint) -> ResumeStrategy {
+        match checkpoint.metadata.phase {
+            PhaseType::Setup => ResumeStrategy::RestartCurrentPhase,
+            PhaseType::Map => {
+                if checkpoint.work_item_state.in_progress_items.is_empty() {
+                    ResumeStrategy::ContinueFromCheckpoint
+                } else {
+                    ResumeStrategy::ValidateAndContinue
+                }
+            }
+            PhaseType::Reduce => ResumeStrategy::ContinueFromCheckpoint,
+            PhaseType::Complete => ResumeStrategy::ContinueFromCheckpoint,
+        }
+    }
+
+    /// Prepare work items for resume based on strategy
+    fn prepare_work_items_for_resume(
+        &self,
+        checkpoint: &MapReduceCheckpoint,
+        strategy: &ResumeStrategy,
+    ) -> Result<WorkItemState> {
+        let mut work_items = checkpoint.work_item_state.clone();
+
+        match strategy {
+            ResumeStrategy::ContinueFromCheckpoint => {
+                // Keep state as-is
+                Ok(work_items)
+            }
+            ResumeStrategy::ValidateAndContinue => {
+                // Move in-progress items back to pending
+                for (_, progress) in work_items.in_progress_items.drain() {
+                    work_items.pending_items.push(progress.work_item);
+                }
+                Ok(work_items)
+            }
+            ResumeStrategy::RestartCurrentPhase => {
+                // Reset progress for current phase
+                work_items.pending_items.extend(
+                    work_items
+                        .in_progress_items
+                        .drain()
+                        .map(|(_, p)| p.work_item),
+                );
+                work_items.completed_items.clear();
+                Ok(work_items)
+            }
+            ResumeStrategy::RestartFromMapPhase => {
+                // Reset everything from map phase
+                let all_items: Vec<WorkItem> = checkpoint
+                    .work_item_state
+                    .completed_items
+                    .iter()
+                    .map(|c| c.work_item.clone())
+                    .chain(
+                        checkpoint
+                            .work_item_state
+                            .in_progress_items
+                            .values()
+                            .map(|p| p.work_item.clone()),
+                    )
+                    .chain(checkpoint.work_item_state.pending_items.clone())
+                    .collect();
+
+                work_items.pending_items = all_items;
+                work_items.in_progress_items.clear();
+                work_items.completed_items.clear();
+                Ok(work_items)
+            }
+        }
+    }
+
+    /// Check if checkpoint interval has been reached
+    pub fn should_checkpoint(
+        &self,
+        items_processed: usize,
+        last_checkpoint_time: DateTime<Utc>,
+    ) -> bool {
+        // Check item interval
+        if let Some(interval) = self.config.interval_items {
+            if items_processed >= interval {
+                return true;
+            }
+        }
+
+        // Check time interval
+        if let Some(interval) = self.config.interval_duration {
+            let elapsed = Utc::now().signed_duration_since(last_checkpoint_time);
+            if elapsed >= chrono::Duration::from_std(interval).unwrap_or_default() {
+                return true;
+            }
+        }
+
+        false
+    }
+}
+
+/// State for resuming execution
+#[derive(Debug)]
+pub struct ResumeState {
+    pub execution_state: ExecutionState,
+    pub work_items: WorkItemState,
+    pub agents: AgentState,
+    pub variables: VariableState,
+    pub resources: ResourceState,
+    pub resume_strategy: ResumeStrategy,
+    pub checkpoint: MapReduceCheckpoint,
+}
+
+/// Strategy for resuming execution
+#[derive(Debug, Clone)]
+pub enum ResumeStrategy {
+    ContinueFromCheckpoint,
+    RestartCurrentPhase,
+    RestartFromMapPhase,
+    ValidateAndContinue,
+}
+
+/// Information about a checkpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointInfo {
+    pub id: String,
+    pub job_id: String,
+    pub created_at: DateTime<Utc>,
+    pub phase: PhaseType,
+    pub completed_items: usize,
+    pub total_items: usize,
+    pub is_final: bool,
+}
+
+/// Trait for checkpoint storage implementations
+#[async_trait::async_trait]
+pub trait CheckpointStorage: Send + Sync {
+    async fn save_checkpoint(&self, checkpoint: &MapReduceCheckpoint) -> Result<()>;
+    async fn load_checkpoint(&self, checkpoint_id: &CheckpointId) -> Result<MapReduceCheckpoint>;
+    async fn list_checkpoints(&self, job_id: &str) -> Result<Vec<CheckpointInfo>>;
+    async fn delete_checkpoint(&self, checkpoint_id: &CheckpointId) -> Result<()>;
+    async fn checkpoint_exists(&self, checkpoint_id: &CheckpointId) -> Result<bool>;
+}
+
+/// File-based checkpoint storage implementation
+pub struct FileCheckpointStorage {
+    base_path: PathBuf,
+    compression_enabled: bool,
+}
+
+impl FileCheckpointStorage {
+    pub fn new(base_path: PathBuf, compression_enabled: bool) -> Self {
+        Self {
+            base_path,
+            compression_enabled,
+        }
+    }
+
+    fn checkpoint_path(&self, checkpoint_id: &CheckpointId) -> PathBuf {
+        let extension = if self.compression_enabled {
+            "checkpoint.gz"
+        } else {
+            "checkpoint.json"
+        };
+        self.base_path
+            .join(format!("{}.{}", checkpoint_id, extension))
+    }
+
+    async fn compress_data(&self, data: &[u8]) -> Result<Vec<u8>> {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(data)?;
+        Ok(encoder.finish()?)
+    }
+
+    async fn decompress_data(&self, data: &[u8]) -> Result<Vec<u8>> {
+        use flate2::read::GzDecoder;
+        use std::io::Read;
+
+        let mut decoder = GzDecoder::new(data);
+        let mut result = Vec::new();
+        decoder.read_to_end(&mut result)?;
+        Ok(result)
+    }
+}
+
+#[async_trait::async_trait]
+impl CheckpointStorage for FileCheckpointStorage {
+    async fn save_checkpoint(&self, checkpoint: &MapReduceCheckpoint) -> Result<()> {
+        let checkpoint_id = CheckpointId::from_string(checkpoint.metadata.checkpoint_id.clone());
+        let path = self.checkpoint_path(&checkpoint_id);
+
+        // Ensure directory exists
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+
+        // Serialize checkpoint
+        let json = serde_json::to_vec_pretty(checkpoint)?;
+
+        // Compress if enabled
+        let data = if self.compression_enabled {
+            self.compress_data(&json).await?
+        } else {
+            json
+        };
+
+        // Write atomically using temp file
+        let temp_path = path.with_extension("tmp");
+        fs::write(&temp_path, &data).await?;
+        fs::rename(&temp_path, &path).await?;
+
+        Ok(())
+    }
+
+    async fn load_checkpoint(&self, checkpoint_id: &CheckpointId) -> Result<MapReduceCheckpoint> {
+        let path = self.checkpoint_path(checkpoint_id);
+
+        if !path.exists() {
+            return Err(anyhow!("Checkpoint {} not found", checkpoint_id));
+        }
+
+        // Read data
+        let data = fs::read(&path).await?;
+
+        // Decompress if needed
+        let json = if self.compression_enabled {
+            self.decompress_data(&data).await?
+        } else {
+            data
+        };
+
+        // Deserialize
+        let checkpoint: MapReduceCheckpoint = serde_json::from_slice(&json)?;
+
+        Ok(checkpoint)
+    }
+
+    async fn list_checkpoints(&self, job_id: &str) -> Result<Vec<CheckpointInfo>> {
+        let mut checkpoints = Vec::new();
+
+        if !self.base_path.exists() {
+            return Ok(checkpoints);
+        }
+
+        let mut entries = fs::read_dir(&self.base_path).await?;
+
+        while let Some(entry) = entries.next_entry().await? {
+            if let Some(name) = entry.file_name().to_str() {
+                if name.contains(".checkpoint") {
+                    // Try to load checkpoint metadata
+                    if let Some(checkpoint_id_str) = name.split('.').next() {
+                        let checkpoint_id =
+                            CheckpointId::from_string(checkpoint_id_str.to_string());
+                        if let Ok(checkpoint) = self.load_checkpoint(&checkpoint_id).await {
+                            if checkpoint.metadata.job_id == job_id {
+                                checkpoints.push(CheckpointInfo {
+                                    id: checkpoint.metadata.checkpoint_id,
+                                    job_id: checkpoint.metadata.job_id,
+                                    created_at: checkpoint.metadata.created_at,
+                                    phase: checkpoint.metadata.phase,
+                                    completed_items: checkpoint.metadata.completed_items,
+                                    total_items: checkpoint.metadata.total_work_items,
+                                    is_final: checkpoint.metadata.phase == PhaseType::Complete,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(checkpoints)
+    }
+
+    async fn delete_checkpoint(&self, checkpoint_id: &CheckpointId) -> Result<()> {
+        let path = self.checkpoint_path(checkpoint_id);
+        if path.exists() {
+            fs::remove_file(path).await?;
+        }
+        Ok(())
+    }
+
+    async fn checkpoint_exists(&self, checkpoint_id: &CheckpointId) -> Result<bool> {
+        Ok(self.checkpoint_path(checkpoint_id).exists())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_checkpoint_creation() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let storage = Box::new(FileCheckpointStorage::new(
+            temp_dir.path().to_path_buf(),
+            false,
+        ));
+        let config = CheckpointConfig::default();
+        let job_id = "test-job".to_string();
+
+        let manager = CheckpointManager::new(storage, config, job_id.clone());
+
+        let checkpoint = MapReduceCheckpoint {
+            metadata: CheckpointMetadata {
+                checkpoint_id: "test-cp".to_string(),
+                job_id: job_id.clone(),
+                version: 1,
+                created_at: Utc::now(),
+                phase: PhaseType::Map,
+                total_work_items: 10,
+                completed_items: 5,
+                checkpoint_reason: CheckpointReason::Interval,
+                integrity_hash: String::new(),
+            },
+            execution_state: ExecutionState {
+                current_phase: PhaseType::Map,
+                phase_start_time: Utc::now(),
+                setup_results: None,
+                map_results: None,
+                reduce_results: None,
+                workflow_variables: HashMap::new(),
+            },
+            work_item_state: WorkItemState {
+                pending_items: vec![],
+                in_progress_items: HashMap::new(),
+                completed_items: vec![],
+                failed_items: vec![],
+                current_batch: None,
+            },
+            agent_state: AgentState {
+                active_agents: HashMap::new(),
+                agent_assignments: HashMap::new(),
+                agent_results: HashMap::new(),
+                resource_allocation: HashMap::new(),
+            },
+            variable_state: VariableState {
+                workflow_variables: HashMap::new(),
+                captured_outputs: HashMap::new(),
+                environment_variables: HashMap::new(),
+                item_variables: HashMap::new(),
+            },
+            resource_state: ResourceState {
+                total_agents_allowed: 10,
+                current_agents_active: 0,
+                worktrees_created: vec![],
+                worktrees_cleaned: vec![],
+                disk_usage_bytes: None,
+            },
+            error_state: ErrorState {
+                error_count: 0,
+                dlq_items: vec![],
+                error_threshold_reached: false,
+                last_error: None,
+            },
+        };
+
+        let checkpoint_id = manager
+            .create_checkpoint(&checkpoint, CheckpointReason::Interval)
+            .await
+            .unwrap();
+
+        assert!(!checkpoint_id.as_str().is_empty());
+
+        // Verify we can list the checkpoint
+        let checkpoints = manager.list_checkpoints().await.unwrap();
+        assert_eq!(checkpoints.len(), 1);
+        assert_eq!(checkpoints[0].job_id, job_id);
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_resume() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let storage = Box::new(FileCheckpointStorage::new(
+            temp_dir.path().to_path_buf(),
+            true,
+        ));
+        let config = CheckpointConfig::default();
+        let job_id = "test-job".to_string();
+
+        let manager = CheckpointManager::new(storage, config, job_id.clone());
+
+        // Create a checkpoint with some work items
+        let mut checkpoint = MapReduceCheckpoint {
+            metadata: CheckpointMetadata {
+                checkpoint_id: "test-cp".to_string(),
+                job_id: job_id.clone(),
+                version: 1,
+                created_at: Utc::now(),
+                phase: PhaseType::Map,
+                total_work_items: 10,
+                completed_items: 3,
+                checkpoint_reason: CheckpointReason::Interval,
+                integrity_hash: String::new(),
+            },
+            execution_state: ExecutionState {
+                current_phase: PhaseType::Map,
+                phase_start_time: Utc::now(),
+                setup_results: None,
+                map_results: None,
+                reduce_results: None,
+                workflow_variables: HashMap::new(),
+            },
+            work_item_state: WorkItemState {
+                pending_items: vec![
+                    WorkItem {
+                        id: "item_4".to_string(),
+                        data: Value::String("data4".to_string()),
+                    },
+                    WorkItem {
+                        id: "item_5".to_string(),
+                        data: Value::String("data5".to_string()),
+                    },
+                ],
+                in_progress_items: {
+                    let mut map = HashMap::new();
+                    map.insert(
+                        "item_3".to_string(),
+                        WorkItemProgress {
+                            work_item: WorkItem {
+                                id: "item_3".to_string(),
+                                data: Value::String("data3".to_string()),
+                            },
+                            agent_id: "agent_1".to_string(),
+                            started_at: Utc::now(),
+                            last_update: Utc::now(),
+                        },
+                    );
+                    map
+                },
+                completed_items: vec![CompletedWorkItem {
+                    work_item: WorkItem {
+                        id: "item_1".to_string(),
+                        data: Value::String("data1".to_string()),
+                    },
+                    result: AgentResult {
+                        item_id: "item_1".to_string(),
+                        status: AgentStatus::Success,
+                        output: Some("output1".to_string()),
+                        commits: vec![],
+                        duration: Duration::from_secs(10),
+                        error: None,
+                        worktree_path: None,
+                        branch_name: None,
+                        worktree_session_id: None,
+                        files_modified: vec![],
+                    },
+                    completed_at: Utc::now(),
+                }],
+                failed_items: vec![],
+                current_batch: None,
+            },
+            agent_state: AgentState {
+                active_agents: HashMap::new(),
+                agent_assignments: HashMap::new(),
+                agent_results: HashMap::new(),
+                resource_allocation: HashMap::new(),
+            },
+            variable_state: VariableState {
+                workflow_variables: HashMap::new(),
+                captured_outputs: HashMap::new(),
+                environment_variables: HashMap::new(),
+                item_variables: HashMap::new(),
+            },
+            resource_state: ResourceState {
+                total_agents_allowed: 10,
+                current_agents_active: 1,
+                worktrees_created: vec!["wt1".to_string()],
+                worktrees_cleaned: vec![],
+                disk_usage_bytes: None,
+            },
+            error_state: ErrorState {
+                error_count: 0,
+                dlq_items: vec![],
+                error_threshold_reached: false,
+                last_error: None,
+            },
+        };
+
+        let checkpoint_id = manager
+            .create_checkpoint(&checkpoint, CheckpointReason::Interval)
+            .await
+            .unwrap();
+
+        // Resume from checkpoint
+        let resume_state = manager
+            .resume_from_checkpoint(Some(checkpoint_id))
+            .await
+            .unwrap();
+
+        // Verify resume state
+        assert_eq!(resume_state.execution_state.current_phase, PhaseType::Map);
+
+        // In-progress items should be moved back to pending
+        assert_eq!(resume_state.work_items.pending_items.len(), 3); // 2 original pending + 1 in-progress
+        assert!(resume_state.work_items.in_progress_items.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_interval_check() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let storage = Box::new(FileCheckpointStorage::new(
+            temp_dir.path().to_path_buf(),
+            false,
+        ));
+        let mut config = CheckpointConfig::default();
+        config.interval_items = Some(5);
+        config.interval_duration = Some(Duration::from_secs(60));
+
+        let manager = CheckpointManager::new(storage, config, "test-job".to_string());
+
+        // Check item interval
+        assert!(!manager.should_checkpoint(3, Utc::now()));
+        assert!(manager.should_checkpoint(5, Utc::now()));
+        assert!(manager.should_checkpoint(10, Utc::now()));
+
+        // Check time interval
+        let old_time = Utc::now() - chrono::Duration::seconds(61);
+        assert!(manager.should_checkpoint(2, old_time));
+    }
+}

@@ -377,6 +377,51 @@ pub enum CheckpointCommands {
         #[arg(short = 'p', long)]
         path: Option<PathBuf>,
     },
+
+    /// Validate checkpoint integrity
+    #[command(name = "validate")]
+    Validate {
+        /// Checkpoint ID
+        checkpoint_id: String,
+
+        /// Attempt to repair if corrupt
+        #[arg(long)]
+        repair: bool,
+
+        /// Working directory
+        #[arg(short = 'p', long)]
+        path: Option<PathBuf>,
+    },
+
+    /// List MapReduce checkpoints
+    #[command(name = "mapreduce")]
+    MapReduce {
+        /// Job ID to list checkpoints for
+        job_id: String,
+
+        /// Show detailed information
+        #[arg(long)]
+        detailed: bool,
+
+        /// Working directory
+        #[arg(short = 'p', long)]
+        path: Option<PathBuf>,
+    },
+
+    /// Delete a specific checkpoint
+    #[command(name = "delete")]
+    Delete {
+        /// Checkpoint ID
+        checkpoint_id: String,
+
+        /// Force deletion without confirmation
+        #[arg(long)]
+        force: bool,
+
+        /// Working directory
+        #[arg(short = 'p', long)]
+        path: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
