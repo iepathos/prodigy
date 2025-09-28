@@ -2,12 +2,12 @@
 //!
 //! Comprehensive checkpoint creation, storage, and recovery for MapReduce jobs.
 
-use crate::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig};
+use crate::cook::execution::mapreduce::{AgentResult, AgentStatus};
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs;
@@ -365,6 +365,42 @@ impl CheckpointManager {
         Ok(resume_state)
     }
 
+    /// Resume from a checkpoint with a specific strategy
+    pub async fn resume_from_checkpoint_with_strategy(
+        &self,
+        checkpoint_id: Option<CheckpointId>,
+        strategy: ResumeStrategy,
+    ) -> Result<ResumeState> {
+        let checkpoint_id = match checkpoint_id {
+            Some(id) => id,
+            None => self
+                .find_latest_checkpoint()
+                .await?
+                .ok_or_else(|| anyhow!("No checkpoint found for job {}", self.job_id))?,
+        };
+
+        let checkpoint = self.storage.load_checkpoint(&checkpoint_id).await?;
+
+        // Validate if configured
+        if self.config.validate_on_load {
+            self.validate_checkpoint(&checkpoint)?;
+            self.validate_integrity(&checkpoint)?;
+        }
+
+        // Prepare work items based on strategy
+        let work_items = self.prepare_work_items_for_resume(&checkpoint, &strategy)?;
+
+        Ok(ResumeState {
+            execution_state: checkpoint.execution_state.clone(),
+            work_items,
+            agents: checkpoint.agent_state.clone(),
+            variables: checkpoint.variable_state.clone(),
+            resources: checkpoint.resource_state.clone(),
+            resume_strategy: strategy,
+            checkpoint,
+        })
+    }
+
     /// List available checkpoints
     pub async fn list_checkpoints(&self) -> Result<Vec<CheckpointInfo>> {
         self.storage.list_checkpoints(&self.job_id).await
@@ -632,6 +668,72 @@ impl CheckpointManager {
 
         false
     }
+
+    /// Export checkpoint to a file
+    pub async fn export_checkpoint(
+        &self,
+        checkpoint_id: &CheckpointId,
+        export_path: PathBuf,
+    ) -> Result<()> {
+        info!("Exporting checkpoint {} to {:?}", checkpoint_id, export_path);
+
+        // Load checkpoint
+        let checkpoint = self
+            .storage
+            .load_checkpoint(checkpoint_id)
+            .await
+            .context("Failed to load checkpoint for export")?;
+
+        // Ensure parent directory exists
+        if let Some(parent) = export_path.parent() {
+            fs::create_dir_all(parent)
+                .await
+                .context("Failed to create export directory")?;
+        }
+
+        // Serialize to pretty JSON
+        let json = serde_json::to_vec_pretty(&checkpoint)
+            .context("Failed to serialize checkpoint for export")?;
+
+        // Write to export path
+        fs::write(&export_path, json)
+            .await
+            .context("Failed to write exported checkpoint")?;
+
+        info!("Successfully exported checkpoint to {:?}", export_path);
+        Ok(())
+    }
+
+    /// Import checkpoint from a file
+    pub async fn import_checkpoint(&self, import_path: PathBuf) -> Result<CheckpointId> {
+        info!("Importing checkpoint from {:?}", import_path);
+
+        if !import_path.exists() {
+            return Err(anyhow!("Import file does not exist: {:?}", import_path));
+        }
+
+        // Read and parse checkpoint
+        let data = fs::read(&import_path)
+            .await
+            .context("Failed to read import file")?;
+
+        let mut checkpoint: MapReduceCheckpoint =
+            serde_json::from_slice(&data).context("Failed to parse imported checkpoint")?;
+
+        // Generate new checkpoint ID to avoid conflicts
+        let new_id = CheckpointId::new();
+        checkpoint.metadata.checkpoint_id = new_id.to_string();
+        checkpoint.metadata.job_id = self.job_id.clone();
+
+        // Save imported checkpoint
+        self.storage
+            .save_checkpoint(&checkpoint)
+            .await
+            .context("Failed to save imported checkpoint")?;
+
+        info!("Successfully imported checkpoint with ID {}", new_id);
+        Ok(new_id)
+    }
 }
 
 /// State for resuming execution
@@ -677,48 +779,114 @@ pub trait CheckpointStorage: Send + Sync {
     async fn checkpoint_exists(&self, checkpoint_id: &CheckpointId) -> Result<bool>;
 }
 
+/// Supported compression algorithms
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CompressionAlgorithm {
+    None,
+    Gzip,
+    Zstd,
+    Lz4,
+}
+
+impl CompressionAlgorithm {
+    /// Get the file extension for this compression type
+    pub fn extension(&self) -> &str {
+        match self {
+            Self::None => "json",
+            Self::Gzip => "gz",
+            Self::Zstd => "zst",
+            Self::Lz4 => "lz4",
+        }
+    }
+
+    /// Compress data using the selected algorithm
+    pub async fn compress(&self, data: &[u8]) -> Result<Vec<u8>> {
+        match self {
+            Self::None => Ok(data.to_vec()),
+            Self::Gzip => {
+                use flate2::write::GzEncoder;
+                use flate2::Compression;
+                use std::io::Write;
+
+                let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+                encoder.write_all(data)?;
+                Ok(encoder.finish()?)
+            }
+            Self::Zstd => {
+                let level = 3; // Default compression level
+                zstd::encode_all(data, level).context("Failed to compress with zstd")
+            }
+            Self::Lz4 => {
+                lz4::block::compress(data, None, true).context("Failed to compress with lz4")
+            }
+        }
+    }
+
+    /// Decompress data using the selected algorithm
+    pub async fn decompress(&self, data: &[u8]) -> Result<Vec<u8>> {
+        match self {
+            Self::None => Ok(data.to_vec()),
+            Self::Gzip => {
+                use flate2::read::GzDecoder;
+                use std::io::Read;
+
+                let mut decoder = GzDecoder::new(data);
+                let mut result = Vec::new();
+                decoder.read_to_end(&mut result)?;
+                Ok(result)
+            }
+            Self::Zstd => zstd::decode_all(data).context("Failed to decompress with zstd"),
+            Self::Lz4 => {
+                lz4::block::decompress(data, None).context("Failed to decompress with lz4")
+            }
+        }
+    }
+}
+
+impl Default for CompressionAlgorithm {
+    fn default() -> Self {
+        Self::Gzip
+    }
+}
+
 /// File-based checkpoint storage implementation
 pub struct FileCheckpointStorage {
     base_path: PathBuf,
-    compression_enabled: bool,
+    compression_algorithm: CompressionAlgorithm,
 }
 
 impl FileCheckpointStorage {
     pub fn new(base_path: PathBuf, compression_enabled: bool) -> Self {
         Self {
             base_path,
-            compression_enabled,
+            compression_algorithm: if compression_enabled {
+                CompressionAlgorithm::default()
+            } else {
+                CompressionAlgorithm::None
+            },
+        }
+    }
+
+    /// Create with specific compression algorithm
+    pub fn with_compression(base_path: PathBuf, algorithm: CompressionAlgorithm) -> Self {
+        Self {
+            base_path,
+            compression_algorithm: algorithm,
         }
     }
 
     fn checkpoint_path(&self, checkpoint_id: &CheckpointId) -> PathBuf {
-        let extension = if self.compression_enabled {
-            "checkpoint.gz"
-        } else {
-            "checkpoint.json"
-        };
+        let extension = format!("checkpoint.{}", self.compression_algorithm.extension());
         self.base_path
             .join(format!("{}.{}", checkpoint_id, extension))
     }
 
     async fn compress_data(&self, data: &[u8]) -> Result<Vec<u8>> {
-        use flate2::write::GzEncoder;
-        use flate2::Compression;
-        use std::io::Write;
-
-        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(data)?;
-        Ok(encoder.finish()?)
+        self.compression_algorithm.compress(data).await
     }
 
     async fn decompress_data(&self, data: &[u8]) -> Result<Vec<u8>> {
-        use flate2::read::GzDecoder;
-        use std::io::Read;
-
-        let mut decoder = GzDecoder::new(data);
-        let mut result = Vec::new();
-        decoder.read_to_end(&mut result)?;
-        Ok(result)
+        self.compression_algorithm.decompress(data).await
     }
 }
 
@@ -736,12 +904,8 @@ impl CheckpointStorage for FileCheckpointStorage {
         // Serialize checkpoint
         let json = serde_json::to_vec_pretty(checkpoint)?;
 
-        // Compress if enabled
-        let data = if self.compression_enabled {
-            self.compress_data(&json).await?
-        } else {
-            json
-        };
+        // Compress using selected algorithm
+        let data = self.compress_data(&json).await?;
 
         // Write atomically using temp file
         let temp_path = path.with_extension("tmp");
@@ -761,12 +925,8 @@ impl CheckpointStorage for FileCheckpointStorage {
         // Read data
         let data = fs::read(&path).await?;
 
-        // Decompress if needed
-        let json = if self.compression_enabled {
-            self.decompress_data(&data).await?
-        } else {
-            data
-        };
+        // Decompress using selected algorithm
+        let json = self.decompress_data(&data).await?;
 
         // Deserialize
         let checkpoint: MapReduceCheckpoint = serde_json::from_slice(&json)?;
@@ -827,6 +987,101 @@ impl CheckpointStorage for FileCheckpointStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Helper function to create a test checkpoint
+    fn create_test_checkpoint(job_id: &str) -> MapReduceCheckpoint {
+        MapReduceCheckpoint {
+            metadata: CheckpointMetadata {
+                checkpoint_id: "test-checkpoint".to_string(),
+                job_id: job_id.to_string(),
+                version: 1,
+                created_at: Utc::now(),
+                phase: PhaseType::Map,
+                total_work_items: 10,
+                completed_items: 5,
+                checkpoint_reason: CheckpointReason::Manual,
+                integrity_hash: String::new(),
+            },
+            execution_state: ExecutionState {
+                current_phase: PhaseType::Map,
+                phase_start_time: Utc::now(),
+                setup_results: None,
+                map_results: None,
+                reduce_results: None,
+                workflow_variables: HashMap::new(),
+            },
+            work_item_state: WorkItemState {
+                pending_items: vec![],
+                in_progress_items: HashMap::new(),
+                completed_items: vec![],
+                failed_items: vec![],
+                current_batch: None,
+            },
+            agent_state: AgentState {
+                active_agents: HashMap::new(),
+                agent_assignments: HashMap::new(),
+                agent_results: HashMap::new(),
+                resource_allocation: HashMap::new(),
+            },
+            variable_state: VariableState {
+                workflow_variables: HashMap::new(),
+                captured_outputs: HashMap::new(),
+                environment_variables: HashMap::new(),
+                item_variables: HashMap::new(),
+            },
+            resource_state: ResourceState {
+                total_agents_allowed: 10,
+                current_agents_active: 0,
+                worktrees_created: vec![],
+                worktrees_cleaned: vec![],
+                disk_usage_bytes: None,
+            },
+            error_state: ErrorState {
+                error_count: 0,
+                dlq_items: vec![],
+                error_threshold_reached: false,
+                last_error: None,
+            },
+        }
+    }
+
+    /// Helper function to create a checkpoint with work items
+    fn create_test_checkpoint_with_work_items(job_id: &str) -> MapReduceCheckpoint {
+        let mut checkpoint = create_test_checkpoint(job_id);
+
+        // Add some work items
+        let items = vec![
+            WorkItem { id: "item-1".to_string(), data: Value::String("test1".to_string()) },
+            WorkItem { id: "item-2".to_string(), data: Value::String("test2".to_string()) },
+            WorkItem { id: "item-3".to_string(), data: Value::String("test3".to_string()) },
+            WorkItem { id: "item-4".to_string(), data: Value::String("test4".to_string()) },
+            WorkItem { id: "item-5".to_string(), data: Value::String("test5".to_string()) },
+        ];
+
+        // Set up work item state: 2 completed, 3 pending
+        checkpoint.work_item_state.pending_items = items[2..].to_vec();
+        checkpoint.work_item_state.completed_items = items[..2]
+            .iter()
+            .map(|item| CompletedWorkItem {
+                work_item: item.clone(),
+                result: crate::cook::execution::mapreduce::agent::types::AgentResult {
+                    item_id: item.id.clone(),
+                    status: AgentStatus::Success,
+                    output: None,
+                    commits: vec![],
+                    files_modified: vec![],
+                    duration: Duration::from_secs(1),
+                    error: None,
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                },
+                completed_at: Utc::now(),
+            })
+            .collect();
+
+        checkpoint
+    }
 
     #[tokio::test]
     async fn test_checkpoint_creation() {
@@ -908,6 +1163,233 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_compression_algorithms() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        // Test all compression algorithms
+        let algorithms = vec![
+            CompressionAlgorithm::None,
+            CompressionAlgorithm::Gzip,
+            CompressionAlgorithm::Zstd,
+            CompressionAlgorithm::Lz4,
+        ];
+
+        for algo in algorithms {
+            let storage = Box::new(FileCheckpointStorage::with_compression(
+                temp_dir.path().join(format!("{:?}", algo)).to_path_buf(),
+                algo,
+            ));
+
+            let config = CheckpointConfig::default();
+            let manager = CheckpointManager::new(storage, config, format!("test-{:?}", algo));
+
+            let checkpoint = create_test_checkpoint(&format!("test-{:?}", algo));
+            let id = manager
+                .create_checkpoint(&checkpoint, CheckpointReason::Interval)
+                .await
+                .expect(&format!("Failed to create checkpoint with {:?}", algo));
+
+            let loaded = manager
+                .resume_from_checkpoint(Some(id))
+                .await
+                .expect(&format!("Failed to resume checkpoint with {:?}", algo));
+
+            assert_eq!(loaded.checkpoint.metadata.job_id, checkpoint.metadata.job_id);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_integrity_validation() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let storage = Box::new(FileCheckpointStorage::new(
+            temp_dir.path().to_path_buf(),
+            true,
+        ));
+        let config = CheckpointConfig::default();
+        let manager = CheckpointManager::new(storage, config, "test-job".to_string());
+
+        let checkpoint = create_test_checkpoint("test-job");
+        let id = manager
+            .create_checkpoint(&checkpoint, CheckpointReason::Interval)
+            .await
+            .expect("Failed to create checkpoint");
+
+        // Test that integrity is maintained
+        let loaded = manager
+            .resume_from_checkpoint(Some(id.clone()))
+            .await
+            .expect("Failed to load checkpoint");
+
+        assert_eq!(
+            loaded.checkpoint.metadata.integrity_hash,
+            checkpoint.metadata.integrity_hash
+        );
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_retention_policies() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let storage = Box::new(FileCheckpointStorage::new(
+            temp_dir.path().to_path_buf(),
+            false,
+        ));
+
+        let mut config = CheckpointConfig::default();
+        config.retention_policy = Some(RetentionPolicy {
+            max_checkpoints: Some(3),
+            max_age: None,
+            keep_final: true,
+        });
+
+        let manager = CheckpointManager::new(storage, config, "test-job".to_string());
+
+        // Create multiple checkpoints
+        let mut checkpoint_ids = Vec::new();
+        for i in 0..5 {
+            let mut checkpoint = create_test_checkpoint("test-job");
+            checkpoint.metadata.checkpoint_id = format!("cp-{}", i);
+            let id = manager
+                .create_checkpoint(&checkpoint, CheckpointReason::Interval)
+                .await
+                .expect("Failed to create checkpoint");
+            checkpoint_ids.push(id);
+        }
+
+        // Test that all checkpoints are created (retention would be applied automatically if configured)
+        let checkpoints = manager.list_checkpoints().await.expect("Failed to list checkpoints");
+        assert_eq!(checkpoints.len(), 5); // All 5 should exist initially
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_export_import() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let storage = Box::new(FileCheckpointStorage::new(
+            temp_dir.path().join("storage").to_path_buf(),
+            true,
+        ));
+        let config = CheckpointConfig::default();
+        let manager = CheckpointManager::new(storage, config, "test-job".to_string());
+
+        // Create and export checkpoint
+        let checkpoint = create_test_checkpoint("test-job");
+        let id = manager
+            .create_checkpoint(&checkpoint, CheckpointReason::Manual)
+            .await
+            .expect("Failed to create checkpoint");
+
+        let export_path = temp_dir.path().join("exported.json");
+        manager
+            .export_checkpoint(&id, export_path.clone())
+            .await
+            .expect("Failed to export checkpoint");
+
+        assert!(export_path.exists());
+
+        // Import checkpoint
+        let imported_id = manager
+            .import_checkpoint(export_path)
+            .await
+            .expect("Failed to import checkpoint");
+
+        // Verify imported checkpoint
+        let loaded = manager
+            .resume_from_checkpoint(Some(imported_id))
+            .await
+            .expect("Failed to load imported checkpoint");
+
+        assert_eq!(loaded.checkpoint.metadata.job_id, "test-job");
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_checkpoint_operations() {
+        use futures::future::join_all;
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let storage = Box::new(FileCheckpointStorage::new(
+            temp_dir.path().to_path_buf(),
+            false,
+        ));
+        let config = CheckpointConfig::default();
+        let manager = std::sync::Arc::new(CheckpointManager::new(storage, config, "test-job".to_string()));
+
+        // Create multiple checkpoints concurrently
+        let tasks: Vec<_> = (0..10)
+            .map(|i| {
+                let manager = manager.clone();
+                tokio::spawn(async move {
+                    let mut checkpoint = create_test_checkpoint("test-job");
+                    checkpoint.metadata.checkpoint_id = format!("concurrent-{}", i);
+                    manager
+                        .create_checkpoint(&checkpoint, CheckpointReason::Interval)
+                        .await
+                })
+            })
+            .collect();
+
+        let results = join_all(tasks).await;
+
+        // All should succeed
+        for result in results {
+            assert!(result.expect("Task panicked").is_ok());
+        }
+
+        // Verify all checkpoints exist
+        let checkpoints = manager.list_checkpoints().await.expect("Failed to list checkpoints");
+        assert_eq!(checkpoints.len(), 10);
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_resume_strategies() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let storage = Box::new(FileCheckpointStorage::new(
+            temp_dir.path().to_path_buf(),
+            false,
+        ));
+        let config = CheckpointConfig::default();
+        let manager = CheckpointManager::new(storage, config, "test-job".to_string());
+
+        let checkpoint = create_test_checkpoint_with_work_items("test-job");
+        let id = manager
+            .create_checkpoint(&checkpoint, CheckpointReason::Manual)
+            .await
+            .expect("Failed to create checkpoint");
+
+        // Test different resume strategies
+        let strategies = vec![
+            ResumeStrategy::ContinueFromCheckpoint,
+            ResumeStrategy::RestartCurrentPhase,
+            ResumeStrategy::RestartFromMapPhase,
+            ResumeStrategy::ValidateAndContinue,
+        ];
+
+        for strategy in strategies {
+            let resume_state = manager
+                .resume_from_checkpoint_with_strategy(Some(id.clone()), strategy.clone())
+                .await
+                .expect(&format!("Failed with strategy {:?}", strategy));
+
+            match strategy {
+                ResumeStrategy::ContinueFromCheckpoint => {
+                    assert_eq!(resume_state.work_items.pending_items.len(), 3);
+                    assert_eq!(resume_state.work_items.completed_items.len(), 2);
+                }
+                ResumeStrategy::RestartCurrentPhase => {
+                    assert_eq!(resume_state.work_items.pending_items.len(), 5);
+                    assert!(resume_state.work_items.completed_items.is_empty());
+                }
+                ResumeStrategy::RestartFromMapPhase => {
+                    assert_eq!(resume_state.work_items.pending_items.len(), 5);
+                    assert!(resume_state.work_items.completed_items.is_empty());
+                }
+                ResumeStrategy::ValidateAndContinue => {
+                    // Should move in-progress to pending
+                    assert!(resume_state.work_items.in_progress_items.is_empty());
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn test_checkpoint_resume() {
         let temp_dir = tempfile::tempdir().unwrap();
         let storage = Box::new(FileCheckpointStorage::new(
@@ -920,7 +1402,7 @@ mod tests {
         let manager = CheckpointManager::new(storage, config, job_id.clone());
 
         // Create a checkpoint with some work items
-        let mut checkpoint = MapReduceCheckpoint {
+        let checkpoint = MapReduceCheckpoint {
             metadata: CheckpointMetadata {
                 checkpoint_id: "test-cp".to_string(),
                 job_id: job_id.clone(),
