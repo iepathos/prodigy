@@ -383,7 +383,7 @@ impl VariableCaptureEngine {
 /// Extract a value from JSON using a simple path notation
 /// Supports:
 /// - Simple dot notation: "field.nested.value"
-/// - Array indexing: "items[0]" or "items.0"
+/// - Array indexing: "items\[0\]" or "items.0"
 pub fn extract_json_path(json: &Value, path: &str) -> Option<Value> {
     let mut current = json;
 
