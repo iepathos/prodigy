@@ -429,7 +429,7 @@ impl DefaultCookOrchestrator {
                         .context("Failed to get session state after resume error")?;
                     if current_state.status == SessionStatus::Interrupted {
                         self.user_interaction.display_warning(&format!(
-                            "\nSession interrupted again. Resume with: prodigy cook {} --resume {}",
+                            "\nSession interrupted again. Resume with: prodigy run {} --resume {}",
                             config.command.playbook.display(),
                             session_id
                         ));
@@ -1130,7 +1130,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     .context("Failed to get session state after cook error")?;
                 if state.status == SessionStatus::Interrupted {
                     self.user_interaction.display_warning(&format!(
-                        "\nSession interrupted. Resume with: prodigy cook {} --resume {}",
+                        "\nSession interrupted. Resume with: prodigy run {} --resume {}",
                         config
                             .workflow
                             .commands
@@ -1177,7 +1177,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                         .update_session(SessionUpdate::AddError(e.to_string()))
                         .await?;
                     self.user_interaction
-                        .display_error(&format!("Cook session failed: {e}"));
+                        .display_error(&format!("Session failed: {e}"));
 
                     // Display how to resume the session
                     let state = self
@@ -1186,7 +1186,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                         .context("Failed to get session state for resume info")?;
                     if state.is_resumable() {
                         self.user_interaction.display_info(&format!(
-                            "\n💡 To resume this session, run: prodigy cook {} --resume {}",
+                            "\n💡 To resume this session, run: prodigy run {} --resume {}",
                             config.command.playbook.display(),
                             env.session_id
                         ));

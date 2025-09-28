@@ -88,13 +88,15 @@ Done"#;
 
         let result = executor
             .execute_claude_command("/test-command", Path::new("/tmp"), env_vars)
-            .await
-            .unwrap();
+            .await;
 
-        assert!(!result.success);
-        assert!(result.stdout.contains("session_started"));
-        assert!(result.stdout.contains("ERROR"));
-        assert_eq!(result.stderr, "Error occurred");
+        // With enhanced error handling, failed Claude commands now return Err
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("Claude command '/test-command' failed"));
+        assert!(error.to_string().contains("stderr: Error occurred"));
     }
 
     #[tokio::test]

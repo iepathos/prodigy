@@ -379,7 +379,11 @@ mod tests {
         }
         git_operations.add_success_response("").await; // git status --porcelain (no changes)
 
-        let test_config = Arc::new(TestConfiguration::default());
+        // Disable test mode so Claude commands actually hit the mock
+        let test_config = Arc::new(TestConfiguration {
+            test_mode: false,
+            ..Default::default()
+        });
 
         let executor = WorkflowExecutor::with_test_config_and_git(
             claude_executor.clone() as Arc<dyn ClaudeExecutor>,
@@ -1722,6 +1726,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_complete_workflow_execution() {
+        // Ensure test mode is not set via environment variable
+        std::env::remove_var("PRODIGY_TEST_MODE");
+
         let (mut executor, claude_mock, session_mock, user_mock, _) =
             create_test_executor_with_git_mock().await;
 

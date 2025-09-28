@@ -176,11 +176,33 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
             .run_with_context("claude", &args, &context)
             .await;
 
-        if let Err(ref e) = result {
-            tracing::error!("Claude command failed: {:?}", e);
-        }
+        match result {
+            Ok(execution_result) => {
+                if !execution_result.success {
+                    // Claude command executed but failed
+                    let error_details = if !execution_result.stderr.is_empty() {
+                        format!("stderr: {}", execution_result.stderr)
+                    } else if !execution_result.stdout.is_empty() {
+                        format!("stdout: {}", execution_result.stdout)
+                    } else {
+                        format!("exit code: {:?}", execution_result.exit_code)
+                    };
 
-        result
+                    tracing::error!("Claude command '{}' failed - {}", command, error_details);
+
+                    return Err(anyhow::anyhow!(
+                        "Claude command '{}' failed: {}",
+                        command,
+                        error_details
+                    ));
+                }
+                Ok(execution_result)
+            }
+            Err(e) => {
+                tracing::error!("Claude command '{}' execution error: {:?}", command, e);
+                Err(e.context(format!("Failed to execute Claude command: {}", command)))
+            }
+        }
     }
 
     /// Execute Claude command with --output-format stream-json for real-time observability
@@ -255,11 +277,37 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
             .run_with_streaming("claude", &args, &context, processor)
             .await;
 
-        if let Err(ref e) = result {
-            tracing::error!("Claude streaming command failed: {:?}", e);
-        }
+        match result {
+            Ok(execution_result) => {
+                if !execution_result.success {
+                    // Claude command executed but failed
+                    let error_details = if !execution_result.stderr.is_empty() {
+                        format!("stderr: {}", execution_result.stderr)
+                    } else if !execution_result.stdout.is_empty() {
+                        format!("stdout: {}", execution_result.stdout)
+                    } else {
+                        format!("exit code: {:?}", execution_result.exit_code)
+                    };
 
-        result
+                    tracing::error!("Claude command '{}' failed - {}", command, error_details);
+
+                    return Err(anyhow::anyhow!(
+                        "Claude command '{}' failed: {}",
+                        command,
+                        error_details
+                    ));
+                }
+                Ok(execution_result)
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Claude streaming command '{}' execution error: {:?}",
+                    command,
+                    e
+                );
+                Err(e.context(format!("Failed to execute Claude command: {}", command)))
+            }
+        }
     }
 
     /// Handle test mode execution

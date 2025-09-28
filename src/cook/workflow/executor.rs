@@ -2923,7 +2923,13 @@ impl WorkflowExecutor {
                 let step_result = self
                     .execute_step(step, env, &mut workflow_context)
                     .await
-                    .context(format!("Failed to execute step: {step_display}"))?;
+                    .with_context(|| {
+                        format!(
+                            "Failed to execute step: {} (working directory: {})",
+                            step_display,
+                            env.working_dir.display()
+                        )
+                    })?;
 
                 // Display subprocess output when verbose logging is enabled
                 self.log_step_output(&step_result);
@@ -3761,7 +3767,14 @@ impl WorkflowExecutor {
         let result = self
             .claude_executor
             .execute_claude_command(command, &env.working_dir, env_vars)
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Claude command execution failed for command: '{}' in directory: {}",
+                    command,
+                    env.working_dir.display()
+                )
+            })?;
 
         Ok(StepResult {
             success: result.success,
