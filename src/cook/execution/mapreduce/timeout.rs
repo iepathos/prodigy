@@ -76,9 +76,10 @@ impl Default for TimeoutConfig {
 }
 
 /// Timeout enforcement policy
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub enum TimeoutPolicy {
     /// Timeout applies to entire agent execution
+    #[default]
     PerAgent,
     /// Timeout applies to each command individually
     PerCommand,
@@ -86,16 +87,11 @@ pub enum TimeoutPolicy {
     Hybrid,
 }
 
-impl Default for TimeoutPolicy {
-    fn default() -> Self {
-        TimeoutPolicy::PerAgent
-    }
-}
-
 /// Action to take when timeout occurs
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub enum TimeoutAction {
     /// Terminate agent and send item to DLQ
+    #[default]
     Dlq,
     /// Terminate agent and skip item
     Skip,
@@ -103,12 +99,6 @@ pub enum TimeoutAction {
     Fail,
     /// Attempt graceful termination then force kill
     GracefulTerminate,
-}
-
-impl Default for TimeoutAction {
-    fn default() -> Self {
-        TimeoutAction::Dlq
-    }
 }
 
 fn default_cleanup_grace_period() -> u64 {
