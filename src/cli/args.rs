@@ -337,10 +337,6 @@ pub enum CheckpointCommands {
         /// Working directory
         #[arg(short = 'p', long)]
         path: Option<PathBuf>,
-
-        /// Show verbose details
-        #[arg(short = 'v', long)]
-        verbose: bool,
     },
 
     /// Delete checkpoints for completed workflows
