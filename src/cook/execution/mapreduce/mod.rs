@@ -10,6 +10,8 @@
 pub mod agent;
 pub mod agent_command_executor;
 pub mod aggregation;
+pub mod checkpoint;
+pub mod checkpoint_integration;
 pub mod cleanup;
 pub mod command;
 pub mod coordination;

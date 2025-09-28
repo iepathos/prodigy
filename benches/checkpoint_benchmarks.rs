@@ -272,13 +272,183 @@ fn bench_checkpoint_delete(c: &mut Criterion) {
     });
 }
 
+fn bench_mapreduce_checkpoint_overhead(c: &mut Criterion) {
+    use prodigy::cook::execution::mapreduce::checkpoint::{
+        AgentState, CheckpointConfig, CheckpointManager as MapReduceCheckpointManager,
+        CheckpointMetadata, CheckpointReason, CompressionAlgorithm, ErrorState,
+        ExecutionState as MapReduceExecutionState, FileCheckpointStorage, MapReduceCheckpoint,
+        PhaseType, ResourceState, VariableState, WorkItemState,
+    };
+    use std::collections::HashMap;
+
+    let rt = Runtime::new().unwrap();
+
+    // Helper function to create a MapReduce checkpoint
+    let create_mr_checkpoint = |num_items: usize| -> MapReduceCheckpoint {
+        MapReduceCheckpoint {
+            metadata: CheckpointMetadata {
+                checkpoint_id: "test-mr-checkpoint".to_string(),
+                job_id: "test-job".to_string(),
+                version: 1,
+                created_at: chrono::Utc::now(),
+                phase: PhaseType::Map,
+                total_work_items: num_items,
+                completed_items: num_items / 2,
+                checkpoint_reason: CheckpointReason::Interval,
+                integrity_hash: String::new(),
+            },
+            execution_state: MapReduceExecutionState {
+                current_phase: PhaseType::Map,
+                phase_start_time: chrono::Utc::now(),
+                setup_results: None,
+                map_results: None,
+                reduce_results: None,
+                workflow_variables: HashMap::new(),
+                is_complete: false,
+                is_cancelled: false,
+            },
+            work_item_state: WorkItemState {
+                pending_items: vec![],
+                in_progress_items: HashMap::new(),
+                completed_items: vec![],
+                failed_items: vec![],
+                current_batch: None,
+                total_items: num_items,
+            },
+            agent_state: AgentState {
+                active_agents: HashMap::new(),
+                agent_assignments: HashMap::new(),
+                agent_results: HashMap::new(),
+                resource_allocation: HashMap::new(),
+            },
+            variable_state: VariableState {
+                workflow_variables: HashMap::new(),
+                captured_outputs: HashMap::new(),
+                environment_variables: HashMap::new(),
+                item_variables: HashMap::new(),
+            },
+            resource_state: ResourceState {
+                total_agents_allowed: 10,
+                current_agents_active: 0,
+                worktrees_created: vec![],
+                worktrees_cleaned: vec![],
+                disk_usage_bytes: None,
+            },
+            error_state: ErrorState {
+                error_count: 0,
+                dlq_items: vec![],
+                error_threshold_reached: false,
+                last_error: None,
+            },
+        }
+    };
+
+    // Benchmark checkpoint creation overhead
+    c.benchmark_group("mapreduce_checkpoint_overhead")
+        .warm_up_time(Duration::from_secs(1))
+        .measurement_time(Duration::from_secs(5))
+        .bench_function("no_compression", |b| {
+            b.to_async(&rt).iter_batched(
+                || {
+                    let temp_dir = TempDir::new().unwrap();
+                    let storage = Box::new(FileCheckpointStorage::with_compression(
+                        temp_dir.path().to_path_buf(),
+                        CompressionAlgorithm::None,
+                    ));
+                    let config = CheckpointConfig::default();
+                    let manager =
+                        MapReduceCheckpointManager::new(storage, config, "test-job".to_string());
+                    let checkpoint = create_mr_checkpoint(1000);
+                    (manager, checkpoint, temp_dir)
+                },
+                |(manager, checkpoint, _temp_dir)| async move {
+                    manager
+                        .create_checkpoint(&checkpoint, CheckpointReason::Interval)
+                        .await
+                        .unwrap();
+                },
+                BatchSize::SmallInput,
+            );
+        })
+        .bench_function("gzip_compression", |b| {
+            b.to_async(&rt).iter_batched(
+                || {
+                    let temp_dir = TempDir::new().unwrap();
+                    let storage = Box::new(FileCheckpointStorage::with_compression(
+                        temp_dir.path().to_path_buf(),
+                        CompressionAlgorithm::Gzip,
+                    ));
+                    let config = CheckpointConfig::default();
+                    let manager =
+                        MapReduceCheckpointManager::new(storage, config, "test-job".to_string());
+                    let checkpoint = create_mr_checkpoint(1000);
+                    (manager, checkpoint, temp_dir)
+                },
+                |(manager, checkpoint, _temp_dir)| async move {
+                    manager
+                        .create_checkpoint(&checkpoint, CheckpointReason::Interval)
+                        .await
+                        .unwrap();
+                },
+                BatchSize::SmallInput,
+            );
+        })
+        .bench_function("zstd_compression", |b| {
+            b.to_async(&rt).iter_batched(
+                || {
+                    let temp_dir = TempDir::new().unwrap();
+                    let storage = Box::new(FileCheckpointStorage::with_compression(
+                        temp_dir.path().to_path_buf(),
+                        CompressionAlgorithm::Zstd,
+                    ));
+                    let config = CheckpointConfig::default();
+                    let manager =
+                        MapReduceCheckpointManager::new(storage, config, "test-job".to_string());
+                    let checkpoint = create_mr_checkpoint(1000);
+                    (manager, checkpoint, temp_dir)
+                },
+                |(manager, checkpoint, _temp_dir)| async move {
+                    manager
+                        .create_checkpoint(&checkpoint, CheckpointReason::Interval)
+                        .await
+                        .unwrap();
+                },
+                BatchSize::SmallInput,
+            );
+        })
+        .bench_function("lz4_compression", |b| {
+            b.to_async(&rt).iter_batched(
+                || {
+                    let temp_dir = TempDir::new().unwrap();
+                    let storage = Box::new(FileCheckpointStorage::with_compression(
+                        temp_dir.path().to_path_buf(),
+                        CompressionAlgorithm::Lz4,
+                    ));
+                    let config = CheckpointConfig::default();
+                    let manager =
+                        MapReduceCheckpointManager::new(storage, config, "test-job".to_string());
+                    let checkpoint = create_mr_checkpoint(1000);
+                    (manager, checkpoint, temp_dir)
+                },
+                |(manager, checkpoint, _temp_dir)| async move {
+                    manager
+                        .create_checkpoint(&checkpoint, CheckpointReason::Interval)
+                        .await
+                        .unwrap();
+                },
+                BatchSize::SmallInput,
+            );
+        });
+}
+
 criterion_group!(
     benches,
     bench_checkpoint_save,
     bench_checkpoint_load,
     bench_checkpoint_atomic_write,
     bench_checkpoint_list,
-    bench_checkpoint_delete
+    bench_checkpoint_delete,
+    bench_mapreduce_checkpoint_overhead
 );
 
 criterion_main!(benches);
