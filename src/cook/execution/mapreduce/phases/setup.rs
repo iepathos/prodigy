@@ -4,7 +4,6 @@
 //! the environment and generate work items for the map phase.
 
 use super::{PhaseContext, PhaseError, PhaseExecutor, PhaseMetrics, PhaseResult, PhaseType};
-use crate::cook::execution::variable_capture::CaptureConfig;
 use crate::cook::execution::SetupPhase;
 use crate::cook::workflow::WorkflowStep;
 use async_trait::async_trait;

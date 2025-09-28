@@ -131,7 +131,11 @@ pub struct SetupPhaseConfig {
 
     /// Variables to capture from setup commands
     /// Key is variable name, value is the capture configuration
-    #[serde(default, skip_serializing_if = "HashMap::is_empty", deserialize_with = "deserialize_capture_outputs")]
+    #[serde(
+        default,
+        skip_serializing_if = "HashMap::is_empty",
+        deserialize_with = "deserialize_capture_outputs"
+    )]
     pub capture_outputs: HashMap<String, CaptureConfig>,
 }
 
@@ -155,7 +159,7 @@ fn deserialize_capture_outputs<'de, D>(
 where
     D: serde::Deserializer<'de>,
 {
-    use serde::de::{Deserialize};
+    use serde::de::Deserialize;
 
     #[derive(Deserialize)]
     #[serde(untagged)]

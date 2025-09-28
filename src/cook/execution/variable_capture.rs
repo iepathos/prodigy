@@ -50,7 +50,17 @@ impl CaptureConfig {
     }
 
     /// Extract detailed configuration parameters
-    pub fn extract_params(&self) -> (usize, CaptureSource, Option<String>, Option<String>, usize, Option<String>, MultilineHandling) {
+    pub fn extract_params(
+        &self,
+    ) -> (
+        usize,
+        CaptureSource,
+        Option<String>,
+        Option<String>,
+        usize,
+        Option<String>,
+        MultilineHandling,
+    ) {
         match self {
             CaptureConfig::Simple(idx) => (
                 *idx,
@@ -103,8 +113,10 @@ fn default_max_capture_size() -> usize {
 /// How to handle multi-line output
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum MultilineHandling {
     /// Keep all lines as single string with newlines
+    #[default]
     Preserve,
     /// Join lines with spaces
     Join,
@@ -114,12 +126,6 @@ pub enum MultilineHandling {
     LastLine,
     /// Return as array of lines
     Array,
-}
-
-impl Default for MultilineHandling {
-    fn default() -> Self {
-        MultilineHandling::Preserve
-    }
 }
 
 /// Captured variable from command output
@@ -179,7 +185,9 @@ impl VariableCaptureEngine {
                     command_index, var_name
                 );
 
-                let captured = self.perform_capture(var_name, capture_config, command_result).await?;
+                let captured = self
+                    .perform_capture(var_name, capture_config, command_result)
+                    .await?;
                 self.captured_variables.insert(var_name.clone(), captured);
             }
         }
@@ -208,7 +216,10 @@ impl VariableCaptureEngine {
                 Ok(extracted) => extracted,
                 Err(e) => {
                     if let Some(ref default_val) = default {
-                        warn!("Pattern extraction failed for '{}': {}, using default", var_name, e);
+                        warn!(
+                            "Pattern extraction failed for '{}': {}, using default",
+                            var_name, e
+                        );
                         default_val.clone()
                     } else {
                         return Err(e);
@@ -228,7 +239,10 @@ impl VariableCaptureEngine {
                 Ok(val) => val,
                 Err(e) => {
                     if let Some(ref default_val) = default {
-                        warn!("JSON extraction failed for '{}': {}, using default", var_name, e);
+                        warn!(
+                            "JSON extraction failed for '{}': {}, using default",
+                            var_name, e
+                        );
                         Value::String(default_val.clone())
                     } else {
                         return Err(e);
@@ -237,7 +251,7 @@ impl VariableCaptureEngine {
             }
         } else if multiline == MultilineHandling::Array {
             // If multiline is set to Array, parse as JSON array
-            serde_json::from_str(&processed_output).unwrap_or_else(|_| Value::String(processed_output))
+            serde_json::from_str(&processed_output).unwrap_or(Value::String(processed_output))
         } else {
             Value::String(processed_output)
         };
@@ -266,7 +280,10 @@ impl VariableCaptureEngine {
         match source {
             CaptureSource::Stdout => Ok(result.stdout.clone()),
             CaptureSource::Stderr => Ok(result.stderr.clone()),
-            CaptureSource::Both => Ok(format!("stdout:\n{}\nstderr:\n{}", result.stdout, result.stderr)),
+            CaptureSource::Both => Ok(format!(
+                "stdout:\n{}\nstderr:\n{}",
+                result.stdout, result.stderr
+            )),
             CaptureSource::Combined => {
                 // Interleave stdout and stderr (simplified version)
                 Ok(format!("{}{}", result.stdout, result.stderr))
@@ -291,13 +308,17 @@ impl VariableCaptureEngine {
 
     /// Apply regex pattern extraction
     fn apply_pattern_extraction(&self, input: &str, pattern: &str) -> Result<String> {
-        let regex = Regex::new(pattern)
-            .with_context(|| format!("Invalid regex pattern: {}", pattern))?;
+        let regex =
+            Regex::new(pattern).with_context(|| format!("Invalid regex pattern: {}", pattern))?;
 
         if let Some(captures) = regex.captures(input) {
             // If there are capture groups, use the first one, otherwise use the whole match
             if captures.len() > 1 {
-                Ok(captures.get(1).expect("Capture group 1 exists").as_str().to_string())
+                Ok(captures
+                    .get(1)
+                    .expect("Capture group 1 exists")
+                    .as_str()
+                    .to_string())
             } else {
                 Ok(captures.get(0).expect("Match exists").as_str().to_string())
             }
@@ -324,7 +345,7 @@ impl VariableCaptureEngine {
     /// Extract value from JSON using JSONPath
     fn extract_json_value(&self, input: &str, json_path: &str) -> Result<Value> {
         let data: Value = serde_json::from_str(input)
-            .with_context(|| format!("Failed to parse JSON from command output"))?;
+            .with_context(|| "Failed to parse JSON from command output".to_string())?;
 
         // Use simple path extraction for now (can be enhanced with full JSONPath library)
         extract_json_path(&data, json_path)
@@ -412,7 +433,8 @@ mod tests {
         let config = CaptureConfig::Simple(0);
         assert_eq!(config.command_index(), 0);
 
-        let (idx, source, pattern, json_path, max_size, default, multiline) = config.extract_params();
+        let (idx, source, pattern, json_path, max_size, default, multiline) =
+            config.extract_params();
         assert_eq!(idx, 0);
         assert!(matches!(source, CaptureSource::Stdout));
         assert!(pattern.is_none());
@@ -435,7 +457,8 @@ mod tests {
         };
 
         assert_eq!(config.command_index(), 1);
-        let (idx, source, pattern, json_path, max_size, default, multiline) = config.extract_params();
+        let (idx, source, pattern, json_path, max_size, default, multiline) =
+            config.extract_params();
         assert_eq!(idx, 1);
         assert!(matches!(source, CaptureSource::Stderr));
         assert_eq!(pattern, Some(r"(\d+)".to_string()));
@@ -468,15 +491,18 @@ mod tests {
     #[tokio::test]
     async fn test_variable_capture_with_pattern() {
         let mut config = HashMap::new();
-        config.insert("COUNT".to_string(), CaptureConfig::Detailed {
-            command_index: 0,
-            source: CaptureSource::Stdout,
-            pattern: Some(r"Total: (\d+)".to_string()),
-            json_path: None,
-            max_size: 1024,
-            default: None,
-            multiline: MultilineHandling::Preserve,
-        });
+        config.insert(
+            "COUNT".to_string(),
+            CaptureConfig::Detailed {
+                command_index: 0,
+                source: CaptureSource::Stdout,
+                pattern: Some(r"Total: (\d+)".to_string()),
+                json_path: None,
+                max_size: 1024,
+                default: None,
+                multiline: MultilineHandling::Preserve,
+            },
+        );
 
         let mut engine = VariableCaptureEngine::new(config);
 
@@ -496,15 +522,18 @@ mod tests {
     #[tokio::test]
     async fn test_variable_capture_with_json() {
         let mut config = HashMap::new();
-        config.insert("STATUS".to_string(), CaptureConfig::Detailed {
-            command_index: 0,
-            source: CaptureSource::Stdout,
-            pattern: None,
-            json_path: Some("status.code".to_string()),
-            max_size: 1024,
-            default: None,
-            multiline: MultilineHandling::Preserve,
-        });
+        config.insert(
+            "STATUS".to_string(),
+            CaptureConfig::Detailed {
+                command_index: 0,
+                source: CaptureSource::Stdout,
+                pattern: None,
+                json_path: Some("status.code".to_string()),
+                max_size: 1024,
+                default: None,
+                multiline: MultilineHandling::Preserve,
+            },
+        );
 
         let mut engine = VariableCaptureEngine::new(config);
 
@@ -535,9 +564,15 @@ mod tests {
             }
         });
 
-        assert_eq!(extract_json_path(&data, "items[0].name"), Some(json!("first")));
+        assert_eq!(
+            extract_json_path(&data, "items[0].name"),
+            Some(json!("first"))
+        );
         assert_eq!(extract_json_path(&data, "items.1.value"), Some(json!(2)));
-        assert_eq!(extract_json_path(&data, "nested.field.value"), Some(json!("deep")));
+        assert_eq!(
+            extract_json_path(&data, "nested.field.value"),
+            Some(json!("deep"))
+        );
         assert_eq!(extract_json_path(&data, "missing.field"), None);
     }
 

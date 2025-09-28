@@ -2,7 +2,7 @@
 //!
 //! Handles execution of setup commands with output capture and timeout management.
 
-use crate::cook::execution::variable_capture::{CaptureConfig, CommandResult, VariableCaptureEngine};
+use crate::cook::execution::variable_capture::{CommandResult, VariableCaptureEngine};
 use crate::cook::execution::SetupPhase;
 use crate::cook::workflow::{WorkflowContext, WorkflowStep};
 use anyhow::{anyhow, Result};
@@ -24,7 +24,9 @@ impl SetupPhaseExecutor {
     pub fn new(setup_phase: &SetupPhase) -> Self {
         // Use the capture_outputs directly as they are now CaptureConfig
         let capture_engine = if !setup_phase.capture_outputs.is_empty() {
-            Some(VariableCaptureEngine::new(setup_phase.capture_outputs.clone()))
+            Some(VariableCaptureEngine::new(
+                setup_phase.capture_outputs.clone(),
+            ))
         } else {
             None
         };
