@@ -43,13 +43,9 @@ impl SetupPhaseExecutor {
             })?;
 
             // Check if this step's output should be captured
-            if let Some(&capture_index) = self
-                .setup_phase
-                .capture_outputs
-                .get(&format!("step_{}", index))
-            {
-                if capture_index == index {
-                    captured_outputs.insert(format!("setup_output_{}", index), result.clone());
+            for (var_name, capture_config) in &self.setup_phase.capture_outputs {
+                if capture_config.command_index() == index {
+                    captured_outputs.insert(var_name.clone(), result.clone());
                 }
             }
 

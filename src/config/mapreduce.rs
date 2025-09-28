@@ -2,6 +2,7 @@
 //!
 //! Handles parsing of MapReduce workflow YAML files.
 
+use crate::cook::execution::variable_capture::CaptureConfig;
 use crate::cook::execution::{MapPhase, MapReduceConfig, ReducePhase, SetupPhase};
 use crate::cook::workflow::{WorkflowErrorPolicy, WorkflowStep};
 use serde::{Deserialize, Serialize};
@@ -129,9 +130,13 @@ pub struct SetupPhaseConfig {
     pub timeout: u64,
 
     /// Variables to capture from setup commands
-    /// Key is variable name, value is the command index to capture from
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub capture_outputs: HashMap<String, usize>,
+    /// Key is variable name, value is the capture configuration
+    #[serde(
+        default,
+        skip_serializing_if = "HashMap::is_empty",
+        deserialize_with = "deserialize_capture_outputs"
+    )]
+    pub capture_outputs: HashMap<String, CaptureConfig>,
 }
 
 fn default_setup_timeout() -> u64 {
@@ -145,6 +150,38 @@ where
 {
     deserialize_timeout(deserializer)?
         .ok_or_else(|| serde::de::Error::custom("timeout is required"))
+}
+
+/// Custom deserializer for capture_outputs that supports both legacy and new format
+fn deserialize_capture_outputs<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, CaptureConfig>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::Deserialize;
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum CaptureValue {
+        // Legacy format: just a command index
+        LegacyIndex(usize),
+        // New format: full CaptureConfig
+        Config(CaptureConfig),
+    }
+
+    let raw_map: HashMap<String, CaptureValue> = HashMap::deserialize(deserializer)?;
+    let mut result = HashMap::new();
+
+    for (key, value) in raw_map {
+        let config = match value {
+            CaptureValue::LegacyIndex(idx) => CaptureConfig::Simple(idx),
+            CaptureValue::Config(cfg) => cfg,
+        };
+        result.insert(key, config);
+    }
+
+    Ok(result)
 }
 
 /// Custom deserializer for setup phase that supports both simple list and full config

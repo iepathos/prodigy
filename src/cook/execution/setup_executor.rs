@@ -2,6 +2,7 @@
 //!
 //! Handles execution of setup commands with output capture and timeout management.
 
+use crate::cook::execution::variable_capture::{CommandResult, VariableCaptureEngine};
 use crate::cook::execution::SetupPhase;
 use crate::cook::workflow::{WorkflowContext, WorkflowStep};
 use anyhow::{anyhow, Result};
@@ -14,22 +15,31 @@ use tracing::{debug, info, warn};
 pub struct SetupPhaseExecutor {
     /// Timeout for the entire setup phase
     timeout: Duration,
-    /// Variables to capture from setup commands
-    capture_outputs: HashMap<String, usize>,
+    /// Variable capture engine
+    capture_engine: Option<VariableCaptureEngine>,
 }
 
 impl SetupPhaseExecutor {
     /// Create a new setup phase executor
     pub fn new(setup_phase: &SetupPhase) -> Self {
+        // Use the capture_outputs directly as they are now CaptureConfig
+        let capture_engine = if !setup_phase.capture_outputs.is_empty() {
+            Some(VariableCaptureEngine::new(
+                setup_phase.capture_outputs.clone(),
+            ))
+        } else {
+            None
+        };
+
         Self {
             timeout: Duration::from_secs(setup_phase.timeout),
-            capture_outputs: setup_phase.capture_outputs.clone(),
+            capture_engine,
         }
     }
 
     /// Execute the setup phase
     pub async fn execute<E>(
-        &self,
+        &mut self,
         commands: &[WorkflowStep],
         executor: &mut E,
         env: &crate::cook::orchestrator::ExecutionEnvironment,
@@ -49,20 +59,24 @@ impl SetupPhaseExecutor {
                 // Execute the step
                 let step_result = executor.execute_step(step, env, context).await?;
 
-                // Check if we need to capture output from this command
-                for (var_name, cmd_index) in &self.capture_outputs {
-                    if *cmd_index == index {
-                        info!(
-                            "Capturing output from command {} as variable {}",
-                            index, var_name
-                        );
+                // Capture variables if configured
+                if let Some(ref mut engine) = self.capture_engine {
+                    let cmd_result = CommandResult {
+                        stdout: step_result.stdout.clone(),
+                        stderr: step_result.stderr.clone(),
+                        success: step_result.success,
+                        exit_code: step_result.exit_code,
+                    };
 
-                        // Capture the stdout as the variable value
-                        let output = step_result.stdout.trim().to_string();
-                        captured_outputs.insert(var_name.clone(), output.clone());
+                    if let Err(e) = engine.capture_from_command(index, &cmd_result).await {
+                        warn!("Failed to capture variables from command {}: {}", index, e);
+                        // Continue execution even if capture fails
+                    }
 
-                        // Also add to workflow context for immediate use
-                        context.variables.insert(var_name.clone(), output);
+                    // Export captured variables to context
+                    for (var_name, var_value) in engine.export_variables() {
+                        captured_outputs.insert(var_name.clone(), var_value.clone());
+                        context.variables.insert(var_name, var_value);
                     }
                 }
 
@@ -101,7 +115,7 @@ impl SetupPhaseExecutor {
     /// Execute setup phase with file detection
     /// Returns captured outputs and optionally a generated input file
     pub async fn execute_with_file_detection<E>(
-        &self,
+        &mut self,
         commands: &[WorkflowStep],
         executor: &mut E,
         env: &crate::cook::orchestrator::ExecutionEnvironment,
@@ -191,9 +205,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_setup_executor_captures_output() {
+        use crate::cook::execution::variable_capture::CaptureConfig;
         let mut capture_outputs = HashMap::new();
-        capture_outputs.insert("INPUT_FILE".to_string(), 0);
-        capture_outputs.insert("ITEM_COUNT".to_string(), 1);
+        capture_outputs.insert("INPUT_FILE".to_string(), CaptureConfig::Simple(0));
+        capture_outputs.insert("ITEM_COUNT".to_string(), CaptureConfig::Simple(1));
 
         let setup_phase = SetupPhase {
             commands: vec![WorkflowStep::default(), WorkflowStep::default()],
@@ -201,7 +216,7 @@ mod tests {
             capture_outputs,
         };
 
-        let executor_impl = SetupPhaseExecutor::new(&setup_phase);
+        let mut executor_impl = SetupPhaseExecutor::new(&setup_phase);
 
         let mut mock_executor = MockExecutor {
             results: vec![
@@ -254,7 +269,7 @@ mod tests {
             capture_outputs: HashMap::new(),
         };
 
-        let executor_impl = SetupPhaseExecutor::new(&setup_phase);
+        let mut executor_impl = SetupPhaseExecutor::new(&setup_phase);
 
         // Create a mock executor that takes too long
         struct SlowExecutor;

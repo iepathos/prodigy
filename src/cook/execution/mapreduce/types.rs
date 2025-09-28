@@ -4,6 +4,7 @@
 //! implementation, promoting consistency and reducing coupling.
 
 use crate::cook::execution::interpolation::InterpolationContext;
+use crate::cook::execution::variable_capture::CaptureConfig;
 use crate::cook::execution::variables::{Variable, VariableContext};
 use crate::cook::orchestrator::ExecutionEnvironment;
 use serde::{Deserialize, Serialize};
@@ -66,7 +67,7 @@ pub struct SetupPhase {
     pub timeout: u64,
     /// Variables to capture from setup commands
     #[serde(default)]
-    pub capture_outputs: HashMap<String, usize>,
+    pub capture_outputs: HashMap<String, CaptureConfig>,
 }
 
 /// Map phase configuration

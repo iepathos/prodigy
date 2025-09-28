@@ -1740,7 +1740,10 @@ mod additional_coverage_tests {
                 when: None,
             }],
             timeout: 60,
-            capture_outputs: HashMap::from([("setup_output".to_string(), 0)]),
+            capture_outputs: HashMap::from([(
+                "setup_output".to_string(),
+                crate::cook::execution::variable_capture::CaptureConfig::Simple(0),
+            )]),
         };
 
         // Test serialization
