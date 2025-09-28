@@ -294,7 +294,7 @@ pub struct TimeoutSummary {
 
 /// Running average calculator for metrics
 #[derive(Debug)]
-pub(crate) struct RunningAverage {
+pub struct RunningAverage {
     samples: Vec<f64>,
     capacity: usize,
     sum: f64,
