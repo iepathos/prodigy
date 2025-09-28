@@ -1203,12 +1203,12 @@ mod tests {
             let id = manager
                 .create_checkpoint(&checkpoint, CheckpointReason::Interval)
                 .await
-                .expect(&format!("Failed to create checkpoint with {:?}", algo));
+                .unwrap_or_else(|_| panic!("Failed to create checkpoint with {:?}", algo));
 
             let loaded = manager
                 .resume_from_checkpoint(Some(id))
                 .await
-                .expect(&format!("Failed to resume checkpoint with {:?}", algo));
+                .unwrap_or_else(|_| panic!("Failed to resume checkpoint with {:?}", algo));
 
             assert_eq!(
                 loaded.checkpoint.metadata.job_id,
@@ -1253,12 +1253,14 @@ mod tests {
             false,
         ));
 
-        let mut config = CheckpointConfig::default();
-        config.retention_policy = Some(RetentionPolicy {
-            max_checkpoints: Some(3),
-            max_age: None,
-            keep_final: true,
-        });
+        let config = CheckpointConfig {
+            retention_policy: Some(RetentionPolicy {
+                max_checkpoints: Some(3),
+                max_age: None,
+                keep_final: true,
+            }),
+            ..Default::default()
+        };
 
         let manager = CheckpointManager::new(storage, config, "test-job".to_string());
 
@@ -1275,10 +1277,7 @@ mod tests {
         }
 
         // Retention policy is set to max 3, so after creating 5, only 3 should remain
-        let checkpoints = manager
-            .list_checkpoints()
-            .await
-            .expect("Failed to list checkpoints");
+        let checkpoints = manager.list_checkpoints().await.unwrap();
         assert_eq!(
             checkpoints.len(),
             3,
@@ -1360,14 +1359,11 @@ mod tests {
 
         // All should succeed
         for result in results {
-            assert!(result.expect("Task panicked").is_ok());
+            assert!(result.unwrap().is_ok());
         }
 
         // Verify all checkpoints exist
-        let checkpoints = manager
-            .list_checkpoints()
-            .await
-            .expect("Failed to list checkpoints");
+        let checkpoints = manager.list_checkpoints().await.unwrap();
         assert_eq!(checkpoints.len(), 10);
     }
 
@@ -1399,7 +1395,7 @@ mod tests {
             let resume_state = manager
                 .resume_from_checkpoint_with_strategy(Some(id.clone()), strategy.clone())
                 .await
-                .expect(&format!("Failed with strategy {:?}", strategy));
+                .unwrap_or_else(|_| panic!("Failed with strategy {:?}", strategy));
 
             match strategy {
                 ResumeStrategy::ContinueFromCheckpoint => {
@@ -1559,9 +1555,11 @@ mod tests {
             temp_dir.path().to_path_buf(),
             false,
         ));
-        let mut config = CheckpointConfig::default();
-        config.interval_items = Some(5);
-        config.interval_duration = Some(Duration::from_secs(60));
+        let config = CheckpointConfig {
+            interval_items: Some(5),
+            interval_duration: Some(Duration::from_secs(60)),
+            ..Default::default()
+        };
 
         let manager = CheckpointManager::new(storage, config, "test-job".to_string());
 

@@ -242,14 +242,16 @@ async fn test_checkpoint_save_and_load_after_interruption() {
 #[tokio::test]
 async fn test_checkpoint_periodic_saves_during_execution() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Arc::new(FileCheckpointStorage::new(
+    let _storage = Arc::new(FileCheckpointStorage::new(
         temp_dir.path().to_path_buf(),
         true,
     ));
 
-    let mut config = CheckpointConfig::default();
-    config.interval_items = Some(3); // Checkpoint every 3 items
-    config.interval_duration = Some(Duration::from_secs(5)); // Or every 5 seconds
+    let config = CheckpointConfig {
+        interval_items: Some(3),                         // Checkpoint every 3 items
+        interval_duration: Some(Duration::from_secs(5)), // Or every 5 seconds
+        ..Default::default()
+    };
 
     let job_id = "periodic-checkpoint-job";
     // Clone the storage path rather than the storage itself
@@ -361,7 +363,7 @@ async fn test_resume_after_agent_failure() {
 #[tokio::test]
 async fn test_concurrent_checkpoint_updates() {
     let temp_dir = TempDir::new().unwrap();
-    let storage = Arc::new(FileCheckpointStorage::new(
+    let _storage = Arc::new(FileCheckpointStorage::new(
         temp_dir.path().to_path_buf(),
         false,
     ));
@@ -603,14 +605,16 @@ async fn test_checkpoint_retention_and_cleanup() {
         false,
     ));
 
-    let mut config = CheckpointConfig::default();
-    config.retention_policy = Some(
-        prodigy::cook::execution::mapreduce::checkpoint::RetentionPolicy {
-            max_checkpoints: Some(3),
-            max_age: Some(Duration::from_secs(60)),
-            keep_final: true,
-        },
-    );
+    let config = CheckpointConfig {
+        retention_policy: Some(
+            prodigy::cook::execution::mapreduce::checkpoint::RetentionPolicy {
+                max_checkpoints: Some(3),
+                max_age: Some(Duration::from_secs(60)),
+                keep_final: true,
+            },
+        ),
+        ..Default::default()
+    };
 
     let job_id = "retention-test-job";
     let manager = CheckpointManager::new(storage, config, job_id.to_string());
@@ -700,9 +704,11 @@ async fn test_checkpoint_integrity_verification() {
         false,
     ));
 
-    let mut config = CheckpointConfig::default();
-    config.validate_on_save = true;
-    config.validate_on_load = true;
+    let config = CheckpointConfig {
+        validate_on_save: true,
+        validate_on_load: true,
+        ..Default::default()
+    };
 
     let job_id = "integrity-test-job";
     let manager = CheckpointManager::new(storage, config, job_id.to_string());

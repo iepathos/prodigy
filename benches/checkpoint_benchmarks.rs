@@ -304,8 +304,6 @@ fn bench_mapreduce_checkpoint_overhead(c: &mut Criterion) {
                 map_results: None,
                 reduce_results: None,
                 workflow_variables: HashMap::new(),
-                is_complete: false,
-                is_cancelled: false,
             },
             work_item_state: WorkItemState {
                 pending_items: vec![],
@@ -313,7 +311,6 @@ fn bench_mapreduce_checkpoint_overhead(c: &mut Criterion) {
                 completed_items: vec![],
                 failed_items: vec![],
                 current_batch: None,
-                total_items: num_items,
             },
             agent_state: AgentState {
                 active_agents: HashMap::new(),
