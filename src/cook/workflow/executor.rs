@@ -4488,7 +4488,7 @@ impl WorkflowExecutor {
             };
 
             if !setup_phase.commands.is_empty() {
-                let setup_executor = SetupPhaseExecutor::new(&setup_phase);
+                let mut setup_executor = SetupPhaseExecutor::new(&setup_phase);
 
                 // Execute setup phase with file detection
                 let (captured, gen_file) = setup_executor

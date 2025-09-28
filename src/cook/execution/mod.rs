@@ -60,6 +60,9 @@ pub mod setup_executor;
 #[cfg(test)]
 pub mod shell_failure_tests;
 pub mod state;
+pub mod variable_capture;
+#[cfg(test)]
+pub mod variable_capture_test;
 #[cfg(test)]
 pub mod state_tests;
 pub mod variables;
