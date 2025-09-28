@@ -44,15 +44,11 @@ pub async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> 
 }
 
 /// Execute checkpoint-related commands
-pub async fn run_checkpoints_command(command: CheckpointCommands) -> Result<()> {
+pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -> Result<()> {
     use crate::cook::workflow::CheckpointManager;
 
     match command {
-        CheckpointCommands::List {
-            workflow_id,
-            path,
-            verbose,
-        } => {
+        CheckpointCommands::List { workflow_id, path } => {
             let working_dir = match path {
                 Some(p) => p,
                 None => std::env::current_dir().context("Failed to get current directory")?,
@@ -75,9 +71,9 @@ pub async fn run_checkpoints_command(command: CheckpointCommands) -> Result<()> 
             let checkpoint_manager = CheckpointManager::new(checkpoint_dir.clone());
 
             if let Some(id) = workflow_id {
-                list_specific_checkpoint(&checkpoint_manager, &id, verbose).await
+                list_specific_checkpoint(&checkpoint_manager, &id, verbose > 0).await
             } else {
-                list_all_checkpoints(&checkpoint_manager, &checkpoint_dir).await
+                list_all_checkpoints(&checkpoint_manager, &checkpoint_dir, verbose > 0).await
             }
         }
         CheckpointCommands::Clean {
@@ -221,6 +217,7 @@ async fn list_specific_checkpoint(
 async fn list_all_checkpoints(
     checkpoint_manager: &crate::cook::workflow::CheckpointManager,
     checkpoint_dir: &PathBuf,
+    verbose: bool,
 ) -> Result<()> {
     println!("📋 Available checkpoints:");
 
@@ -253,6 +250,18 @@ async fn list_all_checkpoints(
                 checkpoint.execution_state.total_steps
             );
             println!("    Created: {}", checkpoint.timestamp);
+
+            if verbose && !checkpoint.completed_steps.is_empty() {
+                println!("    Completed Steps:");
+                for step in &checkpoint.completed_steps {
+                    println!(
+                        "      {} - {} ({})",
+                        step.step_index,
+                        step.command,
+                        if step.success { "✓" } else { "✗" }
+                    );
+                }
+            }
         }
     }
     Ok(())

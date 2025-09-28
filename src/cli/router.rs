@@ -61,7 +61,7 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
             from_checkpoint,
             path,
         }) => run_resume_workflow(workflow_id, force, from_checkpoint, path).await,
-        Some(Commands::Checkpoints { command }) => run_checkpoints_command(command).await,
+        Some(Commands::Checkpoints { command }) => run_checkpoints_command(command, verbose).await,
         Some(Commands::GoalSeek {
             goal,
             command,
