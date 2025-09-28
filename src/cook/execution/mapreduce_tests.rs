@@ -284,6 +284,7 @@ fn test_map_phase_configuration() {
         sort_by: Some("priority".to_string()),
         max_items: None,
         distinct: None,
+        timeout_config: None,
     };
 
     assert_eq!(map_phase.config.max_parallel, 20);
@@ -1805,6 +1806,7 @@ mod additional_coverage_tests {
             sort_by: Some("item.created_at DESC".to_string()),
             max_items: Some(100),
             distinct: Some("item.id".to_string()),
+            timeout_config: None,
         };
 
         assert_eq!(map_phase.config.max_parallel, 50);

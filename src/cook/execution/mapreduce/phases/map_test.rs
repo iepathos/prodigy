@@ -39,6 +39,7 @@ fn create_test_map_phase() -> MapPhase {
         sort_by: None,
         max_items: Some(10),
         distinct: None,
+        timeout_config: None,
     }
 }
 

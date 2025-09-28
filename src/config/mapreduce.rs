@@ -250,6 +250,14 @@ pub struct MapPhaseYaml {
     /// Field for deduplication
     #[serde(skip_serializing_if = "Option::is_none")]
     pub distinct: Option<String>,
+
+    /// Agent timeout in seconds
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_timeout_secs: Option<u64>,
+
+    /// Timeout configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout_config: Option<crate::cook::execution::mapreduce::timeout::TimeoutConfig>,
 }
 
 fn default_max_parallel() -> usize {
@@ -435,7 +443,7 @@ impl MapReduceWorkflowConfig {
                 input: self.map.input.clone(),
                 json_path: self.map.json_path.clone(),
                 max_parallel: self.map.max_parallel,
-                agent_timeout_secs: None,
+                agent_timeout_secs: self.map.agent_timeout_secs,
                 continue_on_failure: false,
                 batch_size: None,
                 enable_checkpoints: true,
@@ -448,6 +456,7 @@ impl MapReduceWorkflowConfig {
             sort_by: self.map.sort_by.clone(),
             max_items: self.map.max_items,
             distinct: self.map.distinct.clone(),
+            timeout_config: self.map.timeout_config.clone(),
         }
     }
 

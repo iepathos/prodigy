@@ -496,6 +496,7 @@ impl MapReduceResumeManager {
             sort_by: None,
             max_items: None,
             distinct: None,
+            timeout_config: None,
         };
 
         // Return execution context so the caller can execute with a mutable executor

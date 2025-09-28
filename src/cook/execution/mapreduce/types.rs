@@ -89,6 +89,9 @@ pub struct MapPhase {
     /// Optional distinct field for deduplication
     #[serde(skip_serializing_if = "Option::is_none")]
     pub distinct: Option<String>,
+    /// Timeout configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout_config: Option<crate::cook::execution::mapreduce::timeout::TimeoutConfig>,
 }
 
 /// Reduce phase configuration
