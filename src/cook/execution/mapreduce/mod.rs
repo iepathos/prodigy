@@ -24,6 +24,9 @@ pub mod progress;
 pub mod reduce_phase;
 pub mod resources;
 pub mod state;
+pub mod timeout;
+#[cfg(test)]
+mod timeout_test;
 pub mod types;
 pub mod utils;
 
