@@ -3,6 +3,216 @@
 //! This module provides detailed git commit and file tracking capabilities
 //! for MapReduce agents, including commit metadata extraction, file modification
 //! tracking, and integration with merge workflows.
+//!
+//! # Overview
+//!
+//! The `GitOperationsService` provides a high-level interface for interacting with git
+//! repositories, specifically optimized for MapReduce workflow contexts. It enables:
+//!
+//! - Retrieving detailed commit history with metadata
+//! - Tracking file modifications across branches
+//! - Supporting merge workflow variable population
+//! - Efficient caching and performance optimization
+//!
+//! # Usage Examples
+//!
+//! ## Basic Service Setup
+//!
+//! ```rust
+//! use prodigy::cook::execution::mapreduce::resources::git_operations::{
+//!     GitOperationsConfig, GitOperationsService
+//! };
+//!
+//! // Create with default configuration
+//! let config = GitOperationsConfig::default();
+//! let mut service = GitOperationsService::new(config);
+//!
+//! // Or customize the configuration
+//! let custom_config = GitOperationsConfig {
+//!     max_commits: 500,      // Limit number of commits retrieved
+//!     max_files: 1000,       // Limit tracked files
+//!     include_diffs: true,   // Include content diffs
+//!     ..Default::default()
+//! };
+//! let mut custom_service = GitOperationsService::new(custom_config);
+//! ```
+//!
+//! ## Retrieving Commit History
+//!
+//! ```rust
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! use std::path::Path;
+//! use chrono::{Duration, Utc};
+//!
+//! let worktree_path = Path::new("/path/to/worktree");
+//! let mut service = GitOperationsService::new(GitOperationsConfig::default());
+//!
+//! // Get all recent commits
+//! let all_commits = service
+//!     .get_worktree_commits(worktree_path, None, None)
+//!     .await?;
+//!
+//! // Get commits from last 7 days
+//! let since = Utc::now() - Duration::days(7);
+//! let recent_commits = service
+//!     .get_worktree_commits(worktree_path, Some(since), None)
+//!     .await?;
+//!
+//! // Process commit information
+//! for commit in recent_commits {
+//!     println!("Commit: {} by {}", commit.short_id, commit.author.name);
+//!     println!("Message: {}", commit.message);
+//!     if let Some(stats) = commit.stats {
+//!         println!("Changes: {} files, +{} -{}",
+//!             stats.files_changed, stats.insertions, stats.deletions);
+//!     }
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Tracking Modified Files
+//!
+//! ```rust
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! let mut service = GitOperationsService::new(GitOperationsConfig::default());
+//!
+//! // Get all modified files (working directory + recent commits)
+//! let all_modified = service
+//!     .get_worktree_modified_files(worktree_path, None)
+//!     .await?;
+//!
+//! // Get files modified since a specific commit
+//! let since_commit = "abc123def456";
+//! let files_since = service
+//!     .get_worktree_modified_files(worktree_path, Some(since_commit))
+//!     .await?;
+//!
+//! // Process file modifications
+//! for file in files_since {
+//!     match file.modification_type {
+//!         ModificationType::Added => println!("Added: {}", file.path.display()),
+//!         ModificationType::Modified => println!("Modified: {}", file.path.display()),
+//!         ModificationType::Deleted => println!("Deleted: {}", file.path.display()),
+//!         ModificationType::Renamed { from } =>
+//!             println!("Renamed: {} -> {}", from.display(), file.path.display()),
+//!         _ => {}
+//!     }
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Merge Workflow Integration
+//!
+//! ```rust
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Get comprehensive git information for merge workflows
+//! let merge_info = service
+//!     .get_merge_git_info(worktree_path, "main")
+//!     .await?;
+//!
+//! println!("Merging {} commits affecting {} files",
+//!     merge_info.commits.len(),
+//!     merge_info.modified_files.len());
+//!
+//! // Use in workflow variables
+//! let commits_json = serde_json::to_string(&merge_info.commits)?;
+//! let files_json = serde_json::to_string(&merge_info.modified_files)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Configuration Options
+//!
+//! The `GitOperationsConfig` struct provides several tuning parameters:
+//!
+//! - `enable_caching`: Enable/disable result caching (default: true)
+//! - `cache_ttl_secs`: Cache time-to-live in seconds (default: 300)
+//! - `max_commits`: Maximum commits to retrieve (default: 1000)
+//! - `max_files`: Maximum files to track (default: 5000)
+//! - `include_diffs`: Include content diffs in results (default: false)
+//! - `operation_timeout_secs`: Timeout for git operations (default: 30)
+//!
+//! # Troubleshooting Guide
+//!
+//! ## Common Issues and Solutions
+//!
+//! ### Issue: "Failed to open repository"
+//! **Cause**: The specified path is not a git repository or worktree.
+//! **Solution**: Ensure the path points to a valid git repository or worktree.
+//!
+//! ```rust
+//! // Verify repository before operations
+//! use git2::Repository;
+//! if Repository::open(path).is_err() {
+//!     eprintln!("Not a git repository: {}", path.display());
+//! }
+//! ```
+//!
+//! ### Issue: "No commits found" in new repository
+//! **Cause**: Repository has no commit history yet.
+//! **Solution**: The service handles empty repositories gracefully, returning empty results.
+//!
+//! ### Issue: Performance slow with large repositories
+//! **Cause**: Retrieving too many commits or files.
+//! **Solution**: Adjust configuration limits:
+//!
+//! ```rust
+//! let config = GitOperationsConfig {
+//!     max_commits: 100,    // Reduce commit limit
+//!     max_files: 500,      // Reduce file limit
+//!     include_diffs: false, // Disable expensive diff operations
+//!     ..Default::default()
+//! };
+//! ```
+//!
+//! ### Issue: Memory usage high
+//! **Cause**: Large diffs or many files being tracked.
+//! **Solution**:
+//! 1. Disable diff inclusion: `include_diffs: false`
+//! 2. Reduce limits: `max_commits` and `max_files`
+//! 3. Use time-based filtering to limit scope
+//!
+//! ### Issue: Merge variables not populated
+//! **Cause**: Git operations failed or worktree doesn't exist.
+//! **Solution**: Check logs for warnings. The system provides empty defaults when git operations fail:
+//!
+//! ```json
+//! {
+//!   "merge.commits": "[]",
+//!   "merge.modified_files": "[]",
+//!   "merge.commit_count": "0",
+//!   "merge.file_count": "0"
+//! }
+//! ```
+//!
+//! ## Performance Considerations
+//!
+//! 1. **Use appropriate limits**: Set `max_commits` and `max_files` based on your needs
+//! 2. **Time filtering**: Use `since` and `until` parameters to limit commit retrieval
+//! 3. **Disable diffs**: Set `include_diffs: false` unless content diffs are needed
+//! 4. **Caching**: Keep `enable_caching: true` for repeated operations
+//!
+//! ## Integration with MapReduce Workflows
+//!
+//! The service integrates seamlessly with MapReduce merge workflows:
+//!
+//! ```yaml
+//! merge:
+//!   commands:
+//!     - shell: "echo 'Processing ${merge.commit_count} commits'"
+//!     - shell: "echo 'Modified files: ${merge.file_list}'"
+//!     - claude: "/review-changes ${merge.commits}"
+//! ```
+//!
+//! Available merge variables:
+//! - `${merge.commits}`: JSON array of commit objects
+//! - `${merge.modified_files}`: JSON array of file modifications
+//! - `${merge.commit_count}`: Number of commits
+//! - `${merge.file_count}`: Number of modified files
+//! - `${merge.commit_ids}`: Comma-separated list of short commit IDs
+//! - `${merge.file_list}`: Comma-separated list of file paths
 
 use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
 use chrono::{DateTime, Utc};
@@ -669,3 +879,7 @@ impl GitResultExt for Vec<FileModificationInfo> {
             .collect()
     }
 }
+
+#[cfg(test)]
+#[path = "git_operations_tests.rs"]
+mod git_operations_tests;

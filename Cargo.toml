@@ -95,6 +95,10 @@ harness = false
 name = "regression"
 harness = false
 
+[[bench]]
+name = "git_operations_bench"
+harness = false
+
 [profile.release]
 # Aggressive optimizations for binary size reduction
 opt-level = "z"        # Optimize for size
