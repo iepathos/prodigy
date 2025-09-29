@@ -1399,45 +1399,61 @@ impl WorktreeManager {
         // Get git information for merge workflow
         let worktree_path = self.base_dir.join(worktree_name);
         if worktree_path.exists() {
-            use crate::cook::execution::mapreduce::resources::git_operations::{GitOperationsConfig, GitOperationsService};
+            use crate::cook::execution::mapreduce::resources::git_operations::{
+                GitOperationsConfig, GitOperationsService,
+            };
 
             let config = GitOperationsConfig {
-                max_commits: 100,  // Limit to recent commits for merge context
-                max_files: 500,    // Reasonable limit for modified files
+                max_commits: 100, // Limit to recent commits for merge context
+                max_files: 500,   // Reasonable limit for modified files
                 ..Default::default()
             };
             let mut git_service = GitOperationsService::new(config);
 
-            match git_service.get_merge_git_info(&worktree_path, target_branch).await {
+            match git_service
+                .get_merge_git_info(&worktree_path, target_branch)
+                .await
+            {
                 Ok(git_info) => {
                     // Serialize commits as JSON for use in workflows
                     if let Ok(commits_json) = serde_json::to_string(&git_info.commits) {
                         variables.insert("merge.commits".to_string(), commits_json);
-                        variables.insert("merge.commit_count".to_string(), git_info.commits.len().to_string());
+                        variables.insert(
+                            "merge.commit_count".to_string(),
+                            git_info.commits.len().to_string(),
+                        );
                     }
 
                     // Serialize modified files as JSON
                     if let Ok(files_json) = serde_json::to_string(&git_info.modified_files) {
                         variables.insert("merge.modified_files".to_string(), files_json);
-                        variables.insert("merge.file_count".to_string(), git_info.modified_files.len().to_string());
+                        variables.insert(
+                            "merge.file_count".to_string(),
+                            git_info.modified_files.len().to_string(),
+                        );
                     }
 
                     // Add simple list of file paths for easy reference
-                    let file_paths: Vec<String> = git_info.modified_files
+                    let file_paths: Vec<String> = git_info
+                        .modified_files
                         .iter()
                         .map(|f| f.path.to_string_lossy().to_string())
                         .collect();
                     variables.insert("merge.file_list".to_string(), file_paths.join(", "));
 
                     // Add simple list of commit IDs
-                    let commit_ids: Vec<String> = git_info.commits
+                    let commit_ids: Vec<String> = git_info
+                        .commits
                         .iter()
                         .map(|c| c.short_id.clone())
                         .collect();
                     variables.insert("merge.commit_ids".to_string(), commit_ids.join(", "));
 
-                    tracing::debug!("Added git information to merge variables: {} commits, {} files",
-                        git_info.commits.len(), git_info.modified_files.len());
+                    tracing::debug!(
+                        "Added git information to merge variables: {} commits, {} files",
+                        git_info.commits.len(),
+                        git_info.modified_files.len()
+                    );
                 }
                 Err(e) => {
                     // Log warning but continue - merge can proceed without git info
@@ -1697,8 +1713,9 @@ impl WorktreeManager {
         let mut output = String::new();
 
         // Initialize merge variables and checkpoint manager
-        let (variables, _session_id) =
-            self.init_merge_variables(worktree_name, source_branch, target_branch).await?;
+        let (variables, _session_id) = self
+            .init_merge_variables(worktree_name, source_branch, target_branch)
+            .await?;
         let checkpoint_manager = self.create_merge_checkpoint_manager()?;
 
         // Execute each command in the merge workflow

@@ -70,14 +70,7 @@ mod tests {
             .map(|c| vec![c])
             .unwrap_or_else(Vec::new);
 
-        repo.commit(
-            Some("HEAD"),
-            &sig,
-            &sig,
-            message,
-            &tree,
-            &parent_commits,
-        )
+        repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parent_commits)
     }
 
     #[tokio::test]
@@ -181,10 +174,7 @@ mod tests {
 
         // Verify all expected commits are present using functional patterns
         let expected_messages = vec!["First commit", "Second commit", "Third commit"];
-        let actual_messages: Vec<&str> = commits
-            .iter()
-            .map(|c| c.message.as_str())
-            .collect();
+        let actual_messages: Vec<&str> = commits.iter().map(|c| c.message.as_str()).collect();
 
         let all_present = expected_messages
             .iter()
@@ -210,8 +200,12 @@ mod tests {
         let since_time = Utc::now();
         std::thread::sleep(std::time::Duration::from_millis(100));
 
-        create_commit(&repo, "Recent commit", vec![("recent.txt", "Recent content")])
-            .expect("Failed to create recent commit");
+        create_commit(
+            &repo,
+            "Recent commit",
+            vec![("recent.txt", "Recent content")],
+        )
+        .expect("Failed to create recent commit");
 
         let config = GitOperationsConfig::default();
         let mut service = GitOperationsService::new(config);
@@ -225,14 +219,22 @@ mod tests {
         // Time filtering in git is complex due to commit time vs author time
         // The test may get 0, 1, or 2 commits depending on timing precision
         // We'll accept any of these outcomes as the behavior is platform-dependent
-        assert!(commits.len() <= 2,
-                "Expected at most 2 commits, got {}", commits.len());
+        assert!(
+            commits.len() <= 2,
+            "Expected at most 2 commits, got {}",
+            commits.len()
+        );
 
         // If we got any commits, verify they have expected messages
         if !commits.is_empty() {
             let messages: Vec<&str> = commits.iter().map(|c| c.message.as_str()).collect();
-            assert!(messages.iter().any(|m| *m == "Recent commit" || *m == "Old commit"),
-                    "Got unexpected commit messages: {:?}", messages);
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| *m == "Recent commit" || *m == "Old commit"),
+                "Got unexpected commit messages: {:?}",
+                messages
+            );
         }
     }
 
@@ -268,7 +270,8 @@ mod tests {
         let commit_numbers: Vec<usize> = commits
             .iter()
             .filter_map(|c| {
-                c.message.strip_prefix("Commit ")
+                c.message
+                    .strip_prefix("Commit ")
                     .and_then(|s| s.parse().ok())
             })
             .collect();
@@ -332,10 +335,10 @@ mod tests {
 
         // If untracked file is found, verify it's marked as Added
         if let Some(untracked_file) = untracked {
-            assert!(matches!(
-                untracked_file.modification_type,
-                ModificationType::Added
-            ), "Untracked file should be marked as Added");
+            assert!(
+                matches!(untracked_file.modification_type, ModificationType::Added),
+                "Untracked file should be marked as Added"
+            );
         }
 
         // We should at least see the committed files
@@ -352,8 +355,11 @@ mod tests {
             .expect("Failed to get modified files since commit");
 
         // Should include modifications since the first commit
-        assert!(files_since.len() >= 1,
-                "Expected at least 1 file modified since first commit, got {}", files_since.len());
+        assert!(
+            files_since.len() >= 1,
+            "Expected at least 1 file modified since first commit, got {}",
+            files_since.len()
+        );
     }
 
     #[tokio::test]
@@ -411,8 +417,8 @@ mod tests {
             &repo,
             "Second",
             vec![
-                ("file3.txt", "New file 3"),  // Add new file
-                ("file2.txt", "Modified content 2"),  // Modify existing
+                ("file3.txt", "New file 3"),         // Add new file
+                ("file2.txt", "Modified content 2"), // Modify existing
             ],
         )
         .expect("Failed to create second commit");
@@ -430,12 +436,14 @@ mod tests {
 
         let sig = git2::Signature::new("Test User", "test@example.com", &git2::Time::new(0, 0))
             .expect("Failed to create signature");
-        let tree_id = repo.index()
+        let tree_id = repo
+            .index()
             .expect("Failed to get index")
             .write_tree()
             .expect("Failed to write tree");
         let tree = repo.find_tree(tree_id).expect("Failed to find tree");
-        let parent = repo.head()
+        let parent = repo
+            .head()
             .expect("Failed to get HEAD")
             .peel_to_commit()
             .expect("Failed to get parent commit");
@@ -459,29 +467,38 @@ mod tests {
             .expect("Failed to get modified files");
 
         // Check for different modification types using functional patterns
-        let type_counts = files
-            .iter()
-            .fold(std::collections::HashMap::new(), |mut counts, file| {
-                let type_name = match &file.modification_type {
-                    ModificationType::Added => "added",
-                    ModificationType::Modified => "modified",
-                    ModificationType::Deleted => "deleted",
-                    ModificationType::Renamed { .. } => "renamed",
-                    ModificationType::Copied { .. } => "copied",
-                };
-                *counts.entry(type_name).or_insert(0) += 1;
-                counts
-            });
+        let type_counts =
+            files
+                .iter()
+                .fold(std::collections::HashMap::new(), |mut counts, file| {
+                    let type_name = match &file.modification_type {
+                        ModificationType::Added => "added",
+                        ModificationType::Modified => "modified",
+                        ModificationType::Deleted => "deleted",
+                        ModificationType::Renamed { .. } => "renamed",
+                        ModificationType::Copied { .. } => "copied",
+                    };
+                    *counts.entry(type_name).or_insert(0) += 1;
+                    counts
+                });
 
         // The function returns deduplicated files from recent commits
         // We should have files that were added, modified, and deleted across commits
-        assert!(files.len() >= 3, "Expected at least 3 files, got {}", files.len());
+        assert!(
+            files.len() >= 3,
+            "Expected at least 3 files, got {}",
+            files.len()
+        );
 
         // Verify we have different types of modifications
-        assert!(type_counts.get("added").unwrap_or(&0) >= &1,
-                "Expected at least 1 added file");
-        assert!(type_counts.get("deleted").unwrap_or(&0) >= &1,
-                "Expected at least 1 deleted file");
+        assert!(
+            type_counts.get("added").unwrap_or(&0) >= &1,
+            "Expected at least 1 added file"
+        );
+        assert!(
+            type_counts.get("deleted").unwrap_or(&0) >= &1,
+            "Expected at least 1 deleted file"
+        );
     }
 
     #[tokio::test]
@@ -504,10 +521,19 @@ mod tests {
 
         // Use functional patterns to validate merge info
         let validations = vec![
-            (merge_info.target_branch == "main", "Target branch should be 'main'"),
-            (merge_info.worktree_path == temp_dir.path(), "Worktree path should match"),
+            (
+                merge_info.target_branch == "main",
+                "Target branch should be 'main'",
+            ),
+            (
+                merge_info.worktree_path == temp_dir.path(),
+                "Worktree path should match",
+            ),
             (merge_info.commits.len() == 2, "Should have 2 commits"),
-            (merge_info.generated_at <= Utc::now(), "Generated time should be valid"),
+            (
+                merge_info.generated_at <= Utc::now(),
+                "Generated time should be valid",
+            ),
         ];
 
         // Apply all validations using functional approach
@@ -525,7 +551,8 @@ mod tests {
         );
 
         // Verify the commits have the expected messages using functional approach
-        let commit_messages: Vec<&str> = merge_info.commits
+        let commit_messages: Vec<&str> = merge_info
+            .commits
             .iter()
             .map(|c| c.message.as_str())
             .collect();
@@ -578,7 +605,10 @@ mod tests {
         // Check files changed
         assert_eq!(commit.files_changed.len(), 2);
         assert!(commit.files_changed.iter().any(|f| f.contains("main.rs")));
-        assert!(commit.files_changed.iter().any(|f| f.contains("Cargo.toml")));
+        assert!(commit
+            .files_changed
+            .iter()
+            .any(|f| f.contains("Cargo.toml")));
     }
 
     #[tokio::test]

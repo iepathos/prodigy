@@ -41,15 +41,8 @@ fn create_large_test_repo(commits: usize, files_per_commit: usize) -> (TempDir, 
     let tree_id = index.write_tree().expect("Failed to write tree");
     let tree = repo.find_tree(tree_id).expect("Failed to find tree");
 
-    repo.commit(
-        Some("HEAD"),
-        &sig,
-        &sig,
-        "Initial commit",
-        &tree,
-        &[],
-    )
-    .expect("Failed to create initial commit");
+    repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
+        .expect("Failed to create initial commit");
 
     // Create specified number of commits with files
     for commit_idx in 0..commits {
@@ -70,9 +63,7 @@ fn create_large_test_repo(commits: usize, files_per_commit: usize) -> (TempDir, 
         let tree = repo.find_tree(tree_id).expect("Failed to find tree");
 
         let head = repo.head().expect("Failed to get HEAD");
-        let parent_commit = head
-            .peel_to_commit()
-            .expect("Failed to get parent commit");
+        let parent_commit = head.peel_to_commit().expect("Failed to get parent commit");
 
         repo.commit(
             Some("HEAD"),
@@ -150,21 +141,17 @@ fn bench_get_modified_files(c: &mut Criterion) {
     for size in [10, 50, 100, 500].iter() {
         let (temp_dir, _repo) = create_large_test_repo(*size / 10, 10);
 
-        group.bench_with_input(
-            BenchmarkId::from_parameter(size),
-            size,
-            |b, _size| {
-                b.to_async(&runtime).iter(|| async {
-                    let config = GitOperationsConfig::default();
-                    let mut service = GitOperationsService::new(config);
-                    let files = service
-                        .get_worktree_modified_files(temp_dir.path(), None)
-                        .await
-                        .expect("Failed to get modified files");
-                    black_box(files);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
+            b.to_async(&runtime).iter(|| async {
+                let config = GitOperationsConfig::default();
+                let mut service = GitOperationsService::new(config);
+                let files = service
+                    .get_worktree_modified_files(temp_dir.path(), None)
+                    .await
+                    .expect("Failed to get modified files");
+                black_box(files);
+            });
+        });
     }
 
     group.finish();
