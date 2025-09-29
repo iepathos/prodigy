@@ -137,7 +137,6 @@ fn test_conflicting_arguments() {
     let output = test
         .arg("exec")
         .arg(workflow_path.to_str().unwrap())
-        .arg("--worktree")
         .arg("--timeout")
         .arg("30")
         .arg("--timeout")
