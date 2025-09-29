@@ -21,7 +21,7 @@ async fn test_session_is_resumable() {
         workflow_path: PathBuf::from("test.yml"),
         input_args: vec![],
         map_patterns: vec![],
-        using_worktree: false,
+        using_worktree: true,
     };
     state.update_workflow_state(workflow_state);
 
@@ -115,7 +115,7 @@ async fn test_session_tracker_resume_functions() {
         workflow_path: PathBuf::from("test.yml"),
         input_args: vec![],
         map_patterns: vec![],
-        using_worktree: false,
+        using_worktree: true,
     });
 
     // Save checkpoint
@@ -153,7 +153,7 @@ async fn test_get_resume_info() {
         workflow_path: PathBuf::from("test.yml"),
         input_args: vec![],
         map_patterns: vec![],
-        using_worktree: false,
+        using_worktree: true,
     };
     state.update_workflow_state(workflow_state);
 
@@ -276,7 +276,7 @@ async fn test_session_persistence_across_interruption() {
         workflow_path: PathBuf::from("test.yml"),
         input_args: vec!["arg1".to_string(), "arg2".to_string()],
         map_patterns: vec![],
-        using_worktree: false,
+        using_worktree: true,
     };
 
     // Update workflow state through the tracker

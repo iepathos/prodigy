@@ -42,7 +42,7 @@
 🔄 **Automatic Retry** - Smart retry strategies with exponential backoff and circuit breakers
 💾 **Full State Management** - Checkpoint and resume interrupted workflows exactly where they left off
 🎯 **Goal-Seeking** - Iterative refinement until specifications are met
-🌳 **Git Integration** - Automatic worktree management and commit tracking
+🌳 **Git Integration** - Automatic worktree isolation for every workflow execution with commit tracking
 🛡️ **Error Recovery** - Comprehensive failure handling with on-failure handlers
 📊 **Analytics** - Cost tracking, performance metrics, and optimization recommendations
 🔧 **Extensible** - Custom validators, handlers, and workflow composition
@@ -167,7 +167,7 @@ prodigy goal-seek --goal "Fix all linting errors" --command "claude: /fix-lint"
 # View analytics and costs
 prodigy analytics --session abc123
 
-# Manage worktrees
+# Manage worktrees (all workflow executions use isolated git worktrees by default)
 prodigy worktree ls                    # List active worktrees
 prodigy worktree ls --detailed        # Show enhanced session information
 prodigy worktree ls --json            # Output in JSON format

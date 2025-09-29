@@ -415,7 +415,7 @@ fn test_resume_completed_workflow() {
                 "workflow_path": "test.yaml",
                 "input_args": [],
                 "map_patterns": [],
-                "using_worktree": false
+                "using_worktree": true
             })
         },
         "checkpoints": [],

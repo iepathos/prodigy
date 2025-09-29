@@ -26,14 +26,6 @@ pub struct CookCommand {
     #[arg(short = 'n', long, default_value = "1")]
     pub max_iterations: u32,
 
-    /// Run in an isolated git worktree for parallel execution
-    ///
-    /// Creates a separate git worktree to isolate this improvement session, allowing
-    /// multiple MMM sessions to run concurrently without conflicts. Each session will
-    /// work in its own branch and worktree, which can be merged back later.
-    #[arg(short = 'w', long)]
-    pub worktree: bool,
-
     /// File patterns to map over
     ///
     /// Run a separate improvement loop for each file matching the pattern(s).
@@ -74,8 +66,7 @@ pub struct CookCommand {
     /// Resume an interrupted session
     ///
     /// Provide the session ID of an interrupted worktree to resume work from the last checkpoint.
-    /// Cannot be used with --worktree flag.
-    #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
+    #[arg(long, value_name = "SESSION_ID")]
     pub resume: Option<String>,
 
     /// Increase output verbosity (-v verbose, -vv debug, -vvv trace)

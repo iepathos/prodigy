@@ -5,7 +5,7 @@
 # Usage examples:
 #   prodigy cook examples/implement-with-tests.yml --args "33"
 #   prodigy cook examples/implement-with-tests.yml --map "specs/*.md"
-#   prodigy cook examples/implement-with-tests.yml --map "specs/temp/*.md" --worktree
+#   prodigy cook examples/implement-with-tests.yml --map "specs/temp/*.md"
 #
 # This workflow demonstrates:
 # - Implementing specifications

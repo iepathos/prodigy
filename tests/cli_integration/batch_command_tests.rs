@@ -179,7 +179,44 @@ fn test_batch_missing_required_arguments() {
 
 #[test]
 fn test_batch_with_working_directory() {
+    use std::process::Command;
+
     let test_dir = tempfile::TempDir::new().unwrap();
+
+    // Initialize git repo in test directory
+    Command::new("git")
+        .arg("init")
+        .current_dir(test_dir.path())
+        .output()
+        .expect("Failed to initialize git repo");
+
+    // Configure git
+    Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(test_dir.path())
+        .output()
+        .ok();
+    Command::new("git")
+        .args(["config", "user.name", "Test User"])
+        .current_dir(test_dir.path())
+        .output()
+        .ok();
+
+    // Create initial commit to avoid empty repo issues
+    let readme = test_dir.path().join("README.md");
+    fs::write(&readme, "# Test\n").unwrap();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(test_dir.path())
+        .output()
+        .ok();
+    Command::new("git")
+        .args(["commit", "-m", "Initial commit"])
+        .current_dir(test_dir.path())
+        .output()
+        .ok();
+
+    // Create test files
     fs::write(test_dir.path().join("file1.txt"), "content1").unwrap();
     fs::write(test_dir.path().join("file2.txt"), "content2").unwrap();
 

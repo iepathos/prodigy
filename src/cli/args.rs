@@ -36,10 +36,6 @@ pub enum Commands {
         #[arg(short = 'n', long, default_value = "1")]
         max_iterations: u32,
 
-        /// Run in an isolated git worktree
-        #[arg(short = 'w', long)]
-        worktree: bool,
-
         /// File patterns to map over
         #[arg(long, value_name = "PATTERN")]
         map: Vec<String>,
@@ -61,7 +57,7 @@ pub enum Commands {
         metrics: bool,
 
         /// Resume an interrupted session
-        #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
+        #[arg(long, value_name = "SESSION_ID")]
         resume: Option<String>,
 
         /// Dry-run mode - show what would be executed without running

@@ -29,7 +29,6 @@ mod cook_tests {
             playbook: PathBuf::from("examples/default.yml"),
             path: None,
             max_iterations: 2,
-            worktree: false,
             map: Vec::new(),
             args: Vec::new(),
             fail_fast: false,

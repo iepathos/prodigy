@@ -97,6 +97,8 @@ pub struct WorkflowState {
     /// Map patterns provided
     pub map_patterns: Vec<String>,
     /// Whether worktree was being used
+    /// NOTE: Always true since worktrees are now mandatory (spec 109).
+    /// Field kept for backward compatibility with old session state files.
     pub using_worktree: bool,
 }
 

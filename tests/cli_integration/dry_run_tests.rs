@@ -279,12 +279,11 @@ commands:
 "#;
     let (test, workflow_path) = test.with_workflow("worktree_dry", workflow_content);
 
-    // Run with dry-run and worktree flag
+    // Run with dry-run flag (worktrees are now always created by default)
     let output = test
         .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--dry-run")
-        .arg("--worktree")
         .run();
 
     // In dry-run mode, the command should succeed but not create any worktrees

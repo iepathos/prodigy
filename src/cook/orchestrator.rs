@@ -325,10 +325,8 @@ impl DefaultCookOrchestrator {
             .map(|s| s.contains("/tmp/") || s.contains("/var/folders/") || s.contains("Temp"))
             .unwrap_or(false);
 
-        // Only check git if not a temporary workflow or if worktree is requested
-        if (!is_temp_workflow || config.command.worktree)
-            && !self.git_operations.is_git_repo().await
-        {
+        // Always check git except for temporary workflows
+        if !is_temp_workflow && !self.git_operations.is_git_repo().await {
             anyhow::bail!("Not in a git repository. Please run from a git repository.");
         }
 
@@ -559,7 +557,7 @@ impl DefaultCookOrchestrator {
             workflow_path: config.command.playbook.clone(),
             input_args: config.command.args.clone(),
             map_patterns: config.command.map.clone(),
-            using_worktree: config.command.worktree,
+            using_worktree: true,
         };
 
         // Update session with workflow state
@@ -638,7 +636,7 @@ impl DefaultCookOrchestrator {
                 workflow_path: config.command.playbook.clone(),
                 input_args: config.command.args.clone(),
                 map_patterns: config.command.map.clone(),
-                using_worktree: config.command.worktree,
+                using_worktree: true,
             };
 
             self.session_manager
@@ -716,7 +714,7 @@ impl DefaultCookOrchestrator {
                     workflow_path: config.command.playbook.clone(),
                     input_args: config.command.args.clone(),
                     map_patterns: config.command.map.clone(),
-                    using_worktree: config.command.worktree,
+                    using_worktree: true,
                 };
 
                 self.session_manager
@@ -1054,31 +1052,25 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             .await?;
 
         // Set up signal handler for graceful interruption
-        if config.command.worktree {
-            // Set up worktree-aware signal handler
-            // This allows the worktree state to be marked as interrupted
-            // Get merge config from workflow or mapreduce config
-            let merge_config = config.workflow.merge.clone().or_else(|| {
-                config
-                    .mapreduce_config
-                    .as_ref()
-                    .and_then(|m| m.merge.clone())
-            });
+        // Always set up worktree-aware signal handler
+        // Get merge config from workflow or mapreduce config
+        let merge_config = config.workflow.merge.clone().or_else(|| {
+            config
+                .mapreduce_config
+                .as_ref()
+                .and_then(|m| m.merge.clone())
+        });
 
-            let worktree_manager = Arc::new(WorktreeManager::with_config(
-                config.project_path.to_path_buf(),
-                self.subprocess.clone(),
-                config.command.verbosity,
-                merge_config,
-            )?);
-            super::signal_handler::setup_interrupt_handlers(
-                worktree_manager,
-                env.session_id.to_string(),
-            )?;
-        } else {
-            // Set up simple signal handler for immediate termination
-            super::signal_handler::setup_simple_interrupt_handler()?;
-        }
+        let worktree_manager = Arc::new(WorktreeManager::with_config(
+            config.project_path.to_path_buf(),
+            self.subprocess.clone(),
+            config.command.verbosity,
+            merge_config,
+        )?);
+        super::signal_handler::setup_interrupt_handlers(
+            worktree_manager,
+            env.session_id.to_string(),
+        )?;
         let session_manager = self.session_manager.clone();
         let worktree_name = env.worktree_name.as_ref().map(Arc::clone);
         let project_path = Arc::clone(&config.project_path);
@@ -1243,8 +1235,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         let mut working_dir = Arc::clone(&config.project_path);
         let mut worktree_name: Option<Arc<str>> = None;
 
-        // Setup worktree if requested (but not in dry-run mode)
-        if config.command.worktree && !config.command.dry_run {
+        // Always setup worktree (but not in dry-run mode)
+        if !config.command.dry_run {
             // Get merge config from workflow or mapreduce config
             let merge_config = config.workflow.merge.clone().or_else(|| {
                 config
@@ -1267,8 +1259,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
             self.user_interaction
                 .display_info(&format!("Created worktree at: {}", working_dir.display()));
-        } else if config.command.worktree && config.command.dry_run {
-            // In dry-run mode with worktree flag, just note that worktree would be created
+        } else {
+            // In dry-run mode, just note that worktree would be created
             self.user_interaction
                 .display_info("[DRY RUN] Would create worktree for isolated execution");
         }
@@ -2690,7 +2682,6 @@ mod tests {
             playbook: PathBuf::from("test.yaml"),
             path: None,
             max_iterations: 1,
-            worktree: false,
             map: vec![],
             args: vec![],
             fail_fast: false,

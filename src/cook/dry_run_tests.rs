@@ -40,7 +40,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dry_run_with_worktree_flag() {
+    fn test_dry_run_always_uses_worktree() {
         use crate::cook::command::CookCommand;
         use clap::Parser;
 
@@ -50,11 +50,10 @@ mod tests {
             cook: CookCommand,
         }
 
-        let args = TestCli::parse_from(["test", "workflow.yaml", "--dry-run", "--worktree"]);
+        let args = TestCli::parse_from(["test", "workflow.yaml", "--dry-run"]);
 
         assert!(args.cook.dry_run);
-        assert!(args.cook.worktree);
-        // In dry-run mode, worktree should not actually be created
+        // In dry-run mode, worktree should not actually be created but would be in real mode
     }
 
     #[test]
