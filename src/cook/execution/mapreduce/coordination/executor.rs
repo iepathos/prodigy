@@ -1016,17 +1016,41 @@ impl MapReduceCoordinator {
     }
 
     /// Get commits from a worktree
-    async fn get_worktree_commits(_worktree_path: &Path) -> Vec<String> {
-        // Would use git commands to get actual commits
-        // For now, return empty
-        vec![]
+    async fn get_worktree_commits(worktree_path: &Path) -> Vec<String> {
+        use crate::cook::execution::mapreduce::resources::git_operations::{
+            GitOperationsConfig, GitOperationsService, GitResultExt,
+        };
+
+        let mut service = GitOperationsService::new(GitOperationsConfig::default());
+        match service
+            .get_worktree_commits(worktree_path, None, None)
+            .await
+        {
+            Ok(commits) => commits.to_string_list(),
+            Err(e) => {
+                warn!("Failed to get worktree commits: {}", e);
+                vec![]
+            }
+        }
     }
 
     /// Get modified files from a worktree
-    async fn get_worktree_modified_files(_worktree_path: &Path) -> Vec<String> {
-        // Would use git commands to get actual modified files
-        // For now, return empty
-        vec![]
+    async fn get_worktree_modified_files(worktree_path: &Path) -> Vec<String> {
+        use crate::cook::execution::mapreduce::resources::git_operations::{
+            GitOperationsConfig, GitOperationsService, GitResultExt,
+        };
+
+        let mut service = GitOperationsService::new(GitOperationsConfig::default());
+        match service
+            .get_worktree_modified_files(worktree_path, None)
+            .await
+        {
+            Ok(files) => files.to_string_list(),
+            Err(e) => {
+                warn!("Failed to get modified files: {}", e);
+                vec![]
+            }
+        }
     }
 
     /// Execute the reduce phase

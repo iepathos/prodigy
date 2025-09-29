@@ -11,7 +11,6 @@ use crate::worktree::WorktreeManager;
 use async_trait::async_trait;
 use std::path::Path;
 use std::sync::Arc;
-use tokio::process::Command;
 use tracing::{info, warn};
 
 /// Error type for lifecycle operations
@@ -118,6 +117,8 @@ impl AgentLifecycleManager for DefaultLifecycleManager {
         worktree_path: &Path,
         branch_name: &str,
     ) -> LifecycleResult<()> {
+        use tokio::process::Command;
+
         // Create branch from current HEAD
         let output = Command::new("git")
             .args(["checkout", "-b", branch_name])
@@ -142,6 +143,7 @@ impl AgentLifecycleManager for DefaultLifecycleManager {
         agent_branch: &str,
         env: &ExecutionEnvironment,
     ) -> LifecycleResult<()> {
+        use tokio::process::Command;
         // Get parent worktree path (use working_dir if we're in a parent worktree)
         let parent_worktree_path = if env.worktree_name.is_some() {
             &env.working_dir
@@ -237,42 +239,38 @@ impl AgentLifecycleManager for DefaultLifecycleManager {
     }
 
     async fn get_worktree_commits(&self, worktree_path: &Path) -> LifecycleResult<Vec<String>> {
-        let output = Command::new("git")
-            .args(["log", "--format=%H", "HEAD~10..HEAD"])
-            .current_dir(worktree_path)
-            .output()
+        use crate::cook::execution::mapreduce::resources::git_operations::{
+            GitOperationsConfig, GitOperationsService, GitResultExt,
+        };
+
+        let mut service = GitOperationsService::new(GitOperationsConfig::default());
+        match service
+            .get_worktree_commits(worktree_path, None, None)
             .await
-            .map_err(|e| LifecycleError::GitError(e.to_string()))?;
-
-        if !output.status.success() {
-            return Ok(vec![]);
+        {
+            Ok(commits) => Ok(commits.to_string_list()),
+            Err(e) => {
+                warn!("Failed to get worktree commits: {}", e);
+                Ok(vec![])
+            }
         }
-
-        let commits = String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .map(|s| s.to_string())
-            .collect();
-
-        Ok(commits)
     }
 
     async fn get_modified_files(&self, worktree_path: &Path) -> LifecycleResult<Vec<String>> {
-        let output = Command::new("git")
-            .args(["diff", "--name-only", "HEAD~1..HEAD"])
-            .current_dir(worktree_path)
-            .output()
+        use crate::cook::execution::mapreduce::resources::git_operations::{
+            GitOperationsConfig, GitOperationsService, GitResultExt,
+        };
+
+        let mut service = GitOperationsService::new(GitOperationsConfig::default());
+        match service
+            .get_worktree_modified_files(worktree_path, None)
             .await
-            .map_err(|e| LifecycleError::GitError(e.to_string()))?;
-
-        if !output.status.success() {
-            return Ok(vec![]);
+        {
+            Ok(files) => Ok(files.to_string_list()),
+            Err(e) => {
+                warn!("Failed to get modified files: {}", e);
+                Ok(vec![])
+            }
         }
-
-        let files = String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .map(|s| s.to_string())
-            .collect();
-
-        Ok(files)
     }
 }
