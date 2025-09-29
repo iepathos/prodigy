@@ -18,7 +18,6 @@ fn create_test_config(workflow: WorkflowConfig) -> CookConfig {
             playbook: PathBuf::from("test.yaml"),
             path: None,
             max_iterations: 1,
-            worktree: false,
             map: vec![],
             args: vec![],
             fail_fast: false,

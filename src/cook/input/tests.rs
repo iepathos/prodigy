@@ -106,7 +106,6 @@ fn test_legacy_adapter() {
         playbook: std::path::PathBuf::from("test.yml"),
         path: None,
         max_iterations: 1,
-        worktree: false,
         map: vec!["*.rs".to_string()],
         args: vec!["arg1".to_string(), "arg2".to_string()],
         fail_fast: false,

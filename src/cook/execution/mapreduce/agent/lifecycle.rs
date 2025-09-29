@@ -144,13 +144,8 @@ impl AgentLifecycleManager for DefaultLifecycleManager {
         env: &ExecutionEnvironment,
     ) -> LifecycleResult<()> {
         use tokio::process::Command;
-        // Get parent worktree path (use working_dir if we're in a parent worktree)
-        let parent_worktree_path = if env.worktree_name.is_some() {
-            &env.working_dir
-        } else {
-            // If no parent worktree, use main repository
-            &env.project_dir
-        };
+        // Get parent worktree path (always use working_dir since we always use worktrees)
+        let parent_worktree_path = &env.working_dir;
 
         // First, fetch the agent branch in the parent worktree
         let output = Command::new("git")

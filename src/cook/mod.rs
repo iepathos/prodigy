@@ -92,7 +92,8 @@ pub async fn cook(mut cmd: CookCommand) -> Result<()> {
             .to_str()
             .map(|s| s.contains("/tmp/") || s.contains("/var/folders/") || s.contains("Temp"))
             .unwrap_or(false);
-        let requires_git = cmd.worktree || (!cmd.map.is_empty() && !is_temp_workflow);
+        // Always require git except for temporary workflows
+        let requires_git = !is_temp_workflow;
         if requires_git && !absolute_path.join(".git").exists() {
             return Err(anyhow!("Not a git repository: {}", absolute_path.display()));
         }
@@ -488,7 +489,6 @@ mod cook_tests {
             playbook: PathBuf::from("test.yml"),
             path: None,
             max_iterations: 1,
-            worktree: false,
             map: vec![],
             args: vec![],
             fail_fast: false,
@@ -524,7 +524,6 @@ mod cook_tests {
             playbook: playbook_path,
             path: None,
             max_iterations: 5,
-            worktree: false,
             map: vec![],
             args: vec![],
             fail_fast: false,
@@ -761,7 +760,6 @@ reduce:
             playbook: playbook_path,
             path: Some(temp_dir.path().to_path_buf()),
             max_iterations: 1,
-            worktree: false,
             map: vec![],
             args: vec![],
             fail_fast: false,

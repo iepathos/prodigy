@@ -105,10 +105,6 @@ impl EnvironmentCoordinator for DefaultEnvironmentCoordinator {
         command: &CookCommand,
         _project_path: &Path,
     ) -> Result<Option<(PathBuf, String)>> {
-        if !command.worktree {
-            return Ok(None);
-        }
-
         // Skip worktree creation in dry-run mode
         if command.dry_run {
             return Ok(None);
