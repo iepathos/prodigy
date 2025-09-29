@@ -142,14 +142,18 @@ fn bench_checkpoint_load(c: &mut Criterion) {
                     let temp_dir = TempDir::new().unwrap();
                     let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                     let checkpoint = create_test_checkpoint(10, 5);
-                    let rt_local = Runtime::new().unwrap();
-                    rt_local.block_on(async {
-                        manager.save_checkpoint(&checkpoint).await.unwrap();
-                    });
-                    (manager, checkpoint.workflow_id, temp_dir)
+                    (manager, checkpoint, temp_dir)
                 },
-                |(manager, workflow_id, _temp_dir)| async move {
-                    black_box(manager.load_checkpoint(&workflow_id).await.unwrap());
+                |(manager, checkpoint, _temp_dir)| async move {
+                    // Save the checkpoint first
+                    manager.save_checkpoint(&checkpoint).await.unwrap();
+                    // Now benchmark the load
+                    black_box(
+                        manager
+                            .load_checkpoint(&checkpoint.workflow_id)
+                            .await
+                            .unwrap(),
+                    );
                 },
                 BatchSize::SmallInput,
             );
@@ -160,14 +164,18 @@ fn bench_checkpoint_load(c: &mut Criterion) {
                     let temp_dir = TempDir::new().unwrap();
                     let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                     let checkpoint = create_test_checkpoint(100, 50);
-                    let rt_local = Runtime::new().unwrap();
-                    rt_local.block_on(async {
-                        manager.save_checkpoint(&checkpoint).await.unwrap();
-                    });
-                    (manager, checkpoint.workflow_id, temp_dir)
+                    (manager, checkpoint, temp_dir)
                 },
-                |(manager, workflow_id, _temp_dir)| async move {
-                    black_box(manager.load_checkpoint(&workflow_id).await.unwrap());
+                |(manager, checkpoint, _temp_dir)| async move {
+                    // Save the checkpoint first
+                    manager.save_checkpoint(&checkpoint).await.unwrap();
+                    // Now benchmark the load
+                    black_box(
+                        manager
+                            .load_checkpoint(&checkpoint.workflow_id)
+                            .await
+                            .unwrap(),
+                    );
                 },
                 BatchSize::SmallInput,
             );
@@ -178,14 +186,18 @@ fn bench_checkpoint_load(c: &mut Criterion) {
                     let temp_dir = TempDir::new().unwrap();
                     let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                     let checkpoint = create_test_checkpoint(1000, 200);
-                    let rt_local = Runtime::new().unwrap();
-                    rt_local.block_on(async {
-                        manager.save_checkpoint(&checkpoint).await.unwrap();
-                    });
-                    (manager, checkpoint.workflow_id, temp_dir)
+                    (manager, checkpoint, temp_dir)
                 },
-                |(manager, workflow_id, _temp_dir)| async move {
-                    black_box(manager.load_checkpoint(&workflow_id).await.unwrap());
+                |(manager, checkpoint, _temp_dir)| async move {
+                    // Save the checkpoint first
+                    manager.save_checkpoint(&checkpoint).await.unwrap();
+                    // Now benchmark the load
+                    black_box(
+                        manager
+                            .load_checkpoint(&checkpoint.workflow_id)
+                            .await
+                            .unwrap(),
+                    );
                 },
                 BatchSize::SmallInput,
             );
@@ -220,19 +232,21 @@ fn bench_checkpoint_list(c: &mut Criterion) {
             || {
                 let temp_dir = TempDir::new().unwrap();
                 let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
-                let rt_local = Runtime::new().unwrap();
-
-                // Create 10 checkpoints
-                for i in 0..10 {
-                    let mut checkpoint = create_test_checkpoint(50, 25);
-                    checkpoint.workflow_id = format!("workflow-{}", i);
-                    rt_local.block_on(async {
-                        manager.save_checkpoint(&checkpoint).await.unwrap();
-                    });
-                }
-                (manager, temp_dir)
+                let checkpoints: Vec<_> = (0..10)
+                    .map(|i| {
+                        let mut checkpoint = create_test_checkpoint(50, 25);
+                        checkpoint.workflow_id = format!("workflow-{}", i);
+                        checkpoint
+                    })
+                    .collect();
+                (manager, checkpoints, temp_dir)
             },
-            |(manager, _temp_dir)| async move {
+            |(manager, checkpoints, _temp_dir)| async move {
+                // Create the checkpoints first
+                for checkpoint in checkpoints {
+                    manager.save_checkpoint(&checkpoint).await.unwrap();
+                }
+                // Now benchmark the list operation
                 black_box(manager.list_checkpoints().await.unwrap());
             },
             BatchSize::SmallInput,
@@ -248,21 +262,23 @@ fn bench_checkpoint_delete(c: &mut Criterion) {
             || {
                 let temp_dir = TempDir::new().unwrap();
                 let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
-                let rt_local = Runtime::new().unwrap();
-
-                // Create checkpoints to delete
-                let mut workflow_ids = Vec::new();
-                for i in 0..5 {
-                    let mut checkpoint = create_test_checkpoint(50, 25);
-                    checkpoint.workflow_id = format!("workflow-to-delete-{}", i);
-                    workflow_ids.push(checkpoint.workflow_id.clone());
-                    rt_local.block_on(async {
-                        manager.save_checkpoint(&checkpoint).await.unwrap();
-                    });
-                }
-                (manager, workflow_ids, temp_dir)
+                let checkpoints: Vec<_> = (0..5)
+                    .map(|i| {
+                        let mut checkpoint = create_test_checkpoint(50, 25);
+                        checkpoint.workflow_id = format!("workflow-to-delete-{}", i);
+                        checkpoint
+                    })
+                    .collect();
+                (manager, checkpoints, temp_dir)
             },
-            |(manager, workflow_ids, _temp_dir)| async move {
+            |(manager, checkpoints, _temp_dir)| async move {
+                // Create the checkpoints first
+                let workflow_ids: Vec<_> =
+                    checkpoints.iter().map(|c| c.workflow_id.clone()).collect();
+                for checkpoint in checkpoints {
+                    manager.save_checkpoint(&checkpoint).await.unwrap();
+                }
+                // Now benchmark the delete operations
                 for workflow_id in workflow_ids {
                     manager.delete_checkpoint(&workflow_id).await.unwrap();
                 }
