@@ -79,11 +79,11 @@ mod tests {
         let service = GitOperationsService::new(config.clone());
 
         // Verify default configuration values
-        assert_eq!(service.config.enable_caching, true);
+        assert!(service.config.enable_caching);
         assert_eq!(service.config.cache_ttl_secs, 300);
         assert_eq!(service.config.max_commits, 1000);
         assert_eq!(service.config.max_files, 5000);
-        assert_eq!(service.config.include_diffs, false);
+        assert!(!service.config.include_diffs);
         assert_eq!(service.config.operation_timeout_secs, 30);
     }
 
@@ -99,11 +99,11 @@ mod tests {
         };
         let service = GitOperationsService::new(config.clone());
 
-        assert_eq!(service.config.enable_caching, false);
+        assert!(!service.config.enable_caching);
         assert_eq!(service.config.cache_ttl_secs, 600);
         assert_eq!(service.config.max_commits, 500);
         assert_eq!(service.config.max_files, 1000);
-        assert_eq!(service.config.include_diffs, true);
+        assert!(service.config.include_diffs);
         assert_eq!(service.config.operation_timeout_secs, 60);
     }
 
@@ -173,7 +173,7 @@ mod tests {
             .expect("Third commit not found");
 
         // Verify all expected commits are present using functional patterns
-        let expected_messages = vec!["First commit", "Second commit", "Third commit"];
+        let expected_messages = ["First commit", "Second commit", "Third commit"];
         let actual_messages: Vec<&str> = commits.iter().map(|c| c.message.as_str()).collect();
 
         let all_present = expected_messages
@@ -183,8 +183,10 @@ mod tests {
         assert!(all_present, "Not all expected commits found");
 
         // Check commit statistics for third commit
-        assert!(third_commit.stats.is_some());
-        let stats = third_commit.stats.as_ref().unwrap();
+        let stats = third_commit
+            .stats
+            .as_ref()
+            .expect("Third commit should have stats");
         assert_eq!(stats.files_changed, 2); // file3.txt added, file1.txt modified
     }
 
@@ -356,7 +358,7 @@ mod tests {
 
         // Should include modifications since the first commit
         assert!(
-            files_since.len() >= 1,
+            !files_since.is_empty(),
             "Expected at least 1 file modified since first commit, got {}",
             files_since.len()
         );
@@ -427,14 +429,15 @@ mod tests {
         fs::remove_file(temp_dir.path().join("file1.txt")).expect("Failed to delete file");
         repo.index()
             .expect("Failed to get index")
-            .remove_path(&std::path::Path::new("file1.txt"))
+            .remove_path(std::path::Path::new("file1.txt"))
             .expect("Failed to remove from index");
         repo.index()
             .expect("Failed to get index")
             .write()
             .expect("Failed to write index");
 
-        let sig = git2::Signature::new("Test User", "test@example.com", &git2::Time::new(0, 0))
+        let time = git2::Time::new(0, 0);
+        let sig = git2::Signature::new("Test User", "test@example.com", &time)
             .expect("Failed to create signature");
         let tree_id = repo
             .index()
@@ -520,7 +523,7 @@ mod tests {
             .expect("Failed to get merge git info");
 
         // Use functional patterns to validate merge info
-        let validations = vec![
+        let validations = [
             (
                 merge_info.target_branch == "main",
                 "Target branch should be 'main'",

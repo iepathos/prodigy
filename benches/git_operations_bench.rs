@@ -3,11 +3,12 @@
 //! These benchmarks validate the performance characteristics of GitOperationsService
 //! when working with repositories containing thousands of commits and files.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use prodigy::cook::execution::mapreduce::resources::git_operations::{
     GitOperationsConfig, GitOperationsService,
 };
 use std::fs;
+use std::hint::black_box;
 use std::path::Path;
 use tempfile::TempDir;
 
@@ -39,10 +40,11 @@ fn create_large_test_repo(commits: usize, files_per_commit: usize) -> (TempDir, 
     index.write().expect("Failed to write index");
 
     let tree_id = index.write_tree().expect("Failed to write tree");
-    let tree = repo.find_tree(tree_id).expect("Failed to find tree");
-
-    repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
-        .expect("Failed to create initial commit");
+    {
+        let tree = repo.find_tree(tree_id).expect("Failed to find tree");
+        repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
+            .expect("Failed to create initial commit");
+    }
 
     // Create specified number of commits with files
     for commit_idx in 0..commits {
@@ -60,20 +62,21 @@ fn create_large_test_repo(commits: usize, files_per_commit: usize) -> (TempDir, 
         index.write().expect("Failed to write index");
 
         let tree_id = index.write_tree().expect("Failed to write tree");
-        let tree = repo.find_tree(tree_id).expect("Failed to find tree");
+        {
+            let tree = repo.find_tree(tree_id).expect("Failed to find tree");
+            let head = repo.head().expect("Failed to get HEAD");
+            let parent_commit = head.peel_to_commit().expect("Failed to get parent commit");
 
-        let head = repo.head().expect("Failed to get HEAD");
-        let parent_commit = head.peel_to_commit().expect("Failed to get parent commit");
-
-        repo.commit(
-            Some("HEAD"),
-            &sig,
-            &sig,
-            &format!("Commit #{}", commit_idx),
-            &tree,
-            &[&parent_commit],
-        )
-        .expect("Failed to create commit");
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                &format!("Commit #{}", commit_idx),
+                &tree,
+                &[&parent_commit],
+            )
+            .expect("Failed to create commit");
+        }
     }
 
     (temp_dir, repo)

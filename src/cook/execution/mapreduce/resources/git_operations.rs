@@ -39,10 +39,13 @@
 //!
 //! ## Retrieving Commit History
 //!
-//! ```rust
+//! ```rust,no_run
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! use std::path::Path;
 //! use chrono::{Duration, Utc};
+//! use prodigy::cook::execution::mapreduce::resources::git_operations::{
+//!     GitOperationsConfig, GitOperationsService
+//! };
 //!
 //! let worktree_path = Path::new("/path/to/worktree");
 //! let mut service = GitOperationsService::new(GitOperationsConfig::default());
@@ -73,8 +76,14 @@
 //!
 //! ## Tracking Modified Files
 //!
-//! ```rust
+//! ```rust,no_run
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! use std::path::Path;
+//! use prodigy::cook::execution::mapreduce::resources::git_operations::{
+//!     GitOperationsConfig, GitOperationsService, ModificationType
+//! };
+//!
+//! let worktree_path = Path::new("/path/to/worktree");
 //! let mut service = GitOperationsService::new(GitOperationsConfig::default());
 //!
 //! // Get all modified files (working directory + recent commits)
@@ -105,8 +114,16 @@
 //!
 //! ## Merge Workflow Integration
 //!
-//! ```rust
+//! ```rust,no_run
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! use std::path::Path;
+//! use prodigy::cook::execution::mapreduce::resources::git_operations::{
+//!     GitOperationsConfig, GitOperationsService
+//! };
+//!
+//! let worktree_path = Path::new("/path/to/worktree");
+//! let mut service = GitOperationsService::new(GitOperationsConfig::default());
+//!
 //! // Get comprehensive git information for merge workflows
 //! let merge_info = service
 //!     .get_merge_git_info(worktree_path, "main")
@@ -142,9 +159,11 @@
 //! **Cause**: The specified path is not a git repository or worktree.
 //! **Solution**: Ensure the path points to a valid git repository or worktree.
 //!
-//! ```rust
-//! // Verify repository before operations
+//! ```rust,no_run
+//! use std::path::Path;
 //! use git2::Repository;
+//!
+//! let path = Path::new("/path/to/repo");
 //! if Repository::open(path).is_err() {
 //!     eprintln!("Not a git repository: {}", path.display());
 //! }
@@ -159,6 +178,8 @@
 //! **Solution**: Adjust configuration limits:
 //!
 //! ```rust
+//! use prodigy::cook::execution::mapreduce::resources::git_operations::GitOperationsConfig;
+//!
 //! let config = GitOperationsConfig {
 //!     max_commits: 100,    // Reduce commit limit
 //!     max_files: 500,      // Reduce file limit
