@@ -781,14 +781,35 @@ impl MapReduceCoordinator {
                 .await;
         }
 
-        // Merge agent changes back to parent if successful
-        if !agent_result.commits.is_empty() {
+        // Merge and cleanup agent if successful
+        let merge_successful = if !agent_result.commits.is_empty() {
             agent_manager
-                .merge_agent_to_parent(&config.branch_name, env)
+                .handle_merge_and_cleanup(
+                    true, // is_successful
+                    env,
+                    handle.worktree_path(),
+                    &handle.worktree_session.name,
+                    &config.branch_name,
+                    &commands,
+                    item_id,
+                )
                 .await
                 .map_err(|e| {
-                    MapReduceError::ProcessingError(format!("Failed to merge agent changes: {}", e))
-                })?;
+                    MapReduceError::ProcessingError(format!(
+                        "Failed to merge and cleanup agent: {}",
+                        e
+                    ))
+                })?
+        } else {
+            // No commits, just cleanup the worktree
+            agent_manager.cleanup_agent(handle).await.map_err(|e| {
+                MapReduceError::ProcessingError(format!("Failed to cleanup agent: {}", e))
+            })?;
+            false
+        };
+
+        if !merge_successful && !agent_result.commits.is_empty() {
+            warn!("Agent {} completed successfully but merge failed", agent_id);
         }
 
         Ok(agent_result)
