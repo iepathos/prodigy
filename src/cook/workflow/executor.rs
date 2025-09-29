@@ -2487,7 +2487,7 @@ impl WorkflowExecutor {
             workflow_path: env.working_dir.join("workflow.yml"),
             input_args: Vec::new(),
             map_patterns: Vec::new(),
-            using_worktree: env.worktree_name.is_some(),
+            using_worktree: true, // Always true since worktrees are mandatory (spec 109)
         };
         self.session_manager
             .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
