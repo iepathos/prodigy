@@ -627,19 +627,27 @@ impl WorktreeManager {
         let session = self.find_session_by_name(name).await?;
         let worktree_branch = &session.branch;
 
-        // Determine target branch and validate merge
+        // Determine target branch and check if merge is needed
         let target_branch = self.determine_default_branch().await?;
-        self.validate_merge_preconditions(name, worktree_branch, &target_branch)
+        let should_merge = self
+            .validate_merge_preconditions(name, worktree_branch, &target_branch)
             .await?;
 
-        // Execute merge workflow
-        let merge_output = self
-            .execute_merge_workflow(name, worktree_branch, &target_branch)
-            .await?;
+        if should_merge {
+            // Execute merge workflow
+            let merge_output = self
+                .execute_merge_workflow(name, worktree_branch, &target_branch)
+                .await?;
 
-        // Verify merge completed successfully
-        self.verify_merge_completion(worktree_branch, &target_branch, &merge_output)
-            .await?;
+            // Verify merge completed successfully
+            self.verify_merge_completion(worktree_branch, &target_branch, &merge_output)
+                .await?;
+        } else {
+            println!(
+                "ℹ️  No new commits in worktree '{}', skipping merge (already in sync with '{}')",
+                name, target_branch
+            );
+        }
 
         // Update session state and handle cleanup
         self.finalize_merge_session(name).await?;
@@ -695,16 +703,17 @@ impl WorktreeManager {
     }
 
     /// Validate merge preconditions - combines validation logic
+    /// Returns Ok(true) if merge should proceed, Ok(false) if no commits to merge
     async fn validate_merge_preconditions(
         &self,
-        name: &str,
+        _name: &str,
         worktree_branch: &str,
         target_branch: &str,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let commit_count = self
             .get_commit_count_between_branches(target_branch, worktree_branch)
             .await?;
-        Self::validate_commits_exist(name, target_branch, commit_count)
+        Ok(Self::should_proceed_with_merge(&commit_count))
     }
 
     /// Get commit count between branches - I/O operation
@@ -745,16 +754,9 @@ impl WorktreeManager {
             .build()
     }
 
-    /// Pure function to validate commits exist for merge
-    fn validate_commits_exist(name: &str, target_branch: &str, commit_count: String) -> Result<()> {
-        if commit_count == "0" {
-            anyhow::bail!(
-                "No new commits in worktree '{}' to merge into '{}'. The branches are already in sync.",
-                name,
-                target_branch
-            );
-        }
-        Ok(())
+    /// Pure function to determine if merge should proceed based on commit count
+    fn should_proceed_with_merge(commit_count: &str) -> bool {
+        commit_count != "0"
     }
 
     /// Execute merge workflow - orchestrates merge execution
