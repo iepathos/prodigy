@@ -20,7 +20,7 @@ MapReduce workflows enable parallel processing across multiple isolated worktree
   - Analyzes codebase and generates debt items
   - Processes high-impact items in parallel (up to 5 agents)
   - Merges all fixes and generates summary report
-  - Example: `prodigy cook workflows/debtmap-mapreduce.yml --worktree`
+  - Example: `prodigy cook workflows/debtmap-mapreduce.yml`
 
 - **fix-files-mapreduce.yml** - Fix issues in multiple files concurrently
   - Uses regex pattern matching to filter Rust files
@@ -73,23 +73,23 @@ MapReduce workflows enable parallel processing across multiple isolated worktree
 # Run sequential debtmap workflow
 prodigy cook workflows/debtmap.yml
 
-# Run in a worktree for isolation
-prodigy cook workflows/debtmap.yml --worktree
+# Run in a worktree for isolation (default behavior)
+prodigy cook workflows/debtmap.yml
 ```
 
 ### MapReduce Execution
 ```bash
 # Run parallel debt elimination
-prodigy cook workflows/debtmap-mapreduce.yml --worktree
+prodigy cook workflows/debtmap-mapreduce.yml
 
 # Test MapReduce with simple workflow
 prodigy cook workflows/test-mapreduce.yml
 
 # Fix Rust files in parallel with regex filtering
-prodigy cook workflows/fix-files-mapreduce.yml --worktree
+prodigy cook workflows/fix-files-mapreduce.yml
 
 # Auto-merge results to main branch
-prodigy cook workflows/debtmap-mapreduce.yml --worktree -y
+prodigy cook workflows/debtmap-mapreduce.yml -y
 ```
 
 ## Workflow Modes
@@ -109,10 +109,10 @@ prodigy cook workflows/debtmap-mapreduce.yml --worktree -y
    - Single-threaded operations
    - Simple workflows with few steps
 
-3. **Always use --worktree** for:
-   - MapReduce workflows (required for isolation)
-   - Experimental or risky changes
-   - Testing new workflows
+3. **Worktree Isolation**:
+   - All workflows run in isolated worktrees by default
+   - Provides safety for experimental or risky changes
+   - Enables parallel execution without conflicts
 
 4. **Performance Tips**:
    - Set appropriate `max_parallel` based on system resources
