@@ -6,8 +6,12 @@ use std::path::Path;
 use tokio::process::Command;
 use tracing::{debug, info, warn};
 
+use super::git_operations::{GitOperationsConfig, GitOperationsService, GitResultExt};
+
 /// Handles git operations for MapReduce agents
-pub struct GitOperations {}
+pub struct GitOperations {
+    service: GitOperationsService,
+}
 
 impl Default for GitOperations {
     fn default() -> Self {
@@ -18,7 +22,9 @@ impl Default for GitOperations {
 impl GitOperations {
     /// Create a new git operations handler
     pub fn new() -> Self {
-        Self {}
+        Self {
+            service: GitOperationsService::new(GitOperationsConfig::default()),
+        }
     }
 
     /// Create a branch for an agent in its worktree
@@ -128,78 +134,35 @@ impl GitOperations {
     }
 
     /// Get commits from a worktree
-    pub async fn get_worktree_commits(&self, worktree_path: &Path) -> MapReduceResult<Vec<String>> {
-        let output = Command::new("git")
-            .args(["log", "--format=%H", "HEAD~10..HEAD"])
-            .current_dir(worktree_path)
-            .output()
-            .await
-            .map_err(|e| self.create_git_error("get_commits", &e.to_string()))?;
-
-        if !output.status.success() {
-            // If there aren't 10 commits, try with just HEAD
-            let output = Command::new("git")
-                .args(["log", "--format=%H", "HEAD"])
-                .current_dir(worktree_path)
-                .output()
-                .await
-                .map_err(|e| self.create_git_error("get_commits_fallback", &e.to_string()))?;
-
-            if !output.status.success() {
-                return Ok(Vec::new());
-            }
-
-            let commits = String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .take(10)
-                .map(String::from)
-                .collect();
-            return Ok(commits);
-        }
-
-        let commits = String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .map(String::from)
-            .collect();
-
-        Ok(commits)
+    pub async fn get_worktree_commits(
+        &mut self,
+        worktree_path: &Path,
+    ) -> MapReduceResult<Vec<String>> {
+        let commit_infos = self
+            .service
+            .get_worktree_commits(worktree_path, None, None)
+            .await?;
+        Ok(commit_infos.to_string_list())
     }
 
     /// Get modified files in a worktree
-    pub async fn get_modified_files(&self, worktree_path: &Path) -> MapReduceResult<Vec<String>> {
-        let output = Command::new("git")
-            .args(["diff", "--name-only", "HEAD~1..HEAD"])
-            .current_dir(worktree_path)
-            .output()
-            .await
-            .map_err(|e| self.create_git_error("get_modified_files", &e.to_string()))?;
+    pub async fn get_modified_files(
+        &mut self,
+        worktree_path: &Path,
+    ) -> MapReduceResult<Vec<String>> {
+        let file_infos = self
+            .service
+            .get_worktree_modified_files(worktree_path, None)
+            .await?;
+        Ok(file_infos.to_string_list())
+    }
 
-        if !output.status.success() {
-            // No previous commit, get all files
-            let output = Command::new("git")
-                .args(["ls-files"])
-                .current_dir(worktree_path)
-                .output()
-                .await
-                .map_err(|e| self.create_git_error("list_files", &e.to_string()))?;
-
-            if !output.status.success() {
-                return Ok(Vec::new());
-            }
-
-            let files = String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .map(String::from)
-                .collect();
-            return Ok(files);
-        }
-
-        let files = String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .map(String::from)
-            .collect();
-
-        Ok(files)
+    /// Get modified files in a worktree (non-mutable version for backward compatibility)
+    pub async fn get_worktree_modified_files(
+        &mut self,
+        worktree_path: &Path,
+    ) -> MapReduceResult<Vec<String>> {
+        self.get_modified_files(worktree_path).await
     }
 
     /// Check if a branch exists

@@ -295,45 +295,41 @@ impl AgentResultAggregator for DefaultResultAggregator {
 async fn get_worktree_commits(
     worktree_path: &Path,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    use tokio::process::Command;
+    use crate::cook::execution::mapreduce::resources::git_operations::{
+        GitOperationsConfig, GitOperationsService, GitResultExt,
+    };
 
-    let output = Command::new("git")
-        .args(["log", "--format=%H", "HEAD~10..HEAD"])
-        .current_dir(worktree_path)
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        return Ok(vec![]);
+    let mut service = GitOperationsService::new(GitOperationsConfig::default());
+    match service
+        .get_worktree_commits(worktree_path, None, None)
+        .await
+    {
+        Ok(commits) => Ok(commits.to_string_list()),
+        Err(e) => {
+            // Log the error but return empty list to avoid breaking workflow
+            tracing::warn!("Failed to get worktree commits: {}", e);
+            Ok(vec![])
+        }
     }
-
-    let commits = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(|s| s.to_string())
-        .collect();
-
-    Ok(commits)
 }
 
 async fn get_modified_files(
     worktree_path: &Path,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    use tokio::process::Command;
+    use crate::cook::execution::mapreduce::resources::git_operations::{
+        GitOperationsConfig, GitOperationsService, GitResultExt,
+    };
 
-    let output = Command::new("git")
-        .args(["diff", "--name-only", "HEAD~1..HEAD"])
-        .current_dir(worktree_path)
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        return Ok(vec![]);
+    let mut service = GitOperationsService::new(GitOperationsConfig::default());
+    match service
+        .get_worktree_modified_files(worktree_path, None)
+        .await
+    {
+        Ok(files) => Ok(files.to_string_list()),
+        Err(e) => {
+            // Log the error but return empty list to avoid breaking workflow
+            tracing::warn!("Failed to get modified files: {}", e);
+            Ok(vec![])
+        }
     }
-
-    let files = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(|s| s.to_string())
-        .collect();
-
-    Ok(files)
 }

@@ -6,6 +6,7 @@
 pub mod agent;
 pub mod cleanup;
 pub mod git;
+pub mod git_operations;
 pub mod pool;
 pub mod worktree;
 
