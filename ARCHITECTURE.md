@@ -346,6 +346,31 @@ The unified session system is now the primary session management layer:
 - **Single Source of Truth**: All session data flows through unified system
 - **Migration Path**: Legacy sessions auto-migrated on first access
 
+### Branch Tracking (Spec 110)
+
+Prodigy tracks the original branch when creating worktrees to enable intelligent merge behavior:
+
+**State Tracking**:
+```rust
+WorktreeState {
+    original_branch: String,  // Branch at worktree creation time
+    branch: String,            // Current worktree branch (prodigy-session-*)
+    // ... other fields
+}
+```
+
+**Branch Resolution Logic**:
+1. **Capture**: `create_session()` captures current branch via `git rev-parse --abbrev-ref HEAD`
+2. **Storage**: Original branch stored in `WorktreeState` for session lifetime
+3. **Merge Target**: `get_merge_target()` returns original branch or falls back to default
+4. **Fallback**: If original branch deleted, uses default branch (main/master)
+
+**Design Rationale**:
+- Supports feature branch workflows where worktrees should merge back to source branch
+- Provides safe fallback when original branch is deleted
+- Enables flexible merge target selection based on workflow context
+- Improves user experience by showing merge target in confirmation prompts
+
 ## Storage Architecture
 
 ### Directory Structure

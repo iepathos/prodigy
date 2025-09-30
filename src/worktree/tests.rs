@@ -469,3 +469,169 @@ fn test_load_state_from_file() {
     let missing_path = temp_dir.path().join("missing.json");
     assert!(WorktreeManager::load_state_from_file(&missing_path).is_none());
 }
+
+#[tokio::test]
+async fn test_worktree_tracks_feature_branch() -> anyhow::Result<()> {
+    let temp_dir = setup_test_repo()?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
+
+    // Create a feature branch and check it out
+    Command::new("git")
+        .current_dir(&temp_dir)
+        .args(["checkout", "-b", "feature/my-feature"])
+        .output()?;
+
+    // Create session from the feature branch
+    let session = manager.create_session().await?;
+
+    // Verify the session was created with correct original branch
+    let state = manager.get_session_state(&session.name)?;
+    assert_eq!(state.original_branch, "feature/my-feature");
+
+    // Verify get_merge_target returns the feature branch
+    let merge_target = manager.get_merge_target(&session.name).await?;
+    assert_eq!(merge_target, "feature/my-feature");
+
+    // Clean up
+    manager.cleanup_session(&session.name, false).await?;
+    cleanup_worktree_dir(&manager);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_worktree_from_detached_head() -> anyhow::Result<()> {
+    let temp_dir = setup_test_repo()?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
+
+    // Get the current commit hash
+    let commit_output = Command::new("git")
+        .current_dir(&temp_dir)
+        .args(["rev-parse", "HEAD"])
+        .output()?;
+    let commit_hash = String::from_utf8_lossy(&commit_output.stdout).trim().to_string();
+
+    // Checkout detached HEAD
+    Command::new("git")
+        .current_dir(&temp_dir)
+        .args(["checkout", &commit_hash])
+        .output()?;
+
+    // Determine the default branch
+    let default_branch_output = Command::new("git")
+        .current_dir(&temp_dir)
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .output()?;
+    let default_branch_str = String::from_utf8_lossy(&default_branch_output.stdout);
+    let default_branch = default_branch_str.trim();
+
+    // If HEAD is detached, this should return "HEAD", so we need to find the default branch
+    let default_branch = if default_branch == "HEAD" {
+        // Get the default branch from symbolic-ref
+        let symbolic_output = Command::new("git")
+            .current_dir(&temp_dir)
+            .args(["symbolic-ref", "refs/remotes/origin/HEAD"])
+            .output();
+
+        if let Ok(output) = symbolic_output {
+            let symbolic_ref = String::from_utf8_lossy(&output.stdout);
+            symbolic_ref.trim().strip_prefix("refs/remotes/origin/")
+                .unwrap_or("master")
+                .to_string()
+        } else {
+            // Fallback: check if master or main exists
+            let branches_output = Command::new("git")
+                .current_dir(&temp_dir)
+                .args(["branch", "--list", "master", "main"])
+                .output()?;
+            let branches = String::from_utf8_lossy(&branches_output.stdout);
+            if branches.contains("master") {
+                "master".to_string()
+            } else if branches.contains("main") {
+                "main".to_string()
+            } else {
+                "master".to_string()
+            }
+        }
+    } else {
+        default_branch.to_string()
+    };
+
+    // Create session from detached HEAD
+    let session = manager.create_session().await?;
+
+    // Verify the session tracks the default branch as fallback
+    let state = manager.get_session_state(&session.name)?;
+    assert_eq!(state.original_branch, default_branch);
+
+    // Clean up
+    manager.cleanup_session(&session.name, false).await?;
+    cleanup_worktree_dir(&manager);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_original_branch_deleted() -> anyhow::Result<()> {
+    let temp_dir = setup_test_repo()?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
+
+    // Create a feature branch
+    Command::new("git")
+        .current_dir(&temp_dir)
+        .args(["checkout", "-b", "feature/temp-branch"])
+        .output()?;
+
+    // Create session from the feature branch
+    let session = manager.create_session().await?;
+
+    // Verify original branch is tracked
+    let state = manager.get_session_state(&session.name)?;
+    assert_eq!(state.original_branch, "feature/temp-branch");
+
+    // Switch back to master and delete the feature branch
+    Command::new("git")
+        .current_dir(&temp_dir)
+        .args(["checkout", "master"])
+        .output()?;
+    Command::new("git")
+        .current_dir(&temp_dir)
+        .args(["branch", "-D", "feature/temp-branch"])
+        .output()?;
+
+    // Get merge target should fall back to default branch
+    let merge_target = manager.get_merge_target(&session.name).await?;
+
+    // The default branch should be master or main
+    let default_branch_output = Command::new("git")
+        .current_dir(&temp_dir)
+        .args(["symbolic-ref", "refs/remotes/origin/HEAD"])
+        .output();
+
+    let expected_branch = if let Ok(output) = default_branch_output {
+        let symbolic_ref = String::from_utf8_lossy(&output.stdout);
+        symbolic_ref.trim().strip_prefix("refs/remotes/origin/")
+            .unwrap_or("master")
+            .to_string()
+    } else {
+        // Check which branch exists
+        let branches_output = Command::new("git")
+            .current_dir(&temp_dir)
+            .args(["branch", "--list", "master", "main"])
+            .output()?;
+        let branches = String::from_utf8_lossy(&branches_output.stdout);
+        if branches.contains("master") {
+            "master".to_string()
+        } else {
+            "main".to_string()
+        }
+    };
+
+    assert_eq!(merge_target, expected_branch);
+
+    // Clean up
+    manager.cleanup_session(&session.name, false).await?;
+    cleanup_worktree_dir(&manager);
+    Ok(())
+}

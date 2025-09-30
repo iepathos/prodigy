@@ -376,6 +376,32 @@ All changes are tracked via git commits:
 - Commit messages include command details
 - Full audit trail of all modifications
 
+### Branch Tracking (Spec 110)
+Prodigy tracks the original branch when creating worktrees to enable intelligent merge behavior:
+
+**Original Branch Detection**:
+- When creating a worktree, Prodigy captures the current branch as `original_branch`
+- For feature branches: Tracks the exact branch name (e.g., `feature/my-feature`)
+- For detached HEAD: Falls back to repository's default branch (main or master)
+- Stored in worktree state for lifetime of the session
+
+**Merge Target Logic**:
+- Default behavior: Merge back to the tracked `original_branch`
+- If original branch was deleted: Fall back to default branch (main/master)
+- Merge target is displayed in the merge confirmation prompt
+- Example: "Merge session-abc123 to feature/my-feature? [y/N]"
+
+**Special Cases**:
+- **Feature Branch Workflow**: Worktree created from `feature/ui-updates` merges back to `feature/ui-updates`
+- **Detached HEAD**: Worktree tracks default branch (main/master) as fallback
+- **Deleted Branch**: If original branch is deleted, falls back to main/master
+- **Branch Rename**: Uses branch name at worktree creation time
+
+**Implementation Details**:
+- `WorktreeManager::create_session()` captures original branch using `git rev-parse --abbrev-ref HEAD`
+- `WorktreeManager::get_merge_target()` determines merge target with fallback logic
+- Merge target is shown in orchestrator's completion prompt for user confirmation
+
 ## Available Commands
 
 Prodigy CLI commands:

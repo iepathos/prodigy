@@ -201,13 +201,22 @@ impl WorktreeManager {
     /// Returns error if worktree creation fails
     pub async fn create_session_with_id(&self, session_id: &str) -> Result<WorktreeSession> {
         // Capture current branch BEFORE creating worktree
-        let original_branch = self.get_current_branch().await.unwrap_or_else(|e| {
+        let mut original_branch = self.get_current_branch().await.unwrap_or_else(|e| {
             warn!(
                 "Failed to detect current branch: {}, will use default for merge",
                 e
             );
             String::from("HEAD")
         });
+
+        // If in detached HEAD state, use default branch instead
+        if original_branch == "HEAD" {
+            original_branch = self.determine_default_branch().await.unwrap_or_else(|e| {
+                warn!("Failed to determine default branch: {}, using master", e);
+                String::from("master")
+            });
+            info!("Detached HEAD detected, using default branch: {}", original_branch);
+        }
 
         info!("Creating worktree from branch: {}", original_branch);
 
@@ -728,7 +737,7 @@ impl WorktreeManager {
     /// 2. If original_branch is "HEAD" (detached): use main/master
     /// 3. If original_branch was deleted: warn and use main/master
     /// 4. Otherwise: use original_branch
-    async fn get_merge_target(&self, session_name: &str) -> Result<String> {
+    pub async fn get_merge_target(&self, session_name: &str) -> Result<String> {
         let state = self.get_session_state(session_name)?;
 
         // Handle old sessions or edge cases
