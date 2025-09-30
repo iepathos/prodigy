@@ -952,7 +952,10 @@ impl WorktreeManager {
 
     /// Get merged branches - I/O operation
     async fn get_merged_branches(&self, target_branch: &str) -> Result<String> {
-        let command = Self::build_merge_check_command(&self.repo_path, target_branch);
+        // Use current directory's git root instead of self.repo_path
+        // This ensures we check merges in the correct location when running from a worktree
+        let check_path = self.get_git_root_path().await.unwrap_or_else(|_| self.repo_path.clone());
+        let command = Self::build_merge_check_command(&check_path, target_branch);
         let output = self
             .subprocess
             .runner()
@@ -964,6 +967,25 @@ impl WorktreeManager {
             Ok(output.stdout)
         } else {
             Err(anyhow::anyhow!("Failed to check merged branches"))
+        }
+    }
+
+    /// Get the git root path for the current working directory
+    async fn get_git_root_path(&self) -> Result<PathBuf> {
+        let command = ProcessCommandBuilder::new("git")
+            .args(["rev-parse", "--show-toplevel"])
+            .build();
+        let output = self
+            .subprocess
+            .runner()
+            .run(command)
+            .await
+            .context("Failed to get git root path")?;
+
+        if output.status.success() {
+            Ok(PathBuf::from(output.stdout.trim()))
+        } else {
+            Err(anyhow::anyhow!("Failed to get git root path"))
         }
     }
 
