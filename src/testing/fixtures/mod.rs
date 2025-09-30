@@ -3,6 +3,7 @@
 //! This module provides test data builders and common fixtures for testing.
 
 pub mod builders;
+pub mod isolation;
 
 use crate::testing::mocks::{
     MockClaudeClientBuilder, MockFileSystemBuilder, MockGitOperationsBuilder,

@@ -1,5 +1,6 @@
 use super::*;
 use crate::subprocess::SubprocessManager;
+use crate::testing::fixtures::isolation::TestGitRepo;
 use std::process::Command;
 use tempfile::TempDir;
 
@@ -10,6 +11,16 @@ fn setup_test_repo() -> anyhow::Result<TempDir> {
     Command::new("git")
         .current_dir(&temp_dir)
         .args(["init"])
+        .output()?;
+
+    // Configure git user
+    Command::new("git")
+        .current_dir(&temp_dir)
+        .args(["config", "user.email", "test@test.com"])
+        .output()?;
+    Command::new("git")
+        .current_dir(&temp_dir)
+        .args(["config", "user.name", "Test User"])
         .output()?;
 
     // Create initial commit
@@ -472,15 +483,22 @@ fn test_load_state_from_file() {
 
 #[tokio::test]
 async fn test_worktree_tracks_feature_branch() -> anyhow::Result<()> {
-    let temp_dir = setup_test_repo()?;
+    // Use TestGitRepo for isolation
+    let repo = TestGitRepo::new()?;
+
+    // Create initial commit
+    std::fs::write(repo.path().join("README.md"), "# Test Repo")?;
+    Command::new("git")
+        .current_dir(repo.path())
+        .args(["add", "."])
+        .output()?;
+    repo.commit("Initial commit")?;
+
     let subprocess = SubprocessManager::production();
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
+    let manager = WorktreeManager::new(repo.path().to_path_buf(), subprocess)?;
 
     // Create a feature branch and check it out
-    Command::new("git")
-        .current_dir(&temp_dir)
-        .args(["checkout", "-b", "feature/my-feature"])
-        .output()?;
+    repo.create_branch("feature/my-feature")?;
 
     // Create session from the feature branch
     let session = manager.create_session().await?;
@@ -577,15 +595,22 @@ async fn test_worktree_from_detached_head() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_original_branch_deleted() -> anyhow::Result<()> {
-    let temp_dir = setup_test_repo()?;
+    // Use TestGitRepo for isolation
+    let repo = TestGitRepo::new()?;
+
+    // Create initial commit on master
+    std::fs::write(repo.path().join("README.md"), "# Test Repo")?;
+    Command::new("git")
+        .current_dir(repo.path())
+        .args(["add", "."])
+        .output()?;
+    repo.commit("Initial commit")?;
+
     let subprocess = SubprocessManager::production();
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
+    let manager = WorktreeManager::new(repo.path().to_path_buf(), subprocess)?;
 
     // Create a feature branch
-    Command::new("git")
-        .current_dir(&temp_dir)
-        .args(["checkout", "-b", "feature/temp-branch"])
-        .output()?;
+    repo.create_branch("feature/temp-branch")?;
 
     // Create session from the feature branch
     let session = manager.create_session().await?;
@@ -595,12 +620,9 @@ async fn test_original_branch_deleted() -> anyhow::Result<()> {
     assert_eq!(state.original_branch, "feature/temp-branch");
 
     // Switch back to master and delete the feature branch
+    repo.checkout("master")?;
     Command::new("git")
-        .current_dir(&temp_dir)
-        .args(["checkout", "master"])
-        .output()?;
-    Command::new("git")
-        .current_dir(&temp_dir)
+        .current_dir(repo.path())
         .args(["branch", "-D", "feature/temp-branch"])
         .output()?;
 
@@ -609,7 +631,7 @@ async fn test_original_branch_deleted() -> anyhow::Result<()> {
 
     // The default branch should be master or main
     let default_branch_output = Command::new("git")
-        .current_dir(&temp_dir)
+        .current_dir(repo.path())
         .args(["symbolic-ref", "refs/remotes/origin/HEAD"])
         .output();
 
@@ -623,7 +645,7 @@ async fn test_original_branch_deleted() -> anyhow::Result<()> {
     } else {
         // Check which branch exists
         let branches_output = Command::new("git")
-            .current_dir(&temp_dir)
+            .current_dir(repo.path())
             .args(["branch", "--list", "master", "main"])
             .output()?;
         let branches = String::from_utf8_lossy(&branches_output.stdout);

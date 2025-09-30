@@ -1,4 +1,5 @@
 use super::*;
+use crate::testing::fixtures::isolation::TestWorkingDir;
 use anyhow::Result;
 use serde_json::json;
 use std::collections::HashMap;
@@ -554,6 +555,9 @@ async fn test_file_pattern_symlink_handling() {
 
 #[tokio::test]
 async fn test_file_pattern_glob_expansion() {
+    // Create TestWorkingDir BEFORE creating temp directory to capture valid CWD
+    let wd = TestWorkingDir::new().unwrap();
+
     let temp_dir = TempDir::new().unwrap();
     let temp_path = temp_dir.path();
 
@@ -579,8 +583,8 @@ async fn test_file_pattern_glob_expansion() {
     let provider = file_pattern::FilePatternInputProvider::new();
     let mut config = provider::InputConfig::new();
 
-    // Set the base path for glob patterns
-    std::env::set_current_dir(temp_path).unwrap();
+    // Change to temp directory
+    wd.change_to(temp_path).unwrap();
 
     // Test txt files pattern
     config.set("patterns".to_string(), json!(["*.txt"]));
@@ -591,6 +595,8 @@ async fn test_file_pattern_glob_expansion() {
     config.set("patterns".to_string(), json!(["**/*.rs"]));
     let inputs = provider.generate_inputs(&config).await.unwrap();
     assert_eq!(inputs.len(), 3, "Should find 3 .rs files");
+
+    // TestWorkingDir automatically restores original directory when dropped
 }
 
 // ========== Environment Provider Tests ==========

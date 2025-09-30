@@ -1016,7 +1016,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_resumable_jobs() {
-        let temp_dir = TempDir::new().unwrap();
+        // Use unique prefix to avoid collisions with parallel tests
+        let temp_dir = tempfile::Builder::new()
+            .prefix(&format!(
+                "test-resumable-jobs-{}-",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ))
+            .tempdir()
+            .unwrap();
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         // Create a test configuration
