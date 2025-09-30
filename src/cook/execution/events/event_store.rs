@@ -227,7 +227,7 @@ fn create_file_offset(
 /// Process a single event line and update index state
 fn process_event_line(
     line: &str,
-    file_path: &PathBuf,
+    file_path: &Path,
     line_number: usize,
     byte_offset: u64,
     index: &mut EventIndex,
@@ -243,7 +243,7 @@ fn process_event_line(
         *time_range = (start, end);
 
         index.file_offsets.push(create_file_offset(
-            file_path.clone(),
+            file_path.to_path_buf(),
             byte_offset,
             line_number,
             &event,
@@ -272,7 +272,14 @@ async fn process_event_file(
 
     while let Some(line) = lines.next_line().await? {
         line_number += 1;
-        process_event_line(&line, file_path, line_number, byte_offset, index, time_range);
+        process_event_line(
+            &line,
+            file_path,
+            line_number,
+            byte_offset,
+            index,
+            time_range,
+        );
         byte_offset += line.len() as u64 + 1; // +1 for newline
     }
 

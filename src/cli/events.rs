@@ -1635,11 +1635,12 @@ async fn clean_specific_file(
 }
 
 // Pure function: Calculate archived count based on policy
-fn calculate_archived_count(
-    events_count: usize,
-    archive_enabled: bool,
-) -> usize {
-    if archive_enabled { events_count } else { 0 }
+fn calculate_archived_count(events_count: usize, archive_enabled: bool) -> usize {
+    if archive_enabled {
+        events_count
+    } else {
+        0
+    }
 }
 
 // Pure function: Aggregate statistics
@@ -1761,7 +1762,8 @@ async fn clean_global_storage(
 
     let mut total_stats = (0usize, 0usize);
     for job_dir in job_dirs {
-        let (cleaned, archived) = process_job_directory(job_dir, policy, dry_run, output_format).await?;
+        let (cleaned, archived) =
+            process_job_directory(job_dir, policy, dry_run, output_format).await?;
         total_stats = aggregate_stats(total_stats, cleaned, archived);
     }
 
