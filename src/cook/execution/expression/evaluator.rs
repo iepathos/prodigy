@@ -295,40 +295,32 @@ impl ExpressionEvaluator {
 
             // Comparison operators
             Expression::Equal(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                Ok(Value::Bool(l == r))
+                self.evaluate_binary_comparison(left, right, item, |l, r| l == r)
             }
             Expression::NotEqual(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                Ok(Value::Bool(l != r))
+                self.evaluate_binary_comparison(left, right, item, |l, r| l != r)
             }
             Expression::GreaterThan(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                Ok(Value::Bool(
-                    self.compare_values(&l, &r) == Ordering::Greater,
-                ))
+                self.evaluate_binary_comparison(left, right, item, |l, r| {
+                    self.compare_values(l, r) == Ordering::Greater
+                })
             }
             Expression::LessThan(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                Ok(Value::Bool(self.compare_values(&l, &r) == Ordering::Less))
+                self.evaluate_binary_comparison(left, right, item, |l, r| {
+                    self.compare_values(l, r) == Ordering::Less
+                })
             }
             Expression::GreaterEqual(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                let ord = self.compare_values(&l, &r);
-                Ok(Value::Bool(
-                    ord == Ordering::Greater || ord == Ordering::Equal,
-                ))
+                self.evaluate_binary_comparison(left, right, item, |l, r| {
+                    let ord = self.compare_values(l, r);
+                    ord == Ordering::Greater || ord == Ordering::Equal
+                })
             }
             Expression::LessEqual(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                let ord = self.compare_values(&l, &r);
-                Ok(Value::Bool(ord == Ordering::Less || ord == Ordering::Equal))
+                self.evaluate_binary_comparison(left, right, item, |l, r| {
+                    let ord = self.compare_values(l, r);
+                    ord == Ordering::Less || ord == Ordering::Equal
+                })
             }
 
             // Logical operators
@@ -355,73 +347,41 @@ impl ExpressionEvaluator {
 
             // String functions
             Expression::Contains(str_expr, pattern) => {
-                let s = self.evaluate(str_expr, item)?;
-                let p = self.evaluate(pattern, item)?;
-                if let (Value::String(s), Value::String(p)) = (s, p) {
-                    Ok(Value::Bool(s.contains(&p)))
-                } else {
-                    Ok(Value::Bool(false))
-                }
+                self.evaluate_string_operation(str_expr, pattern, item, |s, p| s.contains(p))
             }
             Expression::StartsWith(str_expr, prefix) => {
-                let s = self.evaluate(str_expr, item)?;
-                let p = self.evaluate(prefix, item)?;
-                if let (Value::String(s), Value::String(p)) = (s, p) {
-                    Ok(Value::Bool(s.starts_with(&p)))
-                } else {
-                    Ok(Value::Bool(false))
-                }
+                self.evaluate_string_operation(str_expr, prefix, item, |s, p| s.starts_with(p))
             }
             Expression::EndsWith(str_expr, suffix) => {
-                let s = self.evaluate(str_expr, item)?;
-                let p = self.evaluate(suffix, item)?;
-                if let (Value::String(s), Value::String(p)) = (s, p) {
-                    Ok(Value::Bool(s.ends_with(&p)))
-                } else {
-                    Ok(Value::Bool(false))
-                }
+                self.evaluate_string_operation(str_expr, suffix, item, |s, p| s.ends_with(p))
             }
             Expression::Matches(str_expr, pattern) => {
-                let s = self.evaluate(str_expr, item)?;
-                let p = self.evaluate(pattern, item)?;
-                if let (Value::String(s), Value::String(p)) = (s, p) {
-                    match Regex::new(&p) {
-                        Ok(re) => Ok(Value::Bool(re.is_match(&s))),
-                        Err(_) => Ok(Value::Bool(false)),
-                    }
-                } else {
-                    Ok(Value::Bool(false))
-                }
+                self.evaluate_string_operation(str_expr, pattern, item, |s, p| {
+                    Regex::new(p).map_or(false, |re| re.is_match(s))
+                })
             }
 
             // Type checking
             Expression::IsNull(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(v.is_null()))
+                self.evaluate_type_check(expr, item, |v| v.is_null())
             }
             Expression::IsNotNull(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(!v.is_null()))
+                self.evaluate_type_check(expr, item, |v| !v.is_null())
             }
             Expression::IsNumber(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(matches!(v, Value::Number(_))))
+                self.evaluate_type_check(expr, item, |v| matches!(v, Value::Number(_)))
             }
             Expression::IsString(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(matches!(v, Value::String(_))))
+                self.evaluate_type_check(expr, item, |v| matches!(v, Value::String(_)))
             }
             Expression::IsBool(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(matches!(v, Value::Bool(_))))
+                self.evaluate_type_check(expr, item, |v| matches!(v, Value::Bool(_)))
             }
             Expression::IsArray(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(matches!(v, Value::Array(_))))
+                self.evaluate_type_check(expr, item, |v| matches!(v, Value::Array(_)))
             }
             Expression::IsObject(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(matches!(v, Value::Object(_))))
+                self.evaluate_type_check(expr, item, |v| matches!(v, Value::Object(_)))
             }
 
             // Aggregate functions
@@ -625,6 +585,61 @@ impl ExpressionEvaluator {
             (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
             _ => Ordering::Equal,
         }
+    }
+
+    /// Helper: Evaluate a binary comparison operation
+    /// Takes left and right expressions and a comparison function
+    fn evaluate_binary_comparison<F>(
+        &self,
+        left: &Expression,
+        right: &Expression,
+        item: &Value,
+        comparator: F,
+    ) -> Result<Value>
+    where
+        F: FnOnce(&Value, &Value) -> bool,
+    {
+        let left_val = self.evaluate(left, item)?;
+        let right_val = self.evaluate(right, item)?;
+        Ok(Value::Bool(comparator(&left_val, &right_val)))
+    }
+
+    /// Helper: Evaluate a string operation
+    /// Takes string expression, pattern expression, and a string comparison function
+    fn evaluate_string_operation<F>(
+        &self,
+        str_expr: &Expression,
+        pattern_expr: &Expression,
+        item: &Value,
+        operation: F,
+    ) -> Result<Value>
+    where
+        F: FnOnce(&str, &str) -> bool,
+    {
+        let str_val = self.evaluate(str_expr, item)?;
+        let pattern_val = self.evaluate(pattern_expr, item)?;
+
+        let result = match (str_val, pattern_val) {
+            (Value::String(s), Value::String(p)) => operation(&s, &p),
+            _ => false,
+        };
+
+        Ok(Value::Bool(result))
+    }
+
+    /// Helper: Evaluate a type checking operation
+    /// Takes an expression and a type checking predicate
+    fn evaluate_type_check<F>(
+        &self,
+        expr: &Expression,
+        item: &Value,
+        type_predicate: F,
+    ) -> Result<Value>
+    where
+        F: FnOnce(&Value) -> bool,
+    {
+        let value = self.evaluate(expr, item)?;
+        Ok(Value::Bool(type_predicate(&value)))
     }
 }
 

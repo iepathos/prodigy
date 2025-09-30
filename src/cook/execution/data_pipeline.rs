@@ -559,158 +559,236 @@ impl FilterExpression {
 
         let expr = expr.trim();
 
-        // Check if the entire expression is parenthesized and strip outer parentheses
-        if expr.starts_with('(') && expr.ends_with(')') {
-            // Check that parentheses are balanced and wrap entire expression
-            let mut depth = 0;
-            let chars: Vec<char> = expr.chars().collect();
-            let mut wraps_entire = true;
-            for (i, &ch) in chars.iter().enumerate() {
-                if ch == '(' {
-                    depth += 1;
-                } else if ch == ')' {
+        // Try parsing in order of precedence
+        Self::try_strip_outer_parens(expr)
+            .or_else(|| Self::try_parse_not_operator(expr))
+            .or_else(|| Self::try_parse_or_operator(expr))
+            .or_else(|| Self::try_parse_and_operator(expr))
+            .or_else(|| Self::try_parse_in_operator(expr))
+            .or_else(|| Self::try_parse_function(expr))
+            .or_else(|| Self::try_parse_comparison(expr))
+            .unwrap_or_else(|| Err(anyhow!("Invalid filter expression: {}", expr)))
+    }
+
+    /// Check if outer parentheses wrap the entire expression and strip them
+    fn try_strip_outer_parens(expr: &str) -> Option<Result<Self>> {
+        if !Self::has_outer_parens(expr) {
+            return None;
+        }
+
+        if Self::outer_parens_wrap_entire_expr(expr) {
+            Some(Self::parse(&expr[1..expr.len() - 1]))
+        } else {
+            None
+        }
+    }
+
+    /// Check if expression starts and ends with parentheses
+    fn has_outer_parens(expr: &str) -> bool {
+        expr.starts_with('(') && expr.ends_with(')')
+    }
+
+    /// Check if outer parentheses wrap the entire expression
+    fn outer_parens_wrap_entire_expr(expr: &str) -> bool {
+        let chars: Vec<char> = expr.chars().collect();
+        let mut depth = 0;
+
+        for (i, &ch) in chars.iter().enumerate() {
+            match ch {
+                '(' => depth += 1,
+                ')' => {
                     depth -= 1;
                     // If depth reaches 0 before the last character, outer parens don't wrap whole expr
                     if depth == 0 && i < chars.len() - 1 {
-                        wraps_entire = false;
-                        break;
-                    }
-                }
-            }
-            // If outer parentheses wrap the entire expression, recursively parse inner
-            if wraps_entire && depth == 0 {
-                return Self::parse(&expr[1..expr.len() - 1]);
-            }
-        }
-
-        // Check for NOT operator at the beginning
-        if let Some(stripped) = expr.strip_prefix("!") {
-            // Handle negation
-            let inner_expr = stripped.trim();
-            // If it starts with '(' and ends with ')', parse the inner expression
-            let inner = if inner_expr.starts_with('(') && inner_expr.ends_with(')') {
-                Self::parse(&inner_expr[1..inner_expr.len() - 1])?
-            } else {
-                Self::parse(inner_expr)?
-            };
-            return Ok(FilterExpression::Logical {
-                op: LogicalOp::Not,
-                operands: vec![inner],
-            });
-        }
-
-        // Check for logical operators (&&, ||)
-        // Need to handle parentheses properly, so we do a simple level-aware scan
-        let mut paren_depth = 0;
-        let mut and_pos = None;
-        let mut or_pos = None;
-        let chars: Vec<char> = expr.chars().collect();
-
-        for i in 0..chars.len() {
-            match chars[i] {
-                '(' => paren_depth += 1,
-                ')' => paren_depth -= 1,
-                '&' if paren_depth == 0 && i + 1 < chars.len() && chars[i + 1] == '&' => {
-                    if and_pos.is_none() {
-                        and_pos = Some(i);
-                    }
-                }
-                '|' if paren_depth == 0 && i + 1 < chars.len() && chars[i + 1] == '|' => {
-                    if or_pos.is_none() {
-                        or_pos = Some(i);
+                        return false;
                     }
                 }
                 _ => {}
             }
         }
 
-        // Process OR first (lower precedence than AND)
-        if let Some(pos) = or_pos {
-            let left = Self::parse(&expr[..pos])?;
-            let right = Self::parse(&expr[pos + 2..])?;
-            return Ok(FilterExpression::Logical {
-                op: LogicalOp::Or,
-                operands: vec![left, right],
-            });
-        }
+        depth == 0
+    }
 
-        // Then process AND
-        if let Some(pos) = and_pos {
-            let left = Self::parse(&expr[..pos])?;
-            let right = Self::parse(&expr[pos + 2..])?;
-            return Ok(FilterExpression::Logical {
-                op: LogicalOp::And,
-                operands: vec![left, right],
-            });
-        }
+    /// Try to parse a NOT operator expression
+    fn try_parse_not_operator(expr: &str) -> Option<Result<Self>> {
+        expr.strip_prefix("!")
+            .map(|stripped| Self::parse_not_expression(stripped.trim()))
+    }
 
-        // Check for 'in' operator
-        if let Some(in_pos) = expr.find(" in ") {
-            let field = expr[..in_pos].trim().to_string();
-            let values_str = expr[in_pos + 4..].trim();
+    /// Parse the inner expression of a NOT operator
+    fn parse_not_expression(inner_expr: &str) -> Result<Self> {
+        let inner = if Self::has_outer_parens(inner_expr) {
+            Self::parse(&inner_expr[1..inner_expr.len() - 1])?
+        } else {
+            Self::parse(inner_expr)?
+        };
 
-            // Parse array of values
-            let values = if values_str.starts_with('[') && values_str.ends_with(']') {
-                let values_inner = &values_str[1..values_str.len() - 1];
-                let mut parsed_values = Vec::new();
+        Ok(FilterExpression::Logical {
+            op: LogicalOp::Not,
+            operands: vec![inner],
+        })
+    }
 
-                for value_str in values_inner.split(',') {
-                    let value_str = value_str.trim().trim_matches('\'').trim_matches('"');
-                    parsed_values.push(Value::String(value_str.to_string()));
+    /// Try to parse an OR logical operator
+    fn try_parse_or_operator(expr: &str) -> Option<Result<Self>> {
+        Self::find_logical_operator(expr, "||").map(|pos| Self::parse_binary_logical(expr, pos, 2, LogicalOp::Or))
+    }
+
+    /// Try to parse an AND logical operator
+    fn try_parse_and_operator(expr: &str) -> Option<Result<Self>> {
+        Self::find_logical_operator(expr, "&&").map(|pos| Self::parse_binary_logical(expr, pos, 2, LogicalOp::And))
+    }
+
+    /// Find the position of a logical operator outside of parentheses
+    fn find_logical_operator(expr: &str, op: &str) -> Option<usize> {
+        let chars: Vec<char> = expr.chars().collect();
+        let mut paren_depth = 0;
+        let op_chars: Vec<char> = op.chars().collect();
+
+        for i in 0..chars.len() {
+            match chars[i] {
+                '(' => paren_depth += 1,
+                ')' => paren_depth -= 1,
+                _ if paren_depth == 0 && Self::matches_operator_at(&chars, i, &op_chars) => {
+                    return Some(i);
                 }
-
-                parsed_values
-            } else {
-                return Err(anyhow!("Invalid 'in' expression format"));
-            };
-
-            return Ok(FilterExpression::In { field, values });
-        }
-
-        // Check for function calls
-        if expr.contains('(') && expr.contains(')') {
-            let open_paren = expr.find('(').ok_or_else(|| {
-                anyhow::anyhow!("Invalid expression: missing opening parenthesis")
-            })?;
-            let close_paren = expr.rfind(')').ok_or_else(|| {
-                anyhow::anyhow!("Invalid expression: missing closing parenthesis")
-            })?;
-            let name = expr[..open_paren].trim().to_string();
-            let args_str = &expr[open_paren + 1..close_paren];
-
-            let args: Vec<String> = if args_str.is_empty() {
-                Vec::new()
-            } else {
-                args_str.split(',').map(|s| s.trim().to_string()).collect()
-            };
-
-            return Ok(FilterExpression::Function { name, args });
-        }
-
-        // Parse comparison operators
-        let operators = ["==", "!=", ">=", "<=", ">", "<", "="];
-        for op_str in &operators {
-            if let Some(op_pos) = expr.find(op_str) {
-                let field = expr[..op_pos].trim().to_string();
-                let value_str = expr[op_pos + op_str.len()..].trim();
-
-                let value = Self::parse_value(value_str)?;
-
-                let op = match *op_str {
-                    "==" | "=" => ComparisonOp::Equal,
-                    "!=" => ComparisonOp::NotEqual,
-                    ">" => ComparisonOp::Greater,
-                    "<" => ComparisonOp::Less,
-                    ">=" => ComparisonOp::GreaterEqual,
-                    "<=" => ComparisonOp::LessEqual,
-                    _ => return Err(anyhow!("Unknown operator: {}", op_str)),
-                };
-
-                return Ok(FilterExpression::Comparison { field, op, value });
+                _ => {}
             }
         }
 
-        Err(anyhow!("Invalid filter expression: {}", expr))
+        None
+    }
+
+    /// Check if the operator matches at the given position
+    fn matches_operator_at(chars: &[char], pos: usize, op_chars: &[char]) -> bool {
+        if pos + op_chars.len() > chars.len() {
+            return false;
+        }
+
+        chars[pos..pos + op_chars.len()]
+            .iter()
+            .zip(op_chars.iter())
+            .all(|(a, b)| a == b)
+    }
+
+    /// Parse a binary logical expression (AND/OR)
+    fn parse_binary_logical(expr: &str, pos: usize, op_len: usize, op: LogicalOp) -> Result<Self> {
+        let left = Self::parse(&expr[..pos])?;
+        let right = Self::parse(&expr[pos + op_len..])?;
+
+        Ok(FilterExpression::Logical {
+            op,
+            operands: vec![left, right],
+        })
+    }
+
+    /// Try to parse an 'in' operator expression
+    fn try_parse_in_operator(expr: &str) -> Option<Result<Self>> {
+        expr.find(" in ")
+            .map(|pos| Self::parse_in_expression(expr, pos))
+    }
+
+    /// Parse an 'in' expression for checking if a value is in a list
+    fn parse_in_expression(expr: &str, in_pos: usize) -> Result<Self> {
+        let field = expr[..in_pos].trim().to_string();
+        let values_str = expr[in_pos + 4..].trim();
+
+        let values = Self::parse_array_values(values_str)?;
+
+        Ok(FilterExpression::In { field, values })
+    }
+
+    /// Parse an array of values from a string like "['value1', 'value2']"
+    fn parse_array_values(values_str: &str) -> Result<Vec<Value>> {
+        if !values_str.starts_with('[') || !values_str.ends_with(']') {
+            return Err(anyhow!("Invalid 'in' expression format: expected array"));
+        }
+
+        let values_inner = &values_str[1..values_str.len() - 1];
+        let parsed_values = values_inner
+            .split(',')
+            .map(|s| Self::parse_quoted_string(s.trim()))
+            .collect();
+
+        Ok(parsed_values)
+    }
+
+    /// Parse a quoted string into a Value
+    fn parse_quoted_string(s: &str) -> Value {
+        let unquoted = s.trim_matches('\'').trim_matches('"');
+        Value::String(unquoted.to_string())
+    }
+
+    /// Try to parse a function call expression
+    fn try_parse_function(expr: &str) -> Option<Result<Self>> {
+        if !expr.contains('(') || !expr.contains(')') {
+            return None;
+        }
+
+        Some(Self::parse_function_expression(expr))
+    }
+
+    /// Parse a function call expression
+    fn parse_function_expression(expr: &str) -> Result<Self> {
+        let open_paren = expr
+            .find('(')
+            .context("Invalid expression: missing opening parenthesis")?;
+        let close_paren = expr
+            .rfind(')')
+            .context("Invalid expression: missing closing parenthesis")?;
+
+        let name = expr[..open_paren].trim().to_string();
+        let args = Self::parse_function_args(&expr[open_paren + 1..close_paren]);
+
+        Ok(FilterExpression::Function { name, args })
+    }
+
+    /// Parse function arguments from a comma-separated string
+    fn parse_function_args(args_str: &str) -> Vec<String> {
+        if args_str.is_empty() {
+            Vec::new()
+        } else {
+            args_str.split(',').map(|s| s.trim().to_string()).collect()
+        }
+    }
+
+    /// Try to parse a comparison expression
+    fn try_parse_comparison(expr: &str) -> Option<Result<Self>> {
+        Self::find_comparison_operator(expr)
+            .map(|(op_str, pos)| Self::parse_comparison_expression(expr, op_str, pos))
+    }
+
+    /// Find a comparison operator in the expression
+    fn find_comparison_operator(expr: &str) -> Option<(&'static str, usize)> {
+        let operators = ["==", "!=", ">=", "<=", ">", "<", "="];
+
+        operators
+            .iter()
+            .find_map(|&op| expr.find(op).map(|pos| (op, pos)))
+    }
+
+    /// Parse a comparison expression
+    fn parse_comparison_expression(expr: &str, op_str: &str, op_pos: usize) -> Result<Self> {
+        let field = expr[..op_pos].trim().to_string();
+        let value_str = expr[op_pos + op_str.len()..].trim();
+        let value = Self::parse_value(value_str)?;
+        let op = Self::string_to_comparison_op(op_str)?;
+
+        Ok(FilterExpression::Comparison { field, op, value })
+    }
+
+    /// Convert a string operator to a ComparisonOp
+    fn string_to_comparison_op(op_str: &str) -> Result<ComparisonOp> {
+        match op_str {
+            "==" | "=" => Ok(ComparisonOp::Equal),
+            "!=" => Ok(ComparisonOp::NotEqual),
+            ">" => Ok(ComparisonOp::Greater),
+            "<" => Ok(ComparisonOp::Less),
+            ">=" => Ok(ComparisonOp::GreaterEqual),
+            "<=" => Ok(ComparisonOp::LessEqual),
+            _ => Err(anyhow!("Unknown operator: {}", op_str)),
+        }
     }
 
     /// Parse a value string into a JSON value
