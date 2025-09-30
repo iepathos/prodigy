@@ -10,7 +10,9 @@ arguments:
 
 # Execute Implementation Plan
 
-Follow the implementation plan created by `/prodigy-debtmap-plan` to fix the technical debt item in phases.
+Follow the implementation plan created by `/prodigy-debtmap-plan` to fix **ONLY the ONE** technical debt item identified in the plan.
+
+**CRITICAL**: This command implements the plan for ONE specific debt item. Do NOT attempt to fix other debt items while executing this plan. Stay focused on the target specified in the plan.
 
 ## Process
 
@@ -23,10 +25,13 @@ cat $ARG_plan
 ```
 
 Extract key information:
+- **Target debt item** (file, function, location)
 - Problem location
 - Number of phases
 - Success criteria for each phase
 - Testing strategy
+
+**VERIFY**: Confirm the plan targets ONE specific item and you understand exactly what you're fixing.
 
 ### Step 2: Execute Phase by Phase
 
@@ -151,11 +156,13 @@ The workflow validation will verify the debt improvement.
 
 ### General Principles
 
-1. **Work incrementally**: Complete one phase fully before starting the next
-2. **Test frequently**: Run tests after each significant change
-3. **Commit working code**: Only commit when tests pass
-4. **Follow the plan**: Stick to the phases as designed
-5. **Stop if blocked**: Don't proceed if a phase fails
+1. **Fix ONLY the target item**: Do not fix other debt items you encounter
+2. **Work incrementally**: Complete one phase fully before starting the next
+3. **Test frequently**: Run tests after each significant change
+4. **Commit working code**: Only commit when tests pass
+5. **Follow the plan**: Stick to the phases as designed
+6. **Stop if blocked**: Don't proceed if a phase fails
+7. **Stay focused**: If you see other issues, ignore them - we fix ONE item at a time
 
 ### Error Handling
 

@@ -14,7 +14,17 @@ arguments:
 
 # Create Implementation Plan for Top Tech Debt Item
 
-Analyze the debtmap output and create a detailed, phased implementation plan for fixing the highest priority technical debt item.
+Analyze the debtmap output and create a detailed, phased implementation plan for fixing **ONLY** the **#1 highest priority** technical debt item.
+
+**CRITICAL**: This workflow fixes ONE item at a time. Do NOT try to fix multiple debt items. Focus exclusively on the top-ranked item from the debtmap analysis.
+
+## Scope
+
+**What to fix**: `.items[0]` - The #1 top priority item ONLY
+**What NOT to fix**: `.items[1]`, `.items[2]`, or any other items
+**Approach**: Focused, targeted fix for ONE specific debt item
+
+If you encounter other debt items while implementing, **IGNORE THEM**. They will be addressed in future workflow runs.
 
 ## Process
 
@@ -26,7 +36,7 @@ Read the debtmap analysis passed as an argument:
 cat $ARG_before
 ```
 
-Extract the top priority item:
+**Extract ONLY the #1 top priority item** (`.items[0]`):
 
 ```bash
 jq '.items[0] | {
@@ -42,9 +52,24 @@ jq '.items[0] | {
 }' $ARG_before
 ```
 
-### Step 2: Analyze the Problem
+### Step 2: Verify You're Targeting ONLY the Top Item
 
-Based on the debt type, understand what needs to be fixed:
+**IMPORTANT**: Before proceeding, confirm:
+- You are looking at `.items[0]` (the first/top item ONLY)
+- You are NOT looking at `.items[1]`, `.items[2]`, etc.
+- Your plan will address THIS ONE ITEM and nothing else
+
+Output the target for confirmation:
+```
+Target: <file>:<line> - <function_name>
+Score: <unified_score>
+Debt Type: <debt_type>
+Action: <primary_action>
+```
+
+### Step 3: Analyze the Problem
+
+Based on the debt type of **THIS ONE ITEM**, understand what needs to be fixed:
 
 **For GOD OBJECT / High Complexity:**
 - Identify the distinct responsibilities in the code
@@ -62,9 +87,9 @@ Based on the debt type, understand what needs to be fixed:
 - Determine the best abstraction pattern
 - Plan extraction to a shared module
 
-### Step 3: Read the Target Code
+### Step 4: Read the Target Code
 
-Read the file(s) identified in the debtmap output to understand the current implementation:
+Read **ONLY** the file(s) identified in `.items[0]` to understand the current implementation:
 
 ```bash
 # Read the target file
@@ -77,9 +102,11 @@ Analyze:
 - Complexity sources
 - Testing gaps
 
-### Step 4: Create the Implementation Plan
+### Step 5: Create the Implementation Plan
 
-Create a file at `.prodigy/IMPLEMENTATION_PLAN.md` with this structure:
+**CRITICAL REMINDER**: Your plan must address **ONLY the #1 top priority item** from `.items[0]`. Do NOT include fixes for other items.
+
+Create a file at `$ARG_output` with this structure:
 
 ```markdown
 # Implementation Plan: <Brief Description>
