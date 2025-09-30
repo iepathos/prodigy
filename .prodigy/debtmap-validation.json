@@ -1,14 +1,13 @@
 {
-  "completion_percentage": 11.4,
+  "completion_percentage": 12.6,
   "status": "incomplete",
   "improvements": [
-    "Resolved 2 high-priority debt items",
-    "Improved 45 existing debt items",
-    "Reduced average complexity by 0.5%",
-    "Reduced average debt score from 55.19 to 55.14"
+    "Resolved 18 high-priority debt items",
+    "Improved 64 existing debt items"
   ],
   "remaining_issues": [
-    "64 critical debt items still present"
+    "64 critical debt items still present",
+    "20 new critical issues introduced"
   ],
   "gaps": {
     "critical_debt_remaining": {
@@ -25,12 +24,17 @@
       "suggested_fix": "Extract helper functions using pure functional patterns",
       "current_complexity": 115,
       "target_complexity": 8
+    },
+    "regression_detected": {
+      "description": "New critical issues introduced: 20 items",
+      "severity": "critical",
+      "suggested_fix": "Review and simplify recently added complexity"
     }
   },
   "before_summary": {
-    "total_items": 1820,
-    "high_priority_items": 64,
-    "average_score": 55.19
+    "total_items": 1928,
+    "high_priority_items": 57,
+    "average_score": 54.76
   },
   "after_summary": {
     "total_items": 1819,
