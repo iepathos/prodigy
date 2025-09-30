@@ -145,6 +145,21 @@ fn serialize_events_to_jsonl(events: &[EventRecord]) -> Result<Vec<(String, usiz
         .collect()
 }
 
+/// Calculate total bytes from serialized events
+///
+/// Pure function that sums up byte counts from serialized events.
+fn calculate_total_bytes(serialized: &[(String, usize)]) -> u64 {
+    serialized.iter().map(|(_, count)| *count as u64).sum()
+}
+
+/// Update size counter with additional bytes
+///
+/// Async function that updates the size counter in a thread-safe manner.
+async fn update_size_counter(current: &Mutex<u64>, additional: u64) {
+    let mut size_guard = current.lock().await;
+    *size_guard += additional;
+}
+
 #[async_trait]
 impl EventWriter for JsonlEventWriter {
     async fn write(&self, events: &[EventRecord]) -> Result<()> {
@@ -153,21 +168,20 @@ impl EventWriter for JsonlEventWriter {
         // Serialize events to JSONL format
         let serialized = serialize_events_to_jsonl(events)?;
 
+        // Calculate total bytes
+        let total_bytes = calculate_total_bytes(&serialized);
+
         let mut writer_guard = self.writer.lock().await;
         if let Some(writer) = writer_guard.as_mut() {
-            let mut written_bytes = 0u64;
-
-            for (line, byte_count) in &serialized {
+            for (line, _) in &serialized {
                 let bytes = line.as_bytes();
                 writer.write_all(bytes).await?;
-                written_bytes += *byte_count as u64;
             }
 
             // Update size counter
-            let mut size_guard = self.current_size.lock().await;
-            *size_guard += written_bytes;
+            update_size_counter(&self.current_size, total_bytes).await;
 
-            debug!("Wrote {} events ({} bytes)", events.len(), written_bytes);
+            debug!("Wrote {} events ({} bytes)", events.len(), total_bytes);
         }
 
         Ok(())
@@ -538,5 +552,49 @@ mod tests {
         assert!(line.contains(r#"\"quotes\""#));
         assert!(line.contains(r"\\backslash"));
         assert_eq!(*byte_count, line.len());
+    }
+
+    #[test]
+    fn test_calculate_total_bytes_empty() {
+        let serialized: Vec<(String, usize)> = vec![];
+        let total = calculate_total_bytes(&serialized);
+        assert_eq!(total, 0);
+    }
+
+    #[test]
+    fn test_calculate_total_bytes_single_item() {
+        let serialized = vec![("test line\n".to_string(), 10)];
+        let total = calculate_total_bytes(&serialized);
+        assert_eq!(total, 10);
+    }
+
+    #[test]
+    fn test_calculate_total_bytes_multiple_items() {
+        let serialized = vec![
+            ("first line\n".to_string(), 11),
+            ("second line\n".to_string(), 12),
+            ("third line\n".to_string(), 11),
+        ];
+        let total = calculate_total_bytes(&serialized);
+        assert_eq!(total, 34);
+    }
+
+    #[tokio::test]
+    async fn test_update_size_counter_initial() {
+        let counter = Mutex::new(0u64);
+        update_size_counter(&counter, 100).await;
+
+        let value = *counter.lock().await;
+        assert_eq!(value, 100);
+    }
+
+    #[tokio::test]
+    async fn test_update_size_counter_multiple() {
+        let counter = Mutex::new(50u64);
+        update_size_counter(&counter, 100).await;
+        update_size_counter(&counter, 200).await;
+
+        let value = *counter.lock().await;
+        assert_eq!(value, 350);
     }
 }
