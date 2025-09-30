@@ -129,22 +129,38 @@ impl JsonlEventWriter {
     }
 }
 
+/// Serialize events to JSONL format
+///
+/// Pure function that converts events to (line_string, byte_count) tuples.
+/// Returns error if serialization fails.
+fn serialize_events_to_jsonl(events: &[EventRecord]) -> Result<Vec<(String, usize)>> {
+    events
+        .iter()
+        .map(|event| {
+            let json = serde_json::to_string(event)?;
+            let line = format!("{}\n", json);
+            let byte_count = line.len();
+            Ok((line, byte_count))
+        })
+        .collect()
+}
+
 #[async_trait]
 impl EventWriter for JsonlEventWriter {
     async fn write(&self, events: &[EventRecord]) -> Result<()> {
         self.rotate_if_needed().await?;
 
+        // Serialize events to JSONL format
+        let serialized = serialize_events_to_jsonl(events)?;
+
         let mut writer_guard = self.writer.lock().await;
         if let Some(writer) = writer_guard.as_mut() {
             let mut written_bytes = 0u64;
 
-            for event in events {
-                let json = serde_json::to_string(event)?;
-                let line = format!("{}\n", json);
+            for (line, byte_count) in &serialized {
                 let bytes = line.as_bytes();
-
                 writer.write_all(bytes).await?;
-                written_bytes += bytes.len() as u64;
+                written_bytes += *byte_count as u64;
             }
 
             // Update size counter
@@ -410,5 +426,117 @@ mod tests {
         let content = tokio::fs::read_to_string(&file_path).await.unwrap();
         let lines: Vec<&str> = content.lines().collect();
         assert_eq!(lines.len(), 2);
+    }
+
+    #[test]
+    fn test_serialize_single_event() {
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: chrono::Utc::now(),
+            correlation_id: "test-correlation".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test-job".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: chrono::Utc::now(),
+            },
+            metadata: Default::default(),
+        };
+
+        let result = serialize_events_to_jsonl(&[event]).unwrap();
+        assert_eq!(result.len(), 1);
+
+        let (line, byte_count) = &result[0];
+        assert!(line.contains("test-job"));
+        assert!(line.ends_with('\n'));
+        assert_eq!(*byte_count, line.len());
+    }
+
+    #[test]
+    fn test_serialize_multiple_events() {
+        let events: Vec<EventRecord> = (0..3)
+            .map(|i| EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: chrono::Utc::now(),
+                correlation_id: format!("test-correlation-{}", i),
+                event: MapReduceEvent::JobStarted {
+                    job_id: format!("test-job-{}", i),
+                    config: MapReduceConfig {
+                        agent_timeout_secs: None,
+                        continue_on_failure: false,
+                        batch_size: None,
+                        enable_checkpoints: true,
+                        input: "test.json".to_string(),
+                        json_path: "$.items".to_string(),
+                        max_parallel: 5,
+                        max_items: None,
+                        offset: None,
+                    },
+                    total_items: 10,
+                    timestamp: chrono::Utc::now(),
+                },
+                metadata: Default::default(),
+            })
+            .collect();
+
+        let result = serialize_events_to_jsonl(&events).unwrap();
+        assert_eq!(result.len(), 3);
+
+        for (i, (line, byte_count)) in result.iter().enumerate() {
+            assert!(line.contains(&format!("test-job-{}", i)));
+            assert!(line.ends_with('\n'));
+            assert_eq!(*byte_count, line.len());
+        }
+    }
+
+    #[test]
+    fn test_serialize_empty_events() {
+        let result = serialize_events_to_jsonl(&[]).unwrap();
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_serialize_event_with_special_characters() {
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: chrono::Utc::now(),
+            correlation_id: "test-with-\"quotes\"-and-\\backslash".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test-job".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: chrono::Utc::now(),
+            },
+            metadata: Default::default(),
+        };
+
+        let result = serialize_events_to_jsonl(&[event]).unwrap();
+        assert_eq!(result.len(), 1);
+
+        let (line, byte_count) = &result[0];
+        // JSON should escape special characters
+        assert!(line.contains(r#"\"quotes\""#));
+        assert!(line.contains(r"\\backslash"));
+        assert_eq!(*byte_count, line.len());
     }
 }
