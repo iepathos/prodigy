@@ -31,7 +31,7 @@ fn setup_test_prodigy_home() -> (TestEnv, TempDir) {
 /// Creates checkpoints in the location specified by PRODIGY_HOME environment variable
 /// (which should be set by the test to a temp directory for isolation)
 fn create_test_checkpoint(
-    _local_checkpoint_dir: &PathBuf,
+    _local_checkpoint_dir: &Path,
     workflow_id: &str,
     commands_executed: usize,
     total_commands: usize,

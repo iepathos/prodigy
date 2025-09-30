@@ -3,12 +3,12 @@
 //! Executes workflow steps in sequence, verifies git commits when required,
 //! and manages iteration logic for continuous improvement sessions.
 
-#[path = "executor/pure.rs"]
-mod pure;
 #[path = "executor/commands.rs"]
 mod commands;
 #[path = "executor/failure_handler.rs"]
 mod failure_handler;
+#[path = "executor/pure.rs"]
+mod pure;
 
 use crate::abstractions::git::{GitOperations, RealGitOperations};
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
@@ -3460,7 +3460,8 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         env_vars: HashMap<String, String>,
     ) -> Result<StepResult> {
-        commands::execute_claude_command(&self.claude_executor, command, &env.working_dir, env_vars).await
+        commands::execute_claude_command(&self.claude_executor, command, &env.working_dir, env_vars)
+            .await
     }
 
     /// Execute a shell command

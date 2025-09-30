@@ -358,13 +358,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_shell_command_failure() {
-        let result = execute_shell_command(
-            "exit 1",
-            std::path::Path::new("/tmp"),
-            HashMap::new(),
-            None,
-        )
-        .await;
+        let result =
+            execute_shell_command("exit 1", std::path::Path::new("/tmp"), HashMap::new(), None)
+                .await;
 
         assert!(result.is_ok());
         let step_result = result.unwrap();

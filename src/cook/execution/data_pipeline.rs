@@ -2323,21 +2323,21 @@ mod tests {
         // Test eval_is_null
         assert!(!FilterExpression::eval_is_null(
             &item,
-            &vec!["name".to_string()]
+            &["name".to_string()]
         ));
         assert!(FilterExpression::eval_is_null(
             &item,
-            &vec!["optional".to_string()]
+            &["optional".to_string()]
         ));
 
         // Test eval_is_not_null
         assert!(FilterExpression::eval_is_not_null(
             &item,
-            &vec!["name".to_string()]
+            &["name".to_string()]
         ));
         assert!(!FilterExpression::eval_is_not_null(
             &item,
-            &vec!["optional".to_string()]
+            &["optional".to_string()]
         ));
 
         // Test get_value_length
