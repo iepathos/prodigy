@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tracing::debug;
 
 use super::command::CookCommand;
 use super::execution::{ClaudeExecutor, CommandExecutor};
@@ -1067,38 +1068,38 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         let env = self.setup_environment(&config).await?;
 
         // Start session and display session ID prominently
-        eprintln!("DEBUG: About to start session");
+        debug!("About to start session");
         self.session_manager.start_session(&env.session_id).await?;
-        eprintln!("DEBUG: Session started successfully");
+        debug!("Session started successfully");
         self.user_interaction
             .display_info(&format!("Starting session: {}", env.session_id));
-        eprintln!("DEBUG: Session message displayed");
+        debug!("Session message displayed");
 
         // Calculate and store workflow hash
-        eprintln!("DEBUG: Calculating workflow hash");
+        debug!("Calculating workflow hash");
         let workflow_hash = Self::calculate_workflow_hash(&config.workflow);
-        eprintln!("DEBUG: Workflow hash calculated: {}", workflow_hash);
+        debug!("Workflow hash calculated: {}", workflow_hash);
 
-        eprintln!("DEBUG: Classifying workflow type");
+        debug!("Classifying workflow type");
         let workflow_type = Self::classify_workflow_type(&config);
-        eprintln!("DEBUG: Workflow type classified: {:?}", workflow_type);
+        debug!("Workflow type classified: {:?}", workflow_type);
 
         // Update session with workflow metadata
-        eprintln!("DEBUG: Updating session with workflow hash");
-        eprintln!("DEBUG: About to call update_session");
+        debug!("Updating session with workflow hash");
+        debug!("About to call update_session");
         let result = self
             .session_manager
             .update_session(SessionUpdate::SetWorkflowHash(workflow_hash))
             .await;
-        eprintln!("DEBUG: update_session call returned");
+        debug!("update_session call returned");
         result?;
-        eprintln!("DEBUG: Workflow hash updated");
+        debug!("Workflow hash updated");
 
-        eprintln!("DEBUG: Updating session with workflow type");
+        debug!("Updating session with workflow type");
         self.session_manager
             .update_session(SessionUpdate::SetWorkflowType(workflow_type.into()))
             .await?;
-        eprintln!("DEBUG: Workflow type updated");
+        debug!("Workflow type updated");
 
         // Set up signal handler for graceful interruption
         // Always set up worktree-aware signal handler

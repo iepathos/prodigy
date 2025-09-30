@@ -101,3 +101,4 @@ dev/
 .prodigy/documentation-drift-update.json
 .prodigy/IMPLEMENTATION_PLAN.md
 .prodigy/debtmap-*.json
+.prodigy/plan-validation.json

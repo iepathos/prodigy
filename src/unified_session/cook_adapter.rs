@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tracing::debug;
 
 /// Adapter that implements Cook's SessionManager trait using unified session management
 pub struct CookSessionAdapter {
@@ -181,29 +182,29 @@ impl CookSessionManager for CookSessionAdapter {
     }
 
     async fn update_session(&self, update: CookSessionUpdate) -> Result<()> {
-        eprintln!("DEBUG: CookSessionAdapter::update_session called");
-        eprintln!("DEBUG: Acquiring current_session lock");
+        debug!("CookSessionAdapter::update_session called");
+        debug!("Acquiring current_session lock");
         if let Some(id) = &*self.current_session.lock().await {
-            eprintln!("DEBUG: Lock acquired, converting update");
+            debug!("Lock acquired, converting update");
             let unified_updates = Self::cook_update_to_unified(update);
-            eprintln!(
-                "DEBUG: Calling unified_manager.update_session for {} updates",
+            debug!(
+                "Calling unified_manager.update_session for {} updates",
                 unified_updates.len()
             );
             for unified_update in unified_updates {
-                eprintln!("DEBUG: About to call unified update");
+                debug!("About to call unified update");
                 self.unified_manager
                     .update_session(id, unified_update)
                     .await?;
-                eprintln!("DEBUG: Unified update complete");
+                debug!("Unified update complete");
             }
 
             // Update cached state after updates
-            eprintln!("DEBUG: Updating cached state");
+            debug!("Updating cached state");
             self.update_cached_state_for_id(id).await?;
-            eprintln!("DEBUG: Cached state updated");
+            debug!("Cached state updated");
         }
-        eprintln!("DEBUG: CookSessionAdapter::update_session complete");
+        debug!("CookSessionAdapter::update_session complete");
         Ok(())
     }
 
