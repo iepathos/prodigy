@@ -1,5 +1,5 @@
 {
-  "completion_percentage": 12.6,
+  "completion_percentage": 15.3,
   "status": "incomplete",
   "improvements": [
     "Resolved 18 high-priority debt items",
@@ -7,28 +7,29 @@
   ],
   "remaining_issues": [
     "64 critical debt items still present",
-    "20 new critical issues introduced"
+    "20 new critical issues introduced",
+    "80 items got worse"
   ],
   "gaps": {
     "critical_debt_remaining": {
-      "description": "High-priority debt item still present: FilterExpression::parse",
-      "location": "./src/cook/execution/data_pipeline.rs:FilterExpression::parse:551",
+      "description": "High-priority debt item still present: clean_global_storage",
+      "location": "./src/cli/events.rs:clean_global_storage:1638",
       "severity": "high",
-      "suggested_fix": "Add 13 tests for 100% coverage gap, then refactor complexity 48 into 19 functions",
-      "current_score": 94.69376440038651
-    },
-    "insufficient_refactoring": {
-      "description": "Function complexity still above threshold: ExpressionEvaluator::evaluate",
-      "location": "./src/cook/execution/expression/evaluator.rs:ExpressionEvaluator::evaluate:275",
-      "severity": "medium",
-      "suggested_fix": "Extract helper functions using pure functional patterns",
-      "current_complexity": 115,
-      "target_complexity": 8
+      "suggested_fix": "Add 9 tests for 100% coverage gap, then refactor complexity 20 into 10 functions",
+      "current_score": 81.96708203932498
     },
     "regression_detected": {
       "description": "New critical issues introduced: 20 items",
       "severity": "critical",
       "suggested_fix": "Review and simplify recently added complexity"
+    },
+    "insufficient_refactoring": {
+      "description": "Function complexity still above threshold: FileEventStore::index",
+      "location": "./src/cook/execution/events/event_store.rs:FileEventStore::index:283",
+      "severity": "medium",
+      "suggested_fix": "Extract helper functions using pure functional patterns",
+      "current_complexity": 12,
+      "target_complexity": 8
     }
   },
   "before_summary": {

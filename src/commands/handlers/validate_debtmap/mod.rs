@@ -75,19 +75,12 @@ impl ValidateDebtmapHandler {
 
     /// Check if running in automation mode
     fn check_automation_mode() -> bool {
-        let check_var = |var: &str| {
-            std::env::var(var)
-                .unwrap_or_default()
-                .to_lowercase()
-                == "true"
-        };
+        let check_var = |var: &str| std::env::var(var).unwrap_or_default().to_lowercase() == "true";
         check_var("PRODIGY_AUTOMATION") || check_var("PRODIGY_VALIDATION")
     }
 
     /// Load both debtmaps with error handling
-    fn load_debtmaps(
-        config: &ExecutionConfig,
-    ) -> Result<(DebtmapOutput, DebtmapOutput), String> {
+    fn load_debtmaps(config: &ExecutionConfig) -> Result<(DebtmapOutput, DebtmapOutput), String> {
         Self::print_if_interactive(config, || "Loading debtmap files...".to_string());
 
         let before = load_debtmap(&config.before_path)

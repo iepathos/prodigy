@@ -437,8 +437,8 @@ mod tests {
         };
 
         // Write same event multiple times
-        writer.write(&[event.clone()]).await.unwrap();
-        writer.write(&[event.clone()]).await.unwrap();
+        writer.write(std::slice::from_ref(&event)).await.unwrap();
+        writer.write(std::slice::from_ref(&event)).await.unwrap();
         writer.flush().await.unwrap();
 
         // Verify size tracking - should accumulate across writes
