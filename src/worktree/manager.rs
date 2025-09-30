@@ -7,7 +7,7 @@ use serde_json;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tracing::debug;
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use super::{IterationInfo, WorktreeSession, WorktreeState, WorktreeStats, WorktreeStatus};
@@ -200,6 +200,17 @@ impl WorktreeManager {
     /// # Errors
     /// Returns error if worktree creation fails
     pub async fn create_session_with_id(&self, session_id: &str) -> Result<WorktreeSession> {
+        // Capture current branch BEFORE creating worktree
+        let original_branch = self.get_current_branch().await.unwrap_or_else(|e| {
+            warn!(
+                "Failed to detect current branch: {}, will use default for merge",
+                e
+            );
+            String::from("HEAD")
+        });
+
+        info!("Creating worktree from branch: {}", original_branch);
+
         // Use the provided session ID as the name
         let name = session_id.to_string();
         let branch = format!("prodigy-{name}");
@@ -226,13 +237,22 @@ impl WorktreeManager {
         // Create session
         let session = WorktreeSession::new(name.clone(), branch, worktree_path);
 
-        // Save session state
-        self.save_session_state(&session)?;
+        // Save session state with original branch
+        self.save_session_state_with_original_branch(&session, &original_branch)?;
 
         Ok(session)
     }
 
+    #[allow(dead_code)]
     fn save_session_state(&self, session: &WorktreeSession) -> Result<()> {
+        self.save_session_state_with_original_branch(session, "")
+    }
+
+    fn save_session_state_with_original_branch(
+        &self,
+        session: &WorktreeSession,
+        original_branch: &str,
+    ) -> Result<()> {
         let state_dir = self.base_dir.join(".metadata");
         fs::create_dir_all(&state_dir)?;
 
@@ -241,6 +261,7 @@ impl WorktreeManager {
             session_id: session.name.clone(),
             worktree_name: session.name.clone(),
             branch: session.branch.clone(),
+            original_branch: original_branch.to_string(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
             status: WorktreeStatus::InProgress,
@@ -612,7 +633,7 @@ impl WorktreeManager {
         Ok(sessions)
     }
 
-    /// Merge a worktree session back to the main branch
+    /// Merge a worktree session back to the original branch
     ///
     /// # Arguments
     /// * `name` - Name of the worktree session to merge
@@ -627,8 +648,10 @@ impl WorktreeManager {
         let session = self.find_session_by_name(name).await?;
         let worktree_branch = &session.branch;
 
-        // Determine target branch and check if merge is needed
-        let target_branch = self.determine_default_branch().await?;
+        // Use original branch instead of hardcoded main/master
+        let target_branch = self.get_merge_target(name).await?;
+        info!("Merging {} to {}", worktree_branch, target_branch);
+
         let should_merge = self
             .validate_merge_preconditions(name, worktree_branch, &target_branch)
             .await?;
@@ -677,6 +700,55 @@ impl WorktreeManager {
         } else {
             "master".to_string()
         }
+    }
+
+    /// Get the current branch name from the repository
+    ///
+    /// Returns the name of the currently checked-out branch, or "HEAD"
+    /// if in detached HEAD state.
+    async fn get_current_branch(&self) -> Result<String> {
+        let command = ProcessCommandBuilder::new("git")
+            .current_dir(&self.repo_path)
+            .args(["rev-parse", "--abbrev-ref", "HEAD"])
+            .build();
+
+        let output = self.subprocess.runner().run(command).await?;
+
+        if !output.status.success() {
+            anyhow::bail!("Failed to get current branch");
+        }
+
+        Ok(output.stdout.trim().to_string())
+    }
+
+    /// Determine the merge target for a worktree session
+    ///
+    /// Returns the original branch from session state, with fallbacks:
+    /// 1. If original_branch is empty (old session): use main/master
+    /// 2. If original_branch is "HEAD" (detached): use main/master
+    /// 3. If original_branch was deleted: warn and use main/master
+    /// 4. Otherwise: use original_branch
+    async fn get_merge_target(&self, session_name: &str) -> Result<String> {
+        let state = self.get_session_state(session_name)?;
+
+        // Handle old sessions or edge cases
+        if state.original_branch.is_empty() || state.original_branch == "HEAD" {
+            if !state.original_branch.is_empty() {
+                warn!("Detached HEAD state detected, using default branch");
+            }
+            return self.determine_default_branch().await;
+        }
+
+        // Verify original branch still exists
+        if !self.check_branch_exists(&state.original_branch).await? {
+            warn!(
+                "Original branch '{}' no longer exists, using default branch",
+                state.original_branch
+            );
+            return self.determine_default_branch().await;
+        }
+
+        Ok(state.original_branch.clone())
     }
 
     /// Check if a branch exists - I/O operation
@@ -2023,6 +2095,7 @@ branch refs/heads/main"#;
             session_id: "test-session".to_string(),
             worktree_name: "test-session".to_string(),
             branch: "test-branch".to_string(),
+            original_branch: String::new(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             status: WorktreeStatus::InProgress,
@@ -2099,6 +2172,7 @@ branch refs/heads/main"#;
             session_id: "test-session".to_string(),
             worktree_name: "test-session".to_string(),
             branch: "test-branch".to_string(),
+            original_branch: String::new(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             status: WorktreeStatus::InProgress,
@@ -2217,6 +2291,7 @@ branch refs/heads/main"#;
             session_id: session_id.to_string(),
             worktree_name: session_id.to_string(),
             branch: "test-branch".to_string(),
+            original_branch: String::new(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             status: WorktreeStatus::InProgress,
@@ -2677,6 +2752,7 @@ branch refs/heads/main"#;
                 session_id: "session1".to_string(),
                 worktree_name: "worktree1".to_string(),
                 branch: "branch1".to_string(),
+                original_branch: String::new(),
                 created_at: now,
                 updated_at: now,
                 status: WorktreeStatus::InProgress,
@@ -2699,6 +2775,7 @@ branch refs/heads/main"#;
                 session_id: "session2".to_string(),
                 worktree_name: "worktree2".to_string(),
                 branch: "branch2".to_string(),
+                original_branch: String::new(),
                 created_at: now,
                 updated_at: now,
                 status: WorktreeStatus::Completed,
@@ -2721,6 +2798,7 @@ branch refs/heads/main"#;
                 session_id: "session3".to_string(),
                 worktree_name: "worktree3".to_string(),
                 branch: "branch3".to_string(),
+                original_branch: String::new(),
                 created_at: now,
                 updated_at: now,
                 status: WorktreeStatus::InProgress,
@@ -2766,6 +2844,7 @@ branch refs/heads/main"#;
             session_id: "test-session".to_string(),
             worktree_name: "test-worktree".to_string(),
             branch: "test-branch".to_string(),
+            original_branch: String::new(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
             status: WorktreeStatus::InProgress,
@@ -2823,6 +2902,7 @@ branch refs/heads/main"#;
                 session_id: format!("session{}", i),
                 worktree_name: format!("worktree{}", i),
                 branch: format!("branch{}", i),
+                original_branch: String::new(),
                 created_at: Utc::now(),
                 updated_at: Utc::now(),
                 status: WorktreeStatus::InProgress,

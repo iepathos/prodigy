@@ -3,12 +3,19 @@ use serde::{Deserialize, Serialize};
 
 /// State information for a worktree session
 ///
-/// Tracks the progress and status of improvements in a git worktree
+/// Tracks the progress and status of improvements in a git worktree.
+/// Tracks both the worktree branch (e.g., `prodigy-session-{uuid}`) and
+/// the original branch the worktree was created from. The original branch
+/// is used as the merge target when the session completes.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorktreeState {
     pub session_id: String,
     pub worktree_name: String,
     pub branch: String,
+    /// The branch we branched from (e.g., `feature-xyz`, `main`).
+    /// Used as the merge target. Empty for old sessions (pre-spec-110).
+    #[serde(default)]
+    pub original_branch: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub status: WorktreeStatus,
