@@ -1,16 +1,18 @@
 //! Session management for cook operations
 //!
-//! Handles session state, tracking, and persistence.
+//! This module provides the SessionManager trait and related types used by the
+//! CookSessionAdapter to bridge between the cook orchestrator and UnifiedSessionManager.
+//!
+//! Note: The actual session tracking is now handled by UnifiedSessionManager through
+//! CookSessionAdapter. This module only contains the trait definition and supporting types.
 
 pub mod state;
 pub mod summary;
-pub mod tracker;
 pub use state::{
     ExecutionContext, ExecutionEnvironment, SessionState, SessionStatus, StepResult, WorkflowState,
     WorkflowType,
 };
 pub use summary::SessionSummary;
-pub use tracker::{SessionTracker, SessionTrackerImpl};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -90,6 +92,3 @@ pub enum SessionUpdate {
     /// Update execution context
     UpdateExecutionContext(state::ExecutionContext),
 }
-
-#[cfg(test)]
-mod resume_tests;

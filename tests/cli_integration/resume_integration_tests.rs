@@ -41,13 +41,23 @@ fn create_test_checkpoint(
     let prodigy_home =
         std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME must be set in test environment");
 
-    let session_dir = PathBuf::from(prodigy_home)
+    let session_dir = PathBuf::from(&prodigy_home)
         .join("state")
         .join(workflow_id)
         .join("checkpoints");
 
     // Create the directory structure
     fs::create_dir_all(&session_dir).expect("Failed to create checkpoint directory");
+
+    // Create a mock worktree directory (resume expects this to exist)
+    let worktree_dir = PathBuf::from(&prodigy_home)
+        .join("worktrees")
+        .join("prodigy") // Default repo name used by resume command
+        .join(workflow_id);
+    fs::create_dir_all(&worktree_dir).expect("Failed to create worktree directory");
+
+    // Note: Workflow file should be created in the project root by the test
+    // The checkpoint will reference it, and resume will look for it in the --path location
 
     // Create a properly structured WorkflowCheckpoint
     let now = chrono::Utc::now();
@@ -94,6 +104,53 @@ fn create_test_checkpoint(
         serde_json::to_string_pretty(&checkpoint).unwrap(),
     )
     .expect("Failed to write checkpoint file");
+
+    // Create a SessionState in global storage (resume looks for this)
+    // Note: Resume uses SessionState, not UnifiedSession
+    let session_state = json!({
+        "session_id": workflow_id,
+        "status": "Interrupted",  // Must be Interrupted or InProgress to be resumable
+        "started_at": now.to_rfc3339(),
+        "ended_at": null,
+        "iterations_completed": 0,
+        "files_changed": 0,
+        "errors": [],
+        "working_directory": "/tmp/test",
+        "worktree_name": workflow_id,
+        "workflow_started_at": now.to_rfc3339(),
+        "current_iteration_started_at": now.to_rfc3339(),
+        "current_iteration_number": 0,
+        "iteration_timings": [],
+        "command_timings": [],
+        "workflow_state": {
+            "current_iteration": 0,
+            "current_step": commands_executed,
+            "completed_steps": [],
+            "workflow_path": "test-resume-workflow.yaml",
+            "input_args": [],
+            "map_patterns": [],
+            "using_worktree": true
+        },
+        "execution_environment": null,
+        "last_checkpoint": now.to_rfc3339(),
+        "workflow_hash": "test-hash-12345",
+        "workflow_type": "Standard",
+        "execution_context": null,
+        "checkpoint_version": 1,
+        "last_validated_at": now.to_rfc3339()
+    });
+
+    // Save session in global storage (in state/{workflow_id}/sessions/)
+    let sessions_dir = PathBuf::from(&prodigy_home)
+        .join("state")
+        .join(workflow_id)
+        .join("sessions");
+    fs::create_dir_all(&sessions_dir).expect("Failed to create sessions directory");
+    fs::write(
+        sessions_dir.join("session_state.json"),
+        serde_json::to_string_pretty(&session_state).unwrap(),
+    )
+    .expect("Failed to write session file");
 }
 
 /// Helper to create a test workflow file
@@ -131,8 +188,8 @@ fn test_resume_from_early_interruption() {
     let test_dir = test.temp_path().to_path_buf();
     let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
 
-    // Create workflow file - use a name that matches what resume expects
-    let _workflow_path = create_test_workflow(&test_dir, "workflow.yaml");
+    // Create workflow file - use a name that matches what the checkpoint expects
+    let _workflow_path = create_test_workflow(&test_dir, "test-resume-workflow.yaml");
 
     // Create checkpoint after 1 command
     let workflow_id = "resume-early-12345";
@@ -215,8 +272,8 @@ fn test_resume_from_middle_interruption() {
     let test_dir = test.temp_path().to_path_buf();
     let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
 
-    // Create workflow file
-    let _workflow_path = create_test_workflow(&test_dir, "workflow.yaml");
+    // Create workflow file - use a name that matches what the checkpoint expects
+    let _workflow_path = create_test_workflow(&test_dir, "test-resume-workflow.yaml");
 
     // Create checkpoint after 3 commands
     let workflow_id = "resume-middle-67890";
@@ -429,6 +486,14 @@ fn test_resume_completed_workflow() {
     // Create a completed session state in the unified session format
     let workflow_id = "resume-complete-33333";
     let now = chrono::Utc::now();
+
+    // Create a mock worktree directory (resume expects this to exist)
+    let prodigy_home = std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set");
+    let worktree_dir = PathBuf::from(&prodigy_home)
+        .join("worktrees")
+        .join("prodigy")
+        .join(workflow_id);
+    fs::create_dir_all(&worktree_dir).expect("Failed to create worktree directory");
 
     // Create unified session in the format expected by UnifiedSessionManager
     let unified_session = json!({
@@ -1154,6 +1219,14 @@ commands:
     let now = chrono::Utc::now();
     let workflow_id = "end-to-end-error-handler-test";
 
+    // Create a mock worktree directory (resume expects this to exist)
+    let prodigy_home = std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set");
+    let worktree_dir = PathBuf::from(&prodigy_home)
+        .join("worktrees")
+        .join("prodigy")
+        .join(workflow_id);
+    fs::create_dir_all(&worktree_dir).expect("Failed to create worktree directory");
+
     let checkpoint = json!({
         "workflow_id": workflow_id,
         "execution_state": {
@@ -1211,12 +1284,50 @@ commands:
         "workflow_path": workflow_path.to_str()
     });
 
-    // Save checkpoint
-    fs::create_dir_all(&checkpoint_dir).unwrap();
-    let checkpoint_file = checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
+    // Save checkpoint in PRODIGY_HOME location (like create_test_checkpoint does)
+    let checkpoint_state_dir = PathBuf::from(&prodigy_home)
+        .join("state")
+        .join(workflow_id)
+        .join("checkpoints");
+    fs::create_dir_all(&checkpoint_state_dir).unwrap();
+    let checkpoint_file = checkpoint_state_dir.join(format!("{}.checkpoint.json", workflow_id));
     fs::write(
         &checkpoint_file,
         serde_json::to_string_pretty(&checkpoint).unwrap(),
+    )
+    .unwrap();
+
+    // Create a UnifiedSession in global storage (resume looks for this)
+    let unified_session = json!({
+        "id": workflow_id,
+        "session_type": "Workflow",
+        "status": "Paused",
+        "started_at": now.to_rfc3339(),
+        "updated_at": now.to_rfc3339(),
+        "completed_at": null,
+        "metadata": {},
+        "checkpoints": [],
+        "timings": {},
+        "error": null,
+        "workflow_data": {
+            "workflow_id": workflow_id,
+            "workflow_name": "test-resume-workflow",
+            "current_step": 2,
+            "total_steps": 5,
+            "completed_steps": [0, 1],
+            "variables": {},
+            "iterations_completed": 0,
+            "files_changed": 0,
+            "worktree_name": workflow_id
+        },
+        "mapreduce_data": null
+    });
+
+    let sessions_dir = PathBuf::from(&prodigy_home).join("sessions");
+    fs::create_dir_all(&sessions_dir).unwrap();
+    fs::write(
+        sessions_dir.join(format!("{}.json", workflow_id)),
+        serde_json::to_string_pretty(&unified_session).unwrap(),
     )
     .unwrap();
 
