@@ -141,23 +141,28 @@ pub async fn run_resume_workflow(
     } else {
         println!("      Using latest checkpoint");
     }
+
+    // For now, use the current directory as the project root
+    // In the future, we could extract the original project path from the checkpoint
+    // by analyzing the PROJECT_ROOT variable which points to the worktree
+    let current_dir = std::env::current_dir()?;
+
+    println!("      Project root: {}", current_dir.display());
     println!();
 
-    // Execute prodigy run with the workflow in the worktree directory
-    // The checkpoint system will automatically detect and resume from the checkpoint
-    // We don't use the --resume flag because that tries to load from UnifiedSessionManager
-    // which may not have the session data
+    // Execute prodigy run with --resume flag
+    // This tells the orchestrator to use the existing worktree instead of creating a new one
     let workflow_pathbuf = PathBuf::from(workflow_path);
     let cook_cmd = crate::cook::command::CookCommand {
         playbook: workflow_pathbuf,
-        path: Some(worktree_path),
+        path: Some(current_dir),
         max_iterations: 1,
         map: vec![],
         args: vec![],
         fail_fast: false,
         auto_accept: false,
         metrics: false,
-        resume: None, // Let checkpoint system handle resume automatically
+        resume: Some(session_id), // This is the key - tells orchestrator to resume
         verbosity: 0,
         quiet: false,
         dry_run: false,

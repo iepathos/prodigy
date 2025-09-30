@@ -26,7 +26,11 @@ fn test_resume_command_with_nonexistent_workflow() {
 
     // Should fail when session doesn't exist
     assert_eq!(output.exit_code, exit_codes::GENERAL_ERROR);
-    assert!(output.stderr_contains("not found") || output.stderr_contains("does not exist") || output.stderr_contains("No checkpoints"));
+    assert!(
+        output.stderr_contains("not found")
+            || output.stderr_contains("does not exist")
+            || output.stderr_contains("No checkpoints")
+    );
 }
 
 #[test]

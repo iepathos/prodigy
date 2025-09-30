@@ -20,6 +20,8 @@ pub struct CookSessionAdapter {
     unified_manager: Arc<UnifiedSessionManager>,
     current_session: Mutex<Option<SessionId>>,
     working_dir: std::path::PathBuf,
+    /// Cached session state for synchronous access
+    cached_state: Arc<Mutex<Option<CookSessionState>>>,
 }
 
 impl CookSessionAdapter {
@@ -33,7 +35,18 @@ impl CookSessionAdapter {
             unified_manager,
             current_session: Mutex::new(None),
             working_dir,
+            cached_state: Arc::new(Mutex::new(None)),
         })
+    }
+
+    /// Update the cached state
+    async fn update_cached_state(&self) -> Result<()> {
+        if let Some(id) = &*self.current_session.lock().await {
+            let session = self.unified_manager.load_session(id).await?;
+            let state = Self::unified_to_cook_state(&session, &self.working_dir);
+            *self.cached_state.lock().await = Some(state);
+        }
+        Ok(())
     }
 
     /// Convert Cook session status to unified session status
@@ -135,7 +148,11 @@ impl CookSessionManager for CookSessionAdapter {
 
         let id = self.unified_manager.create_session(config).await?;
         *self.current_session.lock().await = Some(id.clone());
-        self.unified_manager.start_session(&id).await
+        self.unified_manager.start_session(&id).await?;
+
+        // Update cached state
+        self.update_cached_state().await?;
+        Ok(())
     }
 
     async fn update_session(&self, update: CookSessionUpdate) -> Result<()> {
@@ -146,6 +163,9 @@ impl CookSessionManager for CookSessionAdapter {
                     .update_session(id, unified_update)
                     .await?;
             }
+
+            // Update cached state after updates
+            self.update_cached_state().await?;
         }
         Ok(())
     }
@@ -180,12 +200,12 @@ impl CookSessionManager for CookSessionAdapter {
     }
 
     fn get_state(&self) -> Result<CookSessionState> {
-        // This is synchronous in the trait but we need async for unified manager
-        // Return a default state with working directory
-        Ok(CookSessionState::new(
-            "default-session".to_string(),
-            self.working_dir.clone(),
-        ))
+        // This is synchronous so we use the cached state
+        // Note: This requires blocking on the mutex which is acceptable since it's just reading the cache
+        let cached_state_lock = futures::executor::block_on(self.cached_state.lock());
+        cached_state_lock
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("No active session state"))
     }
 
     async fn save_state(&self, _path: &Path) -> Result<()> {
