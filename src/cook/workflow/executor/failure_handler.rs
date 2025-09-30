@@ -33,7 +33,6 @@ use super::StepResult;
 ///
 /// This is a pure function that calculates delays deterministically.
 /// Actual jitter is applied separately for testing purposes.
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn calculate_retry_delay(retry_config: &RetryConfig, attempt: u32) -> Duration {
     let executor = RetryExecutor::new(retry_config.clone());
     executor.calculate_delay(attempt)
@@ -42,7 +41,6 @@ pub fn calculate_retry_delay(retry_config: &RetryConfig, attempt: u32) -> Durati
 /// Apply jitter to a delay duration
 ///
 /// Adds randomness to prevent thundering herd problems.
-#[allow(dead_code)] // Will be used when integrating with executor
 #[allow(deprecated)] // rand::thread_rng deprecated in favor of rand::rng
 pub fn apply_jitter(delay: Duration, jitter_factor: f64) -> Duration {
     use rand::Rng;
@@ -56,7 +54,6 @@ pub fn apply_jitter(delay: Duration, jitter_factor: f64) -> Duration {
 /// Determine if an error should trigger a retry
 ///
 /// Pure function that checks error message against retry patterns.
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn should_retry_error(error_message: &str, retry_config: &RetryConfig) -> bool {
     if retry_config.retry_on.is_empty() {
         return true; // Retry all errors if no specific matchers
@@ -74,24 +71,24 @@ pub fn should_retry_error(error_message: &str, retry_config: &RetryConfig) -> bo
 
 /// Result of executing a failure handler
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Will be used when integrating with executor
 pub struct FailureHandlerResult {
     pub success: bool,
+    #[allow(dead_code)] // Used for handler output tracking
     pub outputs: Vec<String>,
+    #[allow(dead_code)] // Reserved for future recovery tracking
     pub recovered: bool,
 }
 
 /// Context for retry execution
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Will be used when integrating with executor
 pub struct RetryContext {
+    #[allow(dead_code)] // Used for tracking but not directly read
     pub command_id: String,
     pub attempt: u32,
     pub max_attempts: u32,
     pub last_error: Option<String>,
 }
 
-#[allow(dead_code)] // Will be used when integrating with executor
 impl RetryContext {
     pub fn new(command_id: String, max_attempts: u32) -> Self {
         Self {
@@ -124,7 +121,6 @@ impl RetryContext {
 // ============================================================================
 
 /// Create a retry attempt record for tracking
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn create_retry_attempt(
     attempt_number: u32,
     duration: Duration,
@@ -149,7 +145,6 @@ pub fn create_retry_attempt(
 // ============================================================================
 
 /// Determine recovery strategy from failure handler result
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn determine_recovery_strategy(
     handler_result: &FailureHandlerResult,
     strategy: HandlerStrategy,
@@ -158,7 +153,6 @@ pub fn determine_recovery_strategy(
 }
 
 /// Check if handler failure should be fatal
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn is_handler_failure_fatal(
     handler_success: bool,
     on_failure_config: &OnFailureConfig,
@@ -167,7 +161,6 @@ pub fn is_handler_failure_fatal(
 }
 
 /// Build error message for retry exhaustion
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn build_retry_exhausted_message(
     step_name: &str,
     attempts: u32,
@@ -189,7 +182,6 @@ pub fn build_retry_exhausted_message(
 /// Determine if a retry should be attempted
 ///
 /// Pure function that encapsulates all retry decision logic.
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn should_attempt_retry(
     ctx: &RetryContext,
     error_message: &str,
@@ -203,7 +195,6 @@ pub fn should_attempt_retry(
 }
 
 /// Format retry progress message
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn format_retry_message(
     step_name: &str,
     attempt: u32,
@@ -217,13 +208,11 @@ pub fn format_retry_message(
 }
 
 /// Format retry success message
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn format_retry_success_message(step_name: &str, attempts: u32) -> String {
     format!("'{}' succeeded after {} attempts", step_name, attempts)
 }
 
 /// Format retry failure message
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn format_retry_failure_message(attempt: u32, max_attempts: u32, error: &str) -> String {
     format!(
         "Command failed (attempt {}/{}): {}",
@@ -236,13 +225,11 @@ pub fn format_retry_failure_message(attempt: u32, max_attempts: u32, error: &str
 // ============================================================================
 
 /// Check if handlers should retry the original command
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn should_retry_after_handler(on_failure_config: &OnFailureConfig, success: bool) -> bool {
     on_failure_config.should_retry() && !success
 }
 
 /// Get max retries from on_failure config
-#[allow(dead_code)] // Will be used when integrating with executor
 pub fn get_handler_max_retries(on_failure_config: &OnFailureConfig) -> u32 {
     on_failure_config.max_retries()
 }
@@ -258,7 +245,6 @@ pub fn get_handler_timeout(on_failure_config: &OnFailureConfig) -> Option<u64> {
 // ============================================================================
 
 /// Mark step as recovered after successful handler
-#[allow(dead_code)] // Will be used in future refactoring phases
 pub fn mark_step_recovered(mut result: StepResult) -> StepResult {
     result.success = true;
     result.stderr.clear();
@@ -267,7 +253,6 @@ pub fn mark_step_recovered(mut result: StepResult) -> StepResult {
 }
 
 /// Append handler output to step result
-#[allow(dead_code)] // Will be used in future refactoring phases
 pub fn append_handler_output(mut result: StepResult, handler_outputs: &[String]) -> StepResult {
     result.stdout.push_str("\n--- on_failure output ---\n");
     result.stdout.push_str(&handler_outputs.join("\n"));

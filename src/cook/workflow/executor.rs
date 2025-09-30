@@ -27,7 +27,7 @@ use crate::cook::workflow::error_recovery::ErrorRecoveryState;
 use crate::cook::workflow::git_context::GitChangeTracker;
 use crate::cook::workflow::normalized;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
-use crate::cook::workflow::on_failure::{HandlerStrategy, OnFailureConfig};
+use crate::cook::workflow::on_failure::OnFailureConfig;
 use crate::cook::workflow::validation::{ValidationConfig, ValidationResult};
 use crate::testing::config::TestConfiguration;
 use crate::unified_session::{format_duration, TimingTracker};
@@ -1780,27 +1780,30 @@ impl WorkflowExecutor {
             }
 
             // Add handler output to result
-            result.stdout.push_str("\n--- on_failure output ---\n");
-            result.stdout.push_str(&handler_outputs.join("\n"));
+            result = failure_handler::append_handler_output(result, &handler_outputs);
+
+            // Create handler result for strategy determination
+            let handler_result = failure_handler::FailureHandlerResult {
+                success: handler_success,
+                outputs: handler_outputs,
+                recovered: false,
+            };
 
             // Check if step should be marked as recovered
-            if handler_success && strategy == HandlerStrategy::Recovery {
+            if failure_handler::determine_recovery_strategy(&handler_result, strategy) {
                 self.user_interaction
                     .display_success("Step recovered through on_failure handler");
-                result.success = true;
-                // Clear error information since we recovered
-                result.stderr.clear();
-                result.exit_code = Some(0);
+                result = failure_handler::mark_step_recovered(result);
             }
 
             // Check if handler failure should be fatal
-            if !handler_success && on_failure_config.handler_failure_fatal() {
+            if failure_handler::is_handler_failure_fatal(handler_success, on_failure_config) {
                 return Err(anyhow!("Handler failure is fatal"));
             }
 
             // Check if we should retry the original command
-            if on_failure_config.should_retry() && !result.success {
-                let max_retries = on_failure_config.max_retries();
+            if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
+                let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
                 for retry in 1..=max_retries {
                     self.user_interaction.display_info(&format!(
                         "Retrying original command (attempt {}/{})",
@@ -1821,12 +1824,14 @@ impl WorkflowExecutor {
             self.user_interaction
                 .display_info("Executing on_failure handler...");
             let failure_result = Box::pin(self.execute_step(&handler, env, ctx)).await?;
-            result.stdout.push_str("\n--- on_failure output ---\n");
-            result.stdout.push_str(&failure_result.stdout);
+            result = failure_handler::append_handler_output(
+                result,
+                std::slice::from_ref(&failure_result.stdout),
+            );
 
             // Check if we should retry the original command
-            if on_failure_config.should_retry() {
-                let max_retries = on_failure_config.max_retries();
+            if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
+                let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
                 for retry in 1..=max_retries {
                     self.user_interaction.display_info(&format!(
                         "Retrying original command (attempt {}/{})",
@@ -2196,39 +2201,38 @@ impl WorkflowExecutor {
         ctx: &mut WorkflowContext,
         env_vars: HashMap<String, String>,
     ) -> Result<StepResult> {
-        use crate::cook::retry_state::RetryAttempt;
-        use crate::cook::retry_v2::RetryExecutor;
-
-        let retry_executor = RetryExecutor::new(retry_config.clone());
-        let mut attempt = 0;
-        let mut last_error = None;
         let command_id = step_name.to_string();
+        let mut retry_ctx =
+            failure_handler::RetryContext::new(command_id.clone(), retry_config.attempts);
 
         // Manual retry loop since we can't clone self
         loop {
-            attempt += 1;
+            retry_ctx.next_attempt();
 
-            // Check if we should retry
-            if attempt > retry_config.attempts {
-                if let Some(err) = last_error {
-                    return Err(anyhow::anyhow!(
-                        "Failed after {} attempts: {}",
-                        retry_config.attempts,
-                        err
-                    ));
-                }
-                break;
+            // Check if we've exhausted retries
+            if !retry_ctx.should_continue() {
+                let error_msg = failure_handler::build_retry_exhausted_message(
+                    step_name,
+                    retry_config.attempts,
+                    retry_ctx.last_error.as_deref(),
+                );
+                return Err(anyhow::anyhow!(error_msg));
             }
 
             // Calculate delay if this is a retry
-            if attempt > 1 {
-                let delay = retry_executor.calculate_delay(attempt - 1);
-                let jittered_delay = retry_executor.apply_jitter(delay);
+            if !retry_ctx.is_first_attempt() {
+                let delay =
+                    failure_handler::calculate_retry_delay(&retry_config, retry_ctx.attempt - 1);
+                let jittered_delay =
+                    failure_handler::apply_jitter(delay, retry_config.jitter_factor);
 
-                self.user_interaction.display_info(&format!(
-                    "Retrying {} (attempt {}/{}) after {:?}",
-                    step_name, attempt, retry_config.attempts, jittered_delay
-                ));
+                let retry_msg = failure_handler::format_retry_message(
+                    step_name,
+                    retry_ctx.attempt,
+                    retry_config.attempts,
+                    jittered_delay,
+                );
+                self.user_interaction.display_info(&retry_msg);
 
                 tokio::time::sleep(jittered_delay).await;
             }
@@ -2240,24 +2244,25 @@ impl WorkflowExecutor {
                 .await
             {
                 Ok(result) => {
-                    if attempt > 1 {
-                        self.user_interaction
-                            .display_info(&format!("Command succeeded after {} attempts", attempt));
+                    if !retry_ctx.is_first_attempt() {
+                        let success_msg = failure_handler::format_retry_success_message(
+                            step_name,
+                            retry_ctx.attempt,
+                        );
+                        self.user_interaction.display_info(&success_msg);
 
                         // Record successful retry attempt
-                        let retry_attempt = RetryAttempt {
-                            attempt_number: attempt,
-                            executed_at: chrono::Utc::now(),
-                            duration: attempt_start.elapsed(),
-                            success: true,
-                            error: None,
-                            backoff_applied: if attempt > 1 {
-                                retry_executor.calculate_delay(attempt - 1)
-                            } else {
-                                Duration::from_secs(0)
-                            },
-                            exit_code: result.exit_code,
-                        };
+                        let retry_attempt = failure_handler::create_retry_attempt(
+                            retry_ctx.attempt,
+                            attempt_start.elapsed(),
+                            true,
+                            None,
+                            failure_handler::calculate_retry_delay(
+                                &retry_config,
+                                retry_ctx.attempt - 1,
+                            ),
+                            result.exit_code,
+                        );
                         let _ = self
                             .retry_state_manager
                             .update_retry_state(&command_id, retry_attempt, &retry_config)
@@ -2269,49 +2274,43 @@ impl WorkflowExecutor {
                     let error_str = err.to_string();
 
                     // Record failed retry attempt
-                    let retry_attempt = RetryAttempt {
-                        attempt_number: attempt,
-                        executed_at: chrono::Utc::now(),
-                        duration: attempt_start.elapsed(),
-                        success: false,
-                        error: Some(error_str.clone()),
-                        backoff_applied: if attempt > 1 {
-                            retry_executor.calculate_delay(attempt - 1)
+                    let retry_attempt = failure_handler::create_retry_attempt(
+                        retry_ctx.attempt,
+                        attempt_start.elapsed(),
+                        false,
+                        Some(error_str.clone()),
+                        if !retry_ctx.is_first_attempt() {
+                            failure_handler::calculate_retry_delay(
+                                &retry_config,
+                                retry_ctx.attempt - 1,
+                            )
                         } else {
                             Duration::from_secs(0)
                         },
-                        exit_code: None,
-                    };
+                        None,
+                    );
                     let _ = self
                         .retry_state_manager
                         .update_retry_state(&command_id, retry_attempt, &retry_config)
                         .await;
 
                     // Check if we should retry this error
-                    let should_retry = if retry_config.retry_on.is_empty() {
-                        true // Retry all errors if no specific matchers
-                    } else {
-                        retry_config
-                            .retry_on
-                            .iter()
-                            .any(|matcher| matcher.matches(&error_str))
-                    };
-
-                    if !should_retry || attempt >= retry_config.attempts {
+                    if !failure_handler::should_attempt_retry(&retry_ctx, &error_str, &retry_config)
+                    {
                         return Err(err);
                     }
 
-                    self.user_interaction.display_warning(&format!(
-                        "Command failed (attempt {}/{}): {}",
-                        attempt, retry_config.attempts, error_str
-                    ));
+                    let failure_msg = failure_handler::format_retry_failure_message(
+                        retry_ctx.attempt,
+                        retry_config.attempts,
+                        &error_str,
+                    );
+                    self.user_interaction.display_warning(&failure_msg);
 
-                    last_error = Some(error_str);
+                    retry_ctx.record_error(error_str);
                 }
             }
         }
-
-        Err(anyhow::anyhow!("Retry logic error: should not reach here"))
     }
 
     /// Log step output for debugging
