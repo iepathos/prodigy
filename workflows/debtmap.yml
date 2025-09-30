@@ -7,7 +7,7 @@
 - shell: "debtmap analyze . --lcov target/coverage/lcov.info --output .prodigy/debtmap-before.json --format json -vv"
 
 # Phase 3: Create implementation plan (PLANNING PHASE)
-- claude: "/prodigy-debtmap-plan"
+- claude: "/prodigy-debtmap-plan --before .prodigy/debtmap-before.json --output .prodigy/IMPLEMENTATION_PLAN.md"
   capture_output: true
   # This creates .prodigy/IMPLEMENTATION_PLAN.md with phased approach
   validate:

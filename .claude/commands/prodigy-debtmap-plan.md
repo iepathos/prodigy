@@ -1,6 +1,15 @@
 ---
 name: debtmap-plan
 description: Analyze tech debt and create a phased implementation plan
+arguments:
+  - name: before
+    description: Path to debtmap analysis file
+    type: string
+    required: true
+  - name: output
+    description: Path to write the implementation plan
+    type: string
+    default: .prodigy/IMPLEMENTATION_PLAN.md
 ---
 
 # Create Implementation Plan for Top Tech Debt Item
@@ -11,10 +20,10 @@ Analyze the debtmap output and create a detailed, phased implementation plan for
 
 ### Step 1: Load Debtmap Analysis
 
-Read the debtmap analysis that the workflow has already generated:
+Read the debtmap analysis passed as an argument:
 
 ```bash
-cat .prodigy/debtmap-before.json
+cat $ARG_before
 ```
 
 Extract the top priority item:
@@ -30,7 +39,7 @@ jq '.items[0] | {
   expected_impact: .expected_impact,
   coverage_info: .transitive_coverage,
   complexity: .cyclomatic_complexity
-}' .prodigy/debtmap-before.json
+}' $ARG_before
 ```
 
 ### Step 2: Analyze the Problem
@@ -195,11 +204,11 @@ Before writing the plan, ensure:
 
 ### Step 6: Write the Plan
 
-Write the complete implementation plan to `.prodigy/IMPLEMENTATION_PLAN.md`:
+Write the complete implementation plan to `$ARG_output`:
 
 ```bash
 # Example of writing the plan
-cat > .prodigy/IMPLEMENTATION_PLAN.md << 'EOF'
+cat > $ARG_output << 'EOF'
 # Implementation Plan: Extract Pure Functions from WorkflowExecutor
 
 ## Problem Summary
@@ -212,7 +221,7 @@ EOF
 After creating the plan, output a brief summary:
 
 ```
-Created implementation plan at .prodigy/IMPLEMENTATION_PLAN.md
+Created implementation plan at $ARG_output
 
 Target: <file:line>
 Priority: <score>
@@ -265,6 +274,6 @@ Next step: Run `/prodigy-debtmap-implement` to execute the plan
 
 ## Output Format
 
-The plan MUST be written to `.prodigy/IMPLEMENTATION_PLAN.md` in the format specified above.
+The plan MUST be written to `$ARG_output` in the format specified above.
 
 The workflow will pass this plan to the implementation command.
