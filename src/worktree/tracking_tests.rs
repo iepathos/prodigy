@@ -106,6 +106,7 @@ async fn test_list_sessions_with_metadata_fallback() -> Result<()> {
         session_id: "orphaned-session".to_string(),
         worktree_name: "orphaned-session".to_string(),
         branch: "prodigy-orphaned-branch".to_string(),
+        original_branch: String::new(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
         status: WorktreeStatus::InProgress,
@@ -176,6 +177,7 @@ async fn test_metadata_sessions_exclude_cleaned_up() -> Result<()> {
         session_id: "cleaned-session".to_string(),
         worktree_name: "cleaned-session".to_string(),
         branch: "prodigy-cleaned-branch".to_string(),
+        original_branch: String::new(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
         status: WorktreeStatus::CleanedUp, // This session is cleaned up

@@ -1411,10 +1411,21 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 // Auto-accept when -y flag is provided
                 true
             } else {
-                // Ask user if they want to merge
-                self.user_interaction
-                    .prompt_yes_no("Would you like to merge the worktree changes?")
-                    .await?
+                // Get the merge target branch for the prompt
+                let temp_manager = WorktreeManager::with_config(
+                    env.project_dir.to_path_buf(),
+                    self.subprocess.clone(),
+                    config.command.verbosity,
+                    None,
+                )?;
+                let merge_target = temp_manager
+                    .get_merge_target(worktree_name)
+                    .await
+                    .unwrap_or_else(|_| "master".to_string());
+
+                // Ask user if they want to merge, showing the target branch
+                let prompt = format!("Merge {} to {}? [y/N]", worktree_name, merge_target);
+                self.user_interaction.prompt_yes_no(&prompt).await?
             };
 
             if should_merge {
