@@ -954,7 +954,10 @@ impl WorktreeManager {
     async fn get_merged_branches(&self, target_branch: &str) -> Result<String> {
         // Use current directory's git root instead of self.repo_path
         // This ensures we check merges in the correct location when running from a worktree
-        let check_path = self.get_git_root_path().await.unwrap_or_else(|_| self.repo_path.clone());
+        let check_path = self
+            .get_git_root_path()
+            .await
+            .unwrap_or_else(|_| self.repo_path.clone());
         let command = Self::build_merge_check_command(&check_path, target_branch);
         let output = self
             .subprocess

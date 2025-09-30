@@ -1067,25 +1067,43 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         let env = self.setup_environment(&config).await?;
 
         // Start session and display session ID prominently
+        eprintln!("DEBUG: About to start session");
         self.session_manager.start_session(&env.session_id).await?;
+        eprintln!("DEBUG: Session started successfully");
         self.user_interaction
             .display_info(&format!("Starting session: {}", env.session_id));
+        eprintln!("DEBUG: Session message displayed");
 
         // Calculate and store workflow hash
+        eprintln!("DEBUG: Calculating workflow hash");
         let workflow_hash = Self::calculate_workflow_hash(&config.workflow);
+        eprintln!("DEBUG: Workflow hash calculated: {}", workflow_hash);
+
+        eprintln!("DEBUG: Classifying workflow type");
         let workflow_type = Self::classify_workflow_type(&config);
+        eprintln!("DEBUG: Workflow type classified: {:?}", workflow_type);
 
         // Update session with workflow metadata
-        self.session_manager
+        eprintln!("DEBUG: Updating session with workflow hash");
+        eprintln!("DEBUG: About to call update_session");
+        let result = self
+            .session_manager
             .update_session(SessionUpdate::SetWorkflowHash(workflow_hash))
-            .await?;
+            .await;
+        eprintln!("DEBUG: update_session call returned");
+        result?;
+        eprintln!("DEBUG: Workflow hash updated");
+
+        eprintln!("DEBUG: Updating session with workflow type");
         self.session_manager
             .update_session(SessionUpdate::SetWorkflowType(workflow_type.into()))
             .await?;
+        eprintln!("DEBUG: Workflow type updated");
 
         // Set up signal handler for graceful interruption
         // Always set up worktree-aware signal handler
         // Get merge config from workflow or mapreduce config
+        log::debug!("Setting up signal handlers");
         let merge_config = config.workflow.merge.clone().or_else(|| {
             config
                 .mapreduce_config
@@ -1103,6 +1121,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             worktree_manager,
             env.session_id.to_string(),
         )?;
+        log::debug!("Signal handlers set up successfully");
         let session_manager = self.session_manager.clone();
         let worktree_name = env.worktree_name.as_ref().map(Arc::clone);
         let project_path = Arc::clone(&config.project_path);
@@ -1132,7 +1151,12 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         });
 
         // Execute workflow
+        log::debug!("About to execute workflow");
         let result = self.execute_workflow(&env, &config).await;
+        log::debug!(
+            "Workflow execution completed with result: {:?}",
+            result.is_ok()
+        );
 
         // Cancel the interrupt handler
         interrupt_handler.abort();
@@ -1310,13 +1334,17 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
+        log::debug!("execute_workflow called");
         // Feature flag for gradual rollout of unified execution path
         if std::env::var("USE_UNIFIED_PATH").is_ok() {
+            log::debug!("Using unified execution path");
             return self.execute_unified(env, config).await;
         }
 
         // Use pure function to classify workflow type
-        match Self::classify_workflow_type(config) {
+        let workflow_type = Self::classify_workflow_type(config);
+        log::debug!("Workflow type classified as: {:?}", workflow_type);
+        match workflow_type {
             WorkflowType::MapReduce => {
                 // Don't show "Executing workflow: default" for MapReduce workflows
                 // The MapReduce executor will show its own appropriate messages
@@ -1333,9 +1361,12 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 return self.execute_structured_workflow(env, config).await;
             }
             WorkflowType::WithArguments => {
+                log::debug!("Executing workflow with arguments");
                 self.user_interaction
                     .display_info("Processing workflow with arguments or file patterns");
-                return self.execute_workflow_with_args(env, config).await;
+                let result = self.execute_workflow_with_args(env, config).await;
+                log::debug!("execute_workflow_with_args completed: {:?}", result.is_ok());
+                return result;
             }
             WorkflowType::Standard => {
                 // Continue with standard workflow processing below
@@ -1862,11 +1893,14 @@ impl DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
+        log::debug!("execute_workflow_with_args started");
         let workflow_start = Instant::now();
         let mut timing_tracker = TimingTracker::new();
 
         // Collect all inputs from --map patterns and --args
+        log::debug!("Collecting workflow inputs");
         let all_inputs = self.collect_workflow_inputs(config)?;
+        log::debug!("Collected {} inputs", all_inputs.len());
 
         if all_inputs.is_empty() {
             return Err(anyhow!("No inputs found from --map patterns or --args"));

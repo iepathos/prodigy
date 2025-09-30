@@ -6,8 +6,8 @@ use super::{
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use tokio::fs;
+use tokio::sync::Mutex;
 
 /// Default implementation of session tracking
 pub struct SessionTrackerImpl {
@@ -31,11 +31,8 @@ impl SessionTrackerImpl {
     }
 
     /// Set worktree name
-    pub fn set_worktree(&self, name: String) -> Result<()> {
-        self.state
-            .lock()
-            .map_err(|_| anyhow!("Failed to acquire session state lock for worktree update"))?
-            .worktree_name = Some(name);
+    pub async fn set_worktree(&self, name: String) -> Result<()> {
+        self.state.lock().await.worktree_name = Some(name);
         Ok(())
     }
 }
@@ -43,10 +40,7 @@ impl SessionTrackerImpl {
 #[async_trait]
 impl SessionManager for SessionTrackerImpl {
     async fn start_session(&self, session_id: &str) -> Result<()> {
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| anyhow!("Failed to acquire session state lock for session start"))?;
+        let mut state = self.state.lock().await;
         state.session_id = session_id.to_string();
         state.status = SessionStatus::InProgress;
         Ok(())
@@ -55,104 +49,69 @@ impl SessionManager for SessionTrackerImpl {
     async fn update_session(&self, update: SessionUpdate) -> Result<()> {
         match update {
             SessionUpdate::IncrementIteration => {
-                self.state
-                    .lock()
-                    .map_err(|_| {
-                        anyhow!("Failed to acquire session state lock for iteration increment")
-                    })?
-                    .increment_iteration();
+                self.state.lock().await.increment_iteration();
             }
             SessionUpdate::AddFilesChanged(count) => {
-                self.state
-                    .lock()
-                    .map_err(|_| {
-                        anyhow!("Failed to acquire session state lock for files changed update")
-                    })?
-                    .add_files_changed(count);
+                self.state.lock().await.add_files_changed(count);
             }
             SessionUpdate::UpdateStatus(status) => {
-                self.state
-                    .lock()
-                    .map_err(|_| anyhow!("Failed to acquire session state lock for status update"))?
-                    .status = status;
+                self.state.lock().await.status = status;
             }
             SessionUpdate::AddError(error) => {
-                self.state
-                    .lock()
-                    .map_err(|_| {
-                        anyhow!("Failed to acquire session state lock for error addition")
-                    })?
-                    .errors
-                    .push(error);
+                self.state.lock().await.errors.push(error);
             }
             SessionUpdate::StartWorkflow => {
-                // Start workflow timing
-                if let Ok(mut state) = self.state.lock() {
-                    state.workflow_started_at = Some(chrono::Utc::now());
-                }
+                let mut state = self.state.lock().await;
+                state.workflow_started_at = Some(chrono::Utc::now());
             }
             SessionUpdate::StartIteration(iteration_number) => {
-                // Start iteration timing
-                if let Ok(mut state) = self.state.lock() {
-                    state.current_iteration_started_at = Some(chrono::Utc::now());
-                    state.current_iteration_number = Some(iteration_number);
-                }
+                let mut state = self.state.lock().await;
+                state.current_iteration_started_at = Some(chrono::Utc::now());
+                state.current_iteration_number = Some(iteration_number);
             }
             SessionUpdate::CompleteIteration => {
-                // Complete iteration timing
-                if let Ok(mut state) = self.state.lock() {
-                    if let Some(start_time) = state.current_iteration_started_at.take() {
-                        if let Some(iteration_number) = state.current_iteration_number.take() {
-                            let end_time = chrono::Utc::now();
-                            let duration = end_time
-                                .signed_duration_since(start_time)
-                                .to_std()
-                                .unwrap_or_default();
-                            state.iteration_timings.push((iteration_number, duration));
-                        }
+                let mut state = self.state.lock().await;
+                if let Some(start_time) = state.current_iteration_started_at.take() {
+                    if let Some(iteration_number) = state.current_iteration_number.take() {
+                        let end_time = chrono::Utc::now();
+                        let duration = end_time
+                            .signed_duration_since(start_time)
+                            .to_std()
+                            .unwrap_or_default();
+                        state.iteration_timings.push((iteration_number, duration));
                     }
                 }
             }
             SessionUpdate::RecordCommandTiming(command, duration) => {
-                // Record command timing
-                if let Ok(mut state) = self.state.lock() {
-                    state.command_timings.push((command, duration));
-                }
+                let mut state = self.state.lock().await;
+                state.command_timings.push((command, duration));
             }
             SessionUpdate::UpdateWorkflowState(workflow_state) => {
-                if let Ok(mut state) = self.state.lock() {
-                    state.update_workflow_state(workflow_state);
-                }
+                let mut state = self.state.lock().await;
+                state.update_workflow_state(workflow_state);
             }
             SessionUpdate::MarkInterrupted => {
-                if let Ok(mut state) = self.state.lock() {
-                    state.interrupt();
-                }
+                let mut state = self.state.lock().await;
+                state.interrupt();
             }
             SessionUpdate::SetWorkflowHash(hash) => {
-                if let Ok(mut state) = self.state.lock() {
-                    state.workflow_hash = Some(hash);
-                }
+                let mut state = self.state.lock().await;
+                state.workflow_hash = Some(hash);
             }
             SessionUpdate::SetWorkflowType(workflow_type) => {
-                if let Ok(mut state) = self.state.lock() {
-                    state.workflow_type = Some(workflow_type);
-                }
+                let mut state = self.state.lock().await;
+                state.workflow_type = Some(workflow_type);
             }
             SessionUpdate::UpdateExecutionContext(exec_context) => {
-                if let Ok(mut state) = self.state.lock() {
-                    state.execution_context = Some(exec_context);
-                }
+                let mut state = self.state.lock().await;
+                state.execution_context = Some(exec_context);
             }
         }
         Ok(())
     }
 
     async fn complete_session(&self) -> Result<SessionSummary> {
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| anyhow!("Failed to acquire session state lock for session completion"))?;
+        let mut state = self.state.lock().await;
         state.complete();
         Ok(SessionSummary {
             iterations: state.iterations_completed,
@@ -161,9 +120,11 @@ impl SessionManager for SessionTrackerImpl {
     }
 
     fn get_state(&self) -> Result<SessionState> {
+        // This is a blocking method, so we need to use blocking_lock or similar
+        // For now, we'll use try_lock() and fail if we can't get the lock immediately
         Ok(self
             .state
-            .lock()
+            .try_lock()
             .map_err(|_| anyhow!("Failed to acquire session state lock for state retrieval"))?
             .clone())
     }
@@ -183,12 +144,7 @@ impl SessionManager for SessionTrackerImpl {
                 .as_nanos()
         ));
 
-        let json = serde_json::to_string_pretty(
-            &*self
-                .state
-                .lock()
-                .map_err(|_| anyhow!("Failed to acquire session state lock for serialization"))?,
-        )?;
+        let json = serde_json::to_string_pretty(&*self.state.lock().await)?;
 
         // Write to temp file first
         fs::write(&temp_path, json).await?;
@@ -204,11 +160,7 @@ impl SessionManager for SessionTrackerImpl {
 
     async fn load_state(&self, path: &Path) -> Result<()> {
         let json = fs::read_to_string(path).await?;
-        *self
-            .state
-            .lock()
-            .map_err(|_| anyhow!("Failed to acquire session state lock for deserialization"))? =
-            serde_json::from_str(&json)?;
+        *self.state.lock().await = serde_json::from_str(&json)?;
         Ok(())
     }
 
@@ -314,11 +266,7 @@ impl SessionManager for SessionTrackerImpl {
         checkpoint_state.status = SessionStatus::Interrupted;
 
         // Update the internal state with Interrupted status
-        *self
-            .state
-            .lock()
-            .map_err(|_| anyhow!("Failed to acquire session state lock for checkpoint save"))? =
-            checkpoint_state.clone();
+        *self.state.lock().await = checkpoint_state.clone();
 
         // Save to both standard location and session-specific file
         let session_file = self.base_path.join("session_state.json");
@@ -430,10 +378,7 @@ pub trait SessionTracker: Send + Sync {
 #[async_trait]
 impl SessionTracker for SessionTrackerImpl {
     async fn track_iteration(&mut self, _iteration: usize, files_changed: usize) -> Result<()> {
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| anyhow!("Failed to acquire session state lock for iteration tracking"))?;
+        let mut state = self.state.lock().await;
         state.increment_iteration();
         state.add_files_changed(files_changed);
         Ok(())
@@ -443,7 +388,7 @@ impl SessionTracker for SessionTrackerImpl {
         if !success {
             self.state
                 .lock()
-                .map_err(|_| anyhow!("Failed to acquire session state lock for command tracking"))?
+                .await
                 .errors
                 .push(format!("Command failed: {command}"));
         }
@@ -451,12 +396,12 @@ impl SessionTracker for SessionTrackerImpl {
     }
 
     fn get_progress(&self) -> String {
-        match self.state.lock() {
+        match self.state.try_lock() {
             Ok(state) => format!(
                 "Session {} - Iterations: {}, Files changed: {}",
                 state.session_id, state.iterations_completed, state.files_changed
             ),
-            Err(_) => "Session tracking unavailable - lock poisoned".to_string(),
+            Err(_) => "Session tracking unavailable - lock busy".to_string(),
         }
     }
 }
@@ -514,6 +459,7 @@ mod tests {
             SessionTrackerImpl::new("persist-test".to_string(), PathBuf::from("/tmp"));
         tracker
             .set_worktree("test-worktree".to_string())
+            .await
             .expect("Failed to set worktree");
 
         // Update state

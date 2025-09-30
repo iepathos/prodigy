@@ -42,10 +42,16 @@ impl CookSessionAdapter {
     /// Update the cached state
     async fn update_cached_state(&self) -> Result<()> {
         if let Some(id) = &*self.current_session.lock().await {
-            let session = self.unified_manager.load_session(id).await?;
-            let state = Self::unified_to_cook_state(&session, &self.working_dir);
-            *self.cached_state.lock().await = Some(state);
+            self.update_cached_state_for_id(id).await?;
         }
+        Ok(())
+    }
+
+    /// Update the cached state for a specific session ID (without re-locking)
+    async fn update_cached_state_for_id(&self, id: &SessionId) -> Result<()> {
+        let session = self.unified_manager.load_session(id).await?;
+        let state = Self::unified_to_cook_state(&session, &self.working_dir);
+        *self.cached_state.lock().await = Some(state);
         Ok(())
     }
 
@@ -156,17 +162,29 @@ impl CookSessionManager for CookSessionAdapter {
     }
 
     async fn update_session(&self, update: CookSessionUpdate) -> Result<()> {
+        eprintln!("DEBUG: CookSessionAdapter::update_session called");
+        eprintln!("DEBUG: Acquiring current_session lock");
         if let Some(id) = &*self.current_session.lock().await {
+            eprintln!("DEBUG: Lock acquired, converting update");
             let unified_updates = Self::cook_update_to_unified(update);
+            eprintln!(
+                "DEBUG: Calling unified_manager.update_session for {} updates",
+                unified_updates.len()
+            );
             for unified_update in unified_updates {
+                eprintln!("DEBUG: About to call unified update");
                 self.unified_manager
                     .update_session(id, unified_update)
                     .await?;
+                eprintln!("DEBUG: Unified update complete");
             }
 
             // Update cached state after updates
-            self.update_cached_state().await?;
+            eprintln!("DEBUG: Updating cached state");
+            self.update_cached_state_for_id(id).await?;
+            eprintln!("DEBUG: Cached state updated");
         }
+        eprintln!("DEBUG: CookSessionAdapter::update_session complete");
         Ok(())
     }
 
