@@ -2659,7 +2659,8 @@ impl WorkflowExecutor {
 
         // Only show workflow info for non-empty workflows
         if !workflow.steps.is_empty() {
-            let start_msg = orchestration::format_workflow_start(&workflow.name, effective_max_iterations);
+            let start_msg =
+                orchestration::format_workflow_start(&workflow.name, effective_max_iterations);
             self.user_interaction.display_info(&start_msg);
         }
 
@@ -2690,7 +2691,8 @@ impl WorkflowExecutor {
             let iteration_vars = Self::build_iteration_context(iteration);
             workflow_context.iteration_vars.extend(iteration_vars);
 
-            let iteration_msg = orchestration::format_iteration_progress(iteration, effective_max_iterations);
+            let iteration_msg =
+                orchestration::format_iteration_progress(iteration, effective_max_iterations);
             self.user_interaction.display_progress(&iteration_msg);
 
             // Start iteration timing
@@ -2805,10 +2807,16 @@ impl WorkflowExecutor {
                 if let Some(ref checkpoint_manager) = self.checkpoint_manager {
                     if let Some(ref workflow_id) = self.workflow_id {
                         // Create a normalized workflow for hashing (simplified)
-                        let workflow_hash = orchestration::create_workflow_hash(&workflow.name, workflow.steps.len());
+                        let workflow_hash = orchestration::create_workflow_hash(
+                            &workflow.name,
+                            workflow.steps.len(),
+                        );
 
                         // Build normalized workflow
-                        let normalized_workflow = orchestration::create_normalized_workflow(&workflow.name, &workflow_context);
+                        let normalized_workflow = orchestration::create_normalized_workflow(
+                            &workflow.name,
+                            &workflow_context,
+                        );
 
                         // Build checkpoint
                         let mut checkpoint = create_checkpoint_with_total_steps(

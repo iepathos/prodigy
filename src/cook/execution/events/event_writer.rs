@@ -307,4 +307,108 @@ mod tests {
         let content = tokio::fs::read_to_string(&file_path).await.unwrap();
         assert!(content.contains("test-job"));
     }
+
+    #[tokio::test]
+    async fn test_write_empty_events() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::new(file_path.clone()).await.unwrap();
+
+        // Writing empty events should succeed without error
+        writer.write(&[]).await.unwrap();
+        writer.flush().await.unwrap();
+
+        // File should exist but be empty (or only have initial content)
+        assert!(file_path.exists());
+    }
+
+    #[tokio::test]
+    async fn test_write_multiple_events() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::new(file_path.clone()).await.unwrap();
+
+        let events: Vec<EventRecord> = (0..3)
+            .map(|i| EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: chrono::Utc::now(),
+                correlation_id: format!("test-correlation-{}", i),
+                event: MapReduceEvent::JobStarted {
+                    job_id: format!("test-job-{}", i),
+                    config: MapReduceConfig {
+                        agent_timeout_secs: None,
+                        continue_on_failure: false,
+                        batch_size: None,
+                        enable_checkpoints: true,
+                        input: "test.json".to_string(),
+                        json_path: "$.items".to_string(),
+                        max_parallel: 5,
+                        max_items: None,
+                        offset: None,
+                    },
+                    total_items: 10,
+                    timestamp: chrono::Utc::now(),
+                },
+                metadata: Default::default(),
+            })
+            .collect();
+
+        writer.write(&events).await.unwrap();
+        writer.flush().await.unwrap();
+
+        // Verify all events were written
+        let content = tokio::fs::read_to_string(&file_path).await.unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(lines.len(), 3);
+        assert!(content.contains("test-job-0"));
+        assert!(content.contains("test-job-1"));
+        assert!(content.contains("test-job-2"));
+    }
+
+    #[tokio::test]
+    async fn test_size_tracking_across_writes() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::new(file_path.clone()).await.unwrap();
+
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: chrono::Utc::now(),
+            correlation_id: "test-correlation".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test-job".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: chrono::Utc::now(),
+            },
+            metadata: Default::default(),
+        };
+
+        // Write same event multiple times
+        writer.write(&[event.clone()]).await.unwrap();
+        writer.write(&[event.clone()]).await.unwrap();
+        writer.flush().await.unwrap();
+
+        // Verify size tracking - should accumulate across writes
+        let size = *writer.current_size.lock().await;
+        assert!(size > 0, "Size should be tracked across writes");
+
+        // Verify file content
+        let content = tokio::fs::read_to_string(&file_path).await.unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(lines.len(), 2);
+    }
 }

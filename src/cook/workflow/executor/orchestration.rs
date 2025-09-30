@@ -21,7 +21,7 @@ use std::time::Duration;
 
 use crate::cook::workflow::WorkflowStep;
 
-use super::{CheckpointCompletedStep, StepResult, WorkflowContext, normalized};
+use super::{normalized, CheckpointCompletedStep, StepResult, WorkflowContext};
 
 #[cfg(test)]
 use std::collections::HashMap;
@@ -98,11 +98,7 @@ pub fn build_checkpoint_step(
 /// Format a step progress message
 ///
 /// Creates a consistent progress message showing current step position.
-pub fn format_step_progress(
-    step_index: usize,
-    total_steps: usize,
-    step_display: &str,
-) -> String {
+pub fn format_step_progress(step_index: usize, total_steps: usize, step_display: &str) -> String {
     format!(
         "Executing step {}/{}: {}",
         step_index + 1,
@@ -115,10 +111,7 @@ pub fn format_step_progress(
 ///
 /// Creates a consistent progress message showing current iteration.
 pub fn format_iteration_progress(iteration: u32, max_iterations: u32) -> String {
-    format!(
-        "Starting iteration {}/{}",
-        iteration, max_iterations
-    )
+    format!("Starting iteration {}/{}", iteration, max_iterations)
 }
 
 /// Format workflow start message
@@ -186,7 +179,8 @@ pub fn calculate_progress_percentage(
     }
 
     let iteration_progress = (current_iteration as f64 / max_iterations as f64) * 100.0;
-    let step_progress = (current_step as f64 / total_steps as f64) * (100.0 / max_iterations as f64);
+    let step_progress =
+        (current_step as f64 / total_steps as f64) * (100.0 / max_iterations as f64);
 
     (iteration_progress + step_progress).min(100.0) as u8
 }
@@ -335,7 +329,13 @@ mod tests {
         let normalized = create_normalized_workflow("test-workflow", &context);
 
         assert_eq!(normalized.name.as_ref(), "test-workflow");
-        assert_eq!(normalized.variables.get("key1"), Some(&"value1".to_string()));
-        assert_eq!(normalized.variables.get("key2"), Some(&"value2".to_string()));
+        assert_eq!(
+            normalized.variables.get("key1"),
+            Some(&"value1".to_string())
+        );
+        assert_eq!(
+            normalized.variables.get("key2"),
+            Some(&"value2".to_string())
+        );
     }
 }
