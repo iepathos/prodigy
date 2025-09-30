@@ -16,6 +16,107 @@ impl GitHandler {
     pub fn new() -> Self {
         Self
     }
+
+    /// Extracts files from attributes, defaulting to ["."] if not specified
+    fn extract_files(attributes: &HashMap<String, AttributeValue>) -> Vec<String> {
+        attributes
+            .get("files")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_string().cloned()).collect())
+            .filter(|files: &Vec<String>| !files.is_empty())
+            .unwrap_or_else(|| vec![".".to_string()])
+    }
+
+    /// Builds commit-specific arguments including message and optional auto-staging
+    fn build_commit_args(
+        operation: &str,
+        attributes: &HashMap<String, AttributeValue>,
+    ) -> Result<Vec<String>, String> {
+        let msg = attributes
+            .get("message")
+            .and_then(|v| v.as_string())
+            .ok_or_else(|| "Commit operation requires 'message' attribute".to_string())?;
+
+        Ok(vec![operation.to_string(), "-m".to_string(), msg.clone()])
+    }
+
+    /// Builds checkout/switch arguments with branch and optional create flag
+    fn build_checkout_args(
+        operation: &str,
+        attributes: &HashMap<String, AttributeValue>,
+    ) -> Vec<String> {
+        let mut args = vec![operation.to_string()];
+
+        if let Some(branch) = attributes.get("branch").and_then(|v| v.as_string()) {
+            // Check if we should create the branch (-b flag)
+            let should_create = operation == "checkout"
+                && attributes
+                    .get("args")
+                    .and_then(|v| v.as_string())
+                    .map(|s| s.contains("-b"))
+                    .unwrap_or(false);
+
+            if should_create {
+                args.push("-b".to_string());
+            }
+            args.push(branch.clone());
+        }
+
+        args
+    }
+
+    /// Builds push/pull arguments with optional remote and branch
+    fn build_push_pull_args(
+        operation: &str,
+        attributes: &HashMap<String, AttributeValue>,
+    ) -> Vec<String> {
+        let mut args = vec![operation.to_string()];
+
+        if let Some(remote) = attributes.get("remote").and_then(|v| v.as_string()) {
+            args.push(remote.clone());
+        }
+        if let Some(branch) = attributes.get("branch").and_then(|v| v.as_string()) {
+            args.push(branch.clone());
+        }
+
+        args
+    }
+
+    /// Builds git command arguments for any operation
+    fn build_git_args(
+        operation: &str,
+        attributes: &HashMap<String, AttributeValue>,
+    ) -> Result<Vec<String>, String> {
+        let mut git_args = match operation {
+            "commit" => Self::build_commit_args(operation, attributes)?,
+            "checkout" | "switch" => Self::build_checkout_args(operation, attributes),
+            "push" | "pull" => Self::build_push_pull_args(operation, attributes),
+            _ => vec![operation.to_string()],
+        };
+
+        // Add additional args if provided
+        if let Some(args) = attributes.get("args").and_then(|v| v.as_string()) {
+            git_args.extend(args.split_whitespace().map(String::from));
+        }
+
+        // Add files if specified and not a commit operation
+        if operation != "commit" {
+            if let Some(files) = attributes.get("files").and_then(|v| v.as_array()) {
+                git_args.extend(files.iter().filter_map(|v| v.as_string()).map(String::from));
+            }
+        }
+
+        Ok(git_args)
+    }
+
+    /// Determines if auto-staging is required for commit operation
+    fn should_auto_stage(operation: &str, attributes: &HashMap<String, AttributeValue>) -> bool {
+        operation == "commit"
+            && attributes
+                .get("auto_stage")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+    }
 }
 
 #[async_trait]
@@ -61,105 +162,35 @@ impl CommandHandler for GitHandler {
 
         let start = Instant::now();
 
-        // Build git command based on operation
-        let mut git_args = vec![operation.clone()];
+        // Build git command arguments using pure functions
+        let git_args = match Self::build_git_args(&operation, &attributes) {
+            Ok(args) => args,
+            Err(e) => return CommandResult::error(e),
+        };
 
-        // Handle special operations
-        match operation.as_str() {
-            "commit" => {
-                if let Some(msg) = attributes.get("message").and_then(|v| v.as_string()) {
-                    git_args.push("-m".to_string());
-                    git_args.push(msg.clone());
-                } else {
-                    return CommandResult::error(
-                        "Commit operation requires 'message' attribute".to_string(),
-                    );
-                }
+        // Handle auto-staging for commits
+        if Self::should_auto_stage(&operation, &attributes) && !context.dry_run {
+            let files = Self::extract_files(&attributes);
+            let add_args: Vec<&str> = std::iter::once("add")
+                .chain(files.iter().map(|s| s.as_str()))
+                .collect();
 
-                // Auto-stage if requested
-                if attributes
-                    .get("auto_stage")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false)
-                {
-                    // First run git add
-                    let files = attributes
-                        .get("files")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|v| v.as_string().cloned())
-                                .collect::<Vec<_>>()
-                        })
-                        .unwrap_or_else(|| vec![".".to_string()]);
-
-                    if !context.dry_run {
-                        let add_result = context
-                            .executor
-                            .execute(
-                                "git",
-                                &["add"]
-                                    .iter()
-                                    .copied()
-                                    .chain(files.iter().map(|s| s.as_str()))
-                                    .collect::<Vec<_>>(),
-                                Some(&context.working_dir),
-                                Some(context.full_env()),
-                                None,
-                            )
-                            .await;
-
-                        if let Err(e) = add_result {
-                            return CommandResult::error(format!("Failed to stage files: {e}"));
-                        }
-                    }
-                }
-            }
-            "checkout" | "switch" => {
-                if let Some(branch) = attributes.get("branch").and_then(|v| v.as_string()) {
-                    git_args.push(branch.clone());
-
-                    // Check if we should create the branch
-                    if operation == "checkout"
-                        && attributes
-                            .get("args")
-                            .and_then(|v| v.as_string())
-                            .map(|s| s.contains("-b"))
-                            .unwrap_or(false)
-                    {
-                        git_args.insert(1, "-b".to_string());
-                    }
-                }
-            }
-            "push" | "pull" => {
-                if let Some(remote) = attributes.get("remote").and_then(|v| v.as_string()) {
-                    git_args.push(remote.clone());
-                }
-                if let Some(branch) = attributes.get("branch").and_then(|v| v.as_string()) {
-                    git_args.push(branch.clone());
-                }
-            }
-            _ => {}
-        }
-
-        // Add additional args if provided
-        if let Some(args) = attributes.get("args").and_then(|v| v.as_string()) {
-            for arg in args.split_whitespace() {
-                git_args.push(arg.to_string());
+            if let Err(e) = context
+                .executor
+                .execute(
+                    "git",
+                    &add_args,
+                    Some(&context.working_dir),
+                    Some(context.full_env()),
+                    None,
+                )
+                .await
+            {
+                return CommandResult::error(format!("Failed to stage files: {e}"));
             }
         }
 
-        // Add files if specified and not already handled
-        if operation != "commit" {
-            if let Some(files) = attributes.get("files").and_then(|v| v.as_array()) {
-                for file_val in files {
-                    if let Some(file) = file_val.as_string() {
-                        git_args.push(file.clone());
-                    }
-                }
-            }
-        }
-
+        // Handle dry run
         if context.dry_run {
             let duration = start.elapsed().as_millis() as u64;
             return CommandResult::success(json!({
