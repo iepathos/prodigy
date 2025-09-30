@@ -2487,4 +2487,227 @@ mod tests {
         assert!(FilterExpression::parse("x >= 5").is_ok());
         assert!(FilterExpression::parse("x <= 5").is_ok());
     }
+
+    // Additional tests for 100% parse coverage
+    #[test]
+    fn test_parse_error_cases() {
+        // Test empty string
+        assert!(FilterExpression::parse("").is_err());
+
+        // Test invalid expression with no operators
+        assert!(FilterExpression::parse("just some text").is_err());
+
+        // Test malformed 'in' expression without array
+        assert!(FilterExpression::parse("field in value").is_err());
+
+        // Test invalid function syntax
+        assert!(FilterExpression::parse("func{arg}").is_err());
+    }
+
+    #[test]
+    fn test_parse_in_operator_variations() {
+        // Test basic 'in' operator
+        let result = FilterExpression::parse("status in ['active', 'pending']");
+        assert!(result.is_ok());
+
+        // Test 'in' with numeric values treated as strings
+        let result = FilterExpression::parse("id in ['1', '2', '3']");
+        assert!(result.is_ok());
+
+        // Test 'in' with single value
+        let result = FilterExpression::parse("status in ['active']");
+        assert!(result.is_ok());
+
+        // Test 'in' with empty array
+        let result = FilterExpression::parse("status in []");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_nested_parentheses() {
+        // Test multiple levels of nested parentheses
+        let result = FilterExpression::parse("(((x > 5)))");
+        assert!(result.is_ok());
+
+        // Test nested parentheses with logical operators
+        let result = FilterExpression::parse("((a == 1) && (b == 2))");
+        assert!(result.is_ok());
+
+        // Test parentheses that don't wrap entire expression
+        let result = FilterExpression::parse("(a == 1) && b == 2");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_not_operator_variations() {
+        // Test NOT with function
+        let result = FilterExpression::parse("!is_null(field)");
+        assert!(result.is_ok());
+
+        // Test NOT with comparison
+        let result = FilterExpression::parse("!(x > 5)");
+        assert!(result.is_ok());
+
+        // Test NOT with parentheses stripped
+        let result = FilterExpression::parse("!(x == 5)");
+        assert!(result.is_ok());
+
+        // Test NOT with comparison (no outer parens)
+        let result = FilterExpression::parse("!(status == 'active')");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_logical_operators() {
+        // Test OR operator finding
+        let result = FilterExpression::parse("a == 1 || b == 2");
+        assert!(result.is_ok());
+
+        // Test AND operator finding
+        let result = FilterExpression::parse("a == 1 && b == 2");
+        assert!(result.is_ok());
+
+        // Test multiple OR operators
+        let result = FilterExpression::parse("a == 1 || b == 2 || c == 3");
+        assert!(result.is_ok());
+
+        // Test mixed AND/OR operators
+        let result = FilterExpression::parse("a == 1 && b == 2 || c == 3");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_function_expressions() {
+        // Test function with no arguments
+        let result = FilterExpression::parse("is_active()");
+        assert!(result.is_ok());
+
+        // Test function with single argument
+        let result = FilterExpression::parse("is_null(field)");
+        assert!(result.is_ok());
+
+        // Test function with multiple arguments
+        let result = FilterExpression::parse("contains(text, 'pattern')");
+        assert!(result.is_ok());
+
+        // Test function with whitespace in arguments
+        let result = FilterExpression::parse("func( arg1 , arg2 )");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_operator_precedence() {
+        // Test that operators are found outside parentheses
+        let result = FilterExpression::parse("(a == 1) && (b == 2)");
+        assert!(result.is_ok());
+        if let Ok(FilterExpression::Logical { op, .. }) = result {
+            assert!(matches!(op, LogicalOp::And));
+        }
+
+        // Test operator inside parentheses not matched
+        let result = FilterExpression::parse("func(a && b)");
+        assert!(result.is_ok());
+        assert!(matches!(result, Ok(FilterExpression::Function { .. })));
+    }
+
+    #[test]
+    fn test_parse_value_types() {
+        // Test parsing string values
+        let result = FilterExpression::parse("name == 'test'");
+        assert!(result.is_ok());
+
+        // Test parsing numeric values
+        let result = FilterExpression::parse("count > 42");
+        assert!(result.is_ok());
+
+        // Test parsing boolean values
+        let result = FilterExpression::parse("active == true");
+        assert!(result.is_ok());
+
+        // Test parsing null values
+        let result = FilterExpression::parse("value == null");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_field_paths() {
+        // Test simple field
+        let result = FilterExpression::parse("status == 'active'");
+        assert!(result.is_ok());
+
+        // Test nested field path
+        let result = FilterExpression::parse("user.status == 'active'");
+        assert!(result.is_ok());
+
+        // Test deeply nested field path
+        let result = FilterExpression::parse("data.user.profile.name == 'test'");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_whitespace_handling() {
+        // Test extra whitespace around operators
+        let result = FilterExpression::parse("  x   ==   5  ");
+        assert!(result.is_ok());
+
+        // Test no whitespace around operators
+        let result = FilterExpression::parse("x==5");
+        assert!(result.is_ok());
+
+        // Test whitespace in 'in' operator
+        let result = FilterExpression::parse("status  in  ['active']");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_array_values() {
+        // Test parse_array_values with valid input
+        let result = FilterExpression::parse_array_values("['a', 'b', 'c']");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 3);
+
+        // Test parse_array_values with single value
+        let result = FilterExpression::parse_array_values("['single']");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 1);
+
+        // Test parse_array_values with empty array
+        let result = FilterExpression::parse_array_values("[]");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 1); // Split results in one empty string
+
+        // Test parse_array_values with invalid format (no brackets)
+        let result = FilterExpression::parse_array_values("'a', 'b'");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_matches_operator_at() {
+        let chars: Vec<char> = "a && b".chars().collect();
+        let op_chars: Vec<char> = "&&".chars().collect();
+
+        // Test matching at valid position
+        assert!(FilterExpression::matches_operator_at(&chars, 2, &op_chars));
+
+        // Test not matching at wrong position
+        assert!(!FilterExpression::matches_operator_at(&chars, 0, &op_chars));
+
+        // Test boundary check
+        assert!(!FilterExpression::matches_operator_at(&chars, 5, &op_chars));
+    }
+
+    #[test]
+    fn test_outer_parens_wrap_entire_expr() {
+        // Test outer parens that wrap entire expression
+        assert!(FilterExpression::outer_parens_wrap_entire_expr("(a && b)"));
+
+        // Test outer parens that don't wrap entire expression
+        assert!(!FilterExpression::outer_parens_wrap_entire_expr("(a) && b"));
+
+        // Test nested parens
+        assert!(FilterExpression::outer_parens_wrap_entire_expr("((a && b))"));
+
+        // Test multiple groups
+        assert!(!FilterExpression::outer_parens_wrap_entire_expr("(a) || (b)"));
+    }
 }
