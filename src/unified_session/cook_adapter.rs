@@ -92,6 +92,25 @@ impl CookSessionAdapter {
             state.iterations_completed = workflow_data.iterations_completed as usize;
             state.files_changed = workflow_data.files_changed as usize;
             state.worktree_name = workflow_data.worktree_name.clone();
+
+            // Create a minimal WorkflowState to make the session resumable
+            // The actual workflow state will be loaded from checkpoints during resume
+            use crate::cook::session::state::{WorkflowState, ExecutionEnvironment};
+            state.workflow_state = Some(WorkflowState {
+                current_iteration: 0,
+                current_step: workflow_data.current_step,
+                completed_steps: vec![],
+                workflow_path: working_dir.to_path_buf(),
+                input_args: vec![],
+                map_patterns: vec![],
+                using_worktree: true,
+            });
+            state.execution_environment = Some(ExecutionEnvironment {
+                working_directory: working_dir.to_path_buf(),
+                worktree_name: workflow_data.worktree_name.clone(),
+                environment_vars: std::collections::HashMap::new(),
+                command_args: vec![],
+            });
         }
 
         // Map error if present

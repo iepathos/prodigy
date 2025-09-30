@@ -105,50 +105,39 @@ fn create_test_checkpoint(
     )
     .expect("Failed to write checkpoint file");
 
-    // Create a SessionState in global storage (resume looks for this)
-    // Note: Resume uses SessionState, not UnifiedSession
-    let session_state = json!({
-        "session_id": workflow_id,
-        "status": "Interrupted",  // Must be Interrupted or InProgress to be resumable
+    // Create a UnifiedSession in global storage (UnifiedSessionManager stores these)
+    // Resume now uses UnifiedSessionManager through CookSessionAdapter
+    let unified_session = json!({
+        "id": workflow_id,
+        "session_type": "Workflow",
+        "status": "Paused",  // Paused status is resumable
         "started_at": now.to_rfc3339(),
-        "ended_at": null,
-        "iterations_completed": 0,
-        "files_changed": 0,
-        "errors": [],
-        "working_directory": "/tmp/test",
-        "worktree_name": workflow_id,
-        "workflow_started_at": now.to_rfc3339(),
-        "current_iteration_started_at": now.to_rfc3339(),
-        "current_iteration_number": 0,
-        "iteration_timings": [],
-        "command_timings": [],
-        "workflow_state": {
-            "current_iteration": 0,
+        "updated_at": now.to_rfc3339(),
+        "completed_at": null,
+        "metadata": {},
+        "checkpoints": [],
+        "timings": {},
+        "error": null,
+        "workflow_data": {
+            "workflow_id": workflow_id,
+            "workflow_name": "test-resume-workflow",
             "current_step": commands_executed,
-            "completed_steps": [],
-            "workflow_path": "test-resume-workflow.yaml",
-            "input_args": [],
-            "map_patterns": [],
-            "using_worktree": true
+            "total_steps": total_commands,
+            "completed_steps": (0..commands_executed).collect::<Vec<_>>(),
+            "variables": {},
+            "iterations_completed": 0,
+            "files_changed": 0,
+            "worktree_name": workflow_id
         },
-        "execution_environment": null,
-        "last_checkpoint": now.to_rfc3339(),
-        "workflow_hash": "test-hash-12345",
-        "workflow_type": "Standard",
-        "execution_context": null,
-        "checkpoint_version": 1,
-        "last_validated_at": now.to_rfc3339()
+        "mapreduce_data": null
     });
 
-    // Save session in global storage (in state/{workflow_id}/sessions/)
-    let sessions_dir = PathBuf::from(&prodigy_home)
-        .join("state")
-        .join(workflow_id)
-        .join("sessions");
+    // Save session in UnifiedSessionManager location (PRODIGY_HOME/sessions/)
+    let sessions_dir = PathBuf::from(&prodigy_home).join("sessions");
     fs::create_dir_all(&sessions_dir).expect("Failed to create sessions directory");
     fs::write(
-        sessions_dir.join("session_state.json"),
-        serde_json::to_string_pretty(&session_state).unwrap(),
+        sessions_dir.join(format!("{}.json", workflow_id)),
+        serde_json::to_string_pretty(&unified_session).unwrap(),
     )
     .expect("Failed to write session file");
 }
@@ -481,7 +470,6 @@ fn test_resume_completed_workflow() {
     // Create CliTest first to get its temp directory
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let session_dir = test_dir.join(".prodigy");
 
     // Create a completed session state in the unified session format
     let workflow_id = "resume-complete-33333";
@@ -495,72 +483,37 @@ fn test_resume_completed_workflow() {
         .join(workflow_id);
     fs::create_dir_all(&worktree_dir).expect("Failed to create worktree directory");
 
-    // Create unified session in the format expected by UnifiedSessionManager
+    // Create unified session in UnifiedSession format (status: Completed means not resumable)
     let unified_session = json!({
         "id": workflow_id,
-        "status": "Completed",
-        "workflow_type": "Standard",
         "session_type": "Workflow",
-        "created_at": now.to_rfc3339(),
-        "updated_at": now.to_rfc3339(),
+        "status": "Completed",  // Completed sessions are not resumable
         "started_at": now.to_rfc3339(),
+        "updated_at": now.to_rfc3339(),
         "completed_at": now.to_rfc3339(),
-        "metadata": {
+        "metadata": {},
+        "checkpoints": [],
+        "timings": {},
+        "error": null,
+        "workflow_data": {
+            "workflow_id": workflow_id,
+            "workflow_name": "test-workflow",
+            "current_step": 5,
+            "total_steps": 5,
+            "completed_steps": [0, 1, 2, 3, 4],
+            "variables": {},
             "iterations_completed": 1,
             "files_changed": 0,
-            "workflow_path": "test.yaml",
-            "workflow_state": json!({
-                "current_iteration": 0,
-                "current_step": 5,
-                "completed_steps": (0..5).map(|i| {
-                    let step_time = now.to_rfc3339();
-                    json!({
-                        "step_index": i,
-                        "command": format!("cmd{}", i + 1),
-                        "success": true,
-                        "output": format!("Command {} output", i + 1),
-                        "duration": {
-                            "secs": 1,
-                            "nanos": 0
-                        },
-                        "error": null,
-                        "started_at": step_time,
-                        "completed_at": step_time,
-                        "exit_code": 0
-                    })
-                }).collect::<Vec<_>>(),
-                "workflow_path": "test.yaml",
-                "input_args": [],
-                "map_patterns": [],
-                "using_worktree": true
-            })
+            "worktree_name": workflow_id
         },
-        "checkpoints": [],
-        "error_message": null,
-        "timings": {}
+        "mapreduce_data": null
     });
 
-    // Save in both local sessions directory and in a format that will be migrated properly
-    // First, save in the local .prodigy/sessions directory
-    let sessions_dir = session_dir.join("sessions");
+    // Save in UnifiedSessionManager location (PRODIGY_HOME/sessions/)
+    let sessions_dir = PathBuf::from(&prodigy_home).join("sessions");
     fs::create_dir_all(&sessions_dir).unwrap();
     fs::write(
         sessions_dir.join(format!("{}.json", workflow_id)),
-        serde_json::to_string_pretty(&unified_session).unwrap(),
-    )
-    .unwrap();
-
-    // Also save in the global storage location directly to handle migration
-    // Get the repo name from the temp directory (last component of path)
-    let _repo_name = test_dir.file_name().unwrap().to_str().unwrap();
-    let global_dir = directories::BaseDirs::new()
-        .unwrap()
-        .home_dir()
-        .join(".prodigy")
-        .join("sessions");
-    fs::create_dir_all(&global_dir).unwrap();
-    fs::write(
-        global_dir.join(format!("{}.json", workflow_id)),
         serde_json::to_string_pretty(&unified_session).unwrap(),
     )
     .unwrap();
@@ -1183,7 +1136,6 @@ fn test_end_to_end_error_handler_execution_after_resume() {
     // Comprehensive end-to-end test that verifies error handlers execute correctly after resume
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
     let workflow_dir = test_dir.clone();
 
     // Create a simpler workflow that will fail at a specific step and has error handlers
@@ -1297,11 +1249,11 @@ commands:
     )
     .unwrap();
 
-    // Create a UnifiedSession in global storage (resume looks for this)
+    // Create a UnifiedSession in UnifiedSessionManager location
     let unified_session = json!({
         "id": workflow_id,
         "session_type": "Workflow",
-        "status": "Paused",
+        "status": "Paused",  // Paused status is resumable
         "started_at": now.to_rfc3339(),
         "updated_at": now.to_rfc3339(),
         "completed_at": null,
@@ -1323,6 +1275,7 @@ commands:
         "mapreduce_data": null
     });
 
+    // Save in UnifiedSessionManager location (PRODIGY_HOME/sessions/)
     let sessions_dir = PathBuf::from(&prodigy_home).join("sessions");
     fs::create_dir_all(&sessions_dir).unwrap();
     fs::write(
