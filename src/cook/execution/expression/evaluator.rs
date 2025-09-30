@@ -274,282 +274,348 @@ impl ExpressionEvaluator {
     /// Evaluate an expression
     pub fn evaluate(&self, expr: &Expression, item: &Value) -> Result<Value> {
         match expr {
-            // Literals
-            Expression::Number(n) => Ok(Value::Number(
-                serde_json::Number::from_f64(*n).unwrap_or_else(|| serde_json::Number::from(0)),
-            )),
+            // Literals - delegated to pure function
+            Expression::Number(n) => Ok(Self::evaluate_literal_number(*n)),
             Expression::String(s) => Ok(Value::String(s.clone())),
             Expression::Boolean(b) => Ok(Value::Bool(*b)),
             Expression::Null => Ok(Value::Null),
 
             // Field access
             Expression::Field(path) => Ok(self.get_field_value(item, path).unwrap_or(Value::Null)),
-            Expression::Index(expr, index) => {
-                let base = self.evaluate(expr, item)?;
-                let idx = self.evaluate(index, item)?;
-                Ok(self.index_value(&base, &idx).unwrap_or(Value::Null))
-            }
+            Expression::Index(expr, index) => self.evaluate_index_access(expr, index, item),
 
             // Special variables
             Expression::Variable(name) => self.get_variable_value(name, item),
 
-            // Comparison operators
+            // Comparison operators - already extracted as helpers
             Expression::Equal(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                Ok(Value::Bool(l == r))
+                self.evaluate_binary_comparison(left, right, item, |l, r| l == r)
             }
             Expression::NotEqual(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                Ok(Value::Bool(l != r))
+                self.evaluate_binary_comparison(left, right, item, |l, r| l != r)
             }
-            Expression::GreaterThan(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                Ok(Value::Bool(
-                    self.compare_values(&l, &r) == Ordering::Greater,
-                ))
-            }
-            Expression::LessThan(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                Ok(Value::Bool(self.compare_values(&l, &r) == Ordering::Less))
-            }
+            Expression::GreaterThan(left, right) => self.evaluate_comparison_gt(left, right, item),
+            Expression::LessThan(left, right) => self.evaluate_comparison_lt(left, right, item),
             Expression::GreaterEqual(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                let ord = self.compare_values(&l, &r);
-                Ok(Value::Bool(
-                    ord == Ordering::Greater || ord == Ordering::Equal,
-                ))
+                self.evaluate_comparison_gte(left, right, item)
             }
-            Expression::LessEqual(left, right) => {
-                let l = self.evaluate(left, item)?;
-                let r = self.evaluate(right, item)?;
-                let ord = self.compare_values(&l, &r);
-                Ok(Value::Bool(ord == Ordering::Less || ord == Ordering::Equal))
-            }
+            Expression::LessEqual(left, right) => self.evaluate_comparison_lte(left, right, item),
 
-            // Logical operators
-            Expression::And(left, right) => {
-                let l = self.evaluate_bool(left, item)?;
-                if !l {
-                    return Ok(Value::Bool(false)); // Short-circuit
-                }
-                let r = self.evaluate_bool(right, item)?;
-                Ok(Value::Bool(r))
-            }
-            Expression::Or(left, right) => {
-                let l = self.evaluate_bool(left, item)?;
-                if l {
-                    return Ok(Value::Bool(true)); // Short-circuit
-                }
-                let r = self.evaluate_bool(right, item)?;
-                Ok(Value::Bool(r))
-            }
-            Expression::Not(expr) => {
-                let v = self.evaluate_bool(expr, item)?;
-                Ok(Value::Bool(!v))
-            }
+            // Logical operators - already extracted
+            Expression::And(left, right) => self.evaluate_logical_and(left, right, item),
+            Expression::Or(left, right) => self.evaluate_logical_or(left, right, item),
+            Expression::Not(expr) => self.evaluate_logical_not(expr, item),
 
-            // String functions
+            // String functions - already extracted as helpers
             Expression::Contains(str_expr, pattern) => {
-                let s = self.evaluate(str_expr, item)?;
-                let p = self.evaluate(pattern, item)?;
-                if let (Value::String(s), Value::String(p)) = (s, p) {
-                    Ok(Value::Bool(s.contains(&p)))
-                } else {
-                    Ok(Value::Bool(false))
-                }
+                self.evaluate_string_operation(str_expr, pattern, item, |s, p| s.contains(p))
             }
             Expression::StartsWith(str_expr, prefix) => {
-                let s = self.evaluate(str_expr, item)?;
-                let p = self.evaluate(prefix, item)?;
-                if let (Value::String(s), Value::String(p)) = (s, p) {
-                    Ok(Value::Bool(s.starts_with(&p)))
-                } else {
-                    Ok(Value::Bool(false))
-                }
+                self.evaluate_string_operation(str_expr, prefix, item, |s, p| s.starts_with(p))
             }
             Expression::EndsWith(str_expr, suffix) => {
-                let s = self.evaluate(str_expr, item)?;
-                let p = self.evaluate(suffix, item)?;
-                if let (Value::String(s), Value::String(p)) = (s, p) {
-                    Ok(Value::Bool(s.ends_with(&p)))
-                } else {
-                    Ok(Value::Bool(false))
-                }
+                self.evaluate_string_operation(str_expr, suffix, item, |s, p| s.ends_with(p))
             }
             Expression::Matches(str_expr, pattern) => {
-                let s = self.evaluate(str_expr, item)?;
-                let p = self.evaluate(pattern, item)?;
-                if let (Value::String(s), Value::String(p)) = (s, p) {
-                    match Regex::new(&p) {
-                        Ok(re) => Ok(Value::Bool(re.is_match(&s))),
-                        Err(_) => Ok(Value::Bool(false)),
-                    }
-                } else {
-                    Ok(Value::Bool(false))
-                }
+                self.evaluate_string_operation(str_expr, pattern, item, |s, p| {
+                    Regex::new(p).is_ok_and(|re| re.is_match(s))
+                })
             }
 
-            // Type checking
-            Expression::IsNull(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(v.is_null()))
-            }
-            Expression::IsNotNull(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(!v.is_null()))
-            }
+            // Type checking - already extracted as helpers
+            Expression::IsNull(expr) => self.evaluate_type_check(expr, item, |v| v.is_null()),
+            Expression::IsNotNull(expr) => self.evaluate_type_check(expr, item, |v| !v.is_null()),
             Expression::IsNumber(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(matches!(v, Value::Number(_))))
+                self.evaluate_type_check(expr, item, |v| matches!(v, Value::Number(_)))
             }
             Expression::IsString(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(matches!(v, Value::String(_))))
+                self.evaluate_type_check(expr, item, |v| matches!(v, Value::String(_)))
             }
             Expression::IsBool(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(matches!(v, Value::Bool(_))))
+                self.evaluate_type_check(expr, item, |v| matches!(v, Value::Bool(_)))
             }
             Expression::IsArray(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(matches!(v, Value::Array(_))))
+                self.evaluate_type_check(expr, item, |v| matches!(v, Value::Array(_)))
             }
             Expression::IsObject(expr) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(matches!(v, Value::Object(_))))
+                self.evaluate_type_check(expr, item, |v| matches!(v, Value::Object(_)))
             }
 
-            // Aggregate functions
-            Expression::Length(expr) => {
-                let v = self.evaluate(expr, item)?;
-                let len = match v {
-                    Value::String(s) => s.len(),
-                    Value::Array(arr) => arr.len(),
-                    Value::Object(obj) => obj.len(),
-                    _ => 0,
-                };
-                Ok(Value::Number(serde_json::Number::from(len as u64)))
-            }
-            Expression::Sum(expr) => {
-                let v = self.evaluate(expr, item)?;
-                if let Value::Array(arr) = v {
-                    let sum: f64 = arr
-                        .iter()
-                        .filter_map(|v| v.as_f64())
-                        .filter(|f| !f.is_nan()) // Filter out NaN values
-                        .sum();
-                    Ok(Value::Number(
-                        serde_json::Number::from_f64(sum)
-                            .unwrap_or_else(|| serde_json::Number::from(0)),
-                    ))
-                } else {
-                    Ok(Value::Number(serde_json::Number::from(0)))
-                }
-            }
-            Expression::Count(expr) => {
-                let v = self.evaluate(expr, item)?;
-                if let Value::Array(arr) = v {
-                    Ok(Value::Number(serde_json::Number::from(arr.len() as u64)))
-                } else {
-                    Ok(Value::Number(serde_json::Number::from(0)))
-                }
-            }
-            Expression::Min(expr) => {
-                let v = self.evaluate(expr, item)?;
-                if let Value::Array(arr) = v {
-                    let min = arr
-                        .iter()
-                        .filter_map(|v| v.as_f64())
-                        .filter(|f| !f.is_nan()) // Filter out NaN values
-                        .min_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-                    if let Some(min) = min {
-                        Ok(Value::Number(
-                            serde_json::Number::from_f64(min)
-                                .unwrap_or_else(|| serde_json::Number::from(0)),
-                        ))
-                    } else {
-                        Ok(Value::Null)
-                    }
-                } else {
-                    Ok(Value::Null)
-                }
-            }
-            Expression::Max(expr) => {
-                let v = self.evaluate(expr, item)?;
-                if let Value::Array(arr) = v {
-                    let max = arr
-                        .iter()
-                        .filter_map(|v| v.as_f64())
-                        .filter(|f| !f.is_nan()) // Filter out NaN values
-                        .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-                    if let Some(max) = max {
-                        Ok(Value::Number(
-                            serde_json::Number::from_f64(max)
-                                .unwrap_or_else(|| serde_json::Number::from(0)),
-                        ))
-                    } else {
-                        Ok(Value::Null)
-                    }
-                } else {
-                    Ok(Value::Null)
-                }
-            }
-            Expression::Avg(expr) => {
-                let v = self.evaluate(expr, item)?;
-                if let Value::Array(arr) = v {
-                    let values: Vec<f64> = arr
-                        .iter()
-                        .filter_map(|v| v.as_f64())
-                        .filter(|f| !f.is_nan()) // Filter out NaN values
-                        .collect();
-                    if !values.is_empty() {
-                        let avg = values.iter().sum::<f64>() / values.len() as f64;
-                        Ok(Value::Number(
-                            serde_json::Number::from_f64(avg)
-                                .unwrap_or_else(|| serde_json::Number::from(0)),
-                        ))
-                    } else {
-                        Ok(Value::Null)
-                    }
-                } else {
-                    Ok(Value::Null)
-                }
-            }
+            // Aggregate functions - extracted to separate methods
+            Expression::Length(expr) => self.evaluate_length(expr, item),
+            Expression::Sum(expr) => self.evaluate_sum(expr, item),
+            Expression::Count(expr) => self.evaluate_count(expr, item),
+            Expression::Min(expr) => self.evaluate_min(expr, item),
+            Expression::Max(expr) => self.evaluate_max(expr, item),
+            Expression::Avg(expr) => self.evaluate_avg(expr, item),
 
-            // Array operations
-            Expression::In(expr, values) => {
-                let v = self.evaluate(expr, item)?;
-                Ok(Value::Bool(values.contains(&v)))
-            }
-
-            // Array wildcard access
+            // Array operations - extracted to separate methods
+            Expression::In(expr, values) => self.evaluate_in_operation(expr, values, item),
             Expression::ArrayWildcard(base_expr, path) => {
-                let base = self.evaluate(base_expr, item)?;
-                if let Value::Array(arr) = base {
-                    // Collect values from all array items
-                    let mut results = Vec::new();
-                    for item in &arr {
-                        if path.is_empty() {
-                            // No path after [*], return the item itself
-                            results.push(item.clone());
-                        } else {
-                            // Get the nested field value
-                            if let Some(val) = self.get_field_value(item, path) {
-                                results.push(val);
-                            }
-                        }
-                    }
-                    Ok(Value::Array(results))
-                } else {
-                    Ok(Value::Null)
-                }
+                self.evaluate_array_wildcard(base_expr, path, item)
             }
         }
+    }
+
+    /// Pure function: Evaluate a literal number
+    fn evaluate_literal_number(n: f64) -> Value {
+        Value::Number(
+            serde_json::Number::from_f64(n).unwrap_or_else(|| serde_json::Number::from(0)),
+        )
+    }
+
+    /// Evaluate index access operation
+    fn evaluate_index_access(
+        &self,
+        expr: &Expression,
+        index: &Expression,
+        item: &Value,
+    ) -> Result<Value> {
+        let base = self.evaluate(expr, item)?;
+        let idx = self.evaluate(index, item)?;
+        Ok(self.index_value(&base, &idx).unwrap_or(Value::Null))
+    }
+
+    /// Evaluate greater-than comparison
+    fn evaluate_comparison_gt(
+        &self,
+        left: &Expression,
+        right: &Expression,
+        item: &Value,
+    ) -> Result<Value> {
+        self.evaluate_binary_comparison(left, right, item, |l, r| {
+            self.compare_values(l, r) == Ordering::Greater
+        })
+    }
+
+    /// Evaluate less-than comparison
+    fn evaluate_comparison_lt(
+        &self,
+        left: &Expression,
+        right: &Expression,
+        item: &Value,
+    ) -> Result<Value> {
+        self.evaluate_binary_comparison(left, right, item, |l, r| {
+            self.compare_values(l, r) == Ordering::Less
+        })
+    }
+
+    /// Evaluate greater-than-or-equal comparison
+    fn evaluate_comparison_gte(
+        &self,
+        left: &Expression,
+        right: &Expression,
+        item: &Value,
+    ) -> Result<Value> {
+        self.evaluate_binary_comparison(left, right, item, |l, r| {
+            let ord = self.compare_values(l, r);
+            ord == Ordering::Greater || ord == Ordering::Equal
+        })
+    }
+
+    /// Evaluate less-than-or-equal comparison
+    fn evaluate_comparison_lte(
+        &self,
+        left: &Expression,
+        right: &Expression,
+        item: &Value,
+    ) -> Result<Value> {
+        self.evaluate_binary_comparison(left, right, item, |l, r| {
+            let ord = self.compare_values(l, r);
+            ord == Ordering::Less || ord == Ordering::Equal
+        })
+    }
+
+    /// Evaluate logical AND with short-circuit evaluation
+    fn evaluate_logical_and(
+        &self,
+        left: &Expression,
+        right: &Expression,
+        item: &Value,
+    ) -> Result<Value> {
+        let l = self.evaluate_bool(left, item)?;
+        if !l {
+            return Ok(Value::Bool(false)); // Short-circuit
+        }
+        let r = self.evaluate_bool(right, item)?;
+        Ok(Value::Bool(r))
+    }
+
+    /// Evaluate logical OR with short-circuit evaluation
+    fn evaluate_logical_or(
+        &self,
+        left: &Expression,
+        right: &Expression,
+        item: &Value,
+    ) -> Result<Value> {
+        let l = self.evaluate_bool(left, item)?;
+        if l {
+            return Ok(Value::Bool(true)); // Short-circuit
+        }
+        let r = self.evaluate_bool(right, item)?;
+        Ok(Value::Bool(r))
+    }
+
+    /// Evaluate logical NOT
+    fn evaluate_logical_not(&self, expr: &Expression, item: &Value) -> Result<Value> {
+        let v = self.evaluate_bool(expr, item)?;
+        Ok(Value::Bool(!v))
+    }
+
+    /// Evaluate length aggregate function
+    fn evaluate_length(&self, expr: &Expression, item: &Value) -> Result<Value> {
+        let v = self.evaluate(expr, item)?;
+        let len = Self::compute_length(&v);
+        Ok(Value::Number(serde_json::Number::from(len as u64)))
+    }
+
+    /// Pure function: Compute length of a value
+    fn compute_length(v: &Value) -> usize {
+        match v {
+            Value::String(s) => s.len(),
+            Value::Array(arr) => arr.len(),
+            Value::Object(obj) => obj.len(),
+            _ => 0,
+        }
+    }
+
+    /// Evaluate sum aggregate function
+    fn evaluate_sum(&self, expr: &Expression, item: &Value) -> Result<Value> {
+        let v = self.evaluate(expr, item)?;
+        match v {
+            Value::Array(arr) => {
+                let sum = Self::sum_numeric_array(&arr);
+                Ok(Self::to_number_value(sum))
+            }
+            _ => Ok(Value::Number(serde_json::Number::from(0))),
+        }
+    }
+
+    /// Pure function: Sum numeric values in an array
+    fn sum_numeric_array(arr: &[Value]) -> f64 {
+        arr.iter()
+            .filter_map(|v| v.as_f64())
+            .filter(|f| !f.is_nan())
+            .sum()
+    }
+
+    /// Evaluate count aggregate function
+    fn evaluate_count(&self, expr: &Expression, item: &Value) -> Result<Value> {
+        let v = self.evaluate(expr, item)?;
+        match v {
+            Value::Array(arr) => Ok(Value::Number(serde_json::Number::from(arr.len() as u64))),
+            _ => Ok(Value::Number(serde_json::Number::from(0))),
+        }
+    }
+
+    /// Evaluate min aggregate function
+    fn evaluate_min(&self, expr: &Expression, item: &Value) -> Result<Value> {
+        let v = self.evaluate(expr, item)?;
+        match v {
+            Value::Array(arr) => Ok(Self::find_min_in_array(&arr)),
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Pure function: Find minimum value in numeric array
+    fn find_min_in_array(arr: &[Value]) -> Value {
+        let min = arr
+            .iter()
+            .filter_map(|v| v.as_f64())
+            .filter(|f| !f.is_nan())
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+
+        min.map(Self::to_number_value).unwrap_or(Value::Null)
+    }
+
+    /// Evaluate max aggregate function
+    fn evaluate_max(&self, expr: &Expression, item: &Value) -> Result<Value> {
+        let v = self.evaluate(expr, item)?;
+        match v {
+            Value::Array(arr) => Ok(Self::find_max_in_array(&arr)),
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Pure function: Find maximum value in numeric array
+    fn find_max_in_array(arr: &[Value]) -> Value {
+        let max = arr
+            .iter()
+            .filter_map(|v| v.as_f64())
+            .filter(|f| !f.is_nan())
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+
+        max.map(Self::to_number_value).unwrap_or(Value::Null)
+    }
+
+    /// Evaluate average aggregate function
+    fn evaluate_avg(&self, expr: &Expression, item: &Value) -> Result<Value> {
+        let v = self.evaluate(expr, item)?;
+        match v {
+            Value::Array(arr) => Ok(Self::compute_average(&arr)),
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Pure function: Compute average of numeric array
+    fn compute_average(arr: &[Value]) -> Value {
+        let values: Vec<f64> = arr
+            .iter()
+            .filter_map(|v| v.as_f64())
+            .filter(|f| !f.is_nan())
+            .collect();
+
+        if values.is_empty() {
+            Value::Null
+        } else {
+            let avg = values.iter().sum::<f64>() / values.len() as f64;
+            Self::to_number_value(avg)
+        }
+    }
+
+    /// Pure function: Convert f64 to JSON Number Value
+    fn to_number_value(n: f64) -> Value {
+        Value::Number(
+            serde_json::Number::from_f64(n).unwrap_or_else(|| serde_json::Number::from(0)),
+        )
+    }
+
+    /// Evaluate 'in' operation
+    fn evaluate_in_operation(
+        &self,
+        expr: &Expression,
+        values: &[Value],
+        item: &Value,
+    ) -> Result<Value> {
+        let v = self.evaluate(expr, item)?;
+        Ok(Value::Bool(values.contains(&v)))
+    }
+
+    /// Evaluate array wildcard access
+    fn evaluate_array_wildcard(
+        &self,
+        base_expr: &Expression,
+        path: &[String],
+        item: &Value,
+    ) -> Result<Value> {
+        let base = self.evaluate(base_expr, item)?;
+        match base {
+            Value::Array(arr) => Ok(Value::Array(self.collect_array_wildcard_values(&arr, path))),
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Collect values from array wildcard access
+    fn collect_array_wildcard_values(&self, arr: &[Value], path: &[String]) -> Vec<Value> {
+        arr.iter()
+            .filter_map(|item| {
+                if path.is_empty() {
+                    Some(item.clone())
+                } else {
+                    self.get_field_value(item, path)
+                }
+            })
+            .collect()
     }
 
     /// Get a field value from an object using a path
@@ -625,6 +691,61 @@ impl ExpressionEvaluator {
             (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
             _ => Ordering::Equal,
         }
+    }
+
+    /// Helper: Evaluate a binary comparison operation
+    /// Takes left and right expressions and a comparison function
+    fn evaluate_binary_comparison<F>(
+        &self,
+        left: &Expression,
+        right: &Expression,
+        item: &Value,
+        comparator: F,
+    ) -> Result<Value>
+    where
+        F: FnOnce(&Value, &Value) -> bool,
+    {
+        let left_val = self.evaluate(left, item)?;
+        let right_val = self.evaluate(right, item)?;
+        Ok(Value::Bool(comparator(&left_val, &right_val)))
+    }
+
+    /// Helper: Evaluate a string operation
+    /// Takes string expression, pattern expression, and a string comparison function
+    fn evaluate_string_operation<F>(
+        &self,
+        str_expr: &Expression,
+        pattern_expr: &Expression,
+        item: &Value,
+        operation: F,
+    ) -> Result<Value>
+    where
+        F: FnOnce(&str, &str) -> bool,
+    {
+        let str_val = self.evaluate(str_expr, item)?;
+        let pattern_val = self.evaluate(pattern_expr, item)?;
+
+        let result = match (str_val, pattern_val) {
+            (Value::String(s), Value::String(p)) => operation(&s, &p),
+            _ => false,
+        };
+
+        Ok(Value::Bool(result))
+    }
+
+    /// Helper: Evaluate a type checking operation
+    /// Takes an expression and a type checking predicate
+    fn evaluate_type_check<F>(
+        &self,
+        expr: &Expression,
+        item: &Value,
+        type_predicate: F,
+    ) -> Result<Value>
+    where
+        F: FnOnce(&Value) -> bool,
+    {
+        let value = self.evaluate(expr, item)?;
+        Ok(Value::Bool(type_predicate(&value)))
     }
 }
 

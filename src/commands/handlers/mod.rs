@@ -5,12 +5,14 @@ pub mod claude;
 pub mod file;
 pub mod git;
 pub mod shell;
+pub mod validate_debtmap;
 
 pub use cargo::CargoHandler;
 pub use claude::ClaudeHandler;
 pub use file::FileHandler;
 pub use git::GitHandler;
 pub use shell::ShellHandler;
+pub use validate_debtmap::ValidateDebtmapHandler;
 
 /// Creates a vector of all built-in handlers
 pub fn all_handlers() -> Vec<Box<dyn crate::commands::CommandHandler>> {
@@ -20,6 +22,7 @@ pub fn all_handlers() -> Vec<Box<dyn crate::commands::CommandHandler>> {
         Box::new(GitHandler::new()),
         Box::new(CargoHandler::new()),
         Box::new(FileHandler::new()),
+        Box::new(ValidateDebtmapHandler::new()),
     ]
 }
 
@@ -30,7 +33,7 @@ mod tests {
     #[test]
     fn test_all_handlers() {
         let handlers = all_handlers();
-        assert_eq!(handlers.len(), 5);
+        assert_eq!(handlers.len(), 6);
 
         let names: Vec<_> = handlers.iter().map(|h| h.name()).collect();
         assert!(names.contains(&"shell"));
@@ -38,5 +41,6 @@ mod tests {
         assert!(names.contains(&"git"));
         assert!(names.contains(&"cargo"));
         assert!(names.contains(&"file"));
+        assert!(names.contains(&"validate_debtmap"));
     }
 }
