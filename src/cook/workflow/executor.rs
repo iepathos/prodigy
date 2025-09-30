@@ -5,6 +5,8 @@
 
 #[path = "executor/pure.rs"]
 mod pure;
+#[path = "executor/commands.rs"]
+mod commands;
 
 use crate::abstractions::git::{GitOperations, RealGitOperations};
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
@@ -1589,24 +1591,7 @@ impl WorkflowExecutor {
         _ctx: &WorkflowContext,
         _env_vars: &HashMap<String, String>,
     ) -> Result<StepResult> {
-        use crate::cook::execution::foreach::execute_foreach;
-
-        let result = execute_foreach(&foreach_config).await?;
-
-        // Return aggregated results
-        Ok(StepResult {
-            success: result.failed_items == 0,
-            stdout: format!(
-                "Foreach completed: {} total, {} successful, {} failed",
-                result.total_items, result.successful_items, result.failed_items
-            ),
-            stderr: if result.failed_items > 0 {
-                format!("{} items failed", result.failed_items)
-            } else {
-                String::new()
-            },
-            exit_code: Some(if result.failed_items == 0 { 0 } else { 1 }),
-        })
+        commands::execute_foreach_command(foreach_config).await
     }
 
     /// Execute goal-seeking command with iterative refinement
@@ -1617,104 +1602,7 @@ impl WorkflowExecutor {
         _ctx: &WorkflowContext,
         _env_vars: &HashMap<String, String>,
     ) -> Result<StepResult> {
-        use crate::cook::goal_seek::{shell_executor::ShellCommandExecutor, GoalSeekEngine};
-
-        // Create shell command executor for goal-seeking
-        let executor = Box::new(ShellCommandExecutor::new());
-
-        // Create goal-seek engine
-        let mut engine = GoalSeekEngine::new(executor);
-
-        // Execute goal-seeking
-        let result = engine.seek(goal_seek_config.clone()).await?;
-
-        // Convert result to StepResult
-        match result {
-            crate::cook::goal_seek::GoalSeekResult::Success {
-                attempts,
-                final_score,
-                execution_time: _,
-            } => Ok(StepResult {
-                success: true,
-                stdout: format!(
-                    "Goal '{}' achieved in {} attempts with score {}%",
-                    goal_seek_config.goal, attempts, final_score
-                ),
-                stderr: String::new(),
-                exit_code: Some(0),
-            }),
-            crate::cook::goal_seek::GoalSeekResult::MaxAttemptsReached {
-                attempts,
-                best_score,
-                last_output: _,
-            } => {
-                if goal_seek_config.fail_on_incomplete.unwrap_or(false) {
-                    Err(anyhow::anyhow!(
-                        "Goal '{}' not achieved after {} attempts. Best score: {}%",
-                        goal_seek_config.goal,
-                        attempts,
-                        best_score
-                    ))
-                } else {
-                    Ok(StepResult {
-                        success: false,
-                        stdout: format!(
-                            "Goal '{}' not achieved after {} attempts. Best score: {}%",
-                            goal_seek_config.goal, attempts, best_score
-                        ),
-                        stderr: String::new(),
-                        exit_code: Some(1),
-                    })
-                }
-            }
-            crate::cook::goal_seek::GoalSeekResult::Timeout {
-                attempts,
-                best_score,
-                elapsed,
-            } => Err(anyhow::anyhow!(
-                "Goal '{}' timed out after {} attempts and {:?}. Best score: {}%",
-                goal_seek_config.goal,
-                attempts,
-                elapsed,
-                best_score
-            )),
-            crate::cook::goal_seek::GoalSeekResult::Converged {
-                attempts,
-                final_score,
-                reason,
-            } => {
-                if goal_seek_config.fail_on_incomplete.unwrap_or(false)
-                    && final_score < goal_seek_config.threshold
-                {
-                    Err(anyhow::anyhow!(
-                        "Goal '{}' converged after {} attempts but didn't reach threshold. Score: {}%, Reason: {}",
-                        goal_seek_config.goal, attempts, final_score, reason
-                    ))
-                } else {
-                    Ok(StepResult {
-                        success: final_score >= goal_seek_config.threshold,
-                        stdout: format!(
-                            "Goal '{}' converged after {} attempts. Score: {}%, Reason: {}",
-                            goal_seek_config.goal, attempts, final_score, reason
-                        ),
-                        stderr: String::new(),
-                        exit_code: Some(if final_score >= goal_seek_config.threshold {
-                            0
-                        } else {
-                            1
-                        }),
-                    })
-                }
-            }
-            crate::cook::goal_seek::GoalSeekResult::Failed { attempts, error } => {
-                Err(anyhow::anyhow!(
-                    "Goal '{}' failed after {} attempts: {}",
-                    goal_seek_config.goal,
-                    attempts,
-                    error
-                ))
-            }
-        }
+        commands::execute_goal_seek_command(goal_seek_config).await
     }
 
     /// Execute shell command for a step with appropriate retry logic
@@ -3570,24 +3458,7 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         env_vars: HashMap<String, String>,
     ) -> Result<StepResult> {
-        let result = self
-            .claude_executor
-            .execute_claude_command(command, &env.working_dir, env_vars)
-            .await
-            .with_context(|| {
-                format!(
-                    "Claude command execution failed for command: '{}' in directory: {}",
-                    command,
-                    env.working_dir.display()
-                )
-            })?;
-
-        Ok(StepResult {
-            success: result.success,
-            exit_code: result.exit_code,
-            stdout: result.stdout,
-            stderr: result.stderr,
-        })
+        commands::execute_claude_command(&self.claude_executor, command, &env.working_dir, env_vars).await
     }
 
     /// Execute a shell command
@@ -3598,52 +3469,7 @@ impl WorkflowExecutor {
         env_vars: HashMap<String, String>,
         timeout: Option<u64>,
     ) -> Result<StepResult> {
-        use tokio::process::Command;
-        use tokio::time::{timeout as tokio_timeout, Duration};
-
-        // Log shell command execution details
-        tracing::info!("Executing shell command: {}", command);
-        tracing::info!("  Working directory: {}", env.working_dir.display());
-        if !env_vars.is_empty() {
-            tracing::debug!("  With {} environment variables set", env_vars.len());
-        }
-
-        // Create command (Unix-like systems only)
-        let mut cmd = Command::new("sh");
-        cmd.args(["-c", command]);
-
-        // Set working directory
-        cmd.current_dir(&**env.working_dir);
-
-        // Set environment variables
-        for (key, value) in env_vars {
-            cmd.env(key, value);
-        }
-
-        // Execute with optional timeout
-        let output = if let Some(timeout_secs) = timeout {
-            let duration = Duration::from_secs(timeout_secs);
-            match tokio_timeout(duration, cmd.output()).await {
-                Ok(result) => result?,
-                Err(_) => {
-                    return Ok(StepResult {
-                        success: false,
-                        exit_code: Some(-1),
-                        stdout: String::new(),
-                        stderr: format!("Command timed out after {timeout_secs} seconds"),
-                    });
-                }
-            }
-        } else {
-            cmd.output().await?
-        };
-
-        Ok(StepResult {
-            success: output.status.success(),
-            exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        })
+        commands::execute_shell_command(command, &env.working_dir, env_vars, timeout).await
     }
 
     /// Execute a shell command with retry logic (for shell commands with on_failure)
