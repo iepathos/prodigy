@@ -99,3 +99,5 @@ dev/
 .prodigy/dlq/
 .prodigy/documentation-drift.json
 .prodigy/documentation-drift-update.json
+.prodigy/IMPLEMENTATION_PLAN.md
+.prodigy/debtmap-*.json

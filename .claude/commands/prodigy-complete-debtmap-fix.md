@@ -7,11 +7,11 @@ Arguments: $ARGUMENTS
 ## Usage
 
 ```
-/prodigy-complete-debtmap-fix [--gaps <validation-gaps-json>]
+/prodigy-complete-debtmap-fix [--gaps <validation-gaps-json>] [--plan <plan-file>]
 ```
 
 Examples:
-- `/prodigy-complete-debtmap-fix --gaps ${validation.gaps}` with specific gaps from validation
+- `/prodigy-complete-debtmap-fix --gaps ${validation.gaps} --plan .prodigy/IMPLEMENTATION_PLAN.md` with specific gaps and plan
 
 ## What This Command Does
 
@@ -36,8 +36,10 @@ Examples:
 
 The command will:
 - Extract validation gaps from $ARGUMENTS (`--gaps` parameter)
+- Load the implementation plan from `--plan` parameter (default: `.prodigy/IMPLEMENTATION_PLAN.md`)
 - If no gaps provided, analyze current debtmap state to identify remaining issues
 - Parse gaps JSON to understand what specific improvements are needed
+- Review the original plan to understand context
 - Prioritize gaps by severity and impact
 
 ### Step 2: Analyze Technical Debt Gaps
