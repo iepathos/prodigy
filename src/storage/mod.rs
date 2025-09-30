@@ -53,7 +53,24 @@ pub fn extract_repo_name(repo_path: &Path) -> Result<String> {
 }
 
 /// Get the default storage directory (~/.prodigy)
+///
+/// Can be overridden with the PRODIGY_HOME environment variable for testing.
 pub fn get_default_storage_dir() -> Result<PathBuf> {
+    // Check for PRODIGY_HOME environment variable first
+    if let Ok(prodigy_home) = std::env::var("PRODIGY_HOME") {
+        let path = PathBuf::from(prodigy_home);
+        // Create directory if it doesn't exist
+        if !path.exists() {
+            std::fs::create_dir_all(&path).with_context(|| {
+                format!(
+                    "Failed to create PRODIGY_HOME directory: {}",
+                    path.display()
+                )
+            })?;
+        }
+        return Ok(path);
+    }
+
     // During tests, use a temp directory to avoid filesystem issues
     #[cfg(test)]
     {

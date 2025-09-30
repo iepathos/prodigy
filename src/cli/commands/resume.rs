@@ -23,14 +23,11 @@ pub async fn run_resume_workflow(
         ));
     };
 
-    // Find checkpoint directory for this session
-    let home = directories::BaseDirs::new()
-        .ok_or_else(|| anyhow!("Could not determine home directory"))?
-        .home_dir()
-        .to_path_buf();
+    // Find checkpoint directory for this session using storage abstraction
+    let prodigy_home = crate::storage::get_default_storage_dir()
+        .context("Failed to determine Prodigy storage directory")?;
 
-    let checkpoint_dir = home
-        .join(".prodigy")
+    let checkpoint_dir = prodigy_home
         .join("state")
         .join(&session_id)
         .join("checkpoints");
@@ -115,8 +112,7 @@ pub async fn run_resume_workflow(
     );
 
     // Get worktree path for this session
-    let worktree_path = home
-        .join(".prodigy")
+    let worktree_path = prodigy_home
         .join("worktrees")
         .join("prodigy") // TODO: Get actual repo name
         .join(&session_id);

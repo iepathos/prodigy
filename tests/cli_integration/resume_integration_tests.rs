@@ -2,20 +2,45 @@
 // Tests actual resume behavior from different interruption points
 
 use super::test_utils::*;
+use prodigy::testing::fixtures::isolation::TestEnv;
 use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
+use tempfile::TempDir;
+
+/// Helper to setup isolated PRODIGY_HOME for a test
+///
+/// Returns a tuple of (TestEnv, TempDir) where TestEnv will restore the environment
+/// and TempDir will be automatically cleaned up when dropped.
+fn setup_test_prodigy_home() -> (TestEnv, TempDir) {
+    let temp_dir = TempDir::new().expect("Failed to create temp directory for PRODIGY_HOME");
+    let mut env = TestEnv::new();
+    env.set("PRODIGY_HOME", temp_dir.path().to_str().unwrap());
+    (env, temp_dir)
+}
 
 /// Helper to create a test checkpoint
+///
+/// Creates checkpoints in the location specified by PRODIGY_HOME environment variable
+/// (which should be set by the test to a temp directory for isolation)
 fn create_test_checkpoint(
-    checkpoint_dir: &PathBuf,
+    _local_checkpoint_dir: &PathBuf,
     workflow_id: &str,
     commands_executed: usize,
     total_commands: usize,
     variables: serde_json::Value,
 ) {
-    // The checkpoint_dir is .prodigy/checkpoints
-    let session_dir = checkpoint_dir;
+    // Get PRODIGY_HOME from environment (set by test)
+    let prodigy_home =
+        std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME must be set in test environment");
+
+    let session_dir = PathBuf::from(prodigy_home)
+        .join("state")
+        .join(workflow_id)
+        .join("checkpoints");
+
+    // Create the directory structure
+    fs::create_dir_all(&session_dir).expect("Failed to create checkpoint directory");
 
     // Create a properly structured WorkflowCheckpoint
     let now = chrono::Utc::now();
@@ -52,16 +77,16 @@ fn create_test_checkpoint(
         "workflow_hash": "test-hash-12345",
         "total_steps": total_commands,
         "workflow_name": "test-resume-workflow",
-        "workflow_path": null
+        "workflow_path": "test-resume-workflow.yaml"
     });
 
     // Save as {workflow_id}.checkpoint.json
-    fs::create_dir_all(session_dir).unwrap();
+    let checkpoint_file = session_dir.join(format!("{}.checkpoint.json", workflow_id));
     fs::write(
-        session_dir.join(format!("{}.checkpoint.json", workflow_id)),
+        &checkpoint_file,
         serde_json::to_string_pretty(&checkpoint).unwrap(),
     )
-    .unwrap();
+    .expect("Failed to write checkpoint file");
 }
 
 /// Helper to create a test workflow file
@@ -91,6 +116,9 @@ commands:
 
 #[test]
 fn test_resume_from_early_interruption() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Create CliTest first to get its temp directory
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -109,17 +137,22 @@ fn test_resume_from_early_interruption() {
     });
     create_test_checkpoint(&checkpoint_dir, workflow_id, 1, 5, variables);
 
-    // Verify the checkpoint file was created
-    let checkpoint_file = checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
+    // Verify the checkpoint file was created in PRODIGY_HOME
+    let prodigy_home = std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set");
+    let actual_checkpoint_dir = PathBuf::from(prodigy_home)
+        .join("state")
+        .join(workflow_id)
+        .join("checkpoints");
+    let checkpoint_file = actual_checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
     assert!(
         checkpoint_file.exists(),
         "Checkpoint file should exist at {:?}",
         checkpoint_file
     );
     assert!(
-        checkpoint_dir.exists(),
+        actual_checkpoint_dir.exists(),
         "Checkpoint directory should exist at {:?}",
-        checkpoint_dir
+        actual_checkpoint_dir
     );
 
     // Resume the workflow
@@ -369,6 +402,9 @@ commands:
 
 #[test]
 fn test_resume_completed_workflow() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Create CliTest first to get its temp directory
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -1022,6 +1058,9 @@ fn test_checkpoint_with_error_recovery_state_serialization() {
 
 #[test]
 fn test_end_to_end_error_handler_execution_after_resume() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Comprehensive end-to-end test that verifies error handlers execute correctly after resume
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
