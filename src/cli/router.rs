@@ -54,11 +54,11 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
             path,
         }) => run_batch_command(pattern, command, parallel, retry, timeout, path).await,
         Some(Commands::Resume {
-            workflow_id,
+            session_id,
             force,
             from_checkpoint,
             path,
-        }) => run_resume_workflow(workflow_id, force, from_checkpoint, path).await,
+        }) => run_resume_workflow(session_id, force, from_checkpoint, path).await,
         Some(Commands::Checkpoints { command }) => run_checkpoints_command(command, verbose).await,
         Some(Commands::GoalSeek {
             goal,

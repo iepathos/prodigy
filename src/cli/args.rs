@@ -114,14 +114,14 @@ pub enum Commands {
     /// Resume an interrupted workflow
     #[command(name = "resume")]
     Resume {
-        /// Workflow ID to resume (optional - will auto-detect last interrupted)
-        workflow_id: Option<String>,
+        /// Session ID to resume
+        session_id: Option<String>,
 
-        /// Force resume even if marked complete
+        /// Force restart from beginning
         #[arg(long)]
         force: bool,
 
-        /// Resume from specific checkpoint
+        /// Resume from specific checkpoint (defaults to latest)
         #[arg(long = "from-checkpoint")]
         from_checkpoint: Option<String>,
 

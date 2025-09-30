@@ -343,8 +343,40 @@ impl DefaultCookOrchestrator {
 
     /// Resume an interrupted workflow
     async fn resume_workflow(&self, session_id: &str, mut config: CookConfig) -> Result<()> {
-        // Load the session state
-        let state = self.session_manager.load_session(session_id).await?;
+        // Try to load the session state from UnifiedSessionManager
+        // If it doesn't exist, we'll fall back to loading from the worktree session file
+        let state_result = self.session_manager.load_session(session_id).await;
+
+        let state = match state_result {
+            Ok(s) => s,
+            Err(_) => {
+                // Session not found in unified storage, try loading from worktree
+                let home = directories::BaseDirs::new()
+                    .ok_or_else(|| anyhow!("Could not determine home directory"))?
+                    .home_dir()
+                    .to_path_buf();
+
+                let worktree_path = home
+                    .join(".prodigy")
+                    .join("worktrees")
+                    .join(config.project_path.file_name().unwrap_or_default())
+                    .join(session_id);
+
+                let session_file = worktree_path.join(".prodigy").join("session_state.json");
+
+                if !session_file.exists() {
+                    return Err(anyhow!(
+                        "Session not found: {}\nTried:\n  - Unified session storage\n  - Worktree session file: {}",
+                        session_id,
+                        session_file.display()
+                    ));
+                }
+
+                // Load from worktree session file
+                self.session_manager.load_state(&session_file).await?;
+                self.session_manager.get_state()?
+            }
+        };
 
         // Validate the session is resumable
         if !state.is_resumable() {
@@ -1171,15 +1203,15 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     self.user_interaction
                         .display_error(&format!("Session failed: {e}"));
 
-                    // Display how to resume the session
+                    // Display how to resume the session - show this for any failure with workflow state
                     let state = self
                         .session_manager
                         .get_state()
                         .context("Failed to get session state for resume info")?;
-                    if state.is_resumable() {
+                    // Show resume command if there's workflow state (checkpoint exists)
+                    if state.workflow_state.is_some() {
                         self.user_interaction.display_info(&format!(
-                            "\n💡 To resume this session, run: prodigy run {} --resume {}",
-                            config.command.playbook.display(),
+                            "\n💡 To resume from last checkpoint, run: prodigy resume {}",
                             env.session_id
                         ));
                     }
