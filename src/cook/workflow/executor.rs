@@ -4535,8 +4535,9 @@ impl WorkflowExecutor {
         }
 
         // Create worktree manager
+        // Use working_dir as base for MapReduce agent worktrees so they branch from parent worktree
         let worktree_manager = Arc::new(WorktreeManager::new(
-            env.project_dir.to_path_buf(),
+            env.working_dir.to_path_buf(),
             self.subprocess.clone(),
         )?);
 
