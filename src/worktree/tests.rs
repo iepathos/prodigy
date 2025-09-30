@@ -510,7 +510,9 @@ async fn test_worktree_from_detached_head() -> anyhow::Result<()> {
         .current_dir(&temp_dir)
         .args(["rev-parse", "HEAD"])
         .output()?;
-    let commit_hash = String::from_utf8_lossy(&commit_output.stdout).trim().to_string();
+    let commit_hash = String::from_utf8_lossy(&commit_output.stdout)
+        .trim()
+        .to_string();
 
     // Checkout detached HEAD
     Command::new("git")
@@ -536,7 +538,9 @@ async fn test_worktree_from_detached_head() -> anyhow::Result<()> {
 
         if let Ok(output) = symbolic_output {
             let symbolic_ref = String::from_utf8_lossy(&output.stdout);
-            symbolic_ref.trim().strip_prefix("refs/remotes/origin/")
+            symbolic_ref
+                .trim()
+                .strip_prefix("refs/remotes/origin/")
                 .unwrap_or("master")
                 .to_string()
         } else {
@@ -611,7 +615,9 @@ async fn test_original_branch_deleted() -> anyhow::Result<()> {
 
     let expected_branch = if let Ok(output) = default_branch_output {
         let symbolic_ref = String::from_utf8_lossy(&output.stdout);
-        symbolic_ref.trim().strip_prefix("refs/remotes/origin/")
+        symbolic_ref
+            .trim()
+            .strip_prefix("refs/remotes/origin/")
             .unwrap_or("master")
             .to_string()
     } else {

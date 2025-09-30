@@ -1418,14 +1418,14 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     config.command.verbosity,
                     None,
                 )?;
-                let merge_target = temp_manager.get_merge_target(worktree_name).await
+                let merge_target = temp_manager
+                    .get_merge_target(worktree_name)
+                    .await
                     .unwrap_or_else(|_| "master".to_string());
 
                 // Ask user if they want to merge, showing the target branch
                 let prompt = format!("Merge {} to {}? [y/N]", worktree_name, merge_target);
-                self.user_interaction
-                    .prompt_yes_no(&prompt)
-                    .await?
+                self.user_interaction.prompt_yes_no(&prompt).await?
             };
 
             if should_merge {

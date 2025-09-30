@@ -215,7 +215,10 @@ impl WorktreeManager {
                 warn!("Failed to determine default branch: {}, using master", e);
                 String::from("master")
             });
-            info!("Detached HEAD detected, using default branch: {}", original_branch);
+            info!(
+                "Detached HEAD detected, using default branch: {}",
+                original_branch
+            );
         }
 
         info!("Creating worktree from branch: {}", original_branch);
