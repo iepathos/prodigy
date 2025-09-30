@@ -1,5 +1,12 @@
 // Comprehensive integration tests for resume functionality
 // Tests actual resume behavior from different interruption points
+//
+// NOTE: These tests currently fail because they don't create the worktrees
+// that the resume command expects. The test isolation (PRODIGY_HOME) is working
+// correctly - the tests can find their checkpoints. The issue is that resume
+// requires worktrees to exist, but the tests only create checkpoints without
+// corresponding worktrees. This is a test architecture issue that needs to be
+// addressed separately from test isolation.
 
 use super::test_utils::*;
 use prodigy::testing::fixtures::isolation::TestEnv;
@@ -200,6 +207,9 @@ fn test_resume_from_early_interruption() {
 
 #[test]
 fn test_resume_from_middle_interruption() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -259,6 +269,9 @@ fn test_resume_from_middle_interruption() {
 
 #[test]
 fn test_resume_with_variable_preservation() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -312,6 +325,9 @@ commands:
 
 #[test]
 fn test_resume_with_retry_state() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -506,6 +522,9 @@ fn test_resume_completed_workflow() {
 
 #[test]
 fn test_resume_with_force_restart() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -536,6 +555,9 @@ fn test_resume_with_force_restart() {
 
 #[test]
 fn test_resume_parallel_workflow() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -630,6 +652,9 @@ commands:
 
 #[test]
 fn test_resume_with_checkpoint_cleanup() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -642,8 +667,13 @@ fn test_resume_with_checkpoint_cleanup() {
     // Create checkpoint
     create_test_checkpoint(&checkpoint_dir, workflow_id, 4, 5, json!({}));
 
-    // Checkpoint files are saved in .prodigy/checkpoints
-    let checkpoint_file = checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
+    // Checkpoint files are saved in PRODIGY_HOME
+    let prodigy_home = std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set");
+    let checkpoint_file = PathBuf::from(prodigy_home)
+        .join("state")
+        .join(workflow_id)
+        .join("checkpoints")
+        .join(format!("{}.checkpoint.json", workflow_id));
     assert!(
         checkpoint_file.exists(),
         "Checkpoint should exist before resume"
@@ -685,6 +715,9 @@ fn test_resume_with_checkpoint_cleanup() {
 #[test]
 #[ignore = "Error recovery during resume not fully implemented"]
 fn test_resume_with_error_recovery() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -729,6 +762,9 @@ commands:
 
 #[test]
 fn test_resume_multiple_checkpoints() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Use CliTest to get a temp directory with git initialized
     let test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -743,15 +779,30 @@ fn test_resume_multiple_checkpoints() {
     // List available checkpoints (when list command is implemented)
     // This test is a placeholder for when 'prodigy checkpoints list' is added
 
-    // Verify checkpoint files exist in the checkpoints directory
-    assert!(checkpoint_dir.join("workflow-1.checkpoint.json").exists());
-    assert!(checkpoint_dir.join("workflow-2.checkpoint.json").exists());
-    assert!(checkpoint_dir.join("workflow-3.checkpoint.json").exists());
+    // Verify checkpoint files exist in PRODIGY_HOME
+    let prodigy_home = std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set");
+    let prodigy_home_path = PathBuf::from(prodigy_home);
+    for i in 1..=3 {
+        let workflow_id = format!("workflow-{}", i);
+        let checkpoint_file = prodigy_home_path
+            .join("state")
+            .join(&workflow_id)
+            .join("checkpoints")
+            .join(format!("{}.checkpoint.json", workflow_id));
+        assert!(
+            checkpoint_file.exists(),
+            "Checkpoint should exist at {:?}",
+            checkpoint_file
+        );
+    }
 }
 
 #[test]
 #[ignore = "MapReduce resume not fully implemented"]
 fn test_resume_with_mapreduce_state() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
@@ -837,6 +888,9 @@ reduce:
 
 #[test]
 fn test_resume_workflow_with_on_failure_handlers() {
+    // Setup isolated PRODIGY_HOME for this test
+    let (_env, _prodigy_home) = setup_test_prodigy_home();
+
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
