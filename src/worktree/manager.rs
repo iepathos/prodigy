@@ -1735,15 +1735,15 @@ impl WorktreeManager {
         tracing::info!("Actual execution directory: {}", self.repo_path.display());
         tracing::info!("==============================");
 
-        tracing::info!(
+        tracing::debug!(
             "Claude execution mode: streaming={}, env_var={:?}",
             self.verbosity >= 1,
             env_vars.get("PRODIGY_CLAUDE_STREAMING")
         );
         if self.verbosity >= 1 {
-            tracing::info!("Using streaming mode for Claude command");
+            tracing::debug!("Using streaming mode for Claude command");
         } else {
-            tracing::info!("Using print mode for Claude command");
+            tracing::debug!("Using print mode for Claude command");
         }
     }
 

@@ -88,7 +88,7 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
             .get("PRODIGY_CLAUDE_STREAMING")
             .is_some_and(|v| v == "true");
 
-        tracing::info!(
+        tracing::debug!(
             "Claude execution mode: streaming={}, env_var={:?}",
             streaming_enabled,
             env_vars.get("PRODIGY_CLAUDE_STREAMING")
@@ -96,12 +96,12 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
 
         if streaming_enabled {
             // Try streaming mode, even without event logger (output will still be captured)
-            tracing::info!("Using streaming mode for Claude command");
+            tracing::debug!("Using streaming mode for Claude command");
             self.execute_with_streaming(command, project_path, env_vars)
                 .await
         } else {
             // Existing --print mode execution
-            tracing::info!("Using print mode for Claude command");
+            tracing::debug!("Using print mode for Claude command");
             self.execute_with_print(command, project_path, env_vars)
                 .await
         }
