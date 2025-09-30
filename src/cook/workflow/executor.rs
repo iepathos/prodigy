@@ -7,6 +7,8 @@
 mod commands;
 #[path = "executor/failure_handler.rs"]
 mod failure_handler;
+#[path = "executor/orchestration.rs"]
+mod orchestration;
 #[path = "executor/pure.rs"]
 mod pure;
 
@@ -2657,10 +2659,8 @@ impl WorkflowExecutor {
 
         // Only show workflow info for non-empty workflows
         if !workflow.steps.is_empty() {
-            self.user_interaction.display_info(&format!(
-                "Executing workflow: {} (max {} iterations)",
-                workflow.name, effective_max_iterations
-            ));
+            let start_msg = orchestration::format_workflow_start(&workflow.name, effective_max_iterations);
+            self.user_interaction.display_info(&start_msg);
         }
 
         if workflow.iterate {
@@ -2690,10 +2690,8 @@ impl WorkflowExecutor {
             let iteration_vars = Self::build_iteration_context(iteration);
             workflow_context.iteration_vars.extend(iteration_vars);
 
-            self.user_interaction.display_progress(&format!(
-                "Starting iteration {}/{}",
-                iteration, effective_max_iterations
-            ));
+            let iteration_msg = orchestration::format_iteration_progress(iteration, effective_max_iterations);
+            self.user_interaction.display_progress(&iteration_msg);
 
             // Start iteration timing
             self.timing_tracker.start_iteration();
@@ -2712,12 +2710,12 @@ impl WorkflowExecutor {
             for (step_index, step) in workflow.steps.iter().enumerate() {
                 // Check if we should skip this step (already completed in previous run)
                 if Self::should_skip_step_execution(step_index, &self.completed_steps) {
-                    self.user_interaction.display_info(&format!(
-                        "Skipping already completed step {}/{}: {}",
-                        step_index + 1,
+                    let skip_msg = orchestration::format_skip_step(
+                        step_index,
                         workflow.steps.len(),
-                        self.get_step_display_name(step)
-                    ));
+                        &self.get_step_display_name(step),
+                    );
+                    self.user_interaction.display_info(&skip_msg);
                     continue;
                 }
 
@@ -2730,12 +2728,12 @@ impl WorkflowExecutor {
                 self.current_step_index = Some(step_index);
 
                 let step_display = self.get_step_display_name(step);
-                self.user_interaction.display_progress(&format!(
-                    "Executing step {}/{}: {}",
-                    step_index + 1,
+                let step_msg = orchestration::format_step_progress(
+                    step_index,
                     workflow.steps.len(),
-                    step_display
-                ));
+                    &step_display,
+                );
+                self.user_interaction.display_progress(&step_msg);
 
                 // Get HEAD before command execution if we need to verify commits
                 let head_before = if !execution_flags.skip_validation
@@ -2780,59 +2778,42 @@ impl WorkflowExecutor {
                 }
 
                 // Track the completed step with output
-                let completed_step = crate::cook::session::StepResult {
+                let completed_step = orchestration::build_session_step_result(
                     step_index,
-                    command: step_display.clone(),
-                    success: step_result.success,
-                    output: if step.capture_output.is_enabled() {
-                        Some(step_result.stdout.clone())
-                    } else {
-                        None
-                    },
-                    duration: command_duration,
-                    error: if !step_result.success {
-                        Some(step_result.stderr.clone())
-                    } else {
-                        None
-                    },
-                    started_at: step_started_at,
-                    completed_at: step_completed_at,
-                    exit_code: step_result.exit_code,
-                };
+                    step_display.clone(),
+                    step,
+                    &step_result,
+                    command_duration,
+                    step_started_at,
+                    step_completed_at,
+                );
                 self.completed_steps.push(completed_step.clone());
 
                 // Also track for checkpoint system
-                let checkpoint_step = CheckpointCompletedStep {
+                let checkpoint_step = orchestration::build_checkpoint_step(
                     step_index,
-                    command: step_display.clone(),
-                    success: step_result.success,
-                    output: if step.capture_output.is_enabled() {
-                        Some(step_result.stdout.clone())
-                    } else {
-                        None
-                    },
-                    captured_variables: workflow_context.captured_outputs.clone(),
-                    duration: command_duration,
-                    completed_at: step_completed_at,
-                    retry_state: None,
-                };
+                    step_display.clone(),
+                    step,
+                    &step_result,
+                    &workflow_context,
+                    command_duration,
+                    step_completed_at,
+                );
                 self.checkpoint_completed_steps.push(checkpoint_step);
 
                 // Save checkpoint if manager is available
                 if let Some(ref checkpoint_manager) = self.checkpoint_manager {
                     if let Some(ref workflow_id) = self.workflow_id {
                         // Create a normalized workflow for hashing (simplified)
-                        let workflow_hash = format!("{:?}", workflow.steps.len());
+                        let workflow_hash = orchestration::create_workflow_hash(&workflow.name, workflow.steps.len());
+
+                        // Build normalized workflow
+                        let normalized_workflow = orchestration::create_normalized_workflow(&workflow.name, &workflow_context);
 
                         // Build checkpoint
                         let mut checkpoint = create_checkpoint_with_total_steps(
                             workflow_id.clone(),
-                            &normalized::NormalizedWorkflow {
-                                name: Arc::from(workflow.name.clone()),
-                                steps: Arc::from([]), // We'd need to convert, but for now use empty
-                                execution_mode: normalized::ExecutionMode::Sequential,
-                                variables: Arc::new(workflow_context.variables.clone()),
-                            },
+                            &normalized_workflow,
                             &workflow_context,
                             self.checkpoint_completed_steps.clone(),
                             step_index + 1,

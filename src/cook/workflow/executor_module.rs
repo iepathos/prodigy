@@ -9,6 +9,7 @@
 
 pub mod commands;
 pub mod failure_handler;
+pub mod orchestration;
 pub mod pure;
 
 // Re-export commonly used items from pure module
@@ -30,4 +31,11 @@ pub use failure_handler::{
     create_retry_attempt, determine_recovery_strategy, format_retry_message,
     format_retry_success_message, is_handler_failure_fatal, mark_step_recovered,
     should_attempt_retry, should_retry_error, RetryContext,
+};
+
+// Re-export commonly used items from orchestration module
+pub use orchestration::{
+    build_checkpoint_step, build_session_step_result, calculate_progress_percentage,
+    create_normalized_workflow, create_workflow_hash, format_iteration_progress,
+    format_skip_step, format_step_progress, format_workflow_start, should_continue_iteration,
 };
