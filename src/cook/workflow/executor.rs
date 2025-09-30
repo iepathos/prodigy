@@ -7,6 +7,8 @@
 mod pure;
 #[path = "executor/commands.rs"]
 mod commands;
+#[path = "executor/failure_handler.rs"]
+mod failure_handler;
 
 use crate::abstractions::git::{GitOperations, RealGitOperations};
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};

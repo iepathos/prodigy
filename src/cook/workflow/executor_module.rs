@@ -3,10 +3,12 @@
 //! This module is being refactored to follow functional programming principles:
 //! - Pure functions separated from I/O operations (pure.rs)
 //! - Command execution separated from orchestration (commands.rs)
+//! - Failure handling and retry logic isolated (failure_handler.rs)
 //! - Clear module boundaries with single responsibilities
 //! - Improved testability and composability
 
 pub mod commands;
+pub mod failure_handler;
 pub mod pure;
 
 // Re-export commonly used items from pure module
@@ -20,4 +22,12 @@ pub use pure::{
 pub use commands::{
     execute_claude_command, execute_foreach_command, execute_goal_seek_command,
     execute_shell_command, format_command_description,
+};
+
+// Re-export commonly used items from failure_handler module
+pub use failure_handler::{
+    append_handler_output, build_retry_exhausted_message, calculate_retry_delay,
+    create_retry_attempt, determine_recovery_strategy, format_retry_message,
+    format_retry_success_message, is_handler_failure_fatal, mark_step_recovered,
+    should_attempt_retry, should_retry_error, RetryContext,
 };
