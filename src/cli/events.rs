@@ -1634,6 +1634,103 @@ async fn clean_specific_file(
     }
 }
 
+// Pure function: Calculate archived count based on policy
+fn calculate_archived_count(
+    events_count: usize,
+    archive_enabled: bool,
+) -> usize {
+    if archive_enabled { events_count } else { 0 }
+}
+
+// Pure function: Aggregate statistics
+fn aggregate_stats(
+    (cleaned, archived): (usize, usize),
+    new_cleaned: usize,
+    new_archived: usize,
+) -> (usize, usize) {
+    (cleaned + new_cleaned, archived + new_archived)
+}
+
+// Pure function: Extract job name from directory path
+fn extract_job_name(job_dir: &Path) -> String {
+    job_dir
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+// I/O function: Process event file in dry-run mode
+async fn process_event_file_dry_run(
+    event_file: PathBuf,
+    policy: &crate::cook::execution::events::retention::RetentionPolicy,
+    output_format: &str,
+) -> Result<(usize, usize)> {
+    use crate::cook::execution::events::retention::RetentionManager;
+
+    let retention = RetentionManager::new(policy.clone(), event_file.clone());
+    let analysis = retention.analyze_retention().await?;
+
+    if output_format != "json" && analysis.events_to_remove > 0 {
+        println!("  Analyzing: {:?}", event_file);
+        println!("    Would remove {} events", analysis.events_to_remove);
+        println!("    Would save {} bytes", analysis.space_to_save);
+    } else if output_format != "json" {
+        println!("  Analyzing: {:?}", event_file);
+        println!("    No events to remove");
+    }
+
+    let archived = calculate_archived_count(analysis.events_to_archive, policy.archive_old_events);
+    Ok((analysis.events_to_remove, archived))
+}
+
+// I/O function: Process event file with actual retention
+async fn process_event_file_actual(
+    event_file: PathBuf,
+    policy: &crate::cook::execution::events::retention::RetentionPolicy,
+) -> Result<(usize, usize)> {
+    use crate::cook::execution::events::retention::RetentionManager;
+
+    let retention = RetentionManager::new(policy.clone(), event_file);
+    let stats = retention.apply_retention().await?;
+
+    if stats.events_removed > 0 {
+        println!(
+            "  Cleaned: {} events, {:.1}% space saved",
+            stats.events_removed,
+            stats.space_saved_percentage()
+        );
+    }
+
+    let archived = calculate_archived_count(stats.events_removed, policy.archive_old_events);
+    Ok((stats.events_removed, archived))
+}
+
+// I/O function: Process all event files in a job directory
+async fn process_job_directory(
+    job_dir: PathBuf,
+    policy: &crate::cook::execution::events::retention::RetentionPolicy,
+    dry_run: bool,
+    output_format: &str,
+) -> Result<(usize, usize)> {
+    let job_name = extract_job_name(&job_dir);
+    println!("Processing job: {}", job_name);
+
+    let event_files = find_event_files(&job_dir)?;
+    let mut stats = (0usize, 0usize);
+
+    for event_file in event_files {
+        let (cleaned, archived) = if dry_run {
+            process_event_file_dry_run(event_file, policy, output_format).await?
+        } else {
+            process_event_file_actual(event_file, policy).await?
+        };
+
+        stats = aggregate_stats(stats, cleaned, archived);
+    }
+
+    Ok(stats)
+}
+
 /// Clean events from global storage
 async fn clean_global_storage(
     job_id: Option<&str>,
@@ -1641,8 +1738,6 @@ async fn clean_global_storage(
     dry_run: bool,
     output_format: &str,
 ) -> Result<(usize, usize)> {
-    use crate::cook::execution::events::retention::RetentionManager;
-
     let current_dir = std::env::current_dir()?;
     let repo_name = crate::storage::extract_repo_name(&current_dir)?;
     let global_base = crate::storage::get_default_storage_dir()?;
@@ -1664,51 +1759,13 @@ async fn clean_global_storage(
         return Ok((0, 0));
     }
 
-    let mut total_cleaned = 0usize;
-    let mut total_archived = 0usize;
-
+    let mut total_stats = (0usize, 0usize);
     for job_dir in job_dirs {
-        let job_id = job_dir
-            .file_name()
-            .map(|name| name.to_string_lossy())
-            .unwrap_or_else(|| "unknown".into());
-        println!("Processing job: {}", job_id);
-
-        let event_files = find_event_files(&job_dir)?;
-        for event_file in event_files {
-            let retention = RetentionManager::new(policy.clone(), event_file.clone());
-
-            if dry_run {
-                let analysis = retention.analyze_retention().await?;
-                if output_format != "json" {
-                    println!("  Analyzing: {:?}", event_file);
-                    if analysis.events_to_remove > 0 {
-                        println!("    Would remove {} events", analysis.events_to_remove);
-                        println!("    Would save {} bytes", analysis.space_to_save);
-                    } else {
-                        println!("    No events to remove");
-                    }
-                }
-                total_cleaned += analysis.events_to_remove;
-                if policy.archive_old_events {
-                    total_archived += analysis.events_to_archive;
-                }
-            } else {
-                let stats = retention.apply_retention().await?;
-                println!(
-                    "  Cleaned: {} events, {:.1}% space saved",
-                    stats.events_removed,
-                    stats.space_saved_percentage()
-                );
-                total_cleaned += stats.events_removed;
-                if policy.archive_old_events {
-                    total_archived += stats.events_removed;
-                }
-            }
-        }
+        let (cleaned, archived) = process_job_directory(job_dir, policy, dry_run, output_format).await?;
+        total_stats = aggregate_stats(total_stats, cleaned, archived);
     }
 
-    Ok((total_cleaned, total_archived))
+    Ok(total_stats)
 }
 
 /// Clean events from local storage
