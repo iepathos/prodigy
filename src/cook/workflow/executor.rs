@@ -3,6 +3,9 @@
 //! Executes workflow steps in sequence, verifies git commits when required,
 //! and manages iteration logic for continuous improvement sessions.
 
+#[path = "executor/pure.rs"]
+mod pure;
+
 use crate::abstractions::git::{GitOperations, RealGitOperations};
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
@@ -113,21 +116,8 @@ where
     }
 }
 
-/// Execution flags determined from environment variables
-#[derive(Debug, Clone)]
-struct ExecutionFlags {
-    test_mode: bool,
-    skip_validation: bool,
-}
-
-/// Determine continuation strategy for iterations
-#[derive(Debug, Clone)]
-enum IterationContinuation {
-    Stop(String),
-    Continue,
-    ContinueToMax,
-    AskUser,
-}
+// Re-export pure types for internal use
+use pure::{ExecutionFlags, IterationContinuation};
 
 /// Command type for workflow steps
 #[derive(Debug, Clone, PartialEq)]
@@ -2699,68 +2689,40 @@ impl WorkflowExecutor {
         }
     }
 
-    /// Pure function to determine execution flags from environment variables
+    /// Determine execution flags from environment variables (delegated to pure module)
     fn determine_execution_flags() -> ExecutionFlags {
-        ExecutionFlags {
-            test_mode: std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true",
-            skip_validation: std::env::var("PRODIGY_NO_COMMIT_VALIDATION").unwrap_or_default()
-                == "true",
-        }
+        pure::determine_execution_flags()
     }
 
-    /// Pure function to calculate effective max iterations for a workflow
+    /// Calculate effective max iterations for a workflow (delegated to pure module)
     fn calculate_effective_max_iterations(workflow: &ExtendedWorkflowConfig, dry_run: bool) -> u32 {
-        if dry_run && workflow.max_iterations > 1 {
-            1 // Limit to 1 iteration in dry-run mode
-        } else {
-            workflow.max_iterations
-        }
+        pure::calculate_effective_max_iterations(workflow, dry_run)
     }
 
-    /// Pure function to build iteration context variables
+    /// Build iteration context variables (delegated to pure module)
     fn build_iteration_context(iteration: u32) -> HashMap<String, String> {
-        let mut vars = HashMap::new();
-        vars.insert("ITERATION".to_string(), iteration.to_string());
-        vars
+        pure::build_iteration_context(iteration)
     }
 
-    /// Get summary of available variables for debugging (pure function)
+    /// Get summary of available variables for debugging (delegated to pure module)
     fn get_available_variable_summary(context: &InterpolationContext) -> String {
-        let mut variables: Vec<String> = context.variables.keys().cloned().collect();
-        variables.sort();
-
-        if variables.is_empty() {
-            "none".to_string()
-        } else if variables.len() > 10 {
-            format!(
-                "{} variables ({}...)",
-                variables.len(),
-                variables[..3].join(", ")
-            )
-        } else {
-            variables.join(", ")
-        }
+        pure::get_available_variable_summary(context)
     }
 
-    /// Pure function to validate workflow configuration
+    /// Validate workflow configuration (delegated to pure module)
     fn validate_workflow_config(workflow: &ExtendedWorkflowConfig) -> Result<()> {
-        if workflow.steps.is_empty() && workflow.mode != WorkflowMode::MapReduce {
-            return Err(anyhow::anyhow!("Workflow has no steps to execute"));
-        }
-        Ok(())
+        pure::validate_workflow_config(workflow)
     }
 
-    /// Pure function to determine if a step should be skipped
+    /// Determine if a step should be skipped (delegated to pure module)
     fn should_skip_step_execution(
         step_index: usize,
         completed_steps: &[crate::cook::session::StepResult],
     ) -> bool {
-        completed_steps
-            .iter()
-            .any(|completed| completed.step_index == step_index && completed.success)
+        pure::should_skip_step_execution(step_index, completed_steps)
     }
 
-    /// Pure function to determine if workflow should continue based on state
+    /// Determine if workflow should continue based on state (delegated to pure module)
     fn determine_iteration_continuation(
         workflow: &ExtendedWorkflowConfig,
         iteration: u32,
@@ -2770,33 +2732,15 @@ impl WorkflowExecutor {
         is_focus_tracking_test: bool,
         should_stop_early_in_test: bool,
     ) -> IterationContinuation {
-        if !workflow.iterate {
-            return IterationContinuation::Stop("Single iteration workflow".to_string());
-        }
-
-        if iteration >= max_iterations {
-            return IterationContinuation::Stop("Max iterations reached".to_string());
-        }
-
-        // Check for focus tracking test before checking for changes
-        // This ensures tests that track focus always run to completion
-        if is_focus_tracking_test {
-            return IterationContinuation::ContinueToMax;
-        }
-
-        if !any_changes {
-            return IterationContinuation::Stop("No changes were made".to_string());
-        }
-
-        if execution_flags.test_mode && should_stop_early_in_test {
-            return IterationContinuation::Stop("Early termination in test mode".to_string());
-        }
-
-        if execution_flags.test_mode {
-            return IterationContinuation::Continue;
-        }
-
-        IterationContinuation::AskUser
+        pure::determine_iteration_continuation(
+            workflow,
+            iteration,
+            max_iterations,
+            any_changes,
+            execution_flags,
+            is_focus_tracking_test,
+            should_stop_early_in_test,
+        )
     }
 
     pub async fn execute(
@@ -3150,31 +3094,17 @@ impl WorkflowExecutor {
         env_vars
     }
 
-    /// Pure function to safely format environment variable value for logging
+    /// Safely format environment variable value for logging (delegated to pure module)
     fn format_env_var_for_logging(key: &str, value: &str) -> String {
-        if key.to_lowercase().contains("secret")
-            || key.to_lowercase().contains("token")
-            || key.to_lowercase().contains("password")
-            || key.to_lowercase().contains("key")
-        {
-            "<redacted>".to_string()
-        } else if value.len() > 100 {
-            format!("{}... (truncated)", &value[..100])
-        } else {
-            value.to_string()
-        }
+        pure::format_env_var_for_logging(key, value)
     }
 
-    /// Pure function to format variable value for logging
+    /// Format variable value for logging (delegated to pure module)
     fn format_variable_for_logging(value: &str) -> String {
-        if value.len() > 100 {
-            format!("{}... (truncated)", &value[..100])
-        } else {
-            value.to_string()
-        }
+        pure::format_variable_for_logging(value)
     }
 
-    /// Pure function to determine if commit is required and validate
+    /// Determine if commit is required and validate (delegated to pure module)
     fn validate_commit_requirement(
         step: &WorkflowStep,
         tracked_commits_empty: bool,
@@ -3184,156 +3114,32 @@ impl WorkflowExecutor {
         step_name: &str,
         assumed_commits: &[String],
     ) -> Result<()> {
-        if !step.commit_required {
-            return Ok(());
-        }
-
-        if !tracked_commits_empty || head_after != head_before {
-            return Ok(());
-        }
-
-        if dry_run {
-            // Build the command description based on which command field is present
-            let command_desc = if let Some(ref cmd) = step.claude {
-                format!("claude: {}", cmd)
-            } else if let Some(ref cmd) = step.shell {
-                format!("shell: {}", cmd)
-            } else if let Some(ref cmd) = step.command {
-                format!("command: {}", cmd)
-            } else {
-                step_name.to_string()
-            };
-
-            if assumed_commits.iter().any(|c| c.contains(&command_desc)) {
-                return Ok(()); // Skip validation for assumed commits
-            }
-        }
-
-        Err(anyhow::anyhow!(
-            "Step '{}' has commit_required=true but no commits were created",
-            step_name
-        ))
+        pure::validate_commit_requirement(
+            step,
+            tracked_commits_empty,
+            head_before,
+            head_after,
+            dry_run,
+            step_name,
+            assumed_commits,
+        )
     }
 
-    /// Pure function to build step commit variables
+    /// Build step commit variables (delegated to pure module)
     fn build_commit_variables(
         tracked_commits: &[crate::cook::commit_tracker::TrackedCommit],
     ) -> Result<HashMap<String, String>> {
-        if tracked_commits.is_empty() {
-            return Ok(HashMap::new());
-        }
-
-        let tracking_result = crate::cook::commit_tracker::CommitTrackingResult::from_commits(
-            tracked_commits.to_vec(),
-        );
-
-        let mut vars = HashMap::new();
-        vars.insert(
-            "step.commits".to_string(),
-            serde_json::to_string(tracked_commits)?,
-        );
-        vars.insert(
-            "step.files_changed".to_string(),
-            tracking_result.total_files_changed.to_string(),
-        );
-        vars.insert(
-            "step.insertions".to_string(),
-            tracking_result.total_insertions.to_string(),
-        );
-        vars.insert(
-            "step.deletions".to_string(),
-            tracking_result.total_deletions.to_string(),
-        );
-
-        Ok(vars)
+        pure::build_commit_variables(tracked_commits)
     }
 
-    /// Pure function to determine if workflow should fail based on step result
+    /// Determine if workflow should fail based on step result (delegated to pure module)
     fn should_fail_workflow_for_step(step_result: &StepResult, step: &WorkflowStep) -> bool {
-        if step_result.success {
-            return false; // Command succeeded, don't fail
-        }
-
-        // Command failed, check on_failure configuration
-        if let Some(on_failure_config) = &step.on_failure {
-            on_failure_config.should_fail_workflow()
-        } else if let Some(test_cmd) = &step.test {
-            // Legacy test command handling
-            if let Some(test_on_failure) = &test_cmd.on_failure {
-                test_on_failure.fail_workflow
-            } else {
-                true // No on_failure config, fail on error
-            }
-        } else {
-            true // No on_failure handler, fail on error
-        }
+        pure::should_fail_workflow_for_step(step_result, step)
     }
 
-    /// Pure function to get step display name
-    fn get_step_display_name_pure(step: &WorkflowStep) -> String {
-        if let Some(claude_cmd) = &step.claude {
-            format!("claude: {claude_cmd}")
-        } else if let Some(shell_cmd) = &step.shell {
-            format!("shell: {shell_cmd}")
-        } else if let Some(test_cmd) = &step.test {
-            format!("test: {}", test_cmd.command)
-        } else if let Some(handler_step) = &step.handler {
-            format!("handler: {}", handler_step.name)
-        } else if let Some(name) = &step.name {
-            name.clone()
-        } else if let Some(command) = &step.command {
-            format!("command: {command}")
-        } else {
-            "unknown step".to_string()
-        }
-    }
-
-    /// Pure function to append truncated output
-    fn append_truncated_output_pure(error_msg: &mut String, output: &str) {
-        let lines: Vec<&str> = output.lines().collect();
-        if lines.len() <= 50 {
-            error_msg.push('\n');
-            error_msg.push_str(output);
-        } else {
-            // Show first 25 and last 25 lines for large outputs
-            error_msg.push('\n');
-            for line in lines.iter().take(25) {
-                error_msg.push_str(line);
-                error_msg.push('\n');
-            }
-            error_msg.push_str(&format!(
-                "\n... ({} lines truncated) ...\n\n",
-                lines.len() - 50
-            ));
-            for line in lines.iter().skip(lines.len() - 25) {
-                error_msg.push_str(line);
-                error_msg.push('\n');
-            }
-        }
-    }
-
-    /// Pure function to build error message for failed step
+    /// Build error message for failed step (delegated to pure module)
     fn build_step_error_message(step: &WorkflowStep, result: &StepResult) -> String {
-        let step_display = Self::get_step_display_name_pure(step);
-        let mut error_msg = format!("Step '{}' failed", step_display);
-
-        if let Some(exit_code) = result.exit_code {
-            error_msg.push_str(&format!(" with exit code {}", exit_code));
-        }
-
-        // Add stderr if available
-        if !result.stderr.trim().is_empty() {
-            error_msg.push_str("\n\n=== Error Output (stderr) ===");
-            Self::append_truncated_output_pure(&mut error_msg, &result.stderr);
-        }
-
-        // Add stdout if stderr was empty but stdout has content
-        if result.stderr.trim().is_empty() && !result.stdout.trim().is_empty() {
-            error_msg.push_str("\n\n=== Standard Output (stdout) ===");
-            Self::append_truncated_output_pure(&mut error_msg, &result.stdout);
-        }
-
-        error_msg
+        pure::build_step_error_message(step, result)
     }
 
     /// Execute a single workflow step

@@ -95,7 +95,7 @@ impl CookSessionAdapter {
 
             // Create a minimal WorkflowState to make the session resumable
             // The actual workflow state will be loaded from checkpoints during resume
-            use crate::cook::session::state::{WorkflowState, ExecutionEnvironment};
+            use crate::cook::session::state::{ExecutionEnvironment, WorkflowState};
             state.workflow_state = Some(WorkflowState {
                 current_iteration: 0,
                 current_step: workflow_data.current_step,
