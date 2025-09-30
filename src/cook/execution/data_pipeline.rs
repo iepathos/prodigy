@@ -520,7 +520,7 @@ impl JsonPath {
 }
 
 /// Path component for field access with array support
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum PathPart {
     Field(String),
     Index(usize),
@@ -795,36 +795,50 @@ impl FilterExpression {
     fn parse_value(value_str: &str) -> Result<Value> {
         let trimmed = value_str.trim();
 
-        // String values (quoted)
-        if (trimmed.starts_with('"') && trimmed.ends_with('"'))
-            || (trimmed.starts_with('\'') && trimmed.ends_with('\''))
-        {
-            let unquoted = &trimmed[1..trimmed.len() - 1];
-            return Ok(Value::String(unquoted.to_string()));
-        }
+        let value = Self::try_parse_quoted_string(trimmed)
+            .or_else(|| Self::try_parse_boolean(trimmed))
+            .or_else(|| Self::try_parse_null(trimmed))
+            .or_else(|| Self::try_parse_number(trimmed))
+            .unwrap_or_else(|| Value::String(trimmed.to_string()));
 
-        // Boolean values
-        if trimmed == "true" {
-            return Ok(Value::Bool(true));
-        }
-        if trimmed == "false" {
-            return Ok(Value::Bool(false));
-        }
+        Ok(value)
+    }
 
-        // Null value
-        if trimmed == "null" {
-            return Ok(Value::Null);
-        }
+    /// Pure function: Try to parse a quoted string
+    fn try_parse_quoted_string(s: &str) -> Option<Value> {
+        Self::is_quoted(s).then(|| Value::String(Self::unquote(s)))
+    }
 
-        // Number values
-        if let Ok(num) = trimmed.parse::<f64>() {
-            return Ok(serde_json::Number::from_f64(num)
-                .map(Value::Number)
-                .unwrap_or(Value::Null));
-        }
+    /// Pure function: Check if string is quoted
+    fn is_quoted(s: &str) -> bool {
+        (s.starts_with('"') && s.ends_with('"'))
+            || (s.starts_with('\'') && s.ends_with('\''))
+    }
 
-        // Default to string
-        Ok(Value::String(trimmed.to_string()))
+    /// Pure function: Remove quotes from string
+    fn unquote(s: &str) -> String {
+        s[1..s.len() - 1].to_string()
+    }
+
+    /// Pure function: Try to parse a boolean value
+    fn try_parse_boolean(s: &str) -> Option<Value> {
+        match s {
+            "true" => Some(Value::Bool(true)),
+            "false" => Some(Value::Bool(false)),
+            _ => None,
+        }
+    }
+
+    /// Pure function: Try to parse a null value
+    fn try_parse_null(s: &str) -> Option<Value> {
+        (s == "null").then_some(Value::Null)
+    }
+
+    /// Pure function: Try to parse a numeric value
+    fn try_parse_number(s: &str) -> Option<Value> {
+        s.parse::<f64>()
+            .ok()
+            .and_then(|num| serde_json::Number::from_f64(num).map(Value::Number))
     }
 
     /// Evaluate the filter expression against a JSON value
@@ -888,275 +902,282 @@ impl FilterExpression {
         Some(current)
     }
 
-    /// Parse a path that may contain array indices
+    /// Parse a path that may contain array indices (e.g., "field.array[0].nested")
     fn parse_path_with_array(path: &str) -> Vec<PathPart> {
         let mut parts = Vec::new();
-        let mut current = String::new();
         let mut chars = path.chars().peekable();
 
-        while let Some(ch) = chars.next() {
-            match ch {
-                '.' => {
-                    if !current.is_empty() {
-                        parts.push(PathPart::Field(current.clone()));
-                        current.clear();
-                    }
-                }
-                '[' => {
-                    if !current.is_empty() {
-                        parts.push(PathPart::Field(current.clone()));
-                        current.clear();
-                    }
-                    // Parse array index
-                    let mut index = String::new();
-                    for ch in chars.by_ref() {
-                        if ch == ']' {
-                            break;
-                        }
-                        index.push(ch);
-                    }
-                    if let Ok(idx) = index.parse::<usize>() {
-                        parts.push(PathPart::Index(idx));
-                    }
-                }
-                _ => {
-                    current.push(ch);
-                }
+        while chars.peek().is_some() {
+            if let Some(part) = Self::parse_next_path_part(&mut chars) {
+                parts.push(part);
             }
-        }
-
-        if !current.is_empty() {
-            parts.push(PathPart::Field(current));
         }
 
         parts
     }
 
+    /// Pure function: Parse the next path part from character iterator
+    fn parse_next_path_part(chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<PathPart> {
+        // Skip dots
+        if chars.peek() == Some(&'.') {
+            chars.next();
+        }
+
+        // Check if we're parsing an array index
+        if chars.peek() == Some(&'[') {
+            return Self::parse_array_index(chars);
+        }
+
+        // Parse field name
+        Self::parse_field_name(chars)
+    }
+
+    /// Pure function: Parse a field name until we hit '.', '[', or end
+    fn parse_field_name(chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<PathPart> {
+        let mut field = String::new();
+
+        while let Some(&ch) = chars.peek() {
+            if ch == '.' || ch == '[' {
+                break;
+            }
+            field.push(ch);
+            chars.next();
+        }
+
+        (!field.is_empty()).then(|| PathPart::Field(field))
+    }
+
+    /// Pure function: Parse an array index from "[N]"
+    fn parse_array_index(chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<PathPart> {
+        // Consume opening bracket
+        chars.next()?;
+
+        // Collect digits until closing bracket
+        let mut index_str = String::new();
+        while let Some(&ch) = chars.peek() {
+            if ch == ']' {
+                break;
+            }
+            index_str.push(ch);
+            chars.next();
+        }
+
+        // Consume closing bracket
+        chars.next();
+
+        index_str.parse::<usize>().ok().map(PathPart::Index)
+    }
+
     /// Compare two values using the given operator
     fn compare(actual: Option<&Value>, op: &ComparisonOp, expected: &Value) -> bool {
         match op {
-            ComparisonOp::Equal => {
-                // Special handling for null comparisons
-                match (actual, expected) {
-                    (None, Value::Null) => true,              // Missing field equals null
-                    (Some(Value::Null), Value::Null) => true, // Explicit null equals null
-                    _ => actual == Some(expected),
-                }
+            ComparisonOp::Equal => Self::compare_equal(actual, expected),
+            ComparisonOp::NotEqual => Self::compare_not_equal(actual, expected),
+            ComparisonOp::Greater => Self::compare_greater(actual, expected),
+            ComparisonOp::Less => Self::compare_less(actual, expected),
+            ComparisonOp::GreaterEqual => Self::compare_greater_equal(actual, expected),
+            ComparisonOp::LessEqual => Self::compare_less_equal(actual, expected),
+            ComparisonOp::Contains => Self::compare_string_op(actual, expected, |a, e| a.contains(e)),
+            ComparisonOp::StartsWith => Self::compare_string_op(actual, expected, |a, e| a.starts_with(e)),
+            ComparisonOp::EndsWith => Self::compare_string_op(actual, expected, |a, e| a.ends_with(e)),
+            ComparisonOp::Matches => Self::compare_regex(actual, expected),
+        }
+    }
+
+    /// Pure function: Compare for equality with null handling
+    fn compare_equal(actual: Option<&Value>, expected: &Value) -> bool {
+        match (actual, expected) {
+            (None, Value::Null) => true,              // Missing field equals null
+            (Some(Value::Null), Value::Null) => true, // Explicit null equals null
+            _ => actual == Some(expected),
+        }
+    }
+
+    /// Pure function: Compare for inequality with null handling
+    fn compare_not_equal(actual: Option<&Value>, expected: &Value) -> bool {
+        !Self::compare_equal(actual, expected)
+    }
+
+    /// Pure function: Compare for greater than
+    fn compare_greater(actual: Option<&Value>, expected: &Value) -> bool {
+        Self::compare_numeric_or_string(actual, expected, |a, e| a > e, |a, e| a > e)
+    }
+
+    /// Pure function: Compare for less than
+    fn compare_less(actual: Option<&Value>, expected: &Value) -> bool {
+        Self::compare_numeric_or_string(actual, expected, |a, e| a < e, |a, e| a < e)
+    }
+
+    /// Pure function: Compare for greater than or equal
+    fn compare_greater_equal(actual: Option<&Value>, expected: &Value) -> bool {
+        Self::compare_numeric_or_string(actual, expected, |a, e| a >= e, |a, e| a >= e)
+    }
+
+    /// Pure function: Compare for less than or equal
+    fn compare_less_equal(actual: Option<&Value>, expected: &Value) -> bool {
+        Self::compare_numeric_or_string(actual, expected, |a, e| a <= e, |a, e| a <= e)
+    }
+
+    /// Pure function: Compare using numeric or string comparison
+    fn compare_numeric_or_string<FNum, FStr>(
+        actual: Option<&Value>,
+        expected: &Value,
+        num_op: FNum,
+        str_op: FStr,
+    ) -> bool
+    where
+        FNum: Fn(&f64, &f64) -> bool,
+        FStr: Fn(&str, &str) -> bool,
+    {
+        match (actual, expected) {
+            (Some(Value::Number(a)), Value::Number(e)) => {
+                a.as_f64().zip(e.as_f64()).map_or(false, |(a, e)| num_op(&a, &e))
             }
-            ComparisonOp::NotEqual => {
-                // Special handling for null comparisons
-                match (actual, expected) {
-                    (None, Value::Null) => false, // Missing field equals null (so not not-equal)
-                    (Some(Value::Null), Value::Null) => false, // Explicit null equals null (so not not-equal)
-                    _ => actual != Some(expected),
-                }
+            (Some(Value::String(a)), Value::String(e)) => str_op(a.as_str(), e.as_str()),
+            _ => false,
+        }
+    }
+
+    /// Pure function: Compare strings using provided operation
+    fn compare_string_op<F>(actual: Option<&Value>, expected: &Value, op: F) -> bool
+    where
+        F: Fn(&str, &str) -> bool,
+    {
+        match (actual, expected) {
+            (Some(Value::String(a)), Value::String(e)) => op(a.as_str(), e.as_str()),
+            _ => false,
+        }
+    }
+
+    /// Pure function: Compare string against regex pattern
+    fn compare_regex(actual: Option<&Value>, expected: &Value) -> bool {
+        match (actual, expected) {
+            (Some(Value::String(a)), Value::String(pattern)) => {
+                Regex::new(pattern).map_or_else(
+                    |e| {
+                        warn!("Invalid regex pattern '{}': {}", pattern, e);
+                        false
+                    },
+                    |re| re.is_match(a),
+                )
             }
-            ComparisonOp::Greater => {
-                if let (Some(Value::Number(a)), Value::Number(e)) = (actual, expected) {
-                    a.as_f64() > e.as_f64()
-                } else if let (Some(Value::String(a)), Value::String(e)) = (actual, expected) {
-                    // Support date string comparisons (ISO 8601 format)
-                    a > e
-                } else {
-                    false
-                }
-            }
-            ComparisonOp::Less => {
-                if let (Some(Value::Number(a)), Value::Number(e)) = (actual, expected) {
-                    a.as_f64() < e.as_f64()
-                } else if let (Some(Value::String(a)), Value::String(e)) = (actual, expected) {
-                    // Support date string comparisons (ISO 8601 format)
-                    a < e
-                } else {
-                    false
-                }
-            }
-            ComparisonOp::GreaterEqual => {
-                if let (Some(Value::Number(a)), Value::Number(e)) = (actual, expected) {
-                    a.as_f64() >= e.as_f64()
-                } else if let (Some(Value::String(a)), Value::String(e)) = (actual, expected) {
-                    // Support date string comparisons (ISO 8601 format)
-                    a >= e
-                } else {
-                    false
-                }
-            }
-            ComparisonOp::LessEqual => {
-                if let (Some(Value::Number(a)), Value::Number(e)) = (actual, expected) {
-                    a.as_f64() <= e.as_f64()
-                } else if let (Some(Value::String(a)), Value::String(e)) = (actual, expected) {
-                    // Support date string comparisons (ISO 8601 format)
-                    a <= e
-                } else {
-                    false
-                }
-            }
-            ComparisonOp::Contains => {
-                if let (Some(Value::String(a)), Value::String(e)) = (actual, expected) {
-                    a.contains(e.as_str())
-                } else {
-                    false
-                }
-            }
-            ComparisonOp::StartsWith => {
-                if let (Some(Value::String(a)), Value::String(e)) = (actual, expected) {
-                    a.starts_with(e.as_str())
-                } else {
-                    false
-                }
-            }
-            ComparisonOp::EndsWith => {
-                if let (Some(Value::String(a)), Value::String(e)) = (actual, expected) {
-                    a.ends_with(e.as_str())
-                } else {
-                    false
-                }
-            }
-            ComparisonOp::Matches => {
-                if let (Some(Value::String(a)), Value::String(pattern)) = (actual, expected) {
-                    // Try to compile and match the regex
-                    match Regex::new(pattern) {
-                        Ok(re) => re.is_match(a),
-                        Err(e) => {
-                            warn!("Invalid regex pattern '{}': {}", pattern, e);
-                            false
-                        }
-                    }
-                } else {
-                    false
-                }
-            }
+            _ => false,
         }
     }
 
     /// Evaluate a function expression
     fn evaluate_function(item: &Value, name: &str, args: &[String]) -> bool {
         match name {
-            "contains" => {
-                if args.len() == 2 {
-                    if let Some(Value::String(s)) =
-                        Self::get_nested_field_with_array(item, &args[0]).as_ref()
-                    {
-                        return s.contains(&args[1]);
-                    }
-                }
-                false
-            }
-            "starts_with" => {
-                if args.len() == 2 {
-                    if let Some(Value::String(s)) =
-                        Self::get_nested_field_with_array(item, &args[0]).as_ref()
-                    {
-                        return s.starts_with(&args[1]);
-                    }
-                }
-                false
-            }
-            "ends_with" => {
-                if args.len() == 2 {
-                    if let Some(Value::String(s)) =
-                        Self::get_nested_field_with_array(item, &args[0]).as_ref()
-                    {
-                        return s.ends_with(&args[1]);
-                    }
-                }
-                false
-            }
-            "is_null" => {
-                if args.len() == 1 {
-                    let val = Self::get_nested_field_with_array(item, &args[0]);
-                    return val == Some(Value::Null); // Only match explicit null, not missing
-                }
-                false
-            }
-            "is_not_null" => {
-                if args.len() == 1 {
-                    let val = Self::get_nested_field_with_array(item, &args[0]);
-                    return val.is_some() && val != Some(Value::Null);
-                }
-                false
-            }
-            // Type checking functions
-            "is_number" => {
-                if args.len() == 1 {
-                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
-                        return matches!(val, Value::Number(_));
-                    }
-                }
-                false
-            }
-            "is_string" => {
-                if args.len() == 1 {
-                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
-                        return matches!(val, Value::String(_));
-                    }
-                }
-                false
-            }
-            "is_bool" => {
-                if args.len() == 1 {
-                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
-                        return matches!(val, Value::Bool(_));
-                    }
-                }
-                false
-            }
-            "is_array" => {
-                if args.len() == 1 {
-                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
-                        return matches!(val, Value::Array(_));
-                    }
-                }
-                false
-            }
-            "is_object" => {
-                if args.len() == 1 {
-                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
-                        return matches!(val, Value::Object(_));
-                    }
-                }
-                false
-            }
-            // Computed field functions
-            "length" => {
-                if args.len() == 2 {
-                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
-                        let len = match val {
-                            Value::String(s) => s.len() as f64,
-                            Value::Array(arr) => arr.len() as f64,
-                            Value::Object(obj) => obj.len() as f64,
-                            _ => return false,
-                        };
-                        if let Ok(expected) = args[1].parse::<f64>() {
-                            return (len - expected).abs() < f64::EPSILON;
-                        }
-                    }
-                }
-                false
-            }
-            "matches" => {
-                if args.len() == 2 {
-                    if let Some(Value::String(s)) =
-                        Self::get_nested_field_with_array(item, &args[0]).as_ref()
-                    {
-                        // Remove quotes from regex pattern if present
-                        let pattern = args[1].trim_matches('"').trim_matches('\'');
-                        match Regex::new(pattern) {
-                            Ok(re) => return re.is_match(s),
-                            Err(e) => {
-                                warn!("Invalid regex pattern '{}': {}", pattern, e);
-                                return false;
-                            }
-                        }
-                    }
-                }
-                false
-            }
+            "contains" => Self::eval_string_binary_fn(item, args, |s, pattern| s.contains(pattern)),
+            "starts_with" => Self::eval_string_binary_fn(item, args, |s, pattern| s.starts_with(pattern)),
+            "ends_with" => Self::eval_string_binary_fn(item, args, |s, pattern| s.ends_with(pattern)),
+            "is_null" => Self::eval_is_null(item, args),
+            "is_not_null" => Self::eval_is_not_null(item, args),
+            "is_number" => Self::eval_type_check(item, args, |v| matches!(v, Value::Number(_))),
+            "is_string" => Self::eval_type_check(item, args, |v| matches!(v, Value::String(_))),
+            "is_bool" => Self::eval_type_check(item, args, |v| matches!(v, Value::Bool(_))),
+            "is_array" => Self::eval_type_check(item, args, |v| matches!(v, Value::Array(_))),
+            "is_object" => Self::eval_type_check(item, args, |v| matches!(v, Value::Object(_))),
+            "length" => Self::eval_length(item, args),
+            "matches" => Self::eval_matches(item, args),
             _ => {
                 warn!("Unknown function in filter expression: {}", name);
                 false
             }
         }
+    }
+
+    /// Pure function: Evaluate a binary string function (contains, starts_with, ends_with)
+    fn eval_string_binary_fn<F>(item: &Value, args: &[String], op: F) -> bool
+    where
+        F: Fn(&str, &str) -> bool,
+    {
+        (args.len() == 2)
+            .then(|| {
+                Self::get_nested_field_with_array(item, &args[0])
+                    .and_then(|v| match v {
+                        Value::String(s) => Some(op(s.as_str(), args[1].as_str())),
+                        _ => None,
+                    })
+                    .unwrap_or(false)
+            })
+            .unwrap_or(false)
+    }
+
+    /// Pure function: Evaluate is_null function
+    fn eval_is_null(item: &Value, args: &[String]) -> bool {
+        args.len() == 1
+            && Self::get_nested_field_with_array(item, &args[0]) == Some(Value::Null)
+    }
+
+    /// Pure function: Evaluate is_not_null function
+    fn eval_is_not_null(item: &Value, args: &[String]) -> bool {
+        args.len() == 1
+            && Self::get_nested_field_with_array(item, &args[0])
+                .map_or(false, |v| v != Value::Null)
+    }
+
+    /// Pure function: Evaluate type checking function
+    fn eval_type_check<F>(item: &Value, args: &[String], predicate: F) -> bool
+    where
+        F: Fn(&Value) -> bool,
+    {
+        (args.len() == 1)
+            .then(|| {
+                Self::get_nested_field_with_array(item, &args[0])
+                    .map_or(false, |v| predicate(&v))
+            })
+            .unwrap_or(false)
+    }
+
+    /// Pure function: Evaluate length function
+    fn eval_length(item: &Value, args: &[String]) -> bool {
+        (args.len() == 2)
+            .then(|| {
+                Self::get_nested_field_with_array(item, &args[0])
+                    .and_then(|v| Self::get_value_length(&v))
+                    .zip(args[1].parse::<f64>().ok())
+                    .map_or(false, |(len, expected)| (len - expected).abs() < f64::EPSILON)
+            })
+            .unwrap_or(false)
+    }
+
+    /// Pure function: Get length of a value (string, array, or object)
+    fn get_value_length(value: &Value) -> Option<f64> {
+        match value {
+            Value::String(s) => Some(s.len() as f64),
+            Value::Array(arr) => Some(arr.len() as f64),
+            Value::Object(obj) => Some(obj.len() as f64),
+            _ => None,
+        }
+    }
+
+    /// Pure function: Evaluate regex matches function
+    fn eval_matches(item: &Value, args: &[String]) -> bool {
+        (args.len() == 2)
+            .then(|| {
+                Self::get_nested_field_with_array(item, &args[0])
+                    .and_then(|v| match v {
+                        Value::String(s) => {
+                            let pattern = args[1].trim_matches('"').trim_matches('\'');
+                            Some(Self::regex_matches(s.as_str(), pattern))
+                        }
+                        _ => None,
+                    })
+                    .unwrap_or(false)
+            })
+            .unwrap_or(false)
+    }
+
+    /// Pure function: Check if string matches regex pattern
+    fn regex_matches(text: &str, pattern: &str) -> bool {
+        Regex::new(pattern).map_or_else(
+            |e| {
+                warn!("Invalid regex pattern '{}': {}", pattern, e);
+                false
+            },
+            |re| re.is_match(text),
+        )
     }
 }
 
@@ -2177,5 +2198,293 @@ mod tests {
         // For is_null function, missing field returns false (None != Some(Null))
         assert!(null_filter.evaluate(&item_with_null));
         assert!(!null_filter.evaluate(&item_without_field)); // is_null requires explicit null
+    }
+
+    // Tests for pure helper functions
+    #[test]
+    fn test_pure_parse_value_helpers() {
+        // Test is_quoted
+        assert!(FilterExpression::is_quoted("\"hello\""));
+        assert!(FilterExpression::is_quoted("'hello'"));
+        assert!(!FilterExpression::is_quoted("hello"));
+        assert!(!FilterExpression::is_quoted("\"hello"));
+        assert!(!FilterExpression::is_quoted("hello\""));
+
+        // Test unquote
+        assert_eq!(FilterExpression::unquote("\"hello\""), "hello");
+        assert_eq!(FilterExpression::unquote("'world'"), "world");
+
+        // Test try_parse_boolean
+        assert_eq!(
+            FilterExpression::try_parse_boolean("true"),
+            Some(Value::Bool(true))
+        );
+        assert_eq!(
+            FilterExpression::try_parse_boolean("false"),
+            Some(Value::Bool(false))
+        );
+        assert_eq!(FilterExpression::try_parse_boolean("TRUE"), None);
+        assert_eq!(FilterExpression::try_parse_boolean("1"), None);
+
+        // Test try_parse_null
+        assert_eq!(
+            FilterExpression::try_parse_null("null"),
+            Some(Value::Null)
+        );
+        assert_eq!(FilterExpression::try_parse_null("NULL"), None);
+        assert_eq!(FilterExpression::try_parse_null("nil"), None);
+
+        // Test try_parse_number
+        assert!(FilterExpression::try_parse_number("42").is_some());
+        assert!(FilterExpression::try_parse_number("3.14").is_some());
+        assert!(FilterExpression::try_parse_number("-10").is_some());
+        assert_eq!(FilterExpression::try_parse_number("abc"), None);
+    }
+
+    #[test]
+    fn test_pure_compare_helpers() {
+        // Test compare_equal
+        assert!(FilterExpression::compare_equal(
+            None,
+            &Value::Null
+        ));
+        assert!(FilterExpression::compare_equal(
+            Some(&Value::Null),
+            &Value::Null
+        ));
+        assert!(FilterExpression::compare_equal(
+            Some(&Value::String("test".to_string())),
+            &Value::String("test".to_string())
+        ));
+        assert!(!FilterExpression::compare_equal(
+            Some(&Value::String("test".to_string())),
+            &Value::String("other".to_string())
+        ));
+
+        // Test compare_not_equal
+        assert!(!FilterExpression::compare_not_equal(
+            Some(&Value::Null),
+            &Value::Null
+        ));
+        assert!(FilterExpression::compare_not_equal(
+            Some(&Value::String("test".to_string())),
+            &Value::String("other".to_string())
+        ));
+
+        // Test compare_greater
+        assert!(FilterExpression::compare_greater(
+            Some(&json!(10)),
+            &json!(5)
+        ));
+        assert!(!FilterExpression::compare_greater(
+            Some(&json!(5)),
+            &json!(10)
+        ));
+        assert!(FilterExpression::compare_greater(
+            Some(&Value::String("b".to_string())),
+            &Value::String("a".to_string())
+        ));
+
+        // Test compare_less
+        assert!(FilterExpression::compare_less(
+            Some(&json!(5)),
+            &json!(10)
+        ));
+        assert!(!FilterExpression::compare_less(
+            Some(&json!(10)),
+            &json!(5)
+        ));
+    }
+
+    #[test]
+    fn test_pure_path_parsing_helpers() {
+        // Test parse_field_name
+        let mut chars = "field.nested".chars().peekable();
+        let result = FilterExpression::parse_field_name(&mut chars);
+        assert_eq!(result, Some(PathPart::Field("field".to_string())));
+        assert_eq!(chars.peek(), Some(&'.')); // Should stop at dot
+
+        // Test parse_array_index
+        let mut chars = "[42]".chars().peekable();
+        let result = FilterExpression::parse_array_index(&mut chars);
+        assert_eq!(result, Some(PathPart::Index(42)));
+        assert_eq!(chars.peek(), None); // Should consume all
+
+        // Test invalid index
+        let mut chars = "[abc]".chars().peekable();
+        let result = FilterExpression::parse_array_index(&mut chars);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_pure_eval_function_helpers() {
+        let item = json!({
+            "name": "Alice",
+            "score": 42,
+            "tags": ["a", "b"],
+            "optional": null
+        });
+
+        // Test eval_is_null
+        assert!(!FilterExpression::eval_is_null(
+            &item,
+            &vec!["name".to_string()]
+        ));
+        assert!(FilterExpression::eval_is_null(
+            &item,
+            &vec!["optional".to_string()]
+        ));
+
+        // Test eval_is_not_null
+        assert!(FilterExpression::eval_is_not_null(
+            &item,
+            &vec!["name".to_string()]
+        ));
+        assert!(!FilterExpression::eval_is_not_null(
+            &item,
+            &vec!["optional".to_string()]
+        ));
+
+        // Test get_value_length
+        assert_eq!(
+            FilterExpression::get_value_length(&Value::String("hello".to_string())),
+            Some(5.0)
+        );
+        assert_eq!(
+            FilterExpression::get_value_length(&json!(["a", "b", "c"])),
+            Some(3.0)
+        );
+        assert_eq!(
+            FilterExpression::get_value_length(&json!({"a": 1, "b": 2})),
+            Some(2.0)
+        );
+        assert_eq!(
+            FilterExpression::get_value_length(&json!(42)),
+            None
+        );
+
+        // Test regex_matches
+        assert!(FilterExpression::regex_matches("test@example.com", r"@"));
+        assert!(!FilterExpression::regex_matches("test", r"@"));
+        assert!(FilterExpression::regex_matches("hello123", r"\d+"));
+    }
+
+    #[test]
+    fn test_array_index_access() {
+        // Test array index access through path parsing
+        let item = json!({
+            "tags": ["urgent", "bug", "priority"]
+        });
+
+        // Test with array index syntax
+        let result = FilterExpression::get_nested_field_with_array(&item, "tags[0]");
+        assert_eq!(result, Some(Value::String("urgent".to_string())));
+
+        let result = FilterExpression::get_nested_field_with_array(&item, "tags[1]");
+        assert_eq!(result, Some(Value::String("bug".to_string())));
+
+        let result = FilterExpression::get_nested_field_with_array(&item, "tags[2]");
+        assert_eq!(result, Some(Value::String("priority".to_string())));
+
+        // Test out of bounds
+        let result = FilterExpression::get_nested_field_with_array(&item, "tags[999]");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_nested_array_access() {
+        // Test nested field with array access
+        let item = json!({
+            "data": {
+                "items": [
+                    {"id": 1, "name": "first"},
+                    {"id": 2, "name": "second"}
+                ]
+            }
+        });
+
+        let result = FilterExpression::get_nested_field_with_array(&item, "data.items[0].name");
+        assert_eq!(result, Some(Value::String("first".to_string())));
+
+        let result = FilterExpression::get_nested_field_with_array(&item, "data.items[1].id");
+        assert_eq!(result, Some(json!(2)));
+    }
+
+    #[test]
+    fn test_string_comparison_operators() {
+        // Test Contains - parsing doesn't support ~= operator, so create directly
+        let filter = FilterExpression::Comparison {
+            field: "name".to_string(),
+            op: ComparisonOp::Contains,
+            value: json!("test"),
+        };
+
+        assert!(matches!(filter, FilterExpression::Comparison { op: ComparisonOp::Contains, .. }));
+
+        // Test StartsWith
+        assert!(FilterExpression::compare_string_op(
+            Some(&json!("/usr/bin/test")),
+            &json!("/usr"),
+            |a, e| a.starts_with(e)
+        ));
+
+        // Test EndsWith
+        assert!(FilterExpression::compare_string_op(
+            Some(&json!("file.rs")),
+            &json!(".rs"),
+            |a, e| a.ends_with(e)
+        ));
+    }
+
+    #[test]
+    fn test_comparison_edge_cases() {
+        // Test numeric comparison with different types
+        assert!(!FilterExpression::compare_greater(
+            Some(&Value::String("10".to_string())),
+            &json!(5)
+        ));
+
+        // Test null comparisons
+        assert!(FilterExpression::compare_equal(None, &Value::Null));
+        assert!(!FilterExpression::compare_greater(None, &json!(5)));
+
+        // Test string date comparisons
+        assert!(FilterExpression::compare_greater(
+            Some(&Value::String("2024-01-02".to_string())),
+            &Value::String("2024-01-01".to_string())
+        ));
+    }
+
+    #[test]
+    fn test_filter_expression_parsing_edge_cases() {
+        // Test parsing with extra whitespace
+        let filter = FilterExpression::parse("  priority  >  5  ").unwrap();
+        let item = json!({"priority": 7});
+        assert!(filter.evaluate(&item));
+
+        // Test parsing with parentheses
+        let filter = FilterExpression::parse("(priority > 5)").unwrap();
+        assert!(filter.evaluate(&item));
+
+        // Test parsing NOT with parentheses
+        let filter = FilterExpression::parse("!(priority < 5)").unwrap();
+        assert!(filter.evaluate(&item));
+
+        // Test parsing complex nested expression
+        let filter = FilterExpression::parse("((status == 'active') && (priority > 5))").unwrap();
+        let item = json!({"status": "active", "priority": 7});
+        assert!(filter.evaluate(&item));
+    }
+
+    #[test]
+    fn test_parse_comparison_operators() {
+        // Test all comparison operator variations
+        assert!(FilterExpression::parse("x == 5").is_ok());
+        assert!(FilterExpression::parse("x = 5").is_ok());
+        assert!(FilterExpression::parse("x != 5").is_ok());
+        assert!(FilterExpression::parse("x > 5").is_ok());
+        assert!(FilterExpression::parse("x < 5").is_ok());
+        assert!(FilterExpression::parse("x >= 5").is_ok());
+        assert!(FilterExpression::parse("x <= 5").is_ok());
     }
 }
