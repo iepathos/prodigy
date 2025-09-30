@@ -294,18 +294,12 @@ impl ExpressionEvaluator {
             Expression::NotEqual(left, right) => {
                 self.evaluate_binary_comparison(left, right, item, |l, r| l != r)
             }
-            Expression::GreaterThan(left, right) => {
-                self.evaluate_comparison_gt(left, right, item)
-            }
-            Expression::LessThan(left, right) => {
-                self.evaluate_comparison_lt(left, right, item)
-            }
+            Expression::GreaterThan(left, right) => self.evaluate_comparison_gt(left, right, item),
+            Expression::LessThan(left, right) => self.evaluate_comparison_lt(left, right, item),
             Expression::GreaterEqual(left, right) => {
                 self.evaluate_comparison_gte(left, right, item)
             }
-            Expression::LessEqual(left, right) => {
-                self.evaluate_comparison_lte(left, right, item)
-            }
+            Expression::LessEqual(left, right) => self.evaluate_comparison_lte(left, right, item),
 
             // Logical operators - already extracted
             Expression::And(left, right) => self.evaluate_logical_and(left, right, item),
@@ -324,17 +318,13 @@ impl ExpressionEvaluator {
             }
             Expression::Matches(str_expr, pattern) => {
                 self.evaluate_string_operation(str_expr, pattern, item, |s, p| {
-                    Regex::new(p).map_or(false, |re| re.is_match(s))
+                    Regex::new(p).is_ok_and(|re| re.is_match(s))
                 })
             }
 
             // Type checking - already extracted as helpers
-            Expression::IsNull(expr) => {
-                self.evaluate_type_check(expr, item, |v| v.is_null())
-            }
-            Expression::IsNotNull(expr) => {
-                self.evaluate_type_check(expr, item, |v| !v.is_null())
-            }
+            Expression::IsNull(expr) => self.evaluate_type_check(expr, item, |v| v.is_null()),
+            Expression::IsNotNull(expr) => self.evaluate_type_check(expr, item, |v| !v.is_null()),
             Expression::IsNumber(expr) => {
                 self.evaluate_type_check(expr, item, |v| matches!(v, Value::Number(_)))
             }
@@ -585,7 +575,9 @@ impl ExpressionEvaluator {
 
     /// Pure function: Convert f64 to JSON Number Value
     fn to_number_value(n: f64) -> Value {
-        Value::Number(serde_json::Number::from_f64(n).unwrap_or_else(|| serde_json::Number::from(0)))
+        Value::Number(
+            serde_json::Number::from_f64(n).unwrap_or_else(|| serde_json::Number::from(0)),
+        )
     }
 
     /// Evaluate 'in' operation

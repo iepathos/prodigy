@@ -632,12 +632,14 @@ impl FilterExpression {
 
     /// Try to parse an OR logical operator
     fn try_parse_or_operator(expr: &str) -> Option<Result<Self>> {
-        Self::find_logical_operator(expr, "||").map(|pos| Self::parse_binary_logical(expr, pos, 2, LogicalOp::Or))
+        Self::find_logical_operator(expr, "||")
+            .map(|pos| Self::parse_binary_logical(expr, pos, 2, LogicalOp::Or))
     }
 
     /// Try to parse an AND logical operator
     fn try_parse_and_operator(expr: &str) -> Option<Result<Self>> {
-        Self::find_logical_operator(expr, "&&").map(|pos| Self::parse_binary_logical(expr, pos, 2, LogicalOp::And))
+        Self::find_logical_operator(expr, "&&")
+            .map(|pos| Self::parse_binary_logical(expr, pos, 2, LogicalOp::And))
     }
 
     /// Find the position of a logical operator outside of parentheses
@@ -811,8 +813,7 @@ impl FilterExpression {
 
     /// Pure function: Check if string is quoted
     fn is_quoted(s: &str) -> bool {
-        (s.starts_with('"') && s.ends_with('"'))
-            || (s.starts_with('\'') && s.ends_with('\''))
+        (s.starts_with('"') && s.ends_with('"')) || (s.starts_with('\'') && s.ends_with('\''))
     }
 
     /// Pure function: Remove quotes from string
@@ -944,7 +945,7 @@ impl FilterExpression {
             chars.next();
         }
 
-        (!field.is_empty()).then(|| PathPart::Field(field))
+        (!field.is_empty()).then_some(PathPart::Field(field))
     }
 
     /// Pure function: Parse an array index from "[N]"
@@ -977,9 +978,15 @@ impl FilterExpression {
             ComparisonOp::Less => Self::compare_less(actual, expected),
             ComparisonOp::GreaterEqual => Self::compare_greater_equal(actual, expected),
             ComparisonOp::LessEqual => Self::compare_less_equal(actual, expected),
-            ComparisonOp::Contains => Self::compare_string_op(actual, expected, |a, e| a.contains(e)),
-            ComparisonOp::StartsWith => Self::compare_string_op(actual, expected, |a, e| a.starts_with(e)),
-            ComparisonOp::EndsWith => Self::compare_string_op(actual, expected, |a, e| a.ends_with(e)),
+            ComparisonOp::Contains => {
+                Self::compare_string_op(actual, expected, |a, e| a.contains(e))
+            }
+            ComparisonOp::StartsWith => {
+                Self::compare_string_op(actual, expected, |a, e| a.starts_with(e))
+            }
+            ComparisonOp::EndsWith => {
+                Self::compare_string_op(actual, expected, |a, e| a.ends_with(e))
+            }
             ComparisonOp::Matches => Self::compare_regex(actual, expected),
         }
     }
@@ -1030,9 +1037,10 @@ impl FilterExpression {
         FStr: Fn(&str, &str) -> bool,
     {
         match (actual, expected) {
-            (Some(Value::Number(a)), Value::Number(e)) => {
-                a.as_f64().zip(e.as_f64()).map_or(false, |(a, e)| num_op(&a, &e))
-            }
+            (Some(Value::Number(a)), Value::Number(e)) => a
+                .as_f64()
+                .zip(e.as_f64())
+                .is_some_and(|(a, e)| num_op(&a, &e)),
             (Some(Value::String(a)), Value::String(e)) => str_op(a.as_str(), e.as_str()),
             _ => false,
         }
@@ -1052,15 +1060,13 @@ impl FilterExpression {
     /// Pure function: Compare string against regex pattern
     fn compare_regex(actual: Option<&Value>, expected: &Value) -> bool {
         match (actual, expected) {
-            (Some(Value::String(a)), Value::String(pattern)) => {
-                Regex::new(pattern).map_or_else(
-                    |e| {
-                        warn!("Invalid regex pattern '{}': {}", pattern, e);
-                        false
-                    },
-                    |re| re.is_match(a),
-                )
-            }
+            (Some(Value::String(a)), Value::String(pattern)) => Regex::new(pattern).map_or_else(
+                |e| {
+                    warn!("Invalid regex pattern '{}': {}", pattern, e);
+                    false
+                },
+                |re| re.is_match(a),
+            ),
             _ => false,
         }
     }
@@ -1069,8 +1075,12 @@ impl FilterExpression {
     fn evaluate_function(item: &Value, name: &str, args: &[String]) -> bool {
         match name {
             "contains" => Self::eval_string_binary_fn(item, args, |s, pattern| s.contains(pattern)),
-            "starts_with" => Self::eval_string_binary_fn(item, args, |s, pattern| s.starts_with(pattern)),
-            "ends_with" => Self::eval_string_binary_fn(item, args, |s, pattern| s.ends_with(pattern)),
+            "starts_with" => {
+                Self::eval_string_binary_fn(item, args, |s, pattern| s.starts_with(pattern))
+            }
+            "ends_with" => {
+                Self::eval_string_binary_fn(item, args, |s, pattern| s.ends_with(pattern))
+            }
             "is_null" => Self::eval_is_null(item, args),
             "is_not_null" => Self::eval_is_not_null(item, args),
             "is_number" => Self::eval_type_check(item, args, |v| matches!(v, Value::Number(_))),
@@ -1092,29 +1102,27 @@ impl FilterExpression {
     where
         F: Fn(&str, &str) -> bool,
     {
-        (args.len() == 2)
-            .then(|| {
-                Self::get_nested_field_with_array(item, &args[0])
-                    .and_then(|v| match v {
-                        Value::String(s) => Some(op(s.as_str(), args[1].as_str())),
-                        _ => None,
-                    })
-                    .unwrap_or(false)
-            })
-            .unwrap_or(false)
+        if args.len() == 2 {
+            Self::get_nested_field_with_array(item, &args[0])
+                .and_then(|v| match v {
+                    Value::String(s) => Some(op(s.as_str(), args[1].as_str())),
+                    _ => None,
+                })
+                .unwrap_or(false)
+        } else {
+            false
+        }
     }
 
     /// Pure function: Evaluate is_null function
     fn eval_is_null(item: &Value, args: &[String]) -> bool {
-        args.len() == 1
-            && Self::get_nested_field_with_array(item, &args[0]) == Some(Value::Null)
+        args.len() == 1 && Self::get_nested_field_with_array(item, &args[0]) == Some(Value::Null)
     }
 
     /// Pure function: Evaluate is_not_null function
     fn eval_is_not_null(item: &Value, args: &[String]) -> bool {
         args.len() == 1
-            && Self::get_nested_field_with_array(item, &args[0])
-                .map_or(false, |v| v != Value::Null)
+            && Self::get_nested_field_with_array(item, &args[0]).is_some_and(|v| v != Value::Null)
     }
 
     /// Pure function: Evaluate type checking function
@@ -1122,24 +1130,23 @@ impl FilterExpression {
     where
         F: Fn(&Value) -> bool,
     {
-        (args.len() == 1)
-            .then(|| {
-                Self::get_nested_field_with_array(item, &args[0])
-                    .map_or(false, |v| predicate(&v))
-            })
-            .unwrap_or(false)
+        if args.len() == 1 {
+            Self::get_nested_field_with_array(item, &args[0]).is_some_and(|v| predicate(&v))
+        } else {
+            false
+        }
     }
 
     /// Pure function: Evaluate length function
     fn eval_length(item: &Value, args: &[String]) -> bool {
-        (args.len() == 2)
-            .then(|| {
-                Self::get_nested_field_with_array(item, &args[0])
-                    .and_then(|v| Self::get_value_length(&v))
-                    .zip(args[1].parse::<f64>().ok())
-                    .map_or(false, |(len, expected)| (len - expected).abs() < f64::EPSILON)
-            })
-            .unwrap_or(false)
+        if args.len() == 2 {
+            Self::get_nested_field_with_array(item, &args[0])
+                .and_then(|v| Self::get_value_length(&v))
+                .zip(args[1].parse::<f64>().ok())
+                .is_some_and(|(len, expected)| (len - expected).abs() < f64::EPSILON)
+        } else {
+            false
+        }
     }
 
     /// Pure function: Get length of a value (string, array, or object)
@@ -1154,19 +1161,19 @@ impl FilterExpression {
 
     /// Pure function: Evaluate regex matches function
     fn eval_matches(item: &Value, args: &[String]) -> bool {
-        (args.len() == 2)
-            .then(|| {
-                Self::get_nested_field_with_array(item, &args[0])
-                    .and_then(|v| match v {
-                        Value::String(s) => {
-                            let pattern = args[1].trim_matches('"').trim_matches('\'');
-                            Some(Self::regex_matches(s.as_str(), pattern))
-                        }
-                        _ => None,
-                    })
-                    .unwrap_or(false)
-            })
-            .unwrap_or(false)
+        if args.len() == 2 {
+            Self::get_nested_field_with_array(item, &args[0])
+                .and_then(|v| match v {
+                    Value::String(s) => {
+                        let pattern = args[1].trim_matches('"').trim_matches('\'');
+                        Some(Self::regex_matches(s.as_str(), pattern))
+                    }
+                    _ => None,
+                })
+                .unwrap_or(false)
+        } else {
+            false
+        }
     }
 
     /// Pure function: Check if string matches regex pattern
@@ -2227,10 +2234,7 @@ mod tests {
         assert_eq!(FilterExpression::try_parse_boolean("1"), None);
 
         // Test try_parse_null
-        assert_eq!(
-            FilterExpression::try_parse_null("null"),
-            Some(Value::Null)
-        );
+        assert_eq!(FilterExpression::try_parse_null("null"), Some(Value::Null));
         assert_eq!(FilterExpression::try_parse_null("NULL"), None);
         assert_eq!(FilterExpression::try_parse_null("nil"), None);
 
@@ -2244,10 +2248,7 @@ mod tests {
     #[test]
     fn test_pure_compare_helpers() {
         // Test compare_equal
-        assert!(FilterExpression::compare_equal(
-            None,
-            &Value::Null
-        ));
+        assert!(FilterExpression::compare_equal(None, &Value::Null));
         assert!(FilterExpression::compare_equal(
             Some(&Value::Null),
             &Value::Null
@@ -2286,14 +2287,8 @@ mod tests {
         ));
 
         // Test compare_less
-        assert!(FilterExpression::compare_less(
-            Some(&json!(5)),
-            &json!(10)
-        ));
-        assert!(!FilterExpression::compare_less(
-            Some(&json!(10)),
-            &json!(5)
-        ));
+        assert!(FilterExpression::compare_less(Some(&json!(5)), &json!(10)));
+        assert!(!FilterExpression::compare_less(Some(&json!(10)), &json!(5)));
     }
 
     #[test]
@@ -2358,10 +2353,7 @@ mod tests {
             FilterExpression::get_value_length(&json!({"a": 1, "b": 2})),
             Some(2.0)
         );
-        assert_eq!(
-            FilterExpression::get_value_length(&json!(42)),
-            None
-        );
+        assert_eq!(FilterExpression::get_value_length(&json!(42)), None);
 
         // Test regex_matches
         assert!(FilterExpression::regex_matches("test@example.com", r"@"));
@@ -2419,7 +2411,13 @@ mod tests {
             value: json!("test"),
         };
 
-        assert!(matches!(filter, FilterExpression::Comparison { op: ComparisonOp::Contains, .. }));
+        assert!(matches!(
+            filter,
+            FilterExpression::Comparison {
+                op: ComparisonOp::Contains,
+                ..
+            }
+        ));
 
         // Test StartsWith
         assert!(FilterExpression::compare_string_op(
@@ -2705,9 +2703,13 @@ mod tests {
         assert!(!FilterExpression::outer_parens_wrap_entire_expr("(a) && b"));
 
         // Test nested parens
-        assert!(FilterExpression::outer_parens_wrap_entire_expr("((a && b))"));
+        assert!(FilterExpression::outer_parens_wrap_entire_expr(
+            "((a && b))"
+        ));
 
         // Test multiple groups
-        assert!(!FilterExpression::outer_parens_wrap_entire_expr("(a) || (b)"));
+        assert!(!FilterExpression::outer_parens_wrap_entire_expr(
+            "(a) || (b)"
+        ));
     }
 }
