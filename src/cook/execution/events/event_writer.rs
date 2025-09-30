@@ -145,19 +145,33 @@ fn serialize_events_to_jsonl(events: &[EventRecord]) -> Result<Vec<(String, usiz
         .collect()
 }
 
-/// Calculate total bytes from serialized events
-///
-/// Pure function that sums up byte counts from serialized events.
-fn calculate_total_bytes(serialized: &[(String, usize)]) -> u64 {
-    serialized.iter().map(|(_, count)| *count as u64).sum()
-}
-
 /// Update size counter with additional bytes
 ///
 /// Async function that updates the size counter in a thread-safe manner.
 async fn update_size_counter(current: &Mutex<u64>, additional: u64) {
     let mut size_guard = current.lock().await;
     *size_guard += additional;
+}
+
+/// Write serialized events to a buffered writer
+///
+/// Returns total bytes written or error if write fails.
+async fn write_serialized_events(
+    writer: &mut BufWriter<File>,
+    serialized: &[(String, usize)],
+) -> Result<u64> {
+    let mut total_bytes = 0u64;
+
+    for (line, byte_count) in serialized {
+        let bytes = line.as_bytes();
+        writer
+            .write_all(bytes)
+            .await
+            .context("Failed to write event to file")?;
+        total_bytes += *byte_count as u64;
+    }
+
+    Ok(total_bytes)
 }
 
 #[async_trait]
@@ -168,15 +182,10 @@ impl EventWriter for JsonlEventWriter {
         // Serialize events to JSONL format
         let serialized = serialize_events_to_jsonl(events)?;
 
-        // Calculate total bytes
-        let total_bytes = calculate_total_bytes(&serialized);
-
         let mut writer_guard = self.writer.lock().await;
         if let Some(writer) = writer_guard.as_mut() {
-            for (line, _) in &serialized {
-                let bytes = line.as_bytes();
-                writer.write_all(bytes).await?;
-            }
+            // Write serialized events and get total bytes written
+            let total_bytes = write_serialized_events(writer, &serialized).await?;
 
             // Update size counter
             update_size_counter(&self.current_size, total_bytes).await;
@@ -554,31 +563,6 @@ mod tests {
         assert_eq!(*byte_count, line.len());
     }
 
-    #[test]
-    fn test_calculate_total_bytes_empty() {
-        let serialized: Vec<(String, usize)> = vec![];
-        let total = calculate_total_bytes(&serialized);
-        assert_eq!(total, 0);
-    }
-
-    #[test]
-    fn test_calculate_total_bytes_single_item() {
-        let serialized = vec![("test line\n".to_string(), 10)];
-        let total = calculate_total_bytes(&serialized);
-        assert_eq!(total, 10);
-    }
-
-    #[test]
-    fn test_calculate_total_bytes_multiple_items() {
-        let serialized = vec![
-            ("first line\n".to_string(), 11),
-            ("second line\n".to_string(), 12),
-            ("third line\n".to_string(), 11),
-        ];
-        let total = calculate_total_bytes(&serialized);
-        assert_eq!(total, 34);
-    }
-
     #[tokio::test]
     async fn test_update_size_counter_initial() {
         let counter = Mutex::new(0u64);
@@ -596,5 +580,92 @@ mod tests {
 
         let value = *counter.lock().await;
         assert_eq!(value, 350);
+    }
+
+    #[tokio::test]
+    async fn test_write_serialized_events_to_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test-write.jsonl");
+
+        let file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&file_path)
+            .await
+            .unwrap();
+        let mut writer = BufWriter::new(file);
+
+        let serialized = vec![
+            ("first line\n".to_string(), 11),
+            ("second line\n".to_string(), 12),
+        ];
+
+        let total_bytes = write_serialized_events(&mut writer, &serialized)
+            .await
+            .unwrap();
+
+        writer.flush().await.unwrap();
+
+        assert_eq!(total_bytes, 23);
+
+        let content = tokio::fs::read_to_string(&file_path).await.unwrap();
+        assert_eq!(content, "first line\nsecond line\n");
+    }
+
+    #[tokio::test]
+    async fn test_write_serialized_events_byte_accuracy() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test-bytes.jsonl");
+
+        let file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&file_path)
+            .await
+            .unwrap();
+        let mut writer = BufWriter::new(file);
+
+        let serialized = vec![("test\n".to_string(), 5), ("data\n".to_string(), 5)];
+
+        let total_bytes = write_serialized_events(&mut writer, &serialized)
+            .await
+            .unwrap();
+
+        writer.flush().await.unwrap();
+
+        assert_eq!(total_bytes, 10);
+
+        let metadata = tokio::fs::metadata(&file_path).await.unwrap();
+        assert_eq!(metadata.len(), 10);
+    }
+
+    #[tokio::test]
+    async fn test_write_serialized_events_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test-empty.jsonl");
+
+        let file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&file_path)
+            .await
+            .unwrap();
+        let mut writer = BufWriter::new(file);
+
+        let serialized: Vec<(String, usize)> = vec![];
+
+        let total_bytes = write_serialized_events(&mut writer, &serialized)
+            .await
+            .unwrap();
+
+        writer.flush().await.unwrap();
+
+        assert_eq!(total_bytes, 0);
+
+        let metadata = tokio::fs::metadata(&file_path).await.unwrap();
+        assert_eq!(metadata.len(), 0);
     }
 }
