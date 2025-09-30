@@ -258,7 +258,13 @@ impl CookSessionManager for CookSessionAdapter {
     async fn load_session(&self, session_id: &str) -> Result<CookSessionState> {
         let id = SessionId::from_string(session_id.to_string());
         let session = self.unified_manager.load_session(&id).await?;
-        Ok(Self::unified_to_cook_state(&session, &self.working_dir))
+        let state = Self::unified_to_cook_state(&session, &self.working_dir);
+
+        // Cache the state so get_state() works
+        *self.cached_state.lock().await = Some(state.clone());
+        *self.current_session.lock().await = Some(id);
+
+        Ok(state)
     }
 
     async fn save_checkpoint(&self, state: &CookSessionState) -> Result<()> {
