@@ -367,6 +367,39 @@ mod tests {
         assert!(command.contains("--features async"));
     }
 
+    #[tokio::test]
+    async fn test_cargo_success_with_metadata() {
+        let handler = CargoHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "cargo",
+            vec!["build"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"   Compiling test v0.1.0\nwarning: unused variable\n    Finished dev [unoptimized]".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert("command".to_string(), AttributeValue::String("build".to_string()));
+
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(result.is_success());
+        let data = result.data.unwrap();
+        assert!(data.get("metadata").is_some());
+        assert_eq!(data["metadata"]["command"], "build");
+        assert_eq!(data["metadata"]["finished"], true);
+        assert_eq!(data["metadata"]["warnings"], 1);
+    }
+
     // Tests for pure functions
     mod pure_functions {
         use super::*;
