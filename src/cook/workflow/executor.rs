@@ -3363,6 +3363,115 @@ impl WorkflowExecutor {
         }
     }
 
+    /// Execute step validation if configured
+    async fn execute_step_validation(
+        &mut self,
+        step: &WorkflowStep,
+        result: &mut StepResult,
+        actual_env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<()> {
+        // Skip validation in dry-run mode since validation was already simulated in execute_command_by_type
+        if !result.success || self.dry_run {
+            return Ok(());
+        }
+
+        // Handle legacy validation config
+        if let Some(validation_config) = &step.validate {
+            self.handle_validation(validation_config, actual_env, ctx)
+                .await?;
+        }
+
+        // Handle step validation (first-class validation feature)
+        if let Some(step_validation) = &step.step_validate {
+            if !step.skip_validation {
+                let validation_result = self
+                    .handle_step_validation(step_validation, actual_env, ctx, step)
+                    .await?;
+
+                // Update result based on validation
+                if !validation_result.passed && !step.ignore_validation_failure {
+                    result.success = false;
+                    result.stdout.push_str(&format!(
+                        "\n[Validation Failed: {} validation(s) executed, {} attempt(s) made]",
+                        validation_result.results.len(),
+                        validation_result.attempts
+                    ));
+                    if result.exit_code == Some(0) {
+                        result.exit_code = Some(1); // Set exit code to indicate validation failure
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Finalize step result by handling workflow failure logic
+    fn finalize_step_result(&self, step: &WorkflowStep, mut result: StepResult) -> Result<StepResult> {
+        // Check if we should fail the workflow based on the result using pure function
+        let should_fail = Self::should_fail_workflow_for_step(&result, step);
+
+        if should_fail {
+            let error_msg = Self::build_step_error_message(step, &result);
+            anyhow::bail!(error_msg);
+        }
+
+        // If the command failed but we're not failing the workflow (should_fail is false),
+        // we need to modify the result to indicate success so the workflow continues
+        if !result.success && !should_fail {
+            result.success = true;
+            result.stdout.push_str(
+                "\n[Note: Command failed but workflow continues due to on_failure configuration]",
+            );
+        }
+
+        Ok(result)
+    }
+
+    /// Track git changes and update session state
+    async fn track_and_update_session(&mut self, ctx: &WorkflowContext) -> Result<()> {
+        // Track git changes - complete step
+        let files_changed_count = if let Some(ref git_tracker) = ctx.git_tracker {
+            if let Ok(mut tracker) = git_tracker.lock() {
+                if let Ok(changes) = tracker.complete_step() {
+                    // Log changes for debugging
+                    tracing::debug!(
+                        "Step git changes: {} added, {} modified, {} deleted, {} commits",
+                        changes.files_added.len(),
+                        changes.files_modified.len(),
+                        changes.files_deleted.len(),
+                        changes.commits.len()
+                    );
+
+                    // Count actual files changed
+                    let count = changes.files_changed().len();
+                    if count > 0 {
+                        count
+                    } else {
+                        1
+                    }
+                } else {
+                    // Fallback to counting 1 file changed as before
+                    1
+                }
+            } else {
+                // Fallback if we can't get lock
+                1
+            }
+        } else {
+            // No git tracker, use original behavior
+            1
+        };
+
+        // Update session with file count (moved outside of lock scope)
+        self.session_manager
+            .update_session(SessionUpdate::AddFilesChanged(files_changed_count))
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn execute_step(
         &mut self,
         step: &WorkflowStep,
@@ -3416,96 +3525,20 @@ impl WorkflowExecutor {
         // Handle legacy capture_output feature (deprecated)
         self.handle_legacy_capture(step, &command_type, &result, ctx);
 
-        // Handle validation if configured and command succeeded
-        // Skip in dry-run mode since validation was already simulated in execute_command_by_type
-        if result.success && !self.dry_run {
-            if let Some(validation_config) = &step.validate {
-                self.handle_validation(validation_config, &actual_env, ctx)
-                    .await?;
-            }
-
-            // Handle step validation (first-class validation feature)
-            if let Some(step_validation) = &step.step_validate {
-                if !step.skip_validation {
-                    let validation_result = self
-                        .handle_step_validation(step_validation, &actual_env, ctx, step)
-                        .await?;
-
-                    // Update result based on validation
-                    if !validation_result.passed && !step.ignore_validation_failure {
-                        result.success = false;
-                        result.stdout.push_str(&format!(
-                            "\n[Validation Failed: {} validation(s) executed, {} attempt(s) made]",
-                            validation_result.results.len(),
-                            validation_result.attempts
-                        ));
-                        if result.exit_code == Some(0) {
-                            result.exit_code = Some(1); // Set exit code to indicate validation failure
-                        }
-                    }
-                }
-            }
-        }
+        // Execute validation if configured
+        self.execute_step_validation(step, &mut result, &actual_env, ctx)
+            .await?;
 
         // Handle conditional execution (failure, success, exit codes)
         result = self
             .handle_conditional_execution(step, result, &actual_env, ctx)
             .await?;
 
-        // Check if we should fail the workflow based on the result using pure function
-        let should_fail = Self::should_fail_workflow_for_step(&result, step);
+        // Finalize step result and handle workflow failure logic
+        let result = self.finalize_step_result(step, result)?;
 
-        if should_fail {
-            let error_msg = Self::build_step_error_message(step, &result);
-            anyhow::bail!(error_msg);
-        }
-
-        // If the command failed but we're not failing the workflow (should_fail is false),
-        // we need to modify the result to indicate success so the workflow continues
-        if !result.success && !should_fail {
-            result.success = true;
-            result.stdout.push_str(
-                "\n[Note: Command failed but workflow continues due to on_failure configuration]",
-            );
-        }
-
-        // Track git changes - complete step
-        let files_changed_count = if let Some(ref git_tracker) = ctx.git_tracker {
-            if let Ok(mut tracker) = git_tracker.lock() {
-                if let Ok(changes) = tracker.complete_step() {
-                    // Log changes for debugging
-                    tracing::debug!(
-                        "Step git changes: {} added, {} modified, {} deleted, {} commits",
-                        changes.files_added.len(),
-                        changes.files_modified.len(),
-                        changes.files_deleted.len(),
-                        changes.commits.len()
-                    );
-
-                    // Count actual files changed
-                    let count = changes.files_changed().len();
-                    if count > 0 {
-                        count
-                    } else {
-                        1
-                    }
-                } else {
-                    // Fallback to counting 1 file changed as before
-                    1
-                }
-            } else {
-                // Fallback if we can't get lock
-                1
-            }
-        } else {
-            // No git tracker, use original behavior
-            1
-        };
-
-        // Update session with file count (moved outside of lock scope)
-        self.session_manager
-            .update_session(SessionUpdate::AddFilesChanged(files_changed_count))
-            .await?;
+        // Track git changes and update session
+        self.track_and_update_session(ctx).await?;
 
         Ok(result)
     }
