@@ -454,4 +454,46 @@ mod tests {
         let data = result.data.unwrap();
         assert_eq!(data.get("dry_run"), Some(&json!(true)));
     }
+
+    #[tokio::test]
+    async fn test_file_execute_invalid_operation() {
+        let handler = FileHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test"));
+
+        // Create attributes without operation attribute
+        let mut attrs = HashMap::new();
+        attrs.insert(
+            "path".to_string(),
+            AttributeValue::String("test.txt".to_string()),
+        );
+
+        let result = handler.execute(&context, attrs).await;
+        assert!(!result.is_success());
+        assert!(result.error.is_some());
+        assert!(result
+            .error
+            .unwrap()
+            .contains("Missing required attribute: operation"));
+    }
+
+    #[tokio::test]
+    async fn test_file_execute_invalid_path() {
+        let handler = FileHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test"));
+
+        // Create attributes without path attribute
+        let mut attrs = HashMap::new();
+        attrs.insert(
+            "operation".to_string(),
+            AttributeValue::String("read".to_string()),
+        );
+
+        let result = handler.execute(&context, attrs).await;
+        assert!(!result.is_success());
+        assert!(result.error.is_some());
+        assert!(result
+            .error
+            .unwrap()
+            .contains("Missing required attribute: path"));
+    }
 }

@@ -334,6 +334,175 @@ mod tests {
             .contains("cargo build --release"));
     }
 
+    #[tokio::test]
+    async fn test_cargo_missing_command_attribute() {
+        let handler = CargoHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test"));
+
+        let attributes = HashMap::new();
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(!result.is_success());
+        assert!(result
+            .error
+            .unwrap()
+            .contains("Missing required attribute: command"));
+    }
+
+    #[tokio::test]
+    async fn test_cargo_dry_run_with_flags() {
+        let handler = CargoHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("build".to_string()),
+        );
+        attributes.insert("release".to_string(), AttributeValue::Boolean(true));
+        attributes.insert(
+            "features".to_string(),
+            AttributeValue::String("async".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(result.is_success());
+        let data = result.data.unwrap();
+        assert_eq!(data.get("dry_run"), Some(&json!(true)));
+        let command = data.get("command").unwrap().as_str().unwrap();
+        assert!(command.contains("build"));
+        assert!(command.contains("--release"));
+        assert!(command.contains("--features async"));
+    }
+
+    #[tokio::test]
+    async fn test_cargo_success_with_metadata() {
+        let handler = CargoHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "cargo",
+            vec!["build"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"   Compiling test v0.1.0\nwarning: unused variable\n    Finished dev [unoptimized]".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("build".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(result.is_success());
+        let data = result.data.unwrap();
+        assert!(data.get("metadata").is_some());
+        assert_eq!(data["metadata"]["command"], "build");
+        assert_eq!(data["metadata"]["finished"], true);
+        assert_eq!(data["metadata"]["warnings"], 1);
+    }
+
+    #[tokio::test]
+    async fn test_cargo_command_failure() {
+        let handler = CargoHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "cargo",
+            vec!["build"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(101),
+                stdout: Vec::new(),
+                stderr: b"error: could not compile `test`".to_vec(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("build".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(!result.is_success());
+        assert!(result.error.unwrap().contains("Cargo command failed"));
+        assert!(result.duration_ms.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_cargo_executor_error() {
+        let handler = CargoHandler::new();
+        let mock_executor = MockSubprocessExecutor::new();
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("build".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(!result.is_success());
+        assert!(result
+            .error
+            .unwrap()
+            .contains("Failed to execute cargo command"));
+        assert!(result.duration_ms.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_cargo_environment_variables() {
+        let handler = CargoHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "cargo",
+            vec!["check"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"    Finished dev [unoptimized + debuginfo]".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("check".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(result.is_success());
+    }
+
     // Tests for pure functions
     mod pure_functions {
         use super::*;

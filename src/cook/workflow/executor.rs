@@ -3025,14 +3025,14 @@ impl WorkflowExecutor {
     }
 
     /// Execute a single workflow step
-    pub async fn execute_step(
-        &mut self,
-        step: &WorkflowStep,
+    /// Log step execution context for debugging and progress tracking
+    fn log_step_execution_context(
+        &self,
+        step_name: &str,
         env: &ExecutionEnvironment,
-        ctx: &mut WorkflowContext,
-    ) -> Result<StepResult> {
+        ctx: &WorkflowContext,
+    ) {
         // Display what step we're executing
-        let step_name = self.get_step_display_name(step);
         self.user_interaction
             .display_progress(&format!("Executing: {}", step_name));
 
@@ -3063,7 +3063,14 @@ impl WorkflowExecutor {
                 tracing::info!("  {} = {}", key, display_value);
             }
         }
+    }
 
+    /// Initialize git tracking for this step
+    async fn initialize_step_tracking(
+        &self,
+        env: &ExecutionEnvironment,
+        ctx: &WorkflowContext,
+    ) -> Result<(crate::cook::commit_tracker::CommitTracker, String)> {
         // Track git changes - begin step
         let step_id = format!("step_{}", self.completed_steps.len());
         if let Some(ref git_tracker) = ctx.git_tracker {
@@ -3082,9 +3089,20 @@ impl WorkflowExecutor {
         // Get the HEAD before step execution
         let before_head = commit_tracker.get_current_head().await?;
 
-        // Determine command type
-        let command_type = self.determine_command_type(step)?;
+        Ok((commit_tracker, before_head))
+    }
 
+    /// Set up environment context for step execution
+    async fn setup_step_environment_context(
+        &mut self,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<(
+        HashMap<String, String>,
+        Option<PathBuf>,
+        ExecutionEnvironment,
+    )> {
         // Set up environment for this step
         let (env_vars, working_dir_override) =
             if let Some(ref mut env_manager) = self.environment_manager {
@@ -3134,37 +3152,51 @@ impl WorkflowExecutor {
         );
         tracing::info!("==============================");
 
-        // Handle test mode
-        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
-        if test_mode {
-            return self.handle_test_mode_execution(step, &command_type);
-        }
+        Ok((env_vars, working_dir_override, actual_env))
+    }
 
-        // Execute the command with retry if configured
-        let mut result = if let Some(retry_config) = &step.retry {
+    /// Execute command with retry logic if configured
+    async fn execute_with_retry_if_configured(
+        &mut self,
+        step: &WorkflowStep,
+        command_type: &CommandType,
+        actual_env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        if let Some(retry_config) = &step.retry {
             // Use enhanced retry executor
             let step_name = self.get_step_display_name(step);
             self.execute_with_enhanced_retry(
                 retry_config.clone(),
                 &step_name,
-                &command_type,
+                command_type,
                 step,
-                &actual_env,
+                actual_env,
                 ctx,
                 env_vars,
             )
-            .await?
+            .await
         } else {
             // Execute without enhanced retry
-            self.execute_command_by_type(&command_type, step, &actual_env, ctx, env_vars)
-                .await?
-        };
+            self.execute_command_by_type(command_type, step, actual_env, ctx, env_vars)
+                .await
+        }
+    }
 
+    /// Track commits and create auto-commit if needed
+    async fn track_and_commit_changes(
+        &self,
+        step: &WorkflowStep,
+        commit_tracker: &crate::cook::commit_tracker::CommitTracker,
+        before_head: &str,
+        ctx: &mut WorkflowContext,
+    ) -> Result<Vec<crate::cook::commit_tracker::TrackedCommit>> {
         // Track commits created during step execution
         let after_head = commit_tracker.get_current_head().await?;
         let step_name = self.get_step_display_name(step);
         let mut tracked_commits = commit_tracker
-            .track_step_commits(&step_name, &before_head, &after_head)
+            .track_step_commits(&step_name, before_head, &after_head)
             .await?;
 
         // Create auto-commit if configured and changes exist
@@ -3190,19 +3222,32 @@ impl WorkflowExecutor {
         let commit_vars = Self::build_commit_variables(&tracked_commits)?;
         ctx.variables.extend(commit_vars);
 
+        Ok(tracked_commits)
+    }
+
+    /// Validate commit requirements and display dry-run information if applicable
+    fn validate_and_display_commit_info(
+        &self,
+        step: &WorkflowStep,
+        tracked_commits: &[crate::cook::commit_tracker::TrackedCommit],
+        before_head: &str,
+        after_head: &str,
+    ) -> Result<()> {
+        let step_name = self.get_step_display_name(step);
+
         // Validate commit requirements using pure function
         Self::validate_commit_requirement(
             step,
             tracked_commits.is_empty(),
-            &before_head,
-            &after_head,
+            before_head,
+            after_head,
             self.dry_run,
             &step_name,
             &self.assumed_commits,
         )?;
 
+        // Handle dry run commit assumption display
         if self.dry_run && tracked_commits.is_empty() && after_head == before_head {
-            // Handle dry run commit assumption display
             let command_desc = if let Some(ref cmd) = step.claude {
                 format!("claude: {}", cmd)
             } else if let Some(ref cmd) = step.shell {
@@ -3225,7 +3270,16 @@ impl WorkflowExecutor {
             }
         }
 
-        // Capture command output if requested
+        Ok(())
+    }
+
+    /// Capture command output to variable store if configured
+    async fn capture_step_output(
+        &self,
+        step: &WorkflowStep,
+        result: &StepResult,
+        ctx: &mut WorkflowContext,
+    ) -> Result<()> {
         if let Some(capture_name) = &step.capture {
             let command_result = super::variables::CommandResult {
                 stdout: Some(result.stdout.clone()),
@@ -3253,7 +3307,16 @@ impl WorkflowExecutor {
                 .insert(capture_name.clone(), result.stdout.clone());
         }
 
-        // Write output to file if requested
+        Ok(())
+    }
+
+    /// Write command output to file if configured
+    fn write_output_to_file(
+        &self,
+        step: &WorkflowStep,
+        result: &StepResult,
+        actual_env: &ExecutionEnvironment,
+    ) -> Result<()> {
         if let Some(output_file) = &step.output_file {
             use std::fs;
 
@@ -3274,10 +3337,20 @@ impl WorkflowExecutor {
                 .map_err(|e| anyhow!("Failed to write output to file {:?}: {}", output_path, e))?;
         }
 
-        // Capture output if requested (deprecated)
+        Ok(())
+    }
+
+    /// Handle legacy capture_output feature (deprecated)
+    fn handle_legacy_capture(
+        &self,
+        step: &WorkflowStep,
+        command_type: &CommandType,
+        result: &StepResult,
+        ctx: &mut WorkflowContext,
+    ) {
         if step.capture_output.is_enabled() {
             // Get the variable name for this output (custom or default)
-            if let Some(var_name) = step.capture_output.get_variable_name(&command_type) {
+            if let Some(var_name) = step.capture_output.get_variable_name(command_type) {
                 // Store with the specified variable name
                 ctx.captured_outputs.insert(var_name, result.stdout.clone());
             }
@@ -3286,43 +3359,58 @@ impl WorkflowExecutor {
             ctx.captured_outputs
                 .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
         }
+    }
 
-        // Handle validation if configured and command succeeded
-        // Skip in dry-run mode since validation was already simulated in execute_command_by_type
-        if result.success && !self.dry_run {
-            if let Some(validation_config) = &step.validate {
-                self.handle_validation(validation_config, &actual_env, ctx)
+    /// Execute step validation if configured
+    async fn execute_step_validation(
+        &mut self,
+        step: &WorkflowStep,
+        result: &mut StepResult,
+        actual_env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<()> {
+        // Skip validation in dry-run mode since validation was already simulated in execute_command_by_type
+        if !result.success || self.dry_run {
+            return Ok(());
+        }
+
+        // Handle legacy validation config
+        if let Some(validation_config) = &step.validate {
+            self.handle_validation(validation_config, actual_env, ctx)
+                .await?;
+        }
+
+        // Handle step validation (first-class validation feature)
+        if let Some(step_validation) = &step.step_validate {
+            if !step.skip_validation {
+                let validation_result = self
+                    .handle_step_validation(step_validation, actual_env, ctx, step)
                     .await?;
-            }
 
-            // Handle step validation (first-class validation feature)
-            if let Some(step_validation) = &step.step_validate {
-                if !step.skip_validation {
-                    let validation_result = self
-                        .handle_step_validation(step_validation, &actual_env, ctx, step)
-                        .await?;
-
-                    // Update result based on validation
-                    if !validation_result.passed && !step.ignore_validation_failure {
-                        result.success = false;
-                        result.stdout.push_str(&format!(
-                            "\n[Validation Failed: {} validation(s) executed, {} attempt(s) made]",
-                            validation_result.results.len(),
-                            validation_result.attempts
-                        ));
-                        if result.exit_code == Some(0) {
-                            result.exit_code = Some(1); // Set exit code to indicate validation failure
-                        }
+                // Update result based on validation
+                if !validation_result.passed && !step.ignore_validation_failure {
+                    result.success = false;
+                    result.stdout.push_str(&format!(
+                        "\n[Validation Failed: {} validation(s) executed, {} attempt(s) made]",
+                        validation_result.results.len(),
+                        validation_result.attempts
+                    ));
+                    if result.exit_code == Some(0) {
+                        result.exit_code = Some(1); // Set exit code to indicate validation failure
                     }
                 }
             }
         }
 
-        // Handle conditional execution (failure, success, exit codes)
-        result = self
-            .handle_conditional_execution(step, result, &actual_env, ctx)
-            .await?;
+        Ok(())
+    }
 
+    /// Finalize step result by handling workflow failure logic
+    fn finalize_step_result(
+        &self,
+        step: &WorkflowStep,
+        mut result: StepResult,
+    ) -> Result<StepResult> {
         // Check if we should fail the workflow based on the result using pure function
         let should_fail = Self::should_fail_workflow_for_step(&result, step);
 
@@ -3340,6 +3428,11 @@ impl WorkflowExecutor {
             );
         }
 
+        Ok(result)
+    }
+
+    /// Track git changes and update session state
+    async fn track_and_update_session(&mut self, ctx: &WorkflowContext) -> Result<()> {
         // Track git changes - complete step
         let files_changed_count = if let Some(ref git_tracker) = ctx.git_tracker {
             if let Ok(mut tracker) = git_tracker.lock() {
@@ -3377,6 +3470,85 @@ impl WorkflowExecutor {
         self.session_manager
             .update_session(SessionUpdate::AddFilesChanged(files_changed_count))
             .await?;
+
+        Ok(())
+    }
+
+    /// Execute a single workflow step
+    ///
+    /// This function orchestrates the complete lifecycle of a workflow step execution:
+    /// 1. Initialization: Logging, git tracking, environment setup
+    /// 2. Execution: Command execution with retry support
+    /// 3. Post-execution: Commit tracking, output capture, validation
+    /// 4. Finalization: Result processing, session updates
+    ///
+    /// The function is designed to be maintainable by delegating each responsibility
+    /// to focused helper functions, using Result chaining for clean error handling.
+    pub async fn execute_step(
+        &mut self,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // === PHASE 1: Initialization ===
+        // Get step name for logging
+        let step_name = self.get_step_display_name(step);
+
+        // Log execution context (progress display, tracing)
+        self.log_step_execution_context(&step_name, env, ctx);
+
+        // Initialize git tracking for commit monitoring
+        let (commit_tracker, before_head) = self.initialize_step_tracking(env, ctx).await?;
+
+        // Determine command type (claude, shell, etc.)
+        let command_type = self.determine_command_type(step)?;
+
+        // Set up environment variables and working directory
+        let (env_vars, _working_dir_override, actual_env) =
+            self.setup_step_environment_context(step, env, ctx).await?;
+
+        // Early return for test mode (no actual execution)
+        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
+        if test_mode {
+            return self.handle_test_mode_execution(step, &command_type);
+        }
+
+        // === PHASE 2: Execution ===
+        // Execute command with retry support if configured
+        let mut result = self
+            .execute_with_retry_if_configured(step, &command_type, &actual_env, ctx, env_vars)
+            .await?;
+
+        // === PHASE 3: Post-Execution Processing ===
+        // Track commits created during execution and create auto-commit if needed
+        let tracked_commits = self
+            .track_and_commit_changes(step, &commit_tracker, &before_head, ctx)
+            .await?;
+
+        // Validate commit requirements
+        let after_head = commit_tracker.get_current_head().await?;
+        self.validate_and_display_commit_info(step, &tracked_commits, &before_head, &after_head)?;
+
+        // Capture output to variables and files
+        self.capture_step_output(step, &result, ctx).await?;
+        self.write_output_to_file(step, &result, &actual_env)?;
+        self.handle_legacy_capture(step, &command_type, &result, ctx);
+
+        // Execute validation checks if configured
+        self.execute_step_validation(step, &mut result, &actual_env, ctx)
+            .await?;
+
+        // Handle conditional execution (on_failure, on_success handlers)
+        result = self
+            .handle_conditional_execution(step, result, &actual_env, ctx)
+            .await?;
+
+        // === PHASE 4: Finalization ===
+        // Determine if step failure should fail the workflow
+        let result = self.finalize_step_result(step, result)?;
+
+        // Update session state with git changes
+        self.track_and_update_session(ctx).await?;
 
         Ok(result)
     }
