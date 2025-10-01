@@ -44,6 +44,63 @@ impl ClaudeHandler {
             ))
         }
     }
+
+    /// Extract and validate parameters from attributes
+    fn extract_parameters(
+        attributes: &HashMap<String, AttributeValue>,
+    ) -> Result<ClaudeParameters, String> {
+        let prompt = attributes
+            .get("prompt")
+            .and_then(|v| v.as_string())
+            .ok_or_else(|| "Missing required attribute: prompt".to_string())?
+            .clone();
+
+        let model = attributes
+            .get("model")
+            .and_then(|v| v.as_string())
+            .cloned()
+            .unwrap_or_else(|| "claude-3-sonnet".to_string());
+
+        let temperature = attributes
+            .get("temperature")
+            .and_then(|v| v.as_number())
+            .unwrap_or(0.7);
+
+        let max_tokens = attributes
+            .get("max_tokens")
+            .and_then(|v| v.as_number())
+            .map(|n| n as u32)
+            .unwrap_or(4096);
+
+        let system = attributes
+            .get("system")
+            .and_then(|v| v.as_string())
+            .cloned();
+
+        let timeout = attributes
+            .get("timeout")
+            .and_then(|v| v.as_number())
+            .unwrap_or(60.0) as u64;
+
+        Ok(ClaudeParameters {
+            prompt,
+            model,
+            temperature,
+            max_tokens,
+            system,
+            timeout,
+        })
+    }
+}
+
+/// Parameters for Claude CLI execution
+struct ClaudeParameters {
+    prompt: String,
+    model: String,
+    temperature: f64,
+    max_tokens: u32,
+    system: Option<String>,
+    timeout: u64,
 }
 
 #[async_trait]
@@ -76,48 +133,20 @@ impl CommandHandler for ClaudeHandler {
         // Apply defaults
         self.schema().apply_defaults(&mut attributes);
 
-        // Extract prompt
-        let prompt = match attributes.get("prompt").and_then(|v| v.as_string()) {
-            Some(p) => p.clone(),
-            None => return CommandResult::error("Missing required attribute: prompt".to_string()),
+        // Extract and validate parameters
+        let params = match Self::extract_parameters(&attributes) {
+            Ok(p) => p,
+            Err(e) => return CommandResult::error(e),
         };
-
-        // Extract optional parameters
-        let model = attributes
-            .get("model")
-            .and_then(|v| v.as_string())
-            .cloned()
-            .unwrap_or_else(|| "claude-3-sonnet".to_string());
-
-        let temperature = attributes
-            .get("temperature")
-            .and_then(|v| v.as_number())
-            .unwrap_or(0.7);
-
-        let max_tokens = attributes
-            .get("max_tokens")
-            .and_then(|v| v.as_number())
-            .map(|n| n as u32)
-            .unwrap_or(4096);
-
-        let system = attributes
-            .get("system")
-            .and_then(|v| v.as_string())
-            .cloned();
-
-        let timeout = attributes
-            .get("timeout")
-            .and_then(|v| v.as_number())
-            .unwrap_or(60.0) as u64;
 
         // Build context from files if specified
         let full_prompt = if let Some(context_files) = attributes.get("context_files").and_then(|v| v.as_array()) {
-            match Self::build_prompt_with_context(&prompt, context_files, context).await {
+            match Self::build_prompt_with_context(&params.prompt, context_files, context).await {
                 Ok(p) => p,
                 Err(e) => return CommandResult::error(e),
             }
         } else {
-            prompt.clone()
+            params.prompt.clone()
         };
 
         let start = Instant::now();
@@ -126,11 +155,11 @@ impl CommandHandler for ClaudeHandler {
             let duration = start.elapsed().as_millis() as u64;
             return CommandResult::success(json!({
                 "dry_run": true,
-                "model": model,
+                "model": params.model,
                 "prompt": full_prompt,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "system": system,
+                "temperature": params.temperature,
+                "max_tokens": params.max_tokens,
+                "system": params.system,
             }))
             .with_duration(duration);
         }
@@ -138,14 +167,14 @@ impl CommandHandler for ClaudeHandler {
         // Build Claude CLI command
         let mut cmd_args = vec![
             "--model".to_string(),
-            model.clone(),
+            params.model.clone(),
             "--max-tokens".to_string(),
-            max_tokens.to_string(),
+            params.max_tokens.to_string(),
             "--temperature".to_string(),
-            temperature.to_string(),
+            params.temperature.to_string(),
         ];
 
-        if let Some(sys) = system.clone() {
+        if let Some(sys) = params.system.clone() {
             cmd_args.push("--system".to_string());
             cmd_args.push(sys);
         }
@@ -160,7 +189,7 @@ impl CommandHandler for ClaudeHandler {
                 &cmd_args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
                 Some(&context.working_dir),
                 Some(context.full_env()),
-                Some(std::time::Duration::from_secs(timeout)),
+                Some(std::time::Duration::from_secs(params.timeout)),
             )
             .await;
 
@@ -175,9 +204,9 @@ impl CommandHandler for ClaudeHandler {
                     CommandResult::success(json!({
                         "response": stdout,
                         "metadata": {
-                            "model": model,
-                            "temperature": temperature,
-                            "max_tokens": max_tokens,
+                            "model": params.model,
+                            "temperature": params.temperature,
+                            "max_tokens": params.max_tokens,
                         }
                     }))
                     .with_duration(duration)
