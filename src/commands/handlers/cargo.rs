@@ -346,6 +346,27 @@ mod tests {
         assert!(result.error.unwrap().contains("Missing required attribute: command"));
     }
 
+    #[tokio::test]
+    async fn test_cargo_dry_run_with_flags() {
+        let handler = CargoHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert("command".to_string(), AttributeValue::String("build".to_string()));
+        attributes.insert("release".to_string(), AttributeValue::Boolean(true));
+        attributes.insert("features".to_string(), AttributeValue::String("async".to_string()));
+
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(result.is_success());
+        let data = result.data.unwrap();
+        assert_eq!(data.get("dry_run"), Some(&json!(true)));
+        let command = data.get("command").unwrap().as_str().unwrap();
+        assert!(command.contains("build"));
+        assert!(command.contains("--release"));
+        assert!(command.contains("--features async"));
+    }
+
     // Tests for pure functions
     mod pure_functions {
         use super::*;
