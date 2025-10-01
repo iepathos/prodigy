@@ -91,6 +91,32 @@ impl ClaudeHandler {
             timeout,
         })
     }
+
+    /// Build CLI arguments for Claude command
+    fn build_cli_args(
+        model: &str,
+        max_tokens: u32,
+        temperature: f64,
+        system: &Option<String>,
+        prompt: String,
+    ) -> Vec<String> {
+        let mut args = vec![
+            "--model".to_string(),
+            model.to_string(),
+            "--max-tokens".to_string(),
+            max_tokens.to_string(),
+            "--temperature".to_string(),
+            temperature.to_string(),
+        ];
+
+        if let Some(sys) = system {
+            args.push("--system".to_string());
+            args.push(sys.clone());
+        }
+
+        args.push(prompt);
+        args
+    }
 }
 
 /// Parameters for Claude CLI execution
@@ -165,21 +191,13 @@ impl CommandHandler for ClaudeHandler {
         }
 
         // Build Claude CLI command
-        let mut cmd_args = vec![
-            "--model".to_string(),
-            params.model.clone(),
-            "--max-tokens".to_string(),
-            params.max_tokens.to_string(),
-            "--temperature".to_string(),
-            params.temperature.to_string(),
-        ];
-
-        if let Some(sys) = params.system.clone() {
-            cmd_args.push("--system".to_string());
-            cmd_args.push(sys);
-        }
-
-        cmd_args.push(full_prompt);
+        let cmd_args = Self::build_cli_args(
+            &params.model,
+            params.max_tokens,
+            params.temperature,
+            &params.system,
+            full_prompt,
+        );
 
         // Execute Claude CLI
         let result = context
