@@ -557,4 +557,109 @@ mod tests {
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
     }
+
+    #[tokio::test]
+    async fn test_working_dir_relative_path() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Relative path should be resolved via context.resolve_path
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/test/subdir")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/test/subdir\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        attributes.insert(
+            "working_dir".to_string(),
+            AttributeValue::String("subdir".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_working_dir_default() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // No working_dir specified should use context.working_dir
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        // No working_dir attribute specified - should use context default
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_working_dir_absolute_path() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Absolute path should be used as-is (after resolve_path)
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/absolute/path")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/absolute/path\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        attributes.insert(
+            "working_dir".to_string(),
+            AttributeValue::String("/absolute/path".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
 }
