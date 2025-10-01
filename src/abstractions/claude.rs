@@ -440,56 +440,60 @@ impl ClaudeClient for RealClaudeClient {
                 }
             }
 
-            match self.subprocess.runner().run(builder.build()).await {
-                Ok(output) => {
-                    if !output.status.success() {
-                        let stderr = &output.stderr;
+            let result = self.subprocess.runner().run(builder.build()).await;
 
-                        // Classify the error from stderr
-                        let error_type = if Self::is_transient_error(stderr) {
-                            CommandErrorType::TransientError
-                        } else {
-                            CommandErrorType::PermanentError
-                        };
-
-                        // Check if we should retry
-                        if Self::should_retry_error(&error_type, attempt, max_retries) {
-                            if verbose {
-                                eprintln!(
-                                    "⚠️  Transient error detected: {}",
-                                    stderr.lines().next().unwrap_or("Unknown error")
-                                );
-                            }
-                            last_error = Some(stderr.to_string());
-                            attempt += 1;
-                            continue;
-                        }
-                    }
-
-                    // Convert and return output
+            // Handle successful execution - check if we can return immediately
+            if let Ok(output) = result {
+                // Success case - return immediately
+                if output.status.success() {
                     return Ok(Self::convert_to_std_output(output));
                 }
-                Err(e) => {
-                    let error_type = Self::classify_command_error(&e, "");
 
-                    // CommandNotFound is fatal, return immediately
-                    if error_type == CommandErrorType::CommandNotFound {
-                        return Err(anyhow::anyhow!("Claude CLI not found: {}", e));
+                // Failed command - check if transient and should retry
+                let stderr = &output.stderr;
+                let error_type = if Self::is_transient_error(stderr) {
+                    CommandErrorType::TransientError
+                } else {
+                    CommandErrorType::PermanentError
+                };
+
+                if Self::should_retry_error(&error_type, attempt, max_retries) {
+                    if verbose {
+                        eprintln!(
+                            "⚠️  Transient error detected: {}",
+                            stderr.lines().next().unwrap_or("Unknown error")
+                        );
                     }
-
-                    // Check if we should retry
-                    if Self::should_retry_error(&error_type, attempt, max_retries) {
-                        if verbose {
-                            eprintln!("⚠️  IO error: {e}");
-                        }
-                        last_error = Some(e.to_string());
-                        attempt += 1;
-                        continue;
-                    }
-
-                    return Err(anyhow::anyhow!("Failed to execute {}: {}", command, e));
+                    last_error = Some(stderr.to_string());
+                    attempt += 1;
+                    continue;
                 }
+
+                // Non-transient error - return with failure
+                return Ok(Self::convert_to_std_output(output));
             }
+
+            // Handle execution errors
+            let error = result.unwrap_err();
+            let error_type = Self::classify_command_error(&error, "");
+
+            // CommandNotFound is always fatal
+            if error_type == CommandErrorType::CommandNotFound {
+                return Err(anyhow::anyhow!("Claude CLI not found: {}", error));
+            }
+
+            // Check if we should retry other errors
+            if Self::should_retry_error(&error_type, attempt, max_retries) {
+                if verbose {
+                    eprintln!("⚠️  IO error: {error}");
+                }
+                last_error = Some(error.to_string());
+                attempt += 1;
+                continue;
+            }
+
+            // Non-retryable error
+            return Err(anyhow::anyhow!("Failed to execute {}: {}", command, error));
         }
 
         Err(anyhow::anyhow!(
