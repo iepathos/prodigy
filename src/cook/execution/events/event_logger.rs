@@ -20,7 +20,7 @@ pub struct EventRecord {
     pub timestamp: DateTime<Utc>,
     pub correlation_id: String,
     pub event: MapReduceEvent,
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub metadata: HashMap<String, Value>,
 }
 

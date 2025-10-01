@@ -487,4 +487,125 @@ mod tests {
         assert_eq!(results.len(), 1, "Should find 1 event");
         assert_eq!(results[0].event.job_id(), job_id);
     }
+
+    #[tokio::test]
+    async fn test_index_creates_index_for_job_with_events() {
+        // Setup
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path().to_path_buf();
+        let store = FileEventStore::new(base_path.clone());
+
+        // Create test data
+        let job_id = "test-job-index";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        // Create several test events in a JSONL file
+        let event_file = events_dir.join("events-001.jsonl");
+        let timestamp = Utc::now();
+
+        // Create multiple events to test aggregation
+        let events = vec![
+            EventRecord {
+                id: Uuid::new_v4(),
+                timestamp,
+                correlation_id: "corr-1".to_string(),
+                event: MapReduceEvent::JobStarted {
+                    job_id: job_id.to_string(),
+                    config: MapReduceConfig {
+                        agent_timeout_secs: None,
+                        continue_on_failure: false,
+                        batch_size: None,
+                        enable_checkpoints: true,
+                        input: "test.json".to_string(),
+                        json_path: "$.items".to_string(),
+                        max_parallel: 5,
+                        max_items: None,
+                        offset: None,
+                    },
+                    total_items: 10,
+                    timestamp,
+                },
+                metadata: HashMap::new(),
+            },
+            EventRecord {
+                id: Uuid::new_v4(),
+                timestamp,
+                correlation_id: "corr-2".to_string(),
+                event: MapReduceEvent::AgentStarted {
+                    job_id: job_id.to_string(),
+                    agent_id: "agent-1".to_string(),
+                    item_id: "item-1".to_string(),
+                    worktree: "worktree-1".to_string(),
+                    attempt: 1,
+                },
+                metadata: HashMap::new(),
+            },
+            EventRecord {
+                id: Uuid::new_v4(),
+                timestamp,
+                correlation_id: "corr-3".to_string(),
+                event: MapReduceEvent::AgentCompleted {
+                    job_id: job_id.to_string(),
+                    agent_id: "agent-1".to_string(),
+                    duration: chrono::Duration::seconds(30),
+                    commits: vec!["abc123".to_string()],
+                },
+                metadata: HashMap::new(),
+            },
+        ];
+
+        // Write events to file
+        let mut file_content = String::new();
+        for event in &events {
+            file_content.push_str(&serde_json::to_string(event).unwrap());
+            file_content.push('\n');
+        }
+        fs::write(&event_file, &file_content).await.unwrap();
+
+        // Execute
+        let result = store.index(job_id).await;
+
+        // Assert
+        assert!(result.is_ok(), "Index operation should succeed");
+        let index = result.unwrap();
+
+        // Verify index structure
+        assert_eq!(index.job_id, job_id, "Job ID should match");
+        assert_eq!(index.total_events, 3, "Should count all events");
+
+        // Verify event counts by type (event names are in snake_case)
+        assert!(
+            index.event_counts.contains_key("job_started"),
+            "Should have job_started count"
+        );
+        assert!(
+            index.event_counts.contains_key("agent_started"),
+            "Should have agent_started count"
+        );
+        assert!(
+            index.event_counts.contains_key("agent_completed"),
+            "Should have agent_completed count"
+        );
+
+        // Verify index file was created
+        let index_path = events_dir.join("index.json");
+        assert!(
+            index_path.exists(),
+            "Index file should exist on disk"
+        );
+
+        // Verify index file can be deserialized
+        let index_content = fs::read_to_string(&index_path).await.unwrap();
+        let parsed_index: EventIndex =
+            serde_json::from_str(&index_content).expect("Index should be valid JSON");
+        assert_eq!(
+            parsed_index.job_id, job_id,
+            "Parsed index should match"
+        );
+        assert_eq!(
+            parsed_index.total_events, 3,
+            "Parsed index should have correct count"
+        );
+    }
 }
