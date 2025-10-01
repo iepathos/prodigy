@@ -2,15 +2,15 @@
   "completion_percentage": 100,
   "status": "complete",
   "improvements": [
-    "Resolved 54 high-priority debt items",
+    "Resolved 31 high-priority debt items",
     "Reduced average debt score by 100.0%"
   ],
   "remaining_issues": [],
   "gaps": {},
   "before_summary": {
-    "total_items": 1992,
-    "high_priority_items": 54,
-    "average_score": 54.8
+    "total_items": 1297,
+    "high_priority_items": 31,
+    "average_score": 55.36
   },
   "after_summary": {
     "total_items": 0,
