@@ -133,6 +133,52 @@ async fn execute_exists(path: &std::path::Path) -> Result<serde_json::Value, Str
     }))
 }
 
+/// Check if destination exists when overwrite is false
+fn check_overwrite(destination: &std::path::Path, overwrite: bool) -> Result<(), String> {
+    if !overwrite && destination.exists() {
+        Err("Destination already exists and overwrite is false".to_string())
+    } else {
+        Ok(())
+    }
+}
+
+/// Execute copy operation
+async fn execute_copy(
+    source: &std::path::Path,
+    destination: &std::path::Path,
+    overwrite: bool,
+) -> Result<serde_json::Value, String> {
+    check_overwrite(destination, overwrite)?;
+
+    match fs::copy(source, destination).await {
+        Ok(bytes) => Ok(json!({
+            "source": source.display().to_string(),
+            "destination": destination.display().to_string(),
+            "size": bytes,
+            "operation": "copy",
+        })),
+        Err(e) => Err(format!("Failed to copy file: {e}")),
+    }
+}
+
+/// Execute move operation
+async fn execute_move(
+    source: &std::path::Path,
+    destination: &std::path::Path,
+    overwrite: bool,
+) -> Result<serde_json::Value, String> {
+    check_overwrite(destination, overwrite)?;
+
+    match fs::rename(source, destination).await {
+        Ok(_) => Ok(json!({
+            "source": source.display().to_string(),
+            "destination": destination.display().to_string(),
+            "operation": "move",
+        })),
+        Err(e) => Err(format!("Failed to move file: {e}")),
+    }
+}
+
 #[async_trait]
 impl CommandHandler for FileHandler {
     fn name(&self) -> &str {
@@ -266,20 +312,9 @@ impl CommandHandler for FileHandler {
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
 
-                if !overwrite && destination.exists() {
-                    return CommandResult::error(
-                        "Destination already exists and overwrite is false".to_string(),
-                    );
-                }
-
-                match fs::copy(&path, &destination).await {
-                    Ok(bytes) => CommandResult::success(json!({
-                        "source": path.display().to_string(),
-                        "destination": destination.display().to_string(),
-                        "size": bytes,
-                        "operation": "copy",
-                    })),
-                    Err(e) => CommandResult::error(format!("Failed to copy file: {e}")),
+                match execute_copy(&path, &destination, overwrite).await {
+                    Ok(data) => CommandResult::success(data),
+                    Err(e) => CommandResult::error(e),
                 }
             }
             "move" => {
@@ -297,19 +332,9 @@ impl CommandHandler for FileHandler {
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
 
-                if !overwrite && destination.exists() {
-                    return CommandResult::error(
-                        "Destination already exists and overwrite is false".to_string(),
-                    );
-                }
-
-                match fs::rename(&path, &destination).await {
-                    Ok(_) => CommandResult::success(json!({
-                        "source": path.display().to_string(),
-                        "destination": destination.display().to_string(),
-                        "operation": "move",
-                    })),
-                    Err(e) => CommandResult::error(format!("Failed to move file: {e}")),
+                match execute_move(&path, &destination, overwrite).await {
+                    Ok(data) => CommandResult::success(data),
+                    Err(e) => CommandResult::error(e),
                 }
             }
             "exists" => match execute_exists(&path).await {
