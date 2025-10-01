@@ -142,14 +142,11 @@ impl CommandHandler for CargoHandler {
 
         let start = Instant::now();
 
-        // Build cargo command
-        let mut cargo_args = vec![command.clone()];
-
-        // Add common flags using pure function
-        cargo_args.extend(build_boolean_flags(&attributes));
-
-        // Add string option arguments using pure function
-        cargo_args.extend(build_string_option_args(&attributes));
+        // Build cargo command using functional composition
+        let cargo_args: Vec<String> = std::iter::once(command.clone())
+            .chain(build_boolean_flags(&attributes))
+            .chain(build_string_option_args(&attributes))
+            .collect();
 
         if context.dry_run {
             let duration = start.elapsed().as_millis() as u64;
