@@ -664,4 +664,164 @@ mod tests {
             "Index should fail when job directory doesn't exist"
         );
     }
+
+    #[tokio::test]
+    async fn test_index_aggregates_multiple_event_files() {
+        // Setup
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path().to_path_buf();
+        let store = FileEventStore::new(base_path.clone());
+
+        let job_id = "multi-file-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        // Create multiple event files with different timestamps
+        let timestamp1 = Utc::now() - chrono::Duration::hours(2);
+        let timestamp2 = Utc::now() - chrono::Duration::hours(1);
+        let timestamp3 = Utc::now();
+
+        // File 1: Earlier events
+        let event_file1 = events_dir.join("events-001.jsonl");
+        let events1 = vec![
+            EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: timestamp1,
+                correlation_id: "corr-1".to_string(),
+                event: MapReduceEvent::JobStarted {
+                    job_id: job_id.to_string(),
+                    config: MapReduceConfig {
+                        agent_timeout_secs: None,
+                        continue_on_failure: false,
+                        batch_size: None,
+                        enable_checkpoints: true,
+                        input: "test.json".to_string(),
+                        json_path: "$.items".to_string(),
+                        max_parallel: 5,
+                        max_items: None,
+                        offset: None,
+                    },
+                    total_items: 10,
+                    timestamp: timestamp1,
+                },
+                metadata: HashMap::new(),
+            },
+            EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: timestamp1,
+                correlation_id: "corr-2".to_string(),
+                event: MapReduceEvent::AgentStarted {
+                    job_id: job_id.to_string(),
+                    agent_id: "agent-1".to_string(),
+                    item_id: "item-1".to_string(),
+                    worktree: "worktree-1".to_string(),
+                    attempt: 1,
+                },
+                metadata: HashMap::new(),
+            },
+        ];
+
+        let mut content1 = String::new();
+        for event in &events1 {
+            content1.push_str(&serde_json::to_string(event).unwrap());
+            content1.push('\n');
+        }
+        fs::write(&event_file1, &content1).await.unwrap();
+
+        // File 2: Middle events
+        let event_file2 = events_dir.join("events-002.jsonl");
+        let events2 = vec![
+            EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: timestamp2,
+                correlation_id: "corr-3".to_string(),
+                event: MapReduceEvent::AgentCompleted {
+                    job_id: job_id.to_string(),
+                    agent_id: "agent-1".to_string(),
+                    duration: chrono::Duration::seconds(30),
+                    commits: vec!["abc123".to_string()],
+                },
+                metadata: HashMap::new(),
+            },
+            EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: timestamp2,
+                correlation_id: "corr-4".to_string(),
+                event: MapReduceEvent::AgentStarted {
+                    job_id: job_id.to_string(),
+                    agent_id: "agent-2".to_string(),
+                    item_id: "item-2".to_string(),
+                    worktree: "worktree-2".to_string(),
+                    attempt: 1,
+                },
+                metadata: HashMap::new(),
+            },
+        ];
+
+        let mut content2 = String::new();
+        for event in &events2 {
+            content2.push_str(&serde_json::to_string(event).unwrap());
+            content2.push('\n');
+        }
+        fs::write(&event_file2, &content2).await.unwrap();
+
+        // File 3: Latest events
+        let event_file3 = events_dir.join("events-003.jsonl");
+        let event3 = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: timestamp3,
+            correlation_id: "corr-5".to_string(),
+            event: MapReduceEvent::JobCompleted {
+                job_id: job_id.to_string(),
+                duration: chrono::Duration::hours(2),
+                success_count: 10,
+                failure_count: 0,
+            },
+            metadata: HashMap::new(),
+        };
+
+        let content3 = format!("{}\n", serde_json::to_string(&event3).unwrap());
+        fs::write(&event_file3, &content3).await.unwrap();
+
+        // Execute
+        let result = store.index(job_id).await;
+
+        // Assert
+        assert!(
+            result.is_ok(),
+            "Index should succeed with multiple files"
+        );
+        let index = result.unwrap();
+
+        // Verify aggregation
+        assert_eq!(index.job_id, job_id);
+        assert_eq!(
+            index.total_events, 5,
+            "Should aggregate all events from all files"
+        );
+
+        // Verify event type counts
+        assert_eq!(index.event_counts.get("job_started"), Some(&1));
+        assert_eq!(index.event_counts.get("agent_started"), Some(&2));
+        assert_eq!(index.event_counts.get("agent_completed"), Some(&1));
+        assert_eq!(index.event_counts.get("job_completed"), Some(&1));
+
+        // Verify time range spans all files
+        let (start, end) = index.time_range;
+        assert!(
+            start <= timestamp1,
+            "Time range start should be at or before earliest event"
+        );
+        assert!(
+            end >= timestamp3,
+            "Time range end should be at or after latest event"
+        );
+
+        // Verify file offsets were recorded
+        assert_eq!(
+            index.file_offsets.len(),
+            5,
+            "Should have file offsets for all events"
+        );
+    }
 }
