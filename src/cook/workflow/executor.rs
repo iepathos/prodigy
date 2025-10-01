@@ -3025,14 +3025,14 @@ impl WorkflowExecutor {
     }
 
     /// Execute a single workflow step
-    pub async fn execute_step(
-        &mut self,
-        step: &WorkflowStep,
+    /// Log step execution context for debugging and progress tracking
+    fn log_step_execution_context(
+        &self,
+        step_name: &str,
         env: &ExecutionEnvironment,
-        ctx: &mut WorkflowContext,
-    ) -> Result<StepResult> {
+        ctx: &WorkflowContext,
+    ) {
         // Display what step we're executing
-        let step_name = self.get_step_display_name(step);
         self.user_interaction
             .display_progress(&format!("Executing: {}", step_name));
 
@@ -3063,7 +3063,14 @@ impl WorkflowExecutor {
                 tracing::info!("  {} = {}", key, display_value);
             }
         }
+    }
 
+    /// Initialize git tracking for this step
+    async fn initialize_step_tracking(
+        &self,
+        env: &ExecutionEnvironment,
+        ctx: &WorkflowContext,
+    ) -> Result<(crate::cook::commit_tracker::CommitTracker, String)> {
         // Track git changes - begin step
         let step_id = format!("step_{}", self.completed_steps.len());
         if let Some(ref git_tracker) = ctx.git_tracker {
@@ -3082,9 +3089,16 @@ impl WorkflowExecutor {
         // Get the HEAD before step execution
         let before_head = commit_tracker.get_current_head().await?;
 
-        // Determine command type
-        let command_type = self.determine_command_type(step)?;
+        Ok((commit_tracker, before_head))
+    }
 
+    /// Set up environment context for step execution
+    async fn setup_step_environment_context(
+        &mut self,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<(HashMap<String, String>, Option<PathBuf>, ExecutionEnvironment)> {
         // Set up environment for this step
         let (env_vars, working_dir_override) =
             if let Some(ref mut env_manager) = self.environment_manager {
@@ -3133,6 +3147,31 @@ impl WorkflowExecutor {
             actual_env.working_dir.display()
         );
         tracing::info!("==============================");
+
+        Ok((env_vars, working_dir_override, actual_env))
+    }
+
+    pub async fn execute_step(
+        &mut self,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Get step name for logging
+        let step_name = self.get_step_display_name(step);
+
+        // Log execution context
+        self.log_step_execution_context(&step_name, env, ctx);
+
+        // Initialize step tracking and get commit tracker
+        let (commit_tracker, before_head) = self.initialize_step_tracking(env, ctx).await?;
+
+        // Determine command type
+        let command_type = self.determine_command_type(step)?;
+
+        // Set up environment context
+        let (env_vars, _working_dir_override, actual_env) =
+            self.setup_step_environment_context(step, env, ctx).await?;
 
         // Handle test mode
         let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
