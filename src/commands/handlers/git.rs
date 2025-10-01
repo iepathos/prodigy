@@ -344,4 +344,23 @@ mod tests {
             .unwrap()
             .contains("Missing required attribute: operation"));
     }
+
+    #[tokio::test]
+    async fn test_git_commit_without_message() {
+        let handler = GitHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test"));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("commit".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        assert!(result
+            .error
+            .unwrap()
+            .contains("Commit operation requires 'message' attribute"));
+    }
 }
