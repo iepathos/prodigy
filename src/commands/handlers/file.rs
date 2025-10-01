@@ -20,6 +20,215 @@ impl FileHandler {
     }
 }
 
+/// Execute read operation
+async fn execute_read(path: &std::path::Path) -> Result<serde_json::Value, String> {
+    match fs::read_to_string(path).await {
+        Ok(content) => Ok(json!({
+            "content": content,
+            "path": path.display().to_string(),
+            "size": content.len(),
+        })),
+        Err(e) => Err(format!("Failed to read file: {e}")),
+    }
+}
+
+/// Ensure parent directories exist
+async fn ensure_parent_dirs(path: &std::path::Path) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .await
+            .map_err(|e| format!("Failed to create directories: {e}"))
+    } else {
+        Ok(())
+    }
+}
+
+/// Execute write operation
+async fn execute_write(
+    path: &std::path::Path,
+    content: &str,
+    overwrite: bool,
+    create_dirs: bool,
+) -> Result<serde_json::Value, String> {
+    // Check if file exists and overwrite is false
+    if !overwrite && path.exists() {
+        return Err("File already exists and overwrite is false".to_string());
+    }
+
+    // Create parent directories if needed
+    if create_dirs {
+        ensure_parent_dirs(path).await?;
+    }
+
+    match fs::write(path, content.as_bytes()).await {
+        Ok(_) => Ok(json!({
+            "path": path.display().to_string(),
+            "size": content.len(),
+            "operation": "write",
+        })),
+        Err(e) => Err(format!("Failed to write file: {e}")),
+    }
+}
+
+/// Execute append operation
+async fn execute_append(
+    path: &std::path::Path,
+    content: &str,
+    create_dirs: bool,
+) -> Result<serde_json::Value, String> {
+    // Create parent directories if needed
+    if create_dirs {
+        ensure_parent_dirs(path).await?;
+    }
+
+    match fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .await
+    {
+        Ok(mut file) => match file.write_all(content.as_bytes()).await {
+            Ok(_) => Ok(json!({
+                "path": path.display().to_string(),
+                "appended_size": content.len(),
+                "operation": "append",
+            })),
+            Err(e) => Err(format!("Failed to append to file: {e}")),
+        },
+        Err(e) => Err(format!("Failed to open file for append: {e}")),
+    }
+}
+
+/// Execute delete operation
+async fn execute_delete(path: &std::path::Path) -> Result<serde_json::Value, String> {
+    match fs::remove_file(path).await {
+        Ok(_) => Ok(json!({
+            "path": path.display().to_string(),
+            "operation": "delete",
+        })),
+        Err(e) => Err(format!("Failed to delete file: {e}")),
+    }
+}
+
+/// Execute exists operation
+async fn execute_exists(path: &std::path::Path) -> Result<serde_json::Value, String> {
+    let exists = path.exists();
+    let metadata = if exists {
+        match fs::metadata(path).await {
+            Ok(meta) => Some(json!({
+                "is_file": meta.is_file(),
+                "is_dir": meta.is_dir(),
+                "size": meta.len(),
+            })),
+            Err(_) => None,
+        }
+    } else {
+        None
+    };
+
+    Ok(json!({
+        "path": path.display().to_string(),
+        "exists": exists,
+        "metadata": metadata,
+    }))
+}
+
+/// Check if destination exists when overwrite is false
+fn check_overwrite(destination: &std::path::Path, overwrite: bool) -> Result<(), String> {
+    if !overwrite && destination.exists() {
+        Err("Destination already exists and overwrite is false".to_string())
+    } else {
+        Ok(())
+    }
+}
+
+/// Execute copy operation
+async fn execute_copy(
+    source: &std::path::Path,
+    destination: &std::path::Path,
+    overwrite: bool,
+) -> Result<serde_json::Value, String> {
+    check_overwrite(destination, overwrite)?;
+
+    match fs::copy(source, destination).await {
+        Ok(bytes) => Ok(json!({
+            "source": source.display().to_string(),
+            "destination": destination.display().to_string(),
+            "size": bytes,
+            "operation": "copy",
+        })),
+        Err(e) => Err(format!("Failed to copy file: {e}")),
+    }
+}
+
+/// Execute move operation
+async fn execute_move(
+    source: &std::path::Path,
+    destination: &std::path::Path,
+    overwrite: bool,
+) -> Result<serde_json::Value, String> {
+    check_overwrite(destination, overwrite)?;
+
+    match fs::rename(source, destination).await {
+        Ok(_) => Ok(json!({
+            "source": source.display().to_string(),
+            "destination": destination.display().to_string(),
+            "operation": "move",
+        })),
+        Err(e) => Err(format!("Failed to move file: {e}")),
+    }
+}
+
+/// Parse operation from attributes
+fn parse_operation(attributes: &HashMap<String, AttributeValue>) -> Result<String, String> {
+    attributes
+        .get("operation")
+        .and_then(|v| v.as_string())
+        .cloned()
+        .ok_or_else(|| "Missing required attribute: operation".to_string())
+}
+
+/// Parse path from attributes
+fn parse_path(
+    attributes: &HashMap<String, AttributeValue>,
+    context: &ExecutionContext,
+) -> Result<std::path::PathBuf, String> {
+    attributes
+        .get("path")
+        .and_then(|v| v.as_string())
+        .map(|p| context.resolve_path(p.as_ref()))
+        .ok_or_else(|| "Missing required attribute: path".to_string())
+}
+
+/// Parse content from attributes
+fn parse_content(attributes: &HashMap<String, AttributeValue>) -> Result<String, String> {
+    attributes
+        .get("content")
+        .and_then(|v| v.as_string())
+        .cloned()
+        .ok_or_else(|| "Content attribute required for this operation".to_string())
+}
+
+/// Parse destination from attributes
+fn parse_destination(
+    attributes: &HashMap<String, AttributeValue>,
+    context: &ExecutionContext,
+) -> Result<std::path::PathBuf, String> {
+    attributes
+        .get("destination")
+        .and_then(|v| v.as_string())
+        .map(|d| context.resolve_path(d.as_ref()))
+        .ok_or_else(|| "Destination attribute required for this operation".to_string())
+}
+
+/// Parse boolean attribute with default
+fn parse_bool_attr(attributes: &HashMap<String, AttributeValue>, key: &str, default: bool) -> bool {
+    attributes
+        .get(key)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(default)
+}
+
 #[async_trait]
 impl CommandHandler for FileHandler {
     fn name(&self) -> &str {
@@ -54,21 +263,16 @@ impl CommandHandler for FileHandler {
         context: &ExecutionContext,
         mut attributes: HashMap<String, AttributeValue>,
     ) -> CommandResult {
-        // Apply defaults
         self.schema().apply_defaults(&mut attributes);
 
-        // Extract operation
-        let operation = match attributes.get("operation").and_then(|v| v.as_string()) {
-            Some(op) => op.clone(),
-            None => {
-                return CommandResult::error("Missing required attribute: operation".to_string())
-            }
+        let operation = match parse_operation(&attributes) {
+            Ok(op) => op,
+            Err(e) => return CommandResult::error(e),
         };
 
-        // Extract path
-        let path = match attributes.get("path").and_then(|v| v.as_string()) {
-            Some(p) => context.resolve_path(p.as_ref()),
-            None => return CommandResult::error("Missing required attribute: path".to_string()),
+        let path = match parse_path(&attributes, context) {
+            Ok(p) => p,
+            Err(e) => return CommandResult::error(e),
         };
 
         let start = Instant::now();
@@ -83,200 +287,47 @@ impl CommandHandler for FileHandler {
             .with_duration(duration);
         }
 
-        // Execute operation
         let result = match operation.as_str() {
-            "read" => match fs::read_to_string(&path).await {
-                Ok(content) => CommandResult::success(json!({
-                    "content": content,
-                    "path": path.display().to_string(),
-                    "size": content.len(),
-                })),
-                Err(e) => CommandResult::error(format!("Failed to read file: {e}")),
+            "read" => execute_read(&path).await,
+            "write" => match parse_content(&attributes) {
+                Ok(content) => {
+                    let overwrite = parse_bool_attr(&attributes, "overwrite", false);
+                    let create_dirs = parse_bool_attr(&attributes, "create_dirs", true);
+                    execute_write(&path, &content, overwrite, create_dirs).await
+                }
+                Err(e) => Err(e),
             },
-            "write" => {
-                let content = match attributes.get("content").and_then(|v| v.as_string()) {
-                    Some(c) => c.clone(),
-                    None => {
-                        return CommandResult::error(
-                            "Write operation requires 'content' attribute".to_string(),
-                        )
-                    }
-                };
-
-                let overwrite = attributes
-                    .get("overwrite")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-
-                let create_dirs = attributes
-                    .get("create_dirs")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(true);
-
-                // Check if file exists and overwrite is false
-                if !overwrite && path.exists() {
-                    return CommandResult::error(
-                        "File already exists and overwrite is false".to_string(),
-                    );
+            "append" => match parse_content(&attributes) {
+                Ok(content) => {
+                    let create_dirs = parse_bool_attr(&attributes, "create_dirs", true);
+                    execute_append(&path, &content, create_dirs).await
                 }
-
-                // Create parent directories if needed
-                if create_dirs {
-                    if let Some(parent) = path.parent() {
-                        if let Err(e) = fs::create_dir_all(parent).await {
-                            return CommandResult::error(format!(
-                                "Failed to create directories: {e}"
-                            ));
-                        }
-                    }
-                }
-
-                match fs::write(&path, content.as_bytes()).await {
-                    Ok(_) => CommandResult::success(json!({
-                        "path": path.display().to_string(),
-                        "size": content.len(),
-                        "operation": "write",
-                    })),
-                    Err(e) => CommandResult::error(format!("Failed to write file: {e}")),
-                }
-            }
-            "append" => {
-                let content = match attributes.get("content").and_then(|v| v.as_string()) {
-                    Some(c) => c.clone(),
-                    None => {
-                        return CommandResult::error(
-                            "Append operation requires 'content' attribute".to_string(),
-                        )
-                    }
-                };
-
-                let create_dirs = attributes
-                    .get("create_dirs")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(true);
-
-                // Create parent directories if needed
-                if create_dirs {
-                    if let Some(parent) = path.parent() {
-                        if let Err(e) = fs::create_dir_all(parent).await {
-                            return CommandResult::error(format!(
-                                "Failed to create directories: {e}"
-                            ));
-                        }
-                    }
-                }
-
-                match fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(&path)
-                    .await
-                {
-                    Ok(mut file) => match file.write_all(content.as_bytes()).await {
-                        Ok(_) => CommandResult::success(json!({
-                            "path": path.display().to_string(),
-                            "appended_size": content.len(),
-                            "operation": "append",
-                        })),
-                        Err(e) => CommandResult::error(format!("Failed to append to file: {e}")),
-                    },
-                    Err(e) => CommandResult::error(format!("Failed to open file for append: {e}")),
-                }
-            }
-            "delete" => match fs::remove_file(&path).await {
-                Ok(_) => CommandResult::success(json!({
-                    "path": path.display().to_string(),
-                    "operation": "delete",
-                })),
-                Err(e) => CommandResult::error(format!("Failed to delete file: {e}")),
+                Err(e) => Err(e),
             },
-            "copy" => {
-                let destination = match attributes.get("destination").and_then(|v| v.as_string()) {
-                    Some(d) => context.resolve_path(d.as_ref()),
-                    None => {
-                        return CommandResult::error(
-                            "Copy operation requires 'destination' attribute".to_string(),
-                        )
-                    }
-                };
-
-                let overwrite = attributes
-                    .get("overwrite")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-
-                if !overwrite && destination.exists() {
-                    return CommandResult::error(
-                        "Destination already exists and overwrite is false".to_string(),
-                    );
+            "delete" => execute_delete(&path).await,
+            "copy" => match parse_destination(&attributes, context) {
+                Ok(destination) => {
+                    let overwrite = parse_bool_attr(&attributes, "overwrite", false);
+                    execute_copy(&path, &destination, overwrite).await
                 }
-
-                match fs::copy(&path, &destination).await {
-                    Ok(bytes) => CommandResult::success(json!({
-                        "source": path.display().to_string(),
-                        "destination": destination.display().to_string(),
-                        "size": bytes,
-                        "operation": "copy",
-                    })),
-                    Err(e) => CommandResult::error(format!("Failed to copy file: {e}")),
+                Err(e) => Err(e),
+            },
+            "move" => match parse_destination(&attributes, context) {
+                Ok(destination) => {
+                    let overwrite = parse_bool_attr(&attributes, "overwrite", false);
+                    execute_move(&path, &destination, overwrite).await
                 }
-            }
-            "move" => {
-                let destination = match attributes.get("destination").and_then(|v| v.as_string()) {
-                    Some(d) => context.resolve_path(d.as_ref()),
-                    None => {
-                        return CommandResult::error(
-                            "Move operation requires 'destination' attribute".to_string(),
-                        )
-                    }
-                };
-
-                let overwrite = attributes
-                    .get("overwrite")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-
-                if !overwrite && destination.exists() {
-                    return CommandResult::error(
-                        "Destination already exists and overwrite is false".to_string(),
-                    );
-                }
-
-                match fs::rename(&path, &destination).await {
-                    Ok(_) => CommandResult::success(json!({
-                        "source": path.display().to_string(),
-                        "destination": destination.display().to_string(),
-                        "operation": "move",
-                    })),
-                    Err(e) => CommandResult::error(format!("Failed to move file: {e}")),
-                }
-            }
-            "exists" => {
-                let exists = path.exists();
-                let metadata = if exists {
-                    match fs::metadata(&path).await {
-                        Ok(meta) => Some(json!({
-                            "is_file": meta.is_file(),
-                            "is_dir": meta.is_dir(),
-                            "size": meta.len(),
-                        })),
-                        Err(_) => None,
-                    }
-                } else {
-                    None
-                };
-
-                CommandResult::success(json!({
-                    "path": path.display().to_string(),
-                    "exists": exists,
-                    "metadata": metadata,
-                }))
-            }
-            _ => CommandResult::error(format!("Unknown file operation: {operation}")),
+                Err(e) => Err(e),
+            },
+            "exists" => execute_exists(&path).await,
+            _ => Err(format!("Unknown file operation: {operation}")),
         };
 
         let duration = start.elapsed().as_millis() as u64;
-        result.with_duration(duration)
+        match result {
+            Ok(data) => CommandResult::success(data).with_duration(duration),
+            Err(e) => CommandResult::error(e).with_duration(duration),
+        }
     }
 
     fn description(&self) -> &str {
