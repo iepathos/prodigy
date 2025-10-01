@@ -16,6 +16,34 @@ impl ClaudeHandler {
     pub fn new() -> Self {
         Self
     }
+
+    /// Builds the full prompt by loading and prepending context files
+    async fn build_prompt_with_context(
+        prompt: &str,
+        context_files: &[AttributeValue],
+        context: &ExecutionContext,
+    ) -> Result<String, String> {
+        let mut file_contents = Vec::new();
+        for file_val in context_files {
+            if let Some(file_path) = file_val.as_string() {
+                let abs_path = context.resolve_path(file_path.as_ref());
+                let content = tokio::fs::read_to_string(&abs_path)
+                    .await
+                    .map_err(|e| format!("Failed to read context file {file_path}: {e}"))?;
+                file_contents.push(format!("=== {file_path} ===\n{content}"));
+            }
+        }
+
+        if file_contents.is_empty() {
+            Ok(prompt.to_string())
+        } else {
+            Ok(format!(
+                "Context files:\n{}\n\nTask:\n{}",
+                file_contents.join("\n\n"),
+                prompt
+            ))
+        }
+    }
 }
 
 #[async_trait]
@@ -83,32 +111,14 @@ impl CommandHandler for ClaudeHandler {
             .unwrap_or(60.0) as u64;
 
         // Build context from files if specified
-        let mut full_prompt = prompt.clone();
-        if let Some(context_files) = attributes.get("context_files").and_then(|v| v.as_array()) {
-            let mut file_contents = Vec::new();
-            for file_val in context_files {
-                if let Some(file_path) = file_val.as_string() {
-                    let abs_path = context.resolve_path(file_path.as_ref());
-                    match tokio::fs::read_to_string(&abs_path).await {
-                        Ok(content) => {
-                            file_contents.push(format!("=== {file_path} ===\n{content}"));
-                        }
-                        Err(e) => {
-                            return CommandResult::error(format!(
-                                "Failed to read context file {file_path}: {e}"
-                            ));
-                        }
-                    }
-                }
+        let full_prompt = if let Some(context_files) = attributes.get("context_files").and_then(|v| v.as_array()) {
+            match Self::build_prompt_with_context(&prompt, context_files, context).await {
+                Ok(p) => p,
+                Err(e) => return CommandResult::error(e),
             }
-            if !file_contents.is_empty() {
-                full_prompt = format!(
-                    "Context files:\n{}\n\nTask:\n{}",
-                    file_contents.join("\n\n"),
-                    prompt
-                );
-            }
-        }
+        } else {
+            prompt.clone()
+        };
 
         let start = Instant::now();
 
