@@ -199,7 +199,9 @@ impl CommandHandler for ClaudeHandler {
         };
 
         // Build context from files if specified
-        let full_prompt = if let Some(context_files) = attributes.get("context_files").and_then(|v| v.as_array()) {
+        let full_prompt = if let Some(context_files) =
+            attributes.get("context_files").and_then(|v| v.as_array())
+        {
             match Self::build_prompt_with_context(&params.prompt, context_files, context).await {
                 Ok(p) => p,
                 Err(e) => return CommandResult::error(e),
