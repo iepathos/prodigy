@@ -32,6 +32,73 @@ async fn execute_read(path: &std::path::Path) -> Result<serde_json::Value, Strin
     }
 }
 
+/// Ensure parent directories exist
+async fn ensure_parent_dirs(path: &std::path::Path) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .await
+            .map_err(|e| format!("Failed to create directories: {e}"))
+    } else {
+        Ok(())
+    }
+}
+
+/// Execute write operation
+async fn execute_write(
+    path: &std::path::Path,
+    content: &str,
+    overwrite: bool,
+    create_dirs: bool,
+) -> Result<serde_json::Value, String> {
+    // Check if file exists and overwrite is false
+    if !overwrite && path.exists() {
+        return Err("File already exists and overwrite is false".to_string());
+    }
+
+    // Create parent directories if needed
+    if create_dirs {
+        ensure_parent_dirs(path).await?;
+    }
+
+    match fs::write(path, content.as_bytes()).await {
+        Ok(_) => Ok(json!({
+            "path": path.display().to_string(),
+            "size": content.len(),
+            "operation": "write",
+        })),
+        Err(e) => Err(format!("Failed to write file: {e}")),
+    }
+}
+
+/// Execute append operation
+async fn execute_append(
+    path: &std::path::Path,
+    content: &str,
+    create_dirs: bool,
+) -> Result<serde_json::Value, String> {
+    // Create parent directories if needed
+    if create_dirs {
+        ensure_parent_dirs(path).await?;
+    }
+
+    match fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .await
+    {
+        Ok(mut file) => match file.write_all(content.as_bytes()).await {
+            Ok(_) => Ok(json!({
+                "path": path.display().to_string(),
+                "appended_size": content.len(),
+                "operation": "append",
+            })),
+            Err(e) => Err(format!("Failed to append to file: {e}")),
+        },
+        Err(e) => Err(format!("Failed to open file for append: {e}")),
+    }
+}
+
 #[async_trait]
 impl CommandHandler for FileHandler {
     fn name(&self) -> &str {
@@ -121,31 +188,9 @@ impl CommandHandler for FileHandler {
                     .and_then(|v| v.as_bool())
                     .unwrap_or(true);
 
-                // Check if file exists and overwrite is false
-                if !overwrite && path.exists() {
-                    return CommandResult::error(
-                        "File already exists and overwrite is false".to_string(),
-                    );
-                }
-
-                // Create parent directories if needed
-                if create_dirs {
-                    if let Some(parent) = path.parent() {
-                        if let Err(e) = fs::create_dir_all(parent).await {
-                            return CommandResult::error(format!(
-                                "Failed to create directories: {e}"
-                            ));
-                        }
-                    }
-                }
-
-                match fs::write(&path, content.as_bytes()).await {
-                    Ok(_) => CommandResult::success(json!({
-                        "path": path.display().to_string(),
-                        "size": content.len(),
-                        "operation": "write",
-                    })),
-                    Err(e) => CommandResult::error(format!("Failed to write file: {e}")),
+                match execute_write(&path, &content, overwrite, create_dirs).await {
+                    Ok(data) => CommandResult::success(data),
+                    Err(e) => CommandResult::error(e),
                 }
             }
             "append" => {
@@ -163,32 +208,9 @@ impl CommandHandler for FileHandler {
                     .and_then(|v| v.as_bool())
                     .unwrap_or(true);
 
-                // Create parent directories if needed
-                if create_dirs {
-                    if let Some(parent) = path.parent() {
-                        if let Err(e) = fs::create_dir_all(parent).await {
-                            return CommandResult::error(format!(
-                                "Failed to create directories: {e}"
-                            ));
-                        }
-                    }
-                }
-
-                match fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(&path)
-                    .await
-                {
-                    Ok(mut file) => match file.write_all(content.as_bytes()).await {
-                        Ok(_) => CommandResult::success(json!({
-                            "path": path.display().to_string(),
-                            "appended_size": content.len(),
-                            "operation": "append",
-                        })),
-                        Err(e) => CommandResult::error(format!("Failed to append to file: {e}")),
-                    },
-                    Err(e) => CommandResult::error(format!("Failed to open file for append: {e}")),
+                match execute_append(&path, &content, create_dirs).await {
+                    Ok(data) => CommandResult::success(data),
+                    Err(e) => CommandResult::error(e),
                 }
             }
             "delete" => match fs::remove_file(&path).await {
