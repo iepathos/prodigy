@@ -20,6 +20,18 @@ impl FileHandler {
     }
 }
 
+/// Execute read operation
+async fn execute_read(path: &std::path::Path) -> Result<serde_json::Value, String> {
+    match fs::read_to_string(path).await {
+        Ok(content) => Ok(json!({
+            "content": content,
+            "path": path.display().to_string(),
+            "size": content.len(),
+        })),
+        Err(e) => Err(format!("Failed to read file: {e}")),
+    }
+}
+
 #[async_trait]
 impl CommandHandler for FileHandler {
     fn name(&self) -> &str {
@@ -85,13 +97,9 @@ impl CommandHandler for FileHandler {
 
         // Execute operation
         let result = match operation.as_str() {
-            "read" => match fs::read_to_string(&path).await {
-                Ok(content) => CommandResult::success(json!({
-                    "content": content,
-                    "path": path.display().to_string(),
-                    "size": content.len(),
-                })),
-                Err(e) => CommandResult::error(format!("Failed to read file: {e}")),
+            "read" => match execute_read(&path).await {
+                Ok(data) => CommandResult::success(data),
+                Err(e) => CommandResult::error(e),
             },
             "write" => {
                 let content = match attributes.get("content").and_then(|v| v.as_string()) {
