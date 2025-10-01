@@ -400,6 +400,36 @@ mod tests {
         assert_eq!(data["metadata"]["warnings"], 1);
     }
 
+    #[tokio::test]
+    async fn test_cargo_command_failure() {
+        let handler = CargoHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "cargo",
+            vec!["build"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(101),
+                stdout: Vec::new(),
+                stderr: b"error: could not compile `test`".to_vec(),
+            },
+        );
+
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert("command".to_string(), AttributeValue::String("build".to_string()));
+
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(!result.is_success());
+        assert!(result.error.unwrap().contains("Cargo command failed"));
+        assert!(result.duration_ms.is_some());
+    }
+
     // Tests for pure functions
     mod pure_functions {
         use super::*;
