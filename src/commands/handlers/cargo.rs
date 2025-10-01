@@ -333,4 +333,162 @@ mod tests {
             .unwrap()
             .contains("cargo build --release"));
     }
+
+    // Tests for pure functions
+    mod pure_functions {
+        use super::*;
+
+        #[test]
+        fn test_build_boolean_flags_all_true() {
+            let mut attributes = HashMap::new();
+            attributes.insert("release".to_string(), AttributeValue::Boolean(true));
+            attributes.insert("all_features".to_string(), AttributeValue::Boolean(true));
+            attributes.insert(
+                "no_default_features".to_string(),
+                AttributeValue::Boolean(true),
+            );
+            attributes.insert("verbose".to_string(), AttributeValue::Boolean(true));
+            attributes.insert("quiet".to_string(), AttributeValue::Boolean(true));
+
+            let flags = build_boolean_flags(&attributes);
+
+            assert_eq!(flags.len(), 5);
+            assert!(flags.contains(&"--release".to_string()));
+            assert!(flags.contains(&"--all-features".to_string()));
+            assert!(flags.contains(&"--no-default-features".to_string()));
+            assert!(flags.contains(&"--verbose".to_string()));
+            assert!(flags.contains(&"--quiet".to_string()));
+        }
+
+        #[test]
+        fn test_build_boolean_flags_all_false() {
+            let mut attributes = HashMap::new();
+            attributes.insert("release".to_string(), AttributeValue::Boolean(false));
+            attributes.insert("all_features".to_string(), AttributeValue::Boolean(false));
+            attributes.insert(
+                "no_default_features".to_string(),
+                AttributeValue::Boolean(false),
+            );
+
+            let flags = build_boolean_flags(&attributes);
+
+            assert_eq!(flags.len(), 0);
+        }
+
+        #[test]
+        fn test_build_boolean_flags_mixed() {
+            let mut attributes = HashMap::new();
+            attributes.insert("release".to_string(), AttributeValue::Boolean(true));
+            attributes.insert("all_features".to_string(), AttributeValue::Boolean(false));
+            attributes.insert("verbose".to_string(), AttributeValue::Boolean(true));
+
+            let flags = build_boolean_flags(&attributes);
+
+            assert_eq!(flags.len(), 2);
+            assert!(flags.contains(&"--release".to_string()));
+            assert!(flags.contains(&"--verbose".to_string()));
+        }
+
+        #[test]
+        fn test_build_string_option_args_features() {
+            let mut attributes = HashMap::new();
+            attributes.insert(
+                "features".to_string(),
+                AttributeValue::String("async tokio".to_string()),
+            );
+
+            let args = build_string_option_args(&attributes);
+
+            assert_eq!(args, vec!["--features", "async tokio"]);
+        }
+
+        #[test]
+        fn test_build_string_option_args_package() {
+            let mut attributes = HashMap::new();
+            attributes.insert(
+                "package".to_string(),
+                AttributeValue::String("my_crate".to_string()),
+            );
+
+            let args = build_string_option_args(&attributes);
+
+            assert_eq!(args, vec!["--package", "my_crate"]);
+        }
+
+        #[test]
+        fn test_build_string_option_args_with_args_splitting() {
+            let mut attributes = HashMap::new();
+            attributes.insert(
+                "args".to_string(),
+                AttributeValue::String("-- --help --verbose".to_string()),
+            );
+
+            let args = build_string_option_args(&attributes);
+
+            assert_eq!(args, vec!["--", "--help", "--verbose"]);
+        }
+
+        #[test]
+        fn test_build_string_option_args_multiple_options() {
+            let mut attributes = HashMap::new();
+            attributes.insert(
+                "features".to_string(),
+                AttributeValue::String("async".to_string()),
+            );
+            attributes.insert(
+                "package".to_string(),
+                AttributeValue::String("my_crate".to_string()),
+            );
+            attributes.insert(
+                "target".to_string(),
+                AttributeValue::String("x86_64-unknown-linux-gnu".to_string()),
+            );
+
+            let args = build_string_option_args(&attributes);
+
+            assert_eq!(
+                args,
+                vec![
+                    "--features",
+                    "async",
+                    "--package",
+                    "my_crate",
+                    "--target",
+                    "x86_64-unknown-linux-gnu"
+                ]
+            );
+        }
+
+        #[test]
+        fn test_parse_cargo_metadata_build_with_warnings() {
+            let stdout = "   Compiling test v0.1.0\nwarning: unused variable\nwarning: dead code\n    Finished release [optimized]";
+
+            let metadata = parse_cargo_metadata("build", stdout);
+
+            assert_eq!(metadata["command"], "build");
+            assert_eq!(metadata["finished"], true);
+            assert_eq!(metadata["warnings"], 2);
+        }
+
+        #[test]
+        fn test_parse_cargo_metadata_finished_detection() {
+            let stdout = "    Finished dev [unoptimized + debuginfo]";
+
+            let metadata = parse_cargo_metadata("check", stdout);
+
+            assert_eq!(metadata["command"], "check");
+            assert_eq!(metadata["finished"], true);
+        }
+
+        #[test]
+        fn test_parse_cargo_metadata_non_build_command() {
+            let stdout = "Some output from cargo run";
+
+            let metadata = parse_cargo_metadata("run", stdout);
+
+            assert_eq!(metadata["command"], "run");
+            assert!(metadata.get("finished").is_none());
+            assert!(metadata.get("warnings").is_none());
+        }
+    }
 }
