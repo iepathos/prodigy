@@ -407,10 +407,7 @@ mod tests {
             "message".to_string(),
             AttributeValue::String("Test commit".to_string()),
         );
-        attributes.insert(
-            "auto_stage".to_string(),
-            AttributeValue::Boolean(true),
-        );
+        attributes.insert("auto_stage".to_string(), AttributeValue::Boolean(true));
 
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
@@ -433,10 +430,7 @@ mod tests {
             "message".to_string(),
             AttributeValue::String("Test commit".to_string()),
         );
-        attributes.insert(
-            "auto_stage".to_string(),
-            AttributeValue::Boolean(true),
-        );
+        attributes.insert("auto_stage".to_string(), AttributeValue::Boolean(true));
 
         let result = handler.execute(&context, attributes).await;
         assert!(!result.is_success());
@@ -478,7 +472,12 @@ mod tests {
         assert!(result.is_success());
         let data = result.data.unwrap();
         assert_eq!(data.get("operation"), Some(&json!("commit")));
-        assert!(data.get("output").unwrap().as_str().unwrap().contains("abc123"));
+        assert!(data
+            .get("output")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .contains("abc123"));
         assert!(result.duration_ms.is_some());
     }
 
@@ -539,7 +538,10 @@ mod tests {
 
         let result = handler.execute(&context, attributes).await;
         assert!(!result.is_success());
-        assert!(result.error.unwrap().contains("Failed to execute git command"));
+        assert!(result
+            .error
+            .unwrap()
+            .contains("Failed to execute git command"));
         assert!(result.duration_ms.is_some());
     }
 
@@ -608,10 +610,7 @@ mod tests {
             "branch".to_string(),
             AttributeValue::String("feature".to_string()),
         );
-        attributes.insert(
-            "args".to_string(),
-            AttributeValue::String("-b".to_string()),
-        );
+        attributes.insert("args".to_string(), AttributeValue::String("-b".to_string()));
 
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
