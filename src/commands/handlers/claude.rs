@@ -117,6 +117,39 @@ impl ClaudeHandler {
         args.push(prompt);
         args
     }
+
+    /// Process the execution result and create a CommandResult
+    fn process_execution_result(
+        result: Result<std::process::Output, crate::subprocess::error::ProcessError>,
+        duration: u64,
+        model: &str,
+        temperature: f64,
+        max_tokens: u32,
+    ) -> CommandResult {
+        match result {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+                if output.status.success() {
+                    CommandResult::success(json!({
+                        "response": stdout,
+                        "metadata": {
+                            "model": model,
+                            "temperature": temperature,
+                            "max_tokens": max_tokens,
+                        }
+                    }))
+                    .with_duration(duration)
+                } else {
+                    CommandResult::error(format!("Claude CLI failed: {stderr}"))
+                        .with_duration(duration)
+                }
+            }
+            Err(e) => CommandResult::error(format!("Failed to execute Claude CLI: {e}"))
+                .with_duration(duration),
+        }
+    }
 }
 
 /// Parameters for Claude CLI execution
@@ -213,29 +246,13 @@ impl CommandHandler for ClaudeHandler {
 
         let duration = start.elapsed().as_millis() as u64;
 
-        match result {
-            Ok(output) => {
-                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-                if output.status.success() {
-                    CommandResult::success(json!({
-                        "response": stdout,
-                        "metadata": {
-                            "model": params.model,
-                            "temperature": params.temperature,
-                            "max_tokens": params.max_tokens,
-                        }
-                    }))
-                    .with_duration(duration)
-                } else {
-                    CommandResult::error(format!("Claude CLI failed: {stderr}"))
-                        .with_duration(duration)
-                }
-            }
-            Err(e) => CommandResult::error(format!("Failed to execute Claude CLI: {e}"))
-                .with_duration(duration),
-        }
+        Self::process_execution_result(
+            result,
+            duration,
+            &params.model,
+            params.temperature,
+            params.max_tokens,
+        )
     }
 
     fn description(&self) -> &str {
