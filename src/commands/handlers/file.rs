@@ -179,6 +179,56 @@ async fn execute_move(
     }
 }
 
+/// Parse operation from attributes
+fn parse_operation(attributes: &HashMap<String, AttributeValue>) -> Result<String, String> {
+    attributes
+        .get("operation")
+        .and_then(|v| v.as_string())
+        .cloned()
+        .ok_or_else(|| "Missing required attribute: operation".to_string())
+}
+
+/// Parse path from attributes
+fn parse_path(
+    attributes: &HashMap<String, AttributeValue>,
+    context: &ExecutionContext,
+) -> Result<std::path::PathBuf, String> {
+    attributes
+        .get("path")
+        .and_then(|v| v.as_string())
+        .map(|p| context.resolve_path(p.as_ref()))
+        .ok_or_else(|| "Missing required attribute: path".to_string())
+}
+
+/// Parse content from attributes
+fn parse_content(attributes: &HashMap<String, AttributeValue>) -> Result<String, String> {
+    attributes
+        .get("content")
+        .and_then(|v| v.as_string())
+        .cloned()
+        .ok_or_else(|| "Content attribute required for this operation".to_string())
+}
+
+/// Parse destination from attributes
+fn parse_destination(
+    attributes: &HashMap<String, AttributeValue>,
+    context: &ExecutionContext,
+) -> Result<std::path::PathBuf, String> {
+    attributes
+        .get("destination")
+        .and_then(|v| v.as_string())
+        .map(|d| context.resolve_path(d.as_ref()))
+        .ok_or_else(|| "Destination attribute required for this operation".to_string())
+}
+
+/// Parse boolean attribute with default
+fn parse_bool_attr(attributes: &HashMap<String, AttributeValue>, key: &str, default: bool) -> bool {
+    attributes
+        .get(key)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(default)
+}
+
 #[async_trait]
 impl CommandHandler for FileHandler {
     fn name(&self) -> &str {
@@ -213,21 +263,16 @@ impl CommandHandler for FileHandler {
         context: &ExecutionContext,
         mut attributes: HashMap<String, AttributeValue>,
     ) -> CommandResult {
-        // Apply defaults
         self.schema().apply_defaults(&mut attributes);
 
-        // Extract operation
-        let operation = match attributes.get("operation").and_then(|v| v.as_string()) {
-            Some(op) => op.clone(),
-            None => {
-                return CommandResult::error("Missing required attribute: operation".to_string())
-            }
+        let operation = match parse_operation(&attributes) {
+            Ok(op) => op,
+            Err(e) => return CommandResult::error(e),
         };
 
-        // Extract path
-        let path = match attributes.get("path").and_then(|v| v.as_string()) {
-            Some(p) => context.resolve_path(p.as_ref()),
-            None => return CommandResult::error("Missing required attribute: path".to_string()),
+        let path = match parse_path(&attributes, context) {
+            Ok(p) => p,
+            Err(e) => return CommandResult::error(e),
         };
 
         let start = Instant::now();
@@ -242,110 +287,47 @@ impl CommandHandler for FileHandler {
             .with_duration(duration);
         }
 
-        // Execute operation
         let result = match operation.as_str() {
-            "read" => match execute_read(&path).await {
-                Ok(data) => CommandResult::success(data),
-                Err(e) => CommandResult::error(e),
+            "read" => execute_read(&path).await,
+            "write" => match parse_content(&attributes) {
+                Ok(content) => {
+                    let overwrite = parse_bool_attr(&attributes, "overwrite", false);
+                    let create_dirs = parse_bool_attr(&attributes, "create_dirs", true);
+                    execute_write(&path, &content, overwrite, create_dirs).await
+                }
+                Err(e) => Err(e),
             },
-            "write" => {
-                let content = match attributes.get("content").and_then(|v| v.as_string()) {
-                    Some(c) => c.clone(),
-                    None => {
-                        return CommandResult::error(
-                            "Write operation requires 'content' attribute".to_string(),
-                        )
-                    }
-                };
-
-                let overwrite = attributes
-                    .get("overwrite")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-
-                let create_dirs = attributes
-                    .get("create_dirs")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(true);
-
-                match execute_write(&path, &content, overwrite, create_dirs).await {
-                    Ok(data) => CommandResult::success(data),
-                    Err(e) => CommandResult::error(e),
+            "append" => match parse_content(&attributes) {
+                Ok(content) => {
+                    let create_dirs = parse_bool_attr(&attributes, "create_dirs", true);
+                    execute_append(&path, &content, create_dirs).await
                 }
-            }
-            "append" => {
-                let content = match attributes.get("content").and_then(|v| v.as_string()) {
-                    Some(c) => c.clone(),
-                    None => {
-                        return CommandResult::error(
-                            "Append operation requires 'content' attribute".to_string(),
-                        )
-                    }
-                };
-
-                let create_dirs = attributes
-                    .get("create_dirs")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(true);
-
-                match execute_append(&path, &content, create_dirs).await {
-                    Ok(data) => CommandResult::success(data),
-                    Err(e) => CommandResult::error(e),
-                }
-            }
-            "delete" => match execute_delete(&path).await {
-                Ok(data) => CommandResult::success(data),
-                Err(e) => CommandResult::error(e),
+                Err(e) => Err(e),
             },
-            "copy" => {
-                let destination = match attributes.get("destination").and_then(|v| v.as_string()) {
-                    Some(d) => context.resolve_path(d.as_ref()),
-                    None => {
-                        return CommandResult::error(
-                            "Copy operation requires 'destination' attribute".to_string(),
-                        )
-                    }
-                };
-
-                let overwrite = attributes
-                    .get("overwrite")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-
-                match execute_copy(&path, &destination, overwrite).await {
-                    Ok(data) => CommandResult::success(data),
-                    Err(e) => CommandResult::error(e),
+            "delete" => execute_delete(&path).await,
+            "copy" => match parse_destination(&attributes, context) {
+                Ok(destination) => {
+                    let overwrite = parse_bool_attr(&attributes, "overwrite", false);
+                    execute_copy(&path, &destination, overwrite).await
                 }
-            }
-            "move" => {
-                let destination = match attributes.get("destination").and_then(|v| v.as_string()) {
-                    Some(d) => context.resolve_path(d.as_ref()),
-                    None => {
-                        return CommandResult::error(
-                            "Move operation requires 'destination' attribute".to_string(),
-                        )
-                    }
-                };
-
-                let overwrite = attributes
-                    .get("overwrite")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-
-                match execute_move(&path, &destination, overwrite).await {
-                    Ok(data) => CommandResult::success(data),
-                    Err(e) => CommandResult::error(e),
-                }
-            }
-            "exists" => match execute_exists(&path).await {
-                Ok(data) => CommandResult::success(data),
-                Err(e) => CommandResult::error(e),
+                Err(e) => Err(e),
             },
-            _ => CommandResult::error(format!("Unknown file operation: {operation}")),
+            "move" => match parse_destination(&attributes, context) {
+                Ok(destination) => {
+                    let overwrite = parse_bool_attr(&attributes, "overwrite", false);
+                    execute_move(&path, &destination, overwrite).await
+                }
+                Err(e) => Err(e),
+            },
+            "exists" => execute_exists(&path).await,
+            _ => Err(format!("Unknown file operation: {operation}")),
         };
 
         let duration = start.elapsed().as_millis() as u64;
-        result.with_duration(duration)
+        match result {
+            Ok(data) => CommandResult::success(data).with_duration(duration),
+            Err(e) => CommandResult::error(e).with_duration(duration),
+        }
     }
 
     fn description(&self) -> &str {
