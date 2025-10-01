@@ -112,7 +112,15 @@ jobs:
         key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Build release binary
-      run: cargo build --release --target ${{ matrix.target }} ${{ matrix.target == 'x86_64-unknown-linux-musl' && '--features vendored-openssl' || '' }}
+      run: |
+        # Use vendored OpenSSL for musl and macOS cross-compilation
+        if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-musl" ]] || \
+           [[ "${{ matrix.target }}" == "x86_64-apple-darwin" && "${{ runner.arch }}" == "ARM64" ]] || \
+           [[ "${{ matrix.target }}" == "aarch64-apple-darwin" && "${{ runner.arch }}" == "X64" ]]; then
+          cargo build --release --target ${{ matrix.target }} --features vendored-openssl
+        else
+          cargo build --release --target ${{ matrix.target }}
+        fi
     
     - name: Create archive (Unix)
       if: matrix.archive == 'tar.gz'
