@@ -430,6 +430,23 @@ mod tests {
         assert!(result.duration_ms.is_some());
     }
 
+    #[tokio::test]
+    async fn test_cargo_executor_error() {
+        let handler = CargoHandler::new();
+        let mock_executor = MockSubprocessExecutor::new();
+
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert("command".to_string(), AttributeValue::String("build".to_string()));
+
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(!result.is_success());
+        assert!(result.error.unwrap().contains("Failed to execute cargo command"));
+        assert!(result.duration_ms.is_some());
+    }
+
     // Tests for pure functions
     mod pure_functions {
         use super::*;
