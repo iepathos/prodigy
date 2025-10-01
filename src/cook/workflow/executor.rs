@@ -3151,6 +3151,124 @@ impl WorkflowExecutor {
         Ok((env_vars, working_dir_override, actual_env))
     }
 
+    /// Execute command with retry logic if configured
+    async fn execute_with_retry_if_configured(
+        &mut self,
+        step: &WorkflowStep,
+        command_type: &CommandType,
+        actual_env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        if let Some(retry_config) = &step.retry {
+            // Use enhanced retry executor
+            let step_name = self.get_step_display_name(step);
+            self.execute_with_enhanced_retry(
+                retry_config.clone(),
+                &step_name,
+                command_type,
+                step,
+                actual_env,
+                ctx,
+                env_vars,
+            )
+            .await
+        } else {
+            // Execute without enhanced retry
+            self.execute_command_by_type(command_type, step, actual_env, ctx, env_vars)
+                .await
+        }
+    }
+
+    /// Track commits and create auto-commit if needed
+    async fn track_and_commit_changes(
+        &self,
+        step: &WorkflowStep,
+        commit_tracker: &crate::cook::commit_tracker::CommitTracker,
+        before_head: &str,
+        ctx: &mut WorkflowContext,
+    ) -> Result<Vec<crate::cook::commit_tracker::TrackedCommit>> {
+        // Track commits created during step execution
+        let after_head = commit_tracker.get_current_head().await?;
+        let step_name = self.get_step_display_name(step);
+        let mut tracked_commits = commit_tracker
+            .track_step_commits(&step_name, before_head, &after_head)
+            .await?;
+
+        // Create auto-commit if configured and changes exist
+        if step.auto_commit && commit_tracker.has_changes().await? {
+            let message_template = step
+                .commit_config
+                .as_ref()
+                .and_then(|c| c.message_template.as_deref());
+            let auto_commit = commit_tracker
+                .create_auto_commit(
+                    &step_name,
+                    message_template,
+                    &ctx.variables,
+                    step.commit_config.as_ref(),
+                )
+                .await?;
+
+            // Add auto-commit to tracked commits
+            tracked_commits.push(auto_commit);
+        }
+
+        // Populate commit variables in context if we have commits
+        let commit_vars = Self::build_commit_variables(&tracked_commits)?;
+        ctx.variables.extend(commit_vars);
+
+        Ok(tracked_commits)
+    }
+
+    /// Validate commit requirements and display dry-run information if applicable
+    fn validate_and_display_commit_info(
+        &self,
+        step: &WorkflowStep,
+        tracked_commits: &[crate::cook::commit_tracker::TrackedCommit],
+        before_head: &str,
+        after_head: &str,
+    ) -> Result<()> {
+        let step_name = self.get_step_display_name(step);
+
+        // Validate commit requirements using pure function
+        Self::validate_commit_requirement(
+            step,
+            tracked_commits.is_empty(),
+            before_head,
+            after_head,
+            self.dry_run,
+            &step_name,
+            &self.assumed_commits,
+        )?;
+
+        // Handle dry run commit assumption display
+        if self.dry_run && tracked_commits.is_empty() && after_head == before_head {
+            let command_desc = if let Some(ref cmd) = step.claude {
+                format!("claude: {}", cmd)
+            } else if let Some(ref cmd) = step.shell {
+                format!("shell: {}", cmd)
+            } else if let Some(ref cmd) = step.command {
+                format!("command: {}", cmd)
+            } else {
+                step_name.clone()
+            };
+
+            if self
+                .assumed_commits
+                .iter()
+                .any(|c| c.contains(&command_desc))
+            {
+                println!(
+                    "[DRY RUN] Skipping commit validation - assumed commit from: {}",
+                    step_name
+                );
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn execute_step(
         &mut self,
         step: &WorkflowStep,
@@ -3180,89 +3298,20 @@ impl WorkflowExecutor {
         }
 
         // Execute the command with retry if configured
-        let mut result = if let Some(retry_config) = &step.retry {
-            // Use enhanced retry executor
-            let step_name = self.get_step_display_name(step);
-            self.execute_with_enhanced_retry(
-                retry_config.clone(),
-                &step_name,
-                &command_type,
-                step,
-                &actual_env,
-                ctx,
-                env_vars,
-            )
-            .await?
-        } else {
-            // Execute without enhanced retry
-            self.execute_command_by_type(&command_type, step, &actual_env, ctx, env_vars)
-                .await?
-        };
-
-        // Track commits created during step execution
-        let after_head = commit_tracker.get_current_head().await?;
-        let step_name = self.get_step_display_name(step);
-        let mut tracked_commits = commit_tracker
-            .track_step_commits(&step_name, &before_head, &after_head)
+        let mut result = self
+            .execute_with_retry_if_configured(step, &command_type, &actual_env, ctx, env_vars)
             .await?;
 
-        // Create auto-commit if configured and changes exist
-        if step.auto_commit && commit_tracker.has_changes().await? {
-            let message_template = step
-                .commit_config
-                .as_ref()
-                .and_then(|c| c.message_template.as_deref());
-            let auto_commit = commit_tracker
-                .create_auto_commit(
-                    &step_name,
-                    message_template,
-                    &ctx.variables,
-                    step.commit_config.as_ref(),
-                )
-                .await?;
+        // Track commits and create auto-commit if needed
+        let tracked_commits = self
+            .track_and_commit_changes(step, &commit_tracker, &before_head, ctx)
+            .await?;
 
-            // Add auto-commit to tracked commits
-            tracked_commits.push(auto_commit);
-        }
+        // Get after_head for validation
+        let after_head = commit_tracker.get_current_head().await?;
 
-        // Populate commit variables in context if we have commits
-        let commit_vars = Self::build_commit_variables(&tracked_commits)?;
-        ctx.variables.extend(commit_vars);
-
-        // Validate commit requirements using pure function
-        Self::validate_commit_requirement(
-            step,
-            tracked_commits.is_empty(),
-            &before_head,
-            &after_head,
-            self.dry_run,
-            &step_name,
-            &self.assumed_commits,
-        )?;
-
-        if self.dry_run && tracked_commits.is_empty() && after_head == before_head {
-            // Handle dry run commit assumption display
-            let command_desc = if let Some(ref cmd) = step.claude {
-                format!("claude: {}", cmd)
-            } else if let Some(ref cmd) = step.shell {
-                format!("shell: {}", cmd)
-            } else if let Some(ref cmd) = step.command {
-                format!("command: {}", cmd)
-            } else {
-                step_name.clone()
-            };
-
-            if self
-                .assumed_commits
-                .iter()
-                .any(|c| c.contains(&command_desc))
-            {
-                println!(
-                    "[DRY RUN] Skipping commit validation - assumed commit from: {}",
-                    step_name
-                );
-            }
-        }
+        // Validate commit requirements and display dry-run info
+        self.validate_and_display_commit_info(step, &tracked_commits, &before_head, &after_head)?;
 
         // Capture command output if requested
         if let Some(capture_name) = &step.capture {
