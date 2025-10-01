@@ -209,7 +209,12 @@ mod tests {
 
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
-        assert!(result.data.unwrap().as_str().unwrap().contains("[DRY RUN]"));
+        let output = result.data.unwrap();
+        let output_str = output.as_str().unwrap();
+        assert!(output_str.contains("[DRY RUN]"));
+        assert!(output_str.contains("bash"));
+        // Verify duration is tracked even in dry_run mode
+        assert!(result.duration_ms.is_some());
     }
 
     #[tokio::test]
@@ -661,5 +666,31 @@ mod tests {
 
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_dry_run_custom_shell() {
+        let handler = ShellHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        attributes.insert(
+            "shell".to_string(),
+            AttributeValue::String("zsh".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+        let output = result.data.unwrap();
+        let output_str = output.as_str().unwrap();
+        assert!(output_str.contains("[DRY RUN]"));
+        assert!(output_str.contains("zsh"));
+        assert!(!output_str.contains("bash"));
+        // Verify duration is tracked
+        assert!(result.duration_ms.is_some());
     }
 }
