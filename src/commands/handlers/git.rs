@@ -912,7 +912,7 @@ mod tests {
 
     #[test]
     fn test_git_handler_default() {
-        let handler = GitHandler::default();
+        let handler = GitHandler;
         assert_eq!(handler.name(), "git");
     }
 
