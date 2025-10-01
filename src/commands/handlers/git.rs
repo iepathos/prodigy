@@ -363,4 +363,83 @@ mod tests {
             .unwrap()
             .contains("Commit operation requires 'message' attribute"));
     }
+
+    #[tokio::test]
+    async fn test_git_commit_with_auto_stage() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["add", "."],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            },
+        );
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["commit", "-m", "Test commit"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"[main abc123] Test commit".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("commit".to_string()),
+        );
+        attributes.insert(
+            "message".to_string(),
+            AttributeValue::String("Test commit".to_string()),
+        );
+        attributes.insert(
+            "auto_stage".to_string(),
+            AttributeValue::Boolean(true),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_git_commit_auto_stage_failure() {
+        let handler = GitHandler::new();
+        let mock_executor = MockSubprocessExecutor::new();
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("commit".to_string()),
+        );
+        attributes.insert(
+            "message".to_string(),
+            AttributeValue::String("Test commit".to_string()),
+        );
+        attributes.insert(
+            "auto_stage".to_string(),
+            AttributeValue::Boolean(true),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        assert!(result.error.unwrap().contains("Failed to stage files"));
+    }
 }
