@@ -3098,7 +3098,11 @@ impl WorkflowExecutor {
         step: &WorkflowStep,
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
-    ) -> Result<(HashMap<String, String>, Option<PathBuf>, ExecutionEnvironment)> {
+    ) -> Result<(
+        HashMap<String, String>,
+        Option<PathBuf>,
+        ExecutionEnvironment,
+    )> {
         // Set up environment for this step
         let (env_vars, working_dir_override) =
             if let Some(ref mut env_manager) = self.environment_manager {
@@ -3329,13 +3333,8 @@ impl WorkflowExecutor {
             }
 
             // Write output to file
-            fs::write(&output_path, &result.stdout).map_err(|e| {
-                anyhow!(
-                    "Failed to write output to file {:?}: {}",
-                    output_path,
-                    e
-                )
-            })?;
+            fs::write(&output_path, &result.stdout)
+                .map_err(|e| anyhow!("Failed to write output to file {:?}: {}", output_path, e))?;
         }
 
         Ok(())
@@ -3353,8 +3352,7 @@ impl WorkflowExecutor {
             // Get the variable name for this output (custom or default)
             if let Some(var_name) = step.capture_output.get_variable_name(command_type) {
                 // Store with the specified variable name
-                ctx.captured_outputs
-                    .insert(var_name, result.stdout.clone());
+                ctx.captured_outputs.insert(var_name, result.stdout.clone());
             }
 
             // Also store as generic CAPTURED_OUTPUT for backward compatibility
@@ -3408,7 +3406,11 @@ impl WorkflowExecutor {
     }
 
     /// Finalize step result by handling workflow failure logic
-    fn finalize_step_result(&self, step: &WorkflowStep, mut result: StepResult) -> Result<StepResult> {
+    fn finalize_step_result(
+        &self,
+        step: &WorkflowStep,
+        mut result: StepResult,
+    ) -> Result<StepResult> {
         // Check if we should fail the workflow based on the result using pure function
         let should_fail = Self::should_fail_workflow_for_step(&result, step);
 
@@ -3472,72 +3474,80 @@ impl WorkflowExecutor {
         Ok(())
     }
 
+    /// Execute a single workflow step
+    ///
+    /// This function orchestrates the complete lifecycle of a workflow step execution:
+    /// 1. Initialization: Logging, git tracking, environment setup
+    /// 2. Execution: Command execution with retry support
+    /// 3. Post-execution: Commit tracking, output capture, validation
+    /// 4. Finalization: Result processing, session updates
+    ///
+    /// The function is designed to be maintainable by delegating each responsibility
+    /// to focused helper functions, using Result chaining for clean error handling.
     pub async fn execute_step(
         &mut self,
         step: &WorkflowStep,
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
     ) -> Result<StepResult> {
+        // === PHASE 1: Initialization ===
         // Get step name for logging
         let step_name = self.get_step_display_name(step);
 
-        // Log execution context
+        // Log execution context (progress display, tracing)
         self.log_step_execution_context(&step_name, env, ctx);
 
-        // Initialize step tracking and get commit tracker
+        // Initialize git tracking for commit monitoring
         let (commit_tracker, before_head) = self.initialize_step_tracking(env, ctx).await?;
 
-        // Determine command type
+        // Determine command type (claude, shell, etc.)
         let command_type = self.determine_command_type(step)?;
 
-        // Set up environment context
+        // Set up environment variables and working directory
         let (env_vars, _working_dir_override, actual_env) =
             self.setup_step_environment_context(step, env, ctx).await?;
 
-        // Handle test mode
+        // Early return for test mode (no actual execution)
         let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
         if test_mode {
             return self.handle_test_mode_execution(step, &command_type);
         }
 
-        // Execute the command with retry if configured
+        // === PHASE 2: Execution ===
+        // Execute command with retry support if configured
         let mut result = self
             .execute_with_retry_if_configured(step, &command_type, &actual_env, ctx, env_vars)
             .await?;
 
-        // Track commits and create auto-commit if needed
+        // === PHASE 3: Post-Execution Processing ===
+        // Track commits created during execution and create auto-commit if needed
         let tracked_commits = self
             .track_and_commit_changes(step, &commit_tracker, &before_head, ctx)
             .await?;
 
-        // Get after_head for validation
+        // Validate commit requirements
         let after_head = commit_tracker.get_current_head().await?;
-
-        // Validate commit requirements and display dry-run info
         self.validate_and_display_commit_info(step, &tracked_commits, &before_head, &after_head)?;
 
-        // Capture command output if requested
+        // Capture output to variables and files
         self.capture_step_output(step, &result, ctx).await?;
-
-        // Write output to file if requested
         self.write_output_to_file(step, &result, &actual_env)?;
-
-        // Handle legacy capture_output feature (deprecated)
         self.handle_legacy_capture(step, &command_type, &result, ctx);
 
-        // Execute validation if configured
+        // Execute validation checks if configured
         self.execute_step_validation(step, &mut result, &actual_env, ctx)
             .await?;
 
-        // Handle conditional execution (failure, success, exit codes)
+        // Handle conditional execution (on_failure, on_success handlers)
         result = self
             .handle_conditional_execution(step, result, &actual_env, ctx)
             .await?;
 
-        // Finalize step result and handle workflow failure logic
+        // === PHASE 4: Finalization ===
+        // Determine if step failure should fail the workflow
         let result = self.finalize_step_result(step, result)?;
 
-        // Track git changes and update session
+        // Update session state with git changes
         self.track_and_update_session(ctx).await?;
 
         Ok(result)
