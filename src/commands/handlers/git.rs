@@ -730,4 +730,74 @@ mod tests {
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
     }
+
+    #[tokio::test]
+    async fn test_git_switch_to_branch() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["switch", "feature"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"Switched to branch 'feature'".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("switch".to_string()),
+        );
+        attributes.insert(
+            "branch".to_string(),
+            AttributeValue::String("feature".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_git_pull_without_remote() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["pull", "main"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"Already up to date.".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("pull".to_string()),
+        );
+        attributes.insert(
+            "branch".to_string(),
+            AttributeValue::String("main".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
 }
