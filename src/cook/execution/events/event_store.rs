@@ -998,4 +998,112 @@ mod tests {
             "Should have counted all valid JobStarted events"
         );
     }
+
+    #[tokio::test]
+    async fn test_index_persists_and_deserializes_correctly() {
+        // Setup
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path().to_path_buf();
+        let store = FileEventStore::new(base_path.clone());
+
+        let job_id = "persistence-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        // Create test events
+        let event_file = events_dir.join("events-001.jsonl");
+        let timestamp = Utc::now();
+
+        let event1 = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp,
+            correlation_id: "corr-1".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: job_id.to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp,
+            },
+            metadata: HashMap::new(),
+        };
+
+        let event2 = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp,
+            correlation_id: "corr-2".to_string(),
+            event: MapReduceEvent::AgentCompleted {
+                job_id: job_id.to_string(),
+                agent_id: "agent-1".to_string(),
+                duration: chrono::Duration::seconds(30),
+                commits: vec!["abc123".to_string(), "def456".to_string()],
+            },
+            metadata: HashMap::new(),
+        };
+
+        let mut content = String::new();
+        content.push_str(&serde_json::to_string(&event1).unwrap());
+        content.push('\n');
+        content.push_str(&serde_json::to_string(&event2).unwrap());
+        content.push('\n');
+        fs::write(&event_file, &content).await.unwrap();
+
+        // Execute - create index
+        let result = store.index(job_id).await;
+        assert!(result.is_ok(), "Index creation should succeed");
+        let original_index = result.unwrap();
+
+        // Verify index file exists
+        let index_path = events_dir.join("index.json");
+        assert!(
+            index_path.exists(),
+            "Index file should exist on disk"
+        );
+
+        // Read and parse the index file
+        let index_content = fs::read_to_string(&index_path).await.unwrap();
+        let parsed_index: EventIndex = serde_json::from_str(&index_content)
+            .expect("Index file should contain valid JSON");
+
+        // Verify all fields match
+        assert_eq!(parsed_index.job_id, original_index.job_id);
+        assert_eq!(parsed_index.total_events, original_index.total_events);
+        assert_eq!(
+            parsed_index.event_counts, original_index.event_counts,
+            "Event counts should match"
+        );
+        assert_eq!(
+            parsed_index.time_range, original_index.time_range,
+            "Time range should match"
+        );
+        assert_eq!(
+            parsed_index.file_offsets.len(),
+            original_index.file_offsets.len(),
+            "File offsets count should match"
+        );
+
+        // Verify JSON structure has expected fields
+        let json_value: serde_json::Value = serde_json::from_str(&index_content)
+            .expect("Should parse as JSON value");
+        assert!(json_value.get("job_id").is_some(), "Should have job_id field");
+        assert!(json_value.get("event_counts").is_some(), "Should have event_counts field");
+        assert!(json_value.get("time_range").is_some(), "Should have time_range field");
+        assert!(json_value.get("file_offsets").is_some(), "Should have file_offsets field");
+        assert!(json_value.get("total_events").is_some(), "Should have total_events field");
+
+        // Verify the JSON is pretty-printed (has newlines)
+        assert!(
+            index_content.contains('\n'),
+            "Index should be pretty-printed"
+        );
+    }
 }
