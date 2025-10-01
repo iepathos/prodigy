@@ -800,4 +800,95 @@ mod tests {
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
     }
+
+    #[tokio::test]
+    async fn test_git_push_without_remote() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["push", "main"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"Branch 'main' set up to track remote branch".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("push".to_string()),
+        );
+        attributes.insert(
+            "branch".to_string(),
+            AttributeValue::String("main".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_git_commit_auto_stage_custom_files() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["add", "src/main.rs", "src/lib.rs"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            },
+        );
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["commit", "-m", "Test commit"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"[main abc123] Test commit".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("commit".to_string()),
+        );
+        attributes.insert(
+            "message".to_string(),
+            AttributeValue::String("Test commit".to_string()),
+        );
+        attributes.insert("auto_stage".to_string(), AttributeValue::Boolean(true));
+        attributes.insert(
+            "files".to_string(),
+            AttributeValue::Array(vec![
+                AttributeValue::String("src/main.rs".to_string()),
+                AttributeValue::String("src/lib.rs".to_string()),
+            ]),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
 }
