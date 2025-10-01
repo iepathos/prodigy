@@ -30,6 +30,30 @@ fn build_boolean_flags(attributes: &HashMap<String, AttributeValue>) -> Vec<Stri
         .collect()
 }
 
+/// Builds string option arguments from attributes using iterator chains
+fn build_string_option_args(attributes: &HashMap<String, AttributeValue>) -> Vec<String> {
+    let option_mappings = [
+        ("features", "--features"),
+        ("package", "--package"),
+        ("target", "--target"),
+    ];
+
+    let regular_options = option_mappings.iter().flat_map(|(key, flag)| {
+        attributes
+            .get(*key)
+            .and_then(|v| v.as_string())
+            .map(|value| vec![(*flag).to_string(), value.clone()])
+    });
+
+    let args_options = attributes
+        .get("args")
+        .and_then(|v| v.as_string())
+        .into_iter()
+        .flat_map(|args| args.split_whitespace().map(|s| s.to_string()));
+
+    regular_options.flatten().chain(args_options).collect()
+}
+
 /// Handler for Cargo operations
 pub struct CargoHandler;
 
@@ -103,30 +127,8 @@ impl CommandHandler for CargoHandler {
         // Add common flags using pure function
         cargo_args.extend(build_boolean_flags(&attributes));
 
-        // Add features if specified
-        if let Some(features) = attributes.get("features").and_then(|v| v.as_string()) {
-            cargo_args.push("--features".to_string());
-            cargo_args.push(features.clone());
-        }
-
-        // Add package if specified
-        if let Some(package) = attributes.get("package").and_then(|v| v.as_string()) {
-            cargo_args.push("--package".to_string());
-            cargo_args.push(package.clone());
-        }
-
-        // Add target if specified
-        if let Some(target) = attributes.get("target").and_then(|v| v.as_string()) {
-            cargo_args.push("--target".to_string());
-            cargo_args.push(target.clone());
-        }
-
-        // Add additional args if provided
-        if let Some(args) = attributes.get("args").and_then(|v| v.as_string()) {
-            for arg in args.split_whitespace() {
-                cargo_args.push(arg.to_string());
-            }
-        }
+        // Add string option arguments using pure function
+        cargo_args.extend(build_string_option_args(&attributes));
 
         if context.dry_run {
             let duration = start.elapsed().as_millis() as u64;
