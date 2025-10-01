@@ -3269,6 +3269,100 @@ impl WorkflowExecutor {
         Ok(())
     }
 
+    /// Capture command output to variable store if configured
+    async fn capture_step_output(
+        &self,
+        step: &WorkflowStep,
+        result: &StepResult,
+        ctx: &mut WorkflowContext,
+    ) -> Result<()> {
+        if let Some(capture_name) = &step.capture {
+            let command_result = super::variables::CommandResult {
+                stdout: Some(result.stdout.clone()),
+                stderr: Some(result.stderr.clone()),
+                exit_code: result.exit_code.unwrap_or(-1),
+                success: result.success,
+                duration: std::time::Duration::from_secs(0), // TODO: Track actual duration
+            };
+
+            let capture_format = step.capture_format.unwrap_or_default();
+            let capture_streams = &step.capture_streams;
+
+            ctx.variable_store
+                .capture_command_result(
+                    capture_name,
+                    command_result,
+                    capture_format,
+                    capture_streams,
+                )
+                .await
+                .map_err(|e| anyhow!("Failed to capture command result: {}", e))?;
+
+            // Also update captured_outputs for backward compatibility
+            ctx.captured_outputs
+                .insert(capture_name.clone(), result.stdout.clone());
+        }
+
+        Ok(())
+    }
+
+    /// Write command output to file if configured
+    fn write_output_to_file(
+        &self,
+        step: &WorkflowStep,
+        result: &StepResult,
+        actual_env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        if let Some(output_file) = &step.output_file {
+            use std::fs;
+
+            let output_path = if output_file.is_absolute() {
+                output_file.clone()
+            } else {
+                actual_env.working_dir.join(output_file)
+            };
+
+            // Create parent directory if needed
+            if let Some(parent) = output_path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| anyhow!("Failed to create output directory: {}", e))?;
+            }
+
+            // Write output to file
+            fs::write(&output_path, &result.stdout).map_err(|e| {
+                anyhow!(
+                    "Failed to write output to file {:?}: {}",
+                    output_path,
+                    e
+                )
+            })?;
+        }
+
+        Ok(())
+    }
+
+    /// Handle legacy capture_output feature (deprecated)
+    fn handle_legacy_capture(
+        &self,
+        step: &WorkflowStep,
+        command_type: &CommandType,
+        result: &StepResult,
+        ctx: &mut WorkflowContext,
+    ) {
+        if step.capture_output.is_enabled() {
+            // Get the variable name for this output (custom or default)
+            if let Some(var_name) = step.capture_output.get_variable_name(command_type) {
+                // Store with the specified variable name
+                ctx.captured_outputs
+                    .insert(var_name, result.stdout.clone());
+            }
+
+            // Also store as generic CAPTURED_OUTPUT for backward compatibility
+            ctx.captured_outputs
+                .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
+        }
+    }
+
     pub async fn execute_step(
         &mut self,
         step: &WorkflowStep,
@@ -3314,66 +3408,13 @@ impl WorkflowExecutor {
         self.validate_and_display_commit_info(step, &tracked_commits, &before_head, &after_head)?;
 
         // Capture command output if requested
-        if let Some(capture_name) = &step.capture {
-            let command_result = super::variables::CommandResult {
-                stdout: Some(result.stdout.clone()),
-                stderr: Some(result.stderr.clone()),
-                exit_code: result.exit_code.unwrap_or(-1),
-                success: result.success,
-                duration: std::time::Duration::from_secs(0), // TODO: Track actual duration
-            };
-
-            let capture_format = step.capture_format.unwrap_or_default();
-            let capture_streams = &step.capture_streams;
-
-            ctx.variable_store
-                .capture_command_result(
-                    capture_name,
-                    command_result,
-                    capture_format,
-                    capture_streams,
-                )
-                .await
-                .map_err(|e| anyhow!("Failed to capture command result: {}", e))?;
-
-            // Also update captured_outputs for backward compatibility
-            ctx.captured_outputs
-                .insert(capture_name.clone(), result.stdout.clone());
-        }
+        self.capture_step_output(step, &result, ctx).await?;
 
         // Write output to file if requested
-        if let Some(output_file) = &step.output_file {
-            use std::fs;
+        self.write_output_to_file(step, &result, &actual_env)?;
 
-            let output_path = if output_file.is_absolute() {
-                output_file.clone()
-            } else {
-                actual_env.working_dir.join(output_file)
-            };
-
-            // Create parent directory if needed
-            if let Some(parent) = output_path.parent() {
-                fs::create_dir_all(parent)
-                    .map_err(|e| anyhow!("Failed to create output directory: {}", e))?;
-            }
-
-            // Write output to file
-            fs::write(&output_path, &result.stdout)
-                .map_err(|e| anyhow!("Failed to write output to file {:?}: {}", output_path, e))?;
-        }
-
-        // Capture output if requested (deprecated)
-        if step.capture_output.is_enabled() {
-            // Get the variable name for this output (custom or default)
-            if let Some(var_name) = step.capture_output.get_variable_name(&command_type) {
-                // Store with the specified variable name
-                ctx.captured_outputs.insert(var_name, result.stdout.clone());
-            }
-
-            // Also store as generic CAPTURED_OUTPUT for backward compatibility
-            ctx.captured_outputs
-                .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
-        }
+        // Handle legacy capture_output feature (deprecated)
+        self.handle_legacy_capture(step, &command_type, &result, ctx);
 
         // Handle validation if configured and command succeeded
         // Skip in dry-run mode since validation was already simulated in execute_command_by_type
