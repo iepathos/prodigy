@@ -693,4 +693,100 @@ mod tests {
         // Verify duration is tracked
         assert!(result.duration_ms.is_some());
     }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_exit_code_none_signal() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Create exit status from signal (code() returns None on Unix)
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "kill -9 $$"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(9), // Signal 9 (SIGKILL)
+                stdout: Vec::new(),
+                stderr: b"Killed by signal\n".to_vec(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("kill -9 $$".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        // Should still produce a result with exit_code -1 when code() is None
+        assert_eq!(result.exit_code, Some(-1));
+        // Verify duration is tracked even for signal termination
+        assert!(result.duration_ms.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_non_utf8_output() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Invalid UTF-8 bytes
+        let invalid_utf8 = vec![0xFF, 0xFE, 0xFD];
+
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "cat binary_file"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: invalid_utf8.clone(),
+                stderr: invalid_utf8,
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("cat binary_file".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+        // String::from_utf8_lossy replaces invalid UTF-8 with replacement character
+        assert!(result.stdout.is_some());
+        assert!(result.stderr.is_some());
+        // Verify duration is tracked
+        assert!(result.duration_ms.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_executor_error_includes_duration() {
+        let handler = ShellHandler::new();
+        let mock_executor = MockSubprocessExecutor::new();
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("unexpected".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        // Verify duration is tracked even for errors
+        assert!(result.duration_ms.is_some());
+    }
 }
