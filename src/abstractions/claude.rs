@@ -379,6 +379,21 @@ impl RealClaudeClient {
             CommandErrorType::CommandNotFound | CommandErrorType::PermanentError => false,
         }
     }
+
+    /// Convert ProcessOutput to std::process::Output
+    ///
+    /// Converts the subprocess abstraction's output format to the standard library's
+    /// process output format for compatibility with existing code.
+    fn convert_to_std_output(
+        output: crate::subprocess::runner::ProcessOutput,
+    ) -> std::process::Output {
+        let exit_code = output.status.code().unwrap_or(1);
+        std::process::Output {
+            status: std::process::ExitStatus::from_raw(exit_code),
+            stdout: output.stdout.into_bytes(),
+            stderr: output.stderr.into_bytes(),
+        }
+    }
 }
 
 impl Default for RealClaudeClient {
@@ -451,14 +466,8 @@ impl ClaudeClient for RealClaudeClient {
                         }
                     }
 
-                    // Convert to std::process::Output
-                    return Ok(std::process::Output {
-                        status: std::process::ExitStatus::from_raw(
-                            output.status.code().unwrap_or(1),
-                        ),
-                        stdout: output.stdout.into_bytes(),
-                        stderr: output.stderr.into_bytes(),
-                    });
+                    // Convert and return output
+                    return Ok(Self::convert_to_std_output(output));
                 }
                 Err(e) => {
                     let error_type = Self::classify_command_error(&e, "");
@@ -955,6 +964,56 @@ mod tests {
             2,
             3
         ));
+    }
+
+    #[test]
+    fn test_convert_to_std_output() {
+        use crate::subprocess::runner::{ExitStatus, ProcessOutput};
+        use std::time::Duration;
+
+        // Test successful output conversion
+        let process_output = ProcessOutput {
+            status: ExitStatus::Success,
+            stdout: "test output".to_string(),
+            stderr: String::new(),
+            duration: Duration::from_secs(1),
+        };
+
+        let std_output = RealClaudeClient::convert_to_std_output(process_output);
+        assert!(std_output.status.success());
+        assert_eq!(String::from_utf8_lossy(&std_output.stdout), "test output");
+        assert!(std_output.stderr.is_empty());
+
+        // Test output with exit code
+        let process_output = ProcessOutput {
+            status: ExitStatus::Error(42),
+            stdout: String::new(),
+            stderr: "error message".to_string(),
+            duration: Duration::from_secs(1),
+        };
+
+        let std_output = RealClaudeClient::convert_to_std_output(process_output);
+        assert!(!std_output.status.success());
+        assert!(std_output.stdout.is_empty());
+        assert_eq!(String::from_utf8_lossy(&std_output.stderr), "error message");
+
+        // Test stdout/stderr byte conversion
+        let process_output = ProcessOutput {
+            status: ExitStatus::Success,
+            stdout: "stdout content".to_string(),
+            stderr: "stderr content".to_string(),
+            duration: Duration::from_secs(1),
+        };
+
+        let std_output = RealClaudeClient::convert_to_std_output(process_output);
+        assert_eq!(
+            String::from_utf8_lossy(&std_output.stdout),
+            "stdout content"
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&std_output.stderr),
+            "stderr content"
+        );
     }
 
     #[tokio::test]
