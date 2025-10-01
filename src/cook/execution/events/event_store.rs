@@ -180,6 +180,112 @@ impl FileEventStore {
     }
 }
 
+// Pure helper functions for index operations
+
+/// Update time range with a new event timestamp
+fn update_time_range(
+    start: Option<DateTime<Utc>>,
+    end: Option<DateTime<Utc>>,
+    event_time: DateTime<Utc>,
+) -> (Option<DateTime<Utc>>, Option<DateTime<Utc>>) {
+    let new_start = match start {
+        None => Some(event_time),
+        Some(s) if event_time < s => Some(event_time),
+        Some(s) => Some(s),
+    };
+
+    let new_end = match end {
+        None => Some(event_time),
+        Some(e) if event_time > e => Some(event_time),
+        Some(e) => Some(e),
+    };
+
+    (new_start, new_end)
+}
+
+/// Increment event count for a given event type
+fn increment_event_count(counts: &mut HashMap<String, usize>, event_name: String) {
+    *counts.entry(event_name).or_insert(0) += 1;
+}
+
+/// Create a file offset record from event data
+fn create_file_offset(
+    file_path: PathBuf,
+    byte_offset: u64,
+    line_number: usize,
+    event: &EventRecord,
+) -> FileOffset {
+    FileOffset {
+        file_path,
+        byte_offset,
+        line_number,
+        event_id: event.id,
+        timestamp: event.timestamp,
+    }
+}
+
+/// Process a single event line and update index state
+fn process_event_line(
+    line: &str,
+    file_path: &Path,
+    line_number: usize,
+    byte_offset: u64,
+    index: &mut EventIndex,
+    time_range: &mut (Option<DateTime<Utc>>, Option<DateTime<Utc>>),
+) {
+    if let Ok(event) = serde_json::from_str::<EventRecord>(line) {
+        index.total_events += 1;
+
+        let event_name = event.event.event_name().to_string();
+        increment_event_count(&mut index.event_counts, event_name);
+
+        let (start, end) = update_time_range(time_range.0, time_range.1, event.timestamp);
+        *time_range = (start, end);
+
+        index.file_offsets.push(create_file_offset(
+            file_path.to_path_buf(),
+            byte_offset,
+            line_number,
+            &event,
+        ));
+    }
+}
+
+/// Save index to file
+async fn save_index(index: &EventIndex, index_path: &Path) -> Result<()> {
+    let json = serde_json::to_string_pretty(index)?;
+    fs::write(index_path, json).await?;
+    Ok(())
+}
+
+/// Process all events in a single file and update the index
+async fn process_event_file(
+    file_path: &PathBuf,
+    index: &mut EventIndex,
+    time_range: &mut (Option<DateTime<Utc>>, Option<DateTime<Utc>>),
+) -> Result<()> {
+    let file = File::open(file_path).await?;
+    let reader = BufReader::new(file);
+    let mut lines = reader.lines();
+    let mut line_number = 0;
+    let mut byte_offset = 0u64;
+
+    while let Some(line) = lines.next_line().await? {
+        line_number += 1;
+        process_event_line(
+            &line,
+            file_path,
+            line_number,
+            byte_offset,
+            index,
+            time_range,
+        );
+        byte_offset += line.len() as u64 + 1; // +1 for newline
+    }
+
+    Ok(())
+}
+
 #[async_trait]
 impl EventStore for FileEventStore {
     async fn append(&self, _event: MapReduceEvent) -> Result<()> {
@@ -290,55 +396,18 @@ impl EventStore for FileEventStore {
             total_events: 0,
         };
 
-        let mut start_time: Option<DateTime<Utc>> = None;
-        let mut end_time: Option<DateTime<Utc>> = None;
+        let mut time_range = (None, None);
 
         for file_path in files {
-            let file = File::open(&file_path).await?;
-            let reader = BufReader::new(file);
-            let mut lines = reader.lines();
-            let mut line_number = 0;
-            let mut byte_offset = 0u64;
-
-            while let Some(line) = lines.next_line().await? {
-                line_number += 1;
-
-                if let Ok(event) = serde_json::from_str::<EventRecord>(&line) {
-                    // Update counts
-                    index.total_events += 1;
-                    let event_name = event.event.event_name().to_string();
-                    *index.event_counts.entry(event_name).or_insert(0) += 1;
-
-                    // Track time range
-                    if start_time.is_none() || event.timestamp < start_time.unwrap() {
-                        start_time = Some(event.timestamp);
-                    }
-                    if end_time.is_none() || event.timestamp > end_time.unwrap() {
-                        end_time = Some(event.timestamp);
-                    }
-
-                    // Add file offset
-                    index.file_offsets.push(FileOffset {
-                        file_path: file_path.clone(),
-                        byte_offset,
-                        line_number,
-                        event_id: event.id,
-                        timestamp: event.timestamp,
-                    });
-                }
-
-                byte_offset += line.len() as u64 + 1; // +1 for newline
-            }
+            process_event_file(&file_path, &mut index, &mut time_range).await?;
         }
 
-        if let (Some(start), Some(end)) = (start_time, end_time) {
+        if let (Some(start), Some(end)) = time_range {
             index.time_range = (start, end);
         }
 
-        // Save index to file
         let index_path = self.job_events_dir(job_id).join("index.json");
-        let json = serde_json::to_string_pretty(&index)?;
-        fs::write(&index_path, json).await?;
+        save_index(&index, &index_path).await?;
 
         info!(
             "Created index for job {} with {} events",

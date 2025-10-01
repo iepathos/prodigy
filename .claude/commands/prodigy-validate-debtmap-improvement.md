@@ -1,3 +1,18 @@
+---
+name: prodigy-validate-debtmap-improvement
+description: Validate debtmap improvement by comparing before/after JSON files
+args:
+  - name: before
+    required: true
+    description: Path to the before debtmap JSON file
+  - name: after
+    required: true
+    description: Path to the after debtmap JSON file
+  - name: output
+    required: false
+    description: Path to write validation results (default .prodigy/debtmap-validation.json)
+---
+
 # Validate Debtmap Improvement Command
 
 Validates that technical debt improvements have been made by comparing debtmap JSON output before and after changes.
@@ -29,6 +44,16 @@ Examples:
    - Produces JSON-formatted validation result for Prodigy to parse
    - Includes improvement percentage and detailed gap analysis
    - Provides actionable feedback for incomplete improvements
+
+## Implementation
+
+This command runs the validation script:
+
+```bash
+python3 .claude/scripts/validate_debtmap_improvement.py $ARGUMENTS
+```
+
+The script will parse the arguments, load both JSON files, calculate improvement metrics, and write the validation result to the output file.
 
 ## Execution Process
 
