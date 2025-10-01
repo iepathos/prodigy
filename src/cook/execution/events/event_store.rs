@@ -824,4 +824,106 @@ mod tests {
             "Should have file offsets for all events"
         );
     }
+
+    #[tokio::test]
+    async fn test_index_calculates_correct_time_range() {
+        // Setup
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path().to_path_buf();
+        let store = FileEventStore::new(base_path.clone());
+
+        let job_id = "time-range-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        // Create events with specific, known timestamps
+        let earliest_time = Utc::now() - chrono::Duration::days(1);
+        let middle_time = Utc::now() - chrono::Duration::hours(12);
+        let latest_time = Utc::now();
+
+        let event_file = events_dir.join("events-001.jsonl");
+        let events = vec![
+            // Add events in non-chronological order to verify sorting logic
+            EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: middle_time,
+                correlation_id: "corr-2".to_string(),
+                event: MapReduceEvent::AgentStarted {
+                    job_id: job_id.to_string(),
+                    agent_id: "agent-1".to_string(),
+                    item_id: "item-1".to_string(),
+                    worktree: "worktree-1".to_string(),
+                    attempt: 1,
+                },
+                metadata: HashMap::new(),
+            },
+            EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: earliest_time,
+                correlation_id: "corr-1".to_string(),
+                event: MapReduceEvent::JobStarted {
+                    job_id: job_id.to_string(),
+                    config: MapReduceConfig {
+                        agent_timeout_secs: None,
+                        continue_on_failure: false,
+                        batch_size: None,
+                        enable_checkpoints: true,
+                        input: "test.json".to_string(),
+                        json_path: "$.items".to_string(),
+                        max_parallel: 5,
+                        max_items: None,
+                        offset: None,
+                    },
+                    total_items: 10,
+                    timestamp: earliest_time,
+                },
+                metadata: HashMap::new(),
+            },
+            EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: latest_time,
+                correlation_id: "corr-3".to_string(),
+                event: MapReduceEvent::JobCompleted {
+                    job_id: job_id.to_string(),
+                    duration: chrono::Duration::days(1),
+                    success_count: 10,
+                    failure_count: 0,
+                },
+                metadata: HashMap::new(),
+            },
+        ];
+
+        let mut file_content = String::new();
+        for event in &events {
+            file_content.push_str(&serde_json::to_string(event).unwrap());
+            file_content.push('\n');
+        }
+        fs::write(&event_file, &file_content).await.unwrap();
+
+        // Execute
+        let result = store.index(job_id).await;
+
+        // Assert
+        assert!(result.is_ok(), "Index should succeed");
+        let index = result.unwrap();
+
+        let (start, end) = index.time_range;
+
+        // Verify time range exactly matches earliest and latest timestamps
+        assert_eq!(
+            start, earliest_time,
+            "Time range start should match earliest event timestamp"
+        );
+        assert_eq!(
+            end, latest_time,
+            "Time range end should match latest event timestamp"
+        );
+
+        // Verify the duration between start and end
+        let duration = end - start;
+        assert!(
+            duration >= chrono::Duration::hours(23),
+            "Duration should be approximately 24 hours"
+        );
+    }
 }
