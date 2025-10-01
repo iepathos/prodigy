@@ -915,4 +915,74 @@ mod tests {
         let handler = GitHandler::default();
         assert_eq!(handler.name(), "git");
     }
+
+    #[tokio::test]
+    async fn test_git_checkout_without_branch() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["checkout"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"Already on 'main'".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("checkout".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_git_commit_with_additional_args() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["commit", "-m", "Test commit", "--amend", "--no-edit"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"[main abc123] Test commit (amended)".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("commit".to_string()),
+        );
+        attributes.insert(
+            "message".to_string(),
+            AttributeValue::String("Test commit".to_string()),
+        );
+        attributes.insert(
+            "args".to_string(),
+            AttributeValue::String("--amend --no-edit".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
 }
