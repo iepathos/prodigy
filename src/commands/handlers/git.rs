@@ -891,4 +891,28 @@ mod tests {
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
     }
+
+    #[test]
+    fn test_git_handler_description() {
+        let handler = GitHandler::new();
+        let description = handler.description();
+        assert_eq!(description, "Handles Git version control operations");
+    }
+
+    #[test]
+    fn test_git_handler_examples() {
+        let handler = GitHandler::new();
+        let examples = handler.examples();
+        assert_eq!(examples.len(), 4);
+        assert!(examples[0].contains("status"));
+        assert!(examples[1].contains("commit"));
+        assert!(examples[2].contains("checkout"));
+        assert!(examples[3].contains("push"));
+    }
+
+    #[test]
+    fn test_git_handler_default() {
+        let handler = GitHandler::default();
+        assert_eq!(handler.name(), "git");
+    }
 }
