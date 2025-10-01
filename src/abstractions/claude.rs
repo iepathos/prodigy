@@ -882,21 +882,21 @@ mod tests {
         );
 
         // Test transient error detection with Io error
-        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let io_error = std::io::Error::other("IO error");
         let error = ProcessError::Io(io_error);
         assert_eq!(
             RealClaudeClient::classify_command_error(&error, "rate limit exceeded"),
             CommandErrorType::TransientError
         );
 
-        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let io_error = std::io::Error::other("IO error");
         let error = ProcessError::Io(io_error);
         assert_eq!(
             RealClaudeClient::classify_command_error(&error, "Connection timeout"),
             CommandErrorType::TransientError
         );
 
-        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let io_error = std::io::Error::other("IO error");
         let error = ProcessError::Io(io_error);
         assert_eq!(
             RealClaudeClient::classify_command_error(&error, "HTTP 503 Service Unavailable"),
@@ -904,14 +904,14 @@ mod tests {
         );
 
         // Test permanent error detection
-        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let io_error = std::io::Error::other("IO error");
         let error = ProcessError::Io(io_error);
         assert_eq!(
             RealClaudeClient::classify_command_error(&error, "Syntax error"),
             CommandErrorType::PermanentError
         );
 
-        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let io_error = std::io::Error::other("IO error");
         let error = ProcessError::Io(io_error);
         assert_eq!(
             RealClaudeClient::classify_command_error(&error, "Unknown command"),
