@@ -16,6 +16,150 @@ impl ClaudeHandler {
     pub fn new() -> Self {
         Self
     }
+
+    /// Builds the full prompt by loading and prepending context files
+    async fn build_prompt_with_context(
+        prompt: &str,
+        context_files: &[AttributeValue],
+        context: &ExecutionContext,
+    ) -> Result<String, String> {
+        let mut file_contents = Vec::new();
+        for file_val in context_files {
+            if let Some(file_path) = file_val.as_string() {
+                let abs_path = context.resolve_path(file_path.as_ref());
+                let content = tokio::fs::read_to_string(&abs_path)
+                    .await
+                    .map_err(|e| format!("Failed to read context file {file_path}: {e}"))?;
+                file_contents.push(format!("=== {file_path} ===\n{content}"));
+            }
+        }
+
+        if file_contents.is_empty() {
+            Ok(prompt.to_string())
+        } else {
+            Ok(format!(
+                "Context files:\n{}\n\nTask:\n{}",
+                file_contents.join("\n\n"),
+                prompt
+            ))
+        }
+    }
+
+    /// Extract and validate parameters from attributes
+    fn extract_parameters(
+        attributes: &HashMap<String, AttributeValue>,
+    ) -> Result<ClaudeParameters, String> {
+        let prompt = attributes
+            .get("prompt")
+            .and_then(|v| v.as_string())
+            .ok_or_else(|| "Missing required attribute: prompt".to_string())?
+            .clone();
+
+        let model = attributes
+            .get("model")
+            .and_then(|v| v.as_string())
+            .cloned()
+            .unwrap_or_else(|| "claude-3-sonnet".to_string());
+
+        let temperature = attributes
+            .get("temperature")
+            .and_then(|v| v.as_number())
+            .unwrap_or(0.7);
+
+        let max_tokens = attributes
+            .get("max_tokens")
+            .and_then(|v| v.as_number())
+            .map(|n| n as u32)
+            .unwrap_or(4096);
+
+        let system = attributes
+            .get("system")
+            .and_then(|v| v.as_string())
+            .cloned();
+
+        let timeout = attributes
+            .get("timeout")
+            .and_then(|v| v.as_number())
+            .unwrap_or(60.0) as u64;
+
+        Ok(ClaudeParameters {
+            prompt,
+            model,
+            temperature,
+            max_tokens,
+            system,
+            timeout,
+        })
+    }
+
+    /// Build CLI arguments for Claude command
+    fn build_cli_args(
+        model: &str,
+        max_tokens: u32,
+        temperature: f64,
+        system: &Option<String>,
+        prompt: String,
+    ) -> Vec<String> {
+        let mut args = vec![
+            "--model".to_string(),
+            model.to_string(),
+            "--max-tokens".to_string(),
+            max_tokens.to_string(),
+            "--temperature".to_string(),
+            temperature.to_string(),
+        ];
+
+        if let Some(sys) = system {
+            args.push("--system".to_string());
+            args.push(sys.clone());
+        }
+
+        args.push(prompt);
+        args
+    }
+
+    /// Process the execution result and create a CommandResult
+    fn process_execution_result(
+        result: Result<std::process::Output, crate::subprocess::error::ProcessError>,
+        duration: u64,
+        model: &str,
+        temperature: f64,
+        max_tokens: u32,
+    ) -> CommandResult {
+        match result {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+                if output.status.success() {
+                    CommandResult::success(json!({
+                        "response": stdout,
+                        "metadata": {
+                            "model": model,
+                            "temperature": temperature,
+                            "max_tokens": max_tokens,
+                        }
+                    }))
+                    .with_duration(duration)
+                } else {
+                    CommandResult::error(format!("Claude CLI failed: {stderr}"))
+                        .with_duration(duration)
+                }
+            }
+            Err(e) => CommandResult::error(format!("Failed to execute Claude CLI: {e}"))
+                .with_duration(duration),
+        }
+    }
+}
+
+/// Parameters for Claude CLI execution
+struct ClaudeParameters {
+    prompt: String,
+    model: String,
+    temperature: f64,
+    max_tokens: u32,
+    system: Option<String>,
+    timeout: u64,
 }
 
 #[async_trait]
@@ -48,67 +192,23 @@ impl CommandHandler for ClaudeHandler {
         // Apply defaults
         self.schema().apply_defaults(&mut attributes);
 
-        // Extract prompt
-        let prompt = match attributes.get("prompt").and_then(|v| v.as_string()) {
-            Some(p) => p.clone(),
-            None => return CommandResult::error("Missing required attribute: prompt".to_string()),
+        // Extract and validate parameters
+        let params = match Self::extract_parameters(&attributes) {
+            Ok(p) => p,
+            Err(e) => return CommandResult::error(e),
         };
 
-        // Extract optional parameters
-        let model = attributes
-            .get("model")
-            .and_then(|v| v.as_string())
-            .cloned()
-            .unwrap_or_else(|| "claude-3-sonnet".to_string());
-
-        let temperature = attributes
-            .get("temperature")
-            .and_then(|v| v.as_number())
-            .unwrap_or(0.7);
-
-        let max_tokens = attributes
-            .get("max_tokens")
-            .and_then(|v| v.as_number())
-            .map(|n| n as u32)
-            .unwrap_or(4096);
-
-        let system = attributes
-            .get("system")
-            .and_then(|v| v.as_string())
-            .cloned();
-
-        let timeout = attributes
-            .get("timeout")
-            .and_then(|v| v.as_number())
-            .unwrap_or(60.0) as u64;
-
         // Build context from files if specified
-        let mut full_prompt = prompt.clone();
-        if let Some(context_files) = attributes.get("context_files").and_then(|v| v.as_array()) {
-            let mut file_contents = Vec::new();
-            for file_val in context_files {
-                if let Some(file_path) = file_val.as_string() {
-                    let abs_path = context.resolve_path(file_path.as_ref());
-                    match tokio::fs::read_to_string(&abs_path).await {
-                        Ok(content) => {
-                            file_contents.push(format!("=== {file_path} ===\n{content}"));
-                        }
-                        Err(e) => {
-                            return CommandResult::error(format!(
-                                "Failed to read context file {file_path}: {e}"
-                            ));
-                        }
-                    }
-                }
+        let full_prompt = if let Some(context_files) =
+            attributes.get("context_files").and_then(|v| v.as_array())
+        {
+            match Self::build_prompt_with_context(&params.prompt, context_files, context).await {
+                Ok(p) => p,
+                Err(e) => return CommandResult::error(e),
             }
-            if !file_contents.is_empty() {
-                full_prompt = format!(
-                    "Context files:\n{}\n\nTask:\n{}",
-                    file_contents.join("\n\n"),
-                    prompt
-                );
-            }
-        }
+        } else {
+            params.prompt.clone()
+        };
 
         let start = Instant::now();
 
@@ -116,31 +216,23 @@ impl CommandHandler for ClaudeHandler {
             let duration = start.elapsed().as_millis() as u64;
             return CommandResult::success(json!({
                 "dry_run": true,
-                "model": model,
+                "model": params.model,
                 "prompt": full_prompt,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "system": system,
+                "temperature": params.temperature,
+                "max_tokens": params.max_tokens,
+                "system": params.system,
             }))
             .with_duration(duration);
         }
 
         // Build Claude CLI command
-        let mut cmd_args = vec![
-            "--model".to_string(),
-            model.clone(),
-            "--max-tokens".to_string(),
-            max_tokens.to_string(),
-            "--temperature".to_string(),
-            temperature.to_string(),
-        ];
-
-        if let Some(sys) = system.clone() {
-            cmd_args.push("--system".to_string());
-            cmd_args.push(sys);
-        }
-
-        cmd_args.push(full_prompt);
+        let cmd_args = Self::build_cli_args(
+            &params.model,
+            params.max_tokens,
+            params.temperature,
+            &params.system,
+            full_prompt,
+        );
 
         // Execute Claude CLI
         let result = context
@@ -150,35 +242,19 @@ impl CommandHandler for ClaudeHandler {
                 &cmd_args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
                 Some(&context.working_dir),
                 Some(context.full_env()),
-                Some(std::time::Duration::from_secs(timeout)),
+                Some(std::time::Duration::from_secs(params.timeout)),
             )
             .await;
 
         let duration = start.elapsed().as_millis() as u64;
 
-        match result {
-            Ok(output) => {
-                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-                if output.status.success() {
-                    CommandResult::success(json!({
-                        "response": stdout,
-                        "metadata": {
-                            "model": model,
-                            "temperature": temperature,
-                            "max_tokens": max_tokens,
-                        }
-                    }))
-                    .with_duration(duration)
-                } else {
-                    CommandResult::error(format!("Claude CLI failed: {stderr}"))
-                        .with_duration(duration)
-                }
-            }
-            Err(e) => CommandResult::error(format!("Failed to execute Claude CLI: {e}"))
-                .with_duration(duration),
-        }
+        Self::process_execution_result(
+            result,
+            duration,
+            &params.model,
+            params.temperature,
+            params.max_tokens,
+        )
     }
 
     fn description(&self) -> &str {
