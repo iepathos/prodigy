@@ -654,4 +654,80 @@ mod tests {
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
     }
+
+    #[tokio::test]
+    async fn test_git_status_with_files() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["status", "src/main.rs", "src/lib.rs"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"On branch main".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("status".to_string()),
+        );
+        attributes.insert(
+            "files".to_string(),
+            AttributeValue::Array(vec![
+                AttributeValue::String("src/main.rs".to_string()),
+                AttributeValue::String("src/lib.rs".to_string()),
+            ]),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_git_add_with_files() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["add", "file1.rs", "file2.rs"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("add".to_string()),
+        );
+        attributes.insert(
+            "files".to_string(),
+            AttributeValue::Array(vec![
+                AttributeValue::String("file1.rs".to_string()),
+                AttributeValue::String("file2.rs".to_string()),
+            ]),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
 }
