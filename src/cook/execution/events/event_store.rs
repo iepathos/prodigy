@@ -590,19 +590,13 @@ mod tests {
 
         // Verify index file was created
         let index_path = events_dir.join("index.json");
-        assert!(
-            index_path.exists(),
-            "Index file should exist on disk"
-        );
+        assert!(index_path.exists(), "Index file should exist on disk");
 
         // Verify index file can be deserialized
         let index_content = fs::read_to_string(&index_path).await.unwrap();
         let parsed_index: EventIndex =
             serde_json::from_str(&index_content).expect("Index should be valid JSON");
-        assert_eq!(
-            parsed_index.job_id, job_id,
-            "Parsed index should match"
-        );
+        assert_eq!(parsed_index.job_id, job_id, "Parsed index should match");
         assert_eq!(
             parsed_index.total_events, 3,
             "Parsed index should have correct count"
@@ -787,10 +781,7 @@ mod tests {
         let result = store.index(job_id).await;
 
         // Assert
-        assert!(
-            result.is_ok(),
-            "Index should succeed with multiple files"
-        );
+        assert!(result.is_ok(), "Index should succeed with multiple files");
         let index = result.unwrap();
 
         // Verify aggregation
@@ -1064,15 +1055,12 @@ mod tests {
 
         // Verify index file exists
         let index_path = events_dir.join("index.json");
-        assert!(
-            index_path.exists(),
-            "Index file should exist on disk"
-        );
+        assert!(index_path.exists(), "Index file should exist on disk");
 
         // Read and parse the index file
         let index_content = fs::read_to_string(&index_path).await.unwrap();
-        let parsed_index: EventIndex = serde_json::from_str(&index_content)
-            .expect("Index file should contain valid JSON");
+        let parsed_index: EventIndex =
+            serde_json::from_str(&index_content).expect("Index file should contain valid JSON");
 
         // Verify all fields match
         assert_eq!(parsed_index.job_id, original_index.job_id);
@@ -1092,13 +1080,28 @@ mod tests {
         );
 
         // Verify JSON structure has expected fields
-        let json_value: serde_json::Value = serde_json::from_str(&index_content)
-            .expect("Should parse as JSON value");
-        assert!(json_value.get("job_id").is_some(), "Should have job_id field");
-        assert!(json_value.get("event_counts").is_some(), "Should have event_counts field");
-        assert!(json_value.get("time_range").is_some(), "Should have time_range field");
-        assert!(json_value.get("file_offsets").is_some(), "Should have file_offsets field");
-        assert!(json_value.get("total_events").is_some(), "Should have total_events field");
+        let json_value: serde_json::Value =
+            serde_json::from_str(&index_content).expect("Should parse as JSON value");
+        assert!(
+            json_value.get("job_id").is_some(),
+            "Should have job_id field"
+        );
+        assert!(
+            json_value.get("event_counts").is_some(),
+            "Should have event_counts field"
+        );
+        assert!(
+            json_value.get("time_range").is_some(),
+            "Should have time_range field"
+        );
+        assert!(
+            json_value.get("file_offsets").is_some(),
+            "Should have file_offsets field"
+        );
+        assert!(
+            json_value.get("total_events").is_some(),
+            "Should have total_events field"
+        );
 
         // Verify the JSON is pretty-printed (has newlines)
         assert!(
