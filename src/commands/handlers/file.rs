@@ -99,6 +99,40 @@ async fn execute_append(
     }
 }
 
+/// Execute delete operation
+async fn execute_delete(path: &std::path::Path) -> Result<serde_json::Value, String> {
+    match fs::remove_file(path).await {
+        Ok(_) => Ok(json!({
+            "path": path.display().to_string(),
+            "operation": "delete",
+        })),
+        Err(e) => Err(format!("Failed to delete file: {e}")),
+    }
+}
+
+/// Execute exists operation
+async fn execute_exists(path: &std::path::Path) -> Result<serde_json::Value, String> {
+    let exists = path.exists();
+    let metadata = if exists {
+        match fs::metadata(path).await {
+            Ok(meta) => Some(json!({
+                "is_file": meta.is_file(),
+                "is_dir": meta.is_dir(),
+                "size": meta.len(),
+            })),
+            Err(_) => None,
+        }
+    } else {
+        None
+    };
+
+    Ok(json!({
+        "path": path.display().to_string(),
+        "exists": exists,
+        "metadata": metadata,
+    }))
+}
+
 #[async_trait]
 impl CommandHandler for FileHandler {
     fn name(&self) -> &str {
@@ -213,12 +247,9 @@ impl CommandHandler for FileHandler {
                     Err(e) => CommandResult::error(e),
                 }
             }
-            "delete" => match fs::remove_file(&path).await {
-                Ok(_) => CommandResult::success(json!({
-                    "path": path.display().to_string(),
-                    "operation": "delete",
-                })),
-                Err(e) => CommandResult::error(format!("Failed to delete file: {e}")),
+            "delete" => match execute_delete(&path).await {
+                Ok(data) => CommandResult::success(data),
+                Err(e) => CommandResult::error(e),
             },
             "copy" => {
                 let destination = match attributes.get("destination").and_then(|v| v.as_string()) {
@@ -281,27 +312,10 @@ impl CommandHandler for FileHandler {
                     Err(e) => CommandResult::error(format!("Failed to move file: {e}")),
                 }
             }
-            "exists" => {
-                let exists = path.exists();
-                let metadata = if exists {
-                    match fs::metadata(&path).await {
-                        Ok(meta) => Some(json!({
-                            "is_file": meta.is_file(),
-                            "is_dir": meta.is_dir(),
-                            "size": meta.len(),
-                        })),
-                        Err(_) => None,
-                    }
-                } else {
-                    None
-                };
-
-                CommandResult::success(json!({
-                    "path": path.display().to_string(),
-                    "exists": exists,
-                    "metadata": metadata,
-                }))
-            }
+            "exists" => match execute_exists(&path).await {
+                Ok(data) => CommandResult::success(data),
+                Err(e) => CommandResult::error(e),
+            },
             _ => CommandResult::error(format!("Unknown file operation: {operation}")),
         };
 
