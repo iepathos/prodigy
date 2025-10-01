@@ -8,6 +8,73 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::time::Instant;
 
+/// Builds boolean flags from attributes using iterator chains
+fn build_boolean_flags(attributes: &HashMap<String, AttributeValue>) -> Vec<String> {
+    let flag_mappings = [
+        ("release", "--release"),
+        ("all_features", "--all-features"),
+        ("no_default_features", "--no-default-features"),
+        ("verbose", "--verbose"),
+        ("quiet", "--quiet"),
+    ];
+
+    flag_mappings
+        .iter()
+        .filter_map(|(key, flag)| {
+            attributes
+                .get(*key)
+                .and_then(|v| v.as_bool())
+                .filter(|&enabled| enabled)
+                .map(|_| (*flag).to_string())
+        })
+        .collect()
+}
+
+/// Builds string option arguments from attributes using iterator chains
+fn build_string_option_args(attributes: &HashMap<String, AttributeValue>) -> Vec<String> {
+    let option_mappings = [
+        ("features", "--features"),
+        ("package", "--package"),
+        ("target", "--target"),
+    ];
+
+    let regular_options = option_mappings.iter().flat_map(|(key, flag)| {
+        attributes
+            .get(*key)
+            .and_then(|v| v.as_string())
+            .map(|value| vec![(*flag).to_string(), value.clone()])
+    });
+
+    let args_options = attributes
+        .get("args")
+        .and_then(|v| v.as_string())
+        .into_iter()
+        .flat_map(|args| args.split_whitespace().map(|s| s.to_string()));
+
+    regular_options.flatten().chain(args_options).collect()
+}
+
+/// Parses cargo command output to extract metadata using functional patterns
+fn parse_cargo_metadata(command: &str, stdout: &str) -> serde_json::Value {
+    let build_commands = ["build", "test", "check"];
+
+    let mut metadata = json!({
+        "command": command,
+    });
+
+    if build_commands.contains(&command) {
+        if stdout.contains("Finished") {
+            metadata["finished"] = json!(true);
+        }
+        if stdout.contains("warning") {
+            let warning_count = stdout.matches("warning").count();
+            metadata["warnings"] = json!(warning_count);
+        }
+    }
+
+    metadata
+}
+
 /// Handler for Cargo operations
 pub struct CargoHandler;
 
@@ -75,74 +142,11 @@ impl CommandHandler for CargoHandler {
 
         let start = Instant::now();
 
-        // Build cargo command
-        let mut cargo_args = vec![command.clone()];
-
-        // Add common flags
-        if attributes
-            .get("release")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            cargo_args.push("--release".to_string());
-        }
-
-        if attributes
-            .get("all_features")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            cargo_args.push("--all-features".to_string());
-        }
-
-        if attributes
-            .get("no_default_features")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            cargo_args.push("--no-default-features".to_string());
-        }
-
-        if attributes
-            .get("verbose")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            cargo_args.push("--verbose".to_string());
-        }
-
-        if attributes
-            .get("quiet")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            cargo_args.push("--quiet".to_string());
-        }
-
-        // Add features if specified
-        if let Some(features) = attributes.get("features").and_then(|v| v.as_string()) {
-            cargo_args.push("--features".to_string());
-            cargo_args.push(features.clone());
-        }
-
-        // Add package if specified
-        if let Some(package) = attributes.get("package").and_then(|v| v.as_string()) {
-            cargo_args.push("--package".to_string());
-            cargo_args.push(package.clone());
-        }
-
-        // Add target if specified
-        if let Some(target) = attributes.get("target").and_then(|v| v.as_string()) {
-            cargo_args.push("--target".to_string());
-            cargo_args.push(target.clone());
-        }
-
-        // Add additional args if provided
-        if let Some(args) = attributes.get("args").and_then(|v| v.as_string()) {
-            for arg in args.split_whitespace() {
-                cargo_args.push(arg.to_string());
-            }
-        }
+        // Build cargo command using functional composition
+        let cargo_args: Vec<String> = std::iter::once(command.clone())
+            .chain(build_boolean_flags(&attributes))
+            .chain(build_string_option_args(&attributes))
+            .collect();
 
         if context.dry_run {
             let duration = start.elapsed().as_millis() as u64;
@@ -177,21 +181,8 @@ impl CommandHandler for CargoHandler {
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
                 if output.status.success() {
-                    // Parse cargo output for useful information
-                    let mut metadata = json!({
-                        "command": command,
-                    });
-
-                    // Try to extract compilation info if it's a build command
-                    if command == "build" || command == "test" || command == "check" {
-                        if stdout.contains("Finished") {
-                            metadata["finished"] = json!(true);
-                        }
-                        if stdout.contains("warning") {
-                            let warning_count = stdout.matches("warning").count();
-                            metadata["warnings"] = json!(warning_count);
-                        }
-                    }
+                    // Parse cargo output using pure function
+                    let metadata = parse_cargo_metadata(&command, &stdout);
 
                     CommandResult::success(json!({
                         "output": stdout,
@@ -341,5 +332,163 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("cargo build --release"));
+    }
+
+    // Tests for pure functions
+    mod pure_functions {
+        use super::*;
+
+        #[test]
+        fn test_build_boolean_flags_all_true() {
+            let mut attributes = HashMap::new();
+            attributes.insert("release".to_string(), AttributeValue::Boolean(true));
+            attributes.insert("all_features".to_string(), AttributeValue::Boolean(true));
+            attributes.insert(
+                "no_default_features".to_string(),
+                AttributeValue::Boolean(true),
+            );
+            attributes.insert("verbose".to_string(), AttributeValue::Boolean(true));
+            attributes.insert("quiet".to_string(), AttributeValue::Boolean(true));
+
+            let flags = build_boolean_flags(&attributes);
+
+            assert_eq!(flags.len(), 5);
+            assert!(flags.contains(&"--release".to_string()));
+            assert!(flags.contains(&"--all-features".to_string()));
+            assert!(flags.contains(&"--no-default-features".to_string()));
+            assert!(flags.contains(&"--verbose".to_string()));
+            assert!(flags.contains(&"--quiet".to_string()));
+        }
+
+        #[test]
+        fn test_build_boolean_flags_all_false() {
+            let mut attributes = HashMap::new();
+            attributes.insert("release".to_string(), AttributeValue::Boolean(false));
+            attributes.insert("all_features".to_string(), AttributeValue::Boolean(false));
+            attributes.insert(
+                "no_default_features".to_string(),
+                AttributeValue::Boolean(false),
+            );
+
+            let flags = build_boolean_flags(&attributes);
+
+            assert_eq!(flags.len(), 0);
+        }
+
+        #[test]
+        fn test_build_boolean_flags_mixed() {
+            let mut attributes = HashMap::new();
+            attributes.insert("release".to_string(), AttributeValue::Boolean(true));
+            attributes.insert("all_features".to_string(), AttributeValue::Boolean(false));
+            attributes.insert("verbose".to_string(), AttributeValue::Boolean(true));
+
+            let flags = build_boolean_flags(&attributes);
+
+            assert_eq!(flags.len(), 2);
+            assert!(flags.contains(&"--release".to_string()));
+            assert!(flags.contains(&"--verbose".to_string()));
+        }
+
+        #[test]
+        fn test_build_string_option_args_features() {
+            let mut attributes = HashMap::new();
+            attributes.insert(
+                "features".to_string(),
+                AttributeValue::String("async tokio".to_string()),
+            );
+
+            let args = build_string_option_args(&attributes);
+
+            assert_eq!(args, vec!["--features", "async tokio"]);
+        }
+
+        #[test]
+        fn test_build_string_option_args_package() {
+            let mut attributes = HashMap::new();
+            attributes.insert(
+                "package".to_string(),
+                AttributeValue::String("my_crate".to_string()),
+            );
+
+            let args = build_string_option_args(&attributes);
+
+            assert_eq!(args, vec!["--package", "my_crate"]);
+        }
+
+        #[test]
+        fn test_build_string_option_args_with_args_splitting() {
+            let mut attributes = HashMap::new();
+            attributes.insert(
+                "args".to_string(),
+                AttributeValue::String("-- --help --verbose".to_string()),
+            );
+
+            let args = build_string_option_args(&attributes);
+
+            assert_eq!(args, vec!["--", "--help", "--verbose"]);
+        }
+
+        #[test]
+        fn test_build_string_option_args_multiple_options() {
+            let mut attributes = HashMap::new();
+            attributes.insert(
+                "features".to_string(),
+                AttributeValue::String("async".to_string()),
+            );
+            attributes.insert(
+                "package".to_string(),
+                AttributeValue::String("my_crate".to_string()),
+            );
+            attributes.insert(
+                "target".to_string(),
+                AttributeValue::String("x86_64-unknown-linux-gnu".to_string()),
+            );
+
+            let args = build_string_option_args(&attributes);
+
+            assert_eq!(
+                args,
+                vec![
+                    "--features",
+                    "async",
+                    "--package",
+                    "my_crate",
+                    "--target",
+                    "x86_64-unknown-linux-gnu"
+                ]
+            );
+        }
+
+        #[test]
+        fn test_parse_cargo_metadata_build_with_warnings() {
+            let stdout = "   Compiling test v0.1.0\nwarning: unused variable\nwarning: dead code\n    Finished release [optimized]";
+
+            let metadata = parse_cargo_metadata("build", stdout);
+
+            assert_eq!(metadata["command"], "build");
+            assert_eq!(metadata["finished"], true);
+            assert_eq!(metadata["warnings"], 2);
+        }
+
+        #[test]
+        fn test_parse_cargo_metadata_finished_detection() {
+            let stdout = "    Finished dev [unoptimized + debuginfo]";
+
+            let metadata = parse_cargo_metadata("check", stdout);
+
+            assert_eq!(metadata["command"], "check");
+            assert_eq!(metadata["finished"], true);
+        }
+
+        #[test]
+        fn test_parse_cargo_metadata_non_build_command() {
+            let stdout = "Some output from cargo run";
+
+            let metadata = parse_cargo_metadata("run", stdout);
+
+            assert_eq!(metadata["command"], "run");
+            assert!(metadata.get("finished").is_none());
+            assert!(metadata.get("warnings").is_none());
+        }
     }
 }

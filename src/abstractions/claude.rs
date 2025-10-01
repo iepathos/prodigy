@@ -13,6 +13,17 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+/// Classification of command execution errors
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CommandErrorType {
+    /// Transient error that may succeed on retry (rate limits, timeouts, network issues)
+    TransientError,
+    /// Command not found error (Claude CLI not installed)
+    CommandNotFound,
+    /// Permanent error that won't succeed on retry
+    PermanentError,
+}
+
 /// Trait for Claude CLI operations providing testable abstraction
 ///
 /// This trait abstracts all interactions with the Claude CLI, enabling
@@ -330,6 +341,59 @@ impl RealClaudeClient {
             .iter()
             .any(|pattern| stderr_lower.contains(pattern))
     }
+
+    /// Calculate exponential backoff delay for retry attempts
+    ///
+    /// Returns a Duration with exponential backoff: 2^min(attempt, 3) seconds.
+    /// This caps the delay at 8 seconds (2^3) to avoid excessive wait times.
+    fn calculate_retry_delay(attempt: u32) -> std::time::Duration {
+        std::time::Duration::from_secs(2u64.pow(attempt.min(3)))
+    }
+
+    /// Classify a command error based on error type and stderr content
+    ///
+    /// This function determines whether an error is transient (should retry),
+    /// a command-not-found error (fatal), or a permanent error (should not retry).
+    fn classify_command_error(
+        error: &crate::subprocess::ProcessError,
+        stderr: &str,
+    ) -> CommandErrorType {
+        use crate::subprocess::ProcessError;
+
+        match error {
+            ProcessError::CommandNotFound(_) => CommandErrorType::CommandNotFound,
+            _ => {
+                if Self::is_transient_error(stderr) {
+                    CommandErrorType::TransientError
+                } else {
+                    CommandErrorType::PermanentError
+                }
+            }
+        }
+    }
+
+    /// Determine if an error should be retried
+    fn should_retry_error(error_type: &CommandErrorType, attempt: u32, max_retries: u32) -> bool {
+        match error_type {
+            CommandErrorType::TransientError => attempt < max_retries,
+            CommandErrorType::CommandNotFound | CommandErrorType::PermanentError => false,
+        }
+    }
+
+    /// Convert ProcessOutput to std::process::Output
+    ///
+    /// Converts the subprocess abstraction's output format to the standard library's
+    /// process output format for compatibility with existing code.
+    fn convert_to_std_output(
+        output: crate::subprocess::runner::ProcessOutput,
+    ) -> std::process::Output {
+        let exit_code = output.status.code().unwrap_or(1);
+        std::process::Output {
+            status: std::process::ExitStatus::from_raw(exit_code),
+            stdout: output.stdout.into_bytes(),
+            stderr: output.stderr.into_bytes(),
+        }
+    }
 }
 
 impl Default for RealClaudeClient {
@@ -348,7 +412,6 @@ impl ClaudeClient for RealClaudeClient {
         max_retries: u32,
         verbose: bool,
     ) -> Result<std::process::Output> {
-        use std::time::Duration;
         use tokio::time::sleep;
 
         let mut attempt = 0;
@@ -356,7 +419,7 @@ impl ClaudeClient for RealClaudeClient {
 
         while attempt <= max_retries {
             if attempt > 0 {
-                let delay = Duration::from_secs(2u64.pow(attempt.min(3)));
+                let delay = Self::calculate_retry_delay(attempt);
                 if verbose {
                     println!(
                         "⏳ Retrying {command} after {delay:?} (attempt {attempt}/{max_retries})"
@@ -377,51 +440,60 @@ impl ClaudeClient for RealClaudeClient {
                 }
             }
 
-            match self.subprocess.runner().run(builder.build()).await {
-                Ok(output) => {
-                    if !output.status.success() {
-                        let stderr = &output.stderr;
+            let result = self.subprocess.runner().run(builder.build()).await;
 
-                        // Retry on transient errors
-                        if Self::is_transient_error(stderr) && attempt < max_retries {
-                            if verbose {
-                                eprintln!(
-                                    "⚠️  Transient error detected: {}",
-                                    stderr.lines().next().unwrap_or("Unknown error")
-                                );
-                            }
-                            last_error = Some(stderr.to_string());
-                            attempt += 1;
-                            continue;
-                        }
-                    }
-
-                    // Convert to std::process::Output
-                    return Ok(std::process::Output {
-                        status: std::process::ExitStatus::from_raw(
-                            output.status.code().unwrap_or(1),
-                        ),
-                        stdout: output.stdout.into_bytes(),
-                        stderr: output.stderr.into_bytes(),
-                    });
+            // Handle successful execution - check if we can return immediately
+            if let Ok(output) = result {
+                // Success case - return immediately
+                if output.status.success() {
+                    return Ok(Self::convert_to_std_output(output));
                 }
-                Err(e) => {
-                    if matches!(&e, crate::subprocess::ProcessError::CommandNotFound(_)) {
-                        return Err(anyhow::anyhow!("Claude CLI not found: {}", e));
-                    }
 
-                    if attempt < max_retries {
-                        if verbose {
-                            eprintln!("⚠️  IO error: {e}");
-                        }
-                        last_error = Some(e.to_string());
-                        attempt += 1;
-                        continue;
-                    }
+                // Failed command - check if transient and should retry
+                let stderr = &output.stderr;
+                let error_type = if Self::is_transient_error(stderr) {
+                    CommandErrorType::TransientError
+                } else {
+                    CommandErrorType::PermanentError
+                };
 
-                    return Err(anyhow::anyhow!("Failed to execute {}: {}", command, e));
+                if Self::should_retry_error(&error_type, attempt, max_retries) {
+                    if verbose {
+                        eprintln!(
+                            "⚠️  Transient error detected: {}",
+                            stderr.lines().next().unwrap_or("Unknown error")
+                        );
+                    }
+                    last_error = Some(stderr.to_string());
+                    attempt += 1;
+                    continue;
                 }
+
+                // Non-transient error - return with failure
+                return Ok(Self::convert_to_std_output(output));
             }
+
+            // Handle execution errors
+            let error = result.unwrap_err();
+            let error_type = Self::classify_command_error(&error, "");
+
+            // CommandNotFound is always fatal
+            if error_type == CommandErrorType::CommandNotFound {
+                return Err(anyhow::anyhow!("Claude CLI not found: {}", error));
+            }
+
+            // Check if we should retry other errors
+            if Self::should_retry_error(&error_type, attempt, max_retries) {
+                if verbose {
+                    eprintln!("⚠️  IO error: {error}");
+                }
+                last_error = Some(error.to_string());
+                attempt += 1;
+                continue;
+            }
+
+            // Non-retryable error
+            return Err(anyhow::anyhow!("Failed to execute {}: {}", command, error));
         }
 
         Err(anyhow::anyhow!(
@@ -763,6 +835,189 @@ mod tests {
             "HTTP 503 Service Unavailable"
         ));
         assert!(!RealClaudeClient::is_transient_error("Syntax error"));
+    }
+
+    #[test]
+    fn test_calculate_retry_delay() {
+        use std::time::Duration;
+
+        // Test exponential backoff
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(0),
+            Duration::from_secs(1)
+        ); // 2^0 = 1
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(1),
+            Duration::from_secs(2)
+        ); // 2^1 = 2
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(2),
+            Duration::from_secs(4)
+        ); // 2^2 = 4
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(3),
+            Duration::from_secs(8)
+        ); // 2^3 = 8
+
+        // Test capping at 2^3 for attempts > 3
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(4),
+            Duration::from_secs(8)
+        );
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(10),
+            Duration::from_secs(8)
+        );
+    }
+
+    #[test]
+    fn test_classify_command_error() {
+        use crate::subprocess::ProcessError;
+
+        // Test CommandNotFound detection
+        let error = ProcessError::CommandNotFound("claude".to_string());
+        assert_eq!(
+            RealClaudeClient::classify_command_error(&error, ""),
+            CommandErrorType::CommandNotFound
+        );
+
+        // Test transient error detection with Io error
+        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let error = ProcessError::Io(io_error);
+        assert_eq!(
+            RealClaudeClient::classify_command_error(&error, "rate limit exceeded"),
+            CommandErrorType::TransientError
+        );
+
+        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let error = ProcessError::Io(io_error);
+        assert_eq!(
+            RealClaudeClient::classify_command_error(&error, "Connection timeout"),
+            CommandErrorType::TransientError
+        );
+
+        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let error = ProcessError::Io(io_error);
+        assert_eq!(
+            RealClaudeClient::classify_command_error(&error, "HTTP 503 Service Unavailable"),
+            CommandErrorType::TransientError
+        );
+
+        // Test permanent error detection
+        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let error = ProcessError::Io(io_error);
+        assert_eq!(
+            RealClaudeClient::classify_command_error(&error, "Syntax error"),
+            CommandErrorType::PermanentError
+        );
+
+        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let error = ProcessError::Io(io_error);
+        assert_eq!(
+            RealClaudeClient::classify_command_error(&error, "Unknown command"),
+            CommandErrorType::PermanentError
+        );
+    }
+
+    #[test]
+    fn test_should_retry_error() {
+        // Test TransientError with retries available
+        assert!(RealClaudeClient::should_retry_error(
+            &CommandErrorType::TransientError,
+            0,
+            3
+        ));
+        assert!(RealClaudeClient::should_retry_error(
+            &CommandErrorType::TransientError,
+            2,
+            3
+        ));
+
+        // Test TransientError with retries exhausted
+        assert!(!RealClaudeClient::should_retry_error(
+            &CommandErrorType::TransientError,
+            3,
+            3
+        ));
+        assert!(!RealClaudeClient::should_retry_error(
+            &CommandErrorType::TransientError,
+            5,
+            3
+        ));
+
+        // Test CommandNotFound never retries
+        assert!(!RealClaudeClient::should_retry_error(
+            &CommandErrorType::CommandNotFound,
+            0,
+            3
+        ));
+        assert!(!RealClaudeClient::should_retry_error(
+            &CommandErrorType::CommandNotFound,
+            1,
+            3
+        ));
+
+        // Test PermanentError never retries
+        assert!(!RealClaudeClient::should_retry_error(
+            &CommandErrorType::PermanentError,
+            0,
+            3
+        ));
+        assert!(!RealClaudeClient::should_retry_error(
+            &CommandErrorType::PermanentError,
+            2,
+            3
+        ));
+    }
+
+    #[test]
+    fn test_convert_to_std_output() {
+        use crate::subprocess::runner::{ExitStatus, ProcessOutput};
+        use std::time::Duration;
+
+        // Test successful output conversion
+        let process_output = ProcessOutput {
+            status: ExitStatus::Success,
+            stdout: "test output".to_string(),
+            stderr: String::new(),
+            duration: Duration::from_secs(1),
+        };
+
+        let std_output = RealClaudeClient::convert_to_std_output(process_output);
+        assert!(std_output.status.success());
+        assert_eq!(String::from_utf8_lossy(&std_output.stdout), "test output");
+        assert!(std_output.stderr.is_empty());
+
+        // Test output with exit code
+        let process_output = ProcessOutput {
+            status: ExitStatus::Error(42),
+            stdout: String::new(),
+            stderr: "error message".to_string(),
+            duration: Duration::from_secs(1),
+        };
+
+        let std_output = RealClaudeClient::convert_to_std_output(process_output);
+        assert!(!std_output.status.success());
+        assert!(std_output.stdout.is_empty());
+        assert_eq!(String::from_utf8_lossy(&std_output.stderr), "error message");
+
+        // Test stdout/stderr byte conversion
+        let process_output = ProcessOutput {
+            status: ExitStatus::Success,
+            stdout: "stdout content".to_string(),
+            stderr: "stderr content".to_string(),
+            duration: Duration::from_secs(1),
+        };
+
+        let std_output = RealClaudeClient::convert_to_std_output(process_output);
+        assert_eq!(
+            String::from_utf8_lossy(&std_output.stdout),
+            "stdout content"
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&std_output.stderr),
+            "stderr content"
+        );
     }
 
     #[tokio::test]
