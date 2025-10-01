@@ -1172,7 +1172,8 @@ commands:
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
-        .arg(test_dir.to_str().unwrap());
+        .arg(test_dir.to_str().unwrap())
+        .env("PRODIGY_HOME", &prodigy_home);
 
     let resume_output = test.run();
 
