@@ -8,6 +8,28 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::time::Instant;
 
+/// Builds boolean flags from attributes using iterator chains
+fn build_boolean_flags(attributes: &HashMap<String, AttributeValue>) -> Vec<String> {
+    let flag_mappings = [
+        ("release", "--release"),
+        ("all_features", "--all-features"),
+        ("no_default_features", "--no-default-features"),
+        ("verbose", "--verbose"),
+        ("quiet", "--quiet"),
+    ];
+
+    flag_mappings
+        .iter()
+        .filter_map(|(key, flag)| {
+            attributes
+                .get(*key)
+                .and_then(|v| v.as_bool())
+                .filter(|&enabled| enabled)
+                .map(|_| (*flag).to_string())
+        })
+        .collect()
+}
+
 /// Handler for Cargo operations
 pub struct CargoHandler;
 
@@ -78,46 +100,8 @@ impl CommandHandler for CargoHandler {
         // Build cargo command
         let mut cargo_args = vec![command.clone()];
 
-        // Add common flags
-        if attributes
-            .get("release")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            cargo_args.push("--release".to_string());
-        }
-
-        if attributes
-            .get("all_features")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            cargo_args.push("--all-features".to_string());
-        }
-
-        if attributes
-            .get("no_default_features")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            cargo_args.push("--no-default-features".to_string());
-        }
-
-        if attributes
-            .get("verbose")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            cargo_args.push("--verbose".to_string());
-        }
-
-        if attributes
-            .get("quiet")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            cargo_args.push("--quiet".to_string());
-        }
+        // Add common flags using pure function
+        cargo_args.extend(build_boolean_flags(&attributes));
 
         // Add features if specified
         if let Some(features) = attributes.get("features").and_then(|v| v.as_string()) {
