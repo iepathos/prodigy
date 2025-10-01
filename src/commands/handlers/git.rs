@@ -329,4 +329,19 @@ mod tests {
         let data = result.data.unwrap();
         assert_eq!(data.get("dry_run"), Some(&json!(true)));
     }
+
+    #[tokio::test]
+    async fn test_git_missing_operation() {
+        let handler = GitHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test"));
+
+        let attributes = HashMap::new();
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        assert!(result
+            .error
+            .unwrap()
+            .contains("Missing required attribute: operation"));
+    }
 }
