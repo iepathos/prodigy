@@ -343,7 +343,10 @@ mod tests {
         let result = handler.execute(&context, attributes).await;
 
         assert!(!result.is_success());
-        assert!(result.error.unwrap().contains("Missing required attribute: command"));
+        assert!(result
+            .error
+            .unwrap()
+            .contains("Missing required attribute: command"));
     }
 
     #[tokio::test]
@@ -352,9 +355,15 @@ mod tests {
         let context = ExecutionContext::new(PathBuf::from("/test")).with_dry_run(true);
 
         let mut attributes = HashMap::new();
-        attributes.insert("command".to_string(), AttributeValue::String("build".to_string()));
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("build".to_string()),
+        );
         attributes.insert("release".to_string(), AttributeValue::Boolean(true));
-        attributes.insert("features".to_string(), AttributeValue::String("async".to_string()));
+        attributes.insert(
+            "features".to_string(),
+            AttributeValue::String("async".to_string()),
+        );
 
         let result = handler.execute(&context, attributes).await;
 
@@ -385,10 +394,14 @@ mod tests {
             },
         );
 
-        let context = ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
 
         let mut attributes = HashMap::new();
-        attributes.insert("command".to_string(), AttributeValue::String("build".to_string()));
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("build".to_string()),
+        );
 
         let result = handler.execute(&context, attributes).await;
 
@@ -418,10 +431,14 @@ mod tests {
             },
         );
 
-        let context = ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
 
         let mut attributes = HashMap::new();
-        attributes.insert("command".to_string(), AttributeValue::String("build".to_string()));
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("build".to_string()),
+        );
 
         let result = handler.execute(&context, attributes).await;
 
@@ -435,15 +452,22 @@ mod tests {
         let handler = CargoHandler::new();
         let mock_executor = MockSubprocessExecutor::new();
 
-        let context = ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
 
         let mut attributes = HashMap::new();
-        attributes.insert("command".to_string(), AttributeValue::String("build".to_string()));
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("build".to_string()),
+        );
 
         let result = handler.execute(&context, attributes).await;
 
         assert!(!result.is_success());
-        assert!(result.error.unwrap().contains("Failed to execute cargo command"));
+        assert!(result
+            .error
+            .unwrap()
+            .contains("Failed to execute cargo command"));
         assert!(result.duration_ms.is_some());
     }
 
@@ -465,10 +489,14 @@ mod tests {
             },
         );
 
-        let context = ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
 
         let mut attributes = HashMap::new();
-        attributes.insert("command".to_string(), AttributeValue::String("check".to_string()));
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("check".to_string()),
+        );
 
         let result = handler.execute(&context, attributes).await;
 
