@@ -447,6 +447,34 @@ mod tests {
         assert!(result.duration_ms.is_some());
     }
 
+    #[tokio::test]
+    async fn test_cargo_environment_variables() {
+        let handler = CargoHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "cargo",
+            vec!["check"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"    Finished dev [unoptimized + debuginfo]".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert("command".to_string(), AttributeValue::String("check".to_string()));
+
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(result.is_success());
+    }
+
     // Tests for pure functions
     mod pure_functions {
         use super::*;
