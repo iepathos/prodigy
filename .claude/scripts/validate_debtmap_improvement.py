@@ -238,9 +238,16 @@ def generate_remaining_issues(metrics: Dict) -> List[str]:
 
 def validate_improvement(before_file: str, after_file: str, output_file: str):
     """Main validation function."""
-    print(f"Loading debtmap data...")
-    print(f"  Before: {before_file}")
-    print(f"  After: {after_file}")
+    import os
+    is_automation = (
+        os.environ.get("PRODIGY_AUTOMATION") == "true" or
+        os.environ.get("PRODIGY_VALIDATION") == "true"
+    )
+
+    if not is_automation:
+        print(f"Loading debtmap data...")
+        print(f"  Before: {before_file}")
+        print(f"  After: {after_file}")
 
     before_data = load_debtmap(before_file)
     after_data = load_debtmap(after_file)
@@ -262,17 +269,21 @@ def validate_improvement(before_file: str, after_file: str, output_file: str):
         with open(output_file, 'w') as f:
             json.dump(result, f, indent=2)
 
-        print(f"\n✗ Validation failed - invalid input files")
-        print(f"  Output written to: {output_file}")
+        if not is_automation:
+            print(f"\n✗ Validation failed - invalid input files")
+            print(f"  Output written to: {output_file}")
         return result
 
-    print(f"Calculating improvement metrics...")
+    if not is_automation:
+        print(f"Calculating improvement metrics...")
     metrics = calculate_metrics(before_data, after_data)
 
-    print(f"Computing improvement score...")
+    if not is_automation:
+        print(f"Computing improvement score...")
     improvement_score = calculate_improvement_score(metrics)
 
-    print(f"Identifying gaps...")
+    if not is_automation:
+        print(f"Identifying gaps...")
     gaps = identify_gaps(metrics, improvement_score)
 
     improvements = generate_improvements_list(metrics)
@@ -310,10 +321,11 @@ def validate_improvement(before_file: str, after_file: str, output_file: str):
     with open(output_file, 'w') as f:
         json.dump(result, f, indent=2)
 
-    print(f"\n✓ Validation complete!")
-    print(f"  Improvement score: {improvement_score:.1f}%")
-    print(f"  Status: {status}")
-    print(f"  Output written to: {output_file}")
+    if not is_automation:
+        print(f"\n✓ Validation complete!")
+        print(f"  Improvement score: {improvement_score:.1f}%")
+        print(f"  Status: {status}")
+        print(f"  Output written to: {output_file}")
 
     return result
 

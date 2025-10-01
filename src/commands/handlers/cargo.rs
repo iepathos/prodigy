@@ -334,6 +334,18 @@ mod tests {
             .contains("cargo build --release"));
     }
 
+    #[tokio::test]
+    async fn test_cargo_missing_command_attribute() {
+        let handler = CargoHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test"));
+
+        let attributes = HashMap::new();
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(!result.is_success());
+        assert!(result.error.unwrap().contains("Missing required attribute: command"));
+    }
+
     // Tests for pure functions
     mod pure_functions {
         use super::*;
