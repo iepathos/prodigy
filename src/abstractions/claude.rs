@@ -330,6 +330,14 @@ impl RealClaudeClient {
             .iter()
             .any(|pattern| stderr_lower.contains(pattern))
     }
+
+    /// Calculate exponential backoff delay for retry attempts
+    ///
+    /// Returns a Duration with exponential backoff: 2^min(attempt, 3) seconds.
+    /// This caps the delay at 8 seconds (2^3) to avoid excessive wait times.
+    fn calculate_retry_delay(attempt: u32) -> std::time::Duration {
+        std::time::Duration::from_secs(2u64.pow(attempt.min(3)))
+    }
 }
 
 impl Default for RealClaudeClient {
@@ -348,7 +356,6 @@ impl ClaudeClient for RealClaudeClient {
         max_retries: u32,
         verbose: bool,
     ) -> Result<std::process::Output> {
-        use std::time::Duration;
         use tokio::time::sleep;
 
         let mut attempt = 0;
@@ -356,7 +363,7 @@ impl ClaudeClient for RealClaudeClient {
 
         while attempt <= max_retries {
             if attempt > 0 {
-                let delay = Duration::from_secs(2u64.pow(attempt.min(3)));
+                let delay = Self::calculate_retry_delay(attempt);
                 if verbose {
                     println!(
                         "⏳ Retrying {command} after {delay:?} (attempt {attempt}/{max_retries})"
@@ -763,6 +770,39 @@ mod tests {
             "HTTP 503 Service Unavailable"
         ));
         assert!(!RealClaudeClient::is_transient_error("Syntax error"));
+    }
+
+    #[test]
+    fn test_calculate_retry_delay() {
+        use std::time::Duration;
+
+        // Test exponential backoff
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(0),
+            Duration::from_secs(1)
+        ); // 2^0 = 1
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(1),
+            Duration::from_secs(2)
+        ); // 2^1 = 2
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(2),
+            Duration::from_secs(4)
+        ); // 2^2 = 4
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(3),
+            Duration::from_secs(8)
+        ); // 2^3 = 8
+
+        // Test capping at 2^3 for attempts > 3
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(4),
+            Duration::from_secs(8)
+        );
+        assert_eq!(
+            RealClaudeClient::calculate_retry_delay(10),
+            Duration::from_secs(8)
+        );
     }
 
     #[tokio::test]
