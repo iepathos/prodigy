@@ -209,7 +209,12 @@ mod tests {
 
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
-        assert!(result.data.unwrap().as_str().unwrap().contains("[DRY RUN]"));
+        let output = result.data.unwrap();
+        let output_str = output.as_str().unwrap();
+        assert!(output_str.contains("[DRY RUN]"));
+        assert!(output_str.contains("bash"));
+        // Verify duration is tracked even in dry_run mode
+        assert!(result.duration_ms.is_some());
     }
 
     #[tokio::test]
@@ -450,5 +455,338 @@ mod tests {
         let result = handler.execute(&context, attributes).await;
         assert!(!result.is_success());
         assert!(result.error.unwrap().contains("Failed to execute command"));
+    }
+
+    #[tokio::test]
+    async fn test_env_with_non_string_values() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut env_obj = HashMap::new();
+        // Add a non-string value (Number) which should be skipped
+        env_obj.insert("NUM_VAR".to_string(), AttributeValue::Number(42.0));
+        env_obj.insert(
+            "STR_VAR".to_string(),
+            AttributeValue::String("value".to_string()),
+        );
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        attributes.insert("env".to_string(), AttributeValue::Object(env_obj));
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_default_shell() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Verify bash is used as default shell
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        // No shell attribute specified
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_default_timeout() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Verify 30 seconds is used as default timeout
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        // No timeout attribute specified
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_working_dir_relative_path() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Relative path should be resolved via context.resolve_path
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/test/subdir")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/test/subdir\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        attributes.insert(
+            "working_dir".to_string(),
+            AttributeValue::String("subdir".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_working_dir_default() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // No working_dir specified should use context.working_dir
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        // No working_dir attribute specified - should use context default
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_working_dir_absolute_path() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Absolute path should be used as-is (after resolve_path)
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/absolute/path")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/absolute/path\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        attributes.insert(
+            "working_dir".to_string(),
+            AttributeValue::String("/absolute/path".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_dry_run_custom_shell() {
+        let handler = ShellHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        attributes.insert(
+            "shell".to_string(),
+            AttributeValue::String("zsh".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+        let output = result.data.unwrap();
+        let output_str = output.as_str().unwrap();
+        assert!(output_str.contains("[DRY RUN]"));
+        assert!(output_str.contains("zsh"));
+        assert!(!output_str.contains("bash"));
+        // Verify duration is tracked
+        assert!(result.duration_ms.is_some());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_exit_code_none_signal() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Create exit status from signal (code() returns None on Unix)
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "kill -9 $$"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(9), // Signal 9 (SIGKILL)
+                stdout: Vec::new(),
+                stderr: b"Killed by signal\n".to_vec(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("kill -9 $$".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        // Should still produce a result with exit_code -1 when code() is None
+        assert_eq!(result.exit_code, Some(-1));
+        // Verify duration is tracked even for signal termination
+        assert!(result.duration_ms.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_non_utf8_output() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Invalid UTF-8 bytes
+        let invalid_utf8 = vec![0xFF, 0xFE, 0xFD];
+
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "cat binary_file"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: invalid_utf8.clone(),
+                stderr: invalid_utf8,
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("cat binary_file".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+        // String::from_utf8_lossy replaces invalid UTF-8 with replacement character
+        assert!(result.stdout.is_some());
+        assert!(result.stderr.is_some());
+        // Verify duration is tracked
+        assert!(result.duration_ms.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_executor_error_includes_duration() {
+        let handler = ShellHandler::new();
+        let mock_executor = MockSubprocessExecutor::new();
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("unexpected".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        // Verify duration is tracked even for errors
+        assert!(result.duration_ms.is_some());
     }
 }
