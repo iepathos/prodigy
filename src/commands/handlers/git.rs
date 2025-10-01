@@ -542,4 +542,117 @@ mod tests {
         assert!(result.error.unwrap().contains("Failed to execute git command"));
         assert!(result.duration_ms.is_some());
     }
+
+    #[tokio::test]
+    async fn test_git_checkout_with_branch() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["checkout", "feature"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"Switched to branch 'feature'".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("checkout".to_string()),
+        );
+        attributes.insert(
+            "branch".to_string(),
+            AttributeValue::String("feature".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_git_checkout_create_branch() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["checkout", "-b", "feature", "-b"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"Switched to a new branch 'feature'".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("checkout".to_string()),
+        );
+        attributes.insert(
+            "branch".to_string(),
+            AttributeValue::String("feature".to_string()),
+        );
+        attributes.insert(
+            "args".to_string(),
+            AttributeValue::String("-b".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_git_push_with_remote_branch() {
+        let handler = GitHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "git",
+            vec!["push", "origin", "main"],
+            Some(PathBuf::from("/test")),
+            None,
+            None,
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"Everything up-to-date".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "operation".to_string(),
+            AttributeValue::String("push".to_string()),
+        );
+        attributes.insert(
+            "remote".to_string(),
+            AttributeValue::String("origin".to_string()),
+        );
+        attributes.insert(
+            "branch".to_string(),
+            AttributeValue::String("main".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
 }
