@@ -54,6 +54,27 @@ fn build_string_option_args(attributes: &HashMap<String, AttributeValue>) -> Vec
     regular_options.flatten().chain(args_options).collect()
 }
 
+/// Parses cargo command output to extract metadata using functional patterns
+fn parse_cargo_metadata(command: &str, stdout: &str) -> serde_json::Value {
+    let build_commands = ["build", "test", "check"];
+
+    let mut metadata = json!({
+        "command": command,
+    });
+
+    if build_commands.contains(&command) {
+        if stdout.contains("Finished") {
+            metadata["finished"] = json!(true);
+        }
+        if stdout.contains("warning") {
+            let warning_count = stdout.matches("warning").count();
+            metadata["warnings"] = json!(warning_count);
+        }
+    }
+
+    metadata
+}
+
 /// Handler for Cargo operations
 pub struct CargoHandler;
 
@@ -163,21 +184,8 @@ impl CommandHandler for CargoHandler {
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
                 if output.status.success() {
-                    // Parse cargo output for useful information
-                    let mut metadata = json!({
-                        "command": command,
-                    });
-
-                    // Try to extract compilation info if it's a build command
-                    if command == "build" || command == "test" || command == "check" {
-                        if stdout.contains("Finished") {
-                            metadata["finished"] = json!(true);
-                        }
-                        if stdout.contains("warning") {
-                            let warning_count = stdout.matches("warning").count();
-                            metadata["warnings"] = json!(warning_count);
-                        }
-                    }
+                    // Parse cargo output using pure function
+                    let metadata = parse_cargo_metadata(&command, &stdout);
 
                     CommandResult::success(json!({
                         "output": stdout,
