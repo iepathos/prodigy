@@ -2687,6 +2687,10 @@ impl WorkflowExecutor {
         while should_continue && iteration < effective_max_iterations {
             iteration += 1;
 
+            // Clear completed steps at the start of each iteration
+            // This ensures steps can be re-executed in subsequent iterations
+            self.completed_steps.clear();
+
             // Update iteration context with pure function
             let iteration_vars = Self::build_iteration_context(iteration);
             workflow_context.iteration_vars.extend(iteration_vars);
