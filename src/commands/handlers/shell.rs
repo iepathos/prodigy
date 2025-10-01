@@ -451,4 +451,110 @@ mod tests {
         assert!(!result.is_success());
         assert!(result.error.unwrap().contains("Failed to execute command"));
     }
+
+    #[tokio::test]
+    async fn test_env_with_non_string_values() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut env_obj = HashMap::new();
+        // Add a non-string value (Number) which should be skipped
+        env_obj.insert("NUM_VAR".to_string(), AttributeValue::Number(42.0));
+        env_obj.insert(
+            "STR_VAR".to_string(),
+            AttributeValue::String("value".to_string()),
+        );
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        attributes.insert("env".to_string(), AttributeValue::Object(env_obj));
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_default_shell() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Verify bash is used as default shell
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        // No shell attribute specified
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_default_timeout() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Verify 30 seconds is used as default timeout
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        // No timeout attribute specified
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
 }
