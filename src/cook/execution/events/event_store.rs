@@ -926,4 +926,76 @@ mod tests {
             "Duration should be approximately 24 hours"
         );
     }
+
+    #[tokio::test]
+    async fn test_index_handles_malformed_json() {
+        // Setup
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path().to_path_buf();
+        let store = FileEventStore::new(base_path.clone());
+
+        let job_id = "malformed-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        // Create file with mix of valid and invalid JSON
+        let event_file = events_dir.join("events-001.jsonl");
+
+        let valid_event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            correlation_id: "corr-1".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: job_id.to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: Utc::now(),
+            },
+            metadata: HashMap::new(),
+        };
+
+        // Write mix of valid and invalid lines
+        let mut content = String::new();
+        content.push_str(&serde_json::to_string(&valid_event).unwrap());
+        content.push('\n');
+        content.push_str("{ invalid json }\n"); // Malformed JSON
+        content.push_str(&serde_json::to_string(&valid_event).unwrap());
+        content.push('\n');
+        content.push_str("not even close to json\n"); // Not JSON at all
+        content.push_str(&serde_json::to_string(&valid_event).unwrap());
+        content.push('\n');
+
+        fs::write(&event_file, &content).await.unwrap();
+
+        // Execute
+        let result = store.index(job_id).await;
+
+        // Assert - should succeed but skip invalid lines
+        assert!(
+            result.is_ok(),
+            "Index should handle malformed JSON gracefully"
+        );
+        let index = result.unwrap();
+
+        // Should only count the valid events (3 valid lines, 2 invalid)
+        assert_eq!(
+            index.total_events, 3,
+            "Should skip malformed lines and count only valid events"
+        );
+        assert_eq!(
+            index.event_counts.get("job_started"),
+            Some(&3),
+            "Should have counted all valid JobStarted events"
+        );
+    }
 }
