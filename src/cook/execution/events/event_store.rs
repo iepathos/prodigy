@@ -608,4 +608,60 @@ mod tests {
             "Parsed index should have correct count"
         );
     }
+
+    #[tokio::test]
+    async fn test_index_with_no_event_files() {
+        // Setup
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path().to_path_buf();
+        let store = FileEventStore::new(base_path.clone());
+
+        // Create job directory but no event files
+        let job_id = "empty-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        // Create a non-.jsonl file to ensure filtering works
+        let non_event_file = events_dir.join("readme.txt");
+        fs::write(&non_event_file, "This is not an event file")
+            .await
+            .unwrap();
+
+        // Execute
+        let result = store.index(job_id).await;
+
+        // Assert
+        assert!(result.is_ok(), "Index should succeed even with no events");
+        let index = result.unwrap();
+
+        assert_eq!(index.job_id, job_id);
+        assert_eq!(index.total_events, 0, "Should have zero events");
+        assert!(
+            index.event_counts.is_empty(),
+            "Event counts should be empty"
+        );
+
+        // Verify index file was created
+        let index_path = events_dir.join("index.json");
+        assert!(index_path.exists(), "Index file should be created");
+    }
+
+    #[tokio::test]
+    async fn test_index_with_nonexistent_job() {
+        // Setup
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path().to_path_buf();
+        let store = FileEventStore::new(base_path);
+
+        // Execute with nonexistent job
+        let job_id = "nonexistent-job";
+        let result = store.index(job_id).await;
+
+        // Assert - should return error when directory doesn't exist
+        // (The save_index operation will fail when trying to write to nonexistent dir)
+        assert!(
+            result.is_err(),
+            "Index should fail when job directory doesn't exist"
+        );
+    }
 }
