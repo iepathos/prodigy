@@ -2789,17 +2789,12 @@ impl WorkflowExecutor {
                 let command_start = Instant::now();
                 let step_started_at = chrono::Utc::now();
 
-                // Execute the step with context
+                // Execute the step
+                // Note: No with_context() wrapper here - the error from execute_step
+                // already contains detailed information from build_step_error_message
                 let step_result = self
                     .execute_step(step, env, &mut workflow_context)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "Failed to execute step: {} (working directory: {})",
-                            step_display,
-                            env.working_dir.display()
-                        )
-                    })?;
+                    .await?;
 
                 // Display subprocess output when verbose logging is enabled
                 self.log_step_output(&step_result);
@@ -3445,6 +3440,18 @@ impl WorkflowExecutor {
 
         if should_fail {
             let error_msg = Self::build_step_error_message(step, &result);
+
+            // Log full error details for debugging
+            tracing::error!(
+                "Step failed - Command: {}, Exit code: {:?}, Stderr length: {} bytes",
+                self.get_step_display_name(step),
+                result.exit_code,
+                result.stderr.len()
+            );
+            if !result.stderr.is_empty() {
+                tracing::error!("Step stderr: {}", result.stderr);
+            }
+
             anyhow::bail!(error_msg);
         }
 
