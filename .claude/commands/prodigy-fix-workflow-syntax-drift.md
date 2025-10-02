@@ -12,19 +12,19 @@ Uses `${drift_summary}` variable containing aggregated drift findings.
 
 You have completed drift analysis across multiple documentation sections. Now you need to update the documentation to fix all identified issues while maintaining quality and clarity.
 
-## Input Variables
+### Phase 1: Parse Input Variables
 
 - `${drift_summary}` - JSON summary of all drift findings
 
-## Available Data Files
+### Phase 2: Identify Available Data
 
 1. `.prodigy/syntax-analysis/drift-summary.json` - Aggregated drift report
 2. `.prodigy/syntax-analysis/drift-{section_id}.json` - Individual section reports
 3. `.prodigy/syntax-analysis/features.json` - Ground truth feature analysis
 
-## Update Process
+### Phase 3: Update Documentation
 
-### 1. Review Drift Summary
+#### Step 1: Review Drift Summary
 
 Read `.prodigy/syntax-analysis/drift-summary.json`:
 ```json
@@ -42,7 +42,7 @@ Prioritize by severity:
 2. Medium severity issues next
 3. Low severity issues last
 
-### 2. Process Each Drifted Section
+#### Step 2: Process Each Drifted Section
 
 For each section with drift:
 
@@ -88,7 +88,7 @@ For each section with drift:
 - Indicate version deprecated/removed
 - Keep brief to discourage use
 
-### 3. Maintain Documentation Quality
+#### Step 3: Maintain Documentation Quality
 
 While fixing drift:
 
@@ -116,7 +116,7 @@ While fixing drift:
 - Use consistent code block language tags
 - Maintain existing style conventions
 
-### 4. Verify Changes
+#### Step 4: Verify Changes
 
 After updating each section:
 
@@ -138,7 +138,7 @@ After updating each section:
 - Complex features have adequate explanation
 - Beginners can follow along
 
-### 5. Create Update Summary
+#### Step 5: Create Update Summary
 
 Write summary to `.prodigy/syntax-analysis/updates-applied.md`:
 
@@ -189,7 +189,7 @@ Write summary to `.prodigy/syntax-analysis/updates-applied.md`:
 - src/cook/goal_seek/mod.rs
 ```
 
-### 6. Create Git Commit
+#### Step 6: Create Git Commit
 
 Create a clear commit with:
 
@@ -216,9 +216,9 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - Updated `docs/workflow-syntax.md`
 - Updated summary in `.prodigy/syntax-analysis/updates-applied.md` (will be cleaned up)
 
-## Specific Update Guidelines
+### Phase 4: Apply Specific Fixes
 
-### Adding New Command Types
+#### Adding New Command Types
 
 ```yaml
 ### N. {Command Type Name}
@@ -239,7 +239,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 {Practical example with explanation}
 ```
 
-### Updating Field Lists
+#### Updating Field Lists
 
 When adding fields to existing command types:
 - Add to existing field list in alphabetical order
@@ -247,7 +247,7 @@ When adding fields to existing command types:
 - Include type in description
 - Show example if non-obvious
 
-### Deprecation Notices
+#### Deprecation Notices
 
 ```markdown
 **Note:** The `old_field` syntax is deprecated. Use `new_field` instead:
@@ -263,7 +263,7 @@ new_field: value
 *The old syntax will be removed in version X.Y*
 ```
 
-### Complex Examples
+#### Complex Examples
 
 For complex features:
 1. Show simple example first
@@ -271,33 +271,33 @@ For complex features:
 3. Explain each part
 4. Link related features
 
-## Important Guidelines
+### Phase 5: Quality Standards
 
-### Don't Over-Document
+#### Don't Over-Document
 - Focus on user-facing features
 - Skip internal implementation details
 - Avoid redundant explanations
 - Keep examples concise but complete
 
-### Don't Break Existing
+#### Don't Break Existing
 - Don't remove working examples unless deprecated
 - Don't change section structure unnecessarily
 - Don't alter working links or references
 - Don't change table of contents unless needed
 
-### Do Add Value
+#### Do Add Value
 - Explain "why" not just "what"
 - Show common use cases
 - Highlight gotchas or limitations
 - Link related concepts
 
-### Do Maintain Consistency
+#### Do Maintain Consistency
 - Follow existing example patterns
 - Use same terminology throughout
 - Match existing formatting style
 - Keep technical level consistent
 
-## Success Criteria
+### Phase 6: Validation
 
 The updated documentation must:
 1. ✓ Fix ALL issues identified in drift reports
@@ -309,9 +309,9 @@ The updated documentation must:
 7. ✓ Follow existing style conventions
 8. ✓ Include version compatibility notes
 
-## Edge Cases
+### Phase 7: Handle Edge Cases
 
-### Multiple Formats Supported
+#### Multiple Formats Supported
 When code supports multiple formats (untagged enum):
 ```yaml
 # Format 1: Simple array
@@ -324,13 +324,13 @@ reduce:
     - shell: "command"
 ```
 
-### Optional with Defaults
+#### Optional with Defaults
 When field has serde default:
 ```yaml
 threshold: 100  # Optional, defaults to 100
 ```
 
-### Complex Types
+#### Complex Types
 When field is HashMap or nested struct:
 ```yaml
 capture_streams:

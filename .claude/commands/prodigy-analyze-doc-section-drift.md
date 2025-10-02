@@ -8,11 +8,11 @@ Uses `${item.*}` variables from MapReduce workflow containing section details.
 
 ## Execute
 
-### Context
+### Phase 1: Understand Context
 
 You are comparing a section of `docs/workflow-syntax.md` against the actual Prodigy codebase to identify drift (discrepancies between documentation and implementation).
 
-## Input Variables
+### Phase 2: Parse Input Variables
 
 The workflow provides these variables:
 - `${item.id}` - Section identifier (e.g., "command-types", "variable-interpolation")
@@ -22,22 +22,22 @@ The workflow provides these variables:
 - `${item.end_marker}` - End marker for section extraction
 - `${item.validation}` - Validation focus for this section
 
-## Analysis Steps
+### Phase 3: Perform Analysis
 
-### 1. Extract Current Documentation
+#### Step 1: Extract Current Documentation
 
 Read the documentation section from `${item.file}`:
 - Find content between `${item.start_marker}` and `${item.end_marker}`
 - Parse YAML examples and field descriptions
 - Note any version compatibility statements
 
-### 2. Load Feature Analysis
+#### Step 2: Load Feature Analysis
 
 Read the comprehensive feature analysis:
 - File: `.prodigy/syntax-analysis/features.json`
 - This contains the ground truth from the codebase
 
-### 3. Compare and Identify Drift
+#### Step 3: Compare and Identify Drift
 
 Based on the section ID, perform specific drift checks:
 
@@ -82,7 +82,7 @@ Based on the section ID, perform specific drift checks:
 - Check profiles configuration
 - Verify dynamic and conditional variables
 
-### 4. Categorize Issues
+#### Step 4: Categorize Issues
 
 For each drift issue found, categorize by type:
 
@@ -116,7 +116,7 @@ For each drift issue found, categorize by type:
 - Missing default value
 - Missing "required" vs "optional" indication
 
-### 5. Determine Severity
+#### Step 5: Determine Severity
 
 Overall section severity:
 - **Critical**: Multiple high severity issues, docs will cause errors
@@ -125,7 +125,7 @@ Overall section severity:
 - **Low**: Minor issues, incomplete descriptions
 - **None**: No drift detected
 
-## Output Format
+### Phase 4: Create Output
 
 Create drift report at `.prodigy/syntax-analysis/drift-${item.id}.json`:
 
@@ -173,39 +173,39 @@ Create drift report at `.prodigy/syntax-analysis/drift-${item.id}.json`:
 }
 ```
 
-## Analysis Guidelines
+### Phase 5: Quality Guidelines
 
-### Be Thorough
+#### Be Thorough
 - Read actual Rust struct definitions, don't guess
 - Compare field by field
 - Check serde attributes for serialization behavior
 - Look for `#[serde(skip_serializing_if = "Option::is_none")]` - these are optional
 - Look for `#[serde(default)]` - these have defaults
 
-### Check Examples
+#### Check Examples
 - Parse YAML examples in documentation
 - Verify they match current struct definitions
 - Ensure required fields are present
 - Check field types match (string vs number vs boolean)
 
-### Identify Patterns
+#### Identify Patterns
 - Look for untagged enum support (multiple formats)
 - Check for array format vs object format support
 - Identify backward compatibility patterns
 - Note deprecated features with warnings in code
 
-### Source References
+#### Source References
 - Always include source file path and struct/field name
 - Help the fix command find the exact implementation
 - Reference line numbers if helpful
 
-### Accuracy
+#### Accuracy
 - Only report actual drift, not style preferences
 - Compare against features.json as ground truth
 - Don't suggest changes that aren't in the code
 - Flag truly missing features vs. just poorly documented
 
-## Success Criteria
+### Phase 6: Validation
 
 The drift report should:
 1. Accurately identify ALL drift between docs and code

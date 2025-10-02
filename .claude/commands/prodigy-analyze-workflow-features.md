@@ -8,13 +8,11 @@ None required - analyzes codebase and creates .prodigy/syntax-analysis/features.
 
 ## Execute
 
-### Context
+### Phase 1: Understand Context
 
 You are analyzing the Prodigy workflow orchestration tool to document all currently supported workflow syntax features. This analysis will be used to detect drift between documentation and actual implementation.
 
-## Analysis Scope
-
-### 1. Command Types
+### Phase 2: Analyze Command Types
 Analyze all command types and their configurations:
 
 **Key Files:**
@@ -121,7 +119,7 @@ Analyze environment and secrets management:
 - Environment profiles
 - Dynamic environment variables
 
-## Output Format
+### Phase 3: Create Output
 
 Create a JSON file at `.prodigy/syntax-analysis/features.json` with this structure:
 
@@ -239,7 +237,7 @@ Create a JSON file at `.prodigy/syntax-analysis/features.json` with this structu
 }
 ```
 
-## Analysis Method
+### Phase 4: Analysis Method
 
 1. **Read Source Files**: Use the Read tool to examine all key files
 2. **Parse Struct Definitions**: Extract all struct fields, types, and serde attributes
@@ -248,7 +246,7 @@ Create a JSON file at `.prodigy/syntax-analysis/features.json` with this structu
 5. **Extract Examples**: Find examples in test files and example workflows
 6. **Cross-Reference**: Ensure all features are connected to their implementations
 
-## Important
+### Phase 5: Quality Guidelines
 
 - Be exhaustive - include ALL fields, even if they seem minor
 - Note which fields are `#[serde(skip_serializing_if = "Option::is_none")]`
@@ -257,7 +255,7 @@ Create a JSON file at `.prodigy/syntax-analysis/features.json` with this structu
 - Document both old (backward compatible) and new syntax
 - Include version information when features were added/deprecated
 
-## Success Criteria
+### Phase 6: Validation
 
 The features.json file should:
 1. List ALL command types with ALL their fields
