@@ -262,7 +262,7 @@ impl MapReduceCoordinator {
         );
 
         for (index, step) in setup_phase.commands.iter().enumerate() {
-            debug!(
+            info!(
                 "Executing setup step {}/{}",
                 index + 1,
                 setup_phase.commands.len()
