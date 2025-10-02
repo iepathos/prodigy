@@ -591,6 +591,7 @@ mod tests {
             command: None,
             shell: Some("echo test".to_string()),
             claude: None,
+            commands: None,
             expected_schema: None,
             threshold: 100.0,
             timeout: None,

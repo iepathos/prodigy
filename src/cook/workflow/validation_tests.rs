@@ -59,6 +59,7 @@ mod tests {
             command: Some("/prodigy-validate-spec 01".to_string()),
             shell: None,
             claude: None,
+            commands: None,
             expected_schema: None,
             threshold: 95.0,
             timeout: Some(30),
@@ -66,13 +67,14 @@ mod tests {
             on_incomplete: Some(OnIncompleteConfig {
                 claude: Some("/prodigy-fix-gaps".to_string()),
                 shell: None,
+                commands: None,
                 prompt: None,
                 max_attempts: 2,
                 fail_workflow: true,
                 commit_required: false,
             }),
         };
-        
+
         assert!(config.validate().is_ok());
         assert_eq!(config.threshold, 95.0);
     }
@@ -352,5 +354,142 @@ mod tests {
         assert!(summary.contains("Audit logging not implemented"));
         assert!(summary.contains("critical"));
         assert!(summary.contains("medium"));
+    }
+
+    #[test]
+    fn test_validation_config_array_format() {
+        // Test parsing ValidationConfig with array of commands
+        let yaml = r#"
+- shell: "debtmap analyze . --lcov target/coverage/lcov.info --output .prodigy/debtmap-after.json --format json"
+- shell: "debtmap compare --before .prodigy/debtmap-before.json --after .prodigy/debtmap-after.json --output .prodigy/comparison.json --format json"
+- claude: "/prodigy-validate-debtmap-improvement --comparison .prodigy/comparison.json --output .prodigy/debtmap-validation.json"
+  result_file: ".prodigy/debtmap-validation.json"
+  threshold: 75
+"#;
+
+        let config: ValidationConfig = serde_yaml::from_str(yaml).expect("Failed to parse validation config array");
+
+        // Should parse as commands array
+        assert!(config.commands.is_some());
+        let commands = config.commands.unwrap();
+        assert_eq!(commands.len(), 3);
+
+        // First two should be shell commands
+        // Third should have threshold and result_file
+        assert_eq!(config.threshold, 75.0);
+    }
+
+    #[test]
+    fn test_validation_config_object_with_commands() {
+        // Test parsing ValidationConfig with commands field
+        let yaml = r#"
+commands:
+  - shell: "prep-command-1"
+  - shell: "prep-command-2"
+  - claude: "/validate-command"
+result_file: "results.json"
+threshold: 80
+"#;
+
+        let config: ValidationConfig = serde_yaml::from_str(yaml).expect("Failed to parse validation config with commands field");
+
+        assert!(config.commands.is_some());
+        let commands = config.commands.unwrap();
+        assert_eq!(commands.len(), 3);
+        assert_eq!(config.threshold, 80.0);
+        assert_eq!(config.result_file, Some("results.json".to_string()));
+    }
+
+    #[test]
+    fn test_validation_config_single_command() {
+        // Test parsing ValidationConfig with single command (legacy)
+        let yaml = r#"
+claude: "/validate-command"
+threshold: 90
+result_file: "validation.json"
+"#;
+
+        let config: ValidationConfig = serde_yaml::from_str(yaml).expect("Failed to parse validation config single command");
+
+        assert!(config.commands.is_none());
+        assert_eq!(config.claude, Some("/validate-command".to_string()));
+        assert_eq!(config.threshold, 90.0);
+        assert_eq!(config.result_file, Some("validation.json".to_string()));
+    }
+
+    #[test]
+    fn test_on_incomplete_array_format() {
+        // Test parsing OnIncompleteConfig with array of commands
+        let yaml = r#"
+- claude: "/prodigy-complete-debtmap-fix --gaps ${validation.gaps}"
+  commit_required: true
+- shell: "just coverage-lcov"
+- shell: "debtmap analyze . --output .prodigy/debtmap-after.json"
+"#;
+
+        let config: OnIncompleteConfig = serde_yaml::from_str(yaml).expect("Failed to parse on_incomplete config array");
+
+        assert!(config.commands.is_some());
+        let commands = config.commands.unwrap();
+        assert_eq!(commands.len(), 3);
+    }
+
+    #[test]
+    fn test_on_incomplete_object_format() {
+        // Test parsing OnIncompleteConfig with single command (legacy)
+        let yaml = r#"
+claude: "/prodigy-fix-gaps"
+max_attempts: 3
+fail_workflow: false
+commit_required: true
+"#;
+
+        let config: OnIncompleteConfig = serde_yaml::from_str(yaml).expect("Failed to parse on_incomplete config object");
+
+        assert!(config.commands.is_none());
+        assert_eq!(config.claude, Some("/prodigy-fix-gaps".to_string()));
+        assert_eq!(config.max_attempts, 3);
+        assert_eq!(config.fail_workflow, false);
+        assert_eq!(config.commit_required, true);
+    }
+
+    #[test]
+    fn test_nested_validation_with_arrays() {
+        // Test the full structure from debtmap.yml
+        let yaml = r#"
+validate:
+  - shell: "debtmap analyze . --lcov target/coverage/lcov.info --output .prodigy/debtmap-after.json --format json"
+  - shell: "debtmap compare --before .prodigy/debtmap-before.json --after .prodigy/debtmap-after.json --output .prodigy/comparison.json --format json"
+  - claude: "/prodigy-validate-debtmap-improvement --comparison .prodigy/comparison.json --output .prodigy/debtmap-validation.json"
+    result_file: ".prodigy/debtmap-validation.json"
+    threshold: 75
+    on_incomplete:
+      - claude: "/prodigy-complete-debtmap-fix --gaps ${validation.gaps}"
+        commit_required: true
+      - shell: "just coverage-lcov"
+      - shell: "debtmap analyze . --output .prodigy/debtmap-after.json"
+"#;
+
+        #[derive(serde::Deserialize)]
+        struct TestStruct {
+            validate: ValidationConfig,
+        }
+
+        let result: TestStruct = serde_yaml::from_str(yaml).expect("Failed to parse nested validation config");
+
+        // Validate outer config has commands
+        assert!(result.validate.commands.is_some());
+        let commands = result.validate.commands.unwrap();
+        assert_eq!(commands.len(), 3);
+
+        // Validate threshold is set
+        assert_eq!(result.validate.threshold, 75.0);
+
+        // Validate on_incomplete is present and has commands
+        assert!(result.validate.on_incomplete.is_some());
+        let on_incomplete = result.validate.on_incomplete.unwrap();
+        assert!(on_incomplete.commands.is_some());
+        let on_incomplete_cmds = on_incomplete.commands.unwrap();
+        assert_eq!(on_incomplete_cmds.len(), 3);
     }
 }

@@ -2039,6 +2039,7 @@ mod tests {
                     claude: Some("/prodigy-validate-spec 01".to_string()),
                     shell: None,
                     command: None,
+                    commands: None,
                     threshold: 100.0,
                     result_file: None,
                     timeout: None,

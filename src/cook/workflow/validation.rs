@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Configuration for spec validation
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct ValidationConfig {
     /// Shell command to run for validation (deprecated, use 'shell' instead)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -21,6 +21,10 @@ pub struct ValidationConfig {
     /// Claude command to run for validation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub claude: Option<String>,
+
+    /// Array of commands to run for validation (supports multi-step validation)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commands: Option<Vec<crate::config::WorkflowCommand>>,
 
     /// Expected JSON schema for validation output
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -44,8 +48,79 @@ pub struct ValidationConfig {
     pub result_file: Option<String>,
 }
 
+impl<'de> serde::Deserialize<'de> for ValidationConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum ValidationConfigHelper {
+            // Array format: direct list of commands
+            Array(Vec<crate::config::WorkflowCommand>),
+            // Object format: struct with fields
+            Object {
+                #[serde(skip_serializing_if = "Option::is_none")]
+                command: Option<String>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                shell: Option<String>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                claude: Option<String>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                commands: Option<Vec<crate::config::WorkflowCommand>>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                expected_schema: Option<serde_json::Value>,
+                #[serde(default = "default_threshold")]
+                threshold: f64,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                timeout: Option<u64>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                on_incomplete: Box<Option<OnIncompleteConfig>>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                result_file: Option<String>,
+            },
+        }
+
+        let helper = ValidationConfigHelper::deserialize(deserializer)?;
+        match helper {
+            ValidationConfigHelper::Array(cmds) => Ok(ValidationConfig {
+                command: None,
+                shell: None,
+                claude: None,
+                commands: Some(cmds),
+                expected_schema: None,
+                threshold: default_threshold(),
+                timeout: None,
+                on_incomplete: None,
+                result_file: None,
+            }),
+            ValidationConfigHelper::Object {
+                command,
+                shell,
+                claude,
+                commands,
+                expected_schema,
+                threshold,
+                timeout,
+                on_incomplete,
+                result_file,
+            } => Ok(ValidationConfig {
+                command,
+                shell,
+                claude,
+                commands,
+                expected_schema,
+                threshold,
+                timeout,
+                on_incomplete: *on_incomplete,
+                result_file,
+            }),
+        }
+    }
+}
+
 /// Configuration for handling incomplete implementations
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct OnIncompleteConfig {
     /// Claude command to execute for gap filling
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -54,6 +129,10 @@ pub struct OnIncompleteConfig {
     /// Shell command to execute for gap filling
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell: Option<String>,
+
+    /// Array of commands to execute for gap filling
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commands: Option<Vec<crate::config::WorkflowCommand>>,
 
     /// Interactive prompt for user guidance
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -70,6 +149,67 @@ pub struct OnIncompleteConfig {
     /// Whether the completion command should create a commit
     #[serde(default)]
     pub commit_required: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for OnIncompleteConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum OnIncompleteConfigHelper {
+            // Array format: direct list of commands
+            Array(Vec<crate::config::WorkflowCommand>),
+            // Object format: struct with fields
+            Object {
+                #[serde(skip_serializing_if = "Option::is_none")]
+                claude: Option<String>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                shell: Option<String>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                commands: Option<Vec<crate::config::WorkflowCommand>>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                prompt: Option<String>,
+                #[serde(default = "default_max_attempts")]
+                max_attempts: u32,
+                #[serde(default = "default_fail_workflow")]
+                fail_workflow: bool,
+                #[serde(default)]
+                commit_required: bool,
+            },
+        }
+
+        let helper = OnIncompleteConfigHelper::deserialize(deserializer)?;
+        match helper {
+            OnIncompleteConfigHelper::Array(cmds) => Ok(OnIncompleteConfig {
+                claude: None,
+                shell: None,
+                commands: Some(cmds),
+                prompt: None,
+                max_attempts: default_max_attempts(),
+                fail_workflow: default_fail_workflow(),
+                commit_required: false,
+            }),
+            OnIncompleteConfigHelper::Object {
+                claude,
+                shell,
+                commands,
+                prompt,
+                max_attempts,
+                fail_workflow,
+                commit_required,
+            } => Ok(OnIncompleteConfig {
+                claude,
+                shell,
+                commands,
+                prompt,
+                max_attempts,
+                fail_workflow,
+                commit_required,
+            }),
+        }
+    }
 }
 
 /// Result of validation execution
@@ -369,6 +509,7 @@ on_incomplete:
             command: None,
             shell: None,
             claude: None,
+            commands: None,
             expected_schema: None,
             threshold: 100.0,
             timeout: None,
@@ -399,6 +540,7 @@ on_incomplete:
             command: None,
             shell: None,
             claude: None,
+            commands: None,
             expected_schema: None,
             threshold: 95.0,
             timeout: None,
@@ -430,6 +572,7 @@ on_incomplete:
         let mut config = OnIncompleteConfig {
             claude: None,
             shell: None,
+            commands: None,
             prompt: None,
             max_attempts: 2,
             fail_workflow: true,
@@ -514,5 +657,103 @@ on_incomplete:
         assert!(summary.contains("No test coverage"));
         assert!(summary.contains("critical"));
         assert!(summary.contains("high"));
+    }
+
+    #[test]
+    fn test_validation_config_array_format() {
+        // Test parsing ValidationConfig with array of commands
+        let yaml = r#"
+- shell: "debtmap analyze . --lcov target/coverage/lcov.info --output .prodigy/debtmap-after.json --format json"
+- shell: "debtmap compare --before .prodigy/debtmap-before.json --after .prodigy/debtmap-after.json --output .prodigy/comparison.json --format json"
+- claude: "/prodigy-validate-debtmap-improvement --comparison .prodigy/comparison.json --output .prodigy/debtmap-validation.json"
+  result_file: ".prodigy/debtmap-validation.json"
+  threshold: 75
+"#;
+
+        let config: ValidationConfig =
+            serde_yaml::from_str(yaml).expect("Failed to parse validation config array");
+
+        // Should parse as commands array
+        assert!(config.commands.is_some());
+        let commands = config.commands.unwrap();
+        assert_eq!(commands.len(), 3);
+        // Threshold defaults to 100.0 when parsing as array
+        // (the threshold: 75 in the YAML is inside a command, not at the ValidationConfig level)
+        assert_eq!(config.threshold, 100.0);
+    }
+
+    #[test]
+    fn test_on_incomplete_array_format() {
+        // Test parsing OnIncompleteConfig with array of commands
+        let yaml = r#"
+- claude: "/prodigy-complete-debtmap-fix --gaps ${validation.gaps}"
+  commit_required: true
+- shell: "just coverage-lcov"
+- shell: "debtmap analyze . --output .prodigy/debtmap-after.json"
+"#;
+
+        let config: OnIncompleteConfig =
+            serde_yaml::from_str(yaml).expect("Failed to parse on_incomplete config array");
+
+        assert!(config.commands.is_some());
+        let commands = config.commands.unwrap();
+        assert_eq!(commands.len(), 3);
+    }
+
+    #[test]
+    fn test_nested_validation_with_arrays() {
+        // Test parsing validation as array
+        let yaml = r#"
+validate:
+  - shell: "debtmap analyze . --lcov target/coverage/lcov.info --output .prodigy/debtmap-after.json --format json"
+  - shell: "debtmap compare --before .prodigy/debtmap-before.json --after .prodigy/debtmap-after.json --output .prodigy/comparison.json --format json"
+  - claude: "/prodigy-validate-debtmap-improvement --comparison .prodigy/comparison.json --output .prodigy/debtmap-validation.json"
+"#;
+
+        #[derive(serde::Deserialize)]
+        struct TestStruct {
+            validate: ValidationConfig,
+        }
+
+        let result: TestStruct =
+            serde_yaml::from_str(yaml).expect("Failed to parse nested validation config");
+
+        // Validate outer config has commands
+        assert!(result.validate.commands.is_some());
+        let commands = result.validate.commands.unwrap();
+        assert_eq!(commands.len(), 3);
+
+        // When parsed as array, threshold and on_incomplete come from defaults
+        assert_eq!(result.validate.threshold, 100.0); // default threshold
+        assert!(result.validate.on_incomplete.is_none()); // no on_incomplete at this level
+    }
+
+    #[test]
+    fn test_parse_actual_debtmap_workflow() {
+        // Test parsing the actual debtmap.yml file structure
+        let yaml = r#"
+- shell: "just coverage-lcov"
+- shell: "debtmap analyze . --lcov target/coverage/lcov.info --output .prodigy/debtmap-before.json --format json"
+- claude: "/prodigy-debtmap-plan --before .prodigy/debtmap-before.json --output .prodigy/IMPLEMENTATION_PLAN.md"
+  capture_output: true
+  validate:
+    - claude: "/prodigy-validate-debtmap-plan --before .prodigy/debtmap-before.json --plan .prodigy/IMPLEMENTATION_PLAN.md --output .prodigy/plan-validation.json"
+      result_file: ".prodigy/plan-validation.json"
+      threshold: 75
+      on_incomplete:
+        - claude: "/prodigy-revise-debtmap-plan --gaps ${validation.gaps} --plan .prodigy/IMPLEMENTATION_PLAN.md"
+          max_attempts: 3
+          fail_workflow: false
+"#;
+
+        let result: Result<Vec<crate::config::WorkflowCommand>, _> = serde_yaml::from_str(yaml);
+        match result {
+            Ok(cmds) => {
+                assert_eq!(cmds.len(), 3);
+            }
+            Err(e) => {
+                panic!("Failed to parse workflow: {}", e);
+            }
+        }
     }
 }

@@ -1141,7 +1141,9 @@ impl WorkflowExecutor {
 
             // Track potential on_incomplete handler
             if let Some(on_incomplete) = &validation_config.on_incomplete {
-                let handler_desc = if let Some(claude) = &on_incomplete.claude {
+                let handler_desc = if let Some(commands) = &on_incomplete.commands {
+                    format!("on_incomplete: {} commands", commands.len())
+                } else if let Some(claude) = &on_incomplete.claude {
                     format!("on_incomplete: claude {}", claude)
                 } else if let Some(shell) = &on_incomplete.shell {
                     format!("on_incomplete: shell {}", shell)
@@ -1222,51 +1224,82 @@ impl WorkflowExecutor {
                 attempts, on_incomplete.max_attempts
             ));
 
-            // Execute the completion handler
-            if let Some(handler_step) = self.create_validation_handler(on_incomplete, ctx) {
+            // Execute the completion handler(s)
+            let handler_success = if let Some(commands) = &on_incomplete.commands {
+                // Execute array of commands
+                self.user_interaction
+                    .display_progress(&format!("Running {} recovery commands", commands.len()));
+
+                let mut all_success = true;
+                for (idx, cmd) in commands.iter().enumerate() {
+                    let step = self.convert_workflow_command_to_step(cmd, ctx)?;
+                    let step_display = self.get_step_display_name(&step);
+                    self.user_interaction.display_progress(&format!(
+                        "  Recovery step {}/{}: {}",
+                        idx + 1,
+                        commands.len(),
+                        step_display
+                    ));
+
+                    let handler_result = Box::pin(self.execute_step(&step, env, ctx)).await?;
+
+                    if !handler_result.success {
+                        self.user_interaction
+                            .display_error(&format!("Recovery step {} failed", idx + 1));
+                        all_success = false;
+                        break;
+                    }
+                }
+                all_success
+            } else if let Some(handler_step) = self.create_validation_handler(on_incomplete, ctx) {
+                // Execute single command (legacy)
                 let step_display = self.get_step_display_name(&handler_step);
                 self.user_interaction
                     .display_progress(&format!("Running recovery step: {}", step_display));
 
                 let handler_result = Box::pin(self.execute_step(&handler_step, env, ctx)).await?;
-
-                if !handler_result.success {
-                    self.user_interaction
-                        .display_error("Completion handler failed");
-                    break;
-                }
-
-                // Re-run validation
-                current_result = self.execute_validation(validation_config, env, ctx).await?;
-
-                // Display validation percentage after each attempt
-                let percentage = current_result.completion_percentage;
-                let threshold = validation_config.threshold;
-                if validation_config.is_complete(&current_result) {
-                    self.user_interaction.display_success(&format!(
-                        "Validation passed: {:.1}% complete (threshold: {:.1}%)",
-                        percentage, threshold
-                    ));
-                } else {
-                    self.user_interaction.display_info(&format!(
-                        "Validation still incomplete: {:.1}% complete (threshold: {:.1}%)",
-                        percentage, threshold
-                    ));
-                }
-
-                // Update context
-                ctx.validation_results
-                    .insert("validation".to_string(), current_result.clone());
+                handler_result.success
             } else {
-                // Interactive mode
-                if let Some(ref prompt) = on_incomplete.prompt {
-                    let should_continue = self.user_interaction.prompt_confirmation(prompt).await?;
+                self.user_interaction
+                    .display_error("No recovery commands configured");
+                false
+            };
 
-                    if !should_continue {
-                        break;
-                    }
-                }
+            if !handler_success {
                 break;
+            }
+
+            // Re-run validation
+            current_result = self.execute_validation(validation_config, env, ctx).await?;
+
+            // Display validation percentage after each attempt
+            let percentage = current_result.completion_percentage;
+            let threshold = validation_config.threshold;
+            if validation_config.is_complete(&current_result) {
+                self.user_interaction.display_success(&format!(
+                    "Validation passed: {:.1}% complete (threshold: {:.1}%)",
+                    percentage, threshold
+                ));
+            } else {
+                self.user_interaction.display_info(&format!(
+                    "Validation still incomplete: {:.1}% complete (threshold: {:.1}%)",
+                    percentage, threshold
+                ));
+            }
+
+            // Update context
+            ctx.validation_results
+                .insert("validation".to_string(), current_result.clone());
+        }
+
+        // Interactive mode (outside the retry loop)
+        if !validation_config.is_complete(&current_result) {
+            if let Some(on_incomplete_cfg) = &validation_config.on_incomplete {
+                if let Some(ref prompt) = on_incomplete_cfg.prompt {
+                    let _should_continue =
+                        self.user_interaction.prompt_confirmation(prompt).await?;
+                    // User was prompted, continue with workflow
+                }
             }
         }
 
@@ -4426,16 +4459,219 @@ impl WorkflowExecutor {
         false
     }
 
+    /// Convert WorkflowCommand to WorkflowStep for execution
+    fn convert_workflow_command_to_step(
+        &self,
+        cmd: &crate::config::WorkflowCommand,
+        _ctx: &WorkflowContext,
+    ) -> Result<WorkflowStep> {
+        use crate::config::WorkflowCommand;
+
+        match cmd {
+            WorkflowCommand::WorkflowStep(step) => {
+                // Convert WorkflowStepCommand to WorkflowStep
+                Ok(WorkflowStep {
+                    name: None,
+                    claude: step.claude.clone(),
+                    shell: step.shell.clone(),
+                    test: step.test.clone(),
+                    goal_seek: step.goal_seek.clone(),
+                    foreach: step.foreach.clone(),
+                    command: None,
+                    handler: None,
+                    capture: None,
+                    capture_format: None,
+                    capture_streams: Default::default(),
+                    output_file: step.output_file.clone().map(std::path::PathBuf::from),
+                    timeout: step.timeout,
+                    capture_output: if step.capture_output.is_some() {
+                        CaptureOutput::Variable("validation_output".to_string())
+                    } else {
+                        CaptureOutput::Disabled
+                    },
+                    on_failure: None,
+                    retry: None,
+                    on_success: None, // on_success conversion not supported to avoid recursion
+                    on_exit_code: Default::default(),
+                    commit_required: step.commit_required,
+                    auto_commit: false,
+                    commit_config: None,
+                    working_dir: None,
+                    env: Default::default(),
+                    validate: step.validate.clone(),
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
+                    when: step.when.clone(),
+                })
+            }
+            WorkflowCommand::Simple(cmd_str) => {
+                // Simple string command
+                Ok(WorkflowStep {
+                    name: None,
+                    claude: None,
+                    shell: None,
+                    test: None,
+                    goal_seek: None,
+                    foreach: None,
+                    command: Some(cmd_str.clone()),
+                    handler: None,
+                    capture: None,
+                    capture_format: None,
+                    capture_streams: Default::default(),
+                    output_file: None,
+                    timeout: None,
+                    capture_output: CaptureOutput::Disabled,
+                    on_failure: None,
+                    retry: None,
+                    on_success: None,
+                    on_exit_code: Default::default(),
+                    commit_required: false,
+                    auto_commit: false,
+                    commit_config: None,
+                    working_dir: None,
+                    env: Default::default(),
+                    validate: None,
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
+                    when: None,
+                })
+            }
+            WorkflowCommand::Structured(cmd) => {
+                // Structured Command -> WorkflowStep conversion
+                Ok(WorkflowStep {
+                    name: Some(cmd.name.clone()),
+                    claude: None,
+                    shell: None,
+                    test: None,
+                    goal_seek: None,
+                    foreach: None,
+                    command: Some(cmd.name.clone()),
+                    handler: None,
+                    capture: None,
+                    capture_format: None,
+                    capture_streams: Default::default(),
+                    output_file: None,
+                    timeout: cmd.metadata.timeout,
+                    capture_output: CaptureOutput::Disabled,
+                    on_failure: None,
+                    retry: None, // Retry not supported in this conversion path
+                    on_success: None,
+                    on_exit_code: Default::default(),
+                    commit_required: cmd.metadata.commit_required,
+                    auto_commit: false,
+                    commit_config: None,
+                    working_dir: None,
+                    env: Default::default(),
+                    validate: None,
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
+                    when: None,
+                })
+            }
+            WorkflowCommand::SimpleObject(simple) => {
+                // SimpleCommand -> WorkflowStep conversion
+                Ok(WorkflowStep {
+                    name: Some(simple.name.clone()),
+                    claude: None,
+                    shell: None,
+                    test: None,
+                    goal_seek: None,
+                    foreach: None,
+                    command: Some(simple.name.clone()),
+                    handler: None,
+                    capture: None,
+                    capture_format: None,
+                    capture_streams: Default::default(),
+                    output_file: None,
+                    timeout: None,
+                    capture_output: CaptureOutput::Disabled,
+                    on_failure: None,
+                    retry: None,
+                    on_success: None,
+                    on_exit_code: Default::default(),
+                    commit_required: simple.commit_required.unwrap_or(false),
+                    auto_commit: false,
+                    commit_config: None,
+                    working_dir: None,
+                    env: Default::default(),
+                    validate: None,
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
+                    when: None,
+                })
+            }
+        }
+    }
+
     /// Execute validation command and parse results
     async fn execute_validation(
-        &self,
+        &mut self,
         validation_config: &crate::cook::workflow::validation::ValidationConfig,
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
     ) -> Result<crate::cook::workflow::validation::ValidationResult> {
         use crate::cook::workflow::validation::ValidationResult;
 
-        // Execute either claude or shell command
+        // If commands array is specified, execute all commands in sequence
+        if let Some(commands) = &validation_config.commands {
+            self.user_interaction.display_progress(&format!(
+                "Running validation with {} commands",
+                commands.len()
+            ));
+
+            for (idx, cmd) in commands.iter().enumerate() {
+                self.user_interaction.display_progress(&format!(
+                    "  Validation step {}/{}",
+                    idx + 1,
+                    commands.len()
+                ));
+
+                // Execute each command as a workflow step
+                let step = self.convert_workflow_command_to_step(cmd, ctx)?;
+                // Box the future to avoid recursion issues
+                let step_result = Box::pin(self.execute_step(&step, env, ctx)).await?;
+
+                if !step_result.success {
+                    return Ok(ValidationResult::failed(format!(
+                        "Validation step {} failed: {}",
+                        idx + 1,
+                        step_result.stdout
+                    )));
+                }
+            }
+
+            // After executing all commands, check for result_file
+            if let Some(result_file) = &validation_config.result_file {
+                let (interpolated_file, _) = ctx.interpolate_with_tracking(result_file);
+                let file_path = env.working_dir.join(&interpolated_file);
+
+                match tokio::fs::read_to_string(&file_path).await {
+                    Ok(content) => match ValidationResult::from_json(&content) {
+                        Ok(validation) => return Ok(validation),
+                        Err(_) => return Ok(ValidationResult::complete()),
+                    },
+                    Err(e) => {
+                        return Ok(ValidationResult::failed(format!(
+                            "Failed to read validation result from {}: {}",
+                            interpolated_file, e
+                        )));
+                    }
+                }
+            }
+
+            // All commands succeeded, return complete
+            return Ok(ValidationResult::complete());
+        }
+
+        // Execute either claude or shell command (legacy single-command mode)
         let result = if let Some(claude_cmd) = &validation_config.claude {
             let (command, resolutions) = ctx.interpolate_with_tracking(claude_cmd);
             self.log_variable_resolutions(&resolutions);

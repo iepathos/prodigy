@@ -83,7 +83,7 @@ impl CommandArg {
 /// Represents a fully-specified command with its arguments, options,
 /// inputs, outputs, and metadata. This is the primary command format
 /// for complex workflows with data flow between commands.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Command {
     /// The command name (e.g., "prodigy-code-review")
     pub name: String,
@@ -129,7 +129,7 @@ pub struct AnalysisConfig {
 ///
 /// Contains optional parameters that control how a command is executed,
 /// including retry behavior, timeouts, and error handling strategies.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct CommandMetadata {
     /// Number of retry attempts (overrides global setting)
     pub retries: Option<u32>,
@@ -247,7 +247,7 @@ pub struct TestCommand {
     pub on_failure: Option<TestDebugConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum WorkflowCommand {
     /// Legacy string format
@@ -264,7 +264,7 @@ pub enum WorkflowCommand {
 ///
 /// Represents a command as a simple object with optional properties,
 /// used for backward compatibility and simple workflows.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SimpleCommand {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]

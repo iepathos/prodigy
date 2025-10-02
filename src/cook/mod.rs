@@ -371,12 +371,33 @@ async fn load_playbook_with_mapreduce(
 
                     error_msg.push_str(&format!("\nOriginal error: {e}"));
 
-                    // Add hints for common issues
+                    // Add hints for common issues with context from file
+                    error_msg.push_str("\n\n=== FILE CONTENT ===");
+                    error_msg.push_str("\nShowing file structure (first 10 non-empty lines):");
+                    let mut shown = 0;
+                    for (idx, line) in content.lines().enumerate() {
+                        if shown >= 10 {
+                            break;
+                        }
+                        if !line.trim().is_empty() {
+                            error_msg.push_str(&format!("\n  {:3} | {}", idx + 1, line));
+                            shown += 1;
+                        }
+                    }
+
+                    // Provide helpful structure hints
                     if content.contains("claude:") || content.contains("shell:") {
-                        error_msg.push_str("\n\nHint: This appears to use the new workflow syntax with 'claude:' or 'shell:' commands.");
-                        error_msg.push_str("\nThe workflow configuration expects 'commands:' as a list of command objects.");
-                        error_msg
-                            .push_str("\nEnsure your YAML structure matches the expected format.");
+                        error_msg.push_str("\n\n=== SUPPORTED FORMATS ===");
+                        error_msg.push_str("\nProdigy supports two workflow formats:");
+                        error_msg.push_str("\n\n1. Direct array (no wrapper):");
+                        error_msg.push_str("\n   - shell: \"command1\"");
+                        error_msg.push_str("\n   - claude: \"/command2\"");
+                        error_msg.push_str("\n\n2. Object with commands field:");
+                        error_msg.push_str("\n   commands:");
+                        error_msg.push_str("\n     - shell: \"command1\"");
+                        error_msg.push_str("\n     - claude: \"/command2\"");
+                        error_msg.push_str("\n\nThe parse error above indicates the YAML structure doesn't match either format.");
+                        error_msg.push_str("\nCheck for: indentation errors, missing fields, or invalid YAML syntax.");
                     }
 
                     Err(anyhow!(error_msg))
@@ -438,11 +459,35 @@ async fn load_playbook(path: &Path) -> Result<WorkflowConfig> {
 
                 error_msg.push_str(&format!("\nOriginal error: {e}"));
 
-                // Add hints for common issues
+                // Add hints for common issues with context from file
+                error_msg.push_str("\n\n=== FILE CONTENT ===");
+                error_msg.push_str("\nShowing file structure (first 10 non-empty lines):");
+                let mut shown = 0;
+                for (idx, line) in content.lines().enumerate() {
+                    if shown >= 10 {
+                        break;
+                    }
+                    if !line.trim().is_empty() {
+                        error_msg.push_str(&format!("\n  {:3} | {}", idx + 1, line));
+                        shown += 1;
+                    }
+                }
+
+                // Provide helpful structure hints
                 if content.contains("claude:") || content.contains("shell:") {
-                    error_msg.push_str("\n\nHint: This appears to use the new workflow syntax with 'claude:' or 'shell:' commands.");
-                    error_msg.push_str("\nThe workflow configuration expects 'commands:' as a list of command objects.");
-                    error_msg.push_str("\nEnsure your YAML structure matches the expected format.");
+                    error_msg.push_str("\n\n=== SUPPORTED FORMATS ===");
+                    error_msg.push_str("\nProdigy supports two workflow formats:");
+                    error_msg.push_str("\n\n1. Direct array (no wrapper):");
+                    error_msg.push_str("\n   - shell: \"command1\"");
+                    error_msg.push_str("\n   - claude: \"/command2\"");
+                    error_msg.push_str("\n\n2. Object with commands field:");
+                    error_msg.push_str("\n   commands:");
+                    error_msg.push_str("\n     - shell: \"command1\"");
+                    error_msg.push_str("\n     - claude: \"/command2\"");
+                    error_msg.push_str("\n\nThe parse error above indicates the YAML structure doesn't match either format.");
+                    error_msg.push_str(
+                        "\nCheck for: indentation errors, missing fields, or invalid YAML syntax.",
+                    );
                 }
 
                 Err(anyhow!(error_msg))

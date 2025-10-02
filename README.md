@@ -318,6 +318,62 @@ steps:
       Lines removed: ${workflow.deletions}
 ```
 
+### Workflow Syntax
+
+#### Validation and Error Recovery
+
+Prodigy supports multi-step validation and error recovery with two formats:
+
+**Array Format** (for simple command sequences):
+```yaml
+validate:
+  - shell: "prep-command-1"
+  - shell: "prep-command-2"
+  - claude: "/validate-result"
+```
+
+**Object Format** (when you need metadata like threshold, max_attempts, etc.):
+```yaml
+validate:
+  commands:
+    - shell: "prep-command-1"
+    - shell: "prep-command-2"
+    - claude: "/validate-result"
+  result_file: "validation-results.json"
+  threshold: 75  # Validation must score at least 75/100
+  on_incomplete:
+    commands:
+      - claude: "/fix-gaps --gaps ${validation.gaps}"
+      - shell: "rebuild-and-revalidate.sh"
+    max_attempts: 3
+    fail_workflow: false
+```
+
+**Key Points:**
+- Use **array format** when you only need to run commands
+- Use **object format** when you need to set `threshold`, `result_file`, `max_attempts`, or `fail_workflow`
+- Fields like `threshold` and `max_attempts` belong at the config level, not on individual commands
+- `on_incomplete` supports the same two formats (array or object with `commands:`)
+
+**Example: Multi-step validation workflow**
+```yaml
+- claude: "/implement-feature spec.md"
+  commit_required: true
+  validate:
+    commands:
+      - shell: "cargo test"
+      - shell: "cargo clippy"
+      - claude: "/validate-implementation spec.md"
+    result_file: ".prodigy/validation.json"
+    threshold: 90
+    on_incomplete:
+      commands:
+        - claude: "/fix-issues --gaps ${validation.gaps}"
+        - shell: "cargo test"
+      max_attempts: 5
+      fail_workflow: true
+```
+
 ### Configuration
 
 Prodigy looks for configuration in these locations (in order):
