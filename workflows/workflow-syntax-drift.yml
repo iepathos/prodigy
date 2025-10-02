@@ -22,43 +22,7 @@ setup:
         .prodigy/syntax-analysis/source-files.txt > .prodigy/syntax-analysis/files.json
       echo "Created analysis manifest"
 
-  - claude: |
-      /prodigy-analyze-workflow-features
-
-      Analyze the Prodigy codebase to extract all supported workflow syntax features.
-      Focus on:
-
-      1. **Command Types**: All supported command types (shell, claude, goal_seek, foreach, etc.)
-      2. **Configuration Fields**: All fields supported in WorkflowStep, WorkflowStepCommand, MapReduceWorkflowConfig
-      3. **Variable Types**: All available variable interpolation patterns
-      4. **Error Handling**: All error handling mechanisms
-      5. **Validation Features**: Validation and on_incomplete configurations
-      6. **Environment Features**: Environment variables, secrets, profiles
-
-      Read these key files:
-      - src/config/command.rs (WorkflowStepCommand structure)
-      - src/config/mapreduce.rs (MapReduce configuration)
-      - src/cook/workflow/executor.rs (WorkflowStep structure)
-      - src/cook/workflow/validation.rs (Validation configuration)
-      - src/cook/goal_seek/mod.rs (Goal-seeking configuration)
-      - src/cook/workflow/variables.rs (Variable capture and formats)
-
-      Create a JSON report at .prodigy/syntax-analysis/features.json with structure:
-      ```json
-      {
-        "command_types": {
-          "shell": { "fields": [...], "examples": [...] },
-          "claude": { "fields": [...], "examples": [...] },
-          ...
-        },
-        "common_fields": [...],
-        "variable_types": [...],
-        "capture_formats": [...],
-        "validation_features": [...],
-        "error_handling": [...],
-        "deprecated_features": [...]
-      }
-      ```
+  - claude: "/prodigy-analyze-workflow-features"
     capture: "feature_analysis"
 
   - shell: |
@@ -78,54 +42,7 @@ map:
   json_path: "$.sections[*]"
 
   agent_template:
-    - claude: |
-        /prodigy-analyze-doc-section-drift
-
-        Analyze documentation section for drift against actual codebase.
-
-        **Section Details:**
-        - ID: ${item.id}
-        - Title: ${item.title}
-        - Validation focus: ${item.validation}
-
-        **Analysis Steps:**
-
-        1. Extract the current documentation section from ${item.file}
-           - Between markers: ${item.start_marker} and ${item.end_marker}
-
-        2. Compare against feature analysis: .prodigy/syntax-analysis/features.json
-
-        3. Identify drift:
-           - **Missing features**: Implemented but not documented
-           - **Outdated syntax**: Documentation shows old/deprecated syntax
-           - **Incorrect examples**: Examples that won't work with current code
-           - **Missing fields**: New fields added to structs but not in docs
-           - **Deprecated features**: Old features still shown without deprecation notice
-
-        4. Create drift report at: .prodigy/syntax-analysis/drift-${item.id}.json
-
-        Report structure:
-        ```json
-        {
-          "section_id": "${item.id}",
-          "section_title": "${item.title}",
-          "drift_detected": true/false,
-          "severity": "none|low|medium|high|critical",
-          "issues": [
-            {
-              "type": "missing_feature|outdated_syntax|incorrect_example|missing_field",
-              "severity": "low|medium|high",
-              "description": "...",
-              "current_doc": "...",
-              "should_be": "...",
-              "fix_suggestion": "..."
-            }
-          ],
-          "analysis_summary": "..."
-        }
-        ```
-
-        **Important:** Be thorough - compare struct definitions in Rust code with YAML examples in docs.
+    - claude: "/prodigy-analyze-doc-section-drift"
       capture: "drift_analysis"
 
     - shell: |
@@ -172,43 +89,7 @@ reduce:
       fi
     capture: "has_drift"
 
-  - claude: |
-      /prodigy-fix-workflow-syntax-drift
-
-      Update docs/workflow-syntax.md to fix all detected drift issues.
-
-      **Drift Summary:**
-      ${drift_summary}
-
-      **Instructions:**
-
-      1. Read the complete drift summary: .prodigy/syntax-analysis/drift-summary.json
-
-      2. For each section with drift:
-         - Read the detailed drift report: .prodigy/syntax-analysis/drift-{section_id}.json
-         - Read the current docs/workflow-syntax.md section
-         - Read the actual source code referenced in the drift report
-         - Update the documentation to fix all issues
-
-      3. Focus on:
-         - **Add missing features**: Document new features found in code
-         - **Update syntax**: Replace outdated syntax with current version
-         - **Fix examples**: Ensure all examples use correct, current syntax
-         - **Add deprecation notices**: Mark deprecated features clearly
-         - **Update field lists**: Add any missing fields to reference tables
-
-      4. Maintain documentation quality:
-         - Keep examples clear and practical
-         - Preserve existing good examples
-         - Add comments explaining complex features
-         - Keep formatting consistent
-         - Update version compatibility notes if needed
-
-      5. Create a summary of changes in: .prodigy/syntax-analysis/updates-applied.md
-
-      **Commit Requirements:**
-      - Commit the updated docs/workflow-syntax.md
-      - Include clear commit message listing sections fixed
+  - claude: "/prodigy-fix-workflow-syntax-drift"
     commit_required: true
     when: "${has_drift}"
 
