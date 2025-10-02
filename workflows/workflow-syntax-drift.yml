@@ -11,29 +11,15 @@ setup:
       # Create analysis output directory
       mkdir -p .prodigy/syntax-analysis
 
-  - shell: |
-      # Find all workflow-related source files
-      find src -type f -name "*.rs" | grep -E "(config|workflow|command|mapreduce)" | sort > .prodigy/syntax-analysis/source-files.txt
-      echo "Found $(wc -l < .prodigy/syntax-analysis/source-files.txt) source files"
-
-  - shell: |
-      # Create JSON list of source files for analysis
-      jq -R -s 'split("\n") | map(select(length > 0) | {path: ., category: (if test("config") then "config" elif test("workflow") then "workflow" elif test("mapreduce") then "mapreduce" else "other" end)})' \
-        .prodigy/syntax-analysis/source-files.txt > .prodigy/syntax-analysis/files.json
-      echo "Created analysis manifest"
-
   - claude: "/prodigy-analyze-workflow-features"
-    capture: "feature_analysis"
 
   - shell: |
       # Verify feature analysis was created
       if [ -f .prodigy/syntax-analysis/features.json ]; then
         echo "✓ Feature analysis complete"
-        jq -r '.command_types | keys[]' .prodigy/syntax-analysis/features.json | wc -l
       else
         echo "✗ Feature analysis failed" && exit 1
       fi
-    capture: "feature_count"
 
 # Map phase: Analyze each documentation section for drift
 map:
@@ -43,7 +29,6 @@ map:
 
   agent_template:
     - claude: "/prodigy-analyze-doc-section-drift"
-      capture: "drift_analysis"
 
     - shell: |
         # Validate drift report was created
@@ -51,11 +36,9 @@ map:
         if [ -f "$drift_file" ]; then
           severity=$(jq -r '.severity' "$drift_file")
           echo "✓ Drift analysis complete for ${item.id}: $severity"
-          jq -r '.issues | length' "$drift_file"
         else
           echo "✗ Drift analysis failed for ${item.id}" && exit 1
         fi
-      capture: "validation_result"
 
   max_parallel: 3
   agent_timeout_secs: 300
@@ -74,7 +57,6 @@ reduce:
       }' .prodigy/syntax-analysis/drift-*.json > .prodigy/syntax-analysis/drift-summary.json
 
       cat .prodigy/syntax-analysis/drift-summary.json
-    capture: "drift_summary"
 
   - shell: |
       # Check if any drift detected
@@ -87,11 +69,9 @@ reduce:
         jq -r '.all_reports[] | select(.drift_detected == true) | "  - \(.section_title): \(.severity) severity, \(.issues | length) issues"' \
           .prodigy/syntax-analysis/drift-summary.json
       fi
-    capture: "has_drift"
 
   - claude: "/prodigy-fix-workflow-syntax-drift"
     commit_required: true
-    when: "${has_drift}"
 
   - shell: |
       # Verify documentation was updated
