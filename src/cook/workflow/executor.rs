@@ -3065,35 +3065,31 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         ctx: &WorkflowContext,
     ) {
-        // Display what step we're executing
-        self.user_interaction
-            .display_progress(&format!("Executing: {}", step_name));
-
-        // Log verbose execution context
-        tracing::info!("=== Step Execution Context ===");
-        tracing::info!("Step: {}", step_name);
-        tracing::info!("Working Directory: {}", env.working_dir.display());
-        tracing::info!("Project Directory: {}", env.project_dir.display());
+        // Log verbose execution context at DEBUG level
+        tracing::debug!("=== Step Execution Context ===");
+        tracing::debug!("Step: {}", step_name);
+        tracing::debug!("Working Directory: {}", env.working_dir.display());
+        tracing::debug!("Project Directory: {}", env.project_dir.display());
         if let Some(ref worktree) = env.worktree_name {
-            tracing::info!("Worktree: {}", worktree);
+            tracing::debug!("Worktree: {}", worktree);
         }
-        tracing::info!("Session ID: {}", env.session_id);
+        tracing::debug!("Session ID: {}", env.session_id);
 
         // Log variables if any
         if !ctx.variables.is_empty() {
-            tracing::info!("Variables:");
+            tracing::debug!("Variables:");
             for (key, value) in &ctx.variables {
                 let display_value = Self::format_variable_for_logging(value);
-                tracing::info!("  {} = {}", key, display_value);
+                tracing::debug!("  {} = {}", key, display_value);
             }
         }
 
         // Log captured outputs if any
         if !ctx.captured_outputs.is_empty() {
-            tracing::info!("Captured Outputs:");
+            tracing::debug!("Captured Outputs:");
             for (key, value) in &ctx.captured_outputs {
                 let display_value = Self::format_variable_for_logging(value);
-                tracing::info!("  {} = {}", key, display_value);
+                tracing::debug!("  {} = {}", key, display_value);
             }
         }
     }

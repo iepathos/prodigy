@@ -1633,7 +1633,6 @@ impl WorktreeManager {
             total_steps,
             step_name
         );
-        println!("🔄 Executing: {}", step_name);
 
         self.log_execution_context(&step_name, variables);
 
@@ -1675,7 +1674,6 @@ impl WorktreeManager {
             total_steps,
             step_name
         );
-        println!("🔄 Executing: {}", step_name);
 
         self.log_execution_context(&step_name, variables);
 
@@ -1729,26 +1727,26 @@ impl WorktreeManager {
 
     /// Log execution context for debugging
     fn log_execution_context(&self, step_name: &str, variables: &HashMap<String, String>) {
-        tracing::info!("=== Step Execution Context ===");
-        tracing::info!("Step: {}", step_name);
-        tracing::info!("Working Directory: {}", self.repo_path.display());
-        tracing::info!("Project Directory: {}", self.repo_path.display());
-        tracing::info!("Variables:");
+        tracing::debug!("=== Step Execution Context ===");
+        tracing::debug!("Step: {}", step_name);
+        tracing::debug!("Working Directory: {}", self.repo_path.display());
+        tracing::debug!("Project Directory: {}", self.repo_path.display());
+        tracing::debug!("Variables:");
         for (key, value) in variables {
             let display_value = if value.len() > 100 {
                 format!("{}... (truncated)", &value[..100])
             } else {
                 value.clone()
             };
-            tracing::info!("  {} = {}", key, display_value);
+            tracing::debug!("  {} = {}", key, display_value);
         }
-        tracing::info!("Environment Variables:");
-        tracing::info!("  PRODIGY_AUTOMATION = true");
+        tracing::debug!("Environment Variables:");
+        tracing::debug!("  PRODIGY_AUTOMATION = true");
         if self.verbosity >= 1 {
-            tracing::info!("  PRODIGY_CLAUDE_STREAMING = true");
+            tracing::debug!("  PRODIGY_CLAUDE_STREAMING = true");
         }
-        tracing::info!("Actual execution directory: {}", self.repo_path.display());
-        tracing::info!("==============================");
+        tracing::debug!("Actual execution directory: {}", self.repo_path.display());
+        tracing::debug!("==============================");
     }
 
     /// Log Claude-specific execution details
