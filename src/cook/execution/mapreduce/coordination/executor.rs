@@ -14,12 +14,13 @@ use crate::cook::execution::mapreduce::{
     timeout::{TimeoutConfig, TimeoutEnforcer},
     types::{MapPhase, ReducePhase, SetupPhase},
 };
+use crate::cook::execution::claude::ClaudeExecutorImpl;
+use crate::cook::execution::runner::RealCommandRunner;
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
 use crate::cook::workflow::{OnFailureConfig, WorkflowStep};
-use crate::subprocess::runner::ExitStatus;
 use crate::subprocess::SubprocessManager;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -98,11 +99,11 @@ impl MapReduceCoordinator {
         let job_id = format!("mapreduce-{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
         let event_logger = Arc::new(EventLogger::new(project_root.clone(), job_id.clone(), None));
 
-        // Create claude executor
-        // In production, this would be injected
-        let claude_executor = Arc::new(SimpleClaudeExecutor {
-            subprocess: subprocess.clone(),
-        });
+        // Create claude executor using the real implementation
+        let command_runner = RealCommandRunner::new();
+        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(
+            ClaudeExecutorImpl::new(command_runner)
+        );
 
         // Create session manager - not used but required for struct
         let session_manager = Arc::new(DummySessionManager);
@@ -1225,55 +1226,6 @@ impl MapReduceCoordinator {
     /// Clear collected results
     pub async fn clear_results(&self) {
         self.result_collector.clear().await;
-    }
-}
-
-// Simple Claude executor implementation for MapReduce
-struct SimpleClaudeExecutor {
-    subprocess: Arc<SubprocessManager>,
-}
-
-#[async_trait::async_trait]
-impl ClaudeExecutor for SimpleClaudeExecutor {
-    async fn execute_claude_command(
-        &self,
-        command: &str,
-        working_dir: &Path,
-        env_vars: HashMap<String, String>,
-    ) -> anyhow::Result<crate::cook::execution::ExecutionResult> {
-        use crate::subprocess::ProcessCommandBuilder;
-
-        // Execute claude command as a subprocess
-        let cmd = ProcessCommandBuilder::new("claude")
-            .arg("--no-interactive")
-            .arg(command)
-            .current_dir(working_dir)
-            .envs(env_vars)
-            .build();
-
-        let output = self.subprocess.runner().run(cmd).await?;
-
-        let exit_code = match output.status {
-            ExitStatus::Success => 0,
-            ExitStatus::Error(code) => code,
-            ExitStatus::Timeout => 124,
-            ExitStatus::Signal(_) => 1,
-        };
-
-        Ok(crate::cook::execution::ExecutionResult {
-            success: exit_code == 0,
-            exit_code: Some(exit_code),
-            stdout: output.stdout,
-            stderr: output.stderr,
-        })
-    }
-
-    async fn check_claude_cli(&self) -> anyhow::Result<bool> {
-        Ok(true) // Assume Claude is available
-    }
-
-    async fn get_claude_version(&self) -> anyhow::Result<String> {
-        Ok("Claude CLI v1.0.0".to_string()) // Mock version
     }
 }
 
