@@ -1,6 +1,6 @@
 # Sequential workflow. Fix top technical debt item
 
-# Phase 1: Generate coverage data
+# Phase 1: Generate coverage data (tarpaulin caches with skip-clean and target-dir)
 - shell: "just coverage-lcov"
 
 # Phase 2: Analyze tech debt and capture baseline
@@ -25,6 +25,7 @@
   commit_required: true
   validate:
     commands:
+      - shell: "just coverage-lcov"
       - shell: "debtmap analyze . --lcov target/coverage/lcov.info --output .prodigy/debtmap-after.json --format json"
       - shell: "debtmap compare --before .prodigy/debtmap-before.json --after .prodigy/debtmap-after.json --plan .prodigy/IMPLEMENTATION_PLAN.md --output .prodigy/comparison.json --format json"
       - claude: "/prodigy-validate-debtmap-improvement --comparison .prodigy/comparison.json --output .prodigy/debtmap-validation.json"

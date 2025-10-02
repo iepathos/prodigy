@@ -21,6 +21,10 @@ exclude-files = [
 skip-clean = true
 engine = "Llvm"
 
+# Use separate target directory for tarpaulin to avoid conflicts
+# and improve caching across runs
+target-dir = "target/tarpaulin"
+
 # Test runner - use default cargo test since nextest isn't directly supported
 # but we still get LLVM engine benefits
 
