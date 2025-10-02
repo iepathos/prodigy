@@ -115,7 +115,7 @@ Create a file at `$ARG_output` with this structure:
 
 ## Problem Summary
 
-**Location**: <location from debtmap - must be in format: ./file.rs:function:line>
+**Location**: <location from debtmap - must be in format: file:function:line (NO ./ prefix, use : separators)>
 **Priority Score**: <unified_score from debtmap>
 **Debt Type**: <debt_type from debtmap>
 **Current Metrics**:
