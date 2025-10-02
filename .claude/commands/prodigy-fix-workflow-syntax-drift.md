@@ -1,4 +1,4 @@
-# Fix Workflow Syntax Documentation Drift
+# /prodigy-fix-workflow-syntax-drift
 
 Update `docs/workflow-syntax.md` to fix all detected drift issues and ensure documentation matches the current codebase implementation.
 

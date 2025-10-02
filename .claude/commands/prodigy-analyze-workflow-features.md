@@ -1,4 +1,4 @@
-# Analyze Prodigy Workflow Features
+# /prodigy-analyze-workflow-features
 
 Perform comprehensive analysis of Prodigy codebase to extract all supported workflow syntax features.
 

@@ -1,4 +1,4 @@
-# Analyze Documentation Section Drift
+# /prodigy-analyze-doc-section-drift
 
 Analyze a specific section of the workflow syntax documentation for drift against the actual codebase implementation.
 
