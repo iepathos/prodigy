@@ -2792,9 +2792,7 @@ impl WorkflowExecutor {
                 // Execute the step
                 // Note: No with_context() wrapper here - the error from execute_step
                 // already contains detailed information from build_step_error_message
-                let step_result = self
-                    .execute_step(step, env, &mut workflow_context)
-                    .await?;
+                let step_result = self.execute_step(step, env, &mut workflow_context).await?;
 
                 // Display subprocess output when verbose logging is enabled
                 self.log_step_output(&step_result);
