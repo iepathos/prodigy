@@ -1,0 +1,52 @@
+{
+  "sections": [
+    {
+      "id": "command-types",
+      "title": "Command Types",
+      "file": "docs/workflow-syntax.md",
+      "start_marker": "## Command Types",
+      "end_marker": "## Variable Interpolation",
+      "validation": "Check all command types are documented with correct fields"
+    },
+    {
+      "id": "variable-interpolation",
+      "title": "Variable Interpolation",
+      "file": "docs/workflow-syntax.md",
+      "start_marker": "## Variable Interpolation",
+      "end_marker": "## Environment Configuration",
+      "validation": "Check all variable types and formats are documented"
+    },
+    {
+      "id": "mapreduce-workflows",
+      "title": "MapReduce Workflows",
+      "file": "docs/workflow-syntax.md",
+      "start_marker": "## MapReduce Workflows",
+      "end_marker": "## Command Types",
+      "validation": "Check MapReduce configuration matches MapReduceWorkflowConfig"
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "file": "docs/workflow-syntax.md",
+      "start_marker": "## Error Handling",
+      "end_marker": "## Examples",
+      "validation": "Check error policies and on_failure configurations"
+    },
+    {
+      "id": "validation-commands",
+      "title": "Validation Commands",
+      "file": "docs/workflow-syntax.md",
+      "start_marker": "### 5. Validation Commands",
+      "end_marker": "## Variable Interpolation",
+      "validation": "Check ValidationConfig and OnIncompleteConfig fields"
+    },
+    {
+      "id": "environment-config",
+      "title": "Environment Configuration",
+      "file": "docs/workflow-syntax.md",
+      "start_marker": "## Environment Configuration",
+      "end_marker": "## Advanced Features",
+      "validation": "Check environment variables, secrets, and profiles syntax"
+    }
+  ]
+}
