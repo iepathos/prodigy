@@ -267,25 +267,25 @@ impl MapReduceCoordinator {
                 setup_phase.commands.len()
             );
 
-            // Log execution context
-            info!("=== Step Execution Context ===");
-            info!("Step: {:?}", step);
-            info!("Working Directory: {}", env.working_dir.display());
-            info!("Project Directory: {}", self.project_root.display());
-            info!("Worktree: {:?}", env.worktree_name);
-            info!("Session ID: {}", env.session_id);
+            // Log execution context at DEBUG level
+            debug!("=== Step Execution Context ===");
+            debug!("Step: {:?}", step);
+            debug!("Working Directory: {}", env.working_dir.display());
+            debug!("Project Directory: {}", self.project_root.display());
+            debug!("Worktree: {:?}", env.worktree_name);
+            debug!("Session ID: {}", env.session_id);
 
             // Set environment variables
             let mut env_vars = HashMap::new();
             env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
             env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
-            info!("Environment Variables:");
+            debug!("Environment Variables:");
             for (key, value) in &env_vars {
-                info!("  {} = {}", key, value);
+                debug!("  {} = {}", key, value);
             }
-            info!("Actual execution directory: {}", env.working_dir.display());
-            info!("==============================");
+            debug!("Actual execution directory: {}", env.working_dir.display());
+            debug!("==============================");
 
             // Execute the step
             let result = self.execute_setup_step(step, env, env_vars).await?;
