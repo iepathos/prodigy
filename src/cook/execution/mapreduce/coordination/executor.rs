@@ -33,9 +33,9 @@ use tracing::{debug, info, warn};
 #[derive(Debug, Clone)]
 struct StepResult {
     pub success: bool,
-    pub _exit_code: Option<i32>,
+    pub exit_code: Option<i32>,
     pub stdout: Option<String>,
-    pub _stderr: Option<String>,
+    pub stderr: Option<String>,
 }
 
 /// Main coordinator for MapReduce execution
@@ -294,6 +294,27 @@ impl MapReduceCoordinator {
                 // Build a more helpful error message
                 let mut error_msg = format!("Setup step {} failed", index + 1);
 
+                // Add exit code if available
+                if let Some(code) = result.exit_code {
+                    error_msg.push_str(&format!(" (exit code: {})", code));
+                }
+
+                // Add stderr if available
+                if let Some(ref stderr) = result.stderr {
+                    if !stderr.trim().is_empty() {
+                        error_msg.push_str(&format!("\nstderr: {}", stderr.trim()));
+                    }
+                }
+
+                // Add stdout if available and stderr is empty
+                if result.stderr.as_ref().map_or(true, |s| s.trim().is_empty()) {
+                    if let Some(ref stdout) = result.stdout {
+                        if !stdout.trim().is_empty() {
+                            error_msg.push_str(&format!("\nstdout: {}", stdout.trim()));
+                        }
+                    }
+                }
+
                 // If it's a Claude command, add log location hint
                 if step.claude.is_some() {
                     if let Ok(repo_name) = crate::storage::extract_repo_name(&self.project_root) {
@@ -346,9 +367,9 @@ impl MapReduceCoordinator {
 
             Ok(StepResult {
                 success: exit_code == 0,
-                _exit_code: Some(exit_code),
+                exit_code: Some(exit_code),
                 stdout: Some(output.stdout),
-                _stderr: Some(output.stderr),
+                stderr: Some(output.stderr),
             })
         } else if let Some(claude_cmd) = &step.claude {
             info!("Executing Claude command: {}", claude_cmd);
@@ -363,9 +384,9 @@ impl MapReduceCoordinator {
 
             Ok(StepResult {
                 success: result.success,
-                _exit_code: result.exit_code,
+                exit_code: result.exit_code,
                 stdout: Some(result.stdout),
-                _stderr: Some(result.stderr),
+                stderr: Some(result.stderr),
             })
         } else {
             Err(MapReduceError::InvalidConfiguration {
@@ -902,9 +923,9 @@ impl MapReduceCoordinator {
 
             Ok(StepResult {
                 success: result.success,
-                _exit_code: result.exit_code,
+                exit_code: result.exit_code,
                 stdout: Some(result.stdout),
-                _stderr: Some(result.stderr),
+                stderr: Some(result.stderr),
             })
         } else if let Some(shell_cmd) = &step.shell {
             // Debug: print context
@@ -940,9 +961,9 @@ impl MapReduceCoordinator {
 
             Ok(StepResult {
                 success: exit_code == 0,
-                _exit_code: Some(exit_code),
+                exit_code: Some(exit_code),
                 stdout: Some(output.stdout),
-                _stderr: Some(output.stderr),
+                stderr: Some(output.stderr),
             })
         } else {
             Err(MapReduceError::InvalidConfiguration {
