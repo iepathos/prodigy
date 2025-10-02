@@ -291,10 +291,22 @@ impl MapReduceCoordinator {
             let result = self.execute_setup_step(step, env, env_vars).await?;
 
             if !result.success {
-                return Err(MapReduceError::ProcessingError(format!(
-                    "Setup step {} failed",
-                    index + 1
-                )));
+                // Build a more helpful error message
+                let mut error_msg = format!("Setup step {} failed", index + 1);
+
+                // If it's a Claude command, add log location hint
+                if step.claude.is_some() {
+                    if let Ok(repo_name) = crate::storage::extract_repo_name(&self.project_root) {
+                        let log_hint = format!(
+                            "\n\n💡 Check Claude logs at: ~/.prodigy/events/{}/{}/*.jsonl",
+                            repo_name,
+                            self.job_id
+                        );
+                        error_msg.push_str(&log_hint);
+                    }
+                }
+
+                return Err(MapReduceError::ProcessingError(error_msg));
             }
         }
 
