@@ -3161,18 +3161,17 @@ impl WorkflowExecutor {
 
         // Log environment variables being set
         if !env_vars.is_empty() {
-            tracing::info!("Environment Variables:");
+            tracing::debug!("Environment Variables:");
             for (key, value) in &env_vars {
                 let display_value = Self::format_env_var_for_logging(key, value);
-                tracing::info!("  {} = {}", key, display_value);
+                tracing::debug!("  {} = {}", key, display_value);
             }
         }
 
-        tracing::info!(
+        tracing::debug!(
             "Actual execution directory: {}",
             actual_env.working_dir.display()
         );
-        tracing::info!("==============================");
 
         Ok((env_vars, working_dir_override, actual_env))
     }

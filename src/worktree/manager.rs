@@ -1746,17 +1746,15 @@ impl WorktreeManager {
             tracing::debug!("  PRODIGY_CLAUDE_STREAMING = true");
         }
         tracing::debug!("Actual execution directory: {}", self.repo_path.display());
-        tracing::debug!("==============================");
     }
 
     /// Log Claude-specific execution details
     fn log_claude_execution_details(&self, env_vars: &HashMap<String, String>) {
-        tracing::info!("Environment Variables:");
+        tracing::debug!("Environment Variables:");
         for (key, value) in env_vars {
-            tracing::info!("  {} = {}", key, value);
+            tracing::debug!("  {} = {}", key, value);
         }
-        tracing::info!("Actual execution directory: {}", self.repo_path.display());
-        tracing::info!("==============================");
+        tracing::debug!("Actual execution directory: {}", self.repo_path.display());
 
         tracing::debug!(
             "Claude execution mode: streaming={}, env_var={:?}",
