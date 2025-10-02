@@ -4,7 +4,7 @@ Analyze a specific section of the workflow syntax documentation for drift agains
 
 ## Variables
 
-Uses `${item.*}` variables from MapReduce workflow containing section details.
+- `$1` - JSON object containing section details (passed via `--json` flag)
 
 ## Execute
 
@@ -12,22 +12,34 @@ Uses `${item.*}` variables from MapReduce workflow containing section details.
 
 You are comparing a section of `docs/workflow-syntax.md` against the actual Prodigy codebase to identify drift (discrepancies between documentation and implementation).
 
-### Phase 2: Parse Input Variables
+### Phase 2: Parse Input Arguments
 
-The workflow provides these variables:
-- `${item.id}` - Section identifier (e.g., "command-types", "variable-interpolation")
-- `${item.title}` - Section title (e.g., "Command Types")
-- `${item.file}` - Documentation file path
-- `${item.start_marker}` - Start marker for section extraction
-- `${item.end_marker}` - End marker for section extraction
-- `${item.validation}` - Validation focus for this section
+The command receives a JSON object with section details passed via `--json` flag:
+
+```bash
+# Parse the JSON argument to extract all section details
+SECTION_JSON="$1"
+SECTION_ID=$(echo "$SECTION_JSON" | jq -r '.id')
+SECTION_TITLE=$(echo "$SECTION_JSON" | jq -r '.title')
+SECTION_FILE=$(echo "$SECTION_JSON" | jq -r '.file')
+START_MARKER=$(echo "$SECTION_JSON" | jq -r '.start_marker')
+END_MARKER=$(echo "$SECTION_JSON" | jq -r '.end_marker')
+VALIDATION_FOCUS=$(echo "$SECTION_JSON" | jq -r '.validation')
+```
+
+These variables will be used throughout the analysis to:
+- Identify which section to analyze (`$SECTION_ID`)
+- Extract the correct documentation section (`$START_MARKER`, `$END_MARKER`)
+- Focus validation efforts (`$VALIDATION_FOCUS`)
+- Create properly named output files (`$SECTION_ID`)
+- Generate meaningful commit messages (`$SECTION_TITLE`)
 
 ### Phase 3: Perform Analysis
 
 #### Step 1: Extract Current Documentation
 
-Read the documentation section from `${item.file}`:
-- Find content between `${item.start_marker}` and `${item.end_marker}`
+Read the documentation section from the file specified in `$SECTION_FILE`:
+- Find content between `$START_MARKER` and `$END_MARKER`
 - Parse YAML examples and field descriptions
 - Note any version compatibility statements
 
@@ -39,7 +51,7 @@ Read the comprehensive feature analysis:
 
 #### Step 3: Compare and Identify Drift
 
-Based on the section ID, perform specific drift checks:
+Based on `$SECTION_ID`, perform specific drift checks:
 
 #### For "command-types":
 - Compare documented command types against `features.json.command_types`
@@ -125,14 +137,14 @@ Overall section severity:
 - **Low**: Minor issues, incomplete descriptions
 - **None**: No drift detected
 
-### Phase 4: Create Output
+### Phase 4: Create Output and Commit
 
-Create drift report at `.prodigy/syntax-analysis/drift-${item.id}.json`:
+Create drift report at `.prodigy/syntax-analysis/drift-$SECTION_ID.json` using the parsed section details:
 
 ```json
 {
-  "section_id": "${item.id}",
-  "section_title": "${item.title}",
+  "section_id": "$SECTION_ID",
+  "section_title": "$SECTION_TITLE",
   "drift_detected": true,
   "severity": "high",
   "issues": [
@@ -168,7 +180,7 @@ Create drift report at `.prodigy/syntax-analysis/drift-${item.id}.json`:
   "metadata": {
     "analyzed_at": "2025-01-XX",
     "feature_analysis_file": ".prodigy/syntax-analysis/features.json",
-    "validation_focus": "${item.validation}"
+    "validation_focus": "$VALIDATION_FOCUS"
   }
 }
 ```
@@ -205,7 +217,22 @@ Create drift report at `.prodigy/syntax-analysis/drift-${item.id}.json`:
 - Don't suggest changes that aren't in the code
 - Flag truly missing features vs. just poorly documented
 
-### Phase 6: Validation
+### Phase 6: Commit the Drift Report
+
+**CRITICAL**: Since each map agent runs in a separate git worktree, the drift JSON file MUST be committed to be accessible in the reduce phase.
+
+Create a commit using the parsed variables:
+```bash
+git add .prodigy/syntax-analysis/drift-$SECTION_ID.json
+git commit -m "analysis: drift report for $SECTION_TITLE
+
+Drift severity: $SEVERITY
+Issues found: $ISSUE_COUNT"
+```
+
+Where `$SEVERITY` and `$ISSUE_COUNT` are determined from your drift analysis.
+
+### Phase 7: Validation
 
 The drift report should:
 1. Accurately identify ALL drift between docs and code
@@ -214,3 +241,4 @@ The drift report should:
 4. Include enough detail for automated fixes
 5. Set appropriate section severity level
 6. Be actionable - fixable based on the information provided
+7. **Be committed to git** so reduce phase can access it

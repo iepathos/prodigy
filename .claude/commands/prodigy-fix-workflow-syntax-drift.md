@@ -4,23 +4,47 @@ Update `docs/workflow-syntax.md` to fix all detected drift issues and ensure doc
 
 ## Variables
 
-Uses `${drift_summary}` variable containing aggregated drift findings.
+None - reads drift reports from `.prodigy/syntax-analysis/` directory.
 
 ## Execute
 
 ### Context
 
-You have completed drift analysis across multiple documentation sections. Now you need to update the documentation to fix all identified issues while maintaining quality and clarity.
+You have completed drift analysis across multiple documentation sections. Now you need to aggregate the results, update the documentation to fix all identified issues, and clean up temporary files.
 
-### Phase 1: Parse Input Variables
+### Phase 1: Aggregate Drift Reports
 
-- `${drift_summary}` - JSON summary of all drift findings
+Since each map agent committed their drift JSON files, you need to aggregate them first:
+
+```bash
+# Aggregate all drift reports from map phase
+jq -s '{
+  total_sections: length,
+  sections_with_drift: [.[] | select(.drift_detected == true)] | length,
+  total_issues: [.[].issues[]] | length,
+  severity_breakdown: (group_by(.severity) | map({(.[0].severity): length}) | add),
+  all_reports: .
+}' .prodigy/syntax-analysis/drift-*.json > .prodigy/syntax-analysis/drift-summary.json
+```
+
+Check if any drift was detected:
+```bash
+drift_count=$(jq -r '.sections_with_drift' .prodigy/syntax-analysis/drift-summary.json)
+if [ "$drift_count" -eq 0 ]; then
+  echo "✓ No documentation drift detected - docs are up to date!"
+  exit 0
+else
+  echo "⚠ Found drift in $drift_count sections"
+  jq -r '.all_reports[] | select(.drift_detected == true) | "  - \(.section_title): \(.severity) severity, \(.issues | length) issues"' \
+    .prodigy/syntax-analysis/drift-summary.json
+fi
+```
 
 ### Phase 2: Identify Available Data
 
-1. `.prodigy/syntax-analysis/drift-summary.json` - Aggregated drift report
-2. `.prodigy/syntax-analysis/drift-{section_id}.json` - Individual section reports
-3. `.prodigy/syntax-analysis/features.json` - Ground truth feature analysis
+1. `.prodigy/syntax-analysis/drift-summary.json` - Aggregated drift report (you just created)
+2. `.prodigy/syntax-analysis/drift-{section_id}.json` - Individual section reports (from map phase)
+3. `.prodigy/syntax-analysis/features.json` - Ground truth feature analysis (from setup phase)
 
 ### Phase 3: Update Documentation
 
@@ -206,15 +230,23 @@ Issues resolved:
 - 4 high severity (missing features, outdated syntax)
 - 6 medium severity (missing fields, incorrect examples)
 - 2 low severity (deprecation notices)
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 **Commit Contents:**
 - Updated `docs/workflow-syntax.md`
-- Updated summary in `.prodigy/syntax-analysis/updates-applied.md` (will be cleaned up)
+- Updated summary in `.prodigy/syntax-analysis/updates-applied.md`
+
+#### Step 7: Cleanup Analysis Files
+
+After committing the documentation updates:
+
+```bash
+# Clean up analysis files
+rm -rf .prodigy/syntax-analysis
+echo "✓ Cleanup complete"
+```
+
+This removes all temporary analysis files since they're no longer needed.
 
 ### Phase 4: Apply Specific Fixes
 

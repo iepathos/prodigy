@@ -7,98 +7,26 @@ mode: mapreduce
 
 # Setup phase: Analyze codebase for workflow syntax
 setup:
-  - shell: |
-      # Create analysis output directory
-      mkdir -p .prodigy/syntax-analysis
+  - shell: "mkdir -p .prodigy/syntax-analysis"
 
   - claude: "/prodigy-analyze-workflow-features"
-
-  - shell: |
-      # Verify feature analysis was created
-      if [ -f .prodigy/syntax-analysis/features.json ]; then
-        echo "✓ Feature analysis complete"
-      else
-        echo "✗ Feature analysis failed" && exit 1
-      fi
 
 # Map phase: Analyze each documentation section for drift
 map:
   input: "workflows/data/workflow-syntax-sections.json"
-
   json_path: "$.sections[*]"
 
   agent_template:
-    - claude: "/prodigy-analyze-doc-section-drift"
-
-    - shell: |
-        # Validate drift report was created
-        drift_file=".prodigy/syntax-analysis/drift-${item.id}.json"
-        if [ -f "$drift_file" ]; then
-          severity=$(jq -r '.severity' "$drift_file")
-          echo "✓ Drift analysis complete for ${item.id}: $severity"
-        else
-          echo "✗ Drift analysis failed for ${item.id}" && exit 1
-        fi
+    - claude: "/prodigy-analyze-doc-section-drift --json '${item}'"
+      commit_required: true
 
   max_parallel: 3
   agent_timeout_secs: 300
 
 # Reduce phase: Aggregate drift findings and update documentation
 reduce:
-  - shell: |
-      # Aggregate all drift reports
-      echo "Aggregating drift analysis..."
-      jq -s '{
-        total_sections: length,
-        sections_with_drift: [.[] | select(.drift_detected == true)] | length,
-        total_issues: [.[].issues[]] | length,
-        severity_breakdown: (group_by(.severity) | map({(.[0].severity): length}) | add),
-        all_reports: .
-      }' .prodigy/syntax-analysis/drift-*.json > .prodigy/syntax-analysis/drift-summary.json
-
-      cat .prodigy/syntax-analysis/drift-summary.json
-
-  - shell: |
-      # Check if any drift detected
-      drift_count=$(jq -r '.sections_with_drift' .prodigy/syntax-analysis/drift-summary.json)
-      if [ "$drift_count" -eq 0 ]; then
-        echo "✓ No documentation drift detected - docs are up to date!"
-        exit 0
-      else
-        echo "⚠ Found drift in $drift_count sections"
-        jq -r '.all_reports[] | select(.drift_detected == true) | "  - \(.section_title): \(.severity) severity, \(.issues | length) issues"' \
-          .prodigy/syntax-analysis/drift-summary.json
-      fi
-
   - claude: "/prodigy-fix-workflow-syntax-drift"
     commit_required: true
-
-  - shell: |
-      # Verify documentation was updated
-      if git diff --name-only HEAD~1 | grep -q "docs/workflow-syntax.md"; then
-        echo "✓ Documentation updated successfully"
-
-        # Show summary of changes
-        if [ -f .prodigy/syntax-analysis/updates-applied.md ]; then
-          echo ""
-          echo "Updates applied:"
-          cat .prodigy/syntax-analysis/updates-applied.md
-        fi
-
-        # Re-analyze to verify drift is fixed
-        echo ""
-        echo "Drift analysis complete. Updated sections:"
-        jq -r '.all_reports[] | select(.drift_detected == true) | "  ✓ \(.section_title)"' \
-          .prodigy/syntax-analysis/drift-summary.json
-      else
-        echo "ℹ No updates needed - documentation is current"
-      fi
-
-  - shell: |
-      # Clean up analysis files
-      echo "Cleaning up analysis files..."
-      rm -rf .prodigy/syntax-analysis
-      echo "✓ Cleanup complete"
 
 # Error handling
 error_policy:
