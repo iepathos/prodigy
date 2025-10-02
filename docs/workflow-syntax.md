@@ -94,11 +94,17 @@ map:
   json_path: "$.items[*]"
 
   # Agent template (commands run for each item)
+  # Modern syntax: Commands directly under agent_template
   agent_template:
     - claude: "/process '${item}'"
     - shell: "test ${item.path}"
       on_failure:
         claude: "/fix-issue '${item}'"
+
+  # DEPRECATED: Nested 'commands' syntax (still supported)
+  # agent_template:
+  #   commands:
+  #     - claude: "/process '${item}'"
 
   # Maximum parallel agents
   max_parallel: 10
@@ -122,45 +128,95 @@ map:
   agent_timeout_secs: 300
 
 # Reduce phase: Aggregate results
+# Modern syntax: Commands directly under reduce
 reduce:
   - claude: "/summarize ${map.results}"
   - shell: "echo 'Processed ${map.successful}/${map.total} items'"
 
-# Optional: Custom merge workflow
+# DEPRECATED: Nested 'commands' syntax (still supported)
+# reduce:
+#   commands:
+#     - claude: "/summarize ${map.results}"
+
+# Optional: Custom merge workflow (supports two formats)
 merge:
+  # Simple array format
   - shell: "git fetch origin"
   - claude: "/merge-worktree ${merge.source_branch}"
   - shell: "cargo test"
 
+# OR full format with timeout
+# merge:
+#   commands:
+#     - shell: "git fetch origin"
+#     - claude: "/merge-worktree ${merge.source_branch}"
+#   timeout: 600  # Timeout in seconds
+
 # Error handling policy
 error_policy:
-  on_item_failure: dlq  # dlq, retry, skip, stop, or custom
+  on_item_failure: dlq  # dlq, retry, skip, stop, or custom handler name
   continue_on_failure: true
   max_failures: 5
   failure_threshold: 0.2  # 20% failure rate
   error_collection: aggregate  # aggregate, immediate, or batched:N
+
+  # Circuit breaker configuration
+  circuit_breaker:
+    failure_threshold: 5      # Open circuit after N failures
+    success_threshold: 2      # Close circuit after N successes
+    timeout: 60              # Seconds before attempting half-open
+    half_open_requests: 3    # Test requests in half-open state
+
+  # Retry configuration with backoff
+  retry_config:
+    max_attempts: 3
+    backoff:
+      type: exponential      # fixed, linear, exponential, fibonacci
+      initial: 1000          # Initial delay in ms
+      multiplier: 2          # For exponential
+      max_delay: 30000       # Maximum delay in ms
+
+# Convenience fields (alternative to nested error_policy)
+# These top-level fields map to error_policy for simpler syntax
+on_item_failure: dlq
+continue_on_failure: true
+max_failures: 5
 ```
 
 ### Setup Phase (Advanced)
 
+The setup phase supports two formats: simple array OR full configuration object.
+
 ```yaml
+# Simple array format
+setup:
+  - shell: "prepare-data.sh"
+  - shell: "analyze-codebase.sh"
+
+# Full configuration format with timeout and capture
 setup:
   commands:
     - shell: "prepare-data.sh"
     - shell: "analyze-codebase.sh"
 
-  # Timeout for entire setup phase
+  # Timeout for entire setup phase (seconds)
   timeout: 300
 
   # Capture outputs from setup commands
   capture_outputs:
-    file_count:
-      command_index: 0
-      format: number
+    # Simple format (legacy - just index)
+    file_count: 0  # Capture from command at index 0
+
+    # Full CaptureConfig format
     analysis_result:
       command_index: 1
-      format: json
+      format: json  # string, number, json, lines, boolean
 ```
+
+**Setup Phase Fields:**
+- `commands` - Array of commands to execute (or use simple array format at top level)
+- `timeout` - Timeout for entire setup phase in seconds
+- `capture_outputs` - Map of variable names to command outputs (supports Simple(index) or full CaptureConfig)
 
 ---
 
@@ -261,9 +317,11 @@ Validate implementation completeness with automatic retry.
 - claude: "/implement-auth-spec"
   validate:
     shell: "debtmap validate --spec auth.md --output result.json"
+    # DEPRECATED: 'command' field (use 'shell' instead)
     result_file: "result.json"
-    threshold: 95  # Percentage completion required
+    threshold: 95  # Percentage completion required (default: 100.0)
     timeout: 60
+    expected_schema: "validation-schema.json"  # Optional JSON schema
 
     # What to do if incomplete
     on_incomplete:
@@ -271,17 +329,51 @@ Validate implementation completeness with automatic retry.
       max_attempts: 3
       fail_workflow: true
       commit_required: true
+      prompt: "Implementation incomplete. Continue?"  # Optional interactive prompt
 ```
+
+**ValidationConfig Fields:**
+- `shell` or `claude` - Single validation command (use `shell`, not deprecated `command`)
+- `commands` - Array of commands for multi-step validation
+- `result_file` - Path to JSON file with validation results
+- `threshold` - Minimum completion percentage (default: 100.0)
+- `timeout` - Timeout in seconds
+- `expected_schema` - JSON schema for validation output structure
+
+**OnIncompleteConfig Fields:**
+- `shell` or `claude` - Single gap-filling command
+- `commands` - Array of commands for multi-step gap filling
+- `max_attempts` - Maximum retry attempts
+- `fail_workflow` - Whether to fail workflow if validation incomplete
+- `commit_required` - Whether to require commit after gap filling
+- `prompt` - Optional interactive prompt for user guidance
 
 **Alternative: Array format for multi-step validation**
 
 ```yaml
 - claude: "/implement-feature"
   validate:
+    # When using array format, ValidationConfig uses default threshold (100.0)
+    # and creates a commands array
     - shell: "run-tests.sh"
     - shell: "check-coverage.sh"
     - claude: "/validate-implementation --output validation.json"
       result_file: "validation.json"
+```
+
+**Alternative: Multi-step gap filling**
+
+```yaml
+- claude: "/implement-feature"
+  validate:
+    shell: "validate.sh"
+    result_file: "result.json"
+    on_incomplete:
+      commands:
+        - claude: "/analyze-gaps ${validation.gaps}"
+        - shell: "run-fix-script.sh"
+        - claude: "/verify-fixes"
+      max_attempts: 2
 ```
 
 ---
@@ -291,18 +383,37 @@ Validate implementation completeness with automatic retry.
 ### Available Variables
 
 #### Standard Variables
-- `${shell.output}` - Output from last shell command
-- `${claude.output}` - Output from last Claude command
+- `${workflow.name}` - Workflow name
+- `${workflow.id}` - Workflow unique identifier
+- `${workflow.iteration}` - Current iteration number
+- `${step.name}` - Current step name
+- `${step.index}` - Current step index
 - `${step.files_changed}` - Files changed in current step
 - `${workflow.files_changed}` - All files changed in workflow
 
+#### Output Variables
+- `${shell.output}` - Output from last shell command
+- `${claude.output}` - Output from last Claude command
+- `${last.output}` - Output from last executed command (any type)
+- `${last.exit_code}` - Exit code from last command
+- `${handler.output}` - Output from handler command
+- `${test.output}` - Output from test command
+- `${goal_seek.output}` - Output from goal-seeking command
+
 #### MapReduce Variables
 - `${item}` - Current work item in map phase
-- `${item.field}` - Access item field (e.g., `${item.id}`)
+- `${item.value}` - Value of current item (for simple items)
+- `${item.path}` - Path field of current item
+- `${item.name}` - Name field of current item
+- `${item.*}` - Access any item field using wildcard pattern (e.g., `${item.id}`, `${item.priority}`)
+- `${item_index}` - Index of current item in the list
+- `${item_total}` - Total number of items being processed
+- `${map.key}` - Current map key
 - `${map.total}` - Total items processed
 - `${map.successful}` - Successfully processed items
 - `${map.failed}` - Failed items
 - `${map.results}` - Aggregated results
+- `${worker.id}` - ID of the current worker agent
 
 #### Merge Variables
 - `${merge.worktree}` - Worktree name
@@ -312,17 +423,24 @@ Validate implementation completeness with automatic retry.
 
 #### Validation Variables
 - `${validation.completion}` - Completion percentage
+- `${validation.completion_percentage}` - Completion percentage (numeric)
+- `${validation.implemented}` - List of implemented features
 - `${validation.missing}` - Missing requirements
 - `${validation.gaps}` - Gap details
 - `${validation.status}` - Status (complete/incomplete/failed)
 
 #### Git Context Variables
 - `${step.commits}` - Commits in current step
-- `${step.commit_count}` - Number of commits in step
-- `${step.insertions}` - Lines inserted in step
-- `${step.deletions}` - Lines deleted in step
 - `${workflow.commits}` - All workflow commits
-- `${workflow.commit_count}` - Total commits
+
+#### Legacy Variable Aliases
+
+These legacy aliases are supported for backward compatibility but should be replaced with modern equivalents:
+
+- `$ARG` / `$ARGUMENT` - Legacy aliases for `${item.value}` (available in WithArguments mode)
+- `$FILE` / `$FILE_PATH` - Legacy aliases for `${item.path}` (available in WithFilePattern mode)
+
+**Note:** Use the modern `${item.*}` syntax in new workflows instead of legacy aliases.
 
 ### Custom Variable Capture
 
@@ -343,67 +461,104 @@ Validate implementation completeness with automatic retry.
     stderr: true
     exit_code: true
     success: true
+    duration: true  # Capture execution duration
 
 # Access captured data
 - shell: "echo 'Exit code: ${test_results.exit_code}'"
 - shell: "echo 'Success: ${test_results.success}'"
+- shell: "echo 'Duration: ${test_results.duration}s'"
 ```
 
 ---
 
 ## Environment Configuration
 
-### Environment Variables
+### Global Environment Configuration
 
 ```yaml
+# Inherit parent process environment (default: true)
+inherit: true
+
+# Global environment variables
 env:
-  # Static variables
+  # Static variables (EnvValue::Static)
   NODE_ENV: production
   PORT: "3000"
 
-  # Dynamic variables (computed from command)
+  # Dynamic variables (EnvValue::Dynamic - computed from command)
   WORKER_COUNT:
     command: "nproc || echo 4"
-    cache: true
+    cache: true  # Cache result for reuse
 
-  # Conditional variables
+  # Conditional variables (EnvValue::Conditional)
   DEPLOY_TARGET:
     condition: "${branch} == 'main'"
     when_true: "production"
     when_false: "staging"
 ```
 
+**Environment Control:**
+- `inherit: false` - Start with clean environment instead of inheriting from parent process (default: true)
+
 ### Secrets Management
 
 ```yaml
 secrets:
-  # Reference environment variable
+  # Simple format (syntactic sugar - parsed into structured format)
   API_KEY: "${env:SECRET_API_KEY}"
-
-  # Reference from file
   DB_PASSWORD: "${file:~/.secrets/db.pass}"
+
+  # Structured format (Provider variant)
+  AWS_SECRET:
+    provider: aws
+    key: "my-app/api-key"
+
+  VAULT_SECRET:
+    provider: vault
+    key: "secret/data/myapp"
+    version: "v2"  # Optional version
+
+  # Custom provider
+  CUSTOM_SECRET:
+    provider: custom-provider
+    key: "secret-id"
 ```
+
+**Supported Secret Providers:**
+- `env` - Environment variable reference
+- `file` - Read from file
+- `vault` - HashiCorp Vault integration
+- `aws` - AWS Secrets Manager
+- `custom` - Custom provider (extensible)
 
 ### Environment Profiles
 
 ```yaml
 profiles:
   development:
-    NODE_ENV: development
-    DEBUG: "true"
-    API_URL: http://localhost:3000
+    description: "Development environment with debug enabled"
+    env:
+      NODE_ENV: development
+      DEBUG: "true"
+      API_URL: http://localhost:3000
 
   production:
-    NODE_ENV: production
-    DEBUG: "false"
-    API_URL: https://api.example.com
+    description: "Production environment configuration"
+    env:
+      NODE_ENV: production
+      DEBUG: "false"
+      API_URL: https://api.example.com
 
-# Use profile
+# Activate profile globally
+active_profile: "development"
+# OR use dynamic profile selection
+active_profile: "${DEPLOY_ENV}"
+
 commands:
   - shell: "npm run build"
-    env:
-      profile: development  # Apply development profile
 ```
+
+**Note:** Profile activation uses the `active_profile` field at the root WorkflowConfig level, not at the command level.
 
 ---
 
@@ -505,7 +660,7 @@ map:
 # For MapReduce workflows
 error_policy:
   # What to do when item fails
-  on_item_failure: dlq  # Options: dlq, retry, skip, stop
+  on_item_failure: dlq  # Options: dlq, retry, skip, stop, custom:<handler_name>
 
   # Continue after failures
   continue_on_failure: true
@@ -518,21 +673,47 @@ error_policy:
 
   # How to collect errors
   error_collection: aggregate  # aggregate, immediate, batched:N
+
+  # Circuit breaker configuration
+  circuit_breaker:
+    failure_threshold: 5      # Open circuit after N consecutive failures
+    success_threshold: 2      # Close circuit after N successes in half-open state
+    timeout: 60              # Seconds before attempting half-open state
+    half_open_requests: 3    # Number of test requests in half-open state
+
+  # Retry configuration with backoff strategies
+  retry_config:
+    max_attempts: 3
+    backoff:
+      type: exponential      # Options: fixed, linear, exponential, fibonacci
+      initial: 1000          # Initial delay in milliseconds
+      multiplier: 2          # Multiplier for exponential backoff
+      max_delay: 30000       # Maximum delay in milliseconds
 ```
+
+**Backoff Strategy Options:**
+- `fixed` - Fixed delay between retries: `{type: fixed, delay: 1000}`
+- `linear` - Linear increase: `{type: linear, initial: 1000, increment: 500}`
+- `exponential` - Exponential increase: `{type: exponential, initial: 1000, multiplier: 2}`
+- `fibonacci` - Fibonacci sequence: `{type: fibonacci, initial: 1000}`
+
+**Error Metrics:**
+Prodigy automatically tracks error metrics including total items, successful/failed/skipped counts, failure rate, and can detect failure patterns with suggested remediation actions.
 
 ### Command-Level Error Handling
 
 ```yaml
-# Continue on error
+# Using on_failure with OnFailureConfig
 - shell: "cargo clippy"
-  continue_on_error: true
-
-# Retry configuration
-- shell: "flaky-test.sh"
   on_failure:
-    claude: "/debug-test"
+    command:
+      claude: "/fix-warnings ${shell.output}"
     max_attempts: 3
     fail_workflow: false  # Don't fail entire workflow
+    strategy: exponential  # Backoff strategy
+
+# Note: continue_on_error is only available in legacy CommandMetadata format
+# For WorkflowStepCommand, use on_failure with fail_workflow: false instead
 ```
 
 ### Dead Letter Queue (DLQ)
@@ -644,16 +825,19 @@ env:
 
 profiles:
   production:
-    API_URL: https://api.production.com
+    env:
+      API_URL: https://api.production.com
   staging:
-    API_URL: https://api.staging.com
+    env:
+      API_URL: https://api.staging.com
+
+# Activate profile based on DEPLOY_ENV
+active_profile: "${DEPLOY_ENV}"
 
 commands:
   - shell: "cargo build --release"
-  - shell: "echo 'Deploying to ${DEPLOY_ENV}'"
+  - shell: "echo 'Deploying to ${DEPLOY_ENV} at ${API_URL}'"
   - shell: "deploy.sh ${DEPLOY_ENV}"
-    env:
-      profile: "${DEPLOY_ENV}"
 ```
 
 ### Example 7: Complex MapReduce with Error Handling
@@ -694,6 +878,115 @@ error_policy:
 
 ---
 
+## Advanced Command Features
+
+### Enhanced Retry Configuration
+
+```yaml
+# Retry with exponential backoff
+- shell: "flaky-api-call.sh"
+  retry:
+    max_attempts: 5
+    backoff:
+      type: exponential
+      initial: 1000  # 1 second
+      multiplier: 2
+      max_delay: 30000  # 30 seconds
+      jitter: true
+```
+
+### Working Directory
+
+```yaml
+# Run command in specific directory
+- shell: "npm install"
+  working_dir: "/path/to/project"
+
+- shell: "pwd"  # Will show /path/to/project
+```
+
+### Auto-Commit
+
+```yaml
+# Automatically commit changes if detected
+- claude: "/refactor-code"
+  auto_commit: true
+```
+
+### Step-Level Environment Configuration
+
+Commands support step-specific environment configuration with advanced control:
+
+```yaml
+# Basic step-level environment variables
+- shell: "echo $API_URL"
+  env:
+    API_URL: "https://api.staging.com"
+    DEBUG: "true"
+
+# Advanced step environment features
+- shell: "isolated-command.sh"
+  working_dir: "/tmp/sandbox"  # Change working directory
+  clear_env: true              # Clear all parent environment variables
+  temporary: true              # Restore previous environment after step
+  env:
+    ISOLATED_VAR: "value"
+```
+
+**Step Environment Fields:**
+- `env` - Step-specific environment variables (HashMap<String, String>)
+- `working_dir` - Working directory for command execution
+- `clear_env` - Start with clean environment (default: false)
+- `temporary` - Restore previous environment after step completes (default: false)
+
+### Output File Redirection
+
+```yaml
+# Redirect output to file
+- shell: "cargo test"
+  output_file: "test-results.txt"
+```
+
+### Modular Handlers
+
+```yaml
+# Use custom handler
+- handler:
+    name: "custom-validator"
+    attributes:
+      path: "src/"
+      threshold: 80
+```
+
+### Step Validation
+
+```yaml
+# Validate step success after execution
+- shell: "deploy.sh"
+  step_validate:
+    shell: "curl -f https://app.com/health"
+    timeout: 30
+    on_failure:
+      shell: "rollback.sh"
+```
+
+### Advanced Exit Code Handling
+
+```yaml
+# Map exit codes to full workflow steps
+- shell: "cargo check"
+  on_exit_code:
+    0:
+      shell: "echo 'Build successful'"
+    101:
+      claude: "/fix-compilation-errors"
+      commit_required: true
+    other:
+      shell: "echo 'Unexpected error'"
+```
+
+---
+
 ## Command Reference
 
 ### Command Fields
@@ -706,20 +999,34 @@ All command types support these common fields:
 | `timeout` | number | Command timeout in seconds |
 | `commit_required` | boolean | Whether command should create a git commit |
 | `when` | string | Conditional execution expression |
-| `capture` | string | Variable name to capture output |
-| `capture_format` | string | Format: `string`, `number`, `json`, `lines`, `boolean` |
-| `capture_streams` | object | Which streams to capture (stdout, stderr, etc.) |
+| `capture` | string | Variable name to capture output (replaces deprecated `capture_output`) |
+| `capture_format` | enum | Format: `string`, `number`, `json`, `lines`, `boolean` |
+| `capture_streams` | object | CaptureStreams object with fields: `stdout` (bool), `stderr` (bool), `exit_code` (bool), `success` (bool), `duration` (bool) |
 | `on_success` | object | Command to run on success |
-| `on_failure` | object | Command to run on failure |
+| `on_failure` | object | OnFailureConfig with nested command, max_attempts, fail_workflow, strategy |
+| `on_exit_code` | map | Maps exit codes to full WorkflowStep objects (e.g., `101: {claude: "/fix"}`) |
 | `validate` | object | Validation configuration |
+| `handler` | object | HandlerStep for modular command handlers |
+| `retry` | object | RetryConfig for enhanced retry with exponential backoff and jitter |
+| `working_dir` | string | Working directory for command execution |
+| `env` | map | Command-level environment variables (HashMap<String, String>) |
+| `output_file` | string | Redirect command output to a file |
+| `auto_commit` | boolean | Automatically create commit if changes detected (default: false) |
+| `commit_config` | object | Advanced CommitConfig for commit control |
+| `step_validate` | object | StepValidationSpec for post-execution validation |
+| `skip_validation` | boolean | Skip step validation (default: false) |
+| `validation_timeout` | number | Timeout in seconds for validation operations |
+| `ignore_validation_failure` | boolean | Continue workflow even if validation fails (default: false) |
 
 ### Deprecated Fields
 
-These fields are deprecated but still supported:
+These fields are deprecated but still supported for backward compatibility:
 
 - `test:` - Use `shell:` with `on_failure:` instead
-- `command:` in validation - Use `shell:` instead
-- `capture_output: true/false` - Use `capture:` with variable name instead
+- `command:` in ValidationConfig - Use `shell:` instead
+- `capture_output: true/false` - Use `capture: "variable_name"` instead
+- Nested `commands:` in `agent_template` and `reduce` - Use direct array format instead
+- Legacy variable aliases (`$ARG`, `$ARGUMENT`, `$FILE`, `$FILE_PATH`) - Use modern `${item.*}` syntax
 
 ---
 
