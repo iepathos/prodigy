@@ -2,7 +2,13 @@
 
 Update `docs/workflow-syntax.md` to fix all detected drift issues and ensure documentation matches the current codebase implementation.
 
-## Context
+## Variables
+
+Uses `${drift_summary}` variable containing aggregated drift findings.
+
+## Execute
+
+### Context
 
 You have completed drift analysis across multiple documentation sections. Now you need to update the documentation to fix all identified issues while maintaining quality and clarity.
 

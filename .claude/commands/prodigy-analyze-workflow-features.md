@@ -2,7 +2,13 @@
 
 Perform comprehensive analysis of Prodigy codebase to extract all supported workflow syntax features.
 
-## Context
+## Variables
+
+None required - analyzes codebase and creates .prodigy/syntax-analysis/features.json
+
+## Execute
+
+### Context
 
 You are analyzing the Prodigy workflow orchestration tool to document all currently supported workflow syntax features. This analysis will be used to detect drift between documentation and actual implementation.
 

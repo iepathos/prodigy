@@ -2,7 +2,13 @@
 
 Analyze a specific section of the workflow syntax documentation for drift against the actual codebase implementation.
 
-## Context
+## Variables
+
+Uses `${item.*}` variables from MapReduce workflow containing section details.
+
+## Execute
+
+### Context
 
 You are comparing a section of `docs/workflow-syntax.md` against the actual Prodigy codebase to identify drift (discrepancies between documentation and implementation).
 
