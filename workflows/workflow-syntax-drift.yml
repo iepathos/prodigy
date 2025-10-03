@@ -34,3 +34,16 @@ error_policy:
   continue_on_failure: true
   max_failures: 2
   error_collection: aggregate
+
+# Custom merge workflow - cleanup before merging
+merge:
+  # Step 1: Clean up temporary analysis files
+  - shell: "rm -rf .prodigy/syntax-analysis"
+  - shell: "git add -A && git commit -m 'chore: remove temporary syntax analysis files' || true"
+
+  # Step 2: Fetch latest changes and merge master into worktree
+  - shell: "git fetch origin"
+  - claude: "/merge-master"
+
+  # Step 3: Merge worktree back to master
+  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
