@@ -182,6 +182,23 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="variable-interpolation"><a class="header" href="#variable-interpolation">Variable Interpolation</a></h1>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>Prodigy provides two complementary variable systems:</p>
+<ol>
+<li><strong>Built-in Variables</strong>: Automatically available based on workflow context (workflow state, step info, work items, etc.)</li>
+<li><strong>Custom Captured Variables</strong>: User-defined variables created via the <code>capture:</code> field in commands</li>
+</ol>
+<p>Both systems use the same <code>${variable.name}</code> interpolation syntax and can be freely mixed in your workflows.</p>
+<h2 id="variable-availability-by-phase"><a class="header" href="#variable-availability-by-phase">Variable Availability by Phase</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Variable Category</th><th>Setup</th><th>Map</th><th>Reduce</th><th>Merge</th></tr></thead><tbody>
+<tr><td>Standard Variables</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Output Variables</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Item Variables (<code>${item.*}</code>)</td><td>✗</td><td>✓</td><td>✗</td><td>✗</td></tr>
+<tr><td>Map Aggregation (<code>${map.total}</code>, etc.)</td><td>✗</td><td>✗</td><td>✓</td><td>✗</td></tr>
+<tr><td>Merge Variables</td><td>✗</td><td>✗</td><td>✗</td><td>✓</td></tr>
+<tr><td>Custom Captured Variables</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+</tbody></table>
+</div>
 <h2 id="available-variables"><a class="header" href="#available-variables">Available Variables</a></h2>
 <h3 id="standard-variables"><a class="header" href="#standard-variables">Standard Variables</a></h3>
 <ul>
@@ -194,18 +211,25 @@
 <li><code>${workflow.files_changed}</code> - All files changed in workflow</li>
 </ul>
 <h3 id="output-variables"><a class="header" href="#output-variables">Output Variables</a></h3>
+<p><strong>Primary Output Variables:</strong></p>
 <ul>
-<li><code>${shell.output}</code> - Output from last shell command</li>
+<li><code>${shell.output}</code> - Output (stdout) from last shell command</li>
 <li><code>${claude.output}</code> - Output from last Claude command</li>
 <li><code>${last.output}</code> - Output from last executed command (any type)</li>
 <li><code>${last.exit_code}</code> - Exit code from last command</li>
-<li><code>${handler.output}</code> - Output from handler command</li>
-<li><code>${test.output}</code> - Output from test command</li>
+</ul>
+<p><strong>Note</strong>: <code>${shell.output}</code> is the correct variable name for shell command output. The code uses <code>shell.output</code>, not <code>shell.stdout</code>.</p>
+<p><strong>Legacy/Specialized Output Variables:</strong></p>
+<ul>
+<li><code>${handler.output}</code> - Output from handler command (used in error handling)</li>
+<li><code>${test.output}</code> - Output from test command (used in validation)</li>
 <li><code>${goal_seek.output}</code> - Output from goal-seeking command</li>
 </ul>
+<p><strong>Best Practice</strong>: For most workflows, use custom capture variables (via <code>capture:</code> field) instead of relying on these automatic output variables. This provides explicit naming and better readability.</p>
 <h3 id="mapreduce-variables"><a class="header" href="#mapreduce-variables">MapReduce Variables</a></h3>
+<p><strong>Map Phase Variables</strong> (available in <code>agent_template:</code> commands):</p>
 <ul>
-<li><code>${item}</code> - Current work item in map phase</li>
+<li><code>${item}</code> - Current work item in map phase (scope: map phase only)</li>
 <li><code>${item.value}</code> - Value of current item (for simple items)</li>
 <li><code>${item.path}</code> - Path field of current item</li>
 <li><code>${item.name}</code> - Name field of current item</li>
@@ -213,12 +237,16 @@
 <li><code>${item_index}</code> - Index of current item in the list</li>
 <li><code>${item_total}</code> - Total number of items being processed</li>
 <li><code>${map.key}</code> - Current map key</li>
-<li><code>${map.total}</code> - Total items processed</li>
-<li><code>${map.successful}</code> - Successfully processed items</li>
-<li><code>${map.failed}</code> - Failed items</li>
-<li><code>${map.results}</code> - Aggregated results</li>
 <li><code>${worker.id}</code> - ID of the current worker agent</li>
 </ul>
+<p><strong>Reduce Phase Variables</strong> (available in <code>reduce:</code> commands):</p>
+<ul>
+<li><code>${map.total}</code> - Total items processed across all map agents</li>
+<li><code>${map.successful}</code> - Number of successfully processed items</li>
+<li><code>${map.failed}</code> - Number of failed items</li>
+<li><code>${map.results}</code> - Aggregated results from all map agents (JSON array)</li>
+</ul>
+<p><strong>Note</strong>: <code>${item}</code> and related item variables are only available within the map phase. The aggregation variables (<code>${map.total}</code>, <code>${map.successful}</code>, <code>${map.failed}</code>, <code>${map.results}</code>) are only available in the reduce phase.</p>
 <h3 id="merge-variables"><a class="header" href="#merge-variables">Merge Variables</a></h3>
 <ul>
 <li><code>${merge.worktree}</code> - Worktree name</li>
@@ -237,9 +265,10 @@
 </ul>
 <h3 id="git-context-variables"><a class="header" href="#git-context-variables">Git Context Variables</a></h3>
 <ul>
-<li><code>${step.commits}</code> - Commits in current step</li>
-<li><code>${workflow.commits}</code> - All workflow commits</li>
+<li><code>${step.commits}</code> - Commits in current step (array of commit objects)</li>
+<li><code>${workflow.commits}</code> - All workflow commits (array of commit objects)</li>
 </ul>
+<p><strong>Note</strong>: These are arrays of commit data. Use in foreach loops or access individual commits with array indexing. Each commit object contains fields like hash, message, timestamp, etc.</p>
 <h3 id="legacy-variable-aliases"><a class="header" href="#legacy-variable-aliases">Legacy Variable Aliases</a></h3>
 <p>These legacy aliases are supported for backward compatibility but should be replaced with modern equivalents:</p>
 <ul>
@@ -249,28 +278,102 @@
 <p><strong>Note:</strong> Use the modern <code>${item.*}</code> syntax in new workflows instead of legacy aliases.</p>
 <hr />
 <h2 id="custom-variable-capture"><a class="header" href="#custom-variable-capture">Custom Variable Capture</a></h2>
+<p>Custom capture variables allow you to save command output with explicit names for later use. This is the recommended approach for most workflows instead of relying on automatic output variables.</p>
+<h3 id="basic-capture-examples"><a class="header" href="#basic-capture-examples">Basic Capture Examples</a></h3>
 <pre><code class="language-yaml"># Capture to custom variable
 - shell: "ls -la | wc -l"
   capture: "file_count"
-  capture_format: number  # number, string, json, lines, boolean
+  capture_format: number  # Default: string
 
 # Use in next command
 - shell: "echo 'Found ${file_count} files'"
+</code></pre>
+<h3 id="capture-formats"><a class="header" href="#capture-formats">Capture Formats</a></h3>
+<p>The <code>capture_format</code> field determines how output is parsed and stored:</p>
+<pre><code class="language-yaml"># String format (default) - stores raw output
+- shell: "echo 'Hello World'"
+  capture: "greeting"
+  capture_format: string
+# Access: ${greeting} → "Hello World"
 
-# Capture specific streams
+# Number format - parses numeric output
+- shell: "echo 42"
+  capture: "answer"
+  capture_format: number
+# Access: ${answer} → 42 (as number, not string)
+
+# Boolean format - converts to true/false
+- shell: "[ -f README.md ] &amp;&amp; echo true || echo false"
+  capture: "has_readme"
+  capture_format: boolean
+# Access: ${has_readme} → true or false
+
+# JSON format - parses JSON output
+- shell: "echo '{\"name\": \"project\", \"version\": \"1.0\"}'"
+  capture: "package_info"
+  capture_format: json
+# Access nested fields: ${package_info.name} → "project"
+# Access nested fields: ${package_info.version} → "1.0"
+
+# Lines format - splits into array by newlines
+- shell: "ls *.md"
+  capture: "markdown_files"
+  capture_format: lines
+# Access: ${markdown_files} → array of filenames
+</code></pre>
+<h3 id="capture-streams"><a class="header" href="#capture-streams">Capture Streams</a></h3>
+<p>Control which output streams to capture (useful for detailed command analysis):</p>
+<pre><code class="language-yaml"># Capture specific streams
 - shell: "cargo test 2&gt;&amp;1"
   capture: "test_results"
   capture_streams:
-    stdout: true
-    stderr: true
-    exit_code: true
-    success: true
-    duration: true  # Capture execution duration
+    stdout: true      # Default: true
+    stderr: true      # Default: false
+    exit_code: true   # Default: true
+    success: true     # Default: true
+    duration: true    # Default: true
 
-# Access captured data
+# Access captured stream data
 - shell: "echo 'Exit code: ${test_results.exit_code}'"
 - shell: "echo 'Success: ${test_results.success}'"
 - shell: "echo 'Duration: ${test_results.duration}s'"
+</code></pre>
+<p><strong>Default Behavior</strong>: By default, <code>stdout</code>, <code>exit_code</code>, <code>success</code>, and <code>duration</code> are captured (all <code>true</code>). Set <code>stderr: true</code> to also capture error output.</p>
+<h3 id="nested-json-field-access"><a class="header" href="#nested-json-field-access">Nested JSON Field Access</a></h3>
+<p>For JSON-formatted captures, use dot notation to access nested fields:</p>
+<pre><code class="language-yaml"># Example: API response with nested data
+- shell: "curl -s https://api.example.com/user/123"
+  capture: "user"
+  capture_format: json
+
+# Access nested fields with dot notation
+- shell: "echo 'Name: ${user.profile.name}'"
+- shell: "echo 'Email: ${user.contact.email}'"
+- shell: "echo 'City: ${user.address.city}'"
+</code></pre>
+<h3 id="variable-scope-and-precedence"><a class="header" href="#variable-scope-and-precedence">Variable Scope and Precedence</a></h3>
+<p>Variables follow a parent/child scope hierarchy:</p>
+<ol>
+<li><strong>Local Scope</strong>: Variables defined in the current command block</li>
+<li><strong>Parent Scope</strong>: Variables from enclosing blocks (foreach, map phase, etc.)</li>
+<li><strong>Built-in Variables</strong>: Standard workflow context variables</li>
+</ol>
+<p><strong>Precedence</strong>: Local variables override parent scope variables, which override built-in variables.</p>
+<pre><code class="language-yaml"># Parent scope
+- shell: "echo 'outer'"
+  capture: "message"
+
+# Child scope (foreach creates new scope)
+- foreach:
+    items: [1, 2, 3]
+    commands:
+      # This creates a local 'message' that shadows parent
+      - shell: "echo 'inner-${item}'"
+        capture: "message"
+      - shell: "echo ${message}"  # Uses local 'message'
+
+# After foreach, parent 'message' is still accessible
+- shell: "echo ${message}"  # Uses parent 'message' → "outer"
 </code></pre>
 
                     </main>

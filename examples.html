@@ -212,7 +212,7 @@ setup:
 
 map:
   input: items.json
-  json_path: "$.[:1]"
+  json_path: "$[*]"  # Process all items
   agent_template:
     - claude: "/review-file ${item.path}"
     - shell: "cargo check ${item.path}"
@@ -224,8 +224,10 @@ reduce:
 <hr />
 <h2 id="example-4-conditional-deployment"><a class="header" href="#example-4-conditional-deployment">Example 4: Conditional Deployment</a></h2>
 <pre><code class="language-yaml">- shell: "cargo test --quiet &amp;&amp; echo true || echo false"
-  capture: "tests_passed"
-  capture_format: boolean
+  outputs:
+    tests_passed:
+      from_output: true
+      format: boolean
 
 - shell: "cargo build --release"
   when: "${tests_passed}"
@@ -240,35 +242,39 @@ reduce:
 <pre><code class="language-yaml">- claude: "/implement-feature auth"
   commit_required: true
   validate:
-    - shell: "cargo test auth"
-    - shell: "cargo clippy -- -D warnings"
-    - claude: "/validate-implementation --output validation.json"
-      result_file: "validation.json"
-      threshold: 90
-      on_incomplete:
-        - claude: "/complete-gaps ${validation.gaps}"
-          commit_required: true
-        max_attempts: 2
+    commands:
+      - shell: "cargo test auth"
+      - shell: "cargo clippy -- -D warnings"
+      - claude: "/validate-implementation --output validation.json"
+    result_file: "validation.json"
+    threshold: 90
+    on_incomplete:
+      claude: "/complete-gaps ${validation.gaps}"
+      commit_required: true
+      max_attempts: 2
 </code></pre>
 <hr />
 <h2 id="example-6-environment-aware-workflow"><a class="header" href="#example-6-environment-aware-workflow">Example 6: Environment-Aware Workflow</a></h2>
-<pre><code class="language-yaml">env:
-  DEPLOY_ENV:
-    condition: "${branch} == 'main'"
-    when_true: "production"
-    when_false: "staging"
+<pre><code class="language-yaml"># Environment configuration with conditional logic
+environment:
+  global_env:
+    DEPLOY_ENV:
+      condition: "${branch} == 'main'"
+      when_true: "production"
+      when_false: "staging"
 
-profiles:
-  production:
-    env:
-      API_URL: https://api.production.com
-  staging:
-    env:
-      API_URL: https://api.staging.com
+  profiles:
+    production:
+      env:
+        API_URL: https://api.production.com
+    staging:
+      env:
+        API_URL: https://api.staging.com
 
-# Activate profile based on DEPLOY_ENV
-active_profile: "${DEPLOY_ENV}"
+  # Activate profile based on DEPLOY_ENV
+  active_profile: "${DEPLOY_ENV}"
 
+# Workflow commands
 commands:
   - shell: "cargo build --release"
   - shell: "echo 'Deploying to ${DEPLOY_ENV} at ${API_URL}'"
@@ -296,7 +302,6 @@ map:
     - shell: "cargo test"
       on_failure:
         claude: "/debug-and-fix"
-        max_attempts: 2
 
 reduce:
   - shell: "debtmap analyze . --output debt-after.json"

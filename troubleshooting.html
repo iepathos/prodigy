@@ -209,13 +209,13 @@
 </ul>
 <p><strong>Solutions:</strong></p>
 <ul>
-<li>Match <code>capture_format</code> to output type:
+<li>Match <code>capture_format</code> to output type and how it transforms output:
 <ul>
-<li><code>string</code> for text output</li>
-<li><code>number</code> for numeric values</li>
-<li><code>json</code> for JSON output</li>
-<li><code>lines</code> for multi-line output as array</li>
-<li><code>boolean</code> for true/false values</li>
+<li><code>string</code> - Captures raw text output as-is</li>
+<li><code>number</code> - Parses output as numeric value (int or float)</li>
+<li><code>json</code> - Parses JSON and allows JSONPath queries on the result</li>
+<li><code>lines</code> - Splits multi-line output into an array</li>
+<li><code>boolean</code> - Evaluates to true/false based on success status</li>
 </ul>
 </li>
 <li>Test command output manually first</li>
@@ -223,9 +223,11 @@
 <pre><code class="language-yaml">- shell: "cargo test 2&gt;&amp;1"
   capture: "test_output"
   capture_streams:
-    stdout: true
-    stderr: true
-    exit_code: true
+    stdout: true      # Capture standard output
+    stderr: true      # Capture error output
+    exit_code: true   # Capture exit code
+    success: true     # Capture success boolean
+    duration: true    # Capture execution duration
 </code></pre>
 </li>
 </ul>
@@ -237,16 +239,30 @@
 <li>Validate command not outputting <code>score: N</code> format</li>
 <li>Threshold too high</li>
 <li>Score calculation incorrect</li>
+<li>Validation command not configured correctly</li>
 </ul>
 <p><strong>Solutions:</strong></p>
 <ul>
 <li>Ensure validate command outputs exactly <code>score: N</code> (where N is 0-100)</li>
+<li>Validation is part of goal_seek commands with these fields:
+<ul>
+<li><code>validate</code> - Command that outputs score</li>
+<li><code>threshold</code> - Minimum score to consider success (0-100)</li>
+<li><code>max_iterations</code> - Maximum attempts before giving up</li>
+<li><code>on_incomplete</code> - Commands to run when score below threshold</li>
+</ul>
+</li>
 <li>Test validate command independently</li>
 <li>Lower threshold temporarily for debugging</li>
 <li>Example correct format:
-<pre><code class="language-yaml">validate: |
-  result=$(run-checks.sh | grep 'Percentage' | sed 's/.*: \([0-9]*\)%.*/\1/')
-  echo "score: $result"
+<pre><code class="language-yaml">- goal_seek:
+    validate: |
+      result=$(run-checks.sh | grep 'Percentage' | sed 's/.*: \([0-9]*\)%.*/\1/')
+      echo "score: $result"
+    threshold: 80
+    max_iterations: 5
+    on_incomplete:
+      - claude: "/fix-issues"
 </code></pre>
 </li>
 </ul>
@@ -258,6 +274,7 @@
 <li>Incorrect JSONPath expression</li>
 <li>Input file format doesn’t match expectations</li>
 <li>Input file not generated in setup phase</li>
+<li>JSONPath syntax errors</li>
 </ul>
 <p><strong>Solutions:</strong></p>
 <ul>
@@ -268,6 +285,14 @@
 <li>Verify input file exists and contains expected structure</li>
 <li>Check setup phase completed successfully</li>
 <li>Use simpler JSONPath first: <code>$[*]</code> to get all items</li>
+<li>Common JSONPath mistakes:
+<ul>
+<li>Wrong bracket syntax: Use <code>$.items[*]</code> not <code>$.items[]</code></li>
+<li>Missing root <code>$</code>: Always start with <code>$</code></li>
+<li>Incorrect filter syntax: <code>$[?(@.score &gt;= 5)]</code> for filtering</li>
+<li>Nested paths: <code>$.data.items[*].field</code> for deep structures</li>
+</ul>
+</li>
 </ul>
 <hr />
 <h3 id="5-timeout-errors"><a class="header" href="#5-timeout-errors">5. Timeout errors</a></h3>
@@ -280,16 +305,17 @@
 </ul>
 <p><strong>Solutions:</strong></p>
 <ul>
-<li>Increase timeout values:
+<li>Increase timeout values using duration strings:
 <pre><code class="language-yaml">- shell: "slow-command.sh"
-  timeout: 600  # 10 minutes
+  timeout: "600s"  # or "10m" - uses humantime duration format
 </code></pre>
 </li>
-<li>For MapReduce, increase agent timeout:
+<li>For MapReduce, increase agent timeout (note: this uses seconds as a number):
 <pre><code class="language-yaml">map:
-  agent_timeout_secs: 600
+  agent_timeout_secs: 600  # Takes a number (seconds) not a duration string
 </code></pre>
 </li>
+<li><strong>Note:</strong> <code>agent_timeout_secs</code> takes a number (seconds) while most other timeout fields use duration strings like “10m”</li>
 <li>Debug hanging commands by running them manually</li>
 <li>Add logging to identify slow steps</li>
 </ul>
@@ -328,23 +354,100 @@
 </ul>
 <p><strong>Solutions:</strong></p>
 <ul>
-<li>Use correct merge format:
+<li>
+<p>Both merge formats are valid - choose based on needs:</p>
+<p><strong>Simplified format (direct list of commands):</strong></p>
 <pre><code class="language-yaml">merge:
   - shell: "git fetch origin"
   - claude: "/merge-worktree ${merge.source_branch}"
 </code></pre>
-</li>
-<li>Increase merge timeout:
+<p><strong>Full format (with timeout configuration):</strong></p>
 <pre><code class="language-yaml">merge:
   commands:
     - shell: "slow-merge-validation.sh"
-  timeout: 600
+  timeout: "600s"  # Duration string format
 </code></pre>
 </li>
-<li>Check logs for merge execution errors</li>
+<li>
+<p>Use the full format when you need to set a custom timeout</p>
+</li>
+<li>
+<p>Check logs for merge execution errors</p>
+</li>
+</ul>
+<hr />
+<h3 id="8-commands-failing-without-error-handler"><a class="header" href="#8-commands-failing-without-error-handler">8. Commands failing without error handler</a></h3>
+<p><strong>Symptom:</strong> Command fails and workflow stops immediately without recovery.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>No <code>on_failure</code> handler configured</li>
+<li>Error not being caught by handler</li>
+<li>Handler itself failing</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Add <code>on_failure</code> handler to commands that might fail:
+<pre><code class="language-yaml">- shell: "risky-command.sh"
+  on_failure:
+    - shell: "echo 'Command failed, attempting recovery'"
+    - claude: "/fix-issue"
+</code></pre>
+</li>
+<li>Commands without <code>on_failure</code> will stop the workflow on first error</li>
+<li>Check that your handler commands don’t also fail</li>
+<li>Use shell exit codes to control failure: <code>command || exit 0</code> to ignore failures</li>
+</ul>
+<hr />
+<h3 id="9-error-policy-configuration-issues"><a class="header" href="#9-error-policy-configuration-issues">9. Error policy configuration issues</a></h3>
+<p><strong>Symptom:</strong> Retry, backoff, or circuit breaker not working as expected.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Incorrect Duration format for timeouts</li>
+<li>Wrong BackoffStrategy enum variant</li>
+<li>Invalid retry_config structure</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Use Duration strings for all timeout values:
+<pre><code class="language-yaml">error_policy:
+  retry_config:
+    max_attempts: 3
+    initial_delay: "1s"    # Not 1000
+    max_delay: "30s"       # Use duration strings
+  circuit_breaker:
+    timeout: "60s"         # Not 60
+    failure_threshold: 5
+</code></pre>
+</li>
+<li>Valid BackoffStrategy values:
+<ul>
+<li><code>constant</code> - Same delay every time</li>
+<li><code>linear</code> - Increases linearly</li>
+<li><code>exponential</code> - Doubles each time</li>
+<li><code>fibonacci</code> - Fibonacci sequence</li>
+</ul>
+</li>
+<li>Circuit breaker requires both timeout and failure_threshold</li>
 </ul>
 <hr />
 <h2 id="debug-tips"><a class="header" href="#debug-tips">Debug Tips</a></h2>
+<h3 id="use-verbosity-flags-for-debugging"><a class="header" href="#use-verbosity-flags-for-debugging">Use verbosity flags for debugging</a></h3>
+<p>Prodigy supports multiple verbosity levels for debugging:</p>
+<pre><code class="language-bash"># Default: Clean output, no Claude streaming
+prodigy run workflow.yml
+
+# -v: Shows Claude streaming JSON output (useful for debugging Claude interactions)
+prodigy run workflow.yml -v
+
+# -vv: Adds debug-level logs
+prodigy run workflow.yml -vv
+
+# -vvv: Adds trace-level logs (very detailed)
+prodigy run workflow.yml -vvv
+
+# Force Claude streaming regardless of verbosity
+PRODIGY_CLAUDE_CONSOLE_OUTPUT=true prodigy run workflow.yml
+</code></pre>
 <h3 id="enable-verbose-output-in-shell-commands"><a class="header" href="#enable-verbose-output-in-shell-commands">Enable verbose output in shell commands</a></h3>
 <pre><code class="language-yaml">- shell: "set -x; your-command"
 </code></pre>
@@ -375,8 +478,12 @@ jq '$.items[*]' items.json
 jq '$.items[] | select(.score &gt;= 5)' items.json
 </code></pre>
 <h3 id="validate-workflow-syntax"><a class="header" href="#validate-workflow-syntax">Validate workflow syntax</a></h3>
-<pre><code class="language-bash"># Use prodigy to validate your workflow file
-prodigy validate workflow.yml
+<pre><code class="language-bash"># Workflows are validated automatically when loaded
+# Check for syntax errors by attempting to run
+prodigy run workflow.yml
+
+# View the validation result file (if workflow validation completed)
+cat .prodigy/validation-result.json
 </code></pre>
 <h3 id="check-dlq-for-failed-items"><a class="header" href="#check-dlq-for-failed-items">Check DLQ for failed items</a></h3>
 <pre><code class="language-bash"># List failed items
@@ -384,6 +491,15 @@ prodigy dlq list &lt;job_id&gt;
 
 # View failure details
 prodigy dlq inspect &lt;job_id&gt;
+
+# Retry failed items (primary recovery operation)
+prodigy dlq retry &lt;job_id&gt;
+
+# Retry with custom parallelism
+prodigy dlq retry &lt;job_id&gt; --max-parallel 10
+
+# Dry run to see what would be retried
+prodigy dlq retry &lt;job_id&gt; --dry-run
 </code></pre>
 <h3 id="monitor-mapreduce-progress"><a class="header" href="#monitor-mapreduce-progress">Monitor MapReduce progress</a></h3>
 <pre><code class="language-bash"># View events
@@ -391,11 +507,17 @@ prodigy events &lt;job_id&gt;
 
 # Check checkpoints
 prodigy checkpoints list
+
+# View event logs directly
+ls ~/.prodigy/events/
+
+# Check session state
+cat .prodigy/session_state.json
 </code></pre>
 <hr />
 <h2 id="faq"><a class="header" href="#faq">FAQ</a></h2>
 <h3 id="q-why-are-my-changes-not-being-committed"><a class="header" href="#q-why-are-my-changes-not-being-committed">Q: Why are my changes not being committed?</a></h3>
-<p><strong>A:</strong> Add <code>commit_required: true</code> to your command or use <code>auto_commit: true</code> for automatic commits when changes are detected.</p>
+<p><strong>A:</strong> Add <code>commit_required: true</code> to your command or use <code>auto_commit: true</code> for automatic commits when changes are detected. Note: <code>auto_commit</code> can be set at the workflow level (applies to all steps) or per-step. When true, Prodigy creates commits automatically when git diff detects changes.</p>
 <h3 id="q-how-do-i-retry-failed-mapreduce-items"><a class="header" href="#q-how-do-i-retry-failed-mapreduce-items">Q: How do I retry failed MapReduce items?</a></h3>
 <p><strong>A:</strong> Use the DLQ retry command:</p>
 <pre><code class="language-bash">prodigy dlq retry &lt;job_id&gt;
@@ -407,8 +529,8 @@ prodigy checkpoints list
 <pre><code class="language-yaml">map:
   filter: "item.score &gt;= 5"
 </code></pre>
-<h3 id="q-whats-the-difference-between-on_failure-and-on_exit_code"><a class="header" href="#q-whats-the-difference-between-on_failure-and-on_exit_code">Q: What’s the difference between <code>on_failure</code> and <code>on_exit_code</code>?</a></h3>
-<p><strong>A:</strong> <code>on_failure</code> runs for any non-zero exit code. <code>on_exit_code</code> lets you handle specific exit codes differently.</p>
+<h3 id="q-whats-the-difference-between-on_failure-and-on_incomplete"><a class="header" href="#q-whats-the-difference-between-on_failure-and-on_incomplete">Q: What’s the difference between <code>on_failure</code> and <code>on_incomplete</code>?</a></h3>
+<p><strong>A:</strong> <code>on_failure</code> runs when a command exits with a non-zero code. <code>on_incomplete</code> is used in goal_seek commands and runs when the validation score is below the threshold.</p>
 <h3 id="q-how-do-i-run-commands-in-parallel"><a class="header" href="#q-how-do-i-run-commands-in-parallel">Q: How do I run commands in parallel?</a></h3>
 <p><strong>A:</strong> Use MapReduce mode with <code>max_parallel</code>:</p>
 <pre><code class="language-yaml">mode: mapreduce
@@ -420,18 +542,79 @@ map:
 <pre><code class="language-yaml">- shell: "prodigy run other-workflow.yml"
 </code></pre>
 <hr />
+<h2 id="common-error-messages"><a class="header" href="#common-error-messages">Common Error Messages</a></h2>
+<h3 id="mapreduceerror-types"><a class="header" href="#mapreduceerror-types">MapReduceError Types</a></h3>
+<p>Prodigy uses structured errors to help diagnose issues:</p>
+<p><strong>Job-level errors:</strong></p>
+<ul>
+<li><code>JobNotFound</code> - Job ID doesn’t exist, check job_id spelling or if job was cleaned up</li>
+<li><code>InvalidJobConfiguration</code> - Workflow YAML has configuration errors</li>
+<li><code>WorktreeSetupFailed</code> - Failed to create git worktree, check disk space and git status</li>
+</ul>
+<p><strong>Agent-level errors:</strong></p>
+<ul>
+<li><code>AgentFailed</code> - Individual agent execution failed, check DLQ for details</li>
+<li><code>AgentTimeout</code> - Agent exceeded timeout, increase agent_timeout_secs</li>
+<li><code>CommandExecutionFailed</code> - Shell or Claude command failed in agent</li>
+</ul>
+<p><strong>Resource errors:</strong></p>
+<ul>
+<li><code>WorktreeMergeConflict</code> - Git merge conflict when merging agent results</li>
+<li><code>ResourceExhausted</code> - Out of disk space, memory, or other resources</li>
+<li><code>StorageError</code> - Failed to read/write to storage, check permissions</li>
+</ul>
+<p><strong>Recovery actions:</strong></p>
+<ul>
+<li>Check event logs: <code>prodigy events &lt;job_id&gt;</code></li>
+<li>Review DLQ: <code>prodigy dlq list &lt;job_id&gt;</code></li>
+<li>View detailed state: <code>cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/checkpoint.json</code></li>
+</ul>
+<h3 id="checkpoint-and-resume-errors"><a class="header" href="#checkpoint-and-resume-errors">Checkpoint and Resume Errors</a></h3>
+<p><strong>“Checkpoint not found”</strong></p>
+<ul>
+<li>Cause: No checkpoint file exists for this job</li>
+<li>Solution: Job may have completed or checkpoint was deleted, start fresh</li>
+</ul>
+<p><strong>“Failed to resume from checkpoint”</strong></p>
+<ul>
+<li>Cause: Checkpoint file is corrupted or format changed</li>
+<li>Solution: Check checkpoint JSON syntax, may need to start over</li>
+</ul>
+<p><strong>“Worktree conflicts during merge”</strong></p>
+<ul>
+<li>Cause: Git merge conflicts when combining agent results</li>
+<li>Solution: Resolve conflicts manually in worktree, then retry merge</li>
+</ul>
+<h3 id="variable-and-capture-errors"><a class="header" href="#variable-and-capture-errors">Variable and Capture Errors</a></h3>
+<p><strong>“Variable not found: ${variable_name}”</strong></p>
+<ul>
+<li>Cause: Variable not defined or out of scope</li>
+<li>Solution: Check variable is defined before use, verify scope (workflow vs item vs capture)</li>
+</ul>
+<p><strong>“Failed to parse capture output as {format}”</strong></p>
+<ul>
+<li>Cause: Command output doesn’t match capture_format</li>
+<li>Solution: Check output manually, adjust capture_format or command output</li>
+</ul>
+<p><strong>“JSONPath expression failed”</strong></p>
+<ul>
+<li>Cause: Invalid JSONPath syntax or doesn’t match data structure</li>
+<li>Solution: Test with <code>jq</code> command, simplify expression, check input data format</li>
+</ul>
+<hr />
 <h2 id="best-practices-for-debugging"><a class="header" href="#best-practices-for-debugging">Best Practices for Debugging</a></h2>
 <ol>
 <li><strong>Start simple</strong>: Test commands individually before adding to workflow</li>
+<li><strong>Use verbosity flags</strong>: Use <code>-v</code> to see Claude interactions, <code>-vv</code> for debug logs, <code>-vvv</code> for trace</li>
 <li><strong>Use echo liberally</strong>: Debug variable values with echo statements</li>
-<li><strong>Check logs</strong>: Review Prodigy logs for detailed error messages</li>
+<li><strong>Check logs and state</strong>: Review event logs (<code>~/.prodigy/events/</code>) and session state (<code>.prodigy/session_state.json</code>)</li>
 <li><strong>Test incrementally</strong>: Add commands one at a time and test after each</li>
-<li><strong>Validate input data</strong>: Ensure JSON files and data formats are correct</li>
-<li><strong>Use dry runs</strong>: Test workflows without actual execution when possible</li>
+<li><strong>Validate input data</strong>: Ensure JSON files and data formats are correct before MapReduce</li>
+<li><strong>Check DLQ regularly</strong>: Monitor failed items with <code>prodigy dlq list</code> and retry when appropriate</li>
 <li><strong>Monitor resources</strong>: Check disk space, memory, and CPU during execution</li>
 <li><strong>Version control</strong>: Commit working workflows before making changes</li>
-<li><strong>Read error messages</strong>: Error messages often contain the solution</li>
-<li><strong>Ask for help</strong>: Include full error messages and workflow config when seeking support</li>
+<li><strong>Read error messages carefully</strong>: MapReduceError types indicate specific failure modes</li>
+<li><strong>Ask for help</strong>: Include full error messages, workflow config, and verbosity output when seeking support</li>
 </ol>
 
                     </main>

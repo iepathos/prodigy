@@ -182,60 +182,41 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="advanced-features"><a class="header" href="#advanced-features">Advanced Features</a></h1>
+<p>This chapter covers advanced workflow features for building sophisticated automation pipelines. These features enable conditional execution, parallel processing, validation, and complex control flow.</p>
+<hr />
 <h2 id="conditional-execution"><a class="header" href="#conditional-execution">Conditional Execution</a></h2>
-<pre><code class="language-yaml"># Based on expression
+<p>Control when commands execute based on expressions or previous command results.</p>
+<h3 id="expression-based-conditions"><a class="header" href="#expression-based-conditions">Expression-Based Conditions</a></h3>
+<p>Use the <code>when</code> field to conditionally execute commands based on variable values:</p>
+<pre><code class="language-yaml"># Execute only when variable is true
 - shell: "cargo build --release"
   when: "${tests_passed}"
 
-# On success
-- shell: "cargo test"
+# Execute based on complex expression
+- shell: "deploy.sh"
+  when: "${environment == 'production' &amp;&amp; tests_passed}"
+</code></pre>
+<h3 id="on-success-handlers"><a class="header" href="#on-success-handlers">On Success Handlers</a></h3>
+<p>Execute follow-up commands when a command succeeds:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
   on_success:
     shell: "cargo bench"
-
-# On failure
-- shell: "cargo clippy"
+</code></pre>
+<h3 id="on-failure-handlers"><a class="header" href="#on-failure-handlers">On Failure Handlers</a></h3>
+<p>Handle failures with automatic remediation:</p>
+<pre><code class="language-yaml">- shell: "cargo clippy"
   on_failure:
     claude: "/fix-warnings"
     max_attempts: 3
     fail_workflow: false
-
-# On exit code
-- shell: "cargo check"
-  on_exit_code:
-    0:
-      shell: "echo 'Success!'"
-    101:
-      claude: "/fix-compilation-errors"
 </code></pre>
-<hr />
-<h2 id="output-capture-formats"><a class="header" href="#output-capture-formats">Output Capture Formats</a></h2>
-<pre><code class="language-yaml"># String (default)
-- shell: "git rev-parse HEAD"
-  capture: "commit_hash"
-  capture_format: string
-
-# Number
-- shell: "wc -l &lt; file.txt"
-  capture: "line_count"
-  capture_format: number
-
-# JSON
-- shell: "cargo metadata --format-version 1"
-  capture: "metadata"
-  capture_format: json
-
-# Lines (array)
-- shell: "find . -name '*.rs'"
-  capture: "rust_files"
-  capture_format: lines
-
-# Boolean
-- shell: "test -f README.md &amp;&amp; echo true || echo false"
-  capture: "has_readme"
-  capture_format: boolean
-</code></pre>
-<hr />
-<h2 id="nested-conditionals"><a class="header" href="#nested-conditionals">Nested Conditionals</a></h2>
+<p>The <code>on_failure</code> configuration supports:</p>
+<ul>
+<li><code>max_attempts</code>: Maximum retry attempts (default: 1)</li>
+<li><code>fail_workflow</code>: Whether to fail entire workflow on final failure (default: true)</li>
+</ul>
+<h3 id="nested-conditionals"><a class="header" href="#nested-conditionals">Nested Conditionals</a></h3>
+<p>Chain multiple levels of conditional execution:</p>
 <pre><code class="language-yaml">- shell: "cargo check"
   on_success:
     shell: "cargo build --release"
@@ -245,84 +226,322 @@
         claude: "/debug-failures '${shell.output}'"
 </code></pre>
 <hr />
+<h2 id="output-capture-and-variable-management"><a class="header" href="#output-capture-and-variable-management">Output Capture and Variable Management</a></h2>
+<p>Capture command output in different formats for use in subsequent steps.</p>
+<h3 id="capture-variable"><a class="header" href="#capture-variable">Capture Variable</a></h3>
+<p>Capture output to a named variable using the <code>capture_output</code> field:</p>
+<pre><code class="language-yaml"># Capture as string (backward compatible)
+- shell: "git rev-parse HEAD"
+  capture_output: "commit_hash"
+
+# Reference in later steps
+- shell: "echo 'Commit: ${commit_hash}'"
+</code></pre>
+<h3 id="capture-formats"><a class="header" href="#capture-formats">Capture Formats</a></h3>
+<p>Control how output is parsed with <code>capture_format</code>:</p>
+<pre><code class="language-yaml"># String (default) - trimmed output as single string
+- shell: "git rev-parse HEAD"
+  capture_output: "commit_hash"
+  capture_format: "string"
+
+# Number - parse output as number
+- shell: "wc -l &lt; file.txt"
+  capture_output: "line_count"
+  capture_format: "number"
+
+# JSON - parse output as JSON object
+- shell: "cargo metadata --format-version 1"
+  capture_output: "metadata"
+  capture_format: "json"
+
+# Lines - split output into array of lines
+- shell: "find . -name '*.rs'"
+  capture_output: "rust_files"
+  capture_format: "lines"
+
+# Boolean - parse "true"/"false" as boolean
+- shell: "test -f README.md &amp;&amp; echo true || echo false"
+  capture_output: "has_readme"
+  capture_format: "boolean"
+</code></pre>
+<h3 id="stream-capture-control"><a class="header" href="#stream-capture-control">Stream Capture Control</a></h3>
+<p>Control which streams to capture using <code>capture_streams</code>:</p>
+<pre><code class="language-yaml"># Capture only stdout (default)
+- shell: "cargo build"
+  capture_output: "build_log"
+  capture_streams: "stdout"
+
+# Capture only stderr
+- shell: "cargo test"
+  capture_output: "errors"
+  capture_streams: "stderr"
+
+# Capture both streams
+- shell: "npm install"
+  capture_output: "full_output"
+  capture_streams: "both"
+</code></pre>
+<h3 id="output-file-redirection"><a class="header" href="#output-file-redirection">Output File Redirection</a></h3>
+<p>Write command output directly to a file:</p>
+<pre><code class="language-yaml"># Redirect output to file
+- shell: "cargo test --verbose"
+  output_file: "test-results.txt"
+
+# File is written to working directory
+# Can be combined with capture_output to save and use output
+</code></pre>
+<hr />
+<h2 id="step-identification"><a class="header" href="#step-identification">Step Identification</a></h2>
+<p>Assign unique IDs to steps for referencing their outputs:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  id: "test-step"
+  capture_output: "test_results"
+
+# Reference step output by ID
+- shell: "echo 'Tests: ${test-step.output}'"
+</code></pre>
+<hr />
 <h2 id="timeout-configuration"><a class="header" href="#timeout-configuration">Timeout Configuration</a></h2>
-<pre><code class="language-yaml"># Command-level timeout
+<p>Set execution timeouts at the command level:</p>
+<pre><code class="language-yaml"># Command-level timeout (in seconds)
 - shell: "cargo bench"
   timeout: 600  # 10 minutes
 
-# MapReduce agent timeout
-map:
-  agent_timeout_secs: 300
-  timeout_config:
-    default: 300
-    per_command:
-      "cargo test": 600
-      "cargo bench": 1800
+# Timeout for long-running operations
+- claude: "/analyze-codebase"
+  timeout: 1800  # 30 minutes
+</code></pre>
+<p><strong>Note</strong>: Timeouts are only supported at the individual command level, not for MapReduce agents.</p>
+<hr />
+<h2 id="implementation-validation"><a class="header" href="#implementation-validation">Implementation Validation</a></h2>
+<p>Validate that implementations meet requirements using the <code>validate</code> field.</p>
+<h3 id="basic-validation"><a class="header" href="#basic-validation">Basic Validation</a></h3>
+<p>Run validation commands after a step completes:</p>
+<pre><code class="language-yaml">- claude: "/implement-feature"
+  validate:
+    shell: "cargo test"
+    threshold: 100  # Require 100% completion
+</code></pre>
+<h3 id="validation-with-claude"><a class="header" href="#validation-with-claude">Validation with Claude</a></h3>
+<p>Use Claude to validate implementation quality:</p>
+<pre><code class="language-yaml">- shell: "generate-code.sh"
+  validate:
+    claude: "/verify-implementation"
+    threshold: 95
+</code></pre>
+<h3 id="multi-step-validation"><a class="header" href="#multi-step-validation">Multi-Step Validation</a></h3>
+<p>Run multiple validation commands in sequence:</p>
+<pre><code class="language-yaml">- claude: "/refactor"
+  validate:
+    commands:
+      - shell: "cargo test"
+      - shell: "cargo clippy"
+      - shell: "cargo fmt --check"
+    threshold: 100
+</code></pre>
+<h3 id="validation-with-result-files"><a class="header" href="#validation-with-result-files">Validation with Result Files</a></h3>
+<p>Read validation results from a file instead of stdout:</p>
+<pre><code class="language-yaml">- claude: "/implement-feature"
+  validate:
+    shell: "run-validator.sh"
+    result_file: "validation-results.json"
+    threshold: 95
+</code></pre>
+<h3 id="handling-incomplete-implementations"><a class="header" href="#handling-incomplete-implementations">Handling Incomplete Implementations</a></h3>
+<p>Automatically remediate when validation fails:</p>
+<pre><code class="language-yaml">- claude: "/implement-spec"
+  validate:
+    shell: "check-completeness.sh"
+    threshold: 100
+    on_incomplete:
+      claude: "/fill-gaps"
+      max_attempts: 3
+      fail_workflow: true
+</code></pre>
+<p>The <code>on_incomplete</code> configuration supports:</p>
+<ul>
+<li><code>claude</code>: Claude command to execute for gap-filling</li>
+<li><code>shell</code>: Shell command to execute for gap-filling</li>
+<li><code>commands</code>: Array of commands to execute</li>
+<li><code>max_attempts</code>: Maximum remediation attempts (default: 1)</li>
+<li><code>fail_workflow</code>: Whether to fail workflow if remediation fails (default: true)</li>
+<li><code>commit_required</code>: Whether remediation command should create a commit (default: false)</li>
+</ul>
+<hr />
+<h2 id="parallel-iteration-with-foreach"><a class="header" href="#parallel-iteration-with-foreach">Parallel Iteration with Foreach</a></h2>
+<p>Process multiple items in parallel using the <code>foreach</code> command.</p>
+<h3 id="basic-foreach"><a class="header" href="#basic-foreach">Basic Foreach</a></h3>
+<p>Iterate over a list of items:</p>
+<pre><code class="language-yaml">- foreach:
+    foreach: ["a", "b", "c"]
+    do:
+      - shell: "process ${item}"
+</code></pre>
+<h3 id="dynamic-item-lists"><a class="header" href="#dynamic-item-lists">Dynamic Item Lists</a></h3>
+<p>Generate items from a command:</p>
+<pre><code class="language-yaml">- foreach:
+    foreach: "find . -name '*.rs'"
+    do:
+      - shell: "rustfmt ${item}"
+</code></pre>
+<h3 id="parallel-execution"><a class="header" href="#parallel-execution">Parallel Execution</a></h3>
+<p>Control parallelism with the <code>parallel</code> field:</p>
+<pre><code class="language-yaml">- foreach:
+    foreach: "ls *.txt"
+    parallel: 5  # Process 5 items concurrently
+    do:
+      - shell: "analyze ${item}"
+</code></pre>
+<h3 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h3>
+<p>Continue processing remaining items on failure:</p>
+<pre><code class="language-yaml">- foreach:
+    foreach: ["test1", "test2", "test3"]
+    continue_on_error: true
+    do:
+      - shell: "run-test ${item}"
+</code></pre>
+<h3 id="limiting-items"><a class="header" href="#limiting-items">Limiting Items</a></h3>
+<p>Process only a subset of items:</p>
+<pre><code class="language-yaml">- foreach:
+    foreach: "find . -name '*.log'"
+    max_items: 10  # Process first 10 items only
+    do:
+      - shell: "compress ${item}"
 </code></pre>
 <hr />
-<h2 id="enhanced-retry-configuration"><a class="header" href="#enhanced-retry-configuration">Enhanced Retry Configuration</a></h2>
-<pre><code class="language-yaml"># Retry with exponential backoff
-- shell: "flaky-api-call.sh"
-  retry:
+<h2 id="goal-seeking-operations"><a class="header" href="#goal-seeking-operations">Goal-Seeking Operations</a></h2>
+<p>Iteratively refine implementations until they meet validation criteria.</p>
+<h3 id="basic-goal-seek"><a class="header" href="#basic-goal-seek">Basic Goal Seek</a></h3>
+<p>Define a goal and validation command:</p>
+<pre><code class="language-yaml">- goal_seek:
+    goal: "All tests pass"
+    command: "cargo fix"
+    validate: "cargo test"
+    threshold: 100
+</code></pre>
+<p>The goal-seeking operation will:</p>
+<ol>
+<li>Run the command</li>
+<li>Run the validation</li>
+<li>Retry if validation threshold not met</li>
+<li>Stop when goal achieved or max attempts reached</li>
+</ol>
+<h3 id="advanced-goal-seek-configuration"><a class="header" href="#advanced-goal-seek-configuration">Advanced Goal Seek Configuration</a></h3>
+<p>Control iteration behavior:</p>
+<pre><code class="language-yaml">- goal_seek:
+    goal: "Code passes all quality checks"
+    command: "auto-fix.sh"
+    validate: "quality-check.sh"
+    threshold: 95
     max_attempts: 5
-    backoff:
-      type: exponential
-      initial: 1000  # 1 second
-      multiplier: 2
-      max_delay: 30000  # 30 seconds
-      jitter: true
+    timeout: 300
+    fail_on_incomplete: true
 </code></pre>
 <hr />
-<h2 id="working-directory"><a class="header" href="#working-directory">Working Directory</a></h2>
-<pre><code class="language-yaml"># Run command in specific directory
-- shell: "npm install"
-  working_dir: "/path/to/project"
+<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<h3 id="1-use-meaningful-variable-names"><a class="header" href="#1-use-meaningful-variable-names">1. Use Meaningful Variable Names</a></h3>
+<pre><code class="language-yaml"># Good
+- shell: "cargo test --format json"
+  capture_output: "test_results"
+  capture_format: "json"
 
-- shell: "pwd"  # Will show /path/to/project
+# Avoid
+- shell: "cargo test --format json"
+  capture_output: "x"
 </code></pre>
-<hr />
-<h2 id="auto-commit"><a class="header" href="#auto-commit">Auto-Commit</a></h2>
-<pre><code class="language-yaml"># Automatically commit changes if detected
-- claude: "/refactor-code"
-  auto_commit: true
+<h3 id="2-set-appropriate-timeouts"><a class="header" href="#2-set-appropriate-timeouts">2. Set Appropriate Timeouts</a></h3>
+<pre><code class="language-yaml"># Set timeouts for potentially long-running operations
+- shell: "npm install"
+  timeout: 300
+
+- claude: "/analyze-large-codebase"
+  timeout: 1800
 </code></pre>
-<hr />
-<h2 id="output-file-redirection"><a class="header" href="#output-file-redirection">Output File Redirection</a></h2>
-<pre><code class="language-yaml"># Redirect output to file
+<h3 id="3-handle-failures-gracefully"><a class="header" href="#3-handle-failures-gracefully">3. Handle Failures Gracefully</a></h3>
+<pre><code class="language-yaml"># Provide automatic remediation
 - shell: "cargo test"
-  output_file: "test-results.txt"
+  on_failure:
+    claude: "/fix-failing-tests"
+    max_attempts: 2
+    fail_workflow: true
+</code></pre>
+<h3 id="4-validate-critical-changes"><a class="header" href="#4-validate-critical-changes">4. Validate Critical Changes</a></h3>
+<pre><code class="language-yaml"># Ensure implementation meets requirements
+- claude: "/implement-feature"
+  validate:
+    commands:
+      - shell: "cargo test"
+      - shell: "cargo clippy -- -D warnings"
+    threshold: 100
+    on_incomplete:
+      claude: "/fix-issues"
+      max_attempts: 3
+</code></pre>
+<h3 id="5-use-step-ids-for-complex-workflows"><a class="header" href="#5-use-step-ids-for-complex-workflows">5. Use Step IDs for Complex Workflows</a></h3>
+<pre><code class="language-yaml"># Make output references explicit
+- shell: "git diff --stat"
+  id: "git-changes"
+  capture_output: "diff"
+
+- claude: "/review-changes '${git-changes.output}'"
+  id: "code-review"
 </code></pre>
 <hr />
-<h2 id="modular-handlers"><a class="header" href="#modular-handlers">Modular Handlers</a></h2>
-<pre><code class="language-yaml"># Use custom handler
-- handler:
-    name: "custom-validator"
-    attributes:
-      path: "src/"
-      threshold: 80
+<h2 id="common-patterns"><a class="header" href="#common-patterns">Common Patterns</a></h2>
+<h3 id="test-fix-verify-loop"><a class="header" href="#test-fix-verify-loop">Test-Fix-Verify Loop</a></h3>
+<pre><code class="language-yaml">- shell: "cargo test"
+  on_failure:
+    claude: "/fix-tests"
+    on_success:
+      shell: "cargo test --release"
 </code></pre>
-<hr />
-<h2 id="step-validation"><a class="header" href="#step-validation">Step Validation</a></h2>
-<pre><code class="language-yaml"># Validate step success after execution
+<h3 id="parallel-processing-with-aggregation"><a class="header" href="#parallel-processing-with-aggregation">Parallel Processing with Aggregation</a></h3>
+<pre><code class="language-yaml">- foreach:
+    foreach: "find src -name '*.rs'"
+    parallel: 10
+    do:
+      - shell: "analyze-file ${item}"
+        capture_output: "analysis_${item}"
+
+- shell: "aggregate-results.sh"
+</code></pre>
+<h3 id="gradual-quality-improvement"><a class="header" href="#gradual-quality-improvement">Gradual Quality Improvement</a></h3>
+<pre><code class="language-yaml">- goal_seek:
+    goal: "Code quality score above 90"
+    command: "auto-improve.sh"
+    validate: "quality-check.sh"
+    threshold: 90
+    max_attempts: 5
+  on_success:
+    shell: "git commit -m 'Improved code quality'"
+</code></pre>
+<h3 id="conditional-deployment"><a class="header" href="#conditional-deployment">Conditional Deployment</a></h3>
+<pre><code class="language-yaml">- shell: "cargo test"
+  capture_output: "test_results"
+  capture_format: "json"
+
 - shell: "deploy.sh"
-  step_validate:
-    shell: "curl -f https://app.com/health"
-    timeout: 30
-    on_failure:
-      shell: "rollback.sh"
+  when: "${test_results.passed == test_results.total}"
+  on_success:
+    shell: "notify-success.sh"
+  on_failure:
+    shell: "rollback.sh"
 </code></pre>
-<hr />
-<h2 id="advanced-exit-code-handling"><a class="header" href="#advanced-exit-code-handling">Advanced Exit Code Handling</a></h2>
-<pre><code class="language-yaml"># Map exit codes to full workflow steps
-- shell: "cargo check"
-  on_exit_code:
-    0:
-      shell: "echo 'Build successful'"
-    101:
-      claude: "/fix-compilation-errors"
-      commit_required: true
-    other:
-      shell: "echo 'Unexpected error'"
+<h3 id="multi-stage-validation"><a class="header" href="#multi-stage-validation">Multi-Stage Validation</a></h3>
+<pre><code class="language-yaml">- claude: "/implement-feature"
+  validate:
+    commands:
+      - shell: "cargo build"
+      - shell: "cargo test"
+      - shell: "cargo clippy"
+      - shell: "cargo fmt --check"
+    threshold: 100
+    on_incomplete:
+      commands:
+        - claude: "/fix-build-errors"
+        - shell: "cargo fmt"
+      max_attempts: 3
+      fail_workflow: true
 </code></pre>
 
                     </main>

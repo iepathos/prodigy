@@ -292,6 +292,8 @@
 <li><code>fail_workflow</code> - Whether to fail workflow if validation incomplete</li>
 <li><code>commit_required</code> - Whether to require commit after gap filling</li>
 <li><code>prompt</code> - Optional interactive prompt for user guidance</li>
+<li><code>retry_original</code> - Whether to retry the original command (default: false). When true, re-executes the original command instead of gap-filling commands</li>
+<li><code>strategy</code> - Retry strategy configuration (similar to OnFailureConfig strategy)</li>
 </ul>
 <p><strong>Alternative: Array format for multi-step validation</strong></p>
 <pre><code class="language-yaml">- claude: "/implement-feature"
@@ -315,6 +317,17 @@
         - claude: "/verify-fixes"
       max_attempts: 2
 </code></pre>
+<p><strong>Alternative: Retry original command on incomplete</strong></p>
+<pre><code class="language-yaml">- claude: "/implement-auth"
+  validate:
+    shell: "validate-auth.sh"
+    result_file: "result.json"
+    threshold: 95
+    on_incomplete:
+      retry_original: true  # Re-run "/implement-auth" instead of gap-filling
+      max_attempts: 3
+      fail_workflow: true
+</code></pre>
 <hr />
 <h2 id="command-reference"><a class="header" href="#command-reference">Command Reference</a></h2>
 <h3 id="command-fields"><a class="header" href="#command-fields">Command Fields</a></h3>
@@ -324,9 +337,9 @@
 <tr><td><code>timeout</code></td><td>number</td><td>Command timeout in seconds</td></tr>
 <tr><td><code>commit_required</code></td><td>boolean</td><td>Whether command should create a git commit</td></tr>
 <tr><td><code>when</code></td><td>string</td><td>Conditional execution expression</td></tr>
-<tr><td><code>capture</code></td><td>string</td><td>Variable name to capture output (replaces deprecated <code>capture_output</code>)</td></tr>
-<tr><td><code>capture_format</code></td><td>enum</td><td>Format: <code>string</code>, <code>number</code>, <code>json</code>, <code>lines</code>, <code>boolean</code></td></tr>
-<tr><td><code>capture_streams</code></td><td>object</td><td>CaptureStreams object with fields: <code>stdout</code> (bool), <code>stderr</code> (bool), <code>exit_code</code> (bool), <code>success</code> (bool), <code>duration</code> (bool)</td></tr>
+<tr><td><code>capture</code></td><td>string</td><td>Variable name to capture output (replaces deprecated <code>capture_output: true/false</code>)</td></tr>
+<tr><td><code>capture_format</code></td><td>enum</td><td>Format: <code>string</code> (default), <code>number</code>, <code>json</code>, <code>lines</code>, <code>boolean</code> (see examples below)</td></tr>
+<tr><td><code>capture_streams</code></td><td>object</td><td>Configure which streams to capture (see CaptureStreams section below)</td></tr>
 <tr><td><code>on_success</code></td><td>object</td><td>Command to run on success</td></tr>
 <tr><td><code>on_failure</code></td><td>object</td><td>OnFailureConfig with nested command, max_attempts, fail_workflow, strategy</td></tr>
 <tr><td><code>on_exit_code</code></td><td>map</td><td>Maps exit codes to full WorkflowStep objects (e.g., <code>101: {claude: "/fix"}</code>)</td></tr>
@@ -344,15 +357,83 @@
 <tr><td><code>ignore_validation_failure</code></td><td>boolean</td><td>Continue workflow even if validation fails (default: false)</td></tr>
 </tbody></table>
 </div>
+<h3 id="capturestreams-configuration"><a class="header" href="#capturestreams-configuration">CaptureStreams Configuration</a></h3>
+<p>The <code>capture_streams</code> field controls which output streams are captured:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  capture: "test_results"
+  capture_streams:
+    stdout: true      # Capture standard output (default: true)
+    stderr: false     # Capture standard error (default: false)
+    exit_code: true   # Capture exit code (default: true)
+    success: true     # Capture success boolean (default: true)
+    duration: true    # Capture execution duration (default: true)
+</code></pre>
+<p><strong>Examples:</strong></p>
+<pre><code class="language-yaml"># Capture only stdout and stderr
+- shell: "build.sh"
+  capture: "build_output"
+  capture_streams:
+    stdout: true
+    stderr: true
+    exit_code: false
+    success: false
+    duration: false
+
+# Capture only timing information
+- shell: "benchmark.sh"
+  capture: "bench_time"
+  capture_streams:
+    stdout: false
+    stderr: false
+    exit_code: false
+    success: false
+    duration: true
+</code></pre>
+<h3 id="capture-format-examples"><a class="header" href="#capture-format-examples">Capture Format Examples</a></h3>
+<p>The <code>capture_format</code> field controls how captured output is parsed:</p>
+<pre><code class="language-yaml"># String format (default) - raw text output
+- shell: "git rev-parse HEAD"
+  capture: "commit_hash"
+  capture_format: "string"
+
+# Number format - parses numeric output
+- shell: "wc -l &lt; file.txt"
+  capture: "line_count"
+  capture_format: "number"
+
+# JSON format - parses JSON output
+- shell: "cargo metadata --format-version 1"
+  capture: "project_metadata"
+  capture_format: "json"
+
+# Lines format - splits output into array of lines
+- shell: "git diff --name-only"
+  capture: "changed_files"
+  capture_format: "lines"
+
+# Boolean format - true if command succeeds, false otherwise
+- shell: "grep -q 'pattern' file.txt"
+  capture: "pattern_found"
+  capture_format: "boolean"
+</code></pre>
 <h3 id="deprecated-fields"><a class="header" href="#deprecated-fields">Deprecated Fields</a></h3>
 <p>These fields are deprecated but still supported for backward compatibility:</p>
 <ul>
 <li><code>test:</code> - Use <code>shell:</code> with <code>on_failure:</code> instead</li>
 <li><code>command:</code> in ValidationConfig - Use <code>shell:</code> instead</li>
-<li><code>capture_output: true/false</code> - Use <code>capture: "variable_name"</code> instead</li>
 <li>Nested <code>commands:</code> in <code>agent_template</code> and <code>reduce</code> - Use direct array format instead</li>
 <li>Legacy variable aliases (<code>$ARG</code>, <code>$ARGUMENT</code>, <code>$FILE</code>, <code>$FILE_PATH</code>) - Use modern <code>${item.*}</code> syntax</li>
 </ul>
+<p><strong>Migration: capture_output to capture</strong></p>
+<p>Old syntax (deprecated):</p>
+<pre><code class="language-yaml">- shell: "ls -la | wc -l"
+  capture_output: true
+</code></pre>
+<p>New syntax (recommended):</p>
+<pre><code class="language-yaml">- shell: "ls -la | wc -l"
+  capture: "file_count"
+</code></pre>
+<p>The modern <code>capture</code> field allows you to specify a variable name, making output references clearer and more maintainable</p>
 
                     </main>
 

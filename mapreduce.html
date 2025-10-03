@@ -320,6 +320,146 @@ setup:
 <li><code>timeout</code> - Timeout for entire setup phase in seconds</li>
 <li><code>capture_outputs</code> - Map of variable names to command outputs (supports Simple(index) or full CaptureConfig)</li>
 </ul>
+<h2 id="global-storage-architecture"><a class="header" href="#global-storage-architecture">Global Storage Architecture</a></h2>
+<p>MapReduce workflows use a global storage architecture located in <code>~/.prodigy/</code> (not <code>.prodigy/</code> in your project). This enables:</p>
+<ul>
+<li><strong>Cross-worktree event aggregation</strong>: Multiple worktrees working on the same job share event logs</li>
+<li><strong>Persistent state management</strong>: Job checkpoints survive worktree cleanup</li>
+<li><strong>Centralized monitoring</strong>: All job data accessible from a single location</li>
+<li><strong>Efficient storage</strong>: Deduplication across worktrees</li>
+</ul>
+<h3 id="storage-locations"><a class="header" href="#storage-locations">Storage Locations</a></h3>
+<pre><code>~/.prodigy/
+├── events/
+│   └── {repo_name}/          # Events grouped by repository
+│       └── {job_id}/         # Job-specific events
+│           └── events-{timestamp}.jsonl  # Event log files
+├── dlq/
+│   └── {repo_name}/          # DLQ grouped by repository
+│       └── {job_id}/         # Job-specific failed items
+└── state/
+    └── {repo_name}/          # State grouped by repository
+        └── mapreduce/        # MapReduce job states
+            └── jobs/
+                └── {job_id}/ # Job-specific checkpoints
+</code></pre>
+<h2 id="event-tracking"><a class="header" href="#event-tracking">Event Tracking</a></h2>
+<p>All MapReduce execution events are logged to <code>~/.prodigy/events/{repo_name}/{job_id}/</code> for debugging and monitoring:</p>
+<p><strong>Events Tracked:</strong></p>
+<ul>
+<li>Agent lifecycle events (started, completed, failed)</li>
+<li>Work item processing status</li>
+<li>Checkpoint saves for resumption</li>
+<li>Error details with correlation IDs</li>
+<li>Cross-worktree event aggregation for parallel jobs</li>
+</ul>
+<p><strong>Event Log Format:</strong>
+Events are stored in JSONL (JSON Lines) format, with each line representing a single event:</p>
+<pre><code class="language-json">{"timestamp":"2024-01-01T12:00:00Z","event_type":"agent_started","agent_id":"agent-1","item_id":"item-001"}
+{"timestamp":"2024-01-01T12:05:00Z","event_type":"agent_completed","agent_id":"agent-1","item_id":"item-001","status":"success"}
+</code></pre>
+<p><strong>Viewing Events:</strong></p>
+<pre><code class="language-bash"># View all events for a job
+prodigy events &lt;job_id&gt;
+
+# Stream events in real-time
+prodigy events &lt;job_id&gt; --follow
+</code></pre>
+<h2 id="checkpoint-and-resume"><a class="header" href="#checkpoint-and-resume">Checkpoint and Resume</a></h2>
+<p>MapReduce workflows automatically save checkpoints to enable resumption after interruption.</p>
+<h3 id="checkpoint-structure"><a class="header" href="#checkpoint-structure">Checkpoint Structure</a></h3>
+<p>Checkpoints are stored in <code>~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/</code> and contain:</p>
+<pre><code class="language-json">{
+  "job_id": "mapreduce-1234567890",
+  "workflow_file": "workflow.yml",
+  "phase": "map",
+  "items_processed": 45,
+  "items_total": 100,
+  "items_remaining": ["item-046", "item-047", "..."],
+  "successful_items": 43,
+  "failed_items": 2,
+  "started_at": "2024-01-01T12:00:00Z",
+  "last_checkpoint_at": "2024-01-01T12:30:00Z"
+}
+</code></pre>
+<h3 id="resume-behavior"><a class="header" href="#resume-behavior">Resume Behavior</a></h3>
+<p>When resuming a MapReduce job:</p>
+<ol>
+<li><strong>Checkpoint Loading</strong>: Prodigy loads the most recent checkpoint from <code>~/.prodigy/state/</code></li>
+<li><strong>Work Item Recovery</strong>: Items marked as “in progress” are reset to “pending”</li>
+<li><strong>Failed Item Handling</strong>: Previously failed items are moved to DLQ (not retried automatically)</li>
+<li><strong>Partial Results</strong>: Successfully processed items are preserved</li>
+<li><strong>Phase Continuation</strong>: Job resumes from the phase it was interrupted in</li>
+</ol>
+<p><strong>Resume Command:</strong></p>
+<pre><code class="language-bash"># Resume from checkpoint
+prodigy resume-job &lt;job_id&gt;
+
+# Resume with different parallelism
+prodigy resume-job &lt;job_id&gt; --max-parallel 20
+
+# Resume and show detailed logs
+prodigy resume-job &lt;job_id&gt; -v
+</code></pre>
+<h2 id="dead-letter-queue-dlq"><a class="header" href="#dead-letter-queue-dlq">Dead Letter Queue (DLQ)</a></h2>
+<p>Failed work items are automatically stored in the DLQ for review and retry.</p>
+<h3 id="dlq-storage"><a class="header" href="#dlq-storage">DLQ Storage</a></h3>
+<p>Failed items are stored in <code>~/.prodigy/dlq/{repo_name}/{job_id}/</code> with this structure:</p>
+<pre><code class="language-json">{
+  "item_id": "item-047",
+  "item_data": {
+    "path": "src/module.rs",
+    "score": 8,
+    "priority": "high"
+  },
+  "failure_reason": "Command failed: cargo test",
+  "error_details": "test failed: expected X but got Y",
+  "failed_at": "2024-01-01T12:15:00Z",
+  "attempt_count": 3,
+  "correlation_id": "agent-7-item-047"
+}
+</code></pre>
+<h3 id="dlq-retry"><a class="header" href="#dlq-retry">DLQ Retry</a></h3>
+<p>The <code>prodigy dlq retry</code> command allows you to reprocess failed items:</p>
+<pre><code class="language-bash"># Retry all failed items for a job
+prodigy dlq retry &lt;job_id&gt;
+
+# Retry with custom parallelism (default: 5)
+prodigy dlq retry &lt;job_id&gt; --max-parallel 10
+
+# Dry run to see what would be retried
+prodigy dlq retry &lt;job_id&gt; --dry-run
+
+# Verbose output for debugging
+prodigy dlq retry &lt;job_id&gt; -v
+</code></pre>
+<p><strong>DLQ Retry Features:</strong></p>
+<ul>
+<li>Streams items to avoid memory issues with large queues</li>
+<li>Respects original workflow’s <code>max_parallel</code> setting</li>
+<li>Preserves correlation IDs for tracking</li>
+<li>Updates DLQ state (removes successful, keeps failed)</li>
+<li>Supports interruption and resumption</li>
+<li>Retried items inherit original workflow configuration</li>
+</ul>
+<p><strong>DLQ Retry Workflow:</strong></p>
+<ol>
+<li>Load failed items from <code>~/.prodigy/dlq/{repo_name}/{job_id}/</code></li>
+<li>Process items using original workflow’s agent template</li>
+<li>Successfully processed items are removed from DLQ</li>
+<li>Still-failing items remain in DLQ with updated attempt count</li>
+<li>New failures during retry are logged and added to DLQ</li>
+</ol>
+<h3 id="viewing-dlq-contents"><a class="header" href="#viewing-dlq-contents">Viewing DLQ Contents</a></h3>
+<pre><code class="language-bash"># List all failed items
+prodigy dlq list &lt;job_id&gt;
+
+# Show details for specific item
+prodigy dlq show &lt;job_id&gt; &lt;item_id&gt;
+
+# Clear DLQ after manual fixes
+prodigy dlq clear &lt;job_id&gt;
+</code></pre>
 
                     </main>
 
