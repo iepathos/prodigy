@@ -40,7 +40,7 @@ setup:
 
 map:
   input: items.json
-  json_path: "$.[:1]"
+  json_path: "$[*]"  # Process all items
   agent_template:
     - claude: "/review-file ${item.path}"
     - shell: "cargo check ${item.path}"
@@ -56,8 +56,10 @@ reduce:
 
 ```yaml
 - shell: "cargo test --quiet && echo true || echo false"
-  capture: "tests_passed"
-  capture_format: boolean
+  outputs:
+    tests_passed:
+      from_output: true
+      format: boolean
 
 - shell: "cargo build --release"
   when: "${tests_passed}"
@@ -76,15 +78,16 @@ reduce:
 - claude: "/implement-feature auth"
   commit_required: true
   validate:
-    - shell: "cargo test auth"
-    - shell: "cargo clippy -- -D warnings"
-    - claude: "/validate-implementation --output validation.json"
-      result_file: "validation.json"
-      threshold: 90
-      on_incomplete:
-        - claude: "/complete-gaps ${validation.gaps}"
-          commit_required: true
-        max_attempts: 2
+    commands:
+      - shell: "cargo test auth"
+      - shell: "cargo clippy -- -D warnings"
+      - claude: "/validate-implementation --output validation.json"
+    result_file: "validation.json"
+    threshold: 90
+    on_incomplete:
+      claude: "/complete-gaps ${validation.gaps}"
+      commit_required: true
+      max_attempts: 2
 ```
 
 ---
@@ -92,23 +95,26 @@ reduce:
 ## Example 6: Environment-Aware Workflow
 
 ```yaml
-env:
-  DEPLOY_ENV:
-    condition: "${branch} == 'main'"
-    when_true: "production"
-    when_false: "staging"
+# Environment configuration with conditional logic
+environment:
+  global_env:
+    DEPLOY_ENV:
+      condition: "${branch} == 'main'"
+      when_true: "production"
+      when_false: "staging"
 
-profiles:
-  production:
-    env:
-      API_URL: https://api.production.com
-  staging:
-    env:
-      API_URL: https://api.staging.com
+  profiles:
+    production:
+      env:
+        API_URL: https://api.production.com
+    staging:
+      env:
+        API_URL: https://api.staging.com
 
-# Activate profile based on DEPLOY_ENV
-active_profile: "${DEPLOY_ENV}"
+  # Activate profile based on DEPLOY_ENV
+  active_profile: "${DEPLOY_ENV}"
 
+# Workflow commands
 commands:
   - shell: "cargo build --release"
   - shell: "echo 'Deploying to ${DEPLOY_ENV} at ${API_URL}'"
@@ -140,7 +146,6 @@ map:
     - shell: "cargo test"
       on_failure:
         claude: "/debug-and-fix"
-        max_attempts: 2
 
 reduce:
   - shell: "debtmap analyze . --output debt-after.json"

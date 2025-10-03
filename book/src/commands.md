@@ -125,6 +125,8 @@ Validate implementation completeness with automatic retry.
 - `fail_workflow` - Whether to fail workflow if validation incomplete
 - `commit_required` - Whether to require commit after gap filling
 - `prompt` - Optional interactive prompt for user guidance
+- `retry_original` - Whether to retry the original command (default: false). When true, re-executes the original command instead of gap-filling commands
+- `strategy` - Retry strategy configuration (similar to OnFailureConfig strategy)
 
 **Alternative: Array format for multi-step validation**
 
@@ -154,6 +156,20 @@ Validate implementation completeness with automatic retry.
       max_attempts: 2
 ```
 
+**Alternative: Retry original command on incomplete**
+
+```yaml
+- claude: "/implement-auth"
+  validate:
+    shell: "validate-auth.sh"
+    result_file: "result.json"
+    threshold: 95
+    on_incomplete:
+      retry_original: true  # Re-run "/implement-auth" instead of gap-filling
+      max_attempts: 3
+      fail_workflow: true
+```
+
 ---
 
 ## Command Reference
@@ -168,9 +184,9 @@ All command types support these common fields:
 | `timeout` | number | Command timeout in seconds |
 | `commit_required` | boolean | Whether command should create a git commit |
 | `when` | string | Conditional execution expression |
-| `capture` | string | Variable name to capture output (replaces deprecated `capture_output`) |
-| `capture_format` | enum | Format: `string`, `number`, `json`, `lines`, `boolean` |
-| `capture_streams` | object | CaptureStreams object with fields: `stdout` (bool), `stderr` (bool), `exit_code` (bool), `success` (bool), `duration` (bool) |
+| `capture` | string | Variable name to capture output (replaces deprecated `capture_output: true/false`) |
+| `capture_format` | enum | Format: `string` (default), `number`, `json`, `lines`, `boolean` (see examples below) |
+| `capture_streams` | object | Configure which streams to capture (see CaptureStreams section below) |
 | `on_success` | object | Command to run on success |
 | `on_failure` | object | OnFailureConfig with nested command, max_attempts, fail_workflow, strategy |
 | `on_exit_code` | map | Maps exit codes to full WorkflowStep objects (e.g., `101: {claude: "/fix"}`) |
@@ -187,12 +203,97 @@ All command types support these common fields:
 | `validation_timeout` | number | Timeout in seconds for validation operations |
 | `ignore_validation_failure` | boolean | Continue workflow even if validation fails (default: false) |
 
+### CaptureStreams Configuration
+
+The `capture_streams` field controls which output streams are captured:
+
+```yaml
+- shell: "cargo test"
+  capture: "test_results"
+  capture_streams:
+    stdout: true      # Capture standard output (default: true)
+    stderr: false     # Capture standard error (default: false)
+    exit_code: true   # Capture exit code (default: true)
+    success: true     # Capture success boolean (default: true)
+    duration: true    # Capture execution duration (default: true)
+```
+
+**Examples:**
+
+```yaml
+# Capture only stdout and stderr
+- shell: "build.sh"
+  capture: "build_output"
+  capture_streams:
+    stdout: true
+    stderr: true
+    exit_code: false
+    success: false
+    duration: false
+
+# Capture only timing information
+- shell: "benchmark.sh"
+  capture: "bench_time"
+  capture_streams:
+    stdout: false
+    stderr: false
+    exit_code: false
+    success: false
+    duration: true
+```
+
+### Capture Format Examples
+
+The `capture_format` field controls how captured output is parsed:
+
+```yaml
+# String format (default) - raw text output
+- shell: "git rev-parse HEAD"
+  capture: "commit_hash"
+  capture_format: "string"
+
+# Number format - parses numeric output
+- shell: "wc -l < file.txt"
+  capture: "line_count"
+  capture_format: "number"
+
+# JSON format - parses JSON output
+- shell: "cargo metadata --format-version 1"
+  capture: "project_metadata"
+  capture_format: "json"
+
+# Lines format - splits output into array of lines
+- shell: "git diff --name-only"
+  capture: "changed_files"
+  capture_format: "lines"
+
+# Boolean format - true if command succeeds, false otherwise
+- shell: "grep -q 'pattern' file.txt"
+  capture: "pattern_found"
+  capture_format: "boolean"
+```
+
 ### Deprecated Fields
 
 These fields are deprecated but still supported for backward compatibility:
 
 - `test:` - Use `shell:` with `on_failure:` instead
 - `command:` in ValidationConfig - Use `shell:` instead
-- `capture_output: true/false` - Use `capture: "variable_name"` instead
 - Nested `commands:` in `agent_template` and `reduce` - Use direct array format instead
 - Legacy variable aliases (`$ARG`, `$ARGUMENT`, `$FILE`, `$FILE_PATH`) - Use modern `${item.*}` syntax
+
+**Migration: capture_output to capture**
+
+Old syntax (deprecated):
+```yaml
+- shell: "ls -la | wc -l"
+  capture_output: true
+```
+
+New syntax (recommended):
+```yaml
+- shell: "ls -la | wc -l"
+  capture: "file_count"
+```
+
+The modern `capture` field allows you to specify a variable name, making output references clearer and more maintainable
