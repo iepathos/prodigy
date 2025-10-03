@@ -97,6 +97,8 @@ Original commits from worktree:
 <List of commits being merged>
 ```
 
+**IMPORTANT**: Do NOT add any attribution text like "🤖 Generated with [Claude Code]" or "Co-Authored-By: Claude <noreply@anthropic.com>" to merge commit messages. Keep commits clean and focused on the merge itself to avoid bloating git history.
+
 ## Error Handling
 
 **If merge cannot be completed**:
