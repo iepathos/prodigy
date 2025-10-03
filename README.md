@@ -15,7 +15,6 @@
 - [Installation](#installation)
   - [Using Cargo (Recommended)](#using-cargo-recommended)
   - [From Source](#from-source)
-  - [From Package Managers](#from-package-managers)
 - [Quick Start](#quick-start)
   - [Your First Workflow](#your-first-workflow)
   - [Parallel Execution Example](#parallel-execution-example)
