@@ -1,0 +1,1419 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Prodigy Documentation</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/gbaker-prodigy/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p>Prodigy is an AI-powered workflow orchestration tool that enables development teams to automate complex tasks using Claude AI through structured YAML workflows.</p>
+<h2 id="what-is-prodigy"><a class="header" href="#what-is-prodigy">What is Prodigy?</a></h2>
+<p>Prodigy combines the power of Claude AI with workflow orchestration to:</p>
+<ul>
+<li><strong>Automate repetitive development tasks</strong> - Code reviews, refactoring, testing</li>
+<li><strong>Process work in parallel</strong> - MapReduce-style parallel execution across git worktrees</li>
+<li><strong>Maintain quality</strong> - Built-in validation, error handling, and retry mechanisms</li>
+<li><strong>Track changes</strong> - Full git integration with automatic commits and merge workflows</li>
+</ul>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
+<p>Create a simple workflow in <code>workflow.yml</code>:</p>
+<pre><code class="language-yaml">- shell: "cargo build"
+- shell: "cargo test"
+  on_failure:
+    claude: "/fix-failing-tests"
+- shell: "cargo clippy"
+</code></pre>
+<p>Run it:</p>
+<pre><code class="language-bash">prodigy run workflow.yml
+</code></pre>
+<h2 id="key-concepts"><a class="header" href="#key-concepts">Key Concepts</a></h2>
+<ul>
+<li><strong>Workflows</strong>: YAML files defining sequences of commands</li>
+<li><strong>Commands</strong>: Shell commands, Claude AI invocations, or control flow</li>
+<li><strong>Variables</strong>: Dynamic values captured and interpolated across steps</li>
+<li><strong>MapReduce</strong>: Parallel processing across multiple git worktrees</li>
+<li><strong>Validation</strong>: Automatic testing and quality checks</li>
+</ul>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><a href="workflow-basics.html">Workflow Basics</a> - Learn workflow fundamentals</li>
+<li><a href="commands.html">Command Types</a> - Explore available command types</li>
+<li><a href="examples.html">Examples</a> - See real-world workflows</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="workflow-basics"><a class="header" href="#workflow-basics">Workflow Basics</a></h1>
+<h2 id="workflow-types"><a class="header" href="#workflow-types">Workflow Types</a></h2>
+<p>Prodigy supports two primary workflow types:</p>
+<ol>
+<li><strong>Standard Workflows</strong>: Sequential command execution</li>
+<li><strong>MapReduce Workflows</strong>: Parallel processing with map and reduce phases</li>
+</ol>
+<hr />
+<h2 id="standard-workflows"><a class="header" href="#standard-workflows">Standard Workflows</a></h2>
+<h3 id="basic-structure"><a class="header" href="#basic-structure">Basic Structure</a></h3>
+<pre><code class="language-yaml"># Simple array format (most common)
+- shell: "echo 'Starting workflow...'"
+- claude: "/prodigy-analyze"
+- shell: "cargo test"
+</code></pre>
+<h3 id="full-configuration-format"><a class="header" href="#full-configuration-format">Full Configuration Format</a></h3>
+<pre><code class="language-yaml"># Full format with environment and merge configuration
+commands:
+  - shell: "cargo build"
+  - claude: "/prodigy-test"
+
+# Global environment variables
+env:
+  NODE_ENV: production
+  API_URL: https://api.example.com
+
+# Secret environment variables (masked in logs)
+secrets:
+  API_KEY: "${env:SECRET_API_KEY}"
+
+# Environment files to load (.env format)
+env_files:
+  - .env.production
+
+# Environment profiles
+profiles:
+  development:
+    NODE_ENV: development
+    DEBUG: "true"
+
+# Custom merge workflow
+merge:
+  - shell: "git fetch origin"
+  - claude: "/merge-worktree ${merge.source_branch}"
+  timeout: 600  # Optional timeout in seconds
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="mapreduce-workflows"><a class="header" href="#mapreduce-workflows">MapReduce Workflows</a></h1>
+<h2 id="complete-structure"><a class="header" href="#complete-structure">Complete Structure</a></h2>
+<pre><code class="language-yaml">name: parallel-processing
+mode: mapreduce
+
+# Optional setup phase
+setup:
+  - shell: "generate-work-items.sh"
+  - shell: "debtmap analyze . --output items.json"
+
+# Map phase: Process items in parallel
+map:
+  # Input source (JSON file or command)
+  input: "items.json"
+
+  # JSONPath expression to extract items
+  json_path: "$.items[*]"
+
+  # Agent template (commands run for each item)
+  # Modern syntax: Commands directly under agent_template
+  agent_template:
+    - claude: "/process '${item}'"
+    - shell: "test ${item.path}"
+      on_failure:
+        claude: "/fix-issue '${item}'"
+
+  # DEPRECATED: Nested 'commands' syntax (still supported)
+  # agent_template:
+  #   commands:
+  #     - claude: "/process '${item}'"
+
+  # Maximum parallel agents
+  max_parallel: 10
+
+  # Optional: Filter items
+  filter: "item.score &gt;= 5"
+
+  # Optional: Sort items
+  sort_by: "item.priority DESC"
+
+  # Optional: Limit number of items
+  max_items: 100
+
+  # Optional: Skip items
+  offset: 10
+
+  # Optional: Deduplicate by field
+  distinct: "item.id"
+
+  # Optional: Agent timeout in seconds
+  agent_timeout_secs: 300
+
+# Reduce phase: Aggregate results
+# Modern syntax: Commands directly under reduce
+reduce:
+  - claude: "/summarize ${map.results}"
+  - shell: "echo 'Processed ${map.successful}/${map.total} items'"
+
+# DEPRECATED: Nested 'commands' syntax (still supported)
+# reduce:
+#   commands:
+#     - claude: "/summarize ${map.results}"
+
+# Optional: Custom merge workflow (supports two formats)
+merge:
+  # Simple array format
+  - shell: "git fetch origin"
+  - claude: "/merge-worktree ${merge.source_branch}"
+  - shell: "cargo test"
+
+# OR full format with timeout
+# merge:
+#   commands:
+#     - shell: "git fetch origin"
+#     - claude: "/merge-worktree ${merge.source_branch}"
+#   timeout: 600  # Timeout in seconds
+
+# Error handling policy
+error_policy:
+  on_item_failure: dlq  # dlq, retry, skip, stop, or custom handler name
+  continue_on_failure: true
+  max_failures: 5
+  failure_threshold: 0.2  # 20% failure rate
+  error_collection: aggregate  # aggregate, immediate, or batched:N
+
+  # Circuit breaker configuration
+  circuit_breaker:
+    failure_threshold: 5      # Open circuit after N failures
+    success_threshold: 2      # Close circuit after N successes
+    timeout: 60              # Seconds before attempting half-open
+    half_open_requests: 3    # Test requests in half-open state
+
+  # Retry configuration with backoff
+  retry_config:
+    max_attempts: 3
+    backoff:
+      type: exponential      # fixed, linear, exponential, fibonacci
+      initial: 1000          # Initial delay in ms
+      multiplier: 2          # For exponential
+      max_delay: 30000       # Maximum delay in ms
+
+# Convenience fields (alternative to nested error_policy)
+# These top-level fields map to error_policy for simpler syntax
+on_item_failure: dlq
+continue_on_failure: true
+max_failures: 5
+</code></pre>
+<h2 id="setup-phase-advanced"><a class="header" href="#setup-phase-advanced">Setup Phase (Advanced)</a></h2>
+<p>The setup phase supports two formats: simple array OR full configuration object.</p>
+<pre><code class="language-yaml"># Simple array format
+setup:
+  - shell: "prepare-data.sh"
+  - shell: "analyze-codebase.sh"
+
+# Full configuration format with timeout and capture
+setup:
+  commands:
+    - shell: "prepare-data.sh"
+    - shell: "analyze-codebase.sh"
+
+  # Timeout for entire setup phase (seconds)
+  timeout: 300
+
+  # Capture outputs from setup commands
+  capture_outputs:
+    # Simple format (legacy - just index)
+    file_count: 0  # Capture from command at index 0
+
+    # Full CaptureConfig format
+    analysis_result:
+      command_index: 1
+      format: json  # string, number, json, lines, boolean
+</code></pre>
+<p><strong>Setup Phase Fields:</strong></p>
+<ul>
+<li><code>commands</code> - Array of commands to execute (or use simple array format at top level)</li>
+<li><code>timeout</code> - Timeout for entire setup phase in seconds</li>
+<li><code>capture_outputs</code> - Map of variable names to command outputs (supports Simple(index) or full CaptureConfig)</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="command-types"><a class="header" href="#command-types">Command Types</a></h1>
+<h2 id="1-shell-commands"><a class="header" href="#1-shell-commands">1. Shell Commands</a></h2>
+<pre><code class="language-yaml"># Simple shell command
+- shell: "cargo test"
+
+# With output capture
+- shell: "ls -la | wc -l"
+  capture: "file_count"
+
+# With failure handling
+- shell: "cargo clippy"
+  on_failure:
+    claude: "/fix-warnings ${shell.output}"
+
+# With timeout
+- shell: "cargo bench"
+  timeout: 600  # seconds
+
+# With conditional execution
+- shell: "cargo build --release"
+  when: "${tests_passed}"
+</code></pre>
+<h2 id="2-claude-commands"><a class="header" href="#2-claude-commands">2. Claude Commands</a></h2>
+<pre><code class="language-yaml"># Simple Claude command
+- claude: "/prodigy-analyze"
+
+# With arguments
+- claude: "/prodigy-implement-spec ${spec_file}"
+
+# With commit requirement
+- claude: "/prodigy-fix-bugs"
+  commit_required: true
+
+# With output capture
+- claude: "/prodigy-generate-plan"
+  capture: "implementation_plan"
+</code></pre>
+<h2 id="3-goal-seeking-commands"><a class="header" href="#3-goal-seeking-commands">3. Goal-Seeking Commands</a></h2>
+<p>Iteratively refine code until a validation threshold is met.</p>
+<pre><code class="language-yaml">- goal_seek:
+    goal: "Achieve 90% test coverage"
+    claude: "/prodigy-coverage --improve"
+    validate: "cargo tarpaulin --print-summary | grep 'Coverage' | sed 's/.*Coverage=\\([0-9]*\\).*/score: \\1/'"
+    threshold: 90
+    max_attempts: 5
+    timeout_seconds: 300
+    fail_on_incomplete: true
+  commit_required: true
+</code></pre>
+<p><strong>Fields:</strong></p>
+<ul>
+<li><code>goal</code>: Human-readable description</li>
+<li><code>claude</code> or <code>shell</code>: Command to execute for refinement</li>
+<li><code>validate</code>: Command that outputs <code>score: N</code> (0-100)</li>
+<li><code>threshold</code>: Minimum score to consider complete</li>
+<li><code>max_attempts</code>: Maximum refinement iterations</li>
+<li><code>timeout_seconds</code>: Optional timeout per attempt</li>
+<li><code>fail_on_incomplete</code>: Whether to fail workflow if threshold not met</li>
+</ul>
+<h2 id="4-foreach-commands"><a class="header" href="#4-foreach-commands">4. Foreach Commands</a></h2>
+<p>Iterate over a list with optional parallelism.</p>
+<pre><code class="language-yaml">- foreach:
+    input: "find . -name '*.rs' -type f"  # Command
+    # OR
+    # input: ["file1.rs", "file2.rs"]    # List
+
+    parallel: 5  # Number of parallel executions (or true/false)
+
+    do:
+      - claude: "/analyze-file ${item}"
+      - shell: "cargo check ${item}"
+
+    continue_on_error: true
+    max_items: 50
+</code></pre>
+<h2 id="5-validation-commands"><a class="header" href="#5-validation-commands">5. Validation Commands</a></h2>
+<p>Validate implementation completeness with automatic retry.</p>
+<pre><code class="language-yaml">- claude: "/implement-auth-spec"
+  validate:
+    shell: "debtmap validate --spec auth.md --output result.json"
+    # DEPRECATED: 'command' field (use 'shell' instead)
+    result_file: "result.json"
+    threshold: 95  # Percentage completion required (default: 100.0)
+    timeout: 60
+    expected_schema: "validation-schema.json"  # Optional JSON schema
+
+    # What to do if incomplete
+    on_incomplete:
+      claude: "/complete-implementation ${validation.gaps}"
+      max_attempts: 3
+      fail_workflow: true
+      commit_required: true
+      prompt: "Implementation incomplete. Continue?"  # Optional interactive prompt
+</code></pre>
+<p><strong>ValidationConfig Fields:</strong></p>
+<ul>
+<li><code>shell</code> or <code>claude</code> - Single validation command (use <code>shell</code>, not deprecated <code>command</code>)</li>
+<li><code>commands</code> - Array of commands for multi-step validation</li>
+<li><code>result_file</code> - Path to JSON file with validation results</li>
+<li><code>threshold</code> - Minimum completion percentage (default: 100.0)</li>
+<li><code>timeout</code> - Timeout in seconds</li>
+<li><code>expected_schema</code> - JSON schema for validation output structure</li>
+</ul>
+<p><strong>OnIncompleteConfig Fields:</strong></p>
+<ul>
+<li><code>shell</code> or <code>claude</code> - Single gap-filling command</li>
+<li><code>commands</code> - Array of commands for multi-step gap filling</li>
+<li><code>max_attempts</code> - Maximum retry attempts</li>
+<li><code>fail_workflow</code> - Whether to fail workflow if validation incomplete</li>
+<li><code>commit_required</code> - Whether to require commit after gap filling</li>
+<li><code>prompt</code> - Optional interactive prompt for user guidance</li>
+</ul>
+<p><strong>Alternative: Array format for multi-step validation</strong></p>
+<pre><code class="language-yaml">- claude: "/implement-feature"
+  validate:
+    # When using array format, ValidationConfig uses default threshold (100.0)
+    # and creates a commands array
+    - shell: "run-tests.sh"
+    - shell: "check-coverage.sh"
+    - claude: "/validate-implementation --output validation.json"
+      result_file: "validation.json"
+</code></pre>
+<p><strong>Alternative: Multi-step gap filling</strong></p>
+<pre><code class="language-yaml">- claude: "/implement-feature"
+  validate:
+    shell: "validate.sh"
+    result_file: "result.json"
+    on_incomplete:
+      commands:
+        - claude: "/analyze-gaps ${validation.gaps}"
+        - shell: "run-fix-script.sh"
+        - claude: "/verify-fixes"
+      max_attempts: 2
+</code></pre>
+<hr />
+<h2 id="command-reference"><a class="header" href="#command-reference">Command Reference</a></h2>
+<h3 id="command-fields"><a class="header" href="#command-fields">Command Fields</a></h3>
+<p>All command types support these common fields:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td>string</td><td>Unique identifier for referencing outputs</td></tr>
+<tr><td><code>timeout</code></td><td>number</td><td>Command timeout in seconds</td></tr>
+<tr><td><code>commit_required</code></td><td>boolean</td><td>Whether command should create a git commit</td></tr>
+<tr><td><code>when</code></td><td>string</td><td>Conditional execution expression</td></tr>
+<tr><td><code>capture</code></td><td>string</td><td>Variable name to capture output (replaces deprecated <code>capture_output</code>)</td></tr>
+<tr><td><code>capture_format</code></td><td>enum</td><td>Format: <code>string</code>, <code>number</code>, <code>json</code>, <code>lines</code>, <code>boolean</code></td></tr>
+<tr><td><code>capture_streams</code></td><td>object</td><td>CaptureStreams object with fields: <code>stdout</code> (bool), <code>stderr</code> (bool), <code>exit_code</code> (bool), <code>success</code> (bool), <code>duration</code> (bool)</td></tr>
+<tr><td><code>on_success</code></td><td>object</td><td>Command to run on success</td></tr>
+<tr><td><code>on_failure</code></td><td>object</td><td>OnFailureConfig with nested command, max_attempts, fail_workflow, strategy</td></tr>
+<tr><td><code>on_exit_code</code></td><td>map</td><td>Maps exit codes to full WorkflowStep objects (e.g., <code>101: {claude: "/fix"}</code>)</td></tr>
+<tr><td><code>validate</code></td><td>object</td><td>Validation configuration</td></tr>
+<tr><td><code>handler</code></td><td>object</td><td>HandlerStep for modular command handlers</td></tr>
+<tr><td><code>retry</code></td><td>object</td><td>RetryConfig for enhanced retry with exponential backoff and jitter</td></tr>
+<tr><td><code>working_dir</code></td><td>string</td><td>Working directory for command execution</td></tr>
+<tr><td><code>env</code></td><td>map</td><td>Command-level environment variables (HashMap&lt;String, String&gt;)</td></tr>
+<tr><td><code>output_file</code></td><td>string</td><td>Redirect command output to a file</td></tr>
+<tr><td><code>auto_commit</code></td><td>boolean</td><td>Automatically create commit if changes detected (default: false)</td></tr>
+<tr><td><code>commit_config</code></td><td>object</td><td>Advanced CommitConfig for commit control</td></tr>
+<tr><td><code>step_validate</code></td><td>object</td><td>StepValidationSpec for post-execution validation</td></tr>
+<tr><td><code>skip_validation</code></td><td>boolean</td><td>Skip step validation (default: false)</td></tr>
+<tr><td><code>validation_timeout</code></td><td>number</td><td>Timeout in seconds for validation operations</td></tr>
+<tr><td><code>ignore_validation_failure</code></td><td>boolean</td><td>Continue workflow even if validation fails (default: false)</td></tr>
+</tbody></table>
+</div>
+<h3 id="deprecated-fields"><a class="header" href="#deprecated-fields">Deprecated Fields</a></h3>
+<p>These fields are deprecated but still supported for backward compatibility:</p>
+<ul>
+<li><code>test:</code> - Use <code>shell:</code> with <code>on_failure:</code> instead</li>
+<li><code>command:</code> in ValidationConfig - Use <code>shell:</code> instead</li>
+<li><code>capture_output: true/false</code> - Use <code>capture: "variable_name"</code> instead</li>
+<li>Nested <code>commands:</code> in <code>agent_template</code> and <code>reduce</code> - Use direct array format instead</li>
+<li>Legacy variable aliases (<code>$ARG</code>, <code>$ARGUMENT</code>, <code>$FILE</code>, <code>$FILE_PATH</code>) - Use modern <code>${item.*}</code> syntax</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="variable-interpolation"><a class="header" href="#variable-interpolation">Variable Interpolation</a></h1>
+<h2 id="available-variables"><a class="header" href="#available-variables">Available Variables</a></h2>
+<h3 id="standard-variables"><a class="header" href="#standard-variables">Standard Variables</a></h3>
+<ul>
+<li><code>${workflow.name}</code> - Workflow name</li>
+<li><code>${workflow.id}</code> - Workflow unique identifier</li>
+<li><code>${workflow.iteration}</code> - Current iteration number</li>
+<li><code>${step.name}</code> - Current step name</li>
+<li><code>${step.index}</code> - Current step index</li>
+<li><code>${step.files_changed}</code> - Files changed in current step</li>
+<li><code>${workflow.files_changed}</code> - All files changed in workflow</li>
+</ul>
+<h3 id="output-variables"><a class="header" href="#output-variables">Output Variables</a></h3>
+<ul>
+<li><code>${shell.output}</code> - Output from last shell command</li>
+<li><code>${claude.output}</code> - Output from last Claude command</li>
+<li><code>${last.output}</code> - Output from last executed command (any type)</li>
+<li><code>${last.exit_code}</code> - Exit code from last command</li>
+<li><code>${handler.output}</code> - Output from handler command</li>
+<li><code>${test.output}</code> - Output from test command</li>
+<li><code>${goal_seek.output}</code> - Output from goal-seeking command</li>
+</ul>
+<h3 id="mapreduce-variables"><a class="header" href="#mapreduce-variables">MapReduce Variables</a></h3>
+<ul>
+<li><code>${item}</code> - Current work item in map phase</li>
+<li><code>${item.value}</code> - Value of current item (for simple items)</li>
+<li><code>${item.path}</code> - Path field of current item</li>
+<li><code>${item.name}</code> - Name field of current item</li>
+<li><code>${item.*}</code> - Access any item field using wildcard pattern (e.g., <code>${item.id}</code>, <code>${item.priority}</code>)</li>
+<li><code>${item_index}</code> - Index of current item in the list</li>
+<li><code>${item_total}</code> - Total number of items being processed</li>
+<li><code>${map.key}</code> - Current map key</li>
+<li><code>${map.total}</code> - Total items processed</li>
+<li><code>${map.successful}</code> - Successfully processed items</li>
+<li><code>${map.failed}</code> - Failed items</li>
+<li><code>${map.results}</code> - Aggregated results</li>
+<li><code>${worker.id}</code> - ID of the current worker agent</li>
+</ul>
+<h3 id="merge-variables"><a class="header" href="#merge-variables">Merge Variables</a></h3>
+<ul>
+<li><code>${merge.worktree}</code> - Worktree name</li>
+<li><code>${merge.source_branch}</code> - Source branch</li>
+<li><code>${merge.target_branch}</code> - Target branch</li>
+<li><code>${merge.session_id}</code> - Session ID</li>
+</ul>
+<h3 id="validation-variables"><a class="header" href="#validation-variables">Validation Variables</a></h3>
+<ul>
+<li><code>${validation.completion}</code> - Completion percentage</li>
+<li><code>${validation.completion_percentage}</code> - Completion percentage (numeric)</li>
+<li><code>${validation.implemented}</code> - List of implemented features</li>
+<li><code>${validation.missing}</code> - Missing requirements</li>
+<li><code>${validation.gaps}</code> - Gap details</li>
+<li><code>${validation.status}</code> - Status (complete/incomplete/failed)</li>
+</ul>
+<h3 id="git-context-variables"><a class="header" href="#git-context-variables">Git Context Variables</a></h3>
+<ul>
+<li><code>${step.commits}</code> - Commits in current step</li>
+<li><code>${workflow.commits}</code> - All workflow commits</li>
+</ul>
+<h3 id="legacy-variable-aliases"><a class="header" href="#legacy-variable-aliases">Legacy Variable Aliases</a></h3>
+<p>These legacy aliases are supported for backward compatibility but should be replaced with modern equivalents:</p>
+<ul>
+<li><code>$ARG</code> / <code>$ARGUMENT</code> - Legacy aliases for <code>${item.value}</code> (available in WithArguments mode)</li>
+<li><code>$FILE</code> / <code>$FILE_PATH</code> - Legacy aliases for <code>${item.path}</code> (available in WithFilePattern mode)</li>
+</ul>
+<p><strong>Note:</strong> Use the modern <code>${item.*}</code> syntax in new workflows instead of legacy aliases.</p>
+<hr />
+<h2 id="custom-variable-capture"><a class="header" href="#custom-variable-capture">Custom Variable Capture</a></h2>
+<pre><code class="language-yaml"># Capture to custom variable
+- shell: "ls -la | wc -l"
+  capture: "file_count"
+  capture_format: number  # number, string, json, lines, boolean
+
+# Use in next command
+- shell: "echo 'Found ${file_count} files'"
+
+# Capture specific streams
+- shell: "cargo test 2&gt;&amp;1"
+  capture: "test_results"
+  capture_streams:
+    stdout: true
+    stderr: true
+    exit_code: true
+    success: true
+    duration: true  # Capture execution duration
+
+# Access captured data
+- shell: "echo 'Exit code: ${test_results.exit_code}'"
+- shell: "echo 'Success: ${test_results.success}'"
+- shell: "echo 'Duration: ${test_results.duration}s'"
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="environment-configuration"><a class="header" href="#environment-configuration">Environment Configuration</a></h1>
+<h2 id="global-environment-configuration"><a class="header" href="#global-environment-configuration">Global Environment Configuration</a></h2>
+<pre><code class="language-yaml"># Inherit parent process environment (default: true)
+inherit: true
+
+# Global environment variables
+env:
+  # Static variables (EnvValue::Static)
+  NODE_ENV: production
+  PORT: "3000"
+
+  # Dynamic variables (EnvValue::Dynamic - computed from command)
+  WORKER_COUNT:
+    command: "nproc || echo 4"
+    cache: true  # Cache result for reuse
+
+  # Conditional variables (EnvValue::Conditional)
+  DEPLOY_TARGET:
+    condition: "${branch} == 'main'"
+    when_true: "production"
+    when_false: "staging"
+</code></pre>
+<p><strong>Environment Control:</strong></p>
+<ul>
+<li><code>inherit: false</code> - Start with clean environment instead of inheriting from parent process (default: true)</li>
+</ul>
+<hr />
+<h2 id="secrets-management"><a class="header" href="#secrets-management">Secrets Management</a></h2>
+<pre><code class="language-yaml">secrets:
+  # Simple format (syntactic sugar - parsed into structured format)
+  API_KEY: "${env:SECRET_API_KEY}"
+  DB_PASSWORD: "${file:~/.secrets/db.pass}"
+
+  # Structured format (Provider variant)
+  AWS_SECRET:
+    provider: aws
+    key: "my-app/api-key"
+
+  VAULT_SECRET:
+    provider: vault
+    key: "secret/data/myapp"
+    version: "v2"  # Optional version
+
+  # Custom provider
+  CUSTOM_SECRET:
+    provider: custom-provider
+    key: "secret-id"
+</code></pre>
+<p><strong>Supported Secret Providers:</strong></p>
+<ul>
+<li><code>env</code> - Environment variable reference</li>
+<li><code>file</code> - Read from file</li>
+<li><code>vault</code> - HashiCorp Vault integration</li>
+<li><code>aws</code> - AWS Secrets Manager</li>
+<li><code>custom</code> - Custom provider (extensible)</li>
+</ul>
+<hr />
+<h2 id="environment-profiles"><a class="header" href="#environment-profiles">Environment Profiles</a></h2>
+<pre><code class="language-yaml">profiles:
+  development:
+    description: "Development environment with debug enabled"
+    env:
+      NODE_ENV: development
+      DEBUG: "true"
+      API_URL: http://localhost:3000
+
+  production:
+    description: "Production environment configuration"
+    env:
+      NODE_ENV: production
+      DEBUG: "false"
+      API_URL: https://api.example.com
+
+# Activate profile globally
+active_profile: "development"
+# OR use dynamic profile selection
+active_profile: "${DEPLOY_ENV}"
+
+commands:
+  - shell: "npm run build"
+</code></pre>
+<p><strong>Note:</strong> Profile activation uses the <code>active_profile</code> field at the root WorkflowConfig level, not at the command level.</p>
+<hr />
+<h2 id="step-level-environment-configuration"><a class="header" href="#step-level-environment-configuration">Step-Level Environment Configuration</a></h2>
+<p>Commands support step-specific environment configuration with advanced control:</p>
+<pre><code class="language-yaml"># Basic step-level environment variables
+- shell: "echo $API_URL"
+  env:
+    API_URL: "https://api.staging.com"
+    DEBUG: "true"
+
+# Advanced step environment features
+- shell: "isolated-command.sh"
+  working_dir: "/tmp/sandbox"  # Change working directory
+  clear_env: true              # Clear all parent environment variables
+  temporary: true              # Restore previous environment after step
+  env:
+    ISOLATED_VAR: "value"
+</code></pre>
+<p><strong>Step Environment Fields:</strong></p>
+<ul>
+<li><code>env</code> - Step-specific environment variables (HashMap&lt;String, String&gt;)</li>
+<li><code>working_dir</code> - Working directory for command execution</li>
+<li><code>clear_env</code> - Start with clean environment (default: false)</li>
+<li><code>temporary</code> - Restore previous environment after step completes (default: false)</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-features"><a class="header" href="#advanced-features">Advanced Features</a></h1>
+<h2 id="conditional-execution"><a class="header" href="#conditional-execution">Conditional Execution</a></h2>
+<pre><code class="language-yaml"># Based on expression
+- shell: "cargo build --release"
+  when: "${tests_passed}"
+
+# On success
+- shell: "cargo test"
+  on_success:
+    shell: "cargo bench"
+
+# On failure
+- shell: "cargo clippy"
+  on_failure:
+    claude: "/fix-warnings"
+    max_attempts: 3
+    fail_workflow: false
+
+# On exit code
+- shell: "cargo check"
+  on_exit_code:
+    0:
+      shell: "echo 'Success!'"
+    101:
+      claude: "/fix-compilation-errors"
+</code></pre>
+<hr />
+<h2 id="output-capture-formats"><a class="header" href="#output-capture-formats">Output Capture Formats</a></h2>
+<pre><code class="language-yaml"># String (default)
+- shell: "git rev-parse HEAD"
+  capture: "commit_hash"
+  capture_format: string
+
+# Number
+- shell: "wc -l &lt; file.txt"
+  capture: "line_count"
+  capture_format: number
+
+# JSON
+- shell: "cargo metadata --format-version 1"
+  capture: "metadata"
+  capture_format: json
+
+# Lines (array)
+- shell: "find . -name '*.rs'"
+  capture: "rust_files"
+  capture_format: lines
+
+# Boolean
+- shell: "test -f README.md &amp;&amp; echo true || echo false"
+  capture: "has_readme"
+  capture_format: boolean
+</code></pre>
+<hr />
+<h2 id="nested-conditionals"><a class="header" href="#nested-conditionals">Nested Conditionals</a></h2>
+<pre><code class="language-yaml">- shell: "cargo check"
+  on_success:
+    shell: "cargo build --release"
+    on_success:
+      shell: "cargo test --release"
+      on_failure:
+        claude: "/debug-failures '${shell.output}'"
+</code></pre>
+<hr />
+<h2 id="timeout-configuration"><a class="header" href="#timeout-configuration">Timeout Configuration</a></h2>
+<pre><code class="language-yaml"># Command-level timeout
+- shell: "cargo bench"
+  timeout: 600  # 10 minutes
+
+# MapReduce agent timeout
+map:
+  agent_timeout_secs: 300
+  timeout_config:
+    default: 300
+    per_command:
+      "cargo test": 600
+      "cargo bench": 1800
+</code></pre>
+<hr />
+<h2 id="enhanced-retry-configuration"><a class="header" href="#enhanced-retry-configuration">Enhanced Retry Configuration</a></h2>
+<pre><code class="language-yaml"># Retry with exponential backoff
+- shell: "flaky-api-call.sh"
+  retry:
+    max_attempts: 5
+    backoff:
+      type: exponential
+      initial: 1000  # 1 second
+      multiplier: 2
+      max_delay: 30000  # 30 seconds
+      jitter: true
+</code></pre>
+<hr />
+<h2 id="working-directory"><a class="header" href="#working-directory">Working Directory</a></h2>
+<pre><code class="language-yaml"># Run command in specific directory
+- shell: "npm install"
+  working_dir: "/path/to/project"
+
+- shell: "pwd"  # Will show /path/to/project
+</code></pre>
+<hr />
+<h2 id="auto-commit"><a class="header" href="#auto-commit">Auto-Commit</a></h2>
+<pre><code class="language-yaml"># Automatically commit changes if detected
+- claude: "/refactor-code"
+  auto_commit: true
+</code></pre>
+<hr />
+<h2 id="output-file-redirection"><a class="header" href="#output-file-redirection">Output File Redirection</a></h2>
+<pre><code class="language-yaml"># Redirect output to file
+- shell: "cargo test"
+  output_file: "test-results.txt"
+</code></pre>
+<hr />
+<h2 id="modular-handlers"><a class="header" href="#modular-handlers">Modular Handlers</a></h2>
+<pre><code class="language-yaml"># Use custom handler
+- handler:
+    name: "custom-validator"
+    attributes:
+      path: "src/"
+      threshold: 80
+</code></pre>
+<hr />
+<h2 id="step-validation"><a class="header" href="#step-validation">Step Validation</a></h2>
+<pre><code class="language-yaml"># Validate step success after execution
+- shell: "deploy.sh"
+  step_validate:
+    shell: "curl -f https://app.com/health"
+    timeout: 30
+    on_failure:
+      shell: "rollback.sh"
+</code></pre>
+<hr />
+<h2 id="advanced-exit-code-handling"><a class="header" href="#advanced-exit-code-handling">Advanced Exit Code Handling</a></h2>
+<pre><code class="language-yaml"># Map exit codes to full workflow steps
+- shell: "cargo check"
+  on_exit_code:
+    0:
+      shell: "echo 'Build successful'"
+    101:
+      claude: "/fix-compilation-errors"
+      commit_required: true
+    other:
+      shell: "echo 'Unexpected error'"
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h1>
+<h2 id="workflow-level-error-policy"><a class="header" href="#workflow-level-error-policy">Workflow-Level Error Policy</a></h2>
+<pre><code class="language-yaml"># For MapReduce workflows
+error_policy:
+  # What to do when item fails
+  on_item_failure: dlq  # Options: dlq, retry, skip, stop, custom:&lt;handler_name&gt;
+
+  # Continue after failures
+  continue_on_failure: true
+
+  # Stop after N failures
+  max_failures: 10
+
+  # Stop if failure rate exceeds threshold
+  failure_threshold: 0.2  # 20%
+
+  # How to collect errors
+  error_collection: aggregate  # aggregate, immediate, batched:N
+
+  # Circuit breaker configuration
+  circuit_breaker:
+    failure_threshold: 5      # Open circuit after N consecutive failures
+    success_threshold: 2      # Close circuit after N successes in half-open state
+    timeout: 60              # Seconds before attempting half-open state
+    half_open_requests: 3    # Number of test requests in half-open state
+
+  # Retry configuration with backoff strategies
+  retry_config:
+    max_attempts: 3
+    backoff:
+      type: exponential      # Options: fixed, linear, exponential, fibonacci
+      initial: 1000          # Initial delay in milliseconds
+      multiplier: 2          # Multiplier for exponential backoff
+      max_delay: 30000       # Maximum delay in milliseconds
+</code></pre>
+<p><strong>Backoff Strategy Options:</strong></p>
+<ul>
+<li><code>fixed</code> - Fixed delay between retries: <code>{type: fixed, delay: 1000}</code></li>
+<li><code>linear</code> - Linear increase: <code>{type: linear, initial: 1000, increment: 500}</code></li>
+<li><code>exponential</code> - Exponential increase: <code>{type: exponential, initial: 1000, multiplier: 2}</code></li>
+<li><code>fibonacci</code> - Fibonacci sequence: <code>{type: fibonacci, initial: 1000}</code></li>
+</ul>
+<p><strong>Error Metrics:</strong>
+Prodigy automatically tracks error metrics including total items, successful/failed/skipped counts, failure rate, and can detect failure patterns with suggested remediation actions.</p>
+<hr />
+<h2 id="command-level-error-handling"><a class="header" href="#command-level-error-handling">Command-Level Error Handling</a></h2>
+<pre><code class="language-yaml"># Using on_failure with OnFailureConfig
+- shell: "cargo clippy"
+  on_failure:
+    command:
+      claude: "/fix-warnings ${shell.output}"
+    max_attempts: 3
+    fail_workflow: false  # Don't fail entire workflow
+    strategy: exponential  # Backoff strategy
+
+# Note: continue_on_error is only available in legacy CommandMetadata format
+# For WorkflowStepCommand, use on_failure with fail_workflow: false instead
+</code></pre>
+<hr />
+<h2 id="dead-letter-queue-dlq"><a class="header" href="#dead-letter-queue-dlq">Dead Letter Queue (DLQ)</a></h2>
+<p>Failed items in MapReduce workflows are sent to DLQ for retry:</p>
+<pre><code class="language-bash"># Retry failed items
+prodigy dlq retry &lt;job_id&gt;
+
+# Retry with custom parallelism
+prodigy dlq retry &lt;job_id&gt; --max-parallel 5
+
+# Dry run
+prodigy dlq retry &lt;job_id&gt; --dry-run
+</code></pre>
+<p><strong>DLQ Features:</strong></p>
+<ul>
+<li>Stores failed work items with failure reason and timestamp</li>
+<li>Supports automatic reprocessing via <code>prodigy dlq retry</code></li>
+<li>Configurable parallel execution and resource limits</li>
+<li>Shared across worktrees for centralized failure tracking</li>
+<li>Streams items to avoid memory issues with large queues</li>
+<li>Respects original workflow’s max_parallel setting</li>
+<li>Preserves correlation IDs for tracking</li>
+<li>Supports interruption and resumption</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="examples"><a class="header" href="#examples">Examples</a></h1>
+<h2 id="example-1-simple-build-and-test"><a class="header" href="#example-1-simple-build-and-test">Example 1: Simple Build and Test</a></h2>
+<pre><code class="language-yaml">- shell: "cargo build"
+- shell: "cargo test"
+  on_failure:
+    claude: "/fix-failing-tests"
+- shell: "cargo clippy"
+</code></pre>
+<hr />
+<h2 id="example-2-coverage-improvement-with-goal-seeking"><a class="header" href="#example-2-coverage-improvement-with-goal-seeking">Example 2: Coverage Improvement with Goal Seeking</a></h2>
+<pre><code class="language-yaml">- goal_seek:
+    goal: "Achieve 80% test coverage"
+    claude: "/improve-coverage"
+    validate: |
+      coverage=$(cargo tarpaulin | grep 'Coverage' | sed 's/.*: \([0-9.]*\)%.*/\1/')
+      echo "score: ${coverage%.*}"
+    threshold: 80
+    max_attempts: 5
+  commit_required: true
+</code></pre>
+<hr />
+<h2 id="example-3-parallel-code-review"><a class="header" href="#example-3-parallel-code-review">Example 3: Parallel Code Review</a></h2>
+<pre><code class="language-yaml">name: parallel-code-review
+mode: mapreduce
+
+setup:
+  - shell: "find src -name '*.rs' &gt; files.txt"
+  - shell: "jq -R -s -c 'split(\"\n\") | map(select(length &gt; 0) | {path: .})' files.txt &gt; items.json"
+
+map:
+  input: items.json
+  json_path: "$.[:1]"
+  agent_template:
+    - claude: "/review-file ${item.path}"
+    - shell: "cargo check ${item.path}"
+  max_parallel: 5
+
+reduce:
+  - claude: "/summarize-reviews ${map.results}"
+</code></pre>
+<hr />
+<h2 id="example-4-conditional-deployment"><a class="header" href="#example-4-conditional-deployment">Example 4: Conditional Deployment</a></h2>
+<pre><code class="language-yaml">- shell: "cargo test --quiet &amp;&amp; echo true || echo false"
+  capture: "tests_passed"
+  capture_format: boolean
+
+- shell: "cargo build --release"
+  when: "${tests_passed}"
+
+- shell: "docker build -t myapp ."
+  when: "${tests_passed}"
+  on_success:
+    shell: "docker push myapp:latest"
+</code></pre>
+<hr />
+<h2 id="example-5-multi-step-validation"><a class="header" href="#example-5-multi-step-validation">Example 5: Multi-Step Validation</a></h2>
+<pre><code class="language-yaml">- claude: "/implement-feature auth"
+  commit_required: true
+  validate:
+    - shell: "cargo test auth"
+    - shell: "cargo clippy -- -D warnings"
+    - claude: "/validate-implementation --output validation.json"
+      result_file: "validation.json"
+      threshold: 90
+      on_incomplete:
+        - claude: "/complete-gaps ${validation.gaps}"
+          commit_required: true
+        max_attempts: 2
+</code></pre>
+<hr />
+<h2 id="example-6-environment-aware-workflow"><a class="header" href="#example-6-environment-aware-workflow">Example 6: Environment-Aware Workflow</a></h2>
+<pre><code class="language-yaml">env:
+  DEPLOY_ENV:
+    condition: "${branch} == 'main'"
+    when_true: "production"
+    when_false: "staging"
+
+profiles:
+  production:
+    env:
+      API_URL: https://api.production.com
+  staging:
+    env:
+      API_URL: https://api.staging.com
+
+# Activate profile based on DEPLOY_ENV
+active_profile: "${DEPLOY_ENV}"
+
+commands:
+  - shell: "cargo build --release"
+  - shell: "echo 'Deploying to ${DEPLOY_ENV} at ${API_URL}'"
+  - shell: "deploy.sh ${DEPLOY_ENV}"
+</code></pre>
+<hr />
+<h2 id="example-7-complex-mapreduce-with-error-handling"><a class="header" href="#example-7-complex-mapreduce-with-error-handling">Example 7: Complex MapReduce with Error Handling</a></h2>
+<pre><code class="language-yaml">name: tech-debt-elimination
+mode: mapreduce
+
+setup:
+  - shell: "debtmap analyze . --output debt.json"
+
+map:
+  input: debt.json
+  json_path: "$.items[*]"
+  filter: "item.severity == 'critical'"
+  sort_by: "item.priority DESC"
+  max_items: 20
+  max_parallel: 5
+
+  agent_template:
+    - claude: "/fix-debt-item '${item.description}'"
+      commit_required: true
+    - shell: "cargo test"
+      on_failure:
+        claude: "/debug-and-fix"
+        max_attempts: 2
+
+reduce:
+  - shell: "debtmap analyze . --output debt-after.json"
+  - claude: "/compare-debt-reports --before debt.json --after debt-after.json"
+
+error_policy:
+  on_item_failure: dlq
+  continue_on_failure: true
+  max_failures: 5
+  failure_threshold: 0.3
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<h2 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h2>
+<h3 id="1-variables-not-interpolating"><a class="header" href="#1-variables-not-interpolating">1. Variables not interpolating</a></h3>
+<p><strong>Symptom:</strong> Variables appear as literal <code>${variable_name}</code> in output instead of their values.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Incorrect syntax (missing <code>${}</code> wrapper)</li>
+<li>Variable not defined or not in scope</li>
+<li>Typo in variable name</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Ensure proper <code>${}</code> syntax: <code>${workflow.name}</code>, not <code>$workflow.name</code></li>
+<li>Check variable is defined before use</li>
+<li>Verify variable is available in current context (e.g., <code>${item.*}</code> only available in map phase)</li>
+<li>Use echo to debug: <code>- shell: "echo 'Variable value: ${my_var}'"</code></li>
+</ul>
+<hr />
+<h3 id="2-capture-not-working"><a class="header" href="#2-capture-not-working">2. Capture not working</a></h3>
+<p><strong>Symptom:</strong> Captured variables are empty or contain unexpected data.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Incorrect <code>capture_format</code> for output type</li>
+<li>Command output not in expected format</li>
+<li>Missing or incorrect <code>capture_streams</code> configuration</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Match <code>capture_format</code> to output type:
+<ul>
+<li><code>string</code> for text output</li>
+<li><code>number</code> for numeric values</li>
+<li><code>json</code> for JSON output</li>
+<li><code>lines</code> for multi-line output as array</li>
+<li><code>boolean</code> for true/false values</li>
+</ul>
+</li>
+<li>Test command output manually first</li>
+<li>Capture all streams for debugging:
+<pre><code class="language-yaml">- shell: "cargo test 2&gt;&amp;1"
+  capture: "test_output"
+  capture_streams:
+    stdout: true
+    stderr: true
+    exit_code: true
+</code></pre>
+</li>
+</ul>
+<hr />
+<h3 id="3-validation-failing"><a class="header" href="#3-validation-failing">3. Validation failing</a></h3>
+<p><strong>Symptom:</strong> Goal-seeking or validation commands fail to recognize completion.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Validate command not outputting <code>score: N</code> format</li>
+<li>Threshold too high</li>
+<li>Score calculation incorrect</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Ensure validate command outputs exactly <code>score: N</code> (where N is 0-100)</li>
+<li>Test validate command independently</li>
+<li>Lower threshold temporarily for debugging</li>
+<li>Example correct format:
+<pre><code class="language-yaml">validate: |
+  result=$(run-checks.sh | grep 'Percentage' | sed 's/.*: \([0-9]*\)%.*/\1/')
+  echo "score: $result"
+</code></pre>
+</li>
+</ul>
+<hr />
+<h3 id="4-mapreduce-items-not-found"><a class="header" href="#4-mapreduce-items-not-found">4. MapReduce items not found</a></h3>
+<p><strong>Symptom:</strong> Map phase finds zero items or wrong items.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Incorrect JSONPath expression</li>
+<li>Input file format doesn’t match expectations</li>
+<li>Input file not generated in setup phase</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Test JSONPath expression with actual data using <code>jq</code>:
+<pre><code class="language-bash">jq '$.items[*]' items.json
+</code></pre>
+</li>
+<li>Verify input file exists and contains expected structure</li>
+<li>Check setup phase completed successfully</li>
+<li>Use simpler JSONPath first: <code>$[*]</code> to get all items</li>
+</ul>
+<hr />
+<h3 id="5-timeout-errors"><a class="header" href="#5-timeout-errors">5. Timeout errors</a></h3>
+<p><strong>Symptom:</strong> Commands or workflows fail with timeout errors.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Commands take longer than expected</li>
+<li>Default timeout too short</li>
+<li>Infinite loops or hanging processes</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Increase timeout values:
+<pre><code class="language-yaml">- shell: "slow-command.sh"
+  timeout: 600  # 10 minutes
+</code></pre>
+</li>
+<li>For MapReduce, increase agent timeout:
+<pre><code class="language-yaml">map:
+  agent_timeout_secs: 600
+</code></pre>
+</li>
+<li>Debug hanging commands by running them manually</li>
+<li>Add logging to identify slow steps</li>
+</ul>
+<hr />
+<h3 id="6-environment-variables-not-set"><a class="header" href="#6-environment-variables-not-set">6. Environment variables not set</a></h3>
+<p><strong>Symptom:</strong> Commands fail because required environment variables are missing.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Environment not inherited from parent process</li>
+<li>Typo in variable name</li>
+<li>Profile not activated</li>
+<li>Secret not loaded</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Ensure <code>inherit: true</code> in workflow config (default)</li>
+<li>Verify profile activation:
+<pre><code class="language-yaml">active_profile: "development"
+</code></pre>
+</li>
+<li>Check secrets are properly configured:
+<pre><code class="language-yaml">secrets:
+  API_KEY: "${env:SECRET_API_KEY}"
+</code></pre>
+</li>
+<li>Debug with: <code>- shell: "env | grep VARIABLE_NAME"</code></li>
+</ul>
+<hr />
+<h3 id="7-merge-workflow-not-running"><a class="header" href="#7-merge-workflow-not-running">7. Merge workflow not running</a></h3>
+<p><strong>Symptom:</strong> Custom merge commands not executed when merging worktree.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Merge block not properly formatted</li>
+<li>Syntax error in merge commands</li>
+<li>Merge workflow timeout too short</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Use correct merge format:
+<pre><code class="language-yaml">merge:
+  - shell: "git fetch origin"
+  - claude: "/merge-worktree ${merge.source_branch}"
+</code></pre>
+</li>
+<li>Increase merge timeout:
+<pre><code class="language-yaml">merge:
+  commands:
+    - shell: "slow-merge-validation.sh"
+  timeout: 600
+</code></pre>
+</li>
+<li>Check logs for merge execution errors</li>
+</ul>
+<hr />
+<h2 id="debug-tips"><a class="header" href="#debug-tips">Debug Tips</a></h2>
+<h3 id="enable-verbose-output-in-shell-commands"><a class="header" href="#enable-verbose-output-in-shell-commands">Enable verbose output in shell commands</a></h3>
+<pre><code class="language-yaml">- shell: "set -x; your-command"
+</code></pre>
+<h3 id="inspect-variables"><a class="header" href="#inspect-variables">Inspect variables</a></h3>
+<pre><code class="language-yaml">- shell: "echo 'Variable value: ${my_var}'"
+- shell: "echo 'Item fields: path=${item.path} name=${item.name}'"
+</code></pre>
+<h3 id="capture-all-streams-for-debugging"><a class="header" href="#capture-all-streams-for-debugging">Capture all streams for debugging</a></h3>
+<pre><code class="language-yaml">- shell: "cargo test 2&gt;&amp;1"
+  capture: "test_output"
+  capture_streams:
+    stdout: true
+    stderr: true
+    exit_code: true
+    success: true
+    duration: true
+
+# Then inspect
+- shell: "echo 'Exit code: ${test_output.exit_code}'"
+- shell: "echo 'Success: ${test_output.success}'"
+- shell: "echo 'Duration: ${test_output.duration}s'"
+</code></pre>
+<h3 id="test-jsonpath-expressions"><a class="header" href="#test-jsonpath-expressions">Test JSONPath expressions</a></h3>
+<pre><code class="language-bash"># Manually test your JSONPath
+jq '$.items[*]' items.json
+
+# Test with filter
+jq '$.items[] | select(.score &gt;= 5)' items.json
+</code></pre>
+<h3 id="validate-workflow-syntax"><a class="header" href="#validate-workflow-syntax">Validate workflow syntax</a></h3>
+<pre><code class="language-bash"># Use prodigy to validate your workflow file
+prodigy validate workflow.yml
+</code></pre>
+<h3 id="check-dlq-for-failed-items"><a class="header" href="#check-dlq-for-failed-items">Check DLQ for failed items</a></h3>
+<pre><code class="language-bash"># List failed items
+prodigy dlq list &lt;job_id&gt;
+
+# View failure details
+prodigy dlq inspect &lt;job_id&gt;
+</code></pre>
+<h3 id="monitor-mapreduce-progress"><a class="header" href="#monitor-mapreduce-progress">Monitor MapReduce progress</a></h3>
+<pre><code class="language-bash"># View events
+prodigy events &lt;job_id&gt;
+
+# Check checkpoints
+prodigy checkpoints list
+</code></pre>
+<hr />
+<h2 id="faq"><a class="header" href="#faq">FAQ</a></h2>
+<h3 id="q-why-are-my-changes-not-being-committed"><a class="header" href="#q-why-are-my-changes-not-being-committed">Q: Why are my changes not being committed?</a></h3>
+<p><strong>A:</strong> Add <code>commit_required: true</code> to your command or use <code>auto_commit: true</code> for automatic commits when changes are detected.</p>
+<h3 id="q-how-do-i-retry-failed-mapreduce-items"><a class="header" href="#q-how-do-i-retry-failed-mapreduce-items">Q: How do I retry failed MapReduce items?</a></h3>
+<p><strong>A:</strong> Use the DLQ retry command:</p>
+<pre><code class="language-bash">prodigy dlq retry &lt;job_id&gt;
+</code></pre>
+<h3 id="q-can-i-use-environment-variables-in-jsonpath-expressions"><a class="header" href="#q-can-i-use-environment-variables-in-jsonpath-expressions">Q: Can I use environment variables in JSONPath expressions?</a></h3>
+<p><strong>A:</strong> No, JSONPath expressions are evaluated against the input data, not the environment. Use variables in command arguments instead.</p>
+<h3 id="q-how-do-i-skip-items-in-mapreduce"><a class="header" href="#q-how-do-i-skip-items-in-mapreduce">Q: How do I skip items in MapReduce?</a></h3>
+<p><strong>A:</strong> Use the <code>filter</code> field:</p>
+<pre><code class="language-yaml">map:
+  filter: "item.score &gt;= 5"
+</code></pre>
+<h3 id="q-whats-the-difference-between-on_failure-and-on_exit_code"><a class="header" href="#q-whats-the-difference-between-on_failure-and-on_exit_code">Q: What’s the difference between <code>on_failure</code> and <code>on_exit_code</code>?</a></h3>
+<p><strong>A:</strong> <code>on_failure</code> runs for any non-zero exit code. <code>on_exit_code</code> lets you handle specific exit codes differently.</p>
+<h3 id="q-how-do-i-run-commands-in-parallel"><a class="header" href="#q-how-do-i-run-commands-in-parallel">Q: How do I run commands in parallel?</a></h3>
+<p><strong>A:</strong> Use MapReduce mode with <code>max_parallel</code>:</p>
+<pre><code class="language-yaml">mode: mapreduce
+map:
+  max_parallel: 5
+</code></pre>
+<h3 id="q-can-i-nest-workflows"><a class="header" href="#q-can-i-nest-workflows">Q: Can I nest workflows?</a></h3>
+<p><strong>A:</strong> Not directly, but you can use <code>shell</code> commands to invoke other workflows:</p>
+<pre><code class="language-yaml">- shell: "prodigy run other-workflow.yml"
+</code></pre>
+<hr />
+<h2 id="best-practices-for-debugging"><a class="header" href="#best-practices-for-debugging">Best Practices for Debugging</a></h2>
+<ol>
+<li><strong>Start simple</strong>: Test commands individually before adding to workflow</li>
+<li><strong>Use echo liberally</strong>: Debug variable values with echo statements</li>
+<li><strong>Check logs</strong>: Review Prodigy logs for detailed error messages</li>
+<li><strong>Test incrementally</strong>: Add commands one at a time and test after each</li>
+<li><strong>Validate input data</strong>: Ensure JSON files and data formats are correct</li>
+<li><strong>Use dry runs</strong>: Test workflows without actual execution when possible</li>
+<li><strong>Monitor resources</strong>: Check disk space, memory, and CPU during execution</li>
+<li><strong>Version control</strong>: Commit working workflows before making changes</li>
+<li><strong>Read error messages</strong>: Error messages often contain the solution</li>
+<li><strong>Ask for help</strong>: Include full error messages and workflow config when seeking support</li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>
