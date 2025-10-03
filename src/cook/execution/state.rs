@@ -867,7 +867,8 @@ impl DefaultJobStateManager {
     pub async fn list_resumable_jobs_internal(&self) -> Result<Vec<ResumableJob>> {
         let jobs_dir = self.checkpoint_manager.jobs_dir();
 
-        if !jobs_dir.exists() {
+        // Use async metadata check instead of sync exists()
+        if tokio::fs::metadata(&jobs_dir).await.is_err() {
             return Ok(Vec::new());
         }
 
@@ -876,40 +877,43 @@ impl DefaultJobStateManager {
 
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
-            if path.is_dir() {
-                if let Some(job_id) = path.file_name().and_then(|n| n.to_str()) {
-                    // Try to load the latest checkpoint for this job
-                    match self.checkpoint_manager.load_checkpoint(job_id).await {
-                        Ok(state) => {
-                            // Check if job is incomplete
-                            if !state.is_complete {
-                                let checkpoints = self
-                                    .checkpoint_manager
-                                    .list_checkpoints(job_id)
-                                    .await
-                                    .unwrap_or_default();
+            // Use async metadata check instead of sync is_dir()
+            if let Ok(metadata) = tokio::fs::metadata(&path).await {
+                if metadata.is_dir() {
+                    if let Some(job_id) = path.file_name().and_then(|n| n.to_str()) {
+                        // Try to load the latest checkpoint for this job
+                        match self.checkpoint_manager.load_checkpoint(job_id).await {
+                            Ok(state) => {
+                                // Check if job is incomplete
+                                if !state.is_complete {
+                                    let checkpoints = self
+                                        .checkpoint_manager
+                                        .list_checkpoints(job_id)
+                                        .await
+                                        .unwrap_or_default();
 
-                                let latest_checkpoint = checkpoints
-                                    .into_iter()
-                                    .max_by_key(|c| c.version)
-                                    .map(|c| c.version)
-                                    .unwrap_or(0);
+                                    let latest_checkpoint = checkpoints
+                                        .into_iter()
+                                        .max_by_key(|c| c.version)
+                                        .map(|c| c.version)
+                                        .unwrap_or(0);
 
-                                resumable_jobs.push(ResumableJob {
-                                    job_id: job_id.to_string(),
-                                    started_at: state.started_at,
-                                    updated_at: state.updated_at,
-                                    total_items: state.total_items,
-                                    completed_items: state.successful_count,
-                                    failed_items: state.failed_count,
-                                    is_complete: false,
-                                    checkpoint_version: latest_checkpoint,
-                                });
+                                    resumable_jobs.push(ResumableJob {
+                                        job_id: job_id.to_string(),
+                                        started_at: state.started_at,
+                                        updated_at: state.updated_at,
+                                        total_items: state.total_items,
+                                        completed_items: state.successful_count,
+                                        failed_items: state.failed_count,
+                                        is_complete: false,
+                                        checkpoint_version: latest_checkpoint,
+                                    });
+                                }
                             }
-                        }
-                        Err(_) => {
-                            // Skip jobs without valid checkpoints
-                            continue;
+                            Err(_) => {
+                                // Skip jobs without valid checkpoints
+                                continue;
+                            }
                         }
                     }
                 }
