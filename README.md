@@ -14,7 +14,6 @@
 - [Features](#features)
 - [Installation](#installation)
   - [Using Cargo (Recommended)](#using-cargo-recommended)
-  - [Using Homebrew (macOS/Linux)](#using-homebrew-macoslinux)
   - [From Source](#from-source)
   - [From Package Managers](#from-package-managers)
 - [Quick Start](#quick-start)
@@ -54,13 +53,6 @@
 
 ```bash
 cargo install prodigy
-```
-
-### Using Homebrew (macOS/Linux)
-
-```bash
-# Coming soon - use cargo install for now
-brew install prodigy
 ```
 
 ### From Source
