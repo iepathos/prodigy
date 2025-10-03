@@ -1,0 +1,67 @@
+{
+  "chapters": [
+    {
+      "id": "workflow-basics",
+      "title": "Workflow Basics",
+      "file": "book/src/workflow-basics.md",
+      "topics": ["Standard workflows", "Basic structure", "Command execution"],
+      "validation": "Check basic workflow syntax and structure documentation"
+    },
+    {
+      "id": "mapreduce",
+      "title": "MapReduce Workflows",
+      "file": "book/src/mapreduce.md",
+      "topics": ["MapReduce mode", "Setup phase", "Map phase", "Reduce phase", "Parallel execution"],
+      "validation": "Check MapReduce configuration matches MapReduceWorkflowConfig struct"
+    },
+    {
+      "id": "commands",
+      "title": "Command Types",
+      "file": "book/src/commands.md",
+      "topics": ["Shell commands", "Claude commands", "Goal-seeking", "Foreach", "Validation"],
+      "validation": "Check all command types and their fields are documented"
+    },
+    {
+      "id": "variables",
+      "title": "Variables and Interpolation",
+      "file": "book/src/variables.md",
+      "topics": ["Standard variables", "Output variables", "MapReduce variables", "Custom capture"],
+      "validation": "Check all variable types and interpolation syntax"
+    },
+    {
+      "id": "environment",
+      "title": "Environment Configuration",
+      "file": "book/src/environment.md",
+      "topics": ["Global environment", "Secrets management", "Profiles", "Step-level environment"],
+      "validation": "Check environment configuration options and syntax"
+    },
+    {
+      "id": "advanced",
+      "title": "Advanced Features",
+      "file": "book/src/advanced.md",
+      "topics": ["Conditional execution", "Output capture formats", "Nested conditionals", "Timeouts"],
+      "validation": "Check advanced features match implementation"
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "file": "book/src/error-handling.md",
+      "topics": ["Workflow-level errors", "Command-level errors", "DLQ", "Circuit breaker", "Retry config"],
+      "validation": "Check error handling policies and configurations"
+    },
+    {
+      "id": "examples",
+      "title": "Examples",
+      "file": "book/src/examples.md",
+      "topics": ["Practical workflows", "Use cases", "Best practices"],
+      "validation": "Check examples are valid and work with current syntax"
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting",
+      "file": "book/src/troubleshooting.md",
+      "topics": ["Common issues", "Debug tips", "FAQ"],
+      "validation": "Check troubleshooting covers common user issues"
+    }
+  ]
+}

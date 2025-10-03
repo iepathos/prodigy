@@ -1,0 +1,58 @@
+# Workflow to detect and fix documentation drift in the Prodigy book
+# This workflow analyzes the codebase and updates book/src/*.md files
+# to reflect the latest supported features and syntax.
+
+name: book-docs-drift-detection
+mode: mapreduce
+
+# Setup phase: Analyze codebase for feature coverage
+setup:
+  - shell: "mkdir -p .prodigy/book-analysis"
+
+  # Analyze codebase for workflow features, command types, and configuration
+  - claude: "/prodigy-analyze-features-for-book"
+
+# Map phase: Analyze each book chapter for drift
+map:
+  input: "workflows/data/book-chapters.json"
+  json_path: "$.chapters[*]"
+
+  agent_template:
+    - claude: "/prodigy-analyze-book-chapter-drift --json '${item}'"
+      commit_required: true
+
+  max_parallel: 3
+  agent_timeout_secs: 300
+
+# Reduce phase: Aggregate drift findings and update documentation
+reduce:
+  - claude: "/prodigy-fix-book-drift"
+    commit_required: true
+
+  # Rebuild the book to ensure it compiles correctly
+  - shell: "cd book && mdbook build"
+    on_failure:
+      claude: "/prodigy-fix-book-build-errors"
+
+# Error handling
+error_policy:
+  on_item_failure: dlq
+  continue_on_failure: true
+  max_failures: 2
+  error_collection: aggregate
+
+# Custom merge workflow - cleanup and validation before merging
+merge:
+  # Step 1: Clean up temporary analysis files
+  - shell: "rm -rf .prodigy/book-analysis"
+  - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files' || true"
+
+  # Step 2: Validate book builds successfully
+  - shell: "cd book && mdbook build"
+
+  # Step 3: Fetch latest changes and merge master into worktree
+  - shell: "git fetch origin"
+  - claude: "/merge-master"
+
+  # Step 4: Merge worktree back to master
+  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
