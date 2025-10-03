@@ -354,9 +354,18 @@ impl CheckpointManager {
         let checkpoint_path = self.checkpoint_path(&state.job_id, state.checkpoint_version);
         let temp_path = checkpoint_path.with_extension("tmp");
 
-        fs::write(&temp_path, &json)
+        // Use explicit file operations with sync to ensure durability
+        use tokio::io::AsyncWriteExt;
+        let mut file = fs::File::create(&temp_path)
             .await
-            .context("Failed to write temporary checkpoint")?;
+            .context("Failed to create temporary checkpoint")?;
+        file.write_all(json.as_bytes())
+            .await
+            .context("Failed to write checkpoint data")?;
+        file.sync_data()
+            .await
+            .context("Failed to sync checkpoint to disk")?;
+        drop(file); // Explicitly close before rename
 
         // Atomically rename temp file to final checkpoint
         fs::rename(&temp_path, &checkpoint_path)
@@ -373,7 +382,13 @@ impl CheckpointManager {
 
         let metadata_json = serde_json::to_string_pretty(&metadata)?;
         let metadata_temp = self.metadata_path(&state.job_id).with_extension("tmp");
-        fs::write(&metadata_temp, metadata_json).await?;
+
+        // Sync metadata file as well
+        let mut metadata_file = fs::File::create(&metadata_temp).await?;
+        metadata_file.write_all(metadata_json.as_bytes()).await?;
+        metadata_file.sync_data().await?;
+        drop(metadata_file); // Explicitly close before rename
+
         fs::rename(metadata_temp, self.metadata_path(&state.job_id)).await?;
 
         let duration = start.elapsed();
