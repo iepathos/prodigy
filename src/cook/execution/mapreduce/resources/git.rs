@@ -4,7 +4,7 @@ use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
 use crate::cook::orchestrator::ExecutionEnvironment;
 use std::path::Path;
 use tokio::process::Command;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use super::git_operations::{GitOperationsConfig, GitOperationsService, GitResultExt};
 
@@ -70,23 +70,7 @@ impl GitOperations {
             ));
         };
 
-        // First fetch the agent branch
-        let output = Command::new("git")
-            .args(["fetch", "origin", agent_branch])
-            .current_dir(&**parent_path)
-            .output()
-            .await
-            .map_err(|e| self.create_git_error("fetch_agent_branch", &e.to_string()))?;
-
-        if !output.status.success() {
-            debug!(
-                "Fetch of agent branch {} might not exist (this is ok): {}",
-                agent_branch,
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
-
-        // Try to merge the agent branch
+        // Merge directly - no fetch needed since worktrees share the same object database
         let output = Command::new("git")
             .args([
                 "merge",
@@ -102,28 +86,7 @@ impl GitOperations {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            if stderr.contains("not something we can merge") {
-                // Branch doesn't exist locally, try to fetch and merge from origin
-                let output = Command::new("git")
-                    .args([
-                        "merge",
-                        "--no-ff",
-                        "-m",
-                        &format!("Merge agent {}", agent_branch),
-                        &format!("origin/{}", agent_branch),
-                    ])
-                    .current_dir(&**parent_path)
-                    .output()
-                    .await
-                    .map_err(|e| self.create_git_error("merge_origin_branch", &e.to_string()))?;
-
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(self.create_git_error("merge_origin_branch", &stderr));
-                }
-            } else {
-                return Err(self.create_git_error("merge_agent_branch", &stderr));
-            }
+            return Err(self.create_git_error("merge_agent_branch", &stderr));
         }
 
         info!(

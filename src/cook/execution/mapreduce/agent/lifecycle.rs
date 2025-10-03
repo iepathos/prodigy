@@ -147,23 +147,7 @@ impl AgentLifecycleManager for DefaultLifecycleManager {
         // Get parent worktree path (always use working_dir since we always use worktrees)
         let parent_worktree_path = &env.working_dir;
 
-        // First, fetch the agent branch in the parent worktree
-        let output = Command::new("git")
-            .args(["fetch", ".", &format!("{}:{}", agent_branch, agent_branch)])
-            .current_dir(&**parent_worktree_path)
-            .output()
-            .await
-            .map_err(|e| LifecycleError::GitError(e.to_string()))?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(LifecycleError::MergeError(format!(
-                "Failed to fetch branch {}: {}",
-                agent_branch, stderr
-            )));
-        }
-
-        // Now merge the branch
+        // Merge directly - no fetch needed since worktrees share the same object database
         let output = Command::new("git")
             .args(["merge", "--no-ff", agent_branch])
             .current_dir(&**parent_worktree_path)
