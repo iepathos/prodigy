@@ -481,14 +481,14 @@ steps:
 
 ## Documentation
 
-📚 **Full documentation is available at [https://gbaker-prodigy.github.io/prodigy](https://gbaker-prodigy.github.io/prodigy)**
+📚 **Full documentation is available at [https://iepathos.github.io/prodigy](https://iepathos.github.io/prodigy)**
 
 Quick links:
-- [Getting Started](https://gbaker-prodigy.github.io/prodigy/intro.html)
-- [Workflow Basics](https://gbaker-prodigy.github.io/prodigy/workflow-basics.html)
-- [MapReduce Guide](https://gbaker-prodigy.github.io/prodigy/mapreduce.html)
-- [Command Reference](https://gbaker-prodigy.github.io/prodigy/commands.html)
-- [Examples](https://gbaker-prodigy.github.io/prodigy/examples.html)
+- [Getting Started](https://iepathos.github.io/prodigy/intro.html)
+- [Workflow Basics](https://iepathos.github.io/prodigy/workflow-basics.html)
+- [MapReduce Guide](https://iepathos.github.io/prodigy/mapreduce.html)
+- [Command Reference](https://iepathos.github.io/prodigy/commands.html)
+- [Examples](https://iepathos.github.io/prodigy/examples.html)
 
 ### Building Documentation Locally
 
