@@ -345,7 +345,7 @@ impl MapReduceCoordinator {
 
         if let Some(shell_cmd) = &step.shell {
             info!("Executing shell command: {}", shell_cmd);
-            info!("  Working directory: {}", env.working_dir.display());
+            info!("Working directory: {}", env.working_dir.display());
 
             let command = ProcessCommandBuilder::new("sh")
                 .args(["-c", shell_cmd])

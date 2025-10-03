@@ -84,7 +84,7 @@ pub async fn execute_shell_command(
 
     // Log shell command execution details
     tracing::info!("Executing shell command: {}", command);
-    tracing::info!("  Working directory: {}", working_dir.display());
+    tracing::info!("Working directory: {}", working_dir.display());
     if !env_vars.is_empty() {
         tracing::debug!("  With {} environment variables set", env_vars.len());
     }

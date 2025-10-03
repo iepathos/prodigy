@@ -1637,7 +1637,7 @@ impl WorktreeManager {
         self.log_execution_context(&step_name, variables);
 
         tracing::info!("Executing shell command: {}", shell_cmd_interpolated);
-        tracing::info!("  Working directory: {}", self.repo_path.display());
+        tracing::info!("Working directory: {}", self.repo_path.display());
 
         let shell_command = ProcessCommandBuilder::new("sh")
             .current_dir(&self.repo_path)
