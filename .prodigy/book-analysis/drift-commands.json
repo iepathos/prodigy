@@ -1,0 +1,139 @@
+{
+  "chapter_id": "commands",
+  "chapter_title": "Command Types",
+  "chapter_file": "book/src/commands.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Chapter covers core command types well but missing several advanced fields and has some incomplete documentation",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Command Reference - Common Fields",
+      "description": "Chapter documents capture_streams as object but doesn't explain the structure",
+      "should_add": "Document CaptureStreams object structure with fields: stdout (bool, default true), stderr (bool, default false), exit_code (bool, default true), success (bool, default true), duration (bool, default true)",
+      "fix_suggestion": "Add detailed subsection explaining CaptureStreams with example showing how to selectively capture different streams",
+      "source_reference": "src/cook/workflow/variables.rs:252-264 (CaptureStreams struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Command Reference - Common Fields",
+      "description": "capture field mentioned but relationship with deprecated capture_output not clearly explained",
+      "should_add": "Clarify that 'capture' replaces 'capture_output' and show migration examples",
+      "fix_suggestion": "Add note: 'capture: \"var_name\"' is the modern syntax replacing 'capture_output: true/false'",
+      "source_reference": "src/cook/workflow/executor.rs:300-312 (capture vs capture_output)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Validation Commands - OnIncompleteConfig",
+      "description": "Chapter lists on_incomplete fields but doesn't explain retry_original or handler behavior",
+      "should_add": "Document retry_original (bool, default false) and strategy fields available in on_incomplete configuration",
+      "fix_suggestion": "Add explanation of retry_original flag and how it affects gap-filling workflow",
+      "source_reference": "src/cook/workflow/on_failure.rs:99-100 (retry_original field)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Command Reference - Common Fields",
+      "description": "capture_format documented but doesn't show practical examples",
+      "should_add": "Add examples for each capture format: string (default), number, json, lines, boolean",
+      "fix_suggestion": "Add subsection with examples:\n- capture_format: json → parses JSON output\n- capture_format: lines → splits into array\n- capture_format: number → parses numeric output\n- capture_format: boolean → checks success/failure",
+      "source_reference": "src/cook/workflow/variables.rs:247-257 (CaptureFormat enum)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Deprecated Fields",
+      "description": "Lists some deprecated fields but incomplete",
+      "should_add": "Document that 'capture_output: true/false' is fully deprecated in favor of 'capture: \"var_name\"'",
+      "fix_suggestion": "Update deprecated fields section to show migration path:\nOld: capture_output: true\nNew: capture: \"output\"",
+      "source_reference": "src/cook/workflow/executor.rs:310 (capture_output is deprecated)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Command Reference - Common Fields",
+      "description": "skip_validation and ignore_validation_failure fields not documented",
+      "should_add": "Document skip_validation (bool, default false) and ignore_validation_failure (bool, default false)",
+      "fix_suggestion": "Add fields:\n- skip_validation: Skip step validation (default: false)\n- ignore_validation_failure: Continue workflow even if validation fails (default: false)",
+      "source_reference": "src/config/command.rs:186-189 (WorkflowStepCommand fields)"
+    },
+    {
+      "type": "correct_documentation",
+      "severity": "none",
+      "section": "Shell Commands",
+      "description": "Shell command examples are accurate and show proper syntax",
+      "current_content": "Examples show shell:, capture:, on_failure:, timeout:, when: correctly",
+      "fix_suggestion": "No changes needed - examples are correct"
+    },
+    {
+      "type": "correct_documentation",
+      "severity": "none",
+      "section": "Claude Commands",
+      "description": "Claude command examples are accurate",
+      "current_content": "Shows claude:, commit_required:, capture: syntax correctly",
+      "fix_suggestion": "No changes needed"
+    },
+    {
+      "type": "correct_documentation",
+      "severity": "none",
+      "section": "Goal-Seeking Commands",
+      "description": "Goal-seeking documentation matches implementation",
+      "current_content": "All GoalSeekConfig fields documented: goal, claude/shell, validate, threshold, max_attempts, timeout_seconds, fail_on_incomplete",
+      "fix_suggestion": "No changes needed",
+      "source_reference": "src/cook/goal_seek/mod.rs:14-41"
+    },
+    {
+      "type": "correct_documentation",
+      "severity": "none",
+      "section": "Foreach Commands",
+      "description": "Foreach command structure is accurate",
+      "current_content": "Shows input (command or list), parallel config, do block, continue_on_error, max_items correctly",
+      "fix_suggestion": "No changes needed",
+      "source_reference": "src/config/command.rs:190-211"
+    },
+    {
+      "type": "correct_documentation",
+      "severity": "none",
+      "section": "Validation Commands",
+      "description": "Validation command structure is well documented",
+      "current_content": "Shows shell/claude validation, result_file, threshold, on_incomplete with max_attempts and fail_workflow",
+      "fix_suggestion": "No changes needed",
+      "source_reference": "src/cook/workflow/validation.rs:11-49"
+    }
+  ],
+  "positive_aspects": [
+    "Clear structure organizing commands by type",
+    "Good coverage of basic command types (shell, claude, goal_seek, foreach, validation)",
+    "Examples are syntactically correct and follow current API",
+    "Deprecated fields section helps with migration",
+    "Validation command documentation is comprehensive",
+    "Code examples are realistic and practical"
+  ],
+  "improvement_suggestions": [
+    "Add practical examples for capture_format showing each format type in use",
+    "Expand CaptureStreams documentation with examples of selective stream capture",
+    "Add troubleshooting section for common capture/validation issues",
+    "Include more complex on_failure examples showing nested commands",
+    "Add visual diagram showing command lifecycle (execute → on_success/on_failure → validation)",
+    "Document interaction between auto_commit and commit_required",
+    "Add examples of on_exit_code usage for sophisticated error handling"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-10-03",
+    "feature_inventory": "Analyzed from source code directly",
+    "topics_covered": [
+      "Shell commands",
+      "Claude commands",
+      "Goal-seeking",
+      "Foreach",
+      "Validation",
+      "Command fields",
+      "Capture configuration",
+      "Error handling"
+    ],
+    "validation_focus": "Check all command types and their fields are documented"
+  }
+}
