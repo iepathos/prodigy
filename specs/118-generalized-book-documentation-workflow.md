@@ -40,12 +40,11 @@ Refactor Prodigy's book documentation workflow to:
 
 ### Functional Requirements
 
-**FR1**: Refactor Claude commands to be parameter-based:
-- Replace `/prodigy-analyze-features-for-book` with `/analyze-codebase-features --config <path>`
-- Replace `/prodigy-analyze-book-chapter-drift` with `/analyze-chapter-drift --json <chapter> --features <path> --project <name>`
-- Replace `/prodigy-fix-book-drift` with `/fix-documentation-drift --config <path> --drift-dir <path>`
-- Commands accept project context as parameters rather than hardcoding "Prodigy"
-- Use generic terminology that works for any project
+**FR1**: Refactor Claude commands to be configuration-driven:
+- Keep `/prodigy-analyze-features-for-book`, `/prodigy-analyze-book-chapter-drift`, `/prodigy-fix-book-drift` names
+- Make implementations read from `.prodigy/book-config.json` instead of hardcoding paths/settings
+- Generalize internal logic to work with any project structure via configuration
+- Extract reusable patterns that Debtmap commands (Spec 119) can follow
 
 **FR2**: Create Prodigy project configuration:
 - Create `.prodigy/book-config.json` with Prodigy-specific settings
@@ -58,11 +57,10 @@ Refactor Prodigy's book documentation workflow to:
 - Rename `workflows/data/book-chapters.json` to `workflows/data/prodigy-chapters.json`
 - Maintain identical workflow behavior and output
 
-**FR4**: Ensure backward compatibility during transition:
-- Keep old commands temporarily for comparison
-- Verify new workflow produces identical results
-- Test complete workflow end-to-end
-- Remove old commands only after verification
+**FR4**: Maintain command naming convention:
+- Keep `prodigy-` prefix on all Prodigy commands (required for Prodigy's self-recognition)
+- Make command implementations configuration-driven rather than changing names
+- Create pattern that Debtmap can follow with `debtmap-` prefix
 
 ### Non-Functional Requirements
 
@@ -78,37 +76,40 @@ Refactor Prodigy's book documentation workflow to:
 
 ## Acceptance Criteria
 
-- [ ] New generalized Claude commands created in `.claude/commands/`
-- [ ] Commands accept `--config`, `--project`, `--features`, and `--drift-dir` parameters
 - [ ] `.prodigy/book-config.json` created with Prodigy's configuration
 - [ ] `workflows/data/book-chapters.json` renamed to `workflows/data/prodigy-chapters.json`
-- [ ] `workflows/book-docs-drift.yml` updated to use environment variables and new commands
+- [ ] Prodigy commands refactored to read from configuration files
+- [ ] Commands keep `prodigy-` prefix (required for Prodigy self-recognition)
+- [ ] Command implementations are generic and configuration-driven internally
+- [ ] `workflows/book-docs-drift.yml` updated to use configuration approach
 - [ ] Workflow runs successfully and produces identical output to previous version
 - [ ] Book builds successfully after drift fixes
 - [ ] All Prodigy chapters analyzed and updated correctly
-- [ ] Old Prodigy-specific commands can be removed (or marked deprecated)
-- [ ] Commands are documented and ready for reuse by other projects (Spec 119)
+- [ ] Command pattern documented for Debtmap to follow (Spec 119)
 
 ## Technical Details
 
 ### Implementation Approach
 
-#### 1. Command Generalization Strategy
+#### 1. Command Refactoring Strategy
 
-**Current State**: Commands are Prodigy-specific
+**Current State**: Commands have hardcoded paths and Prodigy-specific assumptions
 ```bash
-# Current: Hardcoded for Prodigy
+# Current: Hardcoded paths like "book/src/", ".prodigy/book-analysis/"
 /prodigy-analyze-features-for-book
 /prodigy-analyze-book-chapter-drift
 /prodigy-fix-book-drift
 ```
 
-**Target State**: Project-agnostic with parameters
+**Target State**: Same command names, but configuration-driven
 ```bash
-# Generalized with project context
-/analyze-codebase-features --project $PROJECT_NAME --config $CONFIG_PATH
-/analyze-chapter-drift --chapter-json "$CHAPTER" --features $FEATURES_PATH
-/fix-documentation-drift --project $PROJECT_NAME --drift-dir $DRIFT_DIR
+# Refactored: Read from .prodigy/book-config.json
+/prodigy-analyze-features-for-book    # Reads config for paths, analysis targets
+/prodigy-analyze-book-chapter-drift   # Reads config for chapter structure
+/prodigy-fix-book-drift               # Reads config for output paths
+
+# Commands keep prodigy- prefix (required for Prodigy's self-recognition)
+# But internal implementation is generic and driven by configuration
 ```
 
 #### 2. Configuration Structure
@@ -158,57 +159,60 @@ Refactor Prodigy's book documentation workflow to:
 }
 ```
 
-#### 3. Generalized Command Design
+#### 3. Configuration-Driven Command Design
 
-**Feature Analysis Command** (`/analyze-codebase-features`):
-- Variables: `$PROJECT_CONFIG` (path to project config JSON)
-- Reads project configuration to determine analysis targets
-- Generates feature inventory at configured output path
-- Supports different project types with custom analysis logic
+**Feature Analysis Command** (`/prodigy-analyze-features-for-book`):
+- Reads `.prodigy/book-config.json` to determine analysis targets
+- Generates feature inventory at configured output path (`.prodigy/book-analysis/features.json`)
+- Analysis targets specified in config, not hardcoded
 - Outputs JSON compatible with drift detection
 
-**Chapter Drift Command** (`/analyze-chapter-drift`):
-- Variables: `$CHAPTER_JSON`, `$FEATURES_PATH`, `$PROJECT_NAME`
-- Works with any chapter structure from chapter JSON
-- Compares against feature inventory
-- Generates standardized drift report
+**Chapter Drift Command** (`/prodigy-analyze-book-chapter-drift`):
+- Receives chapter JSON via `--json` flag (passed from workflow)
+- Reads `.prodigy/book-analysis/features.json` for ground truth
+- Chapter structure comes from `workflows/data/prodigy-chapters.json`
+- Generates drift report in `.prodigy/book-analysis/`
 - Supports custom validation focuses per chapter
 
-**Fix Drift Command** (`/fix-documentation-drift`):
-- Variables: `$PROJECT_CONFIG`, `$DRIFT_DIR`
-- Reads all drift reports from specified directory
-- Updates chapters based on project configuration
-- Preserves project-specific documentation style
+**Fix Drift Command** (`/prodigy-fix-book-drift`):
+- Reads all drift reports from `.prodigy/book-analysis/drift-*.json`
+- Updates chapters in `book/src/` based on drift analysis
+- Book paths come from configuration
 - Validates mdBook build after changes
 
-#### 4. Workflow Template Structure
+#### 4. Refactored Workflow Structure
 
-**Template Workflow** (`workflows/templates/book-docs-drift-template.yml`):
+**Updated Workflow** (`workflows/book-docs-drift.yml`):
 ```yaml
-name: ${PROJECT_NAME}-book-docs-drift-detection
+name: prodigy-book-docs-drift-detection
 mode: mapreduce
 
 setup:
-  - shell: "mkdir -p ${ANALYSIS_DIR}"
-  - claude: "/analyze-codebase-features --config ${PROJECT_CONFIG}"
+  - shell: "mkdir -p .prodigy/book-analysis"
+
+  # Command reads .prodigy/book-config.json for configuration
+  - claude: "/prodigy-analyze-features-for-book"
 
 map:
-  input: "${CHAPTERS_FILE}"
+  input: "workflows/data/prodigy-chapters.json"  # Renamed from book-chapters.json
   json_path: "$.chapters[*]"
 
   agent_template:
-    - claude: "/analyze-chapter-drift --json '${item}' --features ${FEATURES_PATH} --project ${PROJECT_NAME}"
+    # Command receives chapter via ${item}, reads config for rest
+    - claude: "/prodigy-analyze-book-chapter-drift --json '${item}'"
       commit_required: true
 
   max_parallel: 3
   agent_timeout_secs: 900
 
 reduce:
-  - claude: "/fix-documentation-drift --config ${PROJECT_CONFIG} --drift-dir ${DRIFT_DIR}"
+  # Command reads config to find drift reports and chapters
+  - claude: "/prodigy-fix-book-drift"
     commit_required: true
-  - shell: "cd ${BOOK_DIR} && mdbook build"
+
+  - shell: "cd book && mdbook build"
     on_failure:
-      claude: "/fix-book-build-errors --project ${PROJECT_NAME}"
+      claude: "/prodigy-fix-book-build-errors"
 
 error_policy:
   on_item_failure: dlq
@@ -217,57 +221,36 @@ error_policy:
   error_collection: aggregate
 
 merge:
-  - shell: "rm -rf ${ANALYSIS_DIR}"
-  - shell: "git add -A && git commit -m 'chore: remove temporary analysis files for ${PROJECT_NAME}' || true"
-  - shell: "cd ${BOOK_DIR} && mdbook build"
+  - shell: "rm -rf .prodigy/book-analysis"
+  - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files' || true"
+  - shell: "cd book && mdbook build"
   - shell: "git fetch origin"
   - claude: "/merge-master"
   - claude: "/prodigy-merge-worktree ${merge.source_branch}"
 ```
 
-**Project-Specific Instance** (e.g., `workflows/prodigy-book-docs-drift.yml`):
-```yaml
-name: prodigy-book-docs-drift-detection
-mode: mapreduce
-
-env:
-  PROJECT_NAME: "Prodigy"
-  PROJECT_CONFIG: ".prodigy/book-config.json"
-  CHAPTERS_FILE: "workflows/data/prodigy-chapters.json"
-  ANALYSIS_DIR: ".prodigy/book-analysis"
-  FEATURES_PATH: ".prodigy/book-analysis/features.json"
-  DRIFT_DIR: ".prodigy/book-analysis"
-  BOOK_DIR: "book"
-
-setup:
-  - shell: "mkdir -p $ANALYSIS_DIR"
-  - claude: "/analyze-codebase-features --config $PROJECT_CONFIG"
-
-# ... rest follows template pattern with environment variable substitution
-```
+**Key Changes**:
+- Commands keep `prodigy-` prefix
+- Configuration paths come from `.prodigy/book-config.json`
+- Chapter file renamed to `prodigy-chapters.json` for clarity
+- Commands are simpler (no need to pass config paths explicitly)
 
 ### Architecture Changes
 
 **New Files**:
-- `.claude/commands/analyze-codebase-features.md` - Generalized feature analysis
-- `.claude/commands/analyze-chapter-drift.md` - Generalized chapter drift detection
-- `.claude/commands/fix-documentation-drift.md` - Generalized drift fixing
-- `workflows/templates/book-docs-drift-template.yml` - Reusable workflow template
 - `.prodigy/book-config.json` - Prodigy-specific configuration
-- `workflows/data/prodigy-chapters.json` - Prodigy chapter definitions
+- `workflows/data/prodigy-chapters.json` - Renamed from `book-chapters.json`
 
 **Modified Files**:
-- `workflows/book-docs-drift.yml` - Use environment variables and generalized commands
-- `workflows/data/book-chapters.json` - Rename to `workflows/data/prodigy-chapters.json`
+- `.claude/commands/prodigy-analyze-features-for-book.md` - Refactored to read from config
+- `.claude/commands/prodigy-analyze-book-chapter-drift.md` - Refactored to read from config
+- `.claude/commands/prodigy-fix-book-drift.md` - Refactored to read from config
+- `workflows/book-docs-drift.yml` - Updated to use configuration-driven commands
 
-**Files for Future Projects** (Spec 119):
-- Commands in `.claude/commands/` are now reusable by other projects
-- Workflow pattern can be copied and customized with project-specific env vars
-
-**Deprecated Files** (remove after verification):
-- `.claude/commands/prodigy-analyze-features-for-book.md` → replaced by generalized version
-- `.claude/commands/prodigy-analyze-book-chapter-drift.md` → replaced by generalized version
-- `.claude/commands/prodigy-fix-book-drift.md` → replaced by generalized version
+**Pattern for Future Projects** (Spec 119):
+- Debtmap will create similar files with `debtmap-` prefix
+- Command implementations can follow same configuration-driven pattern
+- Workflow structure can be copied and adapted
 
 ### Data Structures
 
@@ -509,42 +492,41 @@ Update `ARCHITECTURE.md` to document:
 
 ### Migration Path
 
-**Phase 1: Create Generalized Commands**
-1. Create `/analyze-codebase-features` based on `/prodigy-analyze-features-for-book`
-2. Create `/analyze-chapter-drift` based on `/prodigy-analyze-book-chapter-drift`
-3. Create `/fix-documentation-drift` based on `/prodigy-fix-book-drift`
-4. Test commands work with Prodigy configuration
-
-**Phase 2: Create Prodigy Configuration**
-1. Create `.prodigy/book-config.json` with Prodigy's settings
+**Phase 1: Create Prodigy Configuration**
+1. Create `.prodigy/book-config.json` with Prodigy's paths and analysis targets
 2. Rename `workflows/data/book-chapters.json` → `workflows/data/prodigy-chapters.json`
-3. Update chapter file path references
+3. Validate configuration structure
+
+**Phase 2: Refactor Prodigy Commands**
+1. Update `/prodigy-analyze-features-for-book` to read from `.prodigy/book-config.json`
+2. Update `/prodigy-analyze-book-chapter-drift` to use configuration
+3. Update `/prodigy-fix-book-drift` to use configuration
+4. Keep command names unchanged (required for Prodigy self-recognition)
+5. Test commands individually with configuration
 
 **Phase 3: Update Prodigy Workflow**
-1. Add environment variables to `workflows/book-docs-drift.yml`
-2. Update setup phase to call `/analyze-codebase-features --config $PROJECT_CONFIG`
-3. Update map phase to call `/analyze-chapter-drift` with parameters
-4. Update reduce phase to call `/fix-documentation-drift` with parameters
-5. Test workflow end-to-end
+1. Update `workflows/book-docs-drift.yml` to reference `prodigy-chapters.json`
+2. Simplify command invocations (config is implicit)
+3. Test workflow end-to-end
 
-**Phase 4: Verification and Cleanup**
+**Phase 4: Verification**
 1. Run workflow and compare output with previous runs
 2. Verify book builds successfully
 3. Verify all chapters updated correctly
-4. Remove old Prodigy-specific commands (or mark deprecated)
-5. Update documentation
+4. Document configuration-driven pattern for Debtmap
 
 ### Backward Compatibility
 
-**Temporary Compatibility**:
-- Keep old Prodigy-specific commands until Prodigy migration complete
-- Support both old and new workflow formats during transition
-- Provide migration guide in PR description
+**Backward Compatibility**:
+- Command names unchanged (`prodigy-` prefix maintained)
+- Workflow structure largely unchanged
+- Existing workflow files will need chapter path update
+- Configuration is additive (new `.prodigy/book-config.json` file)
 
-**No Long-term Compatibility**:
-- Old commands will be removed after migration
-- Old workflow format will not be supported
-- Configuration format may evolve
+**Breaking Changes**:
+- `workflows/data/book-chapters.json` renamed to `prodigy-chapters.json`
+- Commands now require `.prodigy/book-config.json` to exist
+- Hardcoded paths removed from command implementations
 
 ## Success Metrics
 
