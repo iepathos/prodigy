@@ -3,6 +3,7 @@
 //! This module coordinates the execution of MapReduce jobs,
 //! managing phases and resource allocation.
 
+use crate::cook::execution::claude::ClaudeExecutorImpl;
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
 use crate::cook::execution::input_source::InputSource;
@@ -14,7 +15,6 @@ use crate::cook::execution::mapreduce::{
     timeout::{TimeoutConfig, TimeoutEnforcer},
     types::{MapPhase, ReducePhase, SetupPhase},
 };
-use crate::cook::execution::claude::ClaudeExecutorImpl;
 use crate::cook::execution::runner::RealCommandRunner;
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
@@ -101,9 +101,8 @@ impl MapReduceCoordinator {
 
         // Create claude executor using the real implementation
         let command_runner = RealCommandRunner::new();
-        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(
-            ClaudeExecutorImpl::new(command_runner)
-        );
+        let claude_executor: Arc<dyn ClaudeExecutor> =
+            Arc::new(ClaudeExecutorImpl::new(command_runner));
 
         // Create session manager - not used but required for struct
         let session_manager = Arc::new(DummySessionManager);
@@ -308,7 +307,7 @@ impl MapReduceCoordinator {
                 }
 
                 // Add stdout if available and stderr is empty
-                if result.stderr.as_ref().map_or(true, |s| s.trim().is_empty()) {
+                if result.stderr.as_ref().is_none_or(|s| s.trim().is_empty()) {
                     if let Some(ref stdout) = result.stdout {
                         if !stdout.trim().is_empty() {
                             error_msg.push_str(&format!("\nstdout: {}", stdout.trim()));
@@ -321,8 +320,7 @@ impl MapReduceCoordinator {
                     if let Ok(repo_name) = crate::storage::extract_repo_name(&self.project_root) {
                         let log_hint = format!(
                             "\n\n💡 Check Claude logs at: ~/.prodigy/events/{}/{}/*.jsonl",
-                            repo_name,
-                            self.job_id
+                            repo_name, self.job_id
                         );
                         error_msg.push_str(&log_hint);
                     }

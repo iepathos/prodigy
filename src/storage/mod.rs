@@ -264,8 +264,8 @@ mod mod_tests {
 
     #[tokio::test]
     async fn test_list_dlq_job_ids() {
-        let _temp_dir = TempDir::new().unwrap();
-        let storage = GlobalStorage::new().unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
         let repo_name = "test-repo";
 
         // Initially no job IDs
