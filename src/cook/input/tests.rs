@@ -506,6 +506,9 @@ async fn test_file_pattern_validation() {
 async fn test_file_pattern_symlink_handling() {
     use std::os::unix::fs as unix_fs;
 
+    // Create TestWorkingDir BEFORE creating temp directory to capture valid CWD
+    let _wd = TestWorkingDir::new().unwrap();
+
     let temp_dir = TempDir::new().unwrap();
     let temp_path = temp_dir.path();
 
