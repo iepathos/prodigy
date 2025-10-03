@@ -481,9 +481,28 @@ steps:
 
 ## Documentation
 
-- 📖 [User Guide](docs/user-guide.md) - Complete guide to using Prodigy
-- 🔧 [API Reference](docs/api.md) - Detailed API documentation
-- 📝 [Workflow Syntax](docs/workflows.md) - YAML workflow configuration reference
+📚 **Full documentation is available at [https://gbaker-prodigy.github.io/prodigy](https://gbaker-prodigy.github.io/prodigy)**
+
+Quick links:
+- [Getting Started](https://gbaker-prodigy.github.io/prodigy/intro.html)
+- [Workflow Basics](https://gbaker-prodigy.github.io/prodigy/workflow-basics.html)
+- [MapReduce Guide](https://gbaker-prodigy.github.io/prodigy/mapreduce.html)
+- [Command Reference](https://gbaker-prodigy.github.io/prodigy/commands.html)
+- [Examples](https://gbaker-prodigy.github.io/prodigy/examples.html)
+
+### Building Documentation Locally
+
+```bash
+# Install mdBook
+cargo install mdbook
+
+# Serve with live reload
+mdbook serve book --open
+```
+
+### Additional Resources
+
+- 📝 [Workflow Syntax (Single Page)](docs/workflow-syntax.md) - Complete syntax reference in one file
 - 🏗️ [Architecture](ARCHITECTURE.md) - System design and internals
 - 🤝 [Contributing Guide](CONTRIBUTING.md) - How to contribute to Prodigy
 - 📚 [Man Pages](man/) - Unix-style manual pages for all commands
