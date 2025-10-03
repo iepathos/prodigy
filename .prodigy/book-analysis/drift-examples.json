@@ -1,0 +1,105 @@
+{
+  "chapter_id": "examples",
+  "chapter_title": "Examples",
+  "chapter_file": "book/src/examples.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Examples are mostly valid with current syntax, but Example 5 contains incorrect validation syntax that won't work. Example 6 uses environment features that need verification against current implementation. Generally good practical examples but need updates for accuracy.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Example 5: Multi-Step Validation",
+      "description": "Example shows nested structure under validate field that doesn't match actual ValidationConfig structure",
+      "current_content": "validate:\n  - shell: \"cargo test auth\"\n  - shell: \"cargo clippy -- -D warnings\"\n  - claude: \"/validate-implementation --output validation.json\"\n    result_file: \"validation.json\"\n    threshold: 90\n    on_incomplete:\n      - claude: \"/complete-gaps ${validation.gaps}\"\n        commit_required: true\n      max_attempts: 2",
+      "should_be": "validate:\n  claude: \"/validate-implementation --output validation.json\"\n  result_file: \"validation.json\"\n  threshold: 90\n  on_incomplete:\n    claude: \"/complete-gaps ${validation.gaps}\"\n    commit_required: true\n    max_attempts: 2",
+      "fix_suggestion": "The validate field expects a ValidationConfig object with fields like shell/claude/commands, result_file, threshold, and on_incomplete. The array syntax shown won't parse correctly. Also, on_incomplete should not have nested arrays of commands but rather a single command or commands field.",
+      "source_reference": "src/cook/workflow/validation.rs:12-49, src/cook/workflow/validation.rs:124-150"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "medium",
+      "section": "Example 5: Multi-Step Validation",
+      "description": "Example suggests multi-step validation in validate field but syntax is incorrect",
+      "current_content": "Nested array structure under validate",
+      "should_be": "Use validate.commands field for multi-step validation or use step_validate for post-execution validation",
+      "fix_suggestion": "Either use 'validate.commands: [...]' for multi-step validation during implementation checking, or use 'step_validate' for post-execution validation. Clarify the difference between 'validate' (implementation completeness) and 'step_validate' (execution success verification).",
+      "source_reference": "src/cook/workflow/validation.rs:26-27, src/cook/workflow/step_validation.rs:14-24"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Example 6: Environment-Aware Workflow",
+      "description": "Example uses env with conditional logic and profiles, but this syntax needs verification against actual implementation",
+      "current_content": "env:\n  DEPLOY_ENV:\n    condition: \"${branch} == 'main'\"\n    when_true: \"production\"\n    when_false: \"staging\"",
+      "should_add": "Verify that conditional environment variable syntax is actually supported in current implementation",
+      "fix_suggestion": "Check if conditional environment variables are implemented. If not, either mark as future feature or show simpler environment configuration. The example might be aspirational rather than functional.",
+      "source_reference": "Need to verify environment configuration implementation"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Example 6: Environment-Aware Workflow",
+      "description": "Example shows profiles and active_profile but needs verification this works with current code",
+      "current_content": "profiles:\n  production:\n    env:\n      API_URL: https://api.production.com\nactive_profile: \"${DEPLOY_ENV}\"",
+      "should_add": "Verify profile system is implemented and works as shown",
+      "fix_suggestion": "Check if profile system exists in workflow configuration. If not implemented, either remove this example or mark it as a planned feature.",
+      "source_reference": "Need to check workflow config for profile support"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Example 3: Parallel Code Review",
+      "description": "Example shows json_path: \"$.[:1]\" which is unclear - looks like it's limiting to first item only",
+      "current_content": "json_path: \"$.[:1]\"",
+      "should_be": "json_path: \"$[*]\" or explain why limiting to 1 item",
+      "fix_suggestion": "If this is intentional to show limiting items for testing, add a comment. Otherwise, use \"$[*]\" to process all items. The [:1] slice syntax might confuse users.",
+      "source_reference": "Looks like intentional limit but should be explained"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "Example 7: Complex MapReduce with Error Handling",
+      "description": "Example shows on_failure inside agent_template with max_attempts field",
+      "current_content": "on_failure:\n  claude: \"/debug-and-fix\"\n  max_attempts: 2",
+      "should_be": "on_failure:\n  claude: \"/debug-and-fix\"",
+      "fix_suggestion": "The on_failure field doesn't have a max_attempts parameter. Use retry configuration at the step level if you need retry behavior. Current syntax will fail to parse.",
+      "source_reference": "src/cook/workflow/on_failure.rs"
+    }
+  ],
+  "positive_aspects": [
+    "Good variety of examples covering different use cases",
+    "Example 1 is simple and correct - good starting point",
+    "Example 2 (goal_seek) syntax is correct and demonstrates the feature well",
+    "Example 4 shows conditional execution correctly with when clause",
+    "Example 7 shows MapReduce with error_policy correctly",
+    "Examples progress from simple to complex appropriately",
+    "Real-world scenarios like code review and tech debt elimination are helpful"
+  ],
+  "improvement_suggestions": [
+    "Fix Example 5 validation syntax to match actual ValidationConfig structure",
+    "Verify and correct Example 6 environment/profile syntax or mark as future feature",
+    "Add explanatory comments to complex examples to help readers understand what's happening",
+    "Consider adding an example showing the difference between 'validate' and 'step_validate'",
+    "Add expected output or results for each example to show what success looks like",
+    "Include common pitfalls or troubleshooting tips for complex examples",
+    "Fix or explain the json_path slice syntax in Example 3",
+    "Remove max_attempts from on_failure in Example 7 or show correct retry syntax"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-10-03",
+    "topics_covered": [
+      "Simple workflow with shell commands",
+      "Goal seeking for iterative improvement",
+      "MapReduce for parallel processing",
+      "Conditional execution",
+      "Validation and gap-filling",
+      "Environment configuration",
+      "Error handling and DLQ"
+    ],
+    "validation_focus": "Check examples are valid and work with current syntax",
+    "examples_count": 7,
+    "incorrect_examples": [5, 7],
+    "needs_verification": [6]
+  }
+}
