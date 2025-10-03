@@ -1,0 +1,147 @@
+{
+  "chapter_id": "environment",
+  "chapter_title": "Environment Configuration",
+  "chapter_file": "book/src/environment.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Chapter has significant drift from actual implementation. Documents features that don't exist in WorkflowConfig (EnvValue variants, inherit field, active_profile at workflow level) while missing important integration details. The chapter documents EnvironmentConfig which exists internally but isn't exposed at the WorkflowConfig level in the documented way.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Global Environment Configuration",
+      "description": "Chapter shows EnvValue variants (Static, Dynamic, Conditional) in env: field, but WorkflowConfig.env is actually HashMap<String, String> - only supports static strings",
+      "current_content": "env:\n  NODE_ENV: production\n  WORKER_COUNT:\n    command: \"nproc\"\n    cache: true\n  DEPLOY_TARGET:\n    condition: \"${branch} == 'main'\"\n    when_true: \"production\"",
+      "should_be": "env:\n  NODE_ENV: production\n  PORT: \"3000\"\n  # Only static string values supported at WorkflowConfig level",
+      "fix_suggestion": "Clarify that env: at workflow level only supports static strings (HashMap<String, String>). Document that EnvValue variants (Dynamic, Conditional) are internal types used by EnvironmentConfig but not directly exposed in YAML",
+      "source_reference": "src/config/workflow.rs:WorkflowConfig.env (line 18)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Global Environment Configuration",
+      "description": "Chapter shows 'inherit: true' field but WorkflowConfig doesn't have this field - it's only in internal EnvironmentConfig",
+      "current_content": "# Inherit parent process environment (default: true)\ninherit: true",
+      "should_be": "# Parent environment is always inherited by default\n# (No inherit field exists at workflow level)",
+      "fix_suggestion": "Remove 'inherit:' field from examples as it's not available in WorkflowConfig YAML. Environment is always inherited by default in the implementation (src/cook/orchestrator.rs always sets inherit: true when building EnvironmentConfig)",
+      "source_reference": "src/config/workflow.rs:WorkflowConfig (lines 12-35) - no inherit field"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Environment Profiles - Active Profile",
+      "description": "Chapter documents 'active_profile' field at workflow level but WorkflowConfig doesn't have this field",
+      "current_content": "# Activate profile globally\nactive_profile: \"development\"\n# OR use dynamic profile selection\nactive_profile: \"${DEPLOY_ENV}\"",
+      "should_be": "# Profile activation is managed internally\n# Profiles defined at workflow level via profiles: field\n# Selection mechanism not exposed in current WorkflowConfig",
+      "fix_suggestion": "Remove active_profile documentation or clarify it's not yet implemented in WorkflowConfig. The field exists in EnvironmentConfig internally but isn't exposed in workflow YAML",
+      "source_reference": "src/config/workflow.rs:WorkflowConfig (no active_profile field), src/cook/environment/config.rs:EnvironmentConfig.active_profile (line 35)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Secrets Management - Simple Format",
+      "description": "Chapter says simple format (e.g., \"${env:SECRET_API_KEY}\") is 'syntactic sugar parsed into structured format', but doesn't explain if this actually works or how to use it",
+      "current_content": "secrets:\n  # Simple format (syntactic sugar - parsed into structured format)\n  API_KEY: \"${env:SECRET_API_KEY}\"\n  DB_PASSWORD: \"${file:~/.secrets/db.pass}\"",
+      "should_be": "Clarify if this variable interpolation syntax is actually supported for secrets, or if only structured Provider format works",
+      "fix_suggestion": "Test if variable interpolation works in secrets field, or document that only structured Provider format is currently supported. Clarify parsing mechanism.",
+      "source_reference": "src/cook/environment/config.rs:SecretValue (lines 84-96)"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Secrets Management - Custom Provider",
+      "description": "Chapter shows 'provider: custom-provider' but SecretProvider enum only supports Custom(String), suggesting this should be 'provider: custom' with a custom provider name",
+      "current_content": "CUSTOM_SECRET:\n  provider: custom-provider\n  key: \"secret-id\"",
+      "should_be": "CUSTOM_SECRET:\n  provider:\n    custom: \"custom-provider-name\"\n  key: \"secret-id\"",
+      "fix_suggestion": "Clarify correct YAML syntax for Custom provider variant. SecretProvider::Custom(String) suggests the string is stored as a parameter, not as enum value",
+      "source_reference": "src/cook/environment/config.rs:SecretProvider::Custom(String) (line 111)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Environment Profiles",
+      "description": "Chapter shows profile structure but doesn't explain how profiles work with EnvProfile's #[serde(flatten)] - the structure is confusing",
+      "current_content": "profiles:\n  development:\n    description: \"Development environment\"\n    env:\n      NODE_ENV: development",
+      "should_be": "profiles:\n  development:\n    description: \"Development environment\"\n    NODE_ENV: development\n    DEBUG: \"true\"",
+      "fix_suggestion": "Explain that EnvProfile uses #[serde(flatten)] so env vars are at the profile level, not nested under 'env:'. Update examples to show correct structure. Or document both syntaxes if nested 'env:' is actually supported via deserialization",
+      "source_reference": "src/cook/environment/config.rs:EnvProfile (lines 114-124) - uses #[serde(flatten)]"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Step-Level Environment Configuration",
+      "description": "Chapter shows working_dir, clear_env, temporary fields but doesn't mention these are only available in StepEnvironment internally, not directly in command YAML",
+      "current_content": "- shell: \"isolated-command.sh\"\n  working_dir: \"/tmp/sandbox\"\n  clear_env: true\n  temporary: true\n  env:\n    ISOLATED_VAR: \"value\"",
+      "should_be": "Clarify which fields are exposed at command level vs internal only. WorkflowStep has working_dir and env, but clear_env/temporary may not be exposed",
+      "fix_suggestion": "Document which step-level environment fields are actually exposed in YAML command syntax. Check if clear_env and temporary are user-facing or internal-only",
+      "source_reference": "src/cook/environment/config.rs:StepEnvironment (lines 127-144), src/cook/workflow/executor.rs:WorkflowStep"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Environment Files",
+      "description": "Chapter shows env_files field but provides no example or explanation of how .env file format works",
+      "current_content": "# Environment files to load (.env format)\nenv_files:\n  - .env\n  - .env.local",
+      "should_add": "Add explanation of .env file format, loading order, variable precedence, and example .env file content",
+      "fix_suggestion": "Add subsection explaining .env files: format (KEY=value), loading order, precedence (later files override earlier), and practical example",
+      "source_reference": "src/config/workflow.rs:WorkflowConfig.env_files (line 26)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Overall Structure",
+      "description": "Chapter doesn't clarify the relationship between WorkflowConfig (user-facing YAML) and EnvironmentConfig (internal configuration)",
+      "should_add": "Add architectural note explaining that WorkflowConfig provides env/secrets/profiles fields which are converted to EnvironmentConfig internally",
+      "fix_suggestion": "Add 'Implementation Note' section or sidebar explaining the two-layer architecture: user writes env/secrets/profiles in YAML (WorkflowConfig), runtime converts to EnvironmentConfig with additional features",
+      "source_reference": "src/config/workflow.rs:WorkflowConfig vs src/cook/environment/config.rs:EnvironmentConfig"
+    }
+  ],
+  "positive_aspects": [
+    "Well-organized chapter structure with clear sections",
+    "Good separation of concerns (global, secrets, profiles, step-level)",
+    "Examples are clear and easy to read",
+    "Explains the purpose of each configuration section",
+    "Covers important security concepts (secrets masking)"
+  ],
+  "improvement_suggestions": [
+    "Align all examples with actual WorkflowConfig schema - only document fields that exist",
+    "Clarify which features are user-facing vs internal implementation details",
+    "Add practical examples showing real-world environment configurations",
+    "Add troubleshooting section for common environment issues",
+    "Explain variable precedence: step env overrides global env overrides parent env",
+    "Document environment variable expansion/interpolation if supported",
+    "Add cross-references to Variables chapter for ${...} interpolation syntax",
+    "Show complete end-to-end example combining env, secrets, and profiles",
+    "Test all YAML examples against actual parser to ensure they work"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-10-03",
+    "feature_inventory": "Analyzed directly from codebase (features.json not present)",
+    "topics_covered": [
+      "Global environment (with incorrect EnvValue syntax)",
+      "Secrets management (basic structure correct)",
+      "Environment profiles (structure needs clarification)",
+      "Step-level environment (partial documentation)"
+    ],
+    "topics_missing": [
+      "Relationship between WorkflowConfig and EnvironmentConfig",
+      "Environment variable precedence rules",
+      "How .env files are parsed and loaded",
+      "Secret provider implementation details",
+      "Profile activation mechanism (if implemented)",
+      "Working directory behavior and defaults"
+    ],
+    "validation_focus": "Check environment configuration options and syntax",
+    "codebase_sources": [
+      "src/config/workflow.rs:WorkflowConfig",
+      "src/cook/environment/config.rs:EnvironmentConfig",
+      "src/cook/environment/config.rs:EnvValue",
+      "src/cook/environment/config.rs:SecretValue",
+      "src/cook/environment/config.rs:EnvProfile",
+      "src/cook/environment/config.rs:StepEnvironment",
+      "src/cook/environment/manager.rs:EnvironmentManager",
+      "src/cook/orchestrator.rs (environment setup)",
+      "tests/environment_workflow_test.rs"
+    ]
+  }
+}
