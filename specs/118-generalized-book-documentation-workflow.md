@@ -1,6 +1,6 @@
 ---
 number: 118
-title: Generalized Book Documentation Workflow
+title: Generalize Prodigy Book Documentation Commands
 category: documentation
 priority: high
 status: draft
@@ -8,7 +8,7 @@ dependencies: []
 created: 2025-10-03
 ---
 
-# Specification 118: Generalized Book Documentation Workflow
+# Specification 118: Generalize Prodigy Book Documentation Commands
 
 **Category**: documentation
 **Priority**: high
@@ -23,50 +23,46 @@ Prodigy has successfully implemented an automated book documentation system usin
 - Specialized Claude commands for analyzing and updating documentation
 - GitHub workflow for automated deployment to GitHub Pages
 
-This infrastructure is currently Prodigy-specific but should be generalized to work across multiple projects (e.g., Debtmap) with minimal configuration changes. The goal is to create reusable Claude commands and workflow patterns that can detect and fix documentation drift in any Rust project using mdBook.
+The current implementation uses Prodigy-specific commands (`/prodigy-analyze-features-for-book`, etc.) with hardcoded project assumptions. To enable reuse across other projects (see Spec 119 for Debtmap), these commands need to be generalized to accept project configuration as parameters.
+
+This spec focuses on **refactoring the Prodigy implementation only** to use generalized, parameter-based commands while maintaining identical functionality. This proves the generalization works before applying it to other projects.
 
 ## Objective
 
-Create a generalized book documentation workflow system that:
-1. Works across multiple projects without hardcoded project names
-2. Uses project-agnostic Claude commands for analyzing features and fixing drift
-3. Provides a template workflow that can be customized per project
-4. Supports project-specific chapter structures and validation focuses
-5. Enables consistent documentation quality across all projects in the monorepo
+Refactor Prodigy's book documentation workflow to:
+1. Use project-agnostic Claude commands that accept configuration parameters
+2. Externalize project-specific details into JSON configuration files
+3. Maintain identical functionality and output for Prodigy's existing book workflow
+4. Create reusable command templates that other projects can use
+5. Verify the refactored system works correctly with Prodigy before expanding to other projects
 
 ## Requirements
 
 ### Functional Requirements
 
-**FR1**: Create project-agnostic Claude commands that:
-- Accept project context as parameters rather than hardcoding project names
-- Use generic terminology (e.g., "codebase features" not "Prodigy workflow features")
-- Work with any Rust project structure
-- Generate project-specific feature inventories
+**FR1**: Refactor Claude commands to be parameter-based:
+- Replace `/prodigy-analyze-features-for-book` with `/analyze-codebase-features --config <path>`
+- Replace `/prodigy-analyze-book-chapter-drift` with `/analyze-chapter-drift --json <chapter> --features <path> --project <name>`
+- Replace `/prodigy-fix-book-drift` with `/fix-documentation-drift --config <path> --drift-dir <path>`
+- Commands accept project context as parameters rather than hardcoding "Prodigy"
+- Use generic terminology that works for any project
 
-**FR2**: Implement parameterized workflow templates that:
-- Accept project configuration through environment variables or YAML parameters
-- Support custom chapter structures via external JSON files
-- Allow project-specific validation criteria
-- Enable customization of book build commands and paths
+**FR2**: Create Prodigy project configuration:
+- Create `.prodigy/book-config.json` with Prodigy-specific settings
+- Externalize book paths, analysis targets, and chapter file location
+- Configuration validates on load with clear error messages
 
-**FR3**: Generalize the analysis commands to:
-- Detect features from any Rust codebase based on configuration
-- Support different project architectures (CLI tools, libraries, applications)
-- Generate appropriate feature inventories for different project types
-- Allow customization of what features to analyze
+**FR3**: Update Prodigy workflow to use new commands:
+- Update `workflows/book-docs-drift.yml` to define environment variables
+- Update workflow to call generalized commands with parameters
+- Rename `workflows/data/book-chapters.json` to `workflows/data/prodigy-chapters.json`
+- Maintain identical workflow behavior and output
 
-**FR4**: Create reusable drift detection that:
-- Compares any mdBook chapter against its codebase implementation
-- Works with different chapter structures and topics
-- Supports project-specific validation focuses
-- Generates consistent drift reports across projects
-
-**FR5**: Generalize the fix commands to:
-- Update mdBook chapters based on drift reports from any project
-- Maintain project-specific documentation style and tone
-- Support different mdBook configurations
-- Handle project-specific best practices
+**FR4**: Ensure backward compatibility during transition:
+- Keep old commands temporarily for comparison
+- Verify new workflow produces identical results
+- Test complete workflow end-to-end
+- Remove old commands only after verification
 
 ### Non-Functional Requirements
 
@@ -82,15 +78,16 @@ Create a generalized book documentation workflow system that:
 
 ## Acceptance Criteria
 
-- [ ] Claude commands use parameters instead of hardcoded project names
-- [ ] Commands accept project-specific configuration (book paths, analysis targets, etc.)
-- [ ] Workflow can be copied and customized for Debtmap with minimal changes
-- [ ] Feature analysis adapts to different Rust project structures
-- [ ] Chapter drift detection works across different documentation styles
-- [ ] Fix commands preserve project-specific documentation characteristics
-- [ ] Both Prodigy and Debtmap can use the same core Claude commands
-- [ ] Documentation for using the system with new projects is clear
-- [ ] Example configurations provided for different project types
+- [ ] New generalized Claude commands created in `.claude/commands/`
+- [ ] Commands accept `--config`, `--project`, `--features`, and `--drift-dir` parameters
+- [ ] `.prodigy/book-config.json` created with Prodigy's configuration
+- [ ] `workflows/data/book-chapters.json` renamed to `workflows/data/prodigy-chapters.json`
+- [ ] `workflows/book-docs-drift.yml` updated to use environment variables and new commands
+- [ ] Workflow runs successfully and produces identical output to previous version
+- [ ] Book builds successfully after drift fixes
+- [ ] All Prodigy chapters analyzed and updated correctly
+- [ ] Old Prodigy-specific commands can be removed (or marked deprecated)
+- [ ] Commands are documented and ready for reuse by other projects (Spec 119)
 
 ## Technical Details
 
@@ -261,15 +258,13 @@ setup:
 
 **Modified Files**:
 - `workflows/book-docs-drift.yml` - Use environment variables and generalized commands
-- Rename `workflows/data/book-chapters.json` to `workflows/data/prodigy-chapters.json`
+- `workflows/data/book-chapters.json` - Rename to `workflows/data/prodigy-chapters.json`
 
-**Debtmap Files** (to be created):
-- `../debtmap/.debtmap/book-config.json` - Debtmap configuration
-- `../debtmap/workflows/data/debtmap-chapters.json` - Debtmap chapter definitions
-- `../debtmap/workflows/book-docs-drift.yml` - Debtmap workflow instance
-- `../debtmap/book/` - mdBook structure for Debtmap
+**Files for Future Projects** (Spec 119):
+- Commands in `.claude/commands/` are now reusable by other projects
+- Workflow pattern can be copied and customized with project-specific env vars
 
-**Deprecated Files**:
+**Deprecated Files** (remove after verification):
 - `.claude/commands/prodigy-analyze-features-for-book.md` → replaced by generalized version
 - `.claude/commands/prodigy-analyze-book-chapter-drift.md` → replaced by generalized version
 - `.claude/commands/prodigy-fix-book-drift.md` → replaced by generalized version
@@ -355,30 +350,24 @@ Not applicable - this is a documentation automation feature implemented in Claud
 
 ### Integration Tests
 
-**Test 1: Prodigy Book Workflow**
-- Run `prodigy run workflows/book-docs-drift.yml`
+**Test 1: Refactored Prodigy Workflow**
+- Run `prodigy run workflows/book-docs-drift.yml` with new commands
 - Verify feature analysis generates `.prodigy/book-analysis/features.json`
-- Verify drift detection creates drift reports for all chapters
+- Verify drift detection creates drift reports for all 9 chapters
 - Verify fixes are applied and book builds successfully
 - Verify merge workflow completes
+- Compare output with previous workflow run (should be identical)
 
-**Test 2: Debtmap Book Workflow**
-- Create Debtmap book structure with mdBook
-- Create Debtmap book configuration and chapter definitions
-- Run `prodigy run workflows/book-docs-drift.yml` from Debtmap directory
-- Verify analysis and drift detection work for Debtmap codebase
-- Verify book builds successfully
-
-**Test 3: Cross-Project Command Reuse**
-- Verify `/analyze-codebase-features` works with both Prodigy and Debtmap configs
-- Verify `/analyze-chapter-drift` produces consistent drift reports
-- Verify `/fix-documentation-drift` handles different documentation styles
-
-**Test 4: Configuration Validation**
+**Test 2: Configuration Validation**
 - Test with missing required config fields
-- Test with invalid paths in configuration
-- Test with malformed chapter JSON
+- Test with invalid paths in `.prodigy/book-config.json`
+- Test with malformed chapter JSON in `workflows/data/prodigy-chapters.json`
 - Verify helpful error messages
+
+**Test 3: Command Parameter Validation**
+- Test commands with missing required parameters
+- Test commands with invalid file paths
+- Verify error messages guide user to fix issues
 
 ### Performance Tests
 
@@ -422,36 +411,31 @@ Not applicable - this is a documentation automation feature implemented in Claud
 # Book Documentation Workflow
 
 ## Overview
-How to set up automated book documentation for any project using Prodigy workflows.
+Automated book documentation system using Prodigy MapReduce workflows.
 
-## Setup
-1. Install mdBook
-2. Create book structure: `mdbook init book`
-3. Create project book configuration
-4. Create chapter definitions
-5. Create project workflow instance
-6. Run workflow: `prodigy run workflows/book-docs-drift.yml`
+## Prodigy Usage
+The Prodigy book workflow has been refactored to use generalized commands:
+- Configuration: `.prodigy/book-config.json`
+- Chapters: `workflows/data/prodigy-chapters.json`
+- Workflow: `workflows/book-docs-drift.yml`
 
-## Configuration
-- Project config structure and fields
+## Commands
+- `/analyze-codebase-features --config <path>` - Analyze codebase for features
+- `/analyze-chapter-drift --json <chapter> --features <path> --project <name>` - Detect drift
+- `/fix-documentation-drift --config <path> --drift-dir <path>` - Fix drift
+
+## Configuration Schema
+- Project config structure and required fields
 - Chapter definition format
 - Analysis target specification
 
-## Customization
-- Custom validation focuses
-- Project-specific analysis targets
-- Documentation style preservation
-
-## Troubleshooting
-- Common configuration errors
-- Book build failures
-- Drift detection issues
+## Reusing for Other Projects
+See Spec 119 for applying this system to Debtmap or other projects.
 ```
 
 **Updated Documentation**:
-- `README.md` - Add section on book documentation workflow
-- `CLAUDE.md` - Document new Claude commands and their usage
-- `book/src/` - Update Prodigy book with information about the generalized system
+- `CLAUDE.md` - Document new generalized Claude commands and parameters
+- `book/src/` - Update Prodigy book if needed to reference new command names
 
 ### Architecture Updates
 
@@ -518,29 +502,37 @@ Update `ARCHITECTURE.md` to document:
 ## Migration and Compatibility
 
 ### Breaking Changes
-- Workflow variable names change (add `PROJECT_*` prefix)
-- Command names change (remove `prodigy-` prefix)
-- Chapter file path changes (add project name to filename)
+- Workflow variable names change (add `PROJECT_*` prefix for clarity)
+- Command names change (remove `prodigy-` prefix to make them reusable)
+- Chapter file renamed: `book-chapters.json` → `prodigy-chapters.json`
+- Commands now require parameters: `--config`, `--project`, etc.
 
 ### Migration Path
 
-**For Prodigy**:
-1. Create `.prodigy/book-config.json`
-2. Rename `workflows/data/book-chapters.json` to `workflows/data/prodigy-chapters.json`
-3. Update `workflows/book-docs-drift.yml` to add environment variables
-4. Update workflow to use new command names
-5. Test workflow execution
-6. Remove old commands after verification
+**Phase 1: Create Generalized Commands**
+1. Create `/analyze-codebase-features` based on `/prodigy-analyze-features-for-book`
+2. Create `/analyze-chapter-drift` based on `/prodigy-analyze-book-chapter-drift`
+3. Create `/fix-documentation-drift` based on `/prodigy-fix-book-drift`
+4. Test commands work with Prodigy configuration
 
-**For New Projects (Debtmap)**:
-1. Run `mdbook init book` to create book structure
-2. Create project book configuration at `.debtmap/book-config.json`
-3. Create chapter definitions at `workflows/data/debtmap-chapters.json`
-4. Copy workflow template to `workflows/book-docs-drift.yml`
-5. Set environment variables for project
-6. Create initial book content in `book/src/`
-7. Run workflow to generate documentation
-8. Set up GitHub workflow for deployment (optional)
+**Phase 2: Create Prodigy Configuration**
+1. Create `.prodigy/book-config.json` with Prodigy's settings
+2. Rename `workflows/data/book-chapters.json` → `workflows/data/prodigy-chapters.json`
+3. Update chapter file path references
+
+**Phase 3: Update Prodigy Workflow**
+1. Add environment variables to `workflows/book-docs-drift.yml`
+2. Update setup phase to call `/analyze-codebase-features --config $PROJECT_CONFIG`
+3. Update map phase to call `/analyze-chapter-drift` with parameters
+4. Update reduce phase to call `/fix-documentation-drift` with parameters
+5. Test workflow end-to-end
+
+**Phase 4: Verification and Cleanup**
+1. Run workflow and compare output with previous runs
+2. Verify book builds successfully
+3. Verify all chapters updated correctly
+4. Remove old Prodigy-specific commands (or mark deprecated)
+5. Update documentation
 
 ### Backward Compatibility
 
@@ -556,17 +548,20 @@ Update `ARCHITECTURE.md` to document:
 
 ## Success Metrics
 
-**Adoption**:
-- Both Prodigy and Debtmap use generalized workflow successfully
-- Documentation stays in sync with codebase (drift detected and fixed within 1 week)
-- New projects can be added in <30 minutes
+**Functionality**:
+- Refactored Prodigy workflow produces identical results to original
+- All 9 Prodigy chapters analyzed and fixed correctly
+- Book builds successfully after drift fixes
+- Workflow completes without errors
 
 **Quality**:
-- Drift detection finds >90% of documentation/code mismatches
-- Fixes maintain documentation quality without manual intervention
-- Book builds succeed >95% of the time after fixes
+- Commands are parameter-based and accept configuration
+- Configuration schema is clear and well-documented
+- Error messages are helpful and actionable
+- Code is ready for reuse by other projects (Spec 119)
 
 **Maintainability**:
-- Adding new chapter types requires only configuration changes
-- Supporting new project types requires minimal command changes
-- Developers can understand and modify configuration easily
+- Commands use generic terminology (no "Prodigy" hardcoding)
+- Configuration externalizes all project-specific details
+- Pattern is clear enough for other projects to follow
+- Documentation explains how to reuse for new projects
