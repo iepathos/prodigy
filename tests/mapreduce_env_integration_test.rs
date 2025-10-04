@@ -50,7 +50,10 @@ fn test_mapreduce_env_vars_in_setup() -> Result<()> {
     let config: serde_yaml::Value = serde_yaml::from_str(&workflow_yaml)?;
 
     // Verify env block exists
-    assert!(config.get("env").is_some(), "Workflow should have env block");
+    assert!(
+        config.get("env").is_some(),
+        "Workflow should have env block"
+    );
 
     // Verify env variables
     let env = config.get("env").unwrap();
@@ -62,10 +65,7 @@ fn test_mapreduce_env_vars_in_setup() -> Result<()> {
         env.get("OUTPUT_DIR").and_then(|v| v.as_str()),
         Some("output")
     );
-    assert_eq!(
-        env.get("MAX_RETRIES").and_then(|v| v.as_str()),
-        Some("3")
-    );
+    assert_eq!(env.get("MAX_RETRIES").and_then(|v| v.as_str()), Some("3"));
 
     // Verify setup commands use env vars
     let setup = config.get("setup").unwrap().as_sequence().unwrap();
@@ -248,7 +248,10 @@ fn test_mapreduce_env_vars_validation() -> Result<()> {
     let config: serde_yaml::Value = serde_yaml::from_str(&workflow_yaml)?;
 
     // Verify required fields
-    assert_eq!(config.get("mode").and_then(|v| v.as_str()), Some("mapreduce"));
+    assert_eq!(
+        config.get("mode").and_then(|v| v.as_str()),
+        Some("mapreduce")
+    );
     assert!(config.get("env").is_some());
     assert!(config.get("setup").is_some());
     assert!(config.get("map").is_some());
@@ -260,11 +263,7 @@ fn test_mapreduce_env_vars_validation() -> Result<()> {
     // Verify all env values are strings
     let env = config.get("env").unwrap().as_mapping().unwrap();
     for (key, value) in env {
-        assert!(
-            key.is_string(),
-            "Env key should be string: {:?}",
-            key
-        );
+        assert!(key.is_string(), "Env key should be string: {:?}", key);
         assert!(
             value.is_string(),
             "Env value should be string for key {:?}: {:?}",
