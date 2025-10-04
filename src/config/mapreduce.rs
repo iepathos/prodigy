@@ -2,11 +2,13 @@
 //!
 //! Handles parsing of MapReduce workflow YAML files.
 
+use crate::cook::environment::{EnvProfile, SecretValue};
 use crate::cook::execution::variable_capture::CaptureConfig;
 use crate::cook::execution::{MapPhase, MapReduceConfig, ReducePhase, SetupPhase};
 use crate::cook::workflow::{WorkflowErrorPolicy, WorkflowStep};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 /// MapReduce workflow configuration from YAML
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,6 +19,22 @@ pub struct MapReduceWorkflowConfig {
     /// Workflow mode (should be "mapreduce")
     #[serde(default = "default_mode")]
     pub mode: String,
+
+    /// Global environment variables for all commands
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env: Option<HashMap<String, String>>,
+
+    /// Secret environment variables (masked in logs)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secrets: Option<HashMap<String, SecretValue>>,
+
+    /// Environment files to load (.env format)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env_files: Option<Vec<PathBuf>>,
+
+    /// Environment profiles for different contexts
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profiles: Option<HashMap<String, EnvProfile>>,
 
     /// Optional setup phase with separate configuration or simple list of steps
     #[serde(
@@ -646,6 +664,58 @@ reduce:
         assert_eq!(config.map.agent_template.commands.len(), 2);
         assert!(config.reduce.is_some());
         assert_eq!(config.reduce.as_ref().unwrap().commands.len(), 1);
+    }
+
+    #[test]
+    fn test_mapreduce_with_env_variables() {
+        let yaml = r#"
+name: test-env-vars
+mode: mapreduce
+
+env:
+  PROJECT_NAME: "TestProject"
+  CONFIG_PATH: ".test/config.json"
+  OUTPUT_DIR: ".test/output"
+
+map:
+  input: items.json
+  json_path: "$.items[*]"
+  agent_template:
+    - shell: "echo Processing $PROJECT_NAME"
+    - claude: "/process --config $CONFIG_PATH"
+
+reduce:
+  - shell: "echo Saving to $OUTPUT_DIR"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.env.is_some());
+        let env = config.env.unwrap();
+        assert_eq!(env.get("PROJECT_NAME"), Some(&"TestProject".to_string()));
+        assert_eq!(
+            env.get("CONFIG_PATH"),
+            Some(&".test/config.json".to_string())
+        );
+        assert_eq!(env.get("OUTPUT_DIR"), Some(&".test/output".to_string()));
+    }
+
+    #[test]
+    fn test_mapreduce_backward_compatibility_without_env() {
+        let yaml = r#"
+name: test-no-env
+mode: mapreduce
+
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo test"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.env.is_none());
+        assert!(config.secrets.is_none());
+        assert!(config.env_files.is_none());
+        assert!(config.profiles.is_none());
     }
 }
 

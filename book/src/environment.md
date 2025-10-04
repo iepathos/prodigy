@@ -35,6 +35,285 @@ commands:
 
 ---
 
+## MapReduce Environment Variables
+
+In MapReduce workflows, environment variables provide powerful parameterization across all phases (setup, map, reduce, and merge). This enables workflows to be reusable across different projects and configurations.
+
+### Defining Environment Variables in MapReduce
+
+Environment variables for MapReduce workflows follow the same global `env` field structure:
+
+```yaml
+name: mapreduce-workflow
+mode: mapreduce
+
+env:
+  # Plain variables for parameterization
+  PROJECT_NAME: "prodigy"
+  PROJECT_CONFIG: "prodigy.yml"
+  FEATURES_PATH: "specs/"
+  OUTPUT_DIR: "results"
+
+  # Workflow-specific settings
+  MAX_RETRIES: "3"
+  TIMEOUT_SECONDS: "300"
+
+setup:
+  - shell: "echo Starting $PROJECT_NAME workflow"
+  - shell: "mkdir -p $OUTPUT_DIR"
+
+map:
+  input: "${FEATURES_PATH}/items.json"
+  agent_template:
+    - claude: "/process '${item.name}' --config $PROJECT_CONFIG"
+    - shell: "test -f $PROJECT_NAME/${item.path}"
+
+reduce:
+  - shell: "echo Processed ${map.total} items for $PROJECT_NAME"
+  - shell: "cp results.json $OUTPUT_DIR/"
+
+merge:
+  commands:
+    - shell: "echo Merging $PROJECT_NAME changes"
+```
+
+### Variable Interpolation in MapReduce
+
+MapReduce workflows support two interpolation syntaxes:
+
+1. **`$VAR`** - Shell-style variable reference
+2. **`${VAR}`** - Bracketed reference (recommended for clarity)
+
+Both syntaxes work throughout all workflow phases:
+
+```yaml
+env:
+  PROJECT_NAME: "myproject"
+  CONFIG_FILE: "config.yml"
+
+setup:
+  - shell: "echo $PROJECT_NAME"           # Shell-style
+  - shell: "echo ${PROJECT_NAME}"         # Bracketed
+  - shell: "test -f ${CONFIG_FILE}"       # Recommended in paths
+
+map:
+  agent_template:
+    - claude: "/analyze '${item}' --project $PROJECT_NAME"
+```
+
+### Environment Variables in All MapReduce Phases
+
+#### Setup Phase
+
+Environment variables are available for initialization:
+
+```yaml
+env:
+  WORKSPACE_DIR: "/tmp/workspace"
+  INPUT_SOURCE: "https://api.example.com/data"
+
+setup:
+  - shell: "mkdir -p $WORKSPACE_DIR"
+  - shell: "curl $INPUT_SOURCE -o items.json"
+  - shell: "echo Setup complete for ${WORKSPACE_DIR}"
+```
+
+#### Map Phase
+
+Variables are available in agent templates:
+
+```yaml
+env:
+  PROJECT_ROOT: "/path/to/project"
+  CONFIG_PATH: "config/settings.yml"
+
+map:
+  agent_template:
+    - claude: "/analyze ${item.file} --config $CONFIG_PATH"
+    - shell: "test -f $PROJECT_ROOT/${item.file}"
+    - shell: "cp ${item.file} $OUTPUT_DIR/"
+```
+
+#### Reduce Phase
+
+Variables work in aggregation commands:
+
+```yaml
+env:
+  PROJECT_NAME: "myproject"
+  REPORT_DIR: "reports"
+
+reduce:
+  - claude: "/summarize ${map.results} --project $PROJECT_NAME"
+  - shell: "mkdir -p $REPORT_DIR"
+  - shell: "cp summary.json $REPORT_DIR/${PROJECT_NAME}-summary.json"
+```
+
+#### Merge Phase
+
+Variables are available during merge operations:
+
+```yaml
+env:
+  PROJECT_NAME: "myproject"
+  NOTIFY_WEBHOOK: "https://hooks.example.com/notify"
+
+merge:
+  commands:
+    - shell: "echo Merging $PROJECT_NAME changes"
+    - claude: "/validate-merge --branch ${merge.source_branch}"
+    - shell: "curl -X POST $NOTIFY_WEBHOOK -d 'project=$PROJECT_NAME'"
+```
+
+### Secrets in MapReduce
+
+Sensitive data can be marked as secrets to enable automatic masking:
+
+```yaml
+env:
+  PROJECT_NAME: "myproject"
+
+secrets:
+  API_TOKEN:
+    provider: env
+    key: "GITHUB_TOKEN"
+
+  WEBHOOK_SECRET:
+    provider: file
+    key: "~/.secrets/webhook.key"
+
+setup:
+  - shell: "curl -H 'Authorization: Bearer $API_TOKEN' https://api.github.com/repos"
+
+map:
+  agent_template:
+    - shell: "curl -X POST $WEBHOOK_URL -H 'X-Secret: $WEBHOOK_SECRET'"
+```
+
+Secrets are automatically masked in:
+- Command output logs
+- Error messages
+- Event logs
+- Checkpoint files
+
+### Profile Support in MapReduce
+
+Profiles enable different configurations for different environments:
+
+```yaml
+env:
+  PROJECT_NAME: "myproject"
+
+profiles:
+  development:
+    description: "Development environment"
+    API_URL: "http://localhost:3000"
+    DEBUG: "true"
+    TIMEOUT_SECONDS: "60"
+
+  production:
+    description: "Production environment"
+    API_URL: "https://api.example.com"
+    DEBUG: "false"
+    TIMEOUT_SECONDS: "300"
+
+map:
+  agent_template:
+    - shell: "curl $API_URL/data"
+    - shell: "timeout ${TIMEOUT_SECONDS}s ./process.sh"
+```
+
+Activate a profile:
+```bash
+prodigy run workflow.yml --profile production
+```
+
+### Reusable Workflows with Environment Variables
+
+Environment variables enable the same workflow to work for different projects:
+
+```yaml
+# This workflow works for both Prodigy and Debtmap
+name: check-book-docs-drift
+mode: mapreduce
+
+env:
+  # Override these when running the workflow
+  PROJECT_NAME: "prodigy"              # or "debtmap"
+  PROJECT_CONFIG: "prodigy.yml"        # or "debtmap.yml"
+  FEATURES_PATH: "specs/"              # or "features/"
+
+setup:
+  - shell: "echo Checking $PROJECT_NAME documentation"
+  - shell: "./${PROJECT_NAME} generate-book-items --output items.json"
+
+map:
+  input: "items.json"
+  agent_template:
+    - claude: "/check-drift '${item}' --config $PROJECT_CONFIG"
+    - shell: "git diff --exit-code ${item.doc_path}"
+
+reduce:
+  - claude: "/summarize-drift ${map.results} --project $PROJECT_NAME"
+```
+
+Run for different projects:
+```bash
+# For Prodigy
+prodigy run workflow.yml
+
+# For Debtmap
+env PROJECT_NAME=debtmap PROJECT_CONFIG=debtmap.yml FEATURES_PATH=features/ \
+  prodigy run workflow.yml
+```
+
+### Best Practices for MapReduce Environment Variables
+
+1. **Parameterize project-specific values**:
+   ```yaml
+   env:
+     PROJECT_NAME: "myproject"
+     PROJECT_ROOT: "/workspace"
+     CONFIG_FILE: "config.yml"
+   ```
+
+2. **Use consistent naming**:
+   - Use UPPER_CASE for environment variables
+   - Use descriptive names (PROJECT_NAME not PN)
+   - Group related variables with prefixes (AWS_*, DB_*)
+
+3. **Document variables**:
+   ```yaml
+   env:
+     # Project identifier used in logs and reports
+     PROJECT_NAME: "prodigy"
+
+     # Path to project configuration file
+     PROJECT_CONFIG: "prodigy.yml"
+
+     # Maximum concurrent agents (tune based on resources)
+     MAX_PARALLEL: "10"
+   ```
+
+4. **Use secrets for sensitive data**:
+   ```yaml
+   secrets:
+     GITHUB_TOKEN:
+       provider: env
+       key: "GH_TOKEN"
+   ```
+
+5. **Prefer `${VAR}` syntax**:
+   ```yaml
+   # Good - explicit and safe
+   - shell: "test -f ${CONFIG_PATH}"
+
+   # Risky - may fail with special characters
+   - shell: "test -f $CONFIG_PATH"
+   ```
+
+---
+
 ## Environment Files
 
 Load environment variables from `.env` files:

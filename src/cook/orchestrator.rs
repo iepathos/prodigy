@@ -2309,8 +2309,37 @@ impl DefaultCookOrchestrator {
             .create_workflow_executor(config)
             .with_dry_run(config.command.dry_run);
 
-        // Set global environment configuration if present in workflow
-        if config.workflow.env.is_some()
+        // Set global environment configuration if present in MapReduce workflow
+        if mapreduce_config.env.is_some()
+            || mapreduce_config.secrets.is_some()
+            || mapreduce_config.env_files.is_some()
+            || mapreduce_config.profiles.is_some()
+        {
+            let global_env_config = crate::cook::environment::EnvironmentConfig {
+                global_env: mapreduce_config
+                    .env
+                    .as_ref()
+                    .map(|env| {
+                        env.iter()
+                            .map(|(k, v)| {
+                                (
+                                    k.clone(),
+                                    crate::cook::environment::EnvValue::Static(v.clone()),
+                                )
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                secrets: mapreduce_config.secrets.clone().unwrap_or_default(),
+                env_files: mapreduce_config.env_files.clone().unwrap_or_default(),
+                inherit: true,
+                profiles: mapreduce_config.profiles.clone().unwrap_or_default(),
+                active_profile: None,
+            };
+            executor = executor.with_environment_config(global_env_config)?;
+        }
+        // Also check standard workflow env (for backward compatibility with workflows that use both)
+        else if config.workflow.env.is_some()
             || config.workflow.secrets.is_some()
             || config.workflow.env_files.is_some()
             || config.workflow.profiles.is_some()

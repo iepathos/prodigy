@@ -336,6 +336,126 @@ Workflows support variable interpolation:
 - `${map.results}` - Access map phase results in reduce
 - `$ARG` - Pass arguments from command line
 
+### Environment Variables (Spec 120)
+
+MapReduce workflows support environment variables for parameterization and secrets management. Environment variables can be defined at the workflow level and used throughout all phases.
+
+#### Defining Environment Variables
+
+Environment variables are defined in the `env` block at the workflow root:
+
+```yaml
+name: workflow-name
+mode: mapreduce
+
+env:
+  # Plain variables
+  PROJECT_NAME: "prodigy"
+  VERSION: "1.0.0"
+
+  # Secret variables (masked in logs)
+  API_KEY:
+    secret: true
+    value: "sk-abc123"
+
+  # Profile-specific variables
+  DATABASE_URL:
+    default: "postgres://localhost/dev"
+    prod: "postgres://prod-server/db"
+```
+
+#### Variable Interpolation Syntax
+
+Environment variables can be referenced using two syntaxes:
+- `$VAR` - Simple variable reference (shell-style)
+- `${VAR}` - Bracketed reference for clarity and complex expressions
+
+```yaml
+setup:
+  - shell: "echo Processing $PROJECT_NAME version $VERSION"
+  - shell: "curl -H 'Authorization: Bearer ${API_KEY}' https://api.example.com"
+
+map:
+  agent_template:
+    - claude: "/process-item '${item.name}' --project $PROJECT_NAME"
+    - shell: "test -f ${item.path}"
+
+reduce:
+  - shell: "echo Completed $PROJECT_NAME workflow"
+```
+
+#### Secret Masking
+
+Variables marked with `secret: true` are automatically masked in:
+- Command output logs
+- Error messages
+- Event logs
+- Checkpoint files
+
+Example output:
+```
+$ curl -H 'Authorization: Bearer ***' https://api.example.com
+```
+
+#### Profile Support
+
+Profiles allow different values for different environments:
+
+```yaml
+env:
+  API_URL:
+    default: "http://localhost:3000"
+    staging: "https://staging.api.com"
+    prod: "https://api.com"
+```
+
+Activate a profile:
+```bash
+prodigy run workflow.yml --profile prod
+```
+
+#### Usage in All Workflow Phases
+
+Environment variables are available in:
+
+**Setup Phase:**
+```yaml
+setup:
+  - shell: "npm install --prefix $PROJECT_DIR"
+  - shell: "cargo build --manifest-path ${PROJECT_DIR}/Cargo.toml"
+```
+
+**Map Phase:**
+```yaml
+map:
+  agent_template:
+    - claude: "/analyze ${item.file} --config $CONFIG_PATH"
+    - shell: "test -f $PROJECT_DIR/${item.file}"
+```
+
+**Reduce Phase:**
+```yaml
+reduce:
+  - claude: "/summarize ${map.results} --project $PROJECT_NAME"
+  - shell: "cp results.json $OUTPUT_DIR/"
+```
+
+**Merge Phase:**
+```yaml
+merge:
+  commands:
+    - shell: "echo Merging $PROJECT_NAME changes"
+    - claude: "/validate-merge --branch ${merge.source_branch}"
+```
+
+#### Best Practices
+
+1. **Use secrets for sensitive data**: Mark API keys, tokens, and credentials as secrets
+2. **Parameterize project-specific values**: Use env vars instead of hardcoding paths
+3. **Document required variables**: Include comments in workflow files
+4. **Use profiles for environments**: Separate dev, staging, and prod configurations
+5. **Prefer ${VAR} syntax**: More explicit and works in all contexts
+
 ### Error Handling
 Commands can specify error handling behavior:
 - `on_failure:` - Commands to run on failure

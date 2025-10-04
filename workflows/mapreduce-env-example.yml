@@ -1,0 +1,94 @@
+# MapReduce Workflow with Environment Variables Example
+# Demonstrates environment variable usage across all workflow phases
+name: mapreduce-env-example
+mode: mapreduce
+
+# Environment variables for parameterization
+env:
+  # Project configuration
+  PROJECT_NAME: "example-project"
+  PROJECT_CONFIG: "config.yml"
+  FEATURES_PATH: "features"
+
+  # Output settings
+  OUTPUT_DIR: "output"
+  REPORT_FORMAT: "json"
+
+  # Workflow settings
+  MAX_RETRIES: "3"
+  TIMEOUT_SECONDS: "300"
+  DEBUG_MODE: "false"
+
+# Optional: Secret variables (masked in logs)
+secrets:
+  API_TOKEN:
+    provider: env
+    key: "GITHUB_TOKEN"
+
+# Optional: Profile-specific configurations
+profiles:
+  development:
+    description: "Development environment with debug enabled"
+    DEBUG_MODE: "true"
+    TIMEOUT_SECONDS: "60"
+    OUTPUT_DIR: "dev-output"
+
+  production:
+    description: "Production environment"
+    DEBUG_MODE: "false"
+    TIMEOUT_SECONDS: "300"
+    OUTPUT_DIR: "prod-output"
+
+# Setup phase: Initialize with environment variables
+setup:
+  - shell: "echo Starting $PROJECT_NAME workflow"
+  - shell: "echo Debug mode: $DEBUG_MODE"
+  - shell: "mkdir -p $OUTPUT_DIR"
+  - shell: "echo Created output directory: ${OUTPUT_DIR}"
+
+  # Generate work items using env vars
+  - shell: "echo '{\"items\": [{\"name\": \"item1\", \"path\": \"file1.txt\"}, {\"name\": \"item2\", \"path\": \"file2.txt\"}]}' > items.json"
+
+# Map phase: Process items with environment variables
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+
+  agent_template:
+    # Environment variables available in Claude commands
+    - claude: "/process-item '${item.name}' --project $PROJECT_NAME --config $PROJECT_CONFIG"
+
+    # Environment variables in shell commands
+    - shell: "echo Processing ${item.name} for project $PROJECT_NAME"
+    - shell: "echo Output will be saved to $OUTPUT_DIR"
+
+    # Using timeout from env vars
+    - shell: "timeout ${TIMEOUT_SECONDS}s ./process.sh ${item.path}"
+      on_failure:
+        - claude: "/fix-issue '${item.name}' --max-retries $MAX_RETRIES"
+
+  max_parallel: 5
+
+# Reduce phase: Aggregate results with environment variables
+reduce:
+  - shell: "echo Aggregating results for $PROJECT_NAME"
+  - claude: "/summarize ${map.results} --project $PROJECT_NAME --format $REPORT_FORMAT"
+
+  # Save results using env vars
+  - shell: "cp summary.$REPORT_FORMAT $OUTPUT_DIR/${PROJECT_NAME}-summary.$REPORT_FORMAT"
+  - shell: "echo Processed ${map.successful}/${map.total} items"
+  - shell: "echo Results saved to ${OUTPUT_DIR}/${PROJECT_NAME}-summary.${REPORT_FORMAT}"
+
+# Merge phase: Merge changes with environment variables
+merge:
+  commands:
+    - shell: "echo Merging changes for $PROJECT_NAME"
+    - shell: "echo Debug mode was: $DEBUG_MODE"
+
+    # Validate merge using env vars
+    - claude: "/validate-merge --branch ${merge.source_branch} --project $PROJECT_NAME"
+
+    # Optional: Send notification using secrets
+    # - shell: "curl -H 'Authorization: Bearer $API_TOKEN' -X POST https://api.github.com/repos/notify"
+
+    - shell: "echo Merge completed for ${PROJECT_NAME}"
