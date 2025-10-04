@@ -1,908 +1,631 @@
 {
-  "metadata": {
-    "project_name": "Prodigy",
-    "analyzed_version": "0.2.0+",
-    "analysis_date": "2025-01-04",
-    "description": "Comprehensive feature inventory for Prodigy workflow orchestration tool"
-  },
-
   "workflow_basics": {
     "structure": {
-      "simple_array": {
-        "description": "Direct command array format",
-        "syntax": "commands: [...]",
-        "use_case": "Quick workflows without environment configuration"
-      },
-      "full_config": {
-        "description": "Complete configuration with environment and merge",
-        "fields": ["commands", "env", "secrets", "env_files", "profiles", "merge"],
-        "use_case": "Production workflows with parameterization and secrets"
-      }
+      "simple_array": "Direct array of command steps (compact syntax)",
+      "full_config": "Object with commands, env, secrets, profiles, and merge",
+      "command_formats": [
+        "Simple string: 'command-name'",
+        "WorkflowStep: { claude: '...', shell: '...', etc. }",
+        "Structured Command: { name, args, options, metadata }"
+      ]
     },
     "execution_model": {
       "sequential": "Commands execute in order",
-      "worktree_isolation": "Each session gets isolated git worktree",
-      "commit_tracking": "Git commits provide full audit trail",
-      "branch_tracking": "Tracks original branch for intelligent merge behavior"
+      "git_integration": "Each command can create commits",
+      "audit_trail": "Full history via git log",
+      "worktree_isolation": "Sessions run in separate git worktrees"
     },
-    "command_formats": {
-      "simple_string": "/command-name arg1 arg2",
-      "workflow_step": "claude: or shell: with metadata",
-      "structured": "Full Command object with options and metadata"
+    "commit_tracking": {
+      "commit_required": "Flag to indicate if command should commit",
+      "default_behavior": "commit_required defaults to false",
+      "validation": "Can verify commits were created"
     }
   },
-
   "mapreduce": {
-    "description": "Parallel execution framework for massive-scale processing",
     "phases": {
-      "setup": {
-        "purpose": "Initialize data and environment before map phase",
-        "fields": ["commands", "timeout", "capture_outputs"],
-        "optional": true,
-        "use_cases": ["Generate work items", "Fetch data", "Setup environment"]
-      },
-      "map": {
-        "purpose": "Process work items in parallel across isolated worktrees",
-        "required_fields": ["input", "agent_template"],
-        "optional_fields": ["json_path", "max_parallel", "filter", "sort_by", "max_items", "offset", "distinct", "agent_timeout_secs", "timeout_config"],
-        "capabilities": {
-          "parallel_execution": "Multiple Claude agents in isolated git worktrees",
-          "work_distribution": "Automatic distribution across agents",
-          "filtering": "JSONPath-based item selection and filtering",
-          "sorting": "Order processing by field (ASC/DESC)",
-          "deduplication": "Remove duplicates by field",
-          "pagination": "max_items and offset for batching",
-          "timeout_control": "Per-agent and phase-level timeouts"
-        }
-      },
-      "reduce": {
-        "purpose": "Aggregate results from map phase",
-        "fields": ["commands"],
-        "optional": true,
-        "variables_available": ["map.results", "map.total", "map.successful", "map.failed"]
-      }
+      "setup": "Optional preparation phase with output capture",
+      "map": "Parallel processing of work items",
+      "reduce": "Result aggregation and finalization"
+    },
+    "capabilities": {
+      "parallel_execution": "Multi-agent concurrent processing",
+      "work_distribution": "Automatic item assignment to agents",
+      "result_aggregation": "Collected in reduce phase via ${map.results}",
+      "checkpoint_resume": "Save progress, resume from last checkpoint",
+      "dlq_support": "Failed items sent to Dead Letter Queue",
+      "filtering": "JSONPath expressions and filter conditions",
+      "sorting": "Sort items before processing",
+      "deduplication": "Remove duplicates via distinct field"
     },
     "configuration": {
-      "agent_template": {
-        "description": "Commands executed for each work item",
-        "simplified_syntax": "Direct array of steps (recommended)",
-        "legacy_syntax": "Nested under 'commands' key",
-        "supports": ["claude", "shell", "goal_seek", "foreach", "conditional handlers"]
+      "setup": {
+        "fields": ["commands", "timeout", "capture_outputs"],
+        "syntax": "Direct array or full config object",
+        "capture_outputs": "Named variables from setup commands"
       },
-      "error_handling": {
-        "dlq": "Dead Letter Queue for failed items",
-        "checkpoint_resume": "Resume from last successful checkpoint",
-        "failure_policies": ["dlq", "retry", "skip", "stop"]
+      "map": {
+        "required": ["input", "agent_template"],
+        "optional": [
+          "json_path",
+          "max_parallel",
+          "filter",
+          "sort_by",
+          "max_items",
+          "offset",
+          "distinct",
+          "agent_timeout_secs",
+          "timeout_config"
+        ],
+        "agent_template_syntax": "Direct array (preferred) or nested with 'commands' key"
       },
-      "event_tracking": {
-        "global_storage": "~/.prodigy/events/{repo_name}/{job_id}/",
-        "cross_worktree": "Aggregated events across parallel agents",
-        "persistence": "Survives worktree cleanup"
+      "reduce": {
+        "fields": ["commands", "timeout_secs"],
+        "syntax": "Direct array (preferred) or nested with 'commands' key",
+        "available_variables": ["${map.results}", "${map.total}", "${map.successful}", "${map.failed}"]
       }
     },
-    "examples": [
-      {
-        "name": "Parallel Code Review",
-        "description": "Review multiple files in parallel",
-        "workflow": "mapreduce-example.yml"
-      },
-      {
-        "name": "Tech Debt Elimination",
-        "description": "Fix debt items across codebase",
-        "workflow": "debtmap-reduce.yml"
-      }
-    ]
+    "input_sources": {
+      "json_file": "Static JSON file with work items",
+      "jsonpath": "Extract items via JSONPath expression",
+      "setup_output": "Generated during setup phase"
+    }
   },
-
   "command_types": {
     "shell": {
-      "description": "Execute shell commands",
-      "syntax": "shell: \"command\"",
-      "fields": {
-        "required": ["shell"],
-        "optional": ["timeout", "capture_output", "capture_format", "capture_streams", "output_file", "on_failure", "on_success", "when", "working_dir"]
-      },
+      "description": "Execute shell commands with full control",
+      "syntax": "shell: 'command string'",
+      "fields": [
+        "shell",
+        "timeout",
+        "capture_output",
+        "capture_format",
+        "capture_streams",
+        "output_file",
+        "on_failure",
+        "on_success",
+        "when"
+      ],
       "use_cases": [
         "Build and compile",
         "Run tests",
         "File operations",
-        "Data generation",
-        "Validation checks"
-      ],
-      "examples": [
-        "shell: \"cargo build --release\"",
-        "shell: \"npm test\""
+        "Data processing",
+        "External tool integration"
       ]
     },
     "claude": {
-      "description": "Execute Claude AI commands via Claude Code CLI",
-      "syntax": "claude: \"/command-name args\"",
-      "fields": {
-        "required": ["claude"],
-        "optional": ["commit_required", "validate", "timeout", "when", "on_failure", "on_success"]
-      },
-      "use_cases": [
-        "Code generation",
-        "Refactoring",
-        "Analysis",
-        "Debugging",
-        "Documentation"
+      "description": "Execute Claude AI commands via CLI",
+      "syntax": "claude: '/command-name args'",
+      "fields": [
+        "claude",
+        "commit_required",
+        "validate",
+        "timeout",
+        "on_failure",
+        "on_success",
+        "when"
       ],
-      "commit_tracking": "Claude commands can create git commits for audit trail",
-      "examples": [
-        "claude: \"/prodigy-implement-spec spec.md\"",
-        "claude: \"/prodigy-code-review --focus security\""
+      "use_cases": [
+        "Code generation and modification",
+        "Code analysis and review",
+        "Refactoring",
+        "Bug fixing",
+        "Documentation generation"
       ]
     },
     "goal_seek": {
       "description": "Iterative refinement to reach quality threshold",
-      "purpose": "Achieve measurable quality goals through repeated attempts",
-      "fields": {
-        "required": ["goal", "validate", "threshold", "max_attempts"],
-        "optional": ["claude", "shell", "timeout_seconds", "fail_on_incomplete"],
-        "validation": "Command that outputs 'score: N' (0-100)"
-      },
-      "workflow": {
-        "1_attempt": "Execute claude or shell command",
-        "2_validate": "Run validation command to get score",
-        "3_check": "Compare score to threshold",
-        "4_repeat": "Retry if below threshold and attempts remain",
-        "5_result": "Success, MaxAttemptsReached, Timeout, or Converged"
-      },
-      "use_cases": [
-        {
-          "goal": "Test coverage improvement",
-          "validate": "Extract coverage % from tarpaulin output",
-          "threshold": 90
-        },
-        {
-          "goal": "Performance optimization",
-          "validate": "Benchmark results under target",
-          "threshold": 95
-        },
-        {
-          "goal": "Fix clippy warnings",
-          "validate": "Count remaining warnings",
-          "threshold": 100
-        },
-        {
-          "goal": "Spec implementation validation",
-          "validate": "Prodigy validate-spec --json",
-          "threshold": 95
-        }
+      "syntax": "goal_seek: { goal, claude/shell, validate, threshold, max_attempts }",
+      "fields": [
+        "goal",
+        "claude",
+        "shell",
+        "validate",
+        "threshold",
+        "max_attempts",
+        "timeout_seconds",
+        "fail_on_incomplete"
       ],
-      "examples": [
-        {
-          "description": "Achieve 90% test coverage",
-          "workflow": "goal-seeking-examples.yml"
-        }
-      ]
+      "use_cases": [
+        "Test coverage improvement",
+        "Performance optimization",
+        "Code quality enhancement",
+        "Spec implementation validation",
+        "Iterative bug fixing"
+      ],
+      "validation": {
+        "format": "Validator outputs 'score: N' where N is 0-100",
+        "threshold": "Goal achieved when score >= threshold",
+        "convergence": "Stops if no improvement for multiple attempts"
+      }
     },
     "foreach": {
       "description": "Iterate over lists with optional parallelism",
-      "fields": {
-        "required": ["foreach", "do"],
-        "optional": ["parallel", "continue_on_error", "max_items"]
-      },
-      "input_sources": {
-        "command": "Output from shell command (lines)",
+      "syntax": "foreach: { input, do, parallel, continue_on_error }",
+      "fields": [
+        "input (foreach)",
+        "do",
+        "parallel",
+        "continue_on_error",
+        "max_items"
+      ],
+      "input_types": {
+        "command": "Shell command output becomes items",
         "list": "Static array of items"
       },
       "parallel_config": {
-        "boolean": "true = default parallelism, false = sequential",
-        "count": "Specific number of parallel workers"
+        "boolean": "true = default parallel, false = sequential",
+        "number": "Specific parallel count"
       },
       "use_cases": [
-        "File processing",
-        "Batch operations",
-        "Multi-step transformations"
-      ],
-      "examples": [
-        "foreach: \"ls *.md\"",
-        "foreach: [\"item1\", \"item2\", \"item3\"]"
+        "File batch processing",
+        "Multi-environment deployments",
+        "Parallel test execution",
+        "Data transformation pipelines"
       ]
     },
     "validation": {
       "description": "Check implementation completeness against requirements",
-      "purpose": "Ensure workflow output meets quality criteria",
-      "fields": ["validate"],
-      "use_cases": [
-        "Verify spec implementation",
-        "Quality gates",
-        "Acceptance testing"
-      ]
+      "syntax": "validate: { spec_file, coverage_threshold }",
+      "purpose": "Ensure all spec requirements are implemented",
+      "outputs": {
+        "validation.completion": "Percentage complete",
+        "validation.gaps": "Missing requirements",
+        "validation.status": "complete/incomplete/failed"
+      }
     }
   },
-
   "variables": {
     "standard": {
-      "last.output": {
-        "description": "Output from last command (any type)",
-        "source": "Captured from most recent command execution"
-      },
-      "last.exit_code": {
-        "description": "Exit code from last command",
-        "source": "Shell command exit status"
-      },
-      "shell.output": {
-        "description": "Output from last shell command",
-        "source": "Captured shell stdout"
-      },
-      "claude.output": {
-        "description": "Output from last Claude command",
-        "source": "Claude command result"
-      }
+      "last.output": "Output from last command (any type)",
+      "last.exit_code": "Exit code from last command",
+      "shell.output": "Output from last shell command",
+      "claude.output": "Output from last Claude command"
+    },
+    "standard_item": {
+      "item": "Current work item being processed",
+      "item.value": "Item value (for simple types)",
+      "item.path": "File path (for file inputs)",
+      "item.name": "Display name",
+      "item_index": "Zero-based index of current item",
+      "item_total": "Total number of items",
+      "item.*": "Access any field from JSON work items"
+    },
+    "workflow_context": {
+      "workflow.name": "Workflow name",
+      "workflow.id": "Unique workflow ID",
+      "workflow.iteration": "Current iteration number"
+    },
+    "step_context": {
+      "step.name": "Current step name",
+      "step.index": "Current step index"
     },
     "mapreduce": {
-      "item": {
-        "description": "Current work item in map phase",
-        "type": "JSON object or string",
-        "access": "${item.field} for nested fields"
-      },
-      "item_index": {
-        "description": "Zero-based index of current item",
-        "type": "number"
-      },
-      "item_total": {
-        "description": "Total number of items being processed",
-        "type": "number"
-      },
-      "map.total": {
-        "description": "Total items in reduce phase",
-        "scope": "reduce"
-      },
-      "map.successful": {
-        "description": "Successfully processed items",
-        "scope": "reduce"
-      },
-      "map.failed": {
-        "description": "Failed items (sent to DLQ or skipped)",
-        "scope": "reduce"
-      },
-      "map.results": {
-        "description": "Aggregated results from all map agents",
-        "scope": "reduce",
-        "type": "JSON object"
-      },
-      "worker.id": {
-        "description": "Parallel worker identifier",
-        "scope": "map"
-      }
-    },
-    "validation": {
-      "validation.completion": {
-        "description": "Completion percentage from validation",
-        "type": "number (0-100)"
-      },
-      "validation.gaps": {
-        "description": "Missing requirements from validation",
-        "type": "array"
-      },
-      "validation.status": {
-        "description": "Validation status",
-        "values": ["complete", "incomplete", "failed"]
-      }
-    },
-    "git": {
-      "git.branch": {
-        "description": "Current git branch",
-        "source": "Git repository state"
-      },
-      "git.commit": {
-        "description": "Current commit hash",
-        "source": "Git HEAD"
-      }
+      "map.total": "Total items in map phase",
+      "map.successful": "Successfully processed items",
+      "map.failed": "Failed items count",
+      "map.results": "Aggregated results from all agents",
+      "map.key": "Key for map output (when specified)",
+      "worker.id": "Parallel worker/agent ID"
     },
     "merge": {
-      "merge.worktree": {
-        "description": "Name of worktree being merged",
-        "scope": "merge workflow"
-      },
-      "merge.source_branch": {
-        "description": "Source branch for merge (worktree branch)",
-        "scope": "merge workflow"
-      },
-      "merge.target_branch": {
-        "description": "Target branch for merge (original or default branch)",
-        "scope": "merge workflow"
-      },
-      "merge.session_id": {
-        "description": "Session ID for correlation",
-        "scope": "merge workflow"
-      }
+      "merge.worktree": "Name of worktree being merged",
+      "merge.source_branch": "Source branch (worktree branch)",
+      "merge.target_branch": "Target branch (usually main)",
+      "merge.session_id": "Session ID for correlation"
     },
-    "workflow": {
-      "workflow.name": {
-        "description": "Workflow name",
-        "source": "Workflow configuration"
-      },
-      "workflow.id": {
-        "description": "Workflow execution ID",
-        "source": "Runtime generated"
-      },
-      "workflow.iteration": {
-        "description": "Current iteration number",
-        "source": "Incremented on each run"
-      }
+    "validation": {
+      "validation.completion": "Completion percentage (0-100)",
+      "validation.gaps": "Array of missing requirements",
+      "validation.status": "Status: complete/incomplete/failed"
     },
-    "capture_formats": {
-      "string": "Raw text output (default)",
-      "json": "Parse output as JSON object",
-      "lines": "Split into array of lines",
-      "number": "Parse as numeric value",
-      "boolean": "Parse as boolean or use exit code"
+    "git_context": {
+      "git.branch": "Current git branch",
+      "commit.hash": "Latest commit hash"
+    },
+    "interpolation_syntax": {
+      "$VAR": "Simple variable reference (shell-style)",
+      "${VAR}": "Bracketed reference (recommended)",
+      "${obj.field}": "Nested field access",
+      "${var|default:value}": "Default value fallback",
+      "${var.*.field}": "Wildcard access for arrays"
     }
   },
-
   "environment": {
     "global_env": {
-      "description": "Static and dynamic environment variables",
-      "types": {
-        "static": "Simple string values",
-        "dynamic": "Computed from command output with caching",
-        "conditional": "Based on expressions (condition, when_true, when_false)"
-      },
-      "syntax": {
-        "simple": "VAR_NAME: \"value\"",
-        "dynamic": "VAR_NAME: { command: \"cmd\", cache: true }",
-        "conditional": "VAR_NAME: { condition: \"expr\", when_true: \"val1\", when_false: \"val2\" }"
-      },
-      "use_cases": [
-        "Project configuration",
-        "API endpoints",
-        "Build settings",
-        "Dynamic values (CPU count, git branch)"
-      ]
-    },
-    "secrets": {
-      "description": "Masked in logs, supports multiple providers",
-      "types": {
-        "simple": "Environment variable reference",
-        "provider": "External secret management"
-      },
-      "providers": ["env", "file", "vault", "aws", "custom"],
-      "masking": "Automatically masked in logs and output",
-      "syntax": {
-        "env_var": "SECRET_NAME: \"${env:VAR_NAME}\"",
-        "provider": "SECRET_NAME: { provider: vault, key: \"path/to/secret\", version: \"1\" }"
-      },
-      "use_cases": [
-        "API keys",
-        "Access tokens",
-        "Credentials",
-        "Signing keys"
-      ]
-    },
-    "profiles": {
-      "description": "Environment-specific configurations",
-      "activation": "--profile <name> flag",
-      "inheritance": "Profile values override global env",
-      "use_cases": [
-        "Development vs production",
-        "Testing environments",
-        "Regional deployments",
-        "Feature flags"
-      ],
-      "examples": {
-        "development": {
-          "NODE_ENV": "development",
-          "API_URL": "http://localhost:3000",
-          "DEBUG": "true"
-        },
-        "production": {
-          "NODE_ENV": "production",
-          "API_URL": "https://api.example.com",
-          "DEBUG": "false"
-        }
+      "description": "Static and dynamic variables for all commands",
+      "formats": {
+        "static": "KEY: value",
+        "dynamic": "KEY: { command: '...', cache: true }",
+        "conditional": "KEY: { condition: '${expr}', when_true: '...', when_false: '...' }"
       }
     },
-    "step_env": {
-      "description": "Command-level environment overrides",
-      "fields": {
-        "env": "Step-specific variables",
-        "working_dir": "Working directory for command",
-        "clear_env": "Clear parent environment",
-        "temporary": "Restore environment after step"
+    "secrets": {
+      "description": "Sensitive values masked in logs",
+      "formats": {
+        "env_ref": "API_KEY: '${env:SECRET_API_KEY}'",
+        "direct": "PASSWORD: 'secret-value'",
+        "provider": "Future: vault, aws-secrets-manager, etc."
       },
-      "use_cases": [
-        "Per-command configuration",
-        "Temporary PATH modifications",
-        "Test-specific settings",
-        "Build configuration"
-      ]
+      "masking": "Automatically hidden in logs, events, checkpoints"
     },
     "env_files": {
       "description": "Load variables from .env files",
-      "format": "KEY=value (dotenv format)",
-      "use_cases": ["Local development", "CI/CD secrets", "Shared configuration"]
+      "format": ".env file paths (array)",
+      "precedence": "Workflow env > env_files > system env"
     },
-    "interpolation": {
-      "syntax": {
-        "simple": "$VAR or ${VAR}",
-        "nested": "${object.field.subfield}",
-        "default": "${VAR|default:fallback}"
-      },
-      "availability": "All workflow phases (setup, map, reduce, merge)"
-    }
-  },
-
-  "advanced_features": {
-    "conditional_execution": {
-      "description": "Execute steps based on expressions",
-      "field": "when",
-      "syntax": "${var} == 'value'",
-      "operators": ["==", "!=", ">", "<", ">=", "<="],
-      "use_cases": [
-        "Skip steps in certain environments",
-        "Branch-specific logic",
-        "Conditional deployment"
-      ],
-      "examples": [
-        "when: \"${env} == 'production'\"",
-        "when: \"${last.exit_code} == 0\"",
-        "when: \"${validation.completion} >= 90\""
-      ]
+    "profiles": {
+      "description": "Environment-specific configurations",
+      "usage": "prodigy run workflow.yml --profile production",
+      "examples": ["development", "testing", "staging", "production"]
     },
-    "output_capture": {
-      "description": "Capture command output into variables",
-      "configuration": {
-        "capture_output": "Boolean or variable name",
-        "capture_format": ["string", "json", "lines", "number", "boolean"],
-        "capture_streams": {
-          "stdout": "Capture standard output",
-          "stderr": "Capture error output",
-          "exit_code": "Capture exit status",
-          "success": "Capture success boolean",
-          "duration": "Capture execution time"
-        }
-      },
-      "variable_naming": {
-        "main": "${var_name}",
-        "stderr": "${var_name.stderr}",
-        "exit_code": "${var_name.exit_code}",
-        "success": "${var_name.success}",
-        "duration": "${var_name.duration}"
-      },
-      "use_cases": [
-        "Chain command outputs",
-        "Decision making based on results",
-        "Aggregate data",
-        "Quality metrics"
-      ]
-    },
-    "nested_handlers": {
-      "description": "Multi-level error and success handling",
-      "handlers": {
-        "on_failure": "Execute on command failure",
-        "on_success": "Execute on command success",
-        "on_exit_code": "Map exit codes to specific actions"
-      },
-      "nesting": "Handlers can contain goal_seek, foreach, or other commands",
-      "use_cases": [
-        "Automated debugging",
-        "Retry with different strategies",
-        "Cleanup on failure",
-        "Notifications"
-      ],
-      "examples": [
-        {
-          "description": "Debug test failures",
-          "pattern": "shell: test command\n  on_failure:\n    claude: /debug-failures"
-        },
-        {
-          "description": "Goal seeking on failure",
-          "pattern": "shell: build\n  on_failure:\n    goal_seek: { goal: \"Fix build\", ... }"
-        }
-      ]
-    },
-    "timeout_control": {
-      "levels": {
-        "command": "Per-command timeout (timeout: 300)",
-        "phase": "Setup/reduce phase timeout",
-        "agent": "Map phase agent timeout (agent_timeout_secs)",
-        "workflow": "Global workflow timeout"
-      },
-      "behavior": "Graceful termination with cleanup",
-      "use_cases": ["Prevent hangs", "Resource management", "SLA enforcement"]
+    "step_env": {
+      "description": "Command-level environment overrides",
+      "scope": "Single command execution",
+      "temporary": "Can mark as temporary to restore after step",
+      "clear_env": "Clear all env vars except step-specific"
     },
     "working_directory": {
       "description": "Per-command working directory control",
-      "field": "working_dir",
-      "interpolation": "Supports variable interpolation",
-      "use_cases": [
-        "Multi-project builds",
-        "Monorepo operations",
-        "Isolated environments"
-      ],
-      "examples": [
-        "working_dir: ./frontend",
-        "working_dir: \"${PROJECT_DIR}/backend\""
-      ]
-    },
-    "merge_workflows": {
-      "description": "Custom merge workflows for worktree integration",
-      "configuration": {
-        "commands": "Steps to execute during merge",
-        "timeout": "Merge phase timeout (default 600s)"
-      },
-      "variables": ["merge.worktree", "merge.source_branch", "merge.target_branch", "merge.session_id"],
-      "use_cases": [
-        "Pre-merge validation",
-        "Conflict resolution",
-        "Post-merge testing",
-        "Notifications"
-      ],
-      "examples": [
-        {
-          "description": "Validate before merge",
-          "steps": [
-            "git fetch origin",
-            "git merge origin/main",
-            "cargo test",
-            "claude: /prodigy-merge-worktree ${merge.source_branch}"
-          ]
-        }
-      ]
-    },
-    "dlq_management": {
-      "description": "Dead Letter Queue for failed items",
-      "storage": "~/.prodigy/dlq/{repo_name}/{job_id}/",
-      "commands": {
-        "prodigy dlq retry": "Retry all failed items",
-        "prodigy dlq view": "View failed items",
-        "prodigy dlq clear": "Clear DLQ for job"
-      },
-      "retry_options": ["--max-parallel N", "--dry-run"],
-      "tracking": ["Failure reason", "Timestamp", "Attempt count", "Error details"]
+      "syntax": "working_dir: './frontend'",
+      "interpolation": "working_dir: '${env.DEPLOY_DIR}'"
     }
   },
-
+  "advanced_features": {
+    "conditional_execution": {
+      "when_clause": "Execute step only if condition is true",
+      "syntax": "when: '${build.success} == true'",
+      "expressions": [
+        "Equality: ${var} == 'value'",
+        "Comparison: ${count} >= 10",
+        "Boolean: ${enabled} == true",
+        "Existence: ${output} != ''"
+      ]
+    },
+    "output_capture": {
+      "formats": {
+        "string": "Raw string output (default)",
+        "json": "Parse as JSON object",
+        "lines": "Split into array of lines",
+        "number": "Parse as numeric value",
+        "boolean": "Parse as boolean or use exit code"
+      },
+      "configuration": {
+        "capture_output": "true | 'variable_name'",
+        "capture_format": "string | json | lines | number | boolean",
+        "capture_streams": "stdout, stderr, both",
+        "output_file": "Redirect output to file"
+      },
+      "access_patterns": {
+        "simple": "${var}",
+        "nested": "${var.field.subfield}",
+        "metadata": "${var.exit_code}, ${var.success}, ${var.duration}"
+      }
+    },
+    "nested_handlers": {
+      "on_failure": "Commands to run if step fails",
+      "on_success": "Commands to run if step succeeds",
+      "on_exit_code": "Map specific exit codes to actions (future)",
+      "nesting": "Handlers can contain goal_seek, foreach, etc."
+    },
+    "timeout_control": {
+      "command_level": "timeout: 300 (seconds)",
+      "workflow_level": "Overall workflow timeout",
+      "phase_level": "Setup, map, reduce timeouts",
+      "agent_timeout": "Per-agent timeout in MapReduce"
+    }
+  },
   "error_handling": {
     "workflow_level": {
       "on_item_failure": {
-        "description": "Action when individual item fails",
-        "options": {
-          "dlq": "Send to Dead Letter Queue (default)",
-          "retry": "Retry with backoff",
-          "skip": "Skip and continue",
-          "stop": "Stop entire workflow"
-        }
+        "dlq": "Send failed items to Dead Letter Queue (default)",
+        "retry": "Retry item with backoff",
+        "skip": "Skip item and continue",
+        "stop": "Stop entire workflow",
+        "custom": "Use custom failure handler"
       },
       "error_collection": {
-        "description": "Strategy for collecting and reporting errors",
-        "strategies": {
-          "aggregate": "Collect all errors before reporting",
-          "immediate": "Report errors as they occur",
-          "batched": "Report in batches of size N"
-        }
+        "aggregate": "Collect all errors before reporting (default)",
+        "immediate": "Report errors as they occur",
+        "batched": "Report errors in batches of N"
       },
       "circuit_breaker": {
-        "description": "Prevent cascading failures",
-        "configuration": {
-          "failure_threshold": "Failures to open circuit (default: 5)",
-          "success_threshold": "Successes to close circuit (default: 3)",
-          "timeout": "Time before retry (default: 30s)",
-          "half_open_requests": "Test requests in half-open state (default: 3)"
-        },
-        "states": ["closed", "open", "half-open"]
+        "failure_threshold": "Failures to trigger open state",
+        "success_threshold": "Successes to close circuit",
+        "timeout": "Time before attempting to close",
+        "half_open_requests": "Test requests in half-open state"
       },
-      "max_failures": {
-        "description": "Stop after N failures",
-        "type": "number",
-        "use_case": "Prevent resource waste on systemic failures"
-      },
-      "failure_threshold": {
-        "description": "Stop when failure rate exceeds threshold",
-        "type": "float (0.0-1.0)",
-        "example": "0.3 = stop at 30% failure rate"
+      "thresholds": {
+        "max_failures": "Stop after N failures",
+        "failure_threshold": "Stop if failure rate exceeds X%",
+        "continue_on_failure": "Continue or stop on first failure"
       }
     },
     "command_level": {
       "on_failure": {
-        "description": "Nested commands on failure",
-        "fields": ["claude", "max_attempts", "fail_workflow"],
-        "use_cases": ["Automated debugging", "Retry with fix", "Cleanup"]
-      },
-      "on_success": {
-        "description": "Nested commands on success",
-        "use_cases": ["Notifications", "Cleanup", "Follow-up tasks"]
+        "syntax": "on_failure: { claude: '...', max_attempts: 3 }",
+        "fields": ["claude", "shell", "max_attempts", "fail_workflow", "commit_required"],
+        "use_case": "Automatic debugging and recovery"
       },
       "retry_config": {
-        "description": "Retry with exponential backoff",
-        "fields": {
-          "max_attempts": "Maximum retry count",
-          "backoff": "Strategy (fixed, linear, exponential, fibonacci)"
-        },
-        "default": "Exponential with 2x multiplier"
-      }
-    },
-    "error_metrics": {
-      "tracked": {
-        "total_items": "Total processed",
-        "successful": "Success count",
-        "failed": "Failure count",
-        "skipped": "Skipped count",
-        "failure_rate": "Percentage failed",
-        "error_types": "Error type frequencies",
-        "failure_patterns": "Detected patterns with suggestions"
+        "max_attempts": "Maximum retry attempts",
+        "backoff": "fixed | linear | exponential | fibonacci",
+        "parameters": {
+          "fixed": "delay duration",
+          "linear": "initial + increment",
+          "exponential": "initial * multiplier",
+          "fibonacci": "initial"
+        }
       },
-      "pattern_detection": "Automatic pattern recognition with recommended actions"
+      "continue_on_error": "Whether to continue workflow on command failure"
     }
   },
-
   "best_practices": {
     "workflow_design": [
-      "Keep workflows simple and focused on single goal",
-      "Use validation for quality gates",
-      "Handle errors gracefully with DLQ or retry",
-      "Capture important outputs for debugging",
-      "Use environment variables for parameterization",
-      "Document workflow purpose and requirements"
+      "Keep workflows simple and focused on one main goal",
+      "Use validation commands to verify quality gates",
+      "Handle errors gracefully with on_failure handlers",
+      "Capture important outputs for downstream commands",
+      "Use descriptive names for clarity",
+      "Break complex workflows into smaller, composable pieces"
     ],
     "mapreduce": [
-      "Set appropriate max_parallel based on resources",
-      "Use DLQ for failed items to enable retry",
-      "Monitor events with verbosity flags",
-      "Design idempotent work items",
-      "Use filter and sort to prioritize items",
-      "Set realistic timeouts for agent operations",
-      "Use checkpoints for long-running jobs"
+      "Set appropriate max_parallel based on system resources",
+      "Use DLQ for failed items to enable retry later",
+      "Monitor execution with events and checkpoints",
+      "Design idempotent work items (can safely retry)",
+      "Use filter and sort to optimize processing order",
+      "Consider using distinct to eliminate duplicates",
+      "Set agent_timeout to prevent hung processes"
+    ],
+    "environment": [
+      "Use profiles for environment-specific configs",
+      "Mark sensitive data as secrets",
+      "Load common config from .env files",
+      "Use step-level env for temporary overrides",
+      "Document required environment variables"
+    ],
+    "variables": [
+      "Use ${} syntax for clarity and consistency",
+      "Leverage nested field access for JSON data",
+      "Set defaults for optional variables",
+      "Capture outputs with descriptive names",
+      "Use standard variable names for consistency"
     ],
     "error_handling": [
-      "Always specify on_item_failure strategy",
-      "Set max_failures to prevent runaway processes",
-      "Use circuit_breaker for external dependencies",
-      "Implement retry with exponential backoff",
-      "Collect errors in aggregate for analysis",
-      "Review DLQ regularly and fix patterns"
+      "Set appropriate max_failures for workflow",
+      "Use circuit breaker for unstable external services",
+      "Enable DLQ for MapReduce workflows",
+      "Add on_failure handlers for critical steps",
+      "Monitor error metrics and patterns"
     ],
     "testing": [
       "Include test steps in workflows",
-      "Use on_failure for debugging",
-      "Validate before deploying",
-      "Use goal_seek for quality thresholds",
-      "Test workflows in isolation first"
-    ],
-    "security": [
-      "Always use secrets for sensitive data",
-      "Never commit secrets to version control",
-      "Use environment profiles for different contexts",
-      "Mask secrets in logs",
-      "Use provider-based secrets for production"
-    ],
-    "performance": [
-      "Use max_parallel judiciously (CPU cores * 2)",
-      "Set timeouts to prevent hangs",
-      "Use distinct to eliminate duplicate work",
-      "Filter items before processing when possible",
-      "Cache dynamic environment variables"
+      "Use goal_seek for test-driven development",
+      "Add on_failure handlers to debug test failures",
+      "Validate before deploying or merging",
+      "Use validation commands to check completeness"
     ]
   },
-
   "common_patterns": [
     {
       "name": "Build and Test",
-      "description": "Standard CI workflow with validation",
-      "steps": [
-        "shell: cargo build --release",
-        "shell: cargo test",
-        "on_failure: goal_seek to fix tests"
+      "description": "Standard CI workflow with error recovery",
+      "structure": [
+        "shell: cargo build",
+        "shell: cargo test with on_failure debug handler",
+        "shell: cargo clippy"
       ],
       "use_case": "Continuous integration"
     },
     {
-      "name": "Parallel Code Review",
-      "description": "Review multiple files in parallel",
-      "type": "mapreduce",
-      "phases": {
-        "setup": "Generate list of files",
-        "map": "Review each file with Claude",
-        "reduce": "Aggregate findings"
-      },
-      "use_case": "Large codebase analysis"
-    },
-    {
-      "name": "Goal Seeking Quality",
-      "description": "Iterative improvement to threshold",
-      "steps": [
-        "goal_seek: { goal: \"90% coverage\", validate: \"tarpaulin\", threshold: 90 }"
+      "name": "Parallel Processing",
+      "description": "MapReduce for independent work items",
+      "structure": [
+        "setup: Generate work items",
+        "map: Process items in parallel",
+        "reduce: Aggregate results and report"
       ],
-      "use_case": "Quality improvement automation"
+      "use_case": "Large-scale code transformations, batch processing"
     },
     {
-      "name": "Environment-Specific Deployment",
-      "description": "Deploy with environment-specific configuration",
-      "features": ["profiles", "secrets", "conditional execution"],
-      "use_case": "Multi-environment deployments"
+      "name": "Goal Seeking",
+      "description": "Iterative improvement to quality threshold",
+      "structure": [
+        "goal_seek with claude command",
+        "validate command returning score",
+        "threshold and max_attempts"
+      ],
+      "use_case": "Test coverage, performance optimization, spec implementation"
     },
     {
-      "name": "Automated Debugging",
-      "description": "Fix failures automatically with Claude",
-      "pattern": {
-        "test": "shell: cargo test",
-        "on_failure": "goal_seek: fix tests iteratively"
-      },
-      "use_case": "Test failure recovery"
+      "name": "Multi-Stage Pipeline",
+      "description": "Sequential stages with validation gates",
+      "structure": [
+        "Analyze and plan",
+        "Implement with validation",
+        "Test and verify",
+        "Deploy or merge"
+      ],
+      "use_case": "Feature implementation, documentation maintenance"
+    },
+    {
+      "name": "Conditional Workflow",
+      "description": "Different paths based on conditions",
+      "structure": [
+        "Initial assessment step",
+        "Conditional steps with when clauses",
+        "Different actions per environment"
+      ],
+      "use_case": "Environment-specific deployments, feature flags"
+    },
+    {
+      "name": "Error Recovery",
+      "description": "Automatic debugging on failure",
+      "structure": [
+        "Primary command",
+        "on_failure: debugging command",
+        "Retry or escalate"
+      ],
+      "use_case": "Test debugging, build failures, deployment issues"
     }
   ],
-
   "troubleshooting": {
     "common_issues": [
       {
-        "issue": "Variables not interpolating",
-        "symptoms": ["${var} appears literally in output"],
-        "causes": [
-          "Variable not defined in scope",
-          "Incorrect syntax (missing $ or {})",
-          "Variable defined in different phase"
+        "issue": "Variables not interpolating correctly",
+        "symptoms": [
+          "Literal ${var} appearing in output",
+          "Empty strings instead of values"
         ],
         "solutions": [
-          "Check variable availability with --verbose",
-          "Verify syntax: ${var.field}",
-          "Use capture_output to create variables",
-          "Check profile is active if using profile vars"
+          "Check ${} syntax is correct",
+          "Verify variable is available in current context",
+          "Use ${var|default:fallback} for optional variables",
+          "Check scope (workflow vs step vs map/reduce)"
         ]
       },
       {
         "issue": "MapReduce items not found",
-        "symptoms": ["No items processed", "Empty map phase"],
-        "causes": [
-          "Incorrect JSONPath expression",
-          "Input file not generated",
-          "Filter excludes all items"
+        "symptoms": [
+          "No items processed",
+          "JSONPath returns empty"
         ],
         "solutions": [
-          "Test JSONPath with jsonpath CLI tool",
-          "Verify input file exists and has correct format",
-          "Check filter expression logic",
-          "Use --verbose to see item extraction"
+          "Verify JSONPath expression with jq or online tool",
+          "Check input file exists and is valid JSON",
+          "Ensure json_path starts with $ (e.g., '$.items[*]')",
+          "Use json_path: '' for root-level arrays"
         ]
       },
       {
-        "issue": "Timeout errors",
-        "symptoms": ["Command killed after timeout", "Incomplete processing"],
-        "causes": [
-          "Insufficient timeout for operation",
-          "Hanging process",
-          "Resource constraints"
+        "issue": "Commands timing out",
+        "symptoms": [
+          "Workflow hangs",
+          "Timeout errors"
         ],
         "solutions": [
-          "Increase timeout: or agent_timeout_secs",
-          "Check for infinite loops in commands",
-          "Reduce max_parallel to lower resource usage",
-          "Use timeout_config for granular control"
+          "Increase timeout at command, phase, or workflow level",
+          "Optimize long-running commands",
+          "Check for blocking I/O or infinite loops",
+          "Use agent_timeout_secs in MapReduce"
         ]
       },
       {
-        "issue": "DLQ items not retrying",
-        "symptoms": ["prodigy dlq retry fails", "Items still in DLQ"],
-        "causes": [
-          "Same failure condition persists",
-          "Job ID incorrect",
-          "DLQ corrupted"
+        "issue": "Environment variables not set",
+        "symptoms": [
+          "Commands fail with missing variables",
+          "Empty values in interpolation"
         ],
         "solutions": [
-          "Fix root cause before retry",
-          "Verify job ID with prodigy dlq list",
-          "Use --dry-run to test retry",
-          "Clear and reprocess if needed"
+          "Check env defined at workflow or profile level",
+          "Verify .env files are loaded",
+          "Use system env vars as fallback",
+          "Check spelling and case sensitivity"
         ]
       },
       {
-        "issue": "Secrets not masked",
-        "symptoms": ["Secret values visible in logs"],
-        "causes": [
-          "Not defined in secrets: block",
-          "Using env: instead of secrets:",
-          "Provider misconfigured"
+        "issue": "Goal seek not converging",
+        "symptoms": [
+          "Max attempts reached without success",
+          "Score not improving"
         ],
         "solutions": [
-          "Move to secrets: block",
-          "Verify provider configuration",
-          "Test with --verbose to check masking"
+          "Verify validate command outputs 'score: N' format",
+          "Check threshold is achievable",
+          "Increase max_attempts if needed",
+          "Review Claude command for clarity",
+          "Check for determinism in validation"
         ]
       },
       {
-        "issue": "Goal seeking not converging",
-        "symptoms": ["Max attempts reached", "Score not improving"],
-        "causes": [
-          "Validation command incorrect",
-          "Threshold unrealistic",
-          "Claude unable to fix issue"
+        "issue": "Parallel execution too slow",
+        "symptoms": [
+          "MapReduce not utilizing cores",
+          "Sequential-like performance"
         ],
         "solutions": [
-          "Test validate command independently",
-          "Lower threshold or increase max_attempts",
-          "Provide more context in goal description",
-          "Check Claude command output for errors"
+          "Increase max_parallel (default: 10)",
+          "Check system resources (CPU, memory)",
+          "Ensure work items are truly independent",
+          "Monitor with -v for agent activity"
         ]
       },
       {
-        "issue": "Merge workflow fails",
-        "symptoms": ["Merge conflicts", "Tests fail after merge"],
-        "causes": [
-          "Main branch diverged",
-          "Conflicts not resolved",
-          "Tests not run in merge workflow"
+        "issue": "DLQ items not retryable",
+        "symptoms": [
+          "prodigy dlq retry fails",
+          "Items fail again on retry"
         ],
         "solutions": [
-          "Add git merge origin/main to merge workflow",
-          "Include conflict resolution step",
-          "Run full test suite in merge workflow",
-          "Use Claude command for conflict resolution"
+          "Fix underlying issue causing failures",
+          "Check reprocess_eligible flag",
+          "Review failure_history for error patterns",
+          "Ensure idempotent work item design"
         ]
       },
       {
-        "issue": "Workflow hangs",
-        "symptoms": ["No progress", "Process not terminating"],
-        "causes": [
-          "Command waiting for input",
-          "Network timeout",
-          "Deadlock"
+        "issue": "Merge conflicts after MapReduce",
+        "symptoms": [
+          "Cannot merge worktree results",
+          "Git conflicts"
         ],
         "solutions": [
-          "Add timeout to all commands",
-          "Use non-interactive commands only",
-          "Check network connectivity",
-          "Use Ctrl+C to interrupt and check state"
+          "Use custom merge workflow",
+          "Ensure work items don't overlap",
+          "Add conflict resolution in merge phase",
+          "Consider reducing max_parallel"
         ]
       }
-    ],
-    "debugging_tips": [
-      "Use -v flag for verbose output",
-      "Use -vv for debug logs",
-      "Use -vvv for trace-level logs",
-      "Check .prodigy/session_state.json for state",
-      "Review events in ~/.prodigy/events/",
-      "Test commands independently before workflow",
-      "Use --dry-run for validation without execution",
-      "Set PRODIGY_CLAUDE_CONSOLE_OUTPUT=true for streaming"
-    ],
-    "performance_tips": [
-      "Start with small max_parallel (2-5)",
-      "Use filter to reduce work items",
-      "Cache dynamic environment variables",
-      "Use distinct to eliminate duplicates",
-      "Profile with timing information in events",
-      "Monitor system resources during execution"
     ]
   },
-
-  "integration": {
-    "git": {
-      "worktrees": "Isolated worktrees per session in ~/.prodigy/worktrees/",
-      "commits": "Automatic commit tracking for audit trail",
-      "branches": "Tracks original branch for merge",
-      "hooks": "Respects git hooks during commits"
+  "dlq_features": {
+    "description": "Dead Letter Queue for failed work items",
+    "capabilities": {
+      "automatic_dlq": "Failed items sent to DLQ automatically",
+      "retry_mechanism": "Retry failed items with prodigy dlq retry <job_id>",
+      "failure_tracking": "Full history of attempts and errors",
+      "correlation_ids": "Track items across retries",
+      "streaming": "Process large DLQs without memory issues"
     },
-    "claude_code": {
-      "cli": "Invokes Claude Code CLI for AI commands",
-      "streaming": "Real-time output with -v flag",
-      "automation": "PRODIGY_AUTOMATION=true environment variable",
-      "commands": "Discovers commands from .claude/commands/"
+    "storage": {
+      "location": "~/.prodigy/dlq/{repo_name}/{job_id}/",
+      "format": "JSONL for efficient streaming",
+      "shared": "Centralized across worktrees"
     },
-    "ci_cd": {
-      "environment": "Full environment variable support",
-      "secrets": "Provider-based secrets for CI",
-      "profiles": "Different configs per environment",
-      "exit_codes": "Proper exit codes for CI integration"
+    "retry_options": {
+      "max_parallel": "Control parallelism during retry",
+      "dry_run": "See what would be retried",
+      "filtering": "Future: retry specific items"
     }
   },
-
+  "custom_merge_workflow": {
+    "description": "Configurable merge process for worktree integration",
+    "configuration": {
+      "merge.commands": "Array of commands to execute",
+      "merge.timeout": "Timeout for entire merge phase (default: 600s)"
+    },
+    "available_variables": [
+      "${merge.worktree}",
+      "${merge.source_branch}",
+      "${merge.target_branch}",
+      "${merge.session_id}"
+    ],
+    "use_cases": [
+      "Pre-merge validation (tests, linting)",
+      "Conflict resolution strategies",
+      "Post-merge hooks and notifications",
+      "Integration with CI/CD systems"
+    ],
+    "streaming_output": {
+      "default": "Clean output (verbosity = 0)",
+      "verbose": "JSON streaming with -v flag",
+      "env_override": "PRODIGY_CLAUDE_CONSOLE_OUTPUT=true"
+    }
+  },
   "version_info": {
     "analyzed_version": "0.2.0+",
     "analysis_date": "2025-01-04",
-    "key_capabilities": [
-      "Sequential and parallel workflow execution",
-      "MapReduce for massive-scale processing",
-      "Goal-seeking for quality improvement",
-      "Comprehensive error handling with DLQ",
-      "Environment management with secrets",
-      "Git worktree isolation",
-      "Variable capture and interpolation",
-      "Conditional execution",
-      "Custom merge workflows",
-      "Circuit breaker pattern"
-    ]
+    "project_name": "Prodigy"
   }
 }

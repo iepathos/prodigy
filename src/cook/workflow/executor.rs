@@ -4308,6 +4308,18 @@ impl WorkflowExecutor {
         let mut generated_input_file: Option<String> = None;
         let mut _captured_variables = HashMap::new();
 
+        // Populate workflow context with environment variables from global config
+        if let Some(ref global_env_config) = self.global_environment_config {
+            for (key, env_value) in &global_env_config.global_env {
+                // Resolve the env value to a string
+                if let crate::cook::environment::EnvValue::Static(value) = env_value {
+                    workflow_context.variables.insert(key.clone(), value.clone());
+                }
+                // For Dynamic and Conditional values, we'd need to evaluate them here
+                // For now, we only support Static values in MapReduce workflows
+            }
+        }
+
         // Execute setup phase if present
         if !workflow.steps.is_empty() || workflow.setup_phase.is_some() {
             self.user_interaction
@@ -4365,6 +4377,15 @@ impl WorkflowExecutor {
         if let Some(generated_file) = generated_input_file {
             map_phase.config.input = generated_file;
         }
+
+        // Interpolate map phase input with environment variables
+        let mut interpolated_input = map_phase.config.input.clone();
+        for (key, value) in &workflow_context.variables {
+            // Replace both ${VAR} and $VAR patterns
+            interpolated_input = interpolated_input.replace(&format!("${{{}}}", key), value);
+            interpolated_input = interpolated_input.replace(&format!("${}", key), value);
+        }
+        map_phase.config.input = interpolated_input;
 
         // Create worktree manager
         // Use working_dir as base for MapReduce agent worktrees so they branch from parent worktree
