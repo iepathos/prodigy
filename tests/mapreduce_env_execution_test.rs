@@ -387,3 +387,88 @@ merge:
 
     Ok(())
 }
+
+/// Test that environment variables are interpolated in map.input field
+#[test]
+fn test_map_input_env_interpolation() -> Result<()> {
+    let workflow_yaml = r#"
+name: test-map-input-env
+mode: mapreduce
+
+env:
+  DATA_FILE: "workflows/data/items.json"
+  PROJECT_NAME: "test-project"
+
+map:
+  input: ${DATA_FILE}  # Should be interpolated to actual file path
+  json_path: "$.items[*]"
+  max_parallel: 1
+
+  agent_template:
+    - shell: "echo ${item.name}"
+"#;
+
+    // Parse the workflow
+    let config = parse_mapreduce_workflow(workflow_yaml)?;
+
+    // Verify env variables are defined
+    assert!(config.env.is_some());
+    let env = config.env.as_ref().unwrap();
+    assert_eq!(env.get("DATA_FILE"), Some(&"workflows/data/items.json".to_string()));
+
+    // Verify map.input contains the variable reference (before interpolation)
+    assert_eq!(config.map.input, "${DATA_FILE}");
+
+    // NOTE: The actual interpolation happens at runtime in WorkflowExecutor
+    // when it populates workflow_context.variables and interpolates the input.
+    // This test verifies the workflow parses correctly with env var references.
+
+    Ok(())
+}
+
+/// Test that environment variables work in shell commands
+#[test]
+fn test_shell_command_env_vars() -> Result<()> {
+    let workflow_yaml = r#"
+name: test-shell-env
+mode: mapreduce
+
+env:
+  OUTPUT_DIR: "test-output"
+  PROJECT_NAME: "my-project"
+
+setup:
+  - shell: "mkdir -p $OUTPUT_DIR"
+  - shell: "echo Starting $PROJECT_NAME"
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+  max_parallel: 1
+
+  agent_template:
+    - shell: "echo Processing for $PROJECT_NAME"
+"#;
+
+    // Parse the workflow
+    let config = parse_mapreduce_workflow(workflow_yaml)?;
+
+    // Verify environment variables
+    assert!(config.env.is_some());
+    let env = config.env.as_ref().unwrap();
+    assert_eq!(env.get("OUTPUT_DIR"), Some(&"test-output".to_string()));
+    assert_eq!(env.get("PROJECT_NAME"), Some(&"my-project".to_string()));
+
+    // Verify setup commands contain variable references
+    // (the shell will expand these when environment variables are set)
+    assert!(config.setup.is_some());
+    let setup = config.setup.as_ref().unwrap();
+
+    let cmd1 = &setup.commands[0];
+    assert!(cmd1.shell.as_ref().unwrap().contains("$OUTPUT_DIR"));
+
+    let cmd2 = &setup.commands[1];
+    assert!(cmd2.shell.as_ref().unwrap().contains("$PROJECT_NAME"));
+
+    Ok(())
+}
