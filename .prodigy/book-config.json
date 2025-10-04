@@ -1,0 +1,109 @@
+{
+  "project_name": "Prodigy",
+  "project_type": "cli_tool",
+  "book_dir": "book",
+  "book_src": "book/src",
+  "book_build_dir": "book/book",
+  "analysis_targets": [
+    {
+      "area": "workflow_basics",
+      "source_files": [
+        "src/config/workflow.rs",
+        "src/cook/workflow/executor.rs"
+      ],
+      "feature_categories": [
+        "structure",
+        "execution_model",
+        "commit_tracking"
+      ]
+    },
+    {
+      "area": "mapreduce",
+      "source_files": [
+        "src/config/mapreduce.rs",
+        "src/cook/execution/mapreduce/"
+      ],
+      "feature_categories": [
+        "phases",
+        "capabilities",
+        "configuration"
+      ]
+    },
+    {
+      "area": "command_types",
+      "source_files": [
+        "src/config/command.rs",
+        "src/cook/workflow/executor.rs"
+      ],
+      "feature_categories": [
+        "shell",
+        "claude",
+        "goal_seek",
+        "foreach",
+        "validation",
+        "handler"
+      ]
+    },
+    {
+      "area": "variables",
+      "source_files": [
+        "src/cook/workflow/variables.rs"
+      ],
+      "feature_categories": [
+        "standard",
+        "mapreduce",
+        "validation",
+        "git",
+        "merge",
+        "capture_formats"
+      ]
+    },
+    {
+      "area": "environment",
+      "source_files": [
+        "src/cook/environment/",
+        "src/config/workflow.rs"
+      ],
+      "feature_categories": [
+        "global_env",
+        "secrets",
+        "profiles",
+        "step_env"
+      ]
+    },
+    {
+      "area": "advanced_features",
+      "source_files": [
+        "src/cook/workflow/validation.rs",
+        "src/cook/goal_seek/mod.rs"
+      ],
+      "feature_categories": [
+        "conditional_execution",
+        "output_capture",
+        "nested_conditionals",
+        "timeout",
+        "working_directory"
+      ]
+    },
+    {
+      "area": "error_handling",
+      "source_files": [
+        "src/cook/workflow/error_policy.rs",
+        "src/config/command.rs"
+      ],
+      "feature_categories": [
+        "workflow_level",
+        "command_level",
+        "retry",
+        "circuit_breaker",
+        "dlq"
+      ]
+    }
+  ],
+  "chapter_file": "workflows/data/prodigy-chapters.json",
+  "custom_analysis": {
+    "include_examples": true,
+    "include_best_practices": true,
+    "include_troubleshooting": true
+  }
+}

@@ -1,120 +1,68 @@
 # /prodigy-analyze-features-for-book
 
-Perform comprehensive analysis of Prodigy codebase to identify features and capabilities that should be documented in the book.
+Perform comprehensive analysis of a codebase to identify features and capabilities that should be documented in the book.
 
 ## Variables
 
-None required - analyzes codebase and creates .prodigy/book-analysis/features.json
+- `--project <name>` - Project name (e.g., "Prodigy", "Debtmap")
+- `--config <path>` - Path to book configuration JSON (e.g., ".prodigy/book-config.json")
 
 ## Execute
 
 ### Phase 1: Understand Context
 
-You are analyzing the Prodigy workflow orchestration tool to create a comprehensive feature inventory for the documentation book. This will be used to detect drift between the book documentation and actual implementation.
+You are analyzing a codebase to create a comprehensive feature inventory for the documentation book. This will be used to detect drift between the book documentation and actual implementation.
+
+**Parse Parameters:**
+Extract the project name and configuration path from the command arguments:
+- `--project`: The project name (used in output messages and file paths)
+- `--config`: Path to the book configuration JSON file
+
+**Load Configuration:**
+Read the configuration file specified by `--config` to get:
+- `project_name`: Display name of the project
+- `analysis_targets`: Areas to analyze with source files and feature categories
+- `book_dir`, `book_src`: Book directory paths
+- `chapter_file`: Path to chapter definitions
+- `custom_analysis`: Options for examples, best practices, troubleshooting
 
 ### Phase 2: Analyze Core Features
 
-**Key Areas to Document:**
+**Use Analysis Targets from Configuration:**
 
-#### 1. Workflow Basics
-**Key Files:**
-- `src/config/workflow.rs` - WorkflowConfig
-- `src/cook/workflow/executor.rs` - WorkflowExecutor
+For each `analysis_target` in the configuration:
+- Read the `source_files` specified for that area
+- Extract features based on the `feature_categories`
+- Focus on user-facing capabilities, not implementation details
 
-**Extract:**
-- Standard workflow structure
-- Command execution model
-- Basic YAML syntax
-- Common workflow patterns
+**Analysis Strategy by Area:**
 
-#### 2. MapReduce Workflows
-**Key Files:**
-- `src/config/mapreduce.rs` - MapReduceWorkflowConfig, MapPhaseYaml, ReducePhaseYaml
-- `src/cook/execution/mapreduce/` - Implementation details
+The configuration defines which areas to analyze (e.g., workflow_basics, mapreduce, command_types, etc.). For each area:
 
-**Extract:**
-- Setup phase configuration
-- Map phase configuration
-- Reduce phase configuration
-- Parallel execution capabilities
-- Work distribution model
-- Results aggregation
+1. **Read Source Files**: Examine the files specified in `source_files`
+2. **Parse Structures**: Extract struct definitions, enums, fields, and serde attributes
+3. **Identify Capabilities**: What can users actually do with this feature?
+4. **Find Examples**: Look in workflows/ and tests/ directories
+5. **Document Patterns**: Common use cases and best practices
 
-#### 3. Command Types
-**Key Files:**
-- `src/config/command.rs` - WorkflowStepCommand, WorkflowCommand
-- `src/cook/workflow/executor.rs` - CommandType enum
+**Generic Feature Extraction:**
 
-**Extract:**
-- All command types (shell, claude, goal_seek, foreach, validation, handler)
-- Fields for each command type
-- Required vs optional fields
-- Common use cases for each
-
-#### 4. Variables and Interpolation
-**Key Files:**
-- `src/cook/workflow/variables.rs` - VariableStore, CaptureFormat
-
-**Extract:**
-- Standard variables (shell.output, claude.output, etc.)
-- MapReduce variables (item, map.total, etc.)
-- Git context variables
-- Validation variables
-- Merge variables
-- Custom capture syntax
-
-#### 5. Environment Configuration
-**Key Files:**
-- `src/cook/environment/` - Environment management
-- `src/config/workflow.rs` - Environment fields
-
-**Extract:**
-- Global environment variables
-- Secrets management
-- Environment profiles
-- Dynamic environment variables
-- Step-level environment overrides
-
-#### 6. Advanced Features
-**Key Files:**
-- `src/cook/workflow/validation.rs` - ValidationConfig
-- `src/cook/goal_seek/mod.rs` - GoalSeekConfig
-
-**Extract:**
-- Conditional execution (when)
-- Output capture formats
-- Nested conditionals
-- Timeout configuration
-- Working directory control
-- Auto-commit functionality
-
-#### 7. Error Handling
-**Key Files:**
-- `src/cook/workflow/error_policy.rs` - WorkflowErrorPolicy
-- `src/config/command.rs` - on_failure configuration
-
-**Extract:**
-- Workflow-level error policies
-- Command-level error handling
-- Retry mechanisms
-- Circuit breaker
-- DLQ (Dead Letter Queue)
-- Error collection strategies
-
-#### 8. Examples and Use Cases
-**Key Files:**
-- `workflows/` - Example workflows
-- `tests/` - Integration tests
-
-**Extract:**
-- Common workflow patterns
-- Real-world use cases
-- Best practices
-- Anti-patterns to avoid
+Instead of hardcoding "Prodigy workflow" or "Prodigy features":
+- Use "codebase features" or "project capabilities"
+- Reference the project name from `--project` parameter in output
+- Extract features based on code structure, not assumptions
+- Adapt analysis depth based on `custom_analysis` settings
 
 ### Phase 3: Create Feature Inventory
 
-Create a JSON file at `.prodigy/book-analysis/features.json` with this structure:
+**Determine Output Path:**
+Based on the project configuration:
+- Extract `book_dir` from config (defaults to "book")
+- Create analysis directory adjacent to book: `.{project_lowercase}/book-analysis/`
+- For Prodigy: `.prodigy/book-analysis/features.json`
+- For Debtmap: `.debtmap/book-analysis/features.json`
+
+Create a JSON file at the determined path with this structure:
 
 ```json
 {
@@ -271,11 +219,12 @@ Create a JSON file at `.prodigy/book-analysis/features.json` with this structure
 
 ### Phase 4: Analysis Method
 
-1. **Read Source Files**: Examine all key implementation files
+1. **Read Source Files**: Examine all key implementation files from `analysis_targets`
 2. **Parse Struct Definitions**: Extract fields, types, serde attributes
 3. **Identify Capabilities**: What can users actually do?
-4. **Find Examples**: Look in workflows/ and tests/
+4. **Find Examples**: Look in workflows/ and tests/ directories
 5. **Document Patterns**: Common use cases and best practices
+6. **Use Generic Language**: Avoid project-specific terminology in feature descriptions
 
 ### Phase 5: Quality Guidelines
 
@@ -285,13 +234,16 @@ Create a JSON file at `.prodigy/book-analysis/features.json` with this structure
 - Note common pitfalls and solutions
 - Provide realistic examples
 - Keep language accessible for book audience
+- Use project name from `--project` parameter in output messages
+- Adapt analysis based on `custom_analysis` configuration
 
 ### Phase 6: Validation
 
 The features.json file should:
-1. Cover all major feature areas
+1. Cover all major feature areas defined in `analysis_targets`
 2. Include practical use cases
 3. Provide examples for each capability
 4. Document common patterns
-5. Include troubleshooting guidance
+5. Include troubleshooting guidance (if `custom_analysis.include_troubleshooting` is true)
 6. Be user-focused, not developer-focused
+7. Be project-agnostic (work for any codebase with proper configuration)
