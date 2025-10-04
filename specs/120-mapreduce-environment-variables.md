@@ -1,36 +1,39 @@
 ---
 number: 120
-title: Add Environment Variable Support to MapReduce Workflows
-category: parallel
+title: Ensure Environment Variable Support Across All Workflow Types
+category: foundation
 priority: high
 status: draft
 dependencies: []
 created: 2025-10-04
 ---
 
-# Specification 120: Add Environment Variable Support to MapReduce Workflows
+# Specification 120: Ensure Environment Variable Support Across All Workflow Types
 
-**Category**: parallel
+**Category**: foundation
 **Priority**: high
 **Status**: draft
 **Dependencies**: None
 
 ## Context
 
-Standard Prodigy workflows (`WorkflowConfig`) support environment variables through `env`, `secrets`, `env_files`, and `profiles` fields. This enables workflows to define reusable variables that can be referenced in commands.
+Prodigy has multiple workflow types, and environment variable support should be consistent across all of them:
 
-MapReduce workflows (`MapReduceWorkflowConfig`) currently do NOT support environment variables. This is a gap that limits workflow reusability and makes it harder to parameterize MapReduce workflows for different contexts (e.g., different projects, environments, configurations).
+**Standard Workflows** (`WorkflowConfig`): ✅ Already support `env`, `secrets`, `env_files`, `profiles`
+**MapReduce Workflows** (`MapReduceWorkflowConfig`): ❌ Do NOT support environment variables
 
-Specs 118 and 119 (generalized book documentation) rely on environment variables to make the same workflow commands work across different projects (Prodigy, Debtmap, etc.). This spec enables that functionality.
+This inconsistency limits workflow reusability and makes it harder to parameterize workflows for different contexts (e.g., different projects, environments, configurations).
+
+Specs 118 and 119 (generalized book documentation) rely on environment variables to make the same workflow commands work across different projects (Prodigy, Debtmap, etc.). This spec ensures ALL workflow types support this functionality.
 
 ## Objective
 
-Add environment variable support to MapReduce workflows to enable:
-1. Defining global environment variables at the workflow level
-2. Using environment variables in setup, map, reduce, and merge phases
-3. Passing project-specific parameters via environment variables
-4. Maintaining consistency with standard workflow environment features
-5. Supporting the book documentation workflows (Specs 118-119)
+Ensure consistent environment variable support across ALL Prodigy workflow types:
+1. Verify standard workflows have complete env var support (already done)
+2. Add environment variable support to MapReduce workflows
+3. Ensure all workflow types have identical env var behavior
+4. Enable workflow parameterization for all workflow types
+5. Support the book documentation workflows (Specs 118-119)
 
 ## Requirements
 
@@ -71,6 +74,12 @@ Add environment variable support to MapReduce workflows to enable:
 
 ## Acceptance Criteria
 
+**Standard Workflows (Verification)**:
+- [ ] Standard workflows (`WorkflowConfig`) already have `env`, `secrets`, `env_files`, `profiles`
+- [ ] Standard workflow env vars confirmed working in all contexts
+- [ ] No changes needed to standard workflows
+
+**MapReduce Workflows (Implementation)**:
 - [ ] `MapReduceWorkflowConfig` has `env`, `secrets`, `env_files`, `profiles` fields
 - [ ] Environment variables work in setup phase commands
 - [ ] Environment variables work in map phase agent_template
@@ -79,14 +88,50 @@ Add environment variable support to MapReduce workflows to enable:
 - [ ] Variable interpolation supports `$VAR` and `${VAR}` syntax
 - [ ] Secrets are masked in logs and output
 - [ ] Existing MapReduce workflows continue to work without changes
+
+**Consistency**:
+- [ ] All workflow types support identical env var syntax
+- [ ] All workflow types support identical env var features
+- [ ] Environment behavior is consistent across workflow types
 - [ ] Book documentation workflows (Specs 118-119) can use environment variables
-- [ ] Documentation updated with MapReduce environment variable examples
+- [ ] Documentation covers env vars for all workflow types
 
 ## Technical Details
 
 ### Implementation Approach
 
-#### 1. Update MapReduceWorkflowConfig Structure
+#### 1. Verify Standard Workflow Support (No Changes Needed)
+
+**File**: `src/config/workflow.rs`
+
+Standard workflows already have full environment variable support:
+```rust
+pub struct WorkflowConfig {
+    pub commands: Vec<WorkflowCommand>,
+
+    /// Global environment variables ✅
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env: Option<HashMap<String, String>>,
+
+    /// Secret environment variables ✅
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secrets: Option<HashMap<String, SecretValue>>,
+
+    /// Environment files ✅
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env_files: Option<Vec<PathBuf>>,
+
+    /// Environment profiles ✅
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profiles: Option<HashMap<String, EnvProfile>>,
+
+    // ... other fields
+}
+```
+
+**Action**: No changes needed - verify existing functionality works correctly.
+
+#### 2. Update MapReduceWorkflowConfig Structure
 
 **File**: `src/config/mapreduce.rs`
 
@@ -242,7 +287,23 @@ None - reuses existing environment infrastructure from standard workflows
 
 ### Unit Tests
 
-**Test 1: Config Parsing**
+**Test 1: Standard Workflow Env Vars (Verification)**
+```rust
+#[test]
+fn test_standard_workflow_has_env_support() {
+    let yaml = r#"
+env:
+  PROJECT_NAME: "Test"
+commands:
+  - shell: "echo $PROJECT_NAME"
+"#;
+    let config: WorkflowConfig = serde_yaml::from_str(yaml).unwrap();
+    assert!(config.env.is_some());
+    assert_eq!(config.env.unwrap().get("PROJECT_NAME"), Some(&"Test".to_string()));
+}
+```
+
+**Test 2: MapReduce Config Parsing**
 ```rust
 #[test]
 fn test_mapreduce_with_env() {
@@ -263,13 +324,13 @@ map:
 }
 ```
 
-**Test 2: Variable Interpolation**
+**Test 3: Variable Interpolation**
 - Test `$VAR` syntax
 - Test `${VAR}` syntax
 - Test undefined variable handling
 - Test variable in different phases
 
-**Test 3: Secret Masking**
+**Test 4: Secret Masking**
 - Test secret values are masked in logs
 - Test secret values are available to commands
 - Test secret values work in all phases
@@ -480,18 +541,26 @@ setup:
 ## Success Metrics
 
 **Functionality**:
-- Environment variables work in all MapReduce phases
+- ALL workflow types support environment variables
+- Standard workflows continue to work without changes
+- MapReduce workflows gain full env var support
 - Book documentation workflows (Specs 118-119) work with env vars
-- Secret masking works correctly
-- All existing MapReduce workflows continue to work
+- Secret masking works correctly across all workflow types
+- All existing workflows continue to work
+
+**Consistency**:
+- Environment variable syntax identical across workflow types
+- Environment variable behavior identical across workflow types
+- Same features available in all workflow types
 
 **Quality**:
-- Environment behavior matches standard workflows
+- Environment behavior matches existing standard workflow implementation
 - Error messages are clear and helpful
 - Performance impact is negligible
 - Code reuses existing infrastructure (minimal duplication)
 
 **Usability**:
-- Developers can easily parameterize MapReduce workflows
+- Developers can parameterize ANY workflow type with env vars
 - Multiple projects can use same workflow with different env vars
 - Environment variable syntax is intuitive
+- Documentation covers all workflow types
