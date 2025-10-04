@@ -2,20 +2,20 @@
 # This workflow analyzes the codebase and updates book/src/*.md files
 # to reflect the latest supported features and syntax.
 
-name: book-docs-drift-detection
+name: prodigy-book-docs-drift-detection
 mode: mapreduce
 
 # Environment variables for parameterization
 env:
   # Project configuration
-  PROJECT_NAME: "prodigy"
-  PROJECT_CONFIG: "prodigy.yml"
-  FEATURES_PATH: "specs/"
+  PROJECT_NAME: "Prodigy"
+  PROJECT_CONFIG: ".prodigy/book-config.json"
+  FEATURES_PATH: ".prodigy/book-analysis/features.json"
 
   # Book-specific settings
   BOOK_DIR: "book"
   ANALYSIS_DIR: ".prodigy/book-analysis"
-  CHAPTERS_FILE: "workflows/data/book-chapters.json"
+  CHAPTERS_FILE: "workflows/data/prodigy-chapters.json"
 
   # Workflow settings
   MAX_PARALLEL: "3"
@@ -26,7 +26,7 @@ setup:
   - shell: "mkdir -p $ANALYSIS_DIR"
 
   # Analyze codebase for workflow features, command types, and configuration
-  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME"
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
 
 # Map phase: Analyze each book chapter for drift
 map:
@@ -34,7 +34,7 @@ map:
   json_path: "$.chapters[*]"
 
   agent_template:
-    - claude: "/prodigy-analyze-book-chapter-drift --json '${item}' --project $PROJECT_NAME"
+    - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
       commit_required: true
 
   max_parallel: ${MAX_PARALLEL}
@@ -42,7 +42,7 @@ map:
 
 # Reduce phase: Aggregate drift findings and update documentation
 reduce:
-  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME"
+  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME --config $PROJECT_CONFIG"
     commit_required: true
 
   # Rebuild the book to ensure it compiles correctly

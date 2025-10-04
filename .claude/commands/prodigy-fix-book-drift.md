@@ -1,10 +1,11 @@
 # /prodigy-fix-book-drift
 
-Update Prodigy book chapters to fix all detected drift issues and ensure documentation matches the current codebase implementation.
+Update book chapters to fix all detected drift issues and ensure documentation matches the current codebase implementation.
 
 ## Variables
 
-None - reads drift reports from `.prodigy/book-analysis/` directory.
+- `--project <name>` - Project name (e.g., "Prodigy", "Debtmap")
+- `--config <path>` - Path to book configuration JSON (e.g., ".prodigy/book-config.json")
 
 ## Execute
 
@@ -12,11 +13,29 @@ None - reads drift reports from `.prodigy/book-analysis/` directory.
 
 You have completed drift analysis across multiple book chapters. Now aggregate the results, update chapters to fix identified issues, and ensure the book builds successfully.
 
+**Parse Parameters:**
+- `--project`: The project name (used in output messages and file paths)
+- `--config`: Path to the book configuration JSON file
+
+**Load Configuration:**
+Read the configuration file specified by `--config` to get:
+- `book_dir`: Book root directory
+- `book_src`: Book source directory
+- Project-specific paths and settings
+
 ### Phase 1: Aggregate Drift Reports
+
+**Determine Analysis Directory:**
+Based on the project name from `--project` parameter:
+- For Prodigy: `.prodigy/book-analysis/`
+- For Debtmap: `.debtmap/book-analysis/`
+- Pattern: `.{project_lowercase}/book-analysis/`
 
 Collect all drift reports from map phase:
 
 ```bash
+ANALYSIS_DIR=".{project_lowercase}/book-analysis"
+
 # Aggregate all chapter drift reports
 jq -s '{
   total_chapters: length,
@@ -24,33 +43,33 @@ jq -s '{
   total_issues: [.[].issues[]] | length,
   severity_breakdown: (group_by(.severity) | map({(.[0].severity): length}) | add),
   all_reports: .
-}' .prodigy/book-analysis/drift-*.json > .prodigy/book-analysis/drift-summary.json
+}' $ANALYSIS_DIR/drift-*.json > $ANALYSIS_DIR/drift-summary.json
 ```
 
 Check if any drift was detected:
 ```bash
-drift_count=$(jq -r '.chapters_with_drift' .prodigy/book-analysis/drift-summary.json)
+drift_count=$(jq -r '.chapters_with_drift' $ANALYSIS_DIR/drift-summary.json)
 if [ "$drift_count" -eq 0 ]; then
-  echo "✓ No book drift detected - documentation is up to date!"
+  echo "✓ No book drift detected for $PROJECT_NAME - documentation is up to date!"
   exit 0
 else
-  echo "⚠ Found drift in $drift_count chapters"
+  echo "⚠ Found drift in $drift_count $PROJECT_NAME chapters"
   jq -r '.all_reports[] | select(.drift_detected == true) | "  - \(.chapter_title): \(.severity) severity, \(.issues | length) issues"' \
-    .prodigy/book-analysis/drift-summary.json
+    $ANALYSIS_DIR/drift-summary.json
 fi
 ```
 
 ### Phase 2: Identify Available Data
 
-1. `.prodigy/book-analysis/drift-summary.json` - Aggregated drift report
-2. `.prodigy/book-analysis/drift-{chapter_id}.json` - Individual chapter reports
-3. `.prodigy/book-analysis/features.json` - Ground truth feature inventory
+1. `{analysis_dir}/drift-summary.json` - Aggregated drift report
+2. `{analysis_dir}/drift-{chapter_id}.json` - Individual chapter reports
+3. `{analysis_dir}/features.json` - Ground truth feature inventory
 
 ### Phase 3: Update Book Chapters
 
 #### Step 1: Review Drift Summary
 
-Read `.prodigy/book-analysis/drift-summary.json` and prioritize:
+Read `{analysis_dir}/drift-summary.json` and prioritize:
 1. Critical/High severity issues first
 2. Medium severity issues next
 3. Low severity issues last
@@ -60,10 +79,10 @@ Read `.prodigy/book-analysis/drift-summary.json` and prioritize:
 For each chapter with drift:
 
 #### a. Load Chapter Details
-- Read drift report: `.prodigy/book-analysis/drift-{chapter_id}.json`
+- Read drift report: `{analysis_dir}/drift-{chapter_id}.json`
 - Read current chapter: From `chapter_file` in drift report
 - Read source code: Use `source_reference` from drift issues
-- Read feature inventory: `.prodigy/book-analysis/features.json`
+- Read feature inventory: `{analysis_dir}/features.json`
 
 #### b. Analyze Issues
 - Review all issues for the chapter
@@ -178,19 +197,22 @@ If you added new chapters or reorganized:
 
 #### Step 6: Test Book Build
 
+**Use Book Directory from Configuration:**
+Read `book_dir` from the config file loaded earlier.
+
 Verify the book builds successfully:
 ```bash
-cd book && mdbook build
+cd {book_dir} && mdbook build
 ```
 
 If build fails, fix errors before proceeding.
 
 #### Step 7: Create Update Summary
 
-Write summary to `.prodigy/book-analysis/updates-applied.md`:
+Write summary to `{analysis_dir}/updates-applied.md`:
 
 ```markdown
-# Prodigy Book Documentation Updates
+# {Project Name} Book Documentation Updates
 
 ## Summary
 - Analyzed: {N} chapters
@@ -229,10 +251,12 @@ Write summary to `.prodigy/book-analysis/updates-applied.md`:
 #### Step 8: Create Git Commit
 
 **Commit Message Format:**
-```
-docs: fix book drift - update {N} chapters
+Use the project name from `--project` parameter.
 
-Updated book documentation to match current implementation:
+```
+docs: fix {project} book drift - update {N} chapters
+
+Updated {project} book documentation to match current implementation:
 - {Chapter}: {summary of changes}
 - {Chapter}: {summary of changes}
 - {Chapter}: {summary of changes}
@@ -246,9 +270,9 @@ Book builds successfully ✓
 ```
 
 **Commit Contents:**
-- Updated `book/src/{chapters}.md`
-- Updated `book/src/SUMMARY.md` (if needed)
-- Created `.prodigy/book-analysis/updates-applied.md`
+- Updated `{book_src}/{chapters}.md` (from config)
+- Updated `{book_src}/SUMMARY.md` (if needed)
+- Created `{analysis_dir}/updates-applied.md`
 
 ### Phase 4: Chapter-Specific Guidance
 

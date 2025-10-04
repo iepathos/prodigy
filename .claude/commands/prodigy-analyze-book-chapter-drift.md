@@ -1,23 +1,31 @@
 # /prodigy-analyze-book-chapter-drift
 
-Analyze a specific chapter of the Prodigy book for drift against the actual codebase implementation.
+Analyze a specific chapter of a project's book for drift against the actual codebase implementation.
 
 ## Variables
 
-- `$1` - JSON object containing chapter details (passed via `--json` flag)
+- `--project <name>` - Project name (e.g., "Prodigy", "Debtmap")
+- `--json <chapter>` - JSON object containing chapter details
+- `--features <path>` - Path to features.json file (e.g., ".prodigy/book-analysis/features.json")
 
 ## Execute
 
 ### Phase 1: Understand Context
 
-You are comparing a chapter of the Prodigy book (`book/src/*.md`) against the actual codebase to identify drift (discrepancies between documentation and implementation).
+You are comparing a chapter of a project's book against the actual codebase to identify drift (discrepancies between documentation and implementation).
 
 ### Phase 2: Parse Input Arguments
 
-The command receives a JSON object with chapter details:
+**Extract Parameters:**
+- `--project`: The project name (used in output messages and file paths)
+- `--json`: JSON object with chapter details
+- `--features`: Path to the features.json file
+
+**Parse Chapter JSON:**
+The `--json` parameter contains chapter details:
 
 ```bash
-CHAPTER_JSON="$1"
+CHAPTER_JSON="<value from --json parameter>"
 CHAPTER_ID=$(echo "$CHAPTER_JSON" | jq -r '.id')
 CHAPTER_TITLE=$(echo "$CHAPTER_JSON" | jq -r '.title')
 CHAPTER_FILE=$(echo "$CHAPTER_JSON" | jq -r '.file')
@@ -37,7 +45,7 @@ Read the chapter file specified in `$CHAPTER_FILE`:
 
 #### Step 2: Load Feature Inventory
 
-Read `.prodigy/book-analysis/features.json` for ground truth from codebase.
+Read the features.json file specified by `--features` parameter for ground truth from codebase.
 
 #### Step 3: Chapter-Specific Drift Checks
 
@@ -147,7 +155,13 @@ Overall chapter assessment:
 
 ### Phase 4: Create Drift Report
 
-Create drift report at `.prodigy/book-analysis/drift-$CHAPTER_ID.json`:
+**Determine Output Path:**
+Based on the project name from `--project` parameter:
+- For Prodigy: `.prodigy/book-analysis/drift-$CHAPTER_ID.json`
+- For Debtmap: `.debtmap/book-analysis/drift-$CHAPTER_ID.json`
+- Pattern: `.{project_lowercase}/book-analysis/drift-$CHAPTER_ID.json`
+
+Create drift report at the determined path:
 
 ```json
 {
@@ -243,9 +257,13 @@ Create drift report at `.prodigy/book-analysis/drift-$CHAPTER_ID.json`:
 
 **CRITICAL**: Since each map agent runs in a separate git worktree, the drift JSON file MUST be committed to be accessible in the reduce phase.
 
+**Determine Drift File Path:**
+Use the same path logic as Phase 4 based on `--project` parameter.
+
 ```bash
-git add .prodigy/book-analysis/drift-$CHAPTER_ID.json
-git commit -m "analysis: drift report for book chapter '$CHAPTER_TITLE'
+PROJECT_DIR=".{project_lowercase}"
+git add $PROJECT_DIR/book-analysis/drift-$CHAPTER_ID.json
+git commit -m "analysis: drift report for $PROJECT_NAME book chapter '$CHAPTER_TITLE'
 
 Drift severity: $SEVERITY
 Issues found: $ISSUE_COUNT
@@ -262,3 +280,4 @@ The drift report should:
 5. Include source references
 6. Note positive aspects to preserve
 7. **Be committed to git** for reduce phase access
+8. Use project name from `--project` parameter in messages
