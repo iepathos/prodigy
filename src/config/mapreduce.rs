@@ -6,6 +6,7 @@ use crate::cook::environment::{EnvProfile, SecretValue};
 use crate::cook::execution::variable_capture::CaptureConfig;
 use crate::cook::execution::{MapPhase, MapReduceConfig, ReducePhase, SetupPhase};
 use crate::cook::workflow::{WorkflowErrorPolicy, WorkflowStep};
+use anyhow::Context as _;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -245,9 +246,12 @@ pub struct MapPhaseYaml {
     /// Agent template commands
     pub agent_template: AgentTemplate,
 
-    /// Maximum parallel agents
-    #[serde(default = "default_max_parallel")]
-    pub max_parallel: usize,
+    /// Maximum parallel agents (can be a number or environment variable reference)
+    #[serde(
+        default = "default_max_parallel_string",
+        deserialize_with = "deserialize_usize_or_string"
+    )]
+    pub max_parallel: String,
 
     /// Optional filter expression
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -269,17 +273,21 @@ pub struct MapPhaseYaml {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub distinct: Option<String>,
 
-    /// Agent timeout in seconds
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_timeout_secs: Option<u64>,
+    /// Agent timeout in seconds (can be a number or environment variable reference)
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_u64_or_string"
+    )]
+    pub agent_timeout_secs: Option<String>,
 
     /// Timeout configuration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout_config: Option<crate::cook::execution::mapreduce::timeout::TimeoutConfig>,
 }
 
-fn default_max_parallel() -> usize {
-    10
+fn default_max_parallel_string() -> String {
+    "10".to_string()
 }
 
 /// Agent template configuration
@@ -393,7 +401,103 @@ where
     }
 }
 
+/// Custom deserializer for usize values that can also be environment variable references
+fn deserialize_usize_or_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum UsizeOrString {
+        Number(usize),
+        String(String),
+    }
+
+    let value = UsizeOrString::deserialize(deserializer)?;
+
+    match value {
+        UsizeOrString::Number(n) => Ok(n.to_string()),
+        UsizeOrString::String(s) => Ok(s),
+    }
+}
+
+/// Custom deserializer for optional u64 values that can also be environment variable references
+fn deserialize_optional_u64_or_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum U64OrString {
+        Number(u64),
+        String(String),
+    }
+
+    let value = Option::<U64OrString>::deserialize(deserializer)?;
+
+    match value {
+        None => Ok(None),
+        Some(U64OrString::Number(n)) => Ok(Some(n.to_string())),
+        Some(U64OrString::String(s)) => Ok(Some(s)),
+    }
+}
+
 impl MapReduceWorkflowConfig {
+    /// Resolve an environment variable reference or parse a numeric string
+    fn resolve_env_or_parse<T>(&self, value: &str) -> Result<T, anyhow::Error>
+    where
+        T: std::str::FromStr,
+        <T as std::str::FromStr>::Err: std::fmt::Display,
+    {
+        // Check if it's an environment variable reference
+        if value.contains("${") {
+            // Extract variable name from ${VAR_NAME} or $VAR_NAME
+            let var_name = if let Some(stripped) = value.strip_prefix("${") {
+                stripped.strip_suffix('}').unwrap_or(stripped)
+            } else if let Some(stripped) = value.strip_prefix('$') {
+                stripped
+            } else {
+                value
+            };
+
+            // Try to resolve from workflow env first
+            if let Some(ref env) = self.env {
+                if let Some(env_value) = env.get(var_name) {
+                    return env_value.parse::<T>().map_err(|e| {
+                        anyhow::anyhow!(
+                            "Failed to parse environment variable '{}' value '{}': {}",
+                            var_name,
+                            env_value,
+                            e
+                        )
+                    });
+                }
+            }
+
+            // Fall back to system environment
+            if let Ok(env_value) = std::env::var(var_name) {
+                return env_value.parse::<T>().map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to parse environment variable '{}' value '{}': {}",
+                        var_name,
+                        env_value,
+                        e
+                    )
+                });
+            }
+
+            return Err(anyhow::anyhow!(
+                "Environment variable '{}' not found in workflow env or system environment",
+                var_name
+            ));
+        }
+
+        // Parse as a plain number
+        value
+            .parse::<T>()
+            .map_err(|e| anyhow::anyhow!("Failed to parse numeric value '{}': {}", value, e))
+    }
+
     /// Get the merged error policy, combining convenience fields with the error_policy field
     pub fn get_error_policy(&self) -> WorkflowErrorPolicy {
         use crate::cook::workflow::{ErrorCollectionStrategy, ItemFailureAction};
@@ -455,13 +559,29 @@ impl MapReduceWorkflowConfig {
     }
 
     /// Convert to execution-ready MapPhase
-    pub fn to_map_phase(&self) -> MapPhase {
-        MapPhase {
+    /// Returns an error if environment variable resolution or numeric parsing fails
+    pub fn to_map_phase(&self) -> Result<MapPhase, anyhow::Error> {
+        // Resolve max_parallel from string (may be a number or env var reference)
+        let max_parallel = self
+            .resolve_env_or_parse::<usize>(&self.map.max_parallel)
+            .context("Failed to resolve max_parallel")?;
+
+        // Resolve agent_timeout_secs if present
+        let agent_timeout_secs = if let Some(ref timeout_str) = self.map.agent_timeout_secs {
+            Some(
+                self.resolve_env_or_parse::<u64>(timeout_str)
+                    .context("Failed to resolve agent_timeout_secs")?,
+            )
+        } else {
+            None
+        };
+
+        Ok(MapPhase {
             config: MapReduceConfig {
                 input: self.map.input.clone(),
                 json_path: self.map.json_path.clone(),
-                max_parallel: self.map.max_parallel,
-                agent_timeout_secs: self.map.agent_timeout_secs,
+                max_parallel,
+                agent_timeout_secs,
                 continue_on_failure: false,
                 batch_size: None,
                 enable_checkpoints: true,
@@ -475,7 +595,7 @@ impl MapReduceWorkflowConfig {
             max_items: self.map.max_items,
             distinct: self.map.distinct.clone(),
             timeout_config: self.map.timeout_config.clone(),
-        }
+        })
     }
 
     /// Convert to execution-ready ReducePhase
@@ -528,7 +648,7 @@ reduce:
         let config = parse_mapreduce_workflow(yaml).unwrap();
         assert_eq!(config.name, "parallel-debt-elimination");
         assert_eq!(config.mode, "mapreduce");
-        assert_eq!(config.map.max_parallel, 10);
+        assert_eq!(config.map.max_parallel, "10");
         assert_eq!(config.map.agent_template.commands.len(), 2);
     }
 

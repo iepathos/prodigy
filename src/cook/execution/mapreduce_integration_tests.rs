@@ -265,7 +265,7 @@ reduce:
         // Verify map phase
         assert_eq!(config.map.input, "debtmap.json");
         assert_eq!(config.map.json_path, "$.items[*]");
-        assert_eq!(config.map.max_parallel, 5);
+        assert_eq!(config.map.max_parallel, "5");
         assert_eq!(config.map.max_items, Some(10));
         assert_eq!(
             config.map.filter,
@@ -396,7 +396,7 @@ reduce:
             mode: WorkflowMode::MapReduce,
             steps: setup_steps,
             setup_phase: mapreduce_config.to_setup_phase(),
-            map_phase: Some(mapreduce_config.to_map_phase()),
+            map_phase: Some(mapreduce_config.to_map_phase().unwrap()),
             reduce_phase: mapreduce_config.to_reduce_phase(),
             max_iterations: 1,
             iterate: false,

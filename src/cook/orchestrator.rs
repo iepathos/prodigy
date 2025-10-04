@@ -2194,8 +2194,7 @@ impl DefaultCookOrchestrator {
                     max_concurrent: config
                         .mapreduce_config
                         .as_ref()
-                        .map(|m| Some(m.map.max_parallel))
-                        .unwrap_or(None),
+                        .and_then(|m| m.map.max_parallel.parse::<usize>().ok()),
                     partition_strategy: None,
                 }),
             },
@@ -2295,7 +2294,9 @@ impl DefaultCookOrchestrator {
             mode: crate::cook::workflow::WorkflowMode::MapReduce,
             steps: setup_steps,
             setup_phase: mapreduce_config.to_setup_phase(),
-            map_phase: Some(mapreduce_config.to_map_phase()),
+            map_phase: Some(mapreduce_config.to_map_phase().context(
+                "Failed to resolve MapReduce configuration. Check that environment variables are properly defined."
+            )?),
             reduce_phase: mapreduce_config.to_reduce_phase(),
             max_iterations: 1, // MapReduce runs once
             iterate: false,
