@@ -4,7 +4,7 @@ title: Add Book Documentation to Debtmap
 category: documentation
 priority: high
 status: draft
-dependencies: [118]
+dependencies: [118, 120]
 created: 2025-10-03
 ---
 
@@ -13,7 +13,7 @@ created: 2025-10-03
 **Category**: documentation
 **Priority**: high
 **Status**: draft
-**Dependencies**: [118]
+**Dependencies**: [118, 120]
 
 ## Context
 

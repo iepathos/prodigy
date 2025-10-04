@@ -4,7 +4,7 @@ title: Generalize Prodigy Book Documentation Commands
 category: documentation
 priority: high
 status: draft
-dependencies: []
+dependencies: [120]
 created: 2025-10-03
 ---
 
@@ -13,7 +13,7 @@ created: 2025-10-03
 **Category**: documentation
 **Priority**: high
 **Status**: draft
-**Dependencies**: None
+**Dependencies**: [120]
 
 ## Context
 
