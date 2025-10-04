@@ -25,26 +25,27 @@ Prodigy has successfully implemented an automated book documentation system usin
 
 The current implementation uses Prodigy-specific commands (`/prodigy-analyze-features-for-book`, etc.) with hardcoded project assumptions. To enable reuse across other projects (see Spec 119 for Debtmap), these commands need to be generalized to accept project configuration as parameters.
 
-This spec focuses on **refactoring the Prodigy implementation only** to use generalized, parameter-based commands while maintaining identical functionality. This proves the generalization works before applying it to other projects.
+This spec focuses on **making the Prodigy book commands truly generalized** so they can work for ANY codebase (Prodigy, Debtmap, future projects) through configuration parameters. The same `prodigy-` prefixed commands will be used by all projects.
 
 ## Objective
 
-Refactor Prodigy's book documentation workflow to:
-1. Use project-agnostic Claude commands that accept configuration parameters
-2. Externalize project-specific details into JSON configuration files
-3. Maintain identical functionality and output for Prodigy's existing book workflow
-4. Create reusable command templates that other projects can use
-5. Verify the refactored system works correctly with Prodigy before expanding to other projects
+Create generalized book documentation commands that:
+1. Work for ANY codebase (Prodigy, Debtmap, future projects) via parameters
+2. Keep `prodigy-` prefix on all commands (used across all projects)
+3. Accept project name, config path, and other context as parameters
+4. Use generic terminology and logic that adapts to different codebases
+5. Enable Debtmap (and future projects) to use identical commands with different configuration
 
 ## Requirements
 
 ### Functional Requirements
 
-**FR1**: Refactor Claude commands to be configuration-driven:
+**FR1**: Create truly generalized Claude commands:
 - Keep `/prodigy-analyze-features-for-book`, `/prodigy-analyze-book-chapter-drift`, `/prodigy-fix-book-drift` names
-- Make implementations read from `.prodigy/book-config.json` instead of hardcoding paths/settings
-- Generalize internal logic to work with any project structure via configuration
-- Extract reusable patterns that Debtmap commands (Spec 119) can follow
+- Commands accept `--project`, `--config`, and other parameters
+- Commands work for ANY codebase (Prodigy, Debtmap, etc.) based on parameters
+- Use generic terminology internally (not "Prodigy workflow" but "codebase features")
+- Same commands used by all projects with different parameters
 
 **FR2**: Create Prodigy project configuration:
 - Create `.prodigy/book-config.json` with Prodigy-specific settings
@@ -57,10 +58,11 @@ Refactor Prodigy's book documentation workflow to:
 - Rename `workflows/data/book-chapters.json` to `workflows/data/prodigy-chapters.json`
 - Maintain identical workflow behavior and output
 
-**FR4**: Maintain command naming convention:
-- Keep `prodigy-` prefix on all Prodigy commands (required for Prodigy's self-recognition)
-- Make command implementations configuration-driven rather than changing names
-- Create pattern that Debtmap can follow with `debtmap-` prefix
+**FR4**: Enable cross-project command reuse:
+- Keep `prodigy-` prefix (both Prodigy and Debtmap will use these commands)
+- Commands are project-agnostic internally
+- Each project provides its own configuration and chapter definitions
+- Workflow templates can be copied with minimal changes
 
 ### Non-Functional Requirements
 
@@ -78,38 +80,40 @@ Refactor Prodigy's book documentation workflow to:
 
 - [ ] `.prodigy/book-config.json` created with Prodigy's configuration
 - [ ] `workflows/data/book-chapters.json` renamed to `workflows/data/prodigy-chapters.json`
-- [ ] Prodigy commands refactored to read from configuration files
-- [ ] Commands keep `prodigy-` prefix (required for Prodigy self-recognition)
-- [ ] Command implementations are generic and configuration-driven internally
-- [ ] `workflows/book-docs-drift.yml` updated to use configuration approach
+- [ ] Commands accept `--project`, `--config`, and other parameters
+- [ ] Commands use generic terminology internally (work for any codebase)
+- [ ] Commands keep `prodigy-` prefix (used by all projects)
+- [ ] Prodigy workflow passes project-specific parameters to commands
 - [ ] Workflow runs successfully and produces identical output to previous version
 - [ ] Book builds successfully after drift fixes
 - [ ] All Prodigy chapters analyzed and updated correctly
-- [ ] Command pattern documented for Debtmap to follow (Spec 119)
+- [ ] Commands are ready for use by Debtmap with different parameters (Spec 119)
 
 ## Technical Details
 
 ### Implementation Approach
 
-#### 1. Command Refactoring Strategy
+#### 1. Command Generalization Strategy
 
 **Current State**: Commands have hardcoded paths and Prodigy-specific assumptions
 ```bash
-# Current: Hardcoded paths like "book/src/", ".prodigy/book-analysis/"
+# Current: Hardcoded for Prodigy
 /prodigy-analyze-features-for-book
 /prodigy-analyze-book-chapter-drift
 /prodigy-fix-book-drift
 ```
 
-**Target State**: Same command names, but configuration-driven
+**Target State**: Commands accept parameters and work for ANY project
 ```bash
-# Refactored: Read from .prodigy/book-config.json
-/prodigy-analyze-features-for-book    # Reads config for paths, analysis targets
-/prodigy-analyze-book-chapter-drift   # Reads config for chapter structure
-/prodigy-fix-book-drift               # Reads config for output paths
+# Generalized: Accept project context via parameters
+/prodigy-analyze-features-for-book --project Prodigy --config .prodigy/book-config.json
+/prodigy-analyze-book-chapter-drift --project Prodigy --json '${item}' --features .prodigy/book-analysis/features.json
+/prodigy-fix-book-drift --project Prodigy --config .prodigy/book-config.json
 
-# Commands keep prodigy- prefix (required for Prodigy's self-recognition)
-# But internal implementation is generic and driven by configuration
+# For Debtmap (same commands, different parameters):
+/prodigy-analyze-features-for-book --project Debtmap --config .debtmap/book-config.json
+/prodigy-analyze-book-chapter-drift --project Debtmap --json '${item}' --features .debtmap/book-analysis/features.json
+/prodigy-fix-book-drift --project Debtmap --config .debtmap/book-config.json
 ```
 
 #### 2. Configuration Structure
@@ -159,60 +163,67 @@ Refactor Prodigy's book documentation workflow to:
 }
 ```
 
-#### 3. Configuration-Driven Command Design
+#### 3. Generalized Command Design
 
 **Feature Analysis Command** (`/prodigy-analyze-features-for-book`):
-- Reads `.prodigy/book-config.json` to determine analysis targets
-- Generates feature inventory at configured output path (`.prodigy/book-analysis/features.json`)
-- Analysis targets specified in config, not hardcoded
-- Outputs JSON compatible with drift detection
+- **Parameters**: `--project <name>`, `--config <path>`
+- Reads config file to determine analysis targets (works for any project structure)
+- Generates feature inventory at path specified in config
+- Uses `$project` name in output messages and file paths
+- Works identically for Prodigy, Debtmap, or any future project
 
 **Chapter Drift Command** (`/prodigy-analyze-book-chapter-drift`):
-- Receives chapter JSON via `--json` flag (passed from workflow)
-- Reads `.prodigy/book-analysis/features.json` for ground truth
-- Chapter structure comes from `workflows/data/prodigy-chapters.json`
-- Generates drift report in `.prodigy/book-analysis/`
-- Supports custom validation focuses per chapter
+- **Parameters**: `--project <name>`, `--json <chapter>`, `--features <path>`
+- Receives chapter JSON via `--json` flag
+- Reads features.json from path specified by `--features`
+- Project name from `--project` used in messages and output
+- Generates drift report with project-agnostic structure
 
 **Fix Drift Command** (`/prodigy-fix-book-drift`):
-- Reads all drift reports from `.prodigy/book-analysis/drift-*.json`
-- Updates chapters in `book/src/` based on drift analysis
-- Book paths come from configuration
-- Validates mdBook build after changes
+- **Parameters**: `--project <name>`, `--config <path>`
+- Reads config to find drift reports directory and book paths
+- Updates chapters based on drift analysis
+- Project name used in commit messages and output
+- Validates mdBook build using paths from config
 
 #### 4. Refactored Workflow Structure
 
-**Updated Workflow** (`workflows/book-docs-drift.yml`):
+**Updated Prodigy Workflow** (`workflows/book-docs-drift.yml`):
 ```yaml
 name: prodigy-book-docs-drift-detection
 mode: mapreduce
 
+env:
+  PROJECT_NAME: "Prodigy"
+  PROJECT_CONFIG: ".prodigy/book-config.json"
+  FEATURES_PATH: ".prodigy/book-analysis/features.json"
+
 setup:
   - shell: "mkdir -p .prodigy/book-analysis"
 
-  # Command reads .prodigy/book-config.json for configuration
-  - claude: "/prodigy-analyze-features-for-book"
+  # Generalized command with Prodigy-specific parameters
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
 
 map:
-  input: "workflows/data/prodigy-chapters.json"  # Renamed from book-chapters.json
+  input: "workflows/data/prodigy-chapters.json"
   json_path: "$.chapters[*]"
 
   agent_template:
-    # Command receives chapter via ${item}, reads config for rest
-    - claude: "/prodigy-analyze-book-chapter-drift --json '${item}'"
+    # Pass project name and features path as parameters
+    - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
       commit_required: true
 
   max_parallel: 3
   agent_timeout_secs: 900
 
 reduce:
-  # Command reads config to find drift reports and chapters
-  - claude: "/prodigy-fix-book-drift"
+  # Commands work generically with any project via parameters
+  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME --config $PROJECT_CONFIG"
     commit_required: true
 
   - shell: "cd book && mdbook build"
     on_failure:
-      claude: "/prodigy-fix-book-build-errors"
+      claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
 
 error_policy:
   on_item_failure: dlq
@@ -230,10 +241,10 @@ merge:
 ```
 
 **Key Changes**:
-- Commands keep `prodigy-` prefix
-- Configuration paths come from `.prodigy/book-config.json`
-- Chapter file renamed to `prodigy-chapters.json` for clarity
-- Commands are simpler (no need to pass config paths explicitly)
+- Environment variables define project-specific values
+- Commands accept `--project`, `--config`, `--features` parameters
+- Same commands will work for Debtmap with different env vars
+- Commands keep `prodigy-` prefix (used by all projects)
 
 ### Architecture Changes
 
@@ -242,15 +253,15 @@ merge:
 - `workflows/data/prodigy-chapters.json` - Renamed from `book-chapters.json`
 
 **Modified Files**:
-- `.claude/commands/prodigy-analyze-features-for-book.md` - Refactored to read from config
-- `.claude/commands/prodigy-analyze-book-chapter-drift.md` - Refactored to read from config
-- `.claude/commands/prodigy-fix-book-drift.md` - Refactored to read from config
-- `workflows/book-docs-drift.yml` - Updated to use configuration-driven commands
+- `.claude/commands/prodigy-analyze-features-for-book.md` - Accept `--project` and `--config` parameters
+- `.claude/commands/prodigy-analyze-book-chapter-drift.md` - Accept `--project`, `--json`, `--features` parameters
+- `.claude/commands/prodigy-fix-book-drift.md` - Accept `--project` and `--config` parameters
+- `workflows/book-docs-drift.yml` - Add environment variables and pass parameters to commands
 
-**Pattern for Future Projects** (Spec 119):
-- Debtmap will create similar files with `debtmap-` prefix
-- Command implementations can follow same configuration-driven pattern
-- Workflow structure can be copied and adapted
+**Reuse by Other Projects** (Spec 119):
+- Debtmap uses the SAME `prodigy-` commands
+- Debtmap workflow sets different environment variables (PROJECT_NAME="Debtmap", etc.)
+- No command modifications needed for new projects
 
 ### Data Structures
 
@@ -497,17 +508,19 @@ Update `ARCHITECTURE.md` to document:
 2. Rename `workflows/data/book-chapters.json` → `workflows/data/prodigy-chapters.json`
 3. Validate configuration structure
 
-**Phase 2: Refactor Prodigy Commands**
-1. Update `/prodigy-analyze-features-for-book` to read from `.prodigy/book-config.json`
-2. Update `/prodigy-analyze-book-chapter-drift` to use configuration
-3. Update `/prodigy-fix-book-drift` to use configuration
-4. Keep command names unchanged (required for Prodigy self-recognition)
-5. Test commands individually with configuration
+**Phase 2: Generalize Prodigy Commands**
+1. Update `/prodigy-analyze-features-for-book` to accept `--project` and `--config` parameters
+2. Update `/prodigy-analyze-book-chapter-drift` to accept `--project`, `--json`, `--features` parameters
+3. Update `/prodigy-fix-book-drift` to accept `--project` and `--config` parameters
+4. Remove all hardcoded "Prodigy" references - use `$project` parameter instead
+5. Use generic terminology internally ("codebase features" not "Prodigy workflows")
+6. Test commands with Prodigy parameters
 
 **Phase 3: Update Prodigy Workflow**
-1. Update `workflows/book-docs-drift.yml` to reference `prodigy-chapters.json`
-2. Simplify command invocations (config is implicit)
-3. Test workflow end-to-end
+1. Add environment variables to `workflows/book-docs-drift.yml`
+2. Update `workflows/book-docs-drift.yml` to reference `prodigy-chapters.json`
+3. Pass parameters to all command invocations
+4. Test workflow end-to-end with Prodigy
 
 **Phase 4: Verification**
 1. Run workflow and compare output with previous runs

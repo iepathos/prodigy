@@ -17,20 +17,21 @@ created: 2025-10-03
 
 ## Context
 
-Spec 118 generalized Prodigy's book documentation system to use parameter-based commands and configuration files. This proved the generalization works and created reusable infrastructure.
+Spec 118 generalized Prodigy's book documentation commands to accept parameters (`--project`, `--config`, etc.) so they work for ANY codebase. The same `prodigy-` prefixed commands are now used by all projects.
 
-Debtmap is a Rust CLI tool for technical debt analysis and management. It currently lacks comprehensive documentation. This spec applies the generalized book documentation system (from Spec 118) to create automated documentation for Debtmap using mdBook and Prodigy workflows.
+Debtmap is a Rust CLI tool for technical debt analysis and management. It currently lacks comprehensive documentation. This spec applies the generalized book documentation commands to Debtmap by creating Debtmap-specific configuration and using the same `prodigy-` commands with different parameters.
 
-This serves as the proof-of-concept that the generalized system works across different projects with minimal customization.
+This proves the generalization works: identical commands, different configuration.
 
 ## Objective
 
 Set up automated book documentation for Debtmap by:
 1. Creating mdBook structure for Debtmap documentation
 2. Creating Debtmap-specific configuration and chapter definitions
-3. Creating a Debtmap workflow instance using the generalized commands
+3. Creating Debtmap workflow that uses the SAME `prodigy-` commands with Debtmap parameters
 4. Generating initial book content documenting Debtmap's features
 5. Setting up GitHub workflow for automated deployment (optional)
+6. Proving the same commands work for multiple projects via configuration
 
 ## Requirements
 
@@ -52,19 +53,14 @@ Set up automated book documentation for Debtmap by:
 - Define chapters appropriate for Debtmap (e.g., "Getting Started", "Rules", "Analysis Types", "CLI Usage")
 - Specify topics and validation focuses per chapter
 
-**FR4**: Create Debtmap Claude commands:
-- Create `/debtmap-analyze-features-for-book` (follows Prodigy pattern)
-- Create `/debtmap-analyze-book-chapter-drift` (follows Prodigy pattern)
-- Create `/debtmap-fix-book-drift` (follows Prodigy pattern)
-- Commands use `debtmap-` prefix (required for Debtmap self-recognition)
-- Implementation follows configuration-driven pattern from Spec 118
-
-**FR5**: Create Debtmap workflow instance:
+**FR4**: Create Debtmap workflow instance:
 - Create `../debtmap/workflows/book-docs-drift.yml`
-- Use Debtmap-specific commands
-- Follow same pattern as Prodigy workflow
+- Use the SAME `prodigy-` commands from Spec 118
+- Set Debtmap-specific environment variables (PROJECT_NAME, PROJECT_CONFIG, etc.)
+- Pass Debtmap parameters to the generalized commands
+- Follow same workflow pattern as Prodigy
 
-**FR6**: Generate initial documentation:
+**FR5**: Generate initial documentation:
 - Run workflow to analyze Debtmap codebase
 - Generate feature inventory for Debtmap
 - Create initial book content based on analysis
@@ -86,17 +82,14 @@ Set up automated book documentation for Debtmap by:
 - [ ] `../debtmap/book/book.toml` configured with Debtmap metadata
 - [ ] `../debtmap/.debtmap/book-config.json` created with Debtmap configuration
 - [ ] `../debtmap/workflows/data/debtmap-chapters.json` created with chapter definitions
-- [ ] Debtmap Claude commands created in `../debtmap/.claude/commands/`:
-  - [ ] `debtmap-analyze-features-for-book.md`
-  - [ ] `debtmap-analyze-book-chapter-drift.md`
-  - [ ] `debtmap-fix-book-drift.md`
-- [ ] `../debtmap/workflows/book-docs-drift.yml` created using Debtmap commands
+- [ ] `../debtmap/workflows/book-docs-drift.yml` created using SAME `prodigy-` commands
+- [ ] Workflow sets Debtmap environment variables (PROJECT_NAME="Debtmap", etc.)
 - [ ] Workflow runs successfully from Debtmap directory
 - [ ] Feature inventory generated at `../debtmap/.debtmap/book-analysis/features.json`
 - [ ] Drift analysis completes for all Debtmap chapters
 - [ ] Book builds successfully: `cd ../debtmap/book && mdbook build`
 - [ ] Generated documentation accurately reflects Debtmap features
-- [ ] Configuration-driven pattern from Spec 118 successfully reused
+- [ ] Same commands work for both Prodigy and Debtmap (proves generalization)
 
 ## Technical Details
 
@@ -228,38 +221,34 @@ mode: mapreduce
 env:
   PROJECT_NAME: "Debtmap"
   PROJECT_CONFIG: ".debtmap/book-config.json"
-  CHAPTERS_FILE: "workflows/data/debtmap-chapters.json"
-  ANALYSIS_DIR: ".debtmap/book-analysis"
   FEATURES_PATH: ".debtmap/book-analysis/features.json"
-  DRIFT_DIR: ".debtmap/book-analysis"
-  BOOK_DIR: "book"
 
 setup:
   - shell: "mkdir -p .debtmap/book-analysis"
 
-  # Debtmap command reads .debtmap/book-config.json for configuration
-  - claude: "/debtmap-analyze-features-for-book"
+  # Same prodigy- command as Prodigy workflow, different parameters
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
 
 map:
   input: "workflows/data/debtmap-chapters.json"
   json_path: "$.chapters[*]"
 
   agent_template:
-    # Debtmap command receives chapter via ${item}, reads config for rest
-    - claude: "/debtmap-analyze-book-chapter-drift --json '${item}'"
+    # Same prodigy- command, Debtmap parameters
+    - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
       commit_required: true
 
   max_parallel: 3
   agent_timeout_secs: 900
 
 reduce:
-  # Debtmap command reads config to find drift reports and chapters
-  - claude: "/debtmap-fix-book-drift"
+  # Same prodigy- command, Debtmap configuration
+  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME --config $PROJECT_CONFIG"
     commit_required: true
 
   - shell: "cd book && mdbook build"
     on_failure:
-      claude: "/debtmap-fix-book-build-errors"
+      claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
 
 error_policy:
   on_item_failure: dlq
@@ -268,13 +257,19 @@ error_policy:
   error_collection: aggregate
 
 merge:
-  - shell: "rm -rf $ANALYSIS_DIR"
-  - shell: "git add -A && git commit -m 'chore: remove temporary analysis files for $PROJECT_NAME' || true"
-  - shell: "cd $BOOK_DIR && mdbook build"
+  - shell: "rm -rf .debtmap/book-analysis"
+  - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for Debtmap' || true"
+  - shell: "cd book && mdbook build"
   - shell: "git fetch origin"
   - claude: "/merge-master"
   - claude: "/prodigy-merge-worktree ${merge.source_branch}"
 ```
+
+**Key Points**:
+- **Identical commands** to Prodigy workflow (`/prodigy-analyze-features-for-book`, etc.)
+- **Different environment variables** (PROJECT_NAME="Debtmap", PROJECT_CONFIG=".debtmap/book-config.json")
+- **Different chapter file** (debtmap-chapters.json instead of prodigy-chapters.json)
+- **Same workflow structure** - easy to copy and adapt from Prodigy
 
 #### 5. Debtmap book.toml
 
@@ -330,42 +325,38 @@ line-numbers = true
 - `../debtmap/book/book.toml` - mdBook configuration
 - `../debtmap/book/src/SUMMARY.md` - Chapter structure
 - `../debtmap/book/src/*.md` - Chapter files (7 chapters)
-- `../debtmap/.debtmap/book-config.json` - Project configuration
-- `../debtmap/workflows/data/debtmap-chapters.json` - Chapter definitions
-- `../debtmap/workflows/book-docs-drift.yml` - Workflow instance
-- `../debtmap/.claude/commands/debtmap-analyze-features-for-book.md` - Feature analysis command
-- `../debtmap/.claude/commands/debtmap-analyze-book-chapter-drift.md` - Drift detection command
-- `../debtmap/.claude/commands/debtmap-fix-book-drift.md` - Drift fixing command
-- `../debtmap/.claude/commands/debtmap-fix-book-build-errors.md` - Error handling command (optional)
+- `../debtmap/.debtmap/book-config.json` - Debtmap project configuration
+- `../debtmap/workflows/data/debtmap-chapters.json` - Debtmap chapter definitions
+- `../debtmap/workflows/book-docs-drift.yml` - Debtmap workflow (uses same `prodigy-` commands)
 
 **New Files in Debtmap (optional)**:
 - `../debtmap/.github/workflows/deploy-docs.yml` - GitHub Pages deployment
 
-**No Changes in Prodigy**:
-- Prodigy commands remain unchanged
-- Pattern is reused, not the commands themselves
+**No New Commands**:
+- Debtmap uses existing `prodigy-` commands from Prodigy repo
+- Commands are generalized and work for any project via parameters
+- Zero code duplication
 
-### Debtmap Command Creation
+### Command Reuse
 
-Debtmap creates its own commands following the configuration-driven pattern from Spec 118:
+Debtmap uses the **EXACT SAME commands** as Prodigy (from Spec 118):
 
-**`/debtmap-analyze-features-for-book`**:
-- Reads `.debtmap/book-config.json` for analysis targets
-- Generates feature inventory at `.debtmap/book-analysis/features.json`
-- Implementation mirrors `/prodigy-analyze-features-for-book` but uses Debtmap config
+**`/prodigy-analyze-features-for-book`**:
+- Debtmap calls with: `--project Debtmap --config .debtmap/book-config.json`
+- Prodigy calls with: `--project Prodigy --config .prodigy/book-config.json`
+- Same command, different parameters
 
-**`/debtmap-analyze-book-chapter-drift`**:
-- Receives chapter JSON via `--json` flag
-- Reads `.debtmap/book-analysis/features.json` for ground truth
-- Generates drift reports in `.debtmap/book-analysis/`
-- Implementation mirrors `/prodigy-analyze-book-chapter-drift` but uses Debtmap paths
+**`/prodigy-analyze-book-chapter-drift`**:
+- Debtmap calls with: `--project Debtmap --json '${item}' --features .debtmap/book-analysis/features.json`
+- Prodigy calls with: `--project Prodigy --json '${item}' --features .prodigy/book-analysis/features.json`
+- Same command, different parameters
 
-**`/debtmap-fix-book-drift`**:
-- Reads drift reports from `.debtmap/book-analysis/drift-*.json`
-- Updates chapters in `book/src/`
-- Implementation mirrors `/prodigy-fix-book-drift` but uses Debtmap config
+**`/prodigy-fix-book-drift`**:
+- Debtmap calls with: `--project Debtmap --config .debtmap/book-config.json`
+- Prodigy calls with: `--project Prodigy --config .prodigy/book-config.json`
+- Same command, different parameters
 
-This proves the configuration-driven pattern is reusable across projects.
+This proves the generalization works: **zero command duplication**, only configuration differences.
 
 ## Dependencies
 
@@ -402,11 +393,11 @@ This proves the configuration-driven pattern is reusable across projects.
 - Review updated chapters - should accurately document Debtmap
 - Verify examples use Debtmap commands and syntax
 
-**Test 4: Command Pattern Reuse**
-- Verify Debtmap commands follow same pattern as Prodigy commands
-- Verify configuration-driven approach works for Debtmap
-- Verify error messages reference "Debtmap" not "Prodigy"
-- Verify `debtmap-` prefix is recognized by Debtmap build process
+**Test 4: Command Reusability**
+- Verify same `prodigy-` commands used by Debtmap workflow
+- Verify commands accept parameters correctly
+- Verify error messages reference "Debtmap" (from --project parameter)
+- Verify no command duplication between projects
 
 ### User Acceptance
 
@@ -471,31 +462,27 @@ mdbook init book --title "Debtmap Documentation"
 - Create `workflows/data/debtmap-chapters.json` with chapter structure
 - Update `book/book.toml` with Debtmap metadata
 
-**Step 3: Create Debtmap Commands**
-- Create `.claude/commands/debtmap-analyze-features-for-book.md`
-  - Model after Prodigy's version but read from `.debtmap/book-config.json`
-- Create `.claude/commands/debtmap-analyze-book-chapter-drift.md`
-  - Model after Prodigy's version but use Debtmap paths
-- Create `.claude/commands/debtmap-fix-book-drift.md`
-  - Model after Prodigy's version but use Debtmap configuration
+**Step 3: Create Workflow**
+- Copy `workflows/book-docs-drift.yml` from Prodigy
+- Change environment variables to Debtmap values:
+  - `PROJECT_NAME: "Debtmap"`
+  - `PROJECT_CONFIG: ".debtmap/book-config.json"`
+  - `FEATURES_PATH: ".debtmap/book-analysis/features.json"`
+- Update input path to `workflows/data/debtmap-chapters.json`
+- Keep same `prodigy-` commands (they accept parameters)
 
-**Step 4: Create Workflow**
-- Create `workflows/book-docs-drift.yml` based on Prodigy pattern
-- Use Debtmap-specific commands (`debtmap-` prefix)
-- Reference `debtmap-chapters.json` in map phase
-
-**Step 5: Create Initial Chapters**
+**Step 4: Create Initial Chapters**
 - Create placeholder files in `book/src/`
 - Add basic structure and headings
 - Let workflow fill in details based on codebase analysis
 
-**Step 6: Run Workflow**
+**Step 5: Run Workflow**
 ```bash
 cd ../debtmap
 prodigy run workflows/book-docs-drift.yml
 ```
 
-**Step 7: Review and Refine**
+**Step 6: Review and Refine**
 - Review generated documentation
 - Make manual adjustments if needed
 - Commit results
@@ -585,10 +572,10 @@ jobs:
 - Book builds successfully
 - Generated content accurately reflects Debtmap
 
-**Pattern Reusability**:
-- Configuration-driven pattern successfully applied to Debtmap
-- Setup time <30 minutes (including command creation)
-- Commands follow same structure as Prodigy (proving pattern works)
+**Command Reusability**:
+- Same `prodigy-` commands work for both Prodigy and Debtmap
+- Setup time <30 minutes (no command creation needed)
+- Zero command duplication between projects
 - Debtmap book quality comparable to Prodigy book
 
 **Independence**:
