@@ -852,7 +852,7 @@ impl VariableContext {
 
                 values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                 let len = values.len();
-                let median = if len % 2 == 0 {
+                let median = if len.is_multiple_of(2) {
                     (values[len / 2 - 1] + values[len / 2]) / 2.0
                 } else {
                     values[len / 2]
