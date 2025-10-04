@@ -449,8 +449,8 @@ impl MapReduceWorkflowConfig {
         T: std::str::FromStr,
         <T as std::str::FromStr>::Err: std::fmt::Display,
     {
-        // Check if it's an environment variable reference
-        if value.contains("${") {
+        // Check if it's an environment variable reference (both ${VAR} and $VAR syntaxes)
+        if value.starts_with('$') {
             // Extract variable name from ${VAR_NAME} or $VAR_NAME
             let var_name = if let Some(stripped) = value.strip_prefix("${") {
                 stripped.strip_suffix('}').unwrap_or(stripped)
