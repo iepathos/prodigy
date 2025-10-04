@@ -253,7 +253,7 @@ impl ProgressStreamConsumer for JsonLinesConsumer {
         self.event_count += 1;
 
         // Flush periodically
-        if self.event_count % 100 == 0 {
+        if self.event_count.is_multiple_of(100) {
             self.writer
                 .flush()
                 .await
