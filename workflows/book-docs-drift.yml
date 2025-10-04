@@ -5,34 +5,50 @@
 name: book-docs-drift-detection
 mode: mapreduce
 
+# Environment variables for parameterization
+env:
+  # Project configuration
+  PROJECT_NAME: "prodigy"
+  PROJECT_CONFIG: "prodigy.yml"
+  FEATURES_PATH: "specs/"
+
+  # Book-specific settings
+  BOOK_DIR: "book"
+  ANALYSIS_DIR: ".prodigy/book-analysis"
+  CHAPTERS_FILE: "workflows/data/book-chapters.json"
+
+  # Workflow settings
+  MAX_PARALLEL: "3"
+  TIMEOUT_SECONDS: "900"
+
 # Setup phase: Analyze codebase for feature coverage
 setup:
-  - shell: "mkdir -p .prodigy/book-analysis"
+  - shell: "mkdir -p $ANALYSIS_DIR"
 
   # Analyze codebase for workflow features, command types, and configuration
-  - claude: "/prodigy-analyze-features-for-book"
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME"
 
 # Map phase: Analyze each book chapter for drift
 map:
-  input: "workflows/data/book-chapters.json"
+  input: "${CHAPTERS_FILE}"
   json_path: "$.chapters[*]"
 
   agent_template:
-    - claude: "/prodigy-analyze-book-chapter-drift --json '${item}'"
+    - claude: "/prodigy-analyze-book-chapter-drift --json '${item}' --project $PROJECT_NAME"
       commit_required: true
 
-  max_parallel: 3
-  agent_timeout_secs: 900
+  max_parallel: ${MAX_PARALLEL}
+  agent_timeout_secs: ${TIMEOUT_SECONDS}
 
 # Reduce phase: Aggregate drift findings and update documentation
 reduce:
-  - claude: "/prodigy-fix-book-drift"
+  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME"
     commit_required: true
 
   # Rebuild the book to ensure it compiles correctly
-  - shell: "cd book && mdbook build"
+  - shell: "cd $BOOK_DIR && mdbook build"
     on_failure:
-      claude: "/prodigy-fix-book-build-errors"
+      claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
 
 # Error handling
 error_policy:
@@ -43,16 +59,17 @@ error_policy:
 
 # Custom merge workflow - cleanup and validation before merging
 merge:
-  # Step 1: Clean up temporary analysis files
-  - shell: "rm -rf .prodigy/book-analysis"
-  - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files' || true"
+  commands:
+    # Step 1: Clean up temporary analysis files
+    - shell: "rm -rf $ANALYSIS_DIR"
+    - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for $PROJECT_NAME' || true"
 
-  # Step 2: Validate book builds successfully
-  - shell: "cd book && mdbook build"
+    # Step 2: Validate book builds successfully
+    - shell: "cd $BOOK_DIR && mdbook build"
 
-  # Step 3: Fetch latest changes and merge master into worktree
-  - shell: "git fetch origin"
-  - claude: "/merge-master"
+    # Step 3: Fetch latest changes and merge master into worktree
+    - shell: "git fetch origin"
+    - claude: "/merge-master --project $PROJECT_NAME"
 
-  # Step 4: Merge worktree back to master
-  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+    # Step 4: Merge worktree back to master
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
