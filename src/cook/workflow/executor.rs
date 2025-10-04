@@ -4388,10 +4388,11 @@ impl WorkflowExecutor {
             .update_session(SessionUpdate::StartWorkflow)
             .await?;
 
-        // Execute MapReduce workflow with setup context
+        // Execute MapReduce workflow
+        // Note: setup phase was already executed above, so we pass None to avoid duplicate execution
         let results = mapreduce_executor
             .execute_with_context(
-                workflow.setup_phase.clone(),
+                None, // Setup already executed above with proper environment variables
                 map_phase,
                 workflow.reduce_phase.clone(),
                 env.clone(),
