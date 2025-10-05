@@ -7,6 +7,9 @@ pub mod executor;
 pub mod orchestrator;
 pub mod scheduler;
 
+#[cfg(test)]
+mod executor_tests;
+
 // Re-export main types
 pub use executor::MapReduceCoordinator;
 pub use orchestrator::PhaseOrchestrator;

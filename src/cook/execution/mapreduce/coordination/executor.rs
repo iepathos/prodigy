@@ -11,6 +11,8 @@ use crate::cook::execution::mapreduce::{
     agent::{AgentConfig, AgentLifecycleManager, AgentResult, AgentStatus},
     aggregation::{AggregationSummary, CollectionStrategy, ResultCollector},
     event::{EventLogger, MapReduceEvent},
+    merge_queue::MergeQueue,
+    resources::git::GitOperations,
     state::StateManager,
     timeout::{TimeoutConfig, TimeoutEnforcer},
     types::{MapPhase, ReducePhase, SetupPhase},
@@ -65,6 +67,8 @@ pub struct MapReduceCoordinator {
     execution_mode: crate::cook::execution::mapreduce::dry_run::ExecutionMode,
     /// Timeout enforcer for agent execution
     timeout_enforcer: Arc<Mutex<Option<Arc<TimeoutEnforcer>>>>,
+    /// Merge queue for serializing agent merges
+    merge_queue: Arc<MergeQueue>,
 }
 
 impl MapReduceCoordinator {
@@ -107,6 +111,10 @@ impl MapReduceCoordinator {
         // Create session manager - not used but required for struct
         let session_manager = Arc::new(DummySessionManager);
 
+        // Create merge queue for serializing agent merges
+        let git_ops = Arc::new(GitOperations::new());
+        let merge_queue = Arc::new(MergeQueue::new(git_ops));
+
         Self {
             agent_manager,
             _state_manager: state_manager,
@@ -120,6 +128,7 @@ impl MapReduceCoordinator {
             _session_manager: session_manager,
             execution_mode,
             timeout_enforcer: Arc::new(Mutex::new(None)),
+            merge_queue,
         }
     }
 
@@ -480,6 +489,7 @@ impl MapReduceCoordinator {
             .map(|(index, item)| {
                 let sem = Arc::clone(&semaphore);
                 let agent_manager = Arc::clone(&self.agent_manager);
+                let merge_queue = Arc::clone(&self.merge_queue);
                 let event_logger = Arc::clone(&self.event_logger);
                 let result_collector = Arc::clone(&self.result_collector);
                 let user_interaction = Arc::clone(&self.user_interaction);
@@ -516,6 +526,7 @@ impl MapReduceCoordinator {
                     // Execute agent with item
                     let result = Self::execute_agent_for_item(
                         &agent_manager,
+                        &merge_queue,
                         &agent_id,
                         &item_id,
                         item,
@@ -615,6 +626,7 @@ impl MapReduceCoordinator {
     #[allow(clippy::too_many_arguments)]
     async fn execute_agent_for_item(
         agent_manager: &Arc<dyn AgentLifecycleManager>,
+        merge_queue: &Arc<MergeQueue>,
         agent_id: &str,
         item_id: &str,
         item: Value,
@@ -815,23 +827,45 @@ impl MapReduceCoordinator {
 
         // Merge and cleanup agent if successful
         let merge_successful = if !agent_result.commits.is_empty() {
+            // Create branch for the agent
             agent_manager
-                .handle_merge_and_cleanup(
-                    true, // is_successful
-                    env,
-                    handle.worktree_path(),
-                    &handle.worktree_session.name,
-                    &config.branch_name,
-                    &commands,
-                    item_id,
-                )
+                .create_agent_branch(handle.worktree_path(), &config.branch_name)
                 .await
                 .map_err(|e| {
-                    MapReduceError::ProcessingError(format!(
-                        "Failed to merge and cleanup agent: {}",
-                        e
-                    ))
-                })?
+                    MapReduceError::ProcessingError(format!("Failed to create agent branch: {}", e))
+                })?;
+
+            // Submit merge to queue (serialized processing)
+            match merge_queue
+                .submit_merge(
+                    agent_id.to_string(),
+                    config.branch_name.clone(),
+                    item_id.to_string(),
+                    env.clone(),
+                )
+                .await
+            {
+                Ok(()) => {
+                    info!("Successfully merged agent {} (item {})", agent_id, item_id);
+                    // Cleanup the worktree after successful merge
+                    agent_manager.cleanup_agent(handle).await.map_err(|e| {
+                        MapReduceError::ProcessingError(format!(
+                            "Failed to cleanup agent after merge: {}",
+                            e
+                        ))
+                    })?;
+                    true
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to merge agent {} (item {}): {}",
+                        agent_id, item_id, e
+                    );
+                    // Still cleanup the worktree even if merge failed
+                    let _ = agent_manager.cleanup_agent(handle).await;
+                    false
+                }
+            }
         } else {
             // No commits, just cleanup the worktree
             agent_manager.cleanup_agent(handle).await.map_err(|e| {
@@ -840,8 +874,17 @@ impl MapReduceCoordinator {
             false
         };
 
+        // Update agent status based on merge outcome
         if !merge_successful && !agent_result.commits.is_empty() {
             warn!("Agent {} completed successfully but merge failed", agent_id);
+            // Mark agent as failed since merge is part of successful completion
+            let mut final_result = agent_result;
+            final_result.status = AgentStatus::Failed(
+                "Agent execution succeeded but merge to parent worktree failed".to_string(),
+            );
+            final_result.error =
+                Some("Merge to parent worktree failed - changes not integrated".to_string());
+            return Ok(final_result);
         }
 
         Ok(agent_result)
@@ -1011,6 +1054,8 @@ impl MapReduceCoordinator {
                 MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
             })?;
 
+            info!("Executing on_failure Claude command: {}", interpolated_cmd);
+
             let mut env_vars = HashMap::new();
             env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
@@ -1040,6 +1085,8 @@ impl MapReduceCoordinator {
             let interpolated_cmd = engine.interpolate(cmd, &interp_context).map_err(|e| {
                 MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
             })?;
+
+            info!("Executing on_failure shell command: {}", interpolated_cmd);
 
             let command = ProcessCommandBuilder::new("sh")
                 .args(["-c", &interpolated_cmd])

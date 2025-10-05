@@ -18,6 +18,7 @@ pub mod coordination;
 pub mod dry_run;
 pub mod event;
 pub mod map_phase;
+pub mod merge_queue;
 pub mod noop_writer;
 pub mod phases;
 pub mod progress;

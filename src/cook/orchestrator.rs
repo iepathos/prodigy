@@ -1505,7 +1505,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     .unwrap_or_else(|_| "master".to_string());
 
                 // Ask user if they want to merge, showing the target branch
-                let prompt = format!("Merge {} to {}? [y/N]", worktree_name, merge_target);
+                let prompt = format!("Merge {} to {}", worktree_name, merge_target);
                 self.user_interaction.prompt_yes_no(&prompt).await?
             };
 

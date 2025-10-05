@@ -70,6 +70,56 @@ impl GitOperations {
             ));
         };
 
+        // Check if there's an existing merge in progress and clean it up
+        let merge_head_path = parent_path.join(".git/MERGE_HEAD");
+        if merge_head_path.exists() {
+            warn!(
+                "Detected incomplete merge state (MERGE_HEAD exists), cleaning up before merging {}",
+                agent_branch
+            );
+
+            // First, try to complete the merge by committing staged changes
+            let status_output = Command::new("git")
+                .args(["status", "--porcelain"])
+                .current_dir(&**parent_path)
+                .output()
+                .await
+                .map_err(|e| self.create_git_error("git_status", &e.to_string()))?;
+
+            if status_output.status.success() {
+                let status = String::from_utf8_lossy(&status_output.stdout);
+
+                // If there are staged changes, commit them
+                if !status.trim().is_empty() {
+                    warn!("Committing staged changes from incomplete merge");
+                    let commit_output = Command::new("git")
+                        .args(["commit", "--no-edit"])
+                        .current_dir(&**parent_path)
+                        .output()
+                        .await
+                        .map_err(|e| self.create_git_error("git_commit", &e.to_string()))?;
+
+                    if !commit_output.status.success() {
+                        // If commit fails, abort the merge
+                        warn!("Failed to commit staged changes, aborting merge");
+                        let _ = Command::new("git")
+                            .args(["merge", "--abort"])
+                            .current_dir(&**parent_path)
+                            .output()
+                            .await;
+                    }
+                } else {
+                    // No staged changes, just abort
+                    warn!("No staged changes, aborting incomplete merge");
+                    let _ = Command::new("git")
+                        .args(["merge", "--abort"])
+                        .current_dir(&**parent_path)
+                        .output()
+                        .await;
+                }
+            }
+        }
+
         // Merge directly - no fetch needed since worktrees share the same object database
         let output = Command::new("git")
             .args([
