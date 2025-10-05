@@ -523,11 +523,15 @@ impl DefaultCookOrchestrator {
                     .and_then(|m| m.merge.clone())
             });
 
+            // Get workflow environment variables
+            let workflow_env = config.workflow.env.clone().unwrap_or_default();
+
             let worktree_manager = WorktreeManager::with_config(
                 config.project_path.to_path_buf(),
                 self.subprocess.clone(),
                 config.command.verbosity,
                 merge_config,
+                workflow_env,
             )?;
 
             // Check if worktree still exists
@@ -1112,11 +1116,15 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 .and_then(|m| m.merge.clone())
         });
 
+        // Get workflow environment variables
+        let workflow_env = config.workflow.env.clone().unwrap_or_default();
+
         let worktree_manager = Arc::new(WorktreeManager::with_config(
             config.project_path.to_path_buf(),
             self.subprocess.clone(),
             config.command.verbosity,
             merge_config,
+            workflow_env,
         )?);
         super::signal_handler::setup_interrupt_handlers(
             worktree_manager,
@@ -1204,11 +1212,15 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                                 .and_then(|m| m.merge.clone())
                         });
 
+                        // Get workflow environment variables
+                        let workflow_env = config.workflow.env.clone().unwrap_or_default();
+
                         let worktree_manager = WorktreeManager::with_config(
                             config.project_path.to_path_buf(),
                             self.subprocess.clone(),
                             config.command.verbosity,
                             merge_config,
+                            workflow_env,
                         )?;
                         worktree_manager.update_session_state(name.as_ref(), |state| {
                             state.status = crate::worktree::WorktreeStatus::Interrupted;
@@ -1302,11 +1314,15 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     .and_then(|m| m.merge.clone())
             });
 
+            // Get workflow environment variables
+            let workflow_env = config.workflow.env.clone().unwrap_or_default();
+
             let worktree_manager = WorktreeManager::with_config(
                 config.project_path.to_path_buf(),
                 self.subprocess.clone(),
                 config.command.verbosity,
                 merge_config,
+                workflow_env,
             )?;
             // Pass the unified session ID to the worktree manager
             let session = worktree_manager.create_session_with_id(&session_id).await?;
@@ -1481,6 +1497,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     self.subprocess.clone(),
                     config.command.verbosity,
                     None,
+                    HashMap::new(),
                 )?;
                 let merge_target = temp_manager
                     .get_merge_target(worktree_name)
@@ -1501,11 +1518,15 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                         .and_then(|m| m.merge.clone())
                 });
 
+                // Get workflow environment variables
+                let workflow_env = config.workflow.env.clone().unwrap_or_default();
+
                 let worktree_manager = WorktreeManager::with_config(
                     env.project_dir.to_path_buf(),
                     self.subprocess.clone(),
                     config.command.verbosity,
                     merge_config,
+                    workflow_env,
                 )?;
 
                 // merge_session already handles auto-cleanup internally based on PRODIGY_AUTO_CLEANUP env var

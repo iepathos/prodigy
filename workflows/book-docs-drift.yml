@@ -59,15 +59,15 @@ error_policy:
 merge:
   commands:
     # Step 1: Clean up temporary analysis files
-    - shell: "rm -rf $ANALYSIS_DIR"
-    - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for $PROJECT_NAME' || true"
+    - shell: "rm -rf ${ANALYSIS_DIR}"
+    - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
 
     # Step 2: Validate book builds successfully
-    - shell: "cd $BOOK_DIR && mdbook build"
+    - shell: "cd ${BOOK_DIR} && mdbook build"
 
     # Step 3: Fetch latest changes and merge master into worktree
     - shell: "git fetch origin"
-    - claude: "/merge-master --project $PROJECT_NAME"
+    - claude: "/merge-master --project ${PROJECT_NAME}"
 
     # Step 4: Merge worktree back to master
     - claude: "/prodigy-merge-worktree ${merge.source_branch}"

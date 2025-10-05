@@ -46,6 +46,7 @@ pub struct WorktreeManager {
     subprocess: SubprocessManager,
     verbosity: u8,
     custom_merge_workflow: Option<MergeWorkflow>,
+    workflow_env: HashMap<String, String>,
 }
 
 impl WorktreeManager {
@@ -107,7 +108,7 @@ impl WorktreeManager {
     /// - Repository path is invalid
     /// - Git repository is not found
     pub fn new(repo_path: PathBuf, subprocess: SubprocessManager) -> Result<Self> {
-        Self::with_config(repo_path, subprocess, 0, None)
+        Self::with_config(repo_path, subprocess, 0, None, HashMap::new())
     }
 
     /// Create a new WorktreeManager with configuration
@@ -116,6 +117,7 @@ impl WorktreeManager {
         subprocess: SubprocessManager,
         verbosity: u8,
         custom_merge_workflow: Option<MergeWorkflow>,
+        workflow_env: HashMap<String, String>,
     ) -> Result<Self> {
         // Get the repository name from the path
         let repo_name = repo_path
@@ -171,6 +173,7 @@ impl WorktreeManager {
             subprocess,
             verbosity,
             custom_merge_workflow,
+            workflow_env,
         })
     }
 
@@ -1587,6 +1590,11 @@ impl WorktreeManager {
             variables.insert("merge.commit_ids".to_string(), String::new());
         }
 
+        // Include workflow environment variables for interpolation in merge workflow commands
+        for (key, value) in &self.workflow_env {
+            variables.insert(key.clone(), value.clone());
+        }
+
         Ok((variables, session_id))
     }
 
@@ -2775,6 +2783,54 @@ branch refs/heads/main"#;
         assert!(interpolated.contains("Source: feature-123"));
         assert!(interpolated.contains("Target: develop"));
         assert!(interpolated.contains("Session: session-abc"));
+    }
+
+    #[test]
+    fn test_workflow_env_vars_in_merge_interpolation() {
+        // Test that workflow environment variables are included in merge variable interpolation
+        let subprocess = SubprocessManager::production();
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create workflow environment variables
+        let mut workflow_env = HashMap::new();
+        workflow_env.insert("BOOK_DIR".to_string(), "book".to_string());
+        workflow_env.insert("PROJECT_NAME".to_string(), "Prodigy".to_string());
+        workflow_env.insert(
+            "ANALYSIS_DIR".to_string(),
+            ".prodigy/book-analysis".to_string(),
+        );
+
+        let manager = WorktreeManager::with_config(
+            temp_dir.path().to_path_buf(),
+            subprocess,
+            0,
+            None,
+            workflow_env,
+        )
+        .unwrap();
+
+        // Test interpolation function with workflow env vars
+        // Note: The interpolation function only supports ${VAR} syntax, not $VAR
+        let test_str = "cd ${BOOK_DIR} && mdbook build for ${PROJECT_NAME} in ${ANALYSIS_DIR}";
+
+        let mut variables = HashMap::new();
+        variables.insert("BOOK_DIR".to_string(), "book".to_string());
+        variables.insert("PROJECT_NAME".to_string(), "Prodigy".to_string());
+        variables.insert(
+            "ANALYSIS_DIR".to_string(),
+            ".prodigy/book-analysis".to_string(),
+        );
+
+        let interpolated = manager.interpolate_merge_variables(test_str, &variables);
+
+        // Verify workflow environment variables are interpolated
+        assert_eq!(
+            interpolated,
+            "cd book && mdbook build for Prodigy in .prodigy/book-analysis"
+        );
+        assert!(!interpolated.contains("${BOOK_DIR}"));
+        assert!(!interpolated.contains("${PROJECT_NAME}"));
+        assert!(!interpolated.contains("${ANALYSIS_DIR}"));
     }
 
     #[test]

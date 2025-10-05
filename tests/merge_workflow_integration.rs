@@ -8,6 +8,7 @@ use prodigy::config::mapreduce::{parse_mapreduce_workflow, MergeWorkflow};
 use prodigy::cook::workflow::WorkflowStep;
 use prodigy::subprocess::{ProcessCommandBuilder, SubprocessManager};
 use prodigy::worktree::WorktreeManager;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -88,6 +89,7 @@ async fn test_merge_workflow_end_to_end() -> Result<()> {
         subprocess,
         0, // verbosity
         Some(merge_workflow),
+        HashMap::new(), // workflow_env
     )?;
 
     // Create a worktree session
@@ -136,7 +138,7 @@ async fn test_merge_workflow_with_failures() -> Result<()> {
         timeout: Some(60),
     };
 
-    let manager = WorktreeManager::with_config(repo_path, subprocess, 0, Some(merge_workflow))?;
+    let manager = WorktreeManager::with_config(repo_path, subprocess, 0, Some(merge_workflow), HashMap::new())?;
 
     // Create session to verify manager setup
     let _session = manager.create_session().await?;
@@ -167,6 +169,7 @@ async fn test_merge_workflow_logging_levels() -> Result<()> {
         subprocess,
         0,
         Some(merge_workflow.clone()),
+        HashMap::new(),
     )?;
 
     let session = manager_quiet.create_session().await?;
@@ -179,6 +182,7 @@ async fn test_merge_workflow_logging_levels() -> Result<()> {
         subprocess,
         1,
         Some(merge_workflow.clone()),
+        HashMap::new(),
     )?;
 
     let verbose_session = manager_verbose.create_session().await?;
@@ -193,6 +197,7 @@ async fn test_merge_workflow_logging_levels() -> Result<()> {
         subprocess,
         0, // Low verbosity, but env var overrides
         Some(merge_workflow),
+        HashMap::new(),
     )?;
 
     let override_session = manager_override.create_session().await?;
@@ -311,7 +316,7 @@ async fn test_merge_workflow_execution_order() -> Result<()> {
         timeout: Some(60),
     };
 
-    let manager = WorktreeManager::with_config(repo_path, subprocess, 0, Some(merge_workflow))?;
+    let manager = WorktreeManager::with_config(repo_path, subprocess, 0, Some(merge_workflow), HashMap::new())?;
 
     // Create session to verify setup
     let _session = manager.create_session().await?;
@@ -495,6 +500,7 @@ async fn test_merge_workflow_environment_variables() -> Result<()> {
             subprocess.clone(),
             verbosity,
             Some(merge_workflow.clone()),
+            HashMap::new(),
         )?;
 
         let _session = manager.create_session().await?;
