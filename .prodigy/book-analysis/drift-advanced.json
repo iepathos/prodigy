@@ -2,164 +2,90 @@
   "chapter_id": "advanced",
   "chapter_title": "Advanced Features",
   "chapter_file": "book/src/advanced.md",
-  "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Chapter documents several features that don't exist in implementation, missing actual advanced features, and has incorrect examples",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Chapter accurately documents advanced features with correct syntax and comprehensive examples. All major issues from previous analysis have been resolved. Only minor improvements needed.",
   "issues": [
     {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Missing: on_exit_code",
-      "description": "Chapter shows on_exit_code feature but this is not implemented in WorkflowStepCommand",
-      "current_content": "on_exit_code:\n  0:\n    shell: \"echo 'Success!'\"\n  101:\n    claude: \"/fix-compilation-errors\"",
-      "should_be": "Feature does not exist in implementation",
-      "fix_suggestion": "Remove on_exit_code section entirely as it's not implemented in src/config/command.rs:WorkflowStepCommand. The struct only has on_success and on_failure, not on_exit_code.",
-      "source_reference": "src/config/command.rs:325-331 (only on_failure and on_success exist)"
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Stream Capture Control",
+      "description": "capture_streams documentation shows string values (\"stdout\", \"stderr\", \"both\") but implementation uses a CaptureStreams struct with boolean fields",
+      "current_content": "capture_streams: \"stdout\"\ncapture_streams: \"stderr\"\ncapture_streams: \"both\"",
+      "should_be": "Implementation uses CaptureStreams struct with stdout/stderr/exit_code/success/duration boolean fields, not simple string values",
+      "fix_suggestion": "Verify the actual YAML syntax accepted - if strings are supported via deserialization, document both formats. If not, update examples to match struct-based configuration.",
+      "source_reference": "src/cook/workflow/variables.rs:268-279 CaptureStreams struct"
     },
     {
       "type": "missing_content",
-      "severity": "high",
-      "section": "Missing: Enhanced Retry Configuration",
-      "description": "Chapter shows retry with exponential backoff but this is not implemented for workflow commands",
-      "current_content": "retry:\n  max_attempts: 5\n  backoff:\n    type: exponential\n    initial: 1000\n    multiplier: 2",
-      "should_be": "Feature does not exist in workflow commands",
-      "fix_suggestion": "Remove Enhanced Retry Configuration section entirely. RetryConfig with backoff only exists in StorageConfig (src/storage/config.rs:115-135) for storage operations, not for workflow command steps.",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand has no retry field; src/storage/config.rs:115-135 has RetryConfig but only for storage"
+      "severity": "low",
+      "section": "Conditional Execution",
+      "description": "Chapter doesn't mention that on_success and on_failure can use any WorkflowStepCommand, not just nested commands",
+      "should_add": "Clarify that on_success/on_failure handlers support full WorkflowStepCommand syntax including goal_seek, foreach, validate, etc.",
+      "fix_suggestion": "Add note that handlers can be any workflow step command type, with example showing advanced handler usage",
+      "source_reference": "src/config/command.rs:329-331 on_success and on_failure fields"
     },
     {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Missing: Working Directory",
-      "description": "Chapter shows working_dir field but this is not implemented in WorkflowStepCommand",
-      "current_content": "working_dir: \"/path/to/project\"",
-      "should_be": "Feature does not exist at step level",
-      "fix_suggestion": "Remove Working Directory section. The working_dir only exists at the normalized step level internally (src/cook/workflow/normalized.rs:35), not as a user-facing YAML field in WorkflowStepCommand.",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand has no working_dir field"
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Step Identification",
+      "description": "Chapter shows step ID usage but doesn't explain all benefits or scoping rules",
+      "should_add": "Explain that step IDs enable referencing specific step outputs, help with debugging in logs, and provide clearer workflow structure. Document ID scoping and uniqueness requirements.",
+      "fix_suggestion": "Expand section to cover ID benefits beyond just output referencing, add example of ID in error messages and logs",
+      "source_reference": "src/config/command.rs:306 id field documentation"
     },
     {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Missing: Auto-Commit",
-      "description": "Chapter shows auto_commit field but this is not implemented in WorkflowStepCommand",
-      "current_content": "auto_commit: true",
-      "should_be": "Feature does not exist",
-      "fix_suggestion": "Remove Auto-Commit section entirely. WorkflowStepCommand only has commit_required field (src/config/command.rs:311), not auto_commit.",
-      "source_reference": "src/config/command.rs:309-311 (only commit_required exists)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Missing: Output File Redirection",
-      "description": "Chapter shows output_file field",
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Output File Redirection",
+      "description": "Chapter documents output_file but doesn't explain detailed behavior",
       "current_content": "output_file: \"test-results.txt\"",
-      "should_be": "Field exists but no documentation of how it works",
-      "fix_suggestion": "Verify output_file actually works (it exists at src/config/command.rs:355) and add explanation of behavior. Does it redirect stdout? Both stdout and stderr? How does it interact with capture?",
-      "source_reference": "src/config/command.rs:353-355 (output_file exists but behavior unclear)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Missing: Modular Handlers",
-      "description": "Chapter shows handler syntax but this is not implemented in WorkflowStepCommand",
-      "current_content": "handler:\n  name: \"custom-validator\"\n  attributes:\n    path: \"src/\"\n    threshold: 80",
-      "should_be": "Feature does not exist in YAML config",
-      "fix_suggestion": "Remove Modular Handlers section. HandlerConfig only exists in normalized representation (src/cook/workflow/normalized.rs:57-62), not as a user-facing YAML field.",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand has no handler field"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Missing: Step Validation",
-      "description": "Chapter shows step_validate field but this is not implemented",
-      "current_content": "step_validate:\n  shell: \"curl -f https://app.com/health\"\n  timeout: 30\n  on_failure:\n    shell: \"rollback.sh\"",
-      "should_be": "Feature does not exist",
-      "fix_suggestion": "Remove Step Validation section entirely. WorkflowStepCommand has 'validate' field (src/config/command.rs:335) which is ValidationConfig for checking implementation completeness, not step_validate for post-execution validation.",
-      "source_reference": "src/config/command.rs:333-335 (only validate exists, not step_validate)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Missing: agent_timeout_secs",
-      "description": "Chapter shows agent_timeout_secs in MapReduce config but field may not exist",
-      "current_content": "map:\n  agent_timeout_secs: 300\n  timeout_config:\n    default: 300\n    per_command:\n      \"cargo test\": 600",
-      "should_be": "Need to verify if these timeout fields exist in MapReduceWorkflowConfig",
-      "fix_suggestion": "Verify MapReduceWorkflowConfig supports agent_timeout_secs and timeout_config fields. If not, remove this section.",
-      "source_reference": "Need to check src/config/mapreduce.rs for actual timeout fields"
-    },
-    {
-      "type": "correct_documentation",
-      "severity": "none",
-      "section": "Conditional Execution - when",
-      "description": "The 'when' field is correctly documented",
-      "current_content": "when: \"${tests_passed}\"",
-      "fix_suggestion": "No changes needed - when field exists at src/config/command.rs:341-343"
-    },
-    {
-      "type": "correct_documentation",
-      "severity": "none",
-      "section": "Conditional Execution - on_success",
-      "description": "The 'on_success' field is correctly documented",
-      "current_content": "on_success:\n  shell: \"cargo bench\"",
-      "fix_suggestion": "No changes needed - on_success exists at src/config/command.rs:329-331"
-    },
-    {
-      "type": "correct_documentation",
-      "severity": "none",
-      "section": "Conditional Execution - on_failure",
-      "description": "The 'on_failure' field is correctly documented with max_attempts and fail_workflow",
-      "current_content": "on_failure:\n  claude: \"/fix-warnings\"\n  max_attempts: 3\n  fail_workflow: false",
-      "fix_suggestion": "No changes needed - on_failure exists at src/config/command.rs:325-327 with TestDebugConfig"
-    },
-    {
-      "type": "correct_documentation",
-      "severity": "none",
-      "section": "Output Capture Formats",
-      "description": "All capture formats are correctly documented",
-      "current_content": "capture_format: string|number|json|lines|boolean",
-      "fix_suggestion": "No changes needed - matches CaptureFormat enum at src/cook/workflow/variables.rs:253-265",
-      "source_reference": "src/cook/workflow/variables.rs:253-265"
-    },
-    {
-      "type": "correct_documentation",
-      "severity": "none",
-      "section": "Timeout Configuration",
-      "description": "Command-level timeout is correctly documented",
-      "current_content": "timeout: 600",
-      "fix_suggestion": "No changes needed - timeout exists at src/config/command.rs:337-339"
-    },
-    {
-      "type": "correct_documentation",
-      "severity": "none",
-      "section": "Nested Conditionals",
-      "description": "Nested on_success and on_failure are correctly shown",
-      "current_content": "Shows nested on_success with nested on_failure",
-      "fix_suggestion": "No changes needed - nesting is supported since on_success/on_failure contain Box<WorkflowStepCommand>"
+      "should_add": "Clarify which streams are redirected (stdout only? both?), how it interacts with capture_output, and whether file is created in working directory or absolute path",
+      "fix_suggestion": "Add explanation of output_file behavior: streams redirected, file location, interaction with capture",
+      "source_reference": "src/config/command.rs:353-355 output_file field"
     }
   ],
   "positive_aspects": [
-    "Clear examples for conditional execution (when, on_success, on_failure)",
-    "Good coverage of output capture formats",
-    "Demonstrates nested conditionals well",
-    "Timeout configuration is accurate"
+    "Accurate capture_format enumeration (string, number, json, lines, boolean)",
+    "Correct output_file field documentation",
+    "Accurate when/conditional execution syntax",
+    "Comprehensive timeout documentation with correct semantics",
+    "Correct on_failure configuration with max_attempts and fail_workflow fields",
+    "Accurate validation configuration with all supported fields (shell, claude, commands, threshold, on_incomplete, result_file)",
+    "Good coverage of on_incomplete handlers with proper field documentation (claude, shell, commands, max_attempts, fail_workflow, commit_required)",
+    "Excellent nested conditionals examples showing real-world patterns",
+    "Strong foreach documentation with all configuration options (foreach, parallel, continue_on_error, max_items)",
+    "Accurate goal_seek configuration and behavior explanation",
+    "Well-structured best practices section with practical examples",
+    "Clear progression from simple to complex features",
+    "Good use of YAML examples throughout",
+    "All previously-documented non-existent features have been removed (on_exit_code, retry backoff, working_dir, auto_commit, handler, step_validate)",
+    "Chapter now focuses on features that actually exist in the implementation"
   ],
   "improvement_suggestions": [
-    "Remove all non-existent features (on_exit_code, retry backoff, working_dir, auto_commit, handler, step_validate)",
-    "Add actual advanced features that exist but aren't documented: capture field, capture_streams configuration, validate field for implementation validation",
-    "Add section on environment variables (env field exists in WorkflowStepCommand)",
-    "Explain relationship between capture, capture_format, and capture_streams",
-    "Add examples of foreach command for parallel iteration",
-    "Add examples of goal_seek for iterative refinement",
-    "Document id field for referencing step outputs",
-    "Show examples of variable interpolation in advanced scenarios"
+    "Add troubleshooting section for common conditional execution pitfalls",
+    "Include performance considerations for nested conditionals",
+    "Add example showing combination of multiple advanced features in one workflow",
+    "Consider adding flowchart for conditional execution paths",
+    "Add cross-references to related chapters (Variables, Error Handling)",
+    "Include example of using step IDs in complex multi-step workflows",
+    "Add note about variable interpolation in when conditions",
+    "Consider adding section on debugging complex conditional workflows",
+    "Clarify capture_streams syntax if string format is supported via deserialization",
+    "Add more detail about output_file behavior and interactions"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-03",
-    "feature_inventory": "Analyzed from source code directly",
+    "analyzed_at": "2025-10-05",
+    "feature_inventory": "Direct codebase analysis",
     "topics_covered": [
       "Conditional execution",
       "Output capture formats",
       "Nested conditionals",
-      "Timeouts"
+      "Timeouts",
+      "Step identification",
+      "Validation",
+      "Foreach iteration",
+      "Goal seeking"
     ],
     "validation_focus": "Check advanced features match implementation"
   }

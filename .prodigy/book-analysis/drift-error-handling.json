@@ -2,132 +2,85 @@
   "chapter_id": "error-handling",
   "chapter_title": "Error Handling",
   "chapter_file": "book/src/error-handling.md",
-  "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Chapter has significant drift with incorrect backoff syntax and missing key information about Duration format, command-level retry mechanisms, and practical examples",
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Chapter is highly accurate and well-organized. Examples match implementation closely. Only very minor inconsistencies found that don't affect functionality.",
   "issues": [
     {
-      "type": "incorrect_example",
-      "severity": "high",
-      "section": "Workflow-Level Error Policy - Backoff Configuration",
-      "description": "Backoff strategy syntax in the chapter shows millisecond integers but implementation uses Duration types with humantime_serde",
-      "current_content": "backoff:\n  type: exponential\n  initial: 1000          # Initial delay in milliseconds\n  multiplier: 2\n  max_delay: 30000       # Maximum delay in milliseconds",
-      "should_be": "backoff:\n  type: exponential\n  initial: 1s           # Duration format (e.g., 1s, 100ms, 2m)\n  multiplier: 2",
-      "fix_suggestion": "Update all backoff examples to use Duration format strings (e.g., '1s', '100ms') instead of millisecond integers. Note that max_delay is not a field in the implementation.",
-      "source_reference": "src/cook/workflow/error_policy.rs:105-120 (BackoffStrategy enum with Duration types)"
-    },
-    {
-      "type": "incorrect_example",
-      "severity": "high",
-      "section": "Workflow-Level Error Policy - Circuit Breaker",
-      "description": "Circuit breaker timeout shown as integer seconds but implementation uses Duration with humantime_serde",
-      "current_content": "circuit_breaker:\n  failure_threshold: 5\n  success_threshold: 2\n  timeout: 60              # Seconds before attempting half-open state\n  half_open_requests: 3",
-      "should_be": "circuit_breaker:\n  failure_threshold: 5\n  success_threshold: 2\n  timeout: 60s             # Duration before attempting half-open state\n  half_open_requests: 3",
-      "fix_suggestion": "Change timeout field to use Duration format string (e.g., '60s', '30s')",
-      "source_reference": "src/cook/workflow/error_policy.rs:46-61 (CircuitBreakerConfig with humantime_serde)"
-    },
-    {
-      "type": "incorrect_example",
-      "severity": "medium",
-      "section": "Backoff Strategy Options",
-      "description": "Backoff strategy examples show millisecond integers instead of Duration strings",
-      "current_content": "- fixed: {type: fixed, delay: 1000}\n- linear: {type: linear, initial: 1000, increment: 500}\n- exponential: {type: exponential, initial: 1000, multiplier: 2}\n- fibonacci: {type: fibonacci, initial: 1000}",
-      "should_be": "- fixed: {type: fixed, delay: 1s}\n- linear: {type: linear, initial: 1s, increment: 500ms}\n- exponential: {type: exponential, initial: 1s, multiplier: 2}\n- fibonacci: {type: fibonacci, initial: 1s}",
-      "fix_suggestion": "Update all duration values to use humantime format strings",
-      "source_reference": "src/cook/workflow/error_policy.rs:108-120"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Workflow-Level Error Policy",
-      "description": "Chapter doesn't mention the 'batched' format for error_collection strategy",
-      "should_add": "Document that error_collection: batched requires a size parameter, e.g., 'batched: {size: 10}'",
-      "fix_suggestion": "Add example showing batched error collection: 'error_collection: {batched: {size: 10}}'",
-      "source_reference": "src/cook/workflow/error_policy.rs:34-44 (ErrorCollectionStrategy::Batched)"
-    },
-    {
-      "type": "outdated_information",
-      "severity": "medium",
-      "section": "Command-Level Error Handling",
-      "description": "Chapter shows 'strategy: exponential' field in on_failure but implementation doesn't have this field",
-      "current_content": "on_failure:\n  command:\n    claude: \"/fix-warnings ${shell.output}\"\n  max_attempts: 3\n  fail_workflow: false\n  strategy: exponential",
-      "should_be": "on_failure:\n  claude: \"/fix-warnings ${shell.output}\"\n  max_attempts: 3\n  fail_workflow: false",
-      "fix_suggestion": "Remove the 'strategy' field from command-level on_failure. Backoff strategies are only available at workflow level in error_policy.retry_config",
-      "source_reference": "src/cook/workflow/on_failure.rs:68-115 (OnFailureConfig enum - no strategy field in Advanced variant)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Command-Level Error Handling",
-      "description": "Chapter doesn't document the newer simplified on_failure formats (string, array of strings)",
-      "should_add": "Document simpler on_failure formats:\n- Single command string: on_failure: \"/fix-error\"\n- Multiple commands: on_failure: [\"/cleanup\", \"/fix\"]",
-      "fix_suggestion": "Add section showing simpler on_failure syntaxes before the detailed config. Show progression from simple to complex.",
-      "source_reference": "src/cook/workflow/on_failure.rs:74-78 (SingleCommand) and 77-78 (MultipleCommands)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Command-Level Error Handling",
-      "description": "Chapter doesn't document the Detailed handler configuration with strategy, timeout, and commands array",
-      "should_add": "Document FailureHandlerConfig with strategy (recovery, fallback, cleanup, custom), timeout, commands array with continue_on_error, and handler_failure_fatal",
-      "fix_suggestion": "Add comprehensive example of detailed failure handler configuration with all available options",
-      "source_reference": "src/cook/workflow/on_failure.rs:24-49 (FailureHandlerConfig)"
-    },
-    {
-      "type": "incorrect_example",
+      "type": "unclear_content",
       "severity": "low",
-      "section": "Command-Level Error Handling",
-      "description": "Chapter shows nested 'command:' field under on_failure but this is not needed in the Advanced variant",
-      "current_content": "on_failure:\n  command:\n    claude: \"/fix-warnings ${shell.output}\"",
-      "should_be": "on_failure:\n  claude: \"/fix-warnings ${shell.output}\"",
-      "fix_suggestion": "Remove the nested 'command:' wrapper. The claude/shell commands go directly under on_failure in the Advanced format.",
-      "source_reference": "src/cook/workflow/on_failure.rs:85-105 (Advanced variant structure)"
+      "section": "Advanced Configuration",
+      "description": "Chapter shows 'max_attempts' as the primary field name but could clarify both max_attempts and max_retries are equally valid",
+      "current_content": "max_attempts: 3          # Retry original command up to 3 times (alias: max_retries)",
+      "should_be": "Either form is correct: max_attempts or max_retries are aliases of each other",
+      "fix_suggestion": "Update comment to say '(alias: max_retries)' or '(both max_attempts and max_retries work)'",
+      "source_reference": "src/cook/workflow/on_failure.rs:103 - max_retries field with alias='max_attempts'"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Workflow-Level Error Policy",
-      "description": "Chapter doesn't explain how to use custom handler with ItemFailureAction::Custom",
-      "should_add": "Explain that 'custom:<handler_name>' allows custom failure handlers, though implementation currently just logs warning and skips",
-      "fix_suggestion": "Add note that Custom handler is not yet fully implemented and currently falls back to Skip behavior",
-      "source_reference": "src/cook/workflow/error_policy.rs:29-30 and 415-418"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Error Metrics",
-      "description": "Chapter mentions error metrics but doesn't provide details on what's tracked or how to access them",
-      "should_add": "Document ErrorMetrics structure: total_items, successful, failed, skipped, failure_rate, error_types (HashMap), failure_patterns with suggested_action",
-      "fix_suggestion": "Add section explaining error metrics tracking, including failure pattern detection and suggested remediation actions",
-      "source_reference": "src/cook/workflow/error_policy.rs:194-238 (ErrorMetrics and FailurePattern)"
+      "section": "Advanced Configuration",
+      "description": "Chapter doesn't mention deprecated 'retry_original' field",
+      "should_add": "Optional note that retry_original field exists but is deprecated - max_retries > 1 now implies retry behavior",
+      "fix_suggestion": "Add footnote: 'Note: retry_original field is deprecated. Use max_retries > 1 instead.'",
+      "source_reference": "src/cook/workflow/on_failure.rs:99-100,126 - retry_original with default_retry_original() and deprecation comment"
     }
   ],
   "positive_aspects": [
-    "Clear structure separating workflow-level and command-level error handling",
-    "Good coverage of DLQ features and CLI commands",
-    "Includes helpful notes about continue_on_error vs fail_workflow",
-    "Documents the relationship between legacy CommandMetadata and new WorkflowStepCommand"
+    "Comprehensive coverage of all error handling features - both command-level and workflow-level",
+    "Examples use correct syntax that matches implementation exactly",
+    "Clear progression from simple to complex configurations",
+    "Accurate documentation of all ItemFailureAction variants (dlq, retry, skip, stop, custom)",
+    "Circuit breaker configuration is correctly documented with humantime format",
+    "Backoff strategies (fixed, linear, exponential, fibonacci) are accurate",
+    "DLQ documentation is thorough with practical CLI examples",
+    "Error collection strategies correctly documented (aggregate, immediate, batched)",
+    "on_failure simple forms (bool, string, array) are well explained",
+    "Detailed handler configuration with strategy field is documented",
+    "Handler command fields (shell, claude, continue_on_error) are accurate",
+    "on_success handling is documented",
+    "commit_required is documented",
+    "Best practices section provides valuable guidance",
+    "Common patterns section shows realistic examples"
   ],
   "improvement_suggestions": [
-    "Add a comprehensive example showing workflow-level error_policy with circuit_breaker and retry_config working together",
-    "Include real-world examples from workflows/ directory to show actual usage patterns",
-    "Add troubleshooting section for common error handling issues (e.g., when circuit breaker opens, how to interpret DLQ errors)",
-    "Show the progression from simple to complex on_failure configurations with side-by-side examples",
-    "Document best practices: when to use workflow-level vs command-level error handling",
-    "Add examples showing how error_policy integrates with MapReduce workflows",
-    "Include CLI commands for inspecting error metrics and DLQ status during workflow execution"
+    "Consider adding example showing both max_attempts and max_retries as interchangeable",
+    "Could add a diagram showing the flow: failure → on_failure handler → retry logic → workflow continuation",
+    "Might benefit from troubleshooting subsection for common pitfalls",
+    "Could show example of error metrics being accessed during reduce phase",
+    "Consider adding note about when to use command-level vs workflow-level error handling"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-03",
-    "feature_inventory": "Analyzed directly from source code (error_policy.rs, on_failure.rs, mapreduce.rs)",
+    "analyzed_at": "2025-10-05",
+    "feature_inventory": "Analyzed directly from source code",
     "topics_covered": [
-      "Workflow-level error policy",
-      "Command-level on_failure",
-      "Dead Letter Queue",
-      "Circuit breaker",
-      "Retry configuration",
-      "Backoff strategies"
+      "Command-level on_failure configuration (all variants)",
+      "Workflow-level error_policy",
+      "Circuit breaker with humantime duration",
+      "Retry configuration with backoff strategies",
+      "Dead Letter Queue (DLQ) with retry CLI",
+      "Error metrics and failure patterns",
+      "Success handling (on_success)",
+      "Commit requirements",
+      "Handler strategies (recovery, fallback, cleanup, custom)",
+      "Error collection strategies"
     ],
-    "validation_focus": "Check error handling policies and configurations"
+    "validation_focus": "Error handling policies and configurations",
+    "sources_reviewed": [
+      "src/cook/workflow/error_policy.rs - WorkflowErrorPolicy, CircuitBreakerConfig, RetryConfig, BackoffStrategy, ErrorMetrics",
+      "src/cook/workflow/on_failure.rs - OnFailureConfig enum (all 6 variants), FailureHandlerConfig, HandlerCommand, HandlerStrategy",
+      "src/config/mapreduce.rs - MapReduceWorkflowConfig.error_policy field",
+      "src/config/command.rs - WorkflowStepCommand.on_failure and on_success fields",
+      "book/src/error-handling.md - All sections verified against implementation"
+    ],
+    "verification_notes": [
+      "All YAML examples in chapter were cross-referenced with struct definitions",
+      "Field names match exactly between documentation and code",
+      "Duration format (humantime) is correctly shown as '30s', '1s', '500ms'",
+      "Backoff strategies match BackoffStrategy enum exactly",
+      "ItemFailureAction variants all documented correctly",
+      "OnFailureConfig variants properly represented in simple/advanced examples",
+      "No deprecated syntax found in examples"
+    ]
   }
 }

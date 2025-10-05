@@ -94,12 +94,64 @@ Prodigy supports several types of commands in workflows:
 
 ### Advanced Commands
 
-- **`goal_seek:`** - Goal-seeking operations with validation (see [Goal Seeking chapter](goal-seeking.md))
-- **`foreach:`** - Iterate over lists with nested commands (see [Loops chapter](loops.md))
-- **`validate:`** - Validation steps (see [Validation chapter](validation.md))
-- **`analyze:`** - Analysis operations (see [Analysis chapter](analysis.md))
+- **`goal_seek:`** - Goal-seeking operations with validation (see [Advanced Features](advanced.md))
+- **`foreach:`** - Iterate over lists with nested commands (see [Advanced Features](advanced.md))
+- **`validate:`** - Validation steps with configurable thresholds (see [Commands](commands.md))
 
-For detailed information on each command type and advanced features like conditional execution, error handling, and output capture, see the [Command Reference chapter](command-reference.md).
+**Deprecated:**
+- **`test:`** - Deprecated in favor of `shell:` with `on_failure:` handlers
+
+For detailed information on each command type and their fields, see the [Command Types chapter](commands.md).
+
+## Command-Level Options
+
+All command types support additional fields for advanced control:
+
+### Basic Options
+
+```yaml
+- shell: "cargo test"
+  id: "run-tests"              # Step identifier for output referencing
+  commit_required: true        # Expect git commit after this step
+  timeout: 300                 # Timeout in seconds
+```
+
+### Conditional Execution
+
+Run commands based on conditions:
+
+```yaml
+- shell: "deploy.sh"
+  when: "${branch} == 'main'"  # Only run on main branch
+```
+
+### Error Handling
+
+Handle failures gracefully:
+
+```yaml
+- shell: "risky-command"
+  on_failure:
+    shell: "cleanup.sh"        # Run on failure
+  on_success:
+    shell: "notify.sh"         # Run on success
+```
+
+### Output Capture
+
+Capture command output to variables:
+
+```yaml
+- shell: "git rev-parse HEAD"
+  id: "get-commit"
+  capture: "commit_hash"       # Capture to variable
+  capture_format: "string"     # Format: string|json|lines|number|boolean
+```
+
+For comprehensive coverage of these options, see:
+- [Advanced Features](advanced.md) - Conditional execution, output capture, timeouts
+- [Error Handling](error-handling.md) - on_failure and on_success handlers
+- [Variables](variables.md) - Variable interpolation and capture formats
 
 ## Environment Configuration
 
@@ -156,22 +208,31 @@ For more details, see the [Environment Variables chapter](environment.md).
 
 ## Merge Workflows
 
-Merge workflows execute when merging worktree changes back to the main branch. This allows custom validation and conflict resolution:
+Merge workflows execute when merging worktree changes back to the main branch. This feature enables custom validation, testing, and conflict resolution before integrating changes.
+
+**When to use merge workflows:**
+- Run tests before merging
+- Validate code quality
+- Handle merge conflicts automatically
+- Sync with upstream changes
 
 ```yaml
 merge:
-  - shell: "git fetch origin"
-  - shell: "git merge origin/main"
-  - shell: "cargo test"
-  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
-  timeout: 600
+  commands:
+    - shell: "git fetch origin"
+    - shell: "git merge origin/main"
+    - shell: "cargo test"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+  timeout: 600  # Optional: overall timeout for merge workflow
 ```
 
 **Available merge variables:**
-- `${merge.worktree}` - Worktree name
+- `${merge.worktree}` - Worktree name (e.g., "prodigy-session-abc123")
 - `${merge.source_branch}` - Source branch (worktree branch)
 - `${merge.target_branch}` - Target branch (usually main/master)
-- `${merge.session_id}` - Session ID
+- `${merge.session_id}` - Session ID for correlation
+
+These variables are only available within the merge workflow context.
 
 ## Complete Example
 
@@ -199,8 +260,9 @@ commands:
 
 # Custom merge workflow
 merge:
-  - shell: "cargo test"
-  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+  commands:
+    - shell: "cargo test"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
   timeout: 300
 ```
 

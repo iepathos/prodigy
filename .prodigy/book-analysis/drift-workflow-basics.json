@@ -13,7 +13,7 @@
       "description": "Chapter only shows 'shell' and 'claude' commands but doesn't document test, goal_seek, foreach, validate, analyze, or handler commands",
       "should_add": "Document all available command types: test (deprecated), goal_seek, foreach, validate, analyze, and handler with examples",
       "fix_suggestion": "Add 'Command Types' section explaining each command type with YAML examples",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand (lines 278-356)"
+      "source_reference": "src/config/command.rs:WorkflowStepCommand (lines 280-356)"
     },
     {
       "type": "missing_content",
@@ -67,7 +67,7 @@
       "description": "Merge workflow shown but not explained - what it's for, when to use it, available variables",
       "should_add": "Explain merge workflow purpose, execution context, and available ${merge.*} variables",
       "fix_suggestion": "Add explanation of merge workflow concept with merge.worktree, merge.source_branch, merge.target_branch variables",
-      "source_reference": "src/config/mapreduce.rs:MergeWorkflow (lines 65-74)"
+      "source_reference": "src/config/mapreduce.rs:MergeWorkflow (lines 86-94)"
     },
     {
       "type": "missing_content",
@@ -102,7 +102,8 @@
     "Good progression from simple to full configuration format",
     "Environment configuration well documented (env, secrets, env_files, profiles)",
     "Shows both simple array and full configuration formats",
-    "Merge workflow example provided"
+    "Merge workflow example provided",
+    "Cross-references to other chapters included"
   ],
   "improvement_suggestions": [
     "Add complete 'Command Reference' section documenting all command types",
@@ -114,8 +115,8 @@
     "Consider splitting into 'Basic Workflows' and 'Advanced Workflows' chapters"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-03",
-    "feature_inventory": "Analyzed directly from codebase (features.json not present)",
+    "analyzed_at": "2025-10-05",
+    "feature_inventory": "Analyzed directly from codebase (features.json not available)",
     "topics_covered": [
       "Workflow types (standard vs MapReduce)",
       "Basic structure (simple array format)",

@@ -3,108 +3,85 @@
   "chapter_title": "Variables and Interpolation",
   "chapter_file": "book/src/variables.md",
   "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "Chapter covers core variable concepts well but has some missing output variables and lacks clarity on the relationship between different variable systems",
+  "severity": "low",
+  "quality_assessment": "Chapter is comprehensive and accurate with only minor documentation gaps",
   "issues": [
     {
       "type": "missing_content",
       "severity": "low",
       "section": "Output Variables",
-      "description": "Chapter doesn't document handler.output and test.output which appear to be legacy/deprecated variables",
-      "should_add": "Clarify which output variables are actively used vs. legacy",
-      "fix_suggestion": "Either document handler.output and test.output with deprecation warnings, or remove them if they're truly deprecated. The code shows only shell.output and claude.output in common_strings.rs",
-      "source_reference": "src/cook/common_strings.rs:30-33"
+      "description": "Chapter doesn't document all automatic output variables that exist in implementation",
+      "should_add": "Document legacy/specialized output variables: handler.output, test.output, goal_seek.output",
+      "fix_suggestion": "Add note that these are legacy variables mainly used in internal error handling contexts. Already partially documented in lines 44-47 but could be more explicit about when they're set",
+      "source_reference": "src/cook/common_strings.rs:28-48 documents SHELL_OUTPUT and CLAUDE_OUTPUT as the primary variables"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "MapReduce Variables",
-      "description": "Chapter shows ${map.total}, ${map.successful}, ${map.failed} but doesn't explain when these are available (reduce phase only)",
-      "current_content": "### MapReduce Variables\n- ${map.total} - Total items processed\n- ${map.successful} - Successfully processed items\n- ${map.failed} - Failed items",
-      "should_be": "These variables should be clearly marked as reduce-phase only, since they aggregate map results",
-      "fix_suggestion": "Add a note: 'Available in reduce phase only' for map.total, map.successful, and map.failed. Clarify that ${item} is map-phase, aggregation variables are reduce-phase",
-      "source_reference": "src/cook/common_strings.rs:38-40"
+      "severity": "low",
+      "section": "Standard Variables",
+      "description": "Git context variables (step.commits, workflow.commits) are documented but could use more detail",
+      "should_add": "Provide example of commit object structure and how to access individual commit fields",
+      "fix_suggestion": "Add example showing commit object structure: {hash, message, timestamp, author, etc.} and how to use in templates",
+      "source_reference": "src/cook/commit_tracker.rs - commit tracking implementation"
     },
     {
       "type": "missing_content",
       "severity": "low",
       "section": "Standard Variables",
-      "description": "Chapter missing some documented context variables that exist in code",
-      "should_add": "Document ${step.files_changed} and ${workflow.files_changed} which are referenced in the code",
-      "fix_suggestion": "Add under 'Git Context Variables' section: ${step.files_changed} and ${workflow.files_changed} for tracking modified files",
-      "source_reference": "src/cook/workflow/executor.rs, src/cook/commit_tracker.rs"
+      "description": "step.files_changed and workflow.files_changed are documented but no usage examples provided",
+      "should_add": "Add practical example of how these variables are formatted and typical use cases",
+      "fix_suggestion": "Show example: 'Files changed: ${workflow.files_changed}' and mention these are arrays/lists of file paths",
+      "source_reference": "src/unified_session/state.rs - files_changed tracking"
     },
     {
       "type": "unclear_content",
-      "severity": "medium",
-      "section": "Overall Organization",
-      "description": "Chapter doesn't explain the relationship between VariableContext (StandardVariables) and VariableStore (CapturedValue)",
-      "current_content": "Variables listed without explaining when to use which system",
-      "should_be": "Explain that standard variables (item, workflow.*, step.*, etc.) are built-in context, while custom capture creates user-defined variables",
-      "fix_suggestion": "Add an introductory section explaining: 1) Standard variables are automatically available based on workflow context, 2) Custom capture variables are user-defined via 'capture:' field, 3) Both can be used in interpolation",
-      "source_reference": "src/cook/workflow/variables.rs:10-42 (StandardVariables), src/cook/workflow/variables.rs:400-404 (VariableStore)"
-    },
-    {
-      "type": "missing_content",
       "severity": "low",
-      "section": "Custom Variable Capture",
-      "description": "Chapter doesn't explain nested path access for captured JSON variables",
-      "should_add": "Show how to access nested fields from captured JSON using dot notation",
-      "fix_suggestion": "Add example: 'For JSON capture, access nested fields with ${var.field.subfield}. The resolve_path method handles nested JSON navigation.'",
-      "source_reference": "src/cook/workflow/variables.rs:543-578 (resolve_path method)"
-    },
-    {
-      "type": "incorrect_example",
-      "severity": "low",
-      "section": "Output Variables",
-      "description": "Chapter lists ${handler.output} and ${test.output} but these may be deprecated",
-      "current_content": "- ${handler.output} - Output from handler command\n- ${test.output} - Output from test command",
-      "should_be": "Only shell.output and claude.output are defined in common_strings.rs",
-      "fix_suggestion": "Verify if handler.output and test.output are actually used in the code. If not, remove them or mark as deprecated. The modern pattern appears to be using custom capture names instead.",
-      "source_reference": "src/cook/common_strings.rs:28-48 (only shell.output and claude.output defined)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Git Context Variables",
-      "description": "Section mentions commits but these are listed as arrays of commit data - unclear format",
-      "current_content": "- ${step.commits} - Commits in current step\n- ${workflow.commits} - All workflow commits",
-      "should_be": "Explain the structure of commit data (likely arrays of objects with hash, message, etc.)",
-      "fix_suggestion": "Add explanation: 'These are arrays of commit objects. Access individual commits with array indexing or use in foreach loops.'",
-      "source_reference": "src/cook/commit_tracker.rs (commit tracking implementation)"
+      "section": "Variable Availability by Phase",
+      "description": "Table shows when variables are available but doesn't explain what happens if you try to use them in wrong phase",
+      "should_add": "Clarify error behavior when accessing phase-specific variables in wrong context",
+      "fix_suggestion": "Add note: 'Attempting to use phase-specific variables outside their context will result in interpolation error or empty value'",
+      "source_reference": "src/cook/workflow/variables.rs:134-141 - variable lookup returns Option"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
       "section": "Custom Variable Capture",
-      "description": "Example shows capture_streams with all fields but doesn't explain defaults",
-      "current_content": "capture_streams:\n  stdout: true\n  stderr: true\n  exit_code: true\n  success: true\n  duration: true",
-      "should_be": "Explain that stdout, exit_code, success, and duration default to true; stderr defaults to false",
-      "fix_suggestion": "Add note: 'By default, stdout, exit_code, success, and duration are captured (true). Set stderr: true to also capture error output.'",
-      "source_reference": "src/cook/workflow/variables.rs:282-292 (CaptureStreams Default impl)"
+      "description": "CaptureStreams feature is well documented but could mention relationship to legacy output variables",
+      "should_add": "Clarify that capture: with custom names replaces the need for legacy ${shell.output} pattern",
+      "fix_suggestion": "Add best practice note: 'Custom capture variables (capture:) are preferred over automatic output variables (${shell.output}, ${claude.output}) for better code clarity'",
+      "source_reference": "book/src/variables.md:49 already mentions this as best practice, could be more prominent"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Nested JSON Field Access",
+      "description": "Chapter shows nested field access but doesn't document limits or error handling",
+      "should_add": "Document what happens when accessing non-existent nested fields",
+      "fix_suggestion": "Add note about error behavior: 'Accessing non-existent fields returns an error. Use default values or validation to handle missing fields gracefully'",
+      "source_reference": "src/cook/workflow/variables.rs:556-574 - resolve_path returns Result with errors for missing fields"
     }
   ],
   "positive_aspects": [
-    "Clear organization with variables grouped by category (Standard, Output, MapReduce, Merge, Validation, Git)",
-    "Good coverage of variable interpolation syntax with ${...} notation",
-    "Excellent custom capture examples showing different formats (number, string, json, lines, boolean)",
-    "Documents legacy variable aliases (ARG, FILE) with clear migration guidance",
-    "capture_streams example is comprehensive and shows all available options",
-    "Wildcard pattern documentation for ${item.*} is helpful"
+    "Excellent phase-based availability table makes it clear when variables can be used",
+    "Clear distinction between built-in variables and custom captured variables",
+    "Comprehensive coverage of all capture formats (string, number, boolean, json, lines)",
+    "Good examples for each capture format showing both YAML and expected output",
+    "Well-documented variable scope and precedence with clear examples",
+    "Legacy variable aliases properly documented with migration guidance",
+    "Capture streams feature thoroughly explained with defaults clearly stated",
+    "Best practice guidance about preferring custom capture over automatic output variables"
   ],
   "improvement_suggestions": [
-    "Add introductory section explaining variable systems: built-in context vs. custom capture",
-    "Add table showing which variables are available in which phases (setup/map/reduce)",
-    "Include more examples of nested JSON field access",
-    "Add troubleshooting section for common interpolation issues",
-    "Show real-world example combining multiple variable types",
-    "Clarify the lifecycle of variables (when they're set, scope, persistence)",
-    "Add section on variable precedence (local vs. parent scope in VariableStore)",
-    "Document the VariableStore parent/child relationship for nested scopes"
+    "Add troubleshooting section for common variable-related errors",
+    "Include example of debugging variable values (e.g., shell: echo '${var}' to inspect)",
+    "Add performance note about variable interpolation in tight loops",
+    "Show example of using variables in conditional expressions (when:)",
+    "Add cross-references to chapters that use variables heavily (commands, foreach, mapreduce)",
+    "Consider adding 'Common Patterns' section showing typical variable workflows"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-03",
-    "feature_inventory": "Analyzed from source code directly (features.json not found)",
+    "analyzed_at": "2025-10-05",
+    "feature_inventory": "Direct source code analysis (features.json not available)",
     "topics_covered": [
       "Standard variables",
       "Output variables",
@@ -112,14 +89,9 @@
       "Custom capture",
       "Capture formats",
       "Capture streams",
+      "Variable scope",
       "Legacy aliases"
     ],
-    "validation_focus": "Check all variable types and interpolation syntax",
-    "source_files_analyzed": [
-      "src/cook/workflow/variables.rs",
-      "src/cook/common_strings.rs",
-      "src/cook/workflow/executor.rs",
-      "src/cook/commit_tracker.rs"
-    ]
+    "validation_focus": "Check all variable types and interpolation syntax"
   }
 }

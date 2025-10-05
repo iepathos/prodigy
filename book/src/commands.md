@@ -191,17 +191,19 @@ All command types support these common fields:
 | `on_failure` | object | OnFailureConfig with nested command, max_attempts, fail_workflow, strategy |
 | `on_exit_code` | map | Maps exit codes to full WorkflowStep objects (e.g., `101: {claude: "/fix"}`) |
 | `validate` | object | Validation configuration |
-| `handler` | object | HandlerStep for modular command handlers |
-| `retry` | object | RetryConfig for enhanced retry with exponential backoff and jitter |
-| `working_dir` | string | Working directory for command execution |
-| `env` | map | Command-level environment variables (HashMap<String, String>) |
 | `output_file` | string | Redirect command output to a file |
-| `auto_commit` | boolean | Automatically create commit if changes detected (default: false) |
-| `commit_config` | object | Advanced CommitConfig for commit control |
-| `step_validate` | object | StepValidationSpec for post-execution validation |
-| `skip_validation` | boolean | Skip step validation (default: false) |
-| `validation_timeout` | number | Timeout in seconds for validation operations |
-| `ignore_validation_failure` | boolean | Continue workflow even if validation fails (default: false) |
+
+**Note:** The following fields exist in internal structs but are NOT exposed in WorkflowStepCommand YAML:
+- `handler` - Internal HandlerStep (not user-facing)
+- `retry` - Internal RetryConfig (not user-facing)
+- `working_dir` - Not available (use shell `cd` command instead)
+- `env` - Not available (use shell environment syntax: `ENV=value command`)
+- `auto_commit` - Not in WorkflowStepCommand
+- `commit_config` - Not in WorkflowStepCommand
+- `step_validate` - Not in WorkflowStepCommand
+- `skip_validation` - Not in WorkflowStepCommand
+- `validation_timeout` - Not in WorkflowStepCommand
+- `ignore_validation_failure` - Not in WorkflowStepCommand
 
 ### CaptureStreams Configuration
 
