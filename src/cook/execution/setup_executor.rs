@@ -13,8 +13,8 @@ use tracing::{debug, info, warn};
 
 /// Executor for the setup phase of MapReduce workflows
 pub struct SetupPhaseExecutor {
-    /// Timeout for the entire setup phase
-    timeout: Duration,
+    /// Timeout for the entire setup phase (None = no timeout)
+    timeout: Option<Duration>,
     /// Variable capture engine
     capture_engine: Option<VariableCaptureEngine>,
 }
@@ -32,7 +32,7 @@ impl SetupPhaseExecutor {
         };
 
         Self {
-            timeout: Duration::from_secs(setup_phase.timeout),
+            timeout: setup_phase.timeout.map(Duration::from_secs),
             capture_engine,
         }
     }
@@ -51,8 +51,8 @@ impl SetupPhaseExecutor {
         let start_time = Instant::now();
         let mut captured_outputs = HashMap::new();
 
-        // Execute setup commands with timeout
-        let result = tokio_timeout(self.timeout, async {
+        // Define the execution logic
+        let execution = async {
             for (index, step) in commands.iter().enumerate() {
                 debug!("Executing setup step {}/{}", index + 1, commands.len());
 
@@ -91,24 +91,35 @@ impl SetupPhaseExecutor {
             }
 
             Ok::<(), anyhow::Error>(())
-        })
-        .await;
+        };
 
-        // Handle timeout
+        // Execute with or without timeout
+        let result = if let Some(timeout_duration) = self.timeout {
+            // Execute with timeout
+            match tokio_timeout(timeout_duration, execution).await {
+                Ok(Ok(())) => Ok(()),
+                Ok(Err(e)) => Err(e),
+                Err(_) => {
+                    warn!("Setup phase timed out after {:?}", timeout_duration);
+                    Err(anyhow!(
+                        "Setup phase timed out after {} seconds",
+                        timeout_duration.as_secs()
+                    ))
+                }
+            }
+        } else {
+            // Execute without timeout
+            execution.await
+        };
+
+        // Handle result
         match result {
-            Ok(Ok(())) => {
+            Ok(()) => {
                 let elapsed = start_time.elapsed();
                 info!("Setup phase completed in {:?}", elapsed);
                 Ok(captured_outputs)
             }
-            Ok(Err(e)) => Err(e),
-            Err(_) => {
-                warn!("Setup phase timed out after {:?}", self.timeout);
-                Err(anyhow!(
-                    "Setup phase timed out after {} seconds",
-                    self.timeout.as_secs()
-                ))
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -212,7 +223,7 @@ mod tests {
 
         let setup_phase = SetupPhase {
             commands: vec![WorkflowStep::default(), WorkflowStep::default()],
-            timeout: 60,
+            timeout: Some(60),
             capture_outputs,
         };
 
@@ -265,7 +276,7 @@ mod tests {
     async fn test_setup_executor_timeout() {
         let setup_phase = SetupPhase {
             commands: vec![WorkflowStep::default()],
-            timeout: 0, // Immediate timeout
+            timeout: Some(0), // Immediate timeout
             capture_outputs: HashMap::new(),
         };
 

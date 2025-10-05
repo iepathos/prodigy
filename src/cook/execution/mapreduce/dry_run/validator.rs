@@ -167,7 +167,8 @@ impl DryRunValidator {
         Ok(PhaseValidation {
             valid: all_valid,
             command_count: setup.commands.len(),
-            estimated_duration: Duration::from_secs(setup.timeout),
+            // Use timeout if specified, otherwise estimate 0 (no timeout)
+            estimated_duration: Duration::from_secs(setup.timeout.unwrap_or(0)),
             dependencies_met: true, // Would need actual dependency checking
             issues,
         })

@@ -25,7 +25,7 @@ fn create_test_setup_phase() -> SetupPhase {
             shell: Some("echo 'Setup'".to_string()),
             ..Default::default()
         }],
-        timeout: 60,
+        timeout: Some(60),
         capture_outputs: HashMap::new(),
     }
 }

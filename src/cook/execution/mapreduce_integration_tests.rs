@@ -395,7 +395,7 @@ reduce:
             name: mapreduce_config.name.clone(),
             mode: WorkflowMode::MapReduce,
             steps: setup_steps,
-            setup_phase: mapreduce_config.to_setup_phase(),
+            setup_phase: mapreduce_config.to_setup_phase().unwrap(),
             map_phase: Some(mapreduce_config.to_map_phase().unwrap()),
             reduce_phase: mapreduce_config.to_reduce_phase(),
             max_iterations: 1,

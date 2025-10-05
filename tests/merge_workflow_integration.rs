@@ -79,7 +79,7 @@ async fn test_merge_workflow_end_to_end() -> Result<()> {
                 ..Default::default()
             },
         ],
-        timeout: 300,
+        timeout: Some(300),
     };
 
     // Create WorktreeManager with custom merge workflow
@@ -133,7 +133,7 @@ async fn test_merge_workflow_with_failures() -> Result<()> {
             )),
             ..Default::default()
         }],
-        timeout: 60,
+        timeout: Some(60),
     };
 
     let manager = WorktreeManager::with_config(repo_path, subprocess, 0, Some(merge_workflow))?;
@@ -157,7 +157,7 @@ async fn test_merge_workflow_logging_levels() -> Result<()> {
             shell: Some("echo 'Test output'".to_string()),
             ..Default::default()
         }],
-        timeout: 60,
+        timeout: Some(60),
     };
 
     // Test with verbosity = 0 (default, no streaming)
@@ -238,7 +238,7 @@ merge:
     let merge = config.merge.unwrap();
 
     assert_eq!(merge.commands.len(), 4);
-    assert_eq!(merge.timeout, 600);
+    assert_eq!(merge.timeout, Some(600));
 
     // Verify command types
     assert!(merge.commands[0].shell.is_some());
@@ -308,7 +308,7 @@ async fn test_merge_workflow_execution_order() -> Result<()> {
                 ..Default::default()
             },
         ],
-        timeout: 60,
+        timeout: Some(60),
     };
 
     let manager = WorktreeManager::with_config(repo_path, subprocess, 0, Some(merge_workflow))?;
@@ -338,7 +338,7 @@ merge:
 "#;
 
     let config_default = parse_mapreduce_workflow(yaml_default).unwrap();
-    assert_eq!(config_default.merge.unwrap().timeout, 600); // Default
+    assert_eq!(config_default.merge.unwrap().timeout, None); // No timeout by default
 
     let yaml_custom = r#"
 name: test
@@ -355,7 +355,7 @@ merge:
 "#;
 
     let config_custom = parse_mapreduce_workflow(yaml_custom).unwrap();
-    assert_eq!(config_custom.merge.unwrap().timeout, 1200); // Custom
+    assert_eq!(config_custom.merge.unwrap().timeout, Some(1200)); // Custom
 }
 
 #[tokio::test]
@@ -485,7 +485,7 @@ async fn test_merge_workflow_environment_variables() -> Result<()> {
             shell: Some("printenv | grep PRODIGY || true".to_string()),
             ..Default::default()
         }],
-        timeout: 60,
+        timeout: Some(60),
     };
 
     // Test with different verbosity levels

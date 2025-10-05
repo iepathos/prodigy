@@ -1740,7 +1740,7 @@ mod additional_coverage_tests {
                 ignore_validation_failure: false,
                 when: None,
             }],
-            timeout: 60,
+            timeout: Some(60),
             capture_outputs: HashMap::from([(
                 "setup_output".to_string(),
                 crate::cook::execution::variable_capture::CaptureConfig::Simple(0),
@@ -1752,7 +1752,7 @@ mod additional_coverage_tests {
         let deserialized: SetupPhase = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(deserialized.commands.len(), 1);
-        assert_eq!(deserialized.timeout, 60);
+        assert_eq!(deserialized.timeout, Some(60));
         assert_eq!(deserialized.capture_outputs.len(), 1);
     }
 

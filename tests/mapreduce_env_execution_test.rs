@@ -37,7 +37,10 @@ map:
 
     // Verify numeric fields accept string values (for env var references)
     assert_eq!(config.map.max_parallel, "${MAX_PARALLEL}");
-    assert_eq!(config.map.agent_timeout_secs, Some("${TIMEOUT_SECONDS}".to_string()));
+    assert_eq!(
+        config.map.agent_timeout_secs,
+        Some("${TIMEOUT_SECONDS}".to_string())
+    );
 
     // Verify we can convert to MapPhase and resolve variables
     let map_phase = config.to_map_phase()?;
@@ -414,7 +417,10 @@ map:
     // Verify env variables are defined
     assert!(config.env.is_some());
     let env = config.env.as_ref().unwrap();
-    assert_eq!(env.get("DATA_FILE"), Some(&"workflows/data/items.json".to_string()));
+    assert_eq!(
+        env.get("DATA_FILE"),
+        Some(&"workflows/data/items.json".to_string())
+    );
 
     // Verify map.input contains the variable reference (before interpolation)
     assert_eq!(config.map.input, "${DATA_FILE}");

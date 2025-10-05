@@ -88,8 +88,9 @@ pub struct MergeWorkflow {
     pub commands: Vec<WorkflowStep>,
 
     /// Timeout for the entire merge phase (in seconds)
-    #[serde(default = "default_merge_timeout")]
-    pub timeout: u64,
+    /// If not specified, no timeout is applied
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<u64>,
 }
 
 impl<'de> Deserialize<'de> for MergeWorkflow {
@@ -105,8 +106,8 @@ impl<'de> Deserialize<'de> for MergeWorkflow {
             // Full config with commands and timeout
             Config {
                 commands: Vec<WorkflowStep>,
-                #[serde(default = "default_merge_timeout")]
-                timeout: u64,
+                #[serde(default)]
+                timeout: Option<u64>,
             },
         }
 
@@ -115,15 +116,11 @@ impl<'de> Deserialize<'de> for MergeWorkflow {
         match value {
             MergeValue::Commands(commands) => Ok(MergeWorkflow {
                 commands,
-                timeout: default_merge_timeout(),
+                timeout: None, // No timeout by default
             }),
             MergeValue::Config { commands, timeout } => Ok(MergeWorkflow { commands, timeout }),
         }
     }
-}
-
-fn default_merge_timeout() -> u64 {
-    600 // 10 minutes default for merge operations
 }
 
 fn is_default_error_policy(policy: &WorkflowErrorPolicy) -> bool {
@@ -142,11 +139,13 @@ pub struct SetupPhaseConfig {
     pub commands: Vec<WorkflowStep>,
 
     /// Timeout for the entire setup phase (in seconds)
+    /// If not specified, no timeout is applied
     #[serde(
-        default = "default_setup_timeout",
-        deserialize_with = "deserialize_timeout_required"
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_u64_or_string"
     )]
-    pub timeout: u64,
+    pub timeout: Option<String>,
 
     /// Variables to capture from setup commands
     /// Key is variable name, value is the capture configuration
@@ -156,19 +155,6 @@ pub struct SetupPhaseConfig {
         deserialize_with = "deserialize_capture_outputs"
     )]
     pub capture_outputs: HashMap<String, CaptureConfig>,
-}
-
-fn default_setup_timeout() -> u64 {
-    300 // 5 minutes default
-}
-
-/// Custom deserializer for required timeout values
-fn deserialize_timeout_required<'de, D>(deserializer: D) -> Result<u64, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    deserialize_timeout(deserializer)?
-        .ok_or_else(|| serde::de::Error::custom("timeout is required"))
 }
 
 /// Custom deserializer for capture_outputs that supports both legacy and new format
@@ -223,9 +209,10 @@ where
         None => Ok(None),
         Some(SetupValue::Commands(commands)) => {
             // Convert simple list of commands to full setup config
+            // No timeout by default - user must specify if they want one
             Ok(Some(SetupPhaseConfig {
                 commands,
-                timeout: default_setup_timeout(),
+                timeout: None,
                 capture_outputs: HashMap::new(),
             }))
         }
@@ -359,43 +346,6 @@ impl<'de> Deserialize<'de> for ReducePhaseYaml {
                 // Using deprecated nested format
                 tracing::warn!("Using deprecated nested 'commands' syntax in reduce. Consider using the simplified array format directly under 'reduce'.");
                 Ok(ReducePhaseYaml { commands })
-            }
-        }
-    }
-}
-
-/// Custom deserializer for timeout values
-fn deserialize_timeout<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum TimeoutValue {
-        Number(u64),
-        String(String),
-    }
-
-    let value = Option::<TimeoutValue>::deserialize(deserializer)?;
-
-    match value {
-        None => Ok(None),
-        Some(TimeoutValue::Number(n)) => Ok(Some(n)),
-        Some(TimeoutValue::String(s)) => {
-            // Parse strings like "600s", "10m", etc.
-            if let Some(num_str) = s.strip_suffix('s') {
-                num_str
-                    .parse::<u64>()
-                    .map(Some)
-                    .map_err(serde::de::Error::custom)
-            } else if let Some(num_str) = s.strip_suffix('m') {
-                num_str
-                    .parse::<u64>()
-                    .map(|m| Some(m * 60))
-                    .map_err(serde::de::Error::custom)
-            } else {
-                // Try parsing as plain number
-                s.parse::<u64>().map(Some).map_err(serde::de::Error::custom)
             }
         }
     }
@@ -550,12 +500,26 @@ impl MapReduceWorkflowConfig {
     }
 
     /// Convert to execution-ready SetupPhase
-    pub fn to_setup_phase(&self) -> Option<SetupPhase> {
-        self.setup.as_ref().map(|s| SetupPhase {
-            commands: s.commands.clone(),
-            timeout: s.timeout,
-            capture_outputs: s.capture_outputs.clone(),
-        })
+    pub fn to_setup_phase(&self) -> Result<Option<SetupPhase>, anyhow::Error> {
+        if let Some(ref s) = self.setup {
+            // Resolve timeout if present
+            let timeout = if let Some(ref timeout_str) = s.timeout {
+                Some(
+                    self.resolve_env_or_parse::<u64>(timeout_str)
+                        .context("Failed to resolve setup timeout")?,
+                )
+            } else {
+                None
+            };
+
+            Ok(Some(SetupPhase {
+                commands: s.commands.clone(),
+                timeout,
+                capture_outputs: s.capture_outputs.clone(),
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Convert to execution-ready MapPhase
@@ -864,7 +828,7 @@ merge:
 
         let merge = config.merge.unwrap();
         assert_eq!(merge.commands.len(), 3);
-        assert_eq!(merge.timeout, 600); // Default timeout
+        assert_eq!(merge.timeout, None); // No timeout by default
 
         // Check first command
         assert!(merge.commands[0].shell.is_some());
@@ -905,7 +869,7 @@ merge:
 
         let merge = config.merge.unwrap();
         assert_eq!(merge.commands.len(), 3);
-        assert_eq!(merge.timeout, 900); // Custom timeout
+        assert_eq!(merge.timeout, Some(900)); // Custom timeout
 
         // Verify commands
         assert!(merge.commands[0].shell.is_some());
@@ -932,7 +896,7 @@ merge:
         assert!(config.merge.is_some());
 
         let merge = config.merge.unwrap();
-        assert_eq!(merge.timeout, 600); // Should use default of 600
+        assert_eq!(merge.timeout, None); // No timeout by default
     }
 
     #[test]

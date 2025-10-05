@@ -64,7 +64,8 @@ pub struct SetupPhase {
     /// Commands to execute during setup
     pub commands: Vec<crate::cook::workflow::WorkflowStep>,
     /// Timeout for setup phase (in seconds)
-    pub timeout: u64,
+    /// If None, no timeout is applied
+    pub timeout: Option<u64>,
     /// Variables to capture from setup commands
     #[serde(default)]
     pub capture_outputs: HashMap<String, CaptureConfig>,

@@ -30,7 +30,7 @@ fn create_test_setup_phase() -> SetupPhase {
                 ..Default::default()
             },
         ],
-        timeout: 60,
+        timeout: Some(60),
         capture_outputs: HashMap::new(),
     }
 }
@@ -148,7 +148,7 @@ fn test_setup_phase_with_complex_commands() {
                 ..Default::default()
             },
         ],
-        timeout: 60,
+        timeout: Some(60),
         capture_outputs: HashMap::new(),
     };
 

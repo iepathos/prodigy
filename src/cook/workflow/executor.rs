@@ -4313,7 +4313,9 @@ impl WorkflowExecutor {
             for (key, env_value) in &global_env_config.global_env {
                 // Resolve the env value to a string
                 if let crate::cook::environment::EnvValue::Static(value) = env_value {
-                    workflow_context.variables.insert(key.clone(), value.clone());
+                    workflow_context
+                        .variables
+                        .insert(key.clone(), value.clone());
                 }
                 // For Dynamic and Conditional values, we'd need to evaluate them here
                 // For now, we only support Static values in MapReduce workflows
@@ -4329,17 +4331,17 @@ impl WorkflowExecutor {
             let setup_phase = if let Some(ref setup) = workflow.setup_phase {
                 setup.clone()
             } else if !workflow.steps.is_empty() {
-                // For backward compatibility, use default timeout and no capture_outputs
+                // For backward compatibility, no timeout by default
                 SetupPhase {
                     commands: workflow.steps.clone(),
-                    timeout: 300,                    // 5 minutes default
+                    timeout: None,                   // No timeout by default
                     capture_outputs: HashMap::new(), // No variables to capture by default
                 }
             } else {
                 // No setup phase
                 SetupPhase {
                     commands: vec![],
-                    timeout: 300,
+                    timeout: None, // No timeout by default
                     capture_outputs: HashMap::new(),
                 }
             };

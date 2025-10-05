@@ -101,7 +101,7 @@ fn create_test_setup_phase() -> SetupPhase {
                 step
             },
         ],
-        timeout: 60,
+        timeout: Some(60),
         capture_outputs: std::collections::HashMap::new(),
     }
 }

@@ -2293,7 +2293,9 @@ impl DefaultCookOrchestrator {
             name: mapreduce_config.name.clone(),
             mode: crate::cook::workflow::WorkflowMode::MapReduce,
             steps: setup_steps,
-            setup_phase: mapreduce_config.to_setup_phase(),
+            setup_phase: mapreduce_config.to_setup_phase().context(
+                "Failed to resolve setup phase configuration. Check that environment variables are properly defined."
+            )?,
             map_phase: Some(mapreduce_config.to_map_phase().context(
                 "Failed to resolve MapReduce configuration. Check that environment variables are properly defined."
             )?),

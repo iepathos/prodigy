@@ -41,6 +41,7 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
     {
         #[derive(Deserialize)]
         #[serde(untagged)]
+        #[allow(clippy::large_enum_variant)]
         enum WorkflowConfigHelper {
             // New format: direct array of commands
             Commands(Vec<WorkflowCommand>),
