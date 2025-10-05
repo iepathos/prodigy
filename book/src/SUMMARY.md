@@ -14,6 +14,7 @@
 
 - [Advanced Features](advanced.md)
 - [Error Handling](error-handling.md)
+- [Automated Documentation](automated-documentation.md)
 
 # Reference
 

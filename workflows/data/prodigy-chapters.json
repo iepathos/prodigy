@@ -62,6 +62,13 @@
       "file": "book/src/troubleshooting.md",
       "topics": ["Common issues", "Debug tips", "FAQ"],
       "validation": "Check troubleshooting covers common user issues"
+    },
+    {
+      "id": "automated-documentation",
+      "title": "Automated Documentation",
+      "file": "book/src/automated-documentation.md",
+      "topics": ["mdBook setup", "Book workflow configuration", "Feature analysis", "GitHub Actions integration", "Customization examples"],
+      "validation": "Check that setup instructions are complete, configuration examples are valid, and GitHub Actions workflows are current"
     }
   ]
 }
