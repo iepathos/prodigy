@@ -11,6 +11,8 @@ Prodigy uses a two-layer architecture for environment management:
 
 This chapter documents the user-facing WorkflowConfig layer - what you write in your workflow YAML files.
 
+**Note on Internal Features:** The `EnvironmentConfig` runtime layer includes a `StepEnvironment` struct with fields like `env`, `working_dir`, `clear_env`, and `temporary`. These are internal implementation details not exposed in `WorkflowStepCommand` YAML syntax. Per-command environment changes must use shell syntax (e.g., `ENV=value command`).
+
 ---
 
 ## Global Environment Variables
@@ -453,53 +455,33 @@ profiles:
 
 ---
 
-## Step-Level Environment
+## Per-Command Environment Overrides
 
-Commands can specify their own environment variables and working directory:
-
-```yaml
-commands:
-  # Basic step-level environment variables
-  - shell: "echo $API_URL"
-    env:
-      API_URL: "https://api.staging.com"
-      DEBUG: "true"
-
-  # Step with custom working directory
-  - shell: "pwd && ls -la"
-    working_dir: "/tmp/sandbox"
-    env:
-      TEMP_VAR: "value"
-
-  # Step overrides global environment
-  - shell: "echo $NODE_ENV"
-    env:
-      NODE_ENV: "test"  # Overrides global NODE_ENV
-```
-
-**Available Step-Level Fields:**
-
-- `env` - Step-specific environment variables (HashMap<String, String>)
-  - Merged with global environment
-  - Step env overrides global env for conflicting keys
-  - Supports variable interpolation with `${variable}` syntax
-
-- `working_dir` - Working directory for command execution
-  - Can be an absolute or relative path
-  - Relative paths are resolved from the workflow root
-  - Default: workflow root directory
-
-**Variable Interpolation:**
-
-Step environment variables support interpolation from the workflow variable context:
+While WorkflowStepCommand does not support a dedicated `env` field, you can override environment variables for individual commands using shell syntax:
 
 ```yaml
-commands:
-  - shell: "echo 'Version: $APP_VERSION'"
-    env:
-      APP_VERSION: "${VERSION}"  # Interpolate from workflow variables
-      BUILD_TAG: "build-${BUILD_NUMBER}"
+env:
+  RUST_LOG: info
+  API_URL: "https://api.example.com"
+
+# Steps go directly in the workflow
+- shell: "cargo run"  # Uses RUST_LOG=info from global env
+
+# Override environment for this command only using shell syntax
+- shell: "RUST_LOG=debug cargo run --verbose"
+
+# Change directory and set environment in shell
+- shell: "cd frontend && PATH=./node_modules/.bin:$PATH npm run build"
 ```
+
+**Shell-based Environment Techniques:**
+
+- **Single variable override:** `ENV_VAR=value command`
+- **Multiple variables:** `VAR1=value1 VAR2=value2 command`
+- **Change directory:** `cd path && command`
+- **Combine both:** `cd path && ENV_VAR=value command`
+
+**Note:** A `StepEnvironment` struct exists in the internal runtime (`EnvironmentConfig`), but it is not currently exposed in the WorkflowStepCommand YAML syntax. All per-command environment changes must use shell syntax as shown above.
 
 ---
 
@@ -507,11 +489,10 @@ commands:
 
 Environment variables are resolved in the following order (highest to lowest precedence):
 
-1. **Step-level `env`** - Defined on individual commands
-2. **Active profile** - If a profile is activated (internal)
-3. **Global `env`** - Defined at workflow level
-4. **Environment files** - Loaded from `env_files` (in order)
-5. **Parent environment** - Inherited from the parent process
+1. **Active profile** - If a profile is activated (internal runtime feature)
+2. **Global `env`** - Defined at workflow level in WorkflowConfig
+3. **Environment files** - Loaded from `env_files` (in order)
+4. **Parent environment** - Always inherited from the parent process
 
 Example demonstrating precedence:
 
@@ -526,15 +507,17 @@ env:
 
 profiles:
   test:
-    NODE_ENV: test  # Overrides global env when profile is active
+    NODE_ENV: test  # Would override global env if profile activation were exposed
+    description: "Test environment profile"
 
-commands:
-  - shell: "echo $NODE_ENV"  # Prints: production (global env)
+# Steps go directly in the workflow
+- shell: "echo $NODE_ENV"  # Prints: production (from global env)
 
-  - shell: "echo $NODE_ENV"  # Prints: staging (step env overrides global)
-    env:
-      NODE_ENV: staging
+# Override using shell syntax
+- shell: "NODE_ENV=staging echo $NODE_ENV"  # Prints: staging
 ```
+
+**Note:** Profile activation is currently managed internally and not exposed in WorkflowConfig YAML.
 
 ---
 
@@ -588,22 +571,20 @@ profiles:
     API_URL: https://api.example.com
 ```
 
-### 4. Use Step Environment for Overrides
+### 4. Use Shell Syntax for Command-Specific Overrides
 
-Override global settings for specific commands:
+Override global settings for specific commands using shell environment syntax:
 
 ```yaml
 env:
   RUST_LOG: info
 
-commands:
-  # Most commands use info level
-  - shell: "cargo run"
+# Steps go directly in the workflow
+# Most commands use info level
+- shell: "cargo run"
 
-  # But this command needs debug level
-  - shell: "cargo run --verbose"
-    env:
-      RUST_LOG: debug
+# Override for this specific command using shell syntax
+- shell: "RUST_LOG=debug cargo run --verbose"
 ```
 
 ### 5. Document Your Environment Variables
@@ -673,13 +654,10 @@ commands:
 ### Temporary Environment Changes
 
 ```yaml
-commands:
-  # Set PATH for this command only
-  - shell: "./node_modules/.bin/webpack"
-    working_dir: "frontend"
-    env:
-      PATH: "${PWD}/node_modules/.bin:${PATH}"
+# Steps go directly in the workflow
+# Set PATH for this command only using shell syntax
+- shell: "cd frontend && PATH=./node_modules/.bin:$PATH ./node_modules/.bin/webpack"
 
-  # PATH is back to normal for subsequent commands
-  - shell: "echo $PATH"
+# PATH is back to normal for subsequent commands
+- shell: "echo $PATH"
 ```

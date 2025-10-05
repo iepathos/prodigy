@@ -28,7 +28,39 @@
 
 ---
 
-## Example 3: Parallel Code Review
+## Example 3: Foreach Iteration
+
+```yaml
+# Test multiple configurations in sequence
+- foreach:
+    - rust-version: "1.70"
+      profile: debug
+    - rust-version: "1.71"
+      profile: release
+    - rust-version: "stable"
+      profile: release
+  commands:
+    - shell: "rustup install ${foreach.item.rust-version}"
+    - shell: "cargo +${foreach.item.rust-version} build --profile ${foreach.item.profile}"
+    - shell: "cargo +${foreach.item.rust-version} test"
+
+# Parallel foreach with error handling
+- foreach:
+    - "web-service"
+    - "api-gateway"
+    - "worker-service"
+  parallel: 3
+  continue_on_error: true
+  commands:
+    - shell: "cd services/${foreach.item} && cargo build"
+    - shell: "cd services/${foreach.item} && cargo test"
+      on_failure:
+        claude: "/fix-service-tests ${foreach.item}"
+```
+
+---
+
+## Example 4: Parallel Code Review
 
 ```yaml
 name: parallel-code-review
@@ -43,6 +75,9 @@ map:
   json_path: "$[*]"  # Process all items
   agent_template:
     - claude: "/review-file ${item.path}"
+      id: "review"
+      capture: "review_result"
+      capture_format: "json"
     - shell: "cargo check ${item.path}"
   max_parallel: 5
 
@@ -52,27 +87,26 @@ reduce:
 
 ---
 
-## Example 4: Conditional Deployment
+## Example 5: Conditional Deployment
 
 ```yaml
 - shell: "cargo test --quiet && echo true || echo false"
-  outputs:
-    tests_passed:
-      from_output: true
-      format: boolean
+  id: "test"
+  capture: "test_result"
+  capture_format: "boolean"  # Supported: string, json, lines, number, boolean
 
 - shell: "cargo build --release"
-  when: "${tests_passed}"
+  when: "${test_result} == true"
 
 - shell: "docker build -t myapp ."
-  when: "${tests_passed}"
+  when: "${test_result} == true"
   on_success:
     shell: "docker push myapp:latest"
 ```
 
 ---
 
-## Example 5: Multi-Step Validation
+## Example 6: Multi-Step Validation
 
 ```yaml
 - claude: "/implement-feature auth"
@@ -92,38 +126,52 @@ reduce:
 
 ---
 
-## Example 6: Environment-Aware Workflow
+## Example 7: Environment-Aware Workflow
 
 ```yaml
-# Environment configuration with conditional logic
-environment:
-  global_env:
-    DEPLOY_ENV:
-      condition: "${branch} == 'main'"
-      when_true: "production"
-      when_false: "staging"
+# Global environment variables
+env:
+  NODE_ENV: production
+  API_URL: https://api.production.com
 
-  profiles:
-    production:
-      env:
-        API_URL: https://api.production.com
-    staging:
-      env:
-        API_URL: https://api.staging.com
+# Environment profiles for different contexts
+profiles:
+  production:
+    API_URL: https://api.production.com
+    LOG_LEVEL: error
+    description: "Production environment"
 
-  # Activate profile based on DEPLOY_ENV
-  active_profile: "${DEPLOY_ENV}"
+  staging:
+    API_URL: https://api.staging.com
+    LOG_LEVEL: warn
+    description: "Staging environment"
 
-# Workflow commands
-commands:
-  - shell: "cargo build --release"
-  - shell: "echo 'Deploying to ${DEPLOY_ENV} at ${API_URL}'"
-  - shell: "deploy.sh ${DEPLOY_ENV}"
+# Secrets (masked in logs)
+secrets:
+  API_KEY:
+    provider: env
+    key: SECRET_API_KEY
+
+# Load additional variables from .env files
+env_files:
+  - .env
+  - .env.production
+
+# Workflow steps (no 'commands' wrapper in simple format)
+- shell: "cargo build --release"
+
+# Use environment variables in commands
+- shell: "echo 'Deploying to ${NODE_ENV} at ${API_URL}'"
+
+# Override environment for specific command using shell syntax
+- shell: "LOG_LEVEL=debug ./deploy.sh"
 ```
+
+**Note:** Profile activation with `active_profile` is managed internally and not currently exposed in WorkflowConfig YAML. Use `--profile` CLI flag to activate profiles.
 
 ---
 
-## Example 7: Complex MapReduce with Error Handling
+## Example 8: Complex MapReduce with Error Handling
 
 ```yaml
 name: tech-debt-elimination

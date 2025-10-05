@@ -90,7 +90,7 @@ error_policy:
   circuit_breaker:
     failure_threshold: 5      # Open circuit after N failures
     success_threshold: 2      # Close circuit after N successes
-    timeout: 60              # Seconds before attempting half-open
+    timeout: "60s"           # Duration before attempting half-open (e.g., "60s", "1m", "5m")
     half_open_requests: 3    # Test requests in half-open state
 
   # Retry configuration with backoff
@@ -98,9 +98,9 @@ error_policy:
     max_attempts: 3
     backoff:
       type: exponential      # fixed, linear, exponential, fibonacci
-      initial: 1000          # Initial delay in ms
+      initial: "1s"          # Initial delay (e.g., "1s", "500ms")
       multiplier: 2          # For exponential
-      max_delay: 30000       # Maximum delay in ms
+      # Note: max_delay is NOT supported - use max_attempts to limit retries
 
 # Convenience fields (alternative to nested error_policy)
 # These top-level fields map to error_policy for simpler syntax
