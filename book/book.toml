@@ -6,7 +6,7 @@ src = "src"
 language = "en"
 
 [build]
-build-dir = "book"
+build-dir = "output"
 create-missing = false
 
 [output.html]
