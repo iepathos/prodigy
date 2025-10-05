@@ -903,7 +903,7 @@ impl FilterExpression {
         Some(current)
     }
 
-    /// Parse a path that may contain array indices (e.g., "field.array[0].nested")
+    /// Parse a path that may contain array indices (e.g., "field.array\[0\].nested")
     fn parse_path_with_array(path: &str) -> Vec<PathPart> {
         let mut parts = Vec::new();
         let mut chars = path.chars().peekable();
@@ -948,7 +948,7 @@ impl FilterExpression {
         (!field.is_empty()).then_some(PathPart::Field(field))
     }
 
-    /// Pure function: Parse an array index from "[N]"
+    /// Pure function: Parse an array index from "\[N\]"
     fn parse_array_index(chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<PathPart> {
         // Consume opening bracket
         chars.next()?;

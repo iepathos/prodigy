@@ -867,7 +867,7 @@ impl GitOperationsService {
         })
     }
 
-    /// Convert git2 Time to DateTime<Utc>
+    /// Convert git2 Time to `DateTime<Utc>`
     fn time_to_datetime(&self, time: Time) -> DateTime<Utc> {
         DateTime::from_timestamp(time.seconds(), 0).unwrap_or_else(Utc::now)
     }
