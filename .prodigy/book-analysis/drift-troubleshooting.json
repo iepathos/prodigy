@@ -3,154 +3,85 @@
   "chapter_title": "Troubleshooting",
   "chapter_file": "book/src/troubleshooting.md",
   "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "Chapter provides good coverage of common troubleshooting scenarios but contains some inaccurate information about capture formats, timeout configuration, and validation commands. Several examples show outdated or incorrect YAML syntax. Debug tips and FAQ are generally helpful but could reference actual error types from the codebase.",
+  "severity": "low",
+  "quality_assessment": "Chapter is comprehensive and accurate, covering common user issues with good explanations and actionable solutions. Minor improvements could enhance clarity and add missing edge cases.",
   "issues": [
-    {
-      "type": "incorrect_example",
-      "severity": "high",
-      "section": "Common Issues #2 - Capture not working",
-      "description": "Chapter shows 'capture_streams' as a field with boolean values, but this doesn't match the actual CaptureStreams struct which has separate stdout/stderr/exit_code/success/duration fields",
-      "current_content": "capture_streams:\n  stdout: true\n  stderr: true\n  exit_code: true",
-      "should_be": "The example is correct! CaptureStreams does have these boolean fields. However, missing success and duration fields which are also available.",
-      "fix_suggestion": "Add documentation for the 'success' and 'duration' fields which are also available in CaptureStreams. Example: capture_streams: { stdout: true, stderr: true, exit_code: true, success: true, duration: true }",
-      "source_reference": "src/cook/workflow/variables.rs:252-264 (CaptureStreams struct)"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Common Issues #2 - Capture not working",
-      "description": "Chapter lists capture_format values but doesn't explain when to use each one or how they parse output differently",
-      "should_add": "Add explanation of what each capture_format does: string (raw text), number (parses as numeric), json (parses JSON and allows JSONPath), lines (splits into array), boolean (checks success/exit code)",
-      "fix_suggestion": "Expand the capture_format section with practical examples showing when to use each format and how they transform the output",
-      "source_reference": "src/cook/workflow/variables.rs:247-257 (CaptureFormat enum), variable_capture.rs (capture parsing)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Common Issues #3 - Validation failing",
-      "description": "Chapter mentions validation commands but doesn't reference the actual validation command structure from the codebase (ValidationCommand, OnIncompleteConfig, etc.)",
-      "should_add": "Add note that validation is part of goal-seeking commands which have validate, on_incomplete, threshold, and max_iterations fields. The validate command should return score: N format.",
-      "fix_suggestion": "Add reference to goal_seek command structure and link to advanced features or commands chapter for full validation configuration including on_incomplete handlers",
-      "source_reference": "src/config/command.rs (ValidationCommand), src/cook/workflow/on_failure.rs (OnIncompleteConfig)"
-    },
-    {
-      "type": "incorrect_example",
-      "severity": "high",
-      "section": "Common Issues #5 - Timeout errors",
-      "description": "Chapter shows timeout as a plain number (600), but the codebase uses Duration types with humantime_serde serialization (e.g., '600s', '10m')",
-      "current_content": "- shell: \"slow-command.sh\"\n  timeout: 600  # 10 minutes",
-      "should_be": "- shell: \"slow-command.sh\"\n  timeout: \"600s\"  # or \"10m\" - uses duration format",
-      "fix_suggestion": "Update all timeout examples to use duration string format: '600s', '10m', '1h', etc. Add note that timeout accepts humantime duration strings.",
-      "source_reference": "src/cook/workflow/error_policy.rs:48-61 (Duration with humantime_serde), src/config/mapreduce.rs:256 (agent_timeout_secs as u64)"
-    },
     {
       "type": "outdated_information",
       "severity": "medium",
-      "section": "Common Issues #5 - Timeout errors",
-      "description": "Chapter references 'agent_timeout_secs' which exists but the example format might be confusing since other timeouts use Duration strings",
-      "current_content": "map:\n  agent_timeout_secs: 600",
-      "should_be": "The field name 'agent_timeout_secs' is correct and takes a u64 (number of seconds). This is an exception to the Duration string pattern used elsewhere.",
-      "fix_suggestion": "Add clarifying note: 'agent_timeout_secs takes a number (seconds) while most other timeout fields use duration strings like \"10m\"'",
-      "source_reference": "src/config/mapreduce.rs:256 (agent_timeout_secs: Option<u64>)"
+      "section": "Error Policy Configuration Issues (Line 209-235)",
+      "description": "Chapter shows BackoffStrategy values that don't match the actual enum implementation. Documentation shows 'constant', 'linear', 'exponential', 'fibonacci' as values, but code uses 'Fixed', 'Linear', 'Exponential', 'Fibonacci' with different structures.",
+      "current_content": "- `constant` - Same delay every time\n- `linear` - Increases linearly\n- `exponential` - Doubles each time\n- `fibonacci` - Fibonacci sequence",
+      "should_be": "- `fixed` - Same delay every time\n- `linear` - Increases linearly with increment parameter\n- `exponential` - Multiplies by base each time (default 2.0)\n- `fibonacci` - Fibonacci sequence\n- `custom` - Custom delay array",
+      "fix_suggestion": "Update BackoffStrategy enum values to match the actual implementation in src/cook/retry_v2.rs. Show correct YAML structure with parameters (e.g., 'exponential: { base: 2.0 }' instead of just 'exponential').",
+      "source_reference": "src/cook/retry_v2.rs:270-302 (BackoffStrategy enum and calculate_delay implementation)"
     },
     {
       "type": "missing_content",
-      "severity": "medium",
-      "section": "Common Issues #7 - Merge workflow not running",
-      "description": "Chapter shows two different merge syntax formats which might confuse users about which is correct",
-      "current_content": "Shows both direct list format and nested commands format",
-      "should_be": "Both formats are valid! MergeWorkflow deserializer accepts both Commands(Vec<WorkflowStep>) and Config { commands, timeout }",
-      "fix_suggestion": "Add note that both formats are valid: direct list of commands (simplified) or nested with 'commands:' and 'timeout:' (full config). Explain when to use each.",
-      "source_reference": "src/config/mapreduce.rs:76-100 (MergeWorkflow deserializer with untagged enum)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Debug Tips - Validate workflow syntax",
-      "description": "Chapter references 'prodigy validate workflow.yml' command but this command doesn't appear to exist in the codebase",
-      "current_content": "prodigy validate workflow.yml",
-      "should_be": "The validation happens automatically when loading workflows. There may not be a standalone 'validate' subcommand.",
-      "fix_suggestion": "Verify if 'prodigy validate' command exists. If not, update to use 'prodigy run --dry-run workflow.yml' or similar. Check src/main.rs for available CLI commands.",
-      "source_reference": "src/main.rs (CLI command definitions)"
+      "severity": "low",
+      "section": "MapReduce Error Messages (Line 383-404)",
+      "description": "Chapter documents MapReduceError types but doesn't cover all variants available in the codebase. Missing several error types that users might encounter.",
+      "should_add": "Document additional error types: CheckpointCorrupted, DeadlockDetected, ConcurrentModification, InvalidJsonPath, EnvironmentError, ValidationFailed, DlqError, ProcessingError",
+      "fix_suggestion": "Add a comprehensive list of all MapReduceError variants from src/cook/execution/errors.rs with descriptions and recovery actions.",
+      "source_reference": "src/cook/execution/errors.rs:14-162 (MapReduceError enum with all variants)"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Debug Tips - Check DLQ for failed items",
-      "description": "Chapter shows 'prodigy dlq list' and 'prodigy dlq inspect' but doesn't mention 'prodigy dlq retry' which is the main recovery action",
-      "should_add": "Add example for 'prodigy dlq retry <job_id>' which reprocesses failed items. This is the primary DLQ operation users will need.",
-      "fix_suggestion": "Add section showing 'prodigy dlq retry <job_id>' with optional --max-parallel and --dry-run flags",
-      "source_reference": "tests/cli_integration/dlq_command_tests.rs, src/cook/execution/dlq_reprocessor.rs"
+      "severity": "low",
+      "section": "Merge Workflow Timeout (Line 157-184)",
+      "description": "Chapter correctly shows two merge formats but states timeout uses duration string format ('600s'). The MergeWorkflow struct actually uses u64 seconds.",
+      "current_content": "timeout: \"600s\"  # Duration string format",
+      "should_be": "timeout: 600  # Timeout in seconds (u64 number, not duration string)",
+      "fix_suggestion": "Clarify that merge.timeout takes a number in seconds (u64), not a duration string like most other timeout fields.",
+      "source_reference": "src/config/mapreduce.rs:MergeWorkflow (timeout field is Option<u64>)"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Common Issues",
-      "description": "Chapter doesn't cover error handling policy issues (circuit breaker, retry config) which are complex and likely to cause confusion",
-      "should_add": "Add troubleshooting section for error_policy configuration issues: incorrect BackoffStrategy format, Duration format for circuit_breaker.timeout, etc.",
-      "fix_suggestion": "Add section covering common error_policy mistakes based on issues found in drift-mapreduce.json: Duration format for timeouts, BackoffStrategy enum variants, retry_config structure",
-      "source_reference": "src/cook/workflow/error_policy.rs (WorkflowErrorPolicy, CircuitBreakerConfig, RetryConfig, BackoffStrategy)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Common Issues",
-      "description": "Chapter doesn't mention JSONPath expression errors which are common in MapReduce workflows",
-      "should_add": "The chapter does have section #4 'MapReduce items not found' which covers JSONPath! However, could add more detail about JSONPath syntax errors.",
-      "fix_suggestion": "Expand section #4 to include common JSONPath syntax mistakes and how to debug them with jq",
-      "source_reference": "src/cook/execution/input_source.rs (JSONPath processing)"
-    },
-    {
-      "type": "unclear_content",
-      "severity": "low",
-      "section": "FAQ - Q: Why are my changes not being committed?",
-      "description": "Answer mentions 'auto_commit: true' but this field's scope isn't clear - is it workflow-level or command-level?",
-      "should_add": "Clarify whether auto_commit is a workflow-level setting, step-level setting, or both",
-      "fix_suggestion": "Add clarification: 'auto_commit can be set at workflow level or per-step. When true, creates commits automatically when git diff detects changes.'",
-      "source_reference": "src/config/command.rs (WorkflowStep fields)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "FAQ",
-      "description": "FAQ doesn't mention the structured error types that users might see in error messages",
-      "should_add": "Add FAQ entry about interpreting MapReduceError messages: JobNotFound, AgentFailed, WorktreeMergeConflict, etc.",
-      "fix_suggestion": "Add FAQ: 'Q: What do the different MapReduceError types mean?' with brief explanation of job-level vs agent-level vs resource errors",
-      "source_reference": "src/cook/execution/errors.rs (MapReduceError enum with 15+ variants)"
+      "section": "DLQ Commands (Line 307-322)",
+      "description": "Chapter documents 'prodigy dlq list' and 'prodigy dlq inspect' commands, but these exact commands may not exist in the CLI implementation.",
+      "should_add": "Verify actual DLQ CLI commands available and document correct usage",
+      "fix_suggestion": "Check CLI implementation to ensure documented commands match actual available commands. Update examples if necessary.",
+      "source_reference": "CLI command implementation needs verification"
     }
   ],
   "positive_aspects": [
-    "Good organization with Common Issues, Debug Tips, and FAQ sections",
-    "Practical examples for most troubleshooting scenarios",
-    "Helpful debug commands using echo and shell inspection",
-    "Covers major user pain points: variables, capture, validation, timeouts, environment",
-    "FAQ answers are concise and actionable",
-    "Best Practices section provides good general guidance"
+    "Comprehensive coverage of common issues users encounter",
+    "Clear symptom-cause-solution structure makes troubleshooting easy to follow",
+    "Excellent debug tips section with practical examples",
+    "Good coverage of verbosity flags and their uses",
+    "Well-organized FAQ section addresses key questions",
+    "Capture streams documentation is accurate and helpful",
+    "Variable interpolation troubleshooting is clear and actionable",
+    "Timeout configuration examples are helpful",
+    "Error policy section provides good guidance despite minor inaccuracies"
   ],
   "improvement_suggestions": [
-    "Add section on interpreting structured error messages (MapReduceError variants)",
-    "Include examples of actual error messages users will see",
-    "Add more detail on error_policy configuration troubleshooting",
-    "Link to relevant chapters for deeper explanations (Commands, MapReduce, Error Handling)",
-    "Add common git worktree issues (merge conflicts, cleanup)",
-    "Include troubleshooting for parallel execution issues (resource exhaustion, worktree conflicts)",
-    "Add section on debugging with verbosity flags (-v, -vv, -vvv)",
-    "Include examples of log output and how to interpret it"
+    "Add more examples of error messages users might see in practice",
+    "Include troubleshooting steps for workspace/worktree issues",
+    "Add section on debugging MapReduce parallel execution issues",
+    "Include common git merge conflict scenarios and resolutions",
+    "Add troubleshooting for environment variable inheritance issues",
+    "Consider adding a 'Quick Diagnosis' flowchart at the beginning",
+    "Add links to related chapters for deeper understanding",
+    "Include troubleshooting for checkpoint corruption and recovery"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-03",
+    "analyzed_at": "2025-10-05",
+    "feature_inventory": ".prodigy/book-analysis/features.json (not found, analyzed from source code)",
     "topics_covered": [
-      "Variable interpolation",
-      "Output capture",
-      "Validation commands",
-      "MapReduce JSONPath",
+      "Variable interpolation issues",
+      "Capture format problems",
+      "Validation and goal-seeking failures",
+      "MapReduce JSONPath issues",
       "Timeout configuration",
       "Environment variables",
-      "Merge workflows",
-      "Debug techniques",
+      "Merge workflow issues",
+      "Error handling and policies",
+      "Debug tips and techniques",
+      "Common error messages",
       "DLQ operations",
-      "Common FAQ"
+      "Checkpoint and resume errors"
     ],
     "validation_focus": "Check troubleshooting covers common user issues"
   }
