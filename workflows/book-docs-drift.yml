@@ -19,7 +19,6 @@ env:
 
   # Workflow settings
   MAX_PARALLEL: "3"
-  TIMEOUT_SECONDS: "900"
 
 # Setup phase: Analyze codebase for feature coverage
 setup:
@@ -38,7 +37,6 @@ map:
       commit_required: true
 
   max_parallel: ${MAX_PARALLEL}
-  agent_timeout_secs: ${TIMEOUT_SECONDS}
 
 # Reduce phase: Aggregate drift findings and update documentation
 reduce:
