@@ -138,7 +138,13 @@ async fn test_merge_workflow_with_failures() -> Result<()> {
         timeout: Some(60),
     };
 
-    let manager = WorktreeManager::with_config(repo_path, subprocess, 0, Some(merge_workflow), HashMap::new())?;
+    let manager = WorktreeManager::with_config(
+        repo_path,
+        subprocess,
+        0,
+        Some(merge_workflow),
+        HashMap::new(),
+    )?;
 
     // Create session to verify manager setup
     let _session = manager.create_session().await?;
@@ -316,7 +322,13 @@ async fn test_merge_workflow_execution_order() -> Result<()> {
         timeout: Some(60),
     };
 
-    let manager = WorktreeManager::with_config(repo_path, subprocess, 0, Some(merge_workflow), HashMap::new())?;
+    let manager = WorktreeManager::with_config(
+        repo_path,
+        subprocess,
+        0,
+        Some(merge_workflow),
+        HashMap::new(),
+    )?;
 
     // Create session to verify setup
     let _session = manager.create_session().await?;
