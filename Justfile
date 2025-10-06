@@ -258,6 +258,9 @@ ci:
      cargo doc --no-deps --document-private-items && \
      echo "Checking benchmarks compile..." && \
      cargo check --benches && \
+     echo "Checking Cargo.lock is up to date..." && \
+     cargo generate-lockfile && \
+     git diff --exit-code Cargo.lock && \
      echo "All CI checks passed!"
 
 # Run compatibility tests only
