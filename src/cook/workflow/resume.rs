@@ -880,8 +880,10 @@ impl ResumeExecutor {
 
 /// List all resumable workflows
 pub async fn list_resumable_workflows(checkpoint_dir: PathBuf) -> Result<Vec<ResumableWorkflow>> {
+    use crate::cook::workflow::checkpoint_path::CheckpointStorage;
+
     #[allow(deprecated)]
-    let manager = CheckpointManager::new(checkpoint_dir);
+    let manager = CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir));
     let workflow_ids = manager.list_checkpoints().await?;
 
     let mut resumable = Vec::new();

@@ -23,7 +23,7 @@
 //! 1. **Pure Functions**: All path resolution is deterministic with no side effects
 //! 2. **Explicit Configuration**: Storage strategy is always explicit, never inferred
 //! 3. **Immutability**: CheckpointStorage enum is immutable once constructed
-//! 4. **Error as Values**: Returns Result<T> instead of panicking
+//! 4. **Error as Values**: Returns `Result<T>` instead of panicking
 //! 5. **Composition**: Small pure functions compose to build complex paths
 //!
 //! # Example Usage
