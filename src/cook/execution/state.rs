@@ -676,6 +676,7 @@ pub struct DefaultJobStateManager {
 
 impl DefaultJobStateManager {
     /// Create a new job state manager
+    #[allow(deprecated)]
     pub fn new(base_dir: PathBuf) -> Self {
         Self {
             checkpoint_manager: CheckpointManager::new(base_dir),
@@ -685,6 +686,7 @@ impl DefaultJobStateManager {
     }
 
     /// Create a new job state manager with global storage support
+    #[allow(deprecated)]
     pub async fn new_with_global(project_root: PathBuf) -> Result<Self> {
         use crate::storage::{extract_repo_name, GlobalStorage};
 

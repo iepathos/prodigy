@@ -270,6 +270,7 @@ mod tests {
         }
 
         // Save checkpoint
+        #[allow(deprecated)]
         let checkpoint_manager = std::sync::Arc::new(CheckpointManager::new(checkpoint_dir));
         checkpoint_manager
             .save_checkpoint(&checkpoint)

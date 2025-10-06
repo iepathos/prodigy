@@ -1619,9 +1619,9 @@ impl WorktreeManager {
             .join("checkpoints");
         fs::create_dir_all(&checkpoint_dir).context("Failed to create checkpoint directory")?;
 
-        Ok(crate::cook::workflow::checkpoint::CheckpointManager::new(
-            checkpoint_dir,
-        ))
+        #[allow(deprecated)]
+        let manager = crate::cook::workflow::checkpoint::CheckpointManager::new(checkpoint_dir);
+        Ok(manager)
     }
 
     /// Execute a shell command in the merge workflow

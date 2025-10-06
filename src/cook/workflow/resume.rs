@@ -880,6 +880,7 @@ impl ResumeExecutor {
 
 /// List all resumable workflows
 pub async fn list_resumable_workflows(checkpoint_dir: PathBuf) -> Result<Vec<ResumableWorkflow>> {
+    #[allow(deprecated)]
     let manager = CheckpointManager::new(checkpoint_dir);
     let workflow_ids = manager.list_checkpoints().await?;
 
@@ -974,6 +975,7 @@ mod tests {
         };
 
         // Save checkpoint
+        #[allow(deprecated)]
         let checkpoint_manager = Arc::new(CheckpointManager::new(checkpoint_dir));
         checkpoint_manager
             .save_checkpoint(&checkpoint)
@@ -1029,6 +1031,7 @@ mod tests {
         };
 
         // Save checkpoint
+        #[allow(deprecated)]
         let checkpoint_manager = Arc::new(CheckpointManager::new(checkpoint_dir));
         checkpoint_manager
             .save_checkpoint(&checkpoint)
@@ -1086,6 +1089,7 @@ mod tests {
         };
 
         // Save checkpoint
+        #[allow(deprecated)]
         let checkpoint_manager = Arc::new(CheckpointManager::new(checkpoint_dir));
         checkpoint_manager
             .save_checkpoint(&checkpoint)

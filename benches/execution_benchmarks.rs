@@ -252,6 +252,7 @@ steps:
 "#;
                 let temp_dir = TempDir::new().unwrap();
                 let workflow: WorkflowConfig = serde_yaml::from_str(yaml).unwrap();
+                #[allow(deprecated)]
                 let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                 (workflow, checkpoint_manager, temp_dir)
             },
@@ -303,6 +304,7 @@ fn bench_workflow_resume_operation(c: &mut Criterion) {
         b.to_async(&rt).iter_batched(
             || {
                 let temp_dir = TempDir::new().unwrap();
+                #[allow(deprecated)]
                 let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
 
                 // Create a checkpoint representing a partially completed workflow
