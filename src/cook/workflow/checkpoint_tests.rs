@@ -299,4 +299,144 @@ mod tests {
         // Verify workflow path was persisted
         assert_eq!(loaded.workflow_path, Some(test_path));
     }
+
+    #[test]
+    fn test_create_error_checkpoint_includes_context() {
+        // Setup test data
+        let workflow = create_test_workflow();
+        let context = WorkflowContext::default();
+        let error = anyhow::anyhow!("Test error: commit required but no commits were created");
+        let failed_step_index = 5;
+
+        // Create error checkpoint
+        let checkpoint = create_error_checkpoint(
+            "test-workflow".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            "hash123".to_string(),
+            &error,
+            failed_step_index,
+        )
+        .expect("Failed to create error checkpoint");
+
+        // Verify status is Failed
+        assert_eq!(checkpoint.execution_state.status, WorkflowStatus::Failed);
+
+        // Verify error message is captured
+        let error_msg = checkpoint
+            .variable_state
+            .get("__error_message")
+            .expect("Missing __error_message");
+        assert!(
+            error_msg.as_str().unwrap().contains("commit required"),
+            "Error message should contain 'commit required', got: {}",
+            error_msg
+        );
+
+        // Verify failed step index is captured
+        let failed_step = checkpoint
+            .variable_state
+            .get("__failed_step_index")
+            .expect("Missing __failed_step_index");
+        assert_eq!(
+            failed_step.as_u64().unwrap(),
+            failed_step_index as u64,
+            "Failed step index should be {}",
+            failed_step_index
+        );
+
+        // Verify timestamp is present
+        let timestamp = checkpoint
+            .variable_state
+            .get("__error_timestamp")
+            .expect("Missing __error_timestamp");
+        assert!(
+            timestamp.is_string(),
+            "Timestamp should be a string ISO 8601 format"
+        );
+    }
+
+    #[test]
+    fn test_create_completion_checkpoint_status() {
+        // Setup test data
+        let workflow = create_test_workflow();
+        let context = WorkflowContext::default();
+        let current_step_index = 3;
+
+        // Create completion checkpoint
+        let checkpoint = create_completion_checkpoint(
+            "test-workflow".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            current_step_index,
+            "hash123".to_string(),
+        )
+        .expect("Failed to create completion checkpoint");
+
+        // Verify status is Completed
+        assert_eq!(checkpoint.execution_state.status, WorkflowStatus::Completed);
+
+        // Verify no error context variables
+        assert!(
+            !checkpoint.variable_state.contains_key("__error_message"),
+            "Completion checkpoint should not have error message"
+        );
+        assert!(
+            !checkpoint
+                .variable_state
+                .contains_key("__failed_step_index"),
+            "Completion checkpoint should not have failed step index"
+        );
+    }
+
+    #[test]
+    fn test_error_checkpoint_preserves_workflow_context() {
+        // Setup test data with variables
+        let workflow = create_test_workflow();
+        let mut context = WorkflowContext::default();
+        context
+            .variables
+            .insert("user_var".to_string(), "user_value".to_string());
+        context
+            .captured_outputs
+            .insert("output_var".to_string(), "output_value".to_string());
+
+        let error = anyhow::anyhow!("Test error");
+
+        // Create error checkpoint
+        let checkpoint = create_error_checkpoint(
+            "test-workflow".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            "hash123".to_string(),
+            &error,
+            2,
+        )
+        .expect("Failed to create error checkpoint");
+
+        // Verify user variables are preserved
+        assert!(
+            checkpoint.variable_state.contains_key("user_var"),
+            "User variables should be preserved in error checkpoint"
+        );
+        assert!(
+            checkpoint.variable_state.contains_key("output_var"),
+            "Captured outputs should be preserved in error checkpoint"
+        );
+
+        // Verify error context variables are added
+        assert!(
+            checkpoint.variable_state.contains_key("__error_message"),
+            "Error message should be added"
+        );
+        assert!(
+            checkpoint
+                .variable_state
+                .contains_key("__failed_step_index"),
+            "Failed step index should be added"
+        );
+    }
 }
