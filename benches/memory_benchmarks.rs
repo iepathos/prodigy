@@ -108,6 +108,7 @@ fn bench_checkpoint_memory_overhead(c: &mut Criterion) {
                 b.to_async(&rt).iter_batched(
                     || {
                         let temp_dir = TempDir::new().unwrap();
+                        #[allow(deprecated)]
                         let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                         (manager, steps, temp_dir)
                     },

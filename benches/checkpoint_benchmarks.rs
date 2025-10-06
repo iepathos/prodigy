@@ -90,6 +90,7 @@ fn bench_checkpoint_save(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
+                    #[allow(deprecated)]
                     let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                     let checkpoint = create_test_checkpoint(10, 5);
                     (manager, checkpoint, temp_dir)
@@ -104,6 +105,7 @@ fn bench_checkpoint_save(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
+                    #[allow(deprecated)]
                     let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                     let checkpoint = create_test_checkpoint(100, 50);
                     (manager, checkpoint, temp_dir)
@@ -118,6 +120,7 @@ fn bench_checkpoint_save(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
+                    #[allow(deprecated)]
                     let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                     let checkpoint = create_test_checkpoint(1000, 200);
                     (manager, checkpoint, temp_dir)
@@ -140,6 +143,7 @@ fn bench_checkpoint_load(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
+                    #[allow(deprecated)]
                     let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                     let checkpoint = create_test_checkpoint(10, 5);
                     (manager, checkpoint, temp_dir)
@@ -162,6 +166,7 @@ fn bench_checkpoint_load(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
+                    #[allow(deprecated)]
                     let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                     let checkpoint = create_test_checkpoint(100, 50);
                     (manager, checkpoint, temp_dir)
@@ -184,6 +189,7 @@ fn bench_checkpoint_load(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
+                    #[allow(deprecated)]
                     let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                     let checkpoint = create_test_checkpoint(1000, 200);
                     (manager, checkpoint, temp_dir)
@@ -211,6 +217,7 @@ fn bench_checkpoint_atomic_write(c: &mut Criterion) {
         b.to_async(&rt).iter_batched(
             || {
                 let temp_dir = TempDir::new().unwrap();
+                #[allow(deprecated)]
                 let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                 let checkpoint = create_test_checkpoint(100, 50);
                 (manager, checkpoint, temp_dir)
@@ -231,6 +238,7 @@ fn bench_checkpoint_list(c: &mut Criterion) {
         b.to_async(&rt).iter_batched(
             || {
                 let temp_dir = TempDir::new().unwrap();
+                #[allow(deprecated)]
                 let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                 let checkpoints: Vec<_> = (0..10)
                     .map(|i| {
@@ -261,6 +269,7 @@ fn bench_checkpoint_delete(c: &mut Criterion) {
         b.to_async(&rt).iter_batched(
             || {
                 let temp_dir = TempDir::new().unwrap();
+                #[allow(deprecated)]
                 let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
                 let checkpoints: Vec<_> = (0..5)
                     .map(|i| {

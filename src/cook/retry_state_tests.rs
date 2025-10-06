@@ -308,6 +308,7 @@ async fn test_backoff_strategy_calculation() {
 #[tokio::test]
 async fn test_checkpoint_with_retry_state_integration() {
     let temp_dir = TempDir::new().unwrap();
+    #[allow(deprecated)]
     let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
 
     // Create a checkpoint with retry state

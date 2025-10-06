@@ -2,6 +2,7 @@
 //!
 //! Provides checkpoint creation, persistence, and restoration for workflow execution.
 
+use crate::cook::workflow::checkpoint_path::CheckpointStorage;
 use crate::cook::workflow::executor::WorkflowContext;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::variable_checkpoint::VariableCheckpointState;
@@ -188,8 +189,8 @@ pub struct ResumeOptions {
 
 /// Manager for workflow checkpoints
 pub struct CheckpointManager {
-    /// Base directory for checkpoints
-    storage_path: PathBuf,
+    /// Checkpoint storage strategy
+    storage: CheckpointStorage,
     /// Checkpoint interval
     checkpoint_interval: Duration,
     /// Whether checkpointing is enabled
@@ -197,10 +198,26 @@ pub struct CheckpointManager {
 }
 
 impl CheckpointManager {
-    /// Create a new checkpoint manager
+    /// Create a new checkpoint manager with explicit storage strategy
+    pub fn with_storage(storage: CheckpointStorage) -> Self {
+        Self {
+            storage,
+            checkpoint_interval: DEFAULT_CHECKPOINT_INTERVAL,
+            enabled: true,
+        }
+    }
+
+    /// Create a new checkpoint manager (deprecated - use with_storage)
+    ///
+    /// This constructor is maintained for backwards compatibility but is deprecated.
+    /// New code should use `with_storage()` with an explicit CheckpointStorage strategy.
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use CheckpointManager::with_storage() with explicit storage strategy instead"
+    )]
     pub fn new(storage_path: PathBuf) -> Self {
         Self {
-            storage_path,
+            storage: CheckpointStorage::Local(storage_path),
             checkpoint_interval: DEFAULT_CHECKPOINT_INTERVAL,
             enabled: true,
         }
@@ -218,7 +235,10 @@ impl CheckpointManager {
             return Ok(());
         }
 
-        let checkpoint_path = self.get_checkpoint_path(&checkpoint.workflow_id);
+        let checkpoint_path = self
+            .storage
+            .checkpoint_file_path(&checkpoint.workflow_id)
+            .context("Failed to resolve checkpoint path")?;
         let temp_path = checkpoint_path.with_extension("tmp");
 
         // Ensure directory exists
@@ -275,32 +295,23 @@ impl CheckpointManager {
 
     /// Load a checkpoint for resuming
     pub async fn load_checkpoint(&self, workflow_id: &str) -> Result<WorkflowCheckpoint> {
-        let checkpoint_path = self.get_checkpoint_path(workflow_id);
+        let checkpoint_path = self
+            .storage
+            .checkpoint_file_path(workflow_id)
+            .context("Failed to resolve checkpoint path")?;
 
-        // Try local checkpoint first
-        let content = if checkpoint_path.exists() {
-            fs::read_to_string(&checkpoint_path)
-                .await
-                .context("Failed to read checkpoint file")?
-        } else {
-            // Try global storage location
-            let global_checkpoint_path = self.get_global_checkpoint_path(workflow_id).await?;
-            if global_checkpoint_path.exists() {
-                fs::read_to_string(&global_checkpoint_path)
-                    .await
-                    .context("Failed to read global checkpoint file")?
-            } else {
-                return Err(anyhow!("No checkpoint found for workflow {}", workflow_id));
-            }
-        };
+        let content = fs::read_to_string(&checkpoint_path)
+            .await
+            .with_context(|| {
+                format!(
+                    "No checkpoint found for workflow {} at path {}",
+                    workflow_id,
+                    checkpoint_path.display()
+                )
+            })?;
 
-        let checkpoint: WorkflowCheckpoint = match serde_json::from_str(&content) {
-            Ok(cp) => cp,
-            Err(e) => {
-                debug!("Checkpoint parse error: {}", e);
-                return Err(anyhow!("Failed to parse checkpoint: {}", e));
-            }
-        };
+        let checkpoint: WorkflowCheckpoint = serde_json::from_str(&content)
+            .with_context(|| format!("Failed to parse checkpoint for workflow {}", workflow_id))?;
 
         // Validate version compatibility
         if checkpoint.version > CHECKPOINT_VERSION {
@@ -326,7 +337,10 @@ impl CheckpointManager {
 
     /// Delete a checkpoint after successful completion
     pub async fn delete_checkpoint(&self, workflow_id: &str) -> Result<()> {
-        let checkpoint_path = self.get_checkpoint_path(workflow_id);
+        let checkpoint_path = self
+            .storage
+            .checkpoint_file_path(workflow_id)
+            .context("Failed to resolve checkpoint path")?;
         if checkpoint_path.exists() {
             fs::remove_file(checkpoint_path)
                 .await
@@ -340,11 +354,16 @@ impl CheckpointManager {
     pub async fn list_checkpoints(&self) -> Result<Vec<String>> {
         let mut checkpoints = Vec::new();
 
-        if !self.storage_path.exists() {
+        let base_dir = self
+            .storage
+            .resolve_base_dir()
+            .context("Failed to resolve checkpoint base directory")?;
+
+        if !base_dir.exists() {
             return Ok(checkpoints);
         }
 
-        let mut entries = fs::read_dir(&self.storage_path).await?;
+        let mut entries = fs::read_dir(&base_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
             if let Some(name) = entry.file_name().to_str() {
                 if name.ends_with(".checkpoint.json") {
@@ -372,50 +391,6 @@ impl CheckpointManager {
         }
 
         Ok(())
-    }
-
-    /// Get the path for a checkpoint file
-    fn get_checkpoint_path(&self, workflow_id: &str) -> PathBuf {
-        self.storage_path
-            .join(format!("{}.checkpoint.json", workflow_id))
-    }
-
-    /// Get the global storage path for a checkpoint file
-    async fn get_global_checkpoint_path(&self, workflow_id: &str) -> Result<PathBuf> {
-        // Extract repository name from the storage path
-        // storage_path is usually /path/to/repo/.prodigy/checkpoints
-        let repo_name = if let Some(parent) = self.storage_path.parent() {
-            // parent is /path/to/repo/.prodigy
-            if parent.ends_with(".prodigy") {
-                // Get the repo directory
-                parent
-                    .parent()
-                    .and_then(|p| p.file_name())
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unknown")
-                    .to_string()
-            } else {
-                parent
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unknown")
-                    .to_string()
-            }
-        } else {
-            "unknown".to_string()
-        };
-
-        // Build global checkpoint path
-        let global_base = directories::BaseDirs::new()
-            .ok_or_else(|| anyhow!("Could not determine base directories"))?
-            .home_dir()
-            .join(".prodigy");
-
-        Ok(global_base
-            .join("state")
-            .join(repo_name)
-            .join("checkpoints")
-            .join(format!("{}.checkpoint.json", workflow_id)))
     }
 }
 

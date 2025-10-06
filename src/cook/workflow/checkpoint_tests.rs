@@ -10,6 +10,7 @@ mod tests {
     use tempfile::TempDir;
 
     /// Create a test checkpoint manager with temp directory
+    #[allow(deprecated)]
     fn create_test_checkpoint_manager() -> (CheckpointManager, TempDir) {
         let temp_dir = TempDir::new().unwrap();
         let manager = CheckpointManager::new(temp_dir.path().to_path_buf());

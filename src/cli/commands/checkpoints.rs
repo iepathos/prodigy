@@ -68,6 +68,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
                 return Ok(());
             }
 
+            #[allow(deprecated)]
             let checkpoint_manager = CheckpointManager::new(checkpoint_dir.clone());
 
             if let Some(id) = workflow_id {
@@ -128,6 +129,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
                 .get_checkpoints_dir(&repo_name)
                 .await
                 .context("Failed to get global checkpoints directory")?;
+            #[allow(deprecated)]
             let checkpoint_manager = CheckpointManager::new(checkpoint_dir);
 
             show_checkpoint_details(&checkpoint_manager, &workflow_id).await
@@ -298,6 +300,7 @@ async fn clean_specific_checkpoint(
 async fn clean_all_checkpoints(checkpoint_dir: &PathBuf, force: bool) -> Result<()> {
     use crate::cook::workflow::CheckpointManager;
 
+    #[allow(deprecated)]
     let checkpoint_manager = CheckpointManager::new(checkpoint_dir.clone());
     let mut entries = tokio::fs::read_dir(checkpoint_dir).await?;
     let mut deleted = 0;
