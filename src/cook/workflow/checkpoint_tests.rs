@@ -474,7 +474,10 @@ mod tests {
         // Should successfully save checkpoint (verifies enabled=true)
         manager.save_checkpoint(&checkpoint).await.unwrap();
         let checkpoint_path = temp_dir.path().join("test-builder.checkpoint.json");
-        assert!(checkpoint_path.exists(), "Checkpoint should be saved when enabled");
+        assert!(
+            checkpoint_path.exists(),
+            "Checkpoint should be saved when enabled"
+        );
     }
 
     #[test]
