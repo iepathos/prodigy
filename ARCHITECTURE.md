@@ -403,12 +403,159 @@ WorktreeState {
 5. **Migration**: Seamless transition from legacy formats
 6. **Observability**: Comprehensive event logging and metrics
 
+## Checkpoint Storage Strategy System (Spec 122)
+
+### Overview
+
+The checkpoint storage strategy system provides type-safe, deterministic path resolution for workflow checkpoints using a pure functional approach. This system replaces ad-hoc path logic with an explicit, composable design that supports multiple storage strategies.
+
+### Storage Strategies
+
+The `CheckpointStorage` enum in `src/cook/workflow/checkpoint_path.rs` defines three explicit storage strategies:
+
+#### 1. Local Storage
+```rust
+CheckpointStorage::Local(PathBuf)
+```
+- **Purpose**: Project-local checkpoint storage in `.prodigy/checkpoints/`
+- **Use Cases**: Testing, backwards compatibility, isolated project workflows
+- **Path Resolution**: Uses provided path directly (pure function behavior)
+- **Example**: Local checkpoints that stay within project directory
+
+#### 2. Global Storage
+```rust
+CheckpointStorage::Global { repo_name: String }
+```
+- **Purpose**: Repository-scoped storage in `~/.prodigy/state/{repo}/checkpoints/`
+- **Use Cases**: Repository-level metadata, shared across all sessions
+- **Path Resolution**: `~/.prodigy/state/{repo_name}/checkpoints/`
+- **Example**: Shared checkpoint data for all sessions of a project
+
+#### 3. Session Storage (Recommended Default)
+```rust
+CheckpointStorage::Session { session_id: String }
+```
+- **Purpose**: Session-scoped storage in `~/.prodigy/state/{session_id}/checkpoints/`
+- **Use Cases**: Normal workflow checkpoints (recommended for most workflows)
+- **Path Resolution**: `~/.prodigy/state/{session_id}/checkpoints/`
+- **Benefits**:
+  - Isolation between sessions
+  - Survives worktree cleanup
+  - Clean session-scoped organization
+
+### Pure Function Path Resolution
+
+All path resolution functions follow functional programming principles:
+
+#### Core Pure Functions
+
+1. **`resolve_base_dir() -> Result<PathBuf>`**
+   - Pure function: Same inputs always produce same output
+   - No side effects (no I/O, no state mutation)
+   - Returns base directory based on storage strategy
+
+2. **`checkpoint_file_path(checkpoint_id: &str) -> Result<PathBuf>`**
+   - Composes `resolve_base_dir()` with filename construction
+   - Deterministic: Same strategy + ID = Same path
+   - Pattern: `{base_dir}/{checkpoint_id}.checkpoint.json`
+
+3. **`resolve_global_base_dir() -> Result<PathBuf>`**
+   - Helper function for global/session path resolution
+   - Returns `~/.prodigy` from system home directory
+   - Pure derivation from environment (home directory)
+
+#### Functional Design Principles
+
+1. **Immutability**: `CheckpointStorage` enum is immutable once constructed
+2. **Explicit Configuration**: Storage strategy is always explicit, never inferred
+3. **Error as Values**: Returns `Result<T>` instead of panicking
+4. **Composition**: Small pure functions compose to build complex paths
+5. **Determinism**: Property-based tests verify invariants
+
+### Storage Strategy Selection Guidelines
+
+#### When to Use Local Storage
+- **Testing environments**: Keep test artifacts in project directory
+- **Backwards compatibility**: Existing workflows expecting local paths
+- **Isolated workflows**: Project-specific checkpoints that shouldn't be shared
+- **Development**: Quick iteration without polluting global storage
+
+#### When to Use Global Storage
+- **Repository metadata**: Data shared across all sessions
+- **Cross-session analysis**: Aggregating data from multiple workflow runs
+- **Persistent state**: Data that should survive project cleanup
+- **CI/CD environments**: Shared state across pipeline runs
+
+#### When to Use Session Storage (Default)
+- **Normal workflows**: Standard workflow execution (recommended)
+- **Parallel execution**: Isolated checkpoints per session
+- **Fault tolerance**: Session-specific recovery without conflicts
+- **Clean separation**: Clear boundaries between workflow runs
+
+### Path Resolution Examples
+
+```rust
+// Local: Direct path usage
+let local = CheckpointStorage::Local(PathBuf::from("/tmp/checkpoints"));
+let path = local.checkpoint_file_path("cp-1")?;
+// Result: /tmp/checkpoints/cp-1.checkpoint.json
+
+// Global: Repository-scoped
+let global = CheckpointStorage::Global {
+    repo_name: "prodigy".to_string()
+};
+let path = global.checkpoint_file_path("cp-1")?;
+// Result: ~/.prodigy/state/prodigy/checkpoints/cp-1.checkpoint.json
+
+// Session: Session-scoped (recommended)
+let session = CheckpointStorage::Session {
+    session_id: "session-abc123".to_string()
+};
+let path = session.checkpoint_file_path("cp-1")?;
+// Result: ~/.prodigy/state/session-abc123/checkpoints/cp-1.checkpoint.json
+```
+
+### Testing Strategy
+
+The checkpoint path system uses both unit tests and property-based tests:
+
+#### Property-Based Tests (Using proptest)
+
+The system includes comprehensive property-based tests that verify invariants across arbitrary inputs:
+
+1. **Determinism**: Same strategy + ID always produces same path
+2. **Isolation**: Different session IDs produce different paths
+3. **Conventions**: All paths end with `.checkpoint.json`
+4. **ID Preservation**: Checkpoint ID is always in the filename
+5. **Scoping**: Storage paths always contain their scope identifier
+6. **Pure Function Behavior**: Local storage returns exact path provided
+
+These tests run on randomly generated inputs to verify the system behaves correctly across all possible valid inputs, not just hand-picked test cases.
+
+### Integration with Workflow System
+
+The checkpoint storage strategy integrates with the broader workflow system:
+
+1. **Orchestrator**: Selects storage strategy based on workflow configuration
+2. **Checkpointer**: Uses pure path functions to determine checkpoint locations
+3. **Recovery**: Reconstructs paths deterministically from session/workflow ID
+4. **Migration**: Legacy paths automatically detected and migrated
+
+### Error Handling
+
+All path resolution functions:
+- Return `Result<PathBuf>` for error propagation
+- Provide context via `anyhow::Context`
+- Never panic in production code
+- Handle missing home directory gracefully
+
 ## Testing Strategy
 
 - **Unit Tests**: Each module has comprehensive unit tests
 - **Integration Tests**: Test interaction between components
 - **Migration Tests**: Verify legacy data migration
 - **Mock Implementations**: Testing abstractions for isolated testing
+- **Property-Based Tests**: Verify system invariants across arbitrary inputs using proptest
 
 ## Future Enhancements
 

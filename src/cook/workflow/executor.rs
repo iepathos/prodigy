@@ -2667,10 +2667,107 @@ impl WorkflowExecutor {
         )
     }
 
+    /// Execute workflow with checkpoint-on-error recovery
+    ///
+    /// Wraps workflow execution to ensure checkpoints are saved on both success and error paths.
+    /// This enables graceful degradation and resume capability even when workflows fail.
     pub async fn execute(
         &mut self,
         workflow: &ExtendedWorkflowConfig,
         env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Initialize workflow context early for checkpoint saving
+        let mut workflow_context = self.init_workflow_context(env);
+
+        // Execute workflow and capture result
+        let execution_result = self
+            .execute_internal(workflow, env, &mut workflow_context)
+            .await;
+
+        // Save checkpoint based on execution result (success or failure)
+        if let Some(ref checkpoint_manager) = self.checkpoint_manager {
+            if let Some(ref workflow_id) = self.workflow_id {
+                let workflow_hash =
+                    orchestration::create_workflow_hash(&workflow.name, workflow.steps.len());
+                let normalized_workflow =
+                    orchestration::create_normalized_workflow(&workflow.name, &workflow_context);
+
+                let checkpoint_result = match &execution_result {
+                    Ok(_) => {
+                        // Success: save completion checkpoint
+                        let current_step_index =
+                            self.current_step_index.unwrap_or(workflow.steps.len());
+                        let checkpoint_create_result = checkpoint::create_completion_checkpoint(
+                            workflow_id.clone(),
+                            &normalized_workflow,
+                            &workflow_context,
+                            self.checkpoint_completed_steps.clone(),
+                            current_step_index,
+                            workflow_hash,
+                        )
+                        .map(|mut cp| {
+                            // Set workflow path if available
+                            if let Some(ref path) = self.workflow_path {
+                                cp.workflow_path = Some(path.clone());
+                            }
+                            cp
+                        });
+
+                        // I/O operation: save to disk
+                        match checkpoint_create_result {
+                            Ok(cp) => checkpoint_manager.save_checkpoint(&cp).await,
+                            Err(e) => Err(e),
+                        }
+                    }
+                    Err(error) => {
+                        // Failure: save error recovery checkpoint
+                        let failed_step_index = self.current_step_index.unwrap_or(0);
+                        let checkpoint_create_result = checkpoint::create_error_checkpoint(
+                            workflow_id.clone(),
+                            &normalized_workflow,
+                            &workflow_context,
+                            self.checkpoint_completed_steps.clone(),
+                            workflow_hash,
+                            error,
+                            failed_step_index,
+                        )
+                        .map(|mut cp| {
+                            // Set workflow path if available
+                            if let Some(ref path) = self.workflow_path {
+                                cp.workflow_path = Some(path.clone());
+                            }
+                            cp
+                        });
+
+                        // I/O operation: save to disk
+                        match checkpoint_create_result {
+                            Ok(cp) => checkpoint_manager.save_checkpoint(&cp).await,
+                            Err(e) => Err(e),
+                        }
+                    }
+                };
+
+                // Log checkpoint errors but don't fail the workflow
+                if let Err(checkpoint_err) = checkpoint_result {
+                    tracing::error!(
+                        "Failed to save checkpoint for workflow {}: {}",
+                        workflow_id,
+                        checkpoint_err
+                    );
+                }
+            }
+        }
+
+        // Return original execution result
+        execution_result
+    }
+
+    /// Internal execution implementation (private)
+    async fn execute_internal(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+        workflow_context: &mut WorkflowContext,
     ) -> Result<()> {
         // Handle MapReduce mode
         if workflow.mode == WorkflowMode::MapReduce {
@@ -2709,8 +2806,7 @@ impl WorkflowExecutor {
         // Clear completed steps at the start of a new workflow
         self.completed_steps.clear();
 
-        // Initialize workflow context
-        let mut workflow_context = self.init_workflow_context(env);
+        // Note: workflow_context is passed in from execute() wrapper
 
         // Start workflow timing in session
         self.session_manager
@@ -2759,7 +2855,7 @@ impl WorkflowExecutor {
                 }
 
                 // Restore error recovery state if needed
-                self.restore_error_recovery_state(step_index, &mut workflow_context);
+                self.restore_error_recovery_state(step_index, workflow_context);
 
                 // Store current workflow context for checkpoint tracking
                 // TODO: Convert workflow to NormalizedWorkflow for checkpoint tracking
@@ -2792,7 +2888,7 @@ impl WorkflowExecutor {
                 // Execute the step
                 // Note: No with_context() wrapper here - the error from execute_step
                 // already contains detailed information from build_step_error_message
-                let step_result = self.execute_step(step, env, &mut workflow_context).await?;
+                let step_result = self.execute_step(step, env, workflow_context).await?;
 
                 // Display subprocess output when verbose logging is enabled
                 self.log_step_output(&step_result);
@@ -2827,7 +2923,7 @@ impl WorkflowExecutor {
                     step_display.clone(),
                     step,
                     &step_result,
-                    &workflow_context,
+                    workflow_context,
                     command_duration,
                     step_completed_at,
                 );
@@ -2845,14 +2941,14 @@ impl WorkflowExecutor {
                         // Build normalized workflow
                         let normalized_workflow = orchestration::create_normalized_workflow(
                             &workflow.name,
-                            &workflow_context,
+                            workflow_context,
                         );
 
                         // Build checkpoint
                         let mut checkpoint = create_checkpoint_with_total_steps(
                             workflow_id.clone(),
                             &normalized_workflow,
-                            &workflow_context,
+                            workflow_context,
                             self.checkpoint_completed_steps.clone(),
                             step_index + 1,
                             workflow_hash,
@@ -2884,7 +2980,7 @@ impl WorkflowExecutor {
                                 &before,
                                 step,
                                 &step_display,
-                                &mut workflow_context,
+                                workflow_context,
                             )
                             .await?
                             || any_changes;

@@ -10,6 +10,7 @@ mod tests {
     use tempfile::TempDir;
 
     /// Create a test checkpoint manager with temp directory
+    #[allow(deprecated)]
     fn create_test_checkpoint_manager() -> (CheckpointManager, TempDir) {
         let temp_dir = TempDir::new().unwrap();
         let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
@@ -240,6 +241,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn test_checkpoint_auto_interval() {
         let (mut manager, _temp_dir) = create_test_checkpoint_manager();
 
@@ -297,5 +299,314 @@ mod tests {
 
         // Verify workflow path was persisted
         assert_eq!(loaded.workflow_path, Some(test_path));
+    }
+
+    #[test]
+    fn test_create_error_checkpoint_includes_context() {
+        // Setup test data
+        let workflow = create_test_workflow();
+        let context = WorkflowContext::default();
+        let error = anyhow::anyhow!("Test error: commit required but no commits were created");
+        let failed_step_index = 5;
+
+        // Create error checkpoint
+        let checkpoint = create_error_checkpoint(
+            "test-workflow".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            "hash123".to_string(),
+            &error,
+            failed_step_index,
+        )
+        .expect("Failed to create error checkpoint");
+
+        // Verify status is Failed
+        assert_eq!(checkpoint.execution_state.status, WorkflowStatus::Failed);
+
+        // Verify error message is captured
+        let error_msg = checkpoint
+            .variable_state
+            .get("__error_message")
+            .expect("Missing __error_message");
+        assert!(
+            error_msg.as_str().unwrap().contains("commit required"),
+            "Error message should contain 'commit required', got: {}",
+            error_msg
+        );
+
+        // Verify failed step index is captured
+        let failed_step = checkpoint
+            .variable_state
+            .get("__failed_step_index")
+            .expect("Missing __failed_step_index");
+        assert_eq!(
+            failed_step.as_u64().unwrap(),
+            failed_step_index as u64,
+            "Failed step index should be {}",
+            failed_step_index
+        );
+
+        // Verify timestamp is present
+        let timestamp = checkpoint
+            .variable_state
+            .get("__error_timestamp")
+            .expect("Missing __error_timestamp");
+        assert!(
+            timestamp.is_string(),
+            "Timestamp should be a string ISO 8601 format"
+        );
+    }
+
+    #[test]
+    fn test_create_completion_checkpoint_status() {
+        // Setup test data
+        let workflow = create_test_workflow();
+        let context = WorkflowContext::default();
+        let current_step_index = 3;
+
+        // Create completion checkpoint
+        let checkpoint = create_completion_checkpoint(
+            "test-workflow".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            current_step_index,
+            "hash123".to_string(),
+        )
+        .expect("Failed to create completion checkpoint");
+
+        // Verify status is Completed
+        assert_eq!(checkpoint.execution_state.status, WorkflowStatus::Completed);
+
+        // Verify no error context variables
+        assert!(
+            !checkpoint.variable_state.contains_key("__error_message"),
+            "Completion checkpoint should not have error message"
+        );
+        assert!(
+            !checkpoint
+                .variable_state
+                .contains_key("__failed_step_index"),
+            "Completion checkpoint should not have failed step index"
+        );
+    }
+
+    #[test]
+    fn test_error_checkpoint_preserves_workflow_context() {
+        // Setup test data with variables
+        let workflow = create_test_workflow();
+        let mut context = WorkflowContext::default();
+        context
+            .variables
+            .insert("user_var".to_string(), "user_value".to_string());
+        context
+            .captured_outputs
+            .insert("output_var".to_string(), "output_value".to_string());
+
+        let error = anyhow::anyhow!("Test error");
+
+        // Create error checkpoint
+        let checkpoint = create_error_checkpoint(
+            "test-workflow".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            "hash123".to_string(),
+            &error,
+            2,
+        )
+        .expect("Failed to create error checkpoint");
+
+        // Verify user variables are preserved
+        assert!(
+            checkpoint.variable_state.contains_key("user_var"),
+            "User variables should be preserved in error checkpoint"
+        );
+        assert!(
+            checkpoint.variable_state.contains_key("output_var"),
+            "Captured outputs should be preserved in error checkpoint"
+        );
+
+        // Verify error context variables are added
+        assert!(
+            checkpoint.variable_state.contains_key("__error_message"),
+            "Error message should be added"
+        );
+        assert!(
+            checkpoint
+                .variable_state
+                .contains_key("__failed_step_index"),
+            "Failed step index should be added"
+        );
+    }
+
+    // ============================================================================
+    // Tests for builder pattern and immutability (Spec 124)
+    // ============================================================================
+
+    #[tokio::test]
+    async fn test_checkpoint_manager_builder_pattern() {
+        use crate::cook::workflow::checkpoint_path::CheckpointStorage;
+        use std::time::Duration;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = CheckpointStorage::Local(temp_dir.path().to_path_buf());
+
+        // Test builder pattern chaining
+        let manager = CheckpointManager::with_storage(storage)
+            .with_interval(Duration::from_secs(30))
+            .with_enabled(true);
+
+        // Verify manager works correctly by testing behavior
+        let workflow = create_test_workflow();
+        let context = WorkflowContext::default();
+        let checkpoint = create_checkpoint(
+            "test-builder".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            0,
+            "hash".to_string(),
+        );
+
+        // Should successfully save checkpoint (verifies enabled=true)
+        manager.save_checkpoint(&checkpoint).await.unwrap();
+        let checkpoint_path = temp_dir.path().join("test-builder.checkpoint.json");
+        assert!(
+            checkpoint_path.exists(),
+            "Checkpoint should be saved when enabled"
+        );
+    }
+
+    #[test]
+    fn test_builder_pattern_with_disabled_checkpointing() {
+        use crate::cook::workflow::checkpoint_path::CheckpointStorage;
+        use std::time::Duration;
+
+        let storage = CheckpointStorage::Local(std::path::PathBuf::from("/tmp"));
+
+        // Test that builder pattern allows chaining
+        let _manager = CheckpointManager::with_storage(storage)
+            .with_interval(Duration::from_secs(60))
+            .with_enabled(false);
+
+        // Manager is created successfully (behavior verified in other tests)
+    }
+
+    #[tokio::test]
+    async fn test_builder_pattern_default_values() {
+        use crate::cook::workflow::checkpoint_path::CheckpointStorage;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = CheckpointStorage::Local(temp_dir.path().to_path_buf());
+
+        // Create manager with only storage (should use defaults)
+        let manager = CheckpointManager::with_storage(storage);
+
+        // Verify defaults by testing behavior
+        let workflow = create_test_workflow();
+        let context = WorkflowContext::default();
+        let checkpoint = create_checkpoint(
+            "test-defaults".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            0,
+            "hash".to_string(),
+        );
+
+        // Should save checkpoint (verifies enabled=true by default)
+        manager.save_checkpoint(&checkpoint).await.unwrap();
+        let checkpoint_path = temp_dir.path().join("test-defaults.checkpoint.json");
+        assert!(checkpoint_path.exists(), "Default should be enabled");
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_save_respects_enabled_flag() {
+        use crate::cook::workflow::checkpoint_path::CheckpointStorage;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = CheckpointStorage::Local(temp_dir.path().to_path_buf());
+
+        // Create manager with checkpointing disabled
+        let manager = CheckpointManager::with_storage(storage).with_enabled(false);
+
+        let workflow = create_test_workflow();
+        let context = WorkflowContext::default();
+        let checkpoint = create_checkpoint(
+            "test-disabled".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            0,
+            "hash".to_string(),
+        );
+
+        // Save should succeed but not actually write file
+        manager.save_checkpoint(&checkpoint).await.unwrap();
+
+        // Verify file was not created
+        let checkpoint_path = temp_dir.path().join("test-disabled.checkpoint.json");
+        assert!(
+            !checkpoint_path.exists(),
+            "Checkpoint file should not exist when disabled"
+        );
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_deprecated_api_backwards_compatibility() {
+        use std::time::Duration;
+        use tempfile::TempDir;
+
+        // Test that deprecated API still works
+        let temp_dir = TempDir::new().unwrap();
+        let mut manager = CheckpointManager::new(temp_dir.path().to_path_buf());
+        manager.configure(Duration::from_secs(30), true);
+
+        // Verify old API works by testing behavior
+        let workflow = create_test_workflow();
+        let context = WorkflowContext::default();
+        let checkpoint = create_checkpoint(
+            "test-deprecated".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            0,
+            "hash".to_string(),
+        );
+
+        // Should save checkpoint (verifies configure worked)
+        manager.save_checkpoint(&checkpoint).await.unwrap();
+        let checkpoint_path = temp_dir.path().join("test-deprecated.checkpoint.json");
+        assert!(checkpoint_path.exists(), "Deprecated API should still work");
+    }
+
+    #[tokio::test]
+    async fn test_builder_pattern_interval_configuration() {
+        use crate::cook::workflow::checkpoint_path::CheckpointStorage;
+        use std::time::Duration;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = CheckpointStorage::Local(temp_dir.path().to_path_buf());
+
+        let custom_interval = Duration::from_secs(120);
+        let manager = CheckpointManager::with_storage(storage).with_interval(custom_interval);
+
+        // Verify interval configuration by testing should_checkpoint behavior
+        let baseline = chrono::Utc::now();
+
+        // With 120s interval, should not checkpoint after 60s
+        let recent = baseline - chrono::Duration::seconds(60);
+        assert!(!manager.should_checkpoint(recent).await);
+
+        // With 120s interval, should checkpoint after 130s
+        let old = baseline - chrono::Duration::seconds(130);
+        assert!(manager.should_checkpoint(old).await);
     }
 }

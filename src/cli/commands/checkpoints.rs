@@ -68,7 +68,11 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
                 return Ok(());
             }
 
-            let checkpoint_manager = CheckpointManager::new(checkpoint_dir.clone());
+            use crate::cook::workflow::checkpoint_path::CheckpointStorage;
+
+            #[allow(deprecated)]
+            let checkpoint_manager =
+                CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir.clone()));
 
             if let Some(id) = workflow_id {
                 list_specific_checkpoint(&checkpoint_manager, &id, verbose > 0).await
@@ -128,7 +132,12 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
                 .get_checkpoints_dir(&repo_name)
                 .await
                 .context("Failed to get global checkpoints directory")?;
-            let checkpoint_manager = CheckpointManager::new(checkpoint_dir);
+
+            use crate::cook::workflow::checkpoint_path::CheckpointStorage;
+
+            #[allow(deprecated)]
+            let checkpoint_manager =
+                CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir));
 
             show_checkpoint_details(&checkpoint_manager, &workflow_id).await
         }
@@ -296,9 +305,12 @@ async fn clean_specific_checkpoint(
 
 /// Clean all completed checkpoints
 async fn clean_all_checkpoints(checkpoint_dir: &PathBuf, force: bool) -> Result<()> {
+    use crate::cook::workflow::checkpoint_path::CheckpointStorage;
     use crate::cook::workflow::CheckpointManager;
 
-    let checkpoint_manager = CheckpointManager::new(checkpoint_dir.clone());
+    #[allow(deprecated)]
+    let checkpoint_manager =
+        CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir.clone()));
     let mut entries = tokio::fs::read_dir(checkpoint_dir).await?;
     let mut deleted = 0;
 

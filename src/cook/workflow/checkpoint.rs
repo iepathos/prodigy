@@ -2,6 +2,7 @@
 //!
 //! Provides checkpoint creation, persistence, and restoration for workflow execution.
 
+use crate::cook::workflow::checkpoint_path::CheckpointStorage;
 use crate::cook::workflow::executor::WorkflowContext;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::variable_checkpoint::VariableCheckpointState;
@@ -187,26 +188,144 @@ pub struct ResumeOptions {
 }
 
 /// Manager for workflow checkpoints
+///
+/// `CheckpointManager` is immutable after construction. Use the builder pattern
+/// to configure interval and enabled state.
+///
+/// # Example
+///
+/// ```rust
+/// use prodigy::cook::workflow::checkpoint::{CheckpointManager, CheckpointStorage};
+/// use std::time::Duration;
+///
+/// let storage = CheckpointStorage::Session {
+///     session_id: "session-123".to_string(),
+/// };
+///
+/// let manager = CheckpointManager::with_storage(storage)
+///     .with_interval(Duration::from_secs(60))
+///     .with_enabled(true);
+/// ```
 pub struct CheckpointManager {
-    /// Base directory for checkpoints
-    storage_path: PathBuf,
-    /// Checkpoint interval
+    /// Checkpoint storage strategy (immutable)
+    storage: CheckpointStorage,
+    /// Checkpoint interval (immutable)
     checkpoint_interval: Duration,
-    /// Whether checkpointing is enabled
+    /// Whether checkpointing is enabled (immutable)
     enabled: bool,
 }
 
 impl CheckpointManager {
-    /// Create a new checkpoint manager
-    pub fn new(storage_path: PathBuf) -> Self {
+    /// Create a new checkpoint manager with explicit storage strategy
+    ///
+    /// Returns a `CheckpointManager` with default configuration:
+    /// - Interval: 60 seconds
+    /// - Enabled: true
+    ///
+    /// Use builder methods to customize configuration.
+    pub fn with_storage(storage: CheckpointStorage) -> Self {
         Self {
-            storage_path,
+            storage,
             checkpoint_interval: DEFAULT_CHECKPOINT_INTERVAL,
             enabled: true,
         }
     }
 
-    /// Configure checkpoint settings
+    /// Configure checkpoint interval (builder pattern)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use prodigy::cook::workflow::checkpoint::{CheckpointManager, CheckpointStorage};
+    /// # use std::time::Duration;
+    /// let storage = CheckpointStorage::Session { session_id: "test".to_string() };
+    /// let manager = CheckpointManager::with_storage(storage)
+    ///     .with_interval(Duration::from_secs(30));
+    /// ```
+    pub fn with_interval(mut self, interval: Duration) -> Self {
+        self.checkpoint_interval = interval;
+        self
+    }
+
+    /// Enable or disable checkpointing (builder pattern)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use prodigy::cook::workflow::checkpoint::{CheckpointManager, CheckpointStorage};
+    /// let storage = CheckpointStorage::Session { session_id: "test".to_string() };
+    /// let manager = CheckpointManager::with_storage(storage)
+    ///     .with_enabled(false);
+    /// ```
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    /// Create a new checkpoint manager (deprecated - use with_storage)
+    ///
+    /// This constructor is maintained for backwards compatibility but is deprecated.
+    /// New code should use `with_storage()` with an explicit CheckpointStorage strategy.
+    ///
+    /// # Migration
+    ///
+    /// Old API:
+    /// ```rust,ignore
+    /// let mut manager = CheckpointManager::new(PathBuf::from("/tmp"));
+    /// manager.configure(Duration::from_secs(60), true);
+    /// ```
+    ///
+    /// New API:
+    /// ```rust
+    /// # use prodigy::cook::workflow::checkpoint::{CheckpointManager, CheckpointStorage};
+    /// # use std::time::Duration;
+    /// # use std::path::PathBuf;
+    /// let manager = CheckpointManager::with_storage(
+    ///     CheckpointStorage::Local(PathBuf::from("/tmp"))
+    /// )
+    /// .with_interval(Duration::from_secs(60))
+    /// .with_enabled(true);
+    /// ```
+    #[deprecated(
+        since = "0.10.0",
+        note = "Use CheckpointManager::with_storage() with explicit storage strategy instead"
+    )]
+    pub fn new(storage_path: PathBuf) -> Self {
+        Self {
+            storage: CheckpointStorage::Local(storage_path),
+            checkpoint_interval: DEFAULT_CHECKPOINT_INTERVAL,
+            enabled: true,
+        }
+    }
+
+    /// Configure checkpoint settings (deprecated - use builder pattern)
+    ///
+    /// This method mutates the `CheckpointManager` after construction, which violates
+    /// the immutability principle. Use the builder pattern instead.
+    ///
+    /// # Migration
+    ///
+    /// Old API:
+    /// ```rust,ignore
+    /// let mut manager = CheckpointManager::new(path);
+    /// manager.configure(Duration::from_secs(60), true);
+    /// ```
+    ///
+    /// New API:
+    /// ```rust
+    /// # use prodigy::cook::workflow::checkpoint::{CheckpointManager, CheckpointStorage};
+    /// # use std::time::Duration;
+    /// # use std::path::PathBuf;
+    /// let manager = CheckpointManager::with_storage(
+    ///     CheckpointStorage::Local(PathBuf::from("/tmp"))
+    /// )
+    /// .with_interval(Duration::from_secs(60))
+    /// .with_enabled(true);
+    /// ```
+    #[deprecated(
+        since = "0.10.0",
+        note = "Use .with_interval().with_enabled() builder pattern instead"
+    )]
     pub fn configure(&mut self, interval: Duration, enabled: bool) {
         self.checkpoint_interval = interval;
         self.enabled = enabled;
@@ -218,26 +337,18 @@ impl CheckpointManager {
             return Ok(());
         }
 
-        let checkpoint_path = self.get_checkpoint_path(&checkpoint.workflow_id);
+        // Pure: resolve paths using storage strategy
+        let checkpoint_path = self
+            .storage
+            .checkpoint_file_path(&checkpoint.workflow_id)
+            .context("Failed to resolve checkpoint path")?;
         let temp_path = checkpoint_path.with_extension("tmp");
 
-        // Ensure directory exists
-        if let Some(parent) = checkpoint_path.parent() {
-            fs::create_dir_all(parent)
-                .await
-                .context("Failed to create checkpoint directory")?;
-        }
+        // I/O: ensure directory exists
+        ensure_checkpoint_dir_exists(&checkpoint_path).await?;
 
-        // Write to temp file first
-        let json = serde_json::to_string_pretty(checkpoint)?;
-        fs::write(&temp_path, json)
-            .await
-            .context("Failed to write checkpoint to temp file")?;
-
-        // Atomic rename
-        fs::rename(temp_path, &checkpoint_path)
-            .await
-            .context("Failed to move checkpoint to final location")?;
+        // I/O: atomic write to filesystem
+        write_checkpoint_atomically(&checkpoint_path, &temp_path, checkpoint).await?;
 
         info!(
             "Saved checkpoint for workflow {} at step {}",
@@ -275,32 +386,23 @@ impl CheckpointManager {
 
     /// Load a checkpoint for resuming
     pub async fn load_checkpoint(&self, workflow_id: &str) -> Result<WorkflowCheckpoint> {
-        let checkpoint_path = self.get_checkpoint_path(workflow_id);
+        let checkpoint_path = self
+            .storage
+            .checkpoint_file_path(workflow_id)
+            .context("Failed to resolve checkpoint path")?;
 
-        // Try local checkpoint first
-        let content = if checkpoint_path.exists() {
-            fs::read_to_string(&checkpoint_path)
-                .await
-                .context("Failed to read checkpoint file")?
-        } else {
-            // Try global storage location
-            let global_checkpoint_path = self.get_global_checkpoint_path(workflow_id).await?;
-            if global_checkpoint_path.exists() {
-                fs::read_to_string(&global_checkpoint_path)
-                    .await
-                    .context("Failed to read global checkpoint file")?
-            } else {
-                return Err(anyhow!("No checkpoint found for workflow {}", workflow_id));
-            }
-        };
+        let content = fs::read_to_string(&checkpoint_path)
+            .await
+            .with_context(|| {
+                format!(
+                    "No checkpoint found for workflow {} at path {}",
+                    workflow_id,
+                    checkpoint_path.display()
+                )
+            })?;
 
-        let checkpoint: WorkflowCheckpoint = match serde_json::from_str(&content) {
-            Ok(cp) => cp,
-            Err(e) => {
-                debug!("Checkpoint parse error: {}", e);
-                return Err(anyhow!("Failed to parse checkpoint: {}", e));
-            }
-        };
+        let checkpoint: WorkflowCheckpoint = serde_json::from_str(&content)
+            .with_context(|| format!("Failed to parse checkpoint for workflow {}", workflow_id))?;
 
         // Validate version compatibility
         if checkpoint.version > CHECKPOINT_VERSION {
@@ -326,7 +428,10 @@ impl CheckpointManager {
 
     /// Delete a checkpoint after successful completion
     pub async fn delete_checkpoint(&self, workflow_id: &str) -> Result<()> {
-        let checkpoint_path = self.get_checkpoint_path(workflow_id);
+        let checkpoint_path = self
+            .storage
+            .checkpoint_file_path(workflow_id)
+            .context("Failed to resolve checkpoint path")?;
         if checkpoint_path.exists() {
             fs::remove_file(checkpoint_path)
                 .await
@@ -340,11 +445,16 @@ impl CheckpointManager {
     pub async fn list_checkpoints(&self) -> Result<Vec<String>> {
         let mut checkpoints = Vec::new();
 
-        if !self.storage_path.exists() {
+        let base_dir = self
+            .storage
+            .resolve_base_dir()
+            .context("Failed to resolve checkpoint base directory")?;
+
+        if !base_dir.exists() {
             return Ok(checkpoints);
         }
 
-        let mut entries = fs::read_dir(&self.storage_path).await?;
+        let mut entries = fs::read_dir(&base_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
             if let Some(name) = entry.file_name().to_str() {
                 if name.ends_with(".checkpoint.json") {
@@ -372,50 +482,6 @@ impl CheckpointManager {
         }
 
         Ok(())
-    }
-
-    /// Get the path for a checkpoint file
-    fn get_checkpoint_path(&self, workflow_id: &str) -> PathBuf {
-        self.storage_path
-            .join(format!("{}.checkpoint.json", workflow_id))
-    }
-
-    /// Get the global storage path for a checkpoint file
-    async fn get_global_checkpoint_path(&self, workflow_id: &str) -> Result<PathBuf> {
-        // Extract repository name from the storage path
-        // storage_path is usually /path/to/repo/.prodigy/checkpoints
-        let repo_name = if let Some(parent) = self.storage_path.parent() {
-            // parent is /path/to/repo/.prodigy
-            if parent.ends_with(".prodigy") {
-                // Get the repo directory
-                parent
-                    .parent()
-                    .and_then(|p| p.file_name())
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unknown")
-                    .to_string()
-            } else {
-                parent
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unknown")
-                    .to_string()
-            }
-        } else {
-            "unknown".to_string()
-        };
-
-        // Build global checkpoint path
-        let global_base = directories::BaseDirs::new()
-            .ok_or_else(|| anyhow!("Could not determine base directories"))?
-            .home_dir()
-            .join(".prodigy");
-
-        Ok(global_base
-            .join("state")
-            .join(repo_name)
-            .join("checkpoints")
-            .join(format!("{}.checkpoint.json", workflow_id)))
     }
 }
 
@@ -498,6 +564,78 @@ pub fn create_checkpoint_with_total_steps(
     }
 }
 
+/// Pure function: create checkpoint for successful completion
+///
+/// Creates a checkpoint marked as completed without performing any I/O.
+/// Returns `Result<WorkflowCheckpoint>` for consistency with error path.
+pub fn create_completion_checkpoint(
+    workflow_id: String,
+    workflow: &NormalizedWorkflow,
+    context: &WorkflowContext,
+    completed_steps: Vec<CompletedStep>,
+    current_step_index: usize,
+    workflow_hash: String,
+) -> Result<WorkflowCheckpoint> {
+    let mut checkpoint = create_checkpoint(
+        workflow_id,
+        workflow,
+        context,
+        completed_steps,
+        current_step_index,
+        workflow_hash,
+    );
+
+    checkpoint.execution_state.status = WorkflowStatus::Completed;
+    Ok(checkpoint)
+}
+
+/// Pure function: create checkpoint with error context for failure recovery
+///
+/// Creates a checkpoint marked as failed with error context stored in variable_state.
+/// This enables users to inspect failure details and potentially resume from the point of failure.
+///
+/// Error context is stored in special variables:
+/// - `__error_message`: The error message as a string
+/// - `__failed_step_index`: The index of the step that failed
+/// - `__error_timestamp`: ISO 8601 timestamp of when the error occurred
+pub fn create_error_checkpoint(
+    workflow_id: String,
+    workflow: &NormalizedWorkflow,
+    context: &WorkflowContext,
+    completed_steps: Vec<CompletedStep>,
+    workflow_hash: String,
+    error: &anyhow::Error,
+    failed_step_index: usize,
+) -> Result<WorkflowCheckpoint> {
+    let mut checkpoint = create_checkpoint(
+        workflow_id,
+        workflow,
+        context,
+        completed_steps,
+        failed_step_index,
+        workflow_hash,
+    );
+
+    // Set status to Failed
+    checkpoint.execution_state.status = WorkflowStatus::Failed;
+
+    // Store error context in variable_state for debugging
+    checkpoint.variable_state.insert(
+        "__error_message".to_string(),
+        Value::String(error.to_string()),
+    );
+    checkpoint.variable_state.insert(
+        "__failed_step_index".to_string(),
+        Value::Number(failed_step_index.into()),
+    );
+    checkpoint.variable_state.insert(
+        "__error_timestamp".to_string(),
+        Value::String(Utc::now().to_rfc3339()),
+    );
+
+    Ok(checkpoint)
+}
+
 /// Build resume context from a checkpoint
 pub fn build_resume_context(checkpoint: WorkflowCheckpoint) -> ResumeContext {
     let completed_steps = checkpoint.completed_steps.clone();
@@ -514,4 +652,55 @@ pub fn build_resume_context(checkpoint: WorkflowCheckpoint) -> ResumeContext {
         resume_iteration,
         checkpoint: Some(Box::new(checkpoint)),
     }
+}
+
+// ============================================================================
+// Pure Functions: Separated from I/O for testability
+// ============================================================================
+
+/// Pure function: serialize checkpoint to JSON
+///
+/// This is a pure function with no side effects, making it easily testable.
+/// Takes a checkpoint and returns the JSON string representation.
+fn serialize_checkpoint(checkpoint: &WorkflowCheckpoint) -> Result<String> {
+    serde_json::to_string_pretty(checkpoint).context("Failed to serialize checkpoint to JSON")
+}
+
+// ============================================================================
+// I/O Operations: Separated at module boundaries
+// ============================================================================
+
+/// I/O operation: ensure checkpoint directory exists
+///
+/// Creates parent directories for the checkpoint file if they don't exist.
+async fn ensure_checkpoint_dir_exists(checkpoint_path: &std::path::Path) -> Result<()> {
+    if let Some(parent) = checkpoint_path.parent() {
+        fs::create_dir_all(parent)
+            .await
+            .context("Failed to create checkpoint directory")?;
+    }
+    Ok(())
+}
+
+/// I/O operation: atomic write checkpoint to filesystem
+///
+/// Writes checkpoint to a temporary file first, then atomically renames it
+/// to the final location to prevent corruption from interrupted writes.
+async fn write_checkpoint_atomically(
+    final_path: &std::path::Path,
+    temp_path: &std::path::Path,
+    checkpoint: &WorkflowCheckpoint,
+) -> Result<()> {
+    // Pure: serialize checkpoint
+    let json = serialize_checkpoint(checkpoint)?;
+
+    // I/O: write to temp file
+    fs::write(temp_path, json)
+        .await
+        .context("Failed to write checkpoint to temp file")?;
+
+    // I/O: atomic rename
+    fs::rename(temp_path, final_path)
+        .await
+        .context("Failed to move checkpoint to final location")
 }
