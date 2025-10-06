@@ -19,7 +19,7 @@ jobs:
       contents: write  # Required to push to gh-pages branch
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v2
