@@ -179,6 +179,7 @@ pub fn resolve_global_base_dir() -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_local_storage_uses_provided_path() {
@@ -283,5 +284,131 @@ mod tests {
 
         assert_eq!(storage1, storage2);
         assert_ne!(storage1, storage3);
+    }
+
+    // Property-based tests using proptest to verify path resolution invariants
+
+    proptest! {
+        /// Property: Same storage strategy and checkpoint ID always produce the same path
+        /// This verifies deterministic path resolution across arbitrary inputs
+        #[test]
+        fn prop_same_strategy_same_path(
+            session_id in "[a-zA-Z0-9-]{1,50}",
+            checkpoint_id in "[a-zA-Z0-9-]{1,50}"
+        ) {
+            let storage = CheckpointStorage::Session {
+                session_id: session_id.clone(),
+            };
+
+            let path1 = storage.checkpoint_file_path(&checkpoint_id).unwrap();
+            let path2 = storage.checkpoint_file_path(&checkpoint_id).unwrap();
+
+            prop_assert_eq!(path1, path2, "Same inputs must always produce same path");
+        }
+
+        /// Property: Different session IDs always produce different paths
+        /// This verifies proper isolation between sessions
+        #[test]
+        fn prop_different_sessions_different_paths(
+            session_id1 in "[a-zA-Z0-9-]{1,50}",
+            session_id2 in "[a-zA-Z0-9-]{1,50}",
+            checkpoint_id in "[a-zA-Z0-9-]{1,50}"
+        ) {
+            prop_assume!(session_id1 != session_id2);
+
+            let storage1 = CheckpointStorage::Session {
+                session_id: session_id1,
+            };
+            let storage2 = CheckpointStorage::Session {
+                session_id: session_id2,
+            };
+
+            let path1 = storage1.checkpoint_file_path(&checkpoint_id).unwrap();
+            let path2 = storage2.checkpoint_file_path(&checkpoint_id).unwrap();
+
+            prop_assert_ne!(path1, path2, "Different session IDs must produce different paths");
+        }
+
+        /// Property: Checkpoint file paths always end with .checkpoint.json
+        /// This verifies consistent file naming conventions
+        #[test]
+        fn prop_checkpoint_paths_have_correct_extension(
+            session_id in "[a-zA-Z0-9-]{1,50}",
+            checkpoint_id in "[a-zA-Z0-9-]{1,50}"
+        ) {
+            let storage = CheckpointStorage::Session { session_id };
+            let path = storage.checkpoint_file_path(&checkpoint_id).unwrap();
+
+            prop_assert!(
+                path.to_string_lossy().ends_with(".checkpoint.json"),
+                "Checkpoint paths must end with .checkpoint.json"
+            );
+        }
+
+        /// Property: Checkpoint ID is preserved in the file name
+        /// This verifies that checkpoint IDs are properly included in paths
+        #[test]
+        fn prop_checkpoint_id_in_path(
+            session_id in "[a-zA-Z0-9-]{1,50}",
+            checkpoint_id in "[a-zA-Z0-9-]{1,50}"
+        ) {
+            let storage = CheckpointStorage::Session { session_id };
+            let path = storage.checkpoint_file_path(&checkpoint_id).unwrap();
+
+            prop_assert!(
+                path.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .contains(&checkpoint_id),
+                "Checkpoint ID must be in the file name"
+            );
+        }
+
+        /// Property: Global storage paths always contain repo name
+        /// This verifies proper repository scoping
+        #[test]
+        fn prop_global_storage_contains_repo_name(
+            repo_name in "[a-zA-Z0-9-]{1,50}"
+        ) {
+            let storage = CheckpointStorage::Global {
+                repo_name: repo_name.clone(),
+            };
+            let base = storage.resolve_base_dir().unwrap();
+
+            prop_assert!(
+                base.to_string_lossy().contains(&repo_name),
+                "Global storage paths must contain repo name"
+            );
+        }
+
+        /// Property: Session storage paths always contain session ID
+        /// This verifies proper session scoping
+        #[test]
+        fn prop_session_storage_contains_session_id(
+            session_id in "[a-zA-Z0-9-]{1,50}"
+        ) {
+            let storage = CheckpointStorage::Session {
+                session_id: session_id.clone(),
+            };
+            let base = storage.resolve_base_dir().unwrap();
+
+            prop_assert!(
+                base.to_string_lossy().contains(&session_id),
+                "Session storage paths must contain session ID"
+            );
+        }
+
+        /// Property: Local storage always returns the exact path provided
+        /// This verifies pure function behavior for local storage
+        #[test]
+        fn prop_local_storage_returns_exact_path(
+            path_str in "[a-zA-Z0-9/_-]{1,100}"
+        ) {
+            let expected_path = PathBuf::from(path_str);
+            let storage = CheckpointStorage::Local(expected_path.clone());
+            let resolved = storage.resolve_base_dir().unwrap();
+
+            prop_assert_eq!(resolved, expected_path, "Local storage must return exact path");
+        }
     }
 }
