@@ -1,0 +1,665 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Troubleshooting - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/gbaker-prodigy/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/gbaker-prodigy/prodigy/edit/main/book/src/troubleshooting.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<h2 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h2>
+<h3 id="1-variables-not-interpolating"><a class="header" href="#1-variables-not-interpolating">1. Variables not interpolating</a></h3>
+<p><strong>Symptom:</strong> Variables appear as literal <code>${variable_name}</code> in output instead of their values.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Incorrect syntax (missing <code>${}</code> wrapper)</li>
+<li>Variable not defined or not in scope</li>
+<li>Typo in variable name</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Ensure proper <code>${}</code> syntax: <code>${workflow.name}</code>, not <code>$workflow.name</code></li>
+<li>Check variable is defined before use</li>
+<li>Verify variable is available in current context (e.g., <code>${item.*}</code> only available in map phase)</li>
+<li>Use echo to debug: <code>- shell: "echo 'Variable value: ${my_var}'"</code></li>
+</ul>
+<hr />
+<h3 id="2-capture-not-working"><a class="header" href="#2-capture-not-working">2. Capture not working</a></h3>
+<p><strong>Symptom:</strong> Captured variables are empty or contain unexpected data.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Incorrect <code>capture_format</code> for output type</li>
+<li>Command output not in expected format</li>
+<li>Missing or incorrect <code>capture_streams</code> configuration</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Match <code>capture_format</code> to output type and how it transforms output:
+<ul>
+<li><code>string</code> - Captures raw text output as-is</li>
+<li><code>number</code> - Parses output as numeric value (int or float)</li>
+<li><code>json</code> - Parses JSON and allows JSONPath queries on the result</li>
+<li><code>lines</code> - Splits multi-line output into an array</li>
+<li><code>boolean</code> - Evaluates to true/false based on success status</li>
+</ul>
+</li>
+<li>Test command output manually first</li>
+<li>Capture all streams for debugging:
+<pre><code class="language-yaml">- shell: "cargo test 2&gt;&amp;1"
+  capture: "test_output"
+  capture_streams:
+    stdout: true      # Capture standard output
+    stderr: true      # Capture error output
+    exit_code: true   # Capture exit code
+    success: true     # Capture success boolean
+    duration: true    # Capture execution duration
+</code></pre>
+</li>
+</ul>
+<hr />
+<h3 id="3-validation-failing"><a class="header" href="#3-validation-failing">3. Validation failing</a></h3>
+<p><strong>Symptom:</strong> Goal-seeking or validation commands fail to recognize completion.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Validate command not outputting <code>score: N</code> format</li>
+<li>Threshold too high</li>
+<li>Score calculation incorrect</li>
+<li>Validation command not configured correctly</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Ensure validate command outputs exactly <code>score: N</code> (where N is 0-100)</li>
+<li>Validation is part of goal_seek commands with these fields:
+<ul>
+<li><code>validate</code> - Command that outputs score</li>
+<li><code>threshold</code> - Minimum score to consider success (0-100)</li>
+<li><code>max_iterations</code> - Maximum attempts before giving up</li>
+<li><code>on_incomplete</code> - Commands to run when score below threshold</li>
+</ul>
+</li>
+<li>Test validate command independently</li>
+<li>Lower threshold temporarily for debugging</li>
+<li>Example correct format:
+<pre><code class="language-yaml">- goal_seek:
+    validate: |
+      result=$(run-checks.sh | grep 'Percentage' | sed 's/.*: \([0-9]*\)%.*/\1/')
+      echo "score: $result"
+    threshold: 80
+    max_iterations: 5
+    on_incomplete:
+      - claude: "/fix-issues"
+</code></pre>
+</li>
+</ul>
+<hr />
+<h3 id="4-mapreduce-items-not-found"><a class="header" href="#4-mapreduce-items-not-found">4. MapReduce items not found</a></h3>
+<p><strong>Symptom:</strong> Map phase finds zero items or wrong items.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Incorrect JSONPath expression</li>
+<li>Input file format doesn’t match expectations</li>
+<li>Input file not generated in setup phase</li>
+<li>JSONPath syntax errors</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Test JSONPath expression with actual data using <code>jq</code>:
+<pre><code class="language-bash">jq '$.items[*]' items.json
+</code></pre>
+</li>
+<li>Verify input file exists and contains expected structure</li>
+<li>Check setup phase completed successfully</li>
+<li>Use simpler JSONPath first: <code>$[*]</code> to get all items</li>
+<li>Common JSONPath mistakes:
+<ul>
+<li>Wrong bracket syntax: Use <code>$.items[*]</code> not <code>$.items[]</code></li>
+<li>Missing root <code>$</code>: Always start with <code>$</code></li>
+<li>Incorrect filter syntax: <code>$[?(@.score &gt;= 5)]</code> for filtering</li>
+<li>Nested paths: <code>$.data.items[*].field</code> for deep structures</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3 id="5-timeout-errors"><a class="header" href="#5-timeout-errors">5. Timeout errors</a></h3>
+<p><strong>Symptom:</strong> Commands or workflows fail with timeout errors.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Commands take longer than expected</li>
+<li>Default timeout too short</li>
+<li>Infinite loops or hanging processes</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Increase timeout values using duration strings:
+<pre><code class="language-yaml">- shell: "slow-command.sh"
+  timeout: "600s"  # or "10m" - uses humantime duration format
+</code></pre>
+</li>
+<li>For MapReduce, increase agent timeout (note: this uses seconds as a number):
+<pre><code class="language-yaml">map:
+  agent_timeout_secs: 600  # Takes a number (seconds) not a duration string
+</code></pre>
+</li>
+<li><strong>Note:</strong> <code>agent_timeout_secs</code> takes a number (seconds) while most other timeout fields use duration strings like “10m”</li>
+<li>Debug hanging commands by running them manually</li>
+<li>Add logging to identify slow steps</li>
+</ul>
+<hr />
+<h3 id="6-environment-variables-not-set"><a class="header" href="#6-environment-variables-not-set">6. Environment variables not set</a></h3>
+<p><strong>Symptom:</strong> Commands fail because required environment variables are missing.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Environment not inherited from parent process</li>
+<li>Typo in variable name</li>
+<li>Profile not activated</li>
+<li>Secret not loaded</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Ensure <code>inherit: true</code> in workflow config (default)</li>
+<li>Verify profile activation:
+<pre><code class="language-yaml">active_profile: "development"
+</code></pre>
+</li>
+<li>Check secrets are properly configured:
+<pre><code class="language-yaml">secrets:
+  API_KEY: "${env:SECRET_API_KEY}"
+</code></pre>
+</li>
+<li>Debug with: <code>- shell: "env | grep VARIABLE_NAME"</code></li>
+</ul>
+<hr />
+<h3 id="7-merge-workflow-not-running"><a class="header" href="#7-merge-workflow-not-running">7. Merge workflow not running</a></h3>
+<p><strong>Symptom:</strong> Custom merge commands not executed when merging worktree.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Merge block not properly formatted</li>
+<li>Syntax error in merge commands</li>
+<li>Merge workflow timeout too short</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>
+<p>Both merge formats are valid - choose based on needs:</p>
+<p><strong>Simplified format (direct list of commands):</strong></p>
+<pre><code class="language-yaml">merge:
+  - shell: "git fetch origin"
+  - claude: "/merge-worktree ${merge.source_branch}"
+</code></pre>
+<p><strong>Full format (with timeout configuration):</strong></p>
+<pre><code class="language-yaml">merge:
+  commands:
+    - shell: "slow-merge-validation.sh"
+  timeout: "600s"  # Duration string format
+</code></pre>
+</li>
+<li>
+<p>Use the full format when you need to set a custom timeout</p>
+</li>
+<li>
+<p>Check logs for merge execution errors</p>
+</li>
+</ul>
+<hr />
+<h3 id="8-commands-failing-without-error-handler"><a class="header" href="#8-commands-failing-without-error-handler">8. Commands failing without error handler</a></h3>
+<p><strong>Symptom:</strong> Command fails and workflow stops immediately without recovery.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>No <code>on_failure</code> handler configured</li>
+<li>Error not being caught by handler</li>
+<li>Handler itself failing</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Add <code>on_failure</code> handler to commands that might fail:
+<pre><code class="language-yaml">- shell: "risky-command.sh"
+  on_failure:
+    - shell: "echo 'Command failed, attempting recovery'"
+    - claude: "/fix-issue"
+</code></pre>
+</li>
+<li>Commands without <code>on_failure</code> will stop the workflow on first error</li>
+<li>Check that your handler commands don’t also fail</li>
+<li>Use shell exit codes to control failure: <code>command || exit 0</code> to ignore failures</li>
+</ul>
+<hr />
+<h3 id="9-error-policy-configuration-issues"><a class="header" href="#9-error-policy-configuration-issues">9. Error policy configuration issues</a></h3>
+<p><strong>Symptom:</strong> Retry, backoff, or circuit breaker not working as expected.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Incorrect Duration format for timeouts</li>
+<li>Wrong BackoffStrategy enum variant</li>
+<li>Invalid retry_config structure</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Use Duration strings for all timeout values:
+<pre><code class="language-yaml">error_policy:
+  retry_config:
+    max_attempts: 3
+    initial_delay: "1s"    # Not 1000
+    max_delay: "30s"       # Use duration strings
+  circuit_breaker:
+    timeout: "60s"         # Not 60
+    failure_threshold: 5
+</code></pre>
+</li>
+<li>Valid BackoffStrategy values:
+<ul>
+<li><code>constant</code> - Same delay every time</li>
+<li><code>linear</code> - Increases linearly</li>
+<li><code>exponential</code> - Doubles each time</li>
+<li><code>fibonacci</code> - Fibonacci sequence</li>
+</ul>
+</li>
+<li>Circuit breaker requires both timeout and failure_threshold</li>
+</ul>
+<hr />
+<h2 id="debug-tips"><a class="header" href="#debug-tips">Debug Tips</a></h2>
+<h3 id="use-verbosity-flags-for-debugging"><a class="header" href="#use-verbosity-flags-for-debugging">Use verbosity flags for debugging</a></h3>
+<p>Prodigy supports multiple verbosity levels for debugging:</p>
+<pre><code class="language-bash"># Default: Clean output, no Claude streaming
+prodigy run workflow.yml
+
+# -v: Shows Claude streaming JSON output (useful for debugging Claude interactions)
+prodigy run workflow.yml -v
+
+# -vv: Adds debug-level logs
+prodigy run workflow.yml -vv
+
+# -vvv: Adds trace-level logs (very detailed)
+prodigy run workflow.yml -vvv
+
+# Force Claude streaming regardless of verbosity
+PRODIGY_CLAUDE_CONSOLE_OUTPUT=true prodigy run workflow.yml
+</code></pre>
+<h3 id="enable-verbose-output-in-shell-commands"><a class="header" href="#enable-verbose-output-in-shell-commands">Enable verbose output in shell commands</a></h3>
+<pre><code class="language-yaml">- shell: "set -x; your-command"
+</code></pre>
+<h3 id="inspect-variables"><a class="header" href="#inspect-variables">Inspect variables</a></h3>
+<pre><code class="language-yaml">- shell: "echo 'Variable value: ${my_var}'"
+- shell: "echo 'Item fields: path=${item.path} name=${item.name}'"
+</code></pre>
+<h3 id="capture-all-streams-for-debugging"><a class="header" href="#capture-all-streams-for-debugging">Capture all streams for debugging</a></h3>
+<pre><code class="language-yaml">- shell: "cargo test 2&gt;&amp;1"
+  capture: "test_output"
+  capture_streams:
+    stdout: true
+    stderr: true
+    exit_code: true
+    success: true
+    duration: true
+
+# Then inspect
+- shell: "echo 'Exit code: ${test_output.exit_code}'"
+- shell: "echo 'Success: ${test_output.success}'"
+- shell: "echo 'Duration: ${test_output.duration}s'"
+</code></pre>
+<h3 id="test-jsonpath-expressions"><a class="header" href="#test-jsonpath-expressions">Test JSONPath expressions</a></h3>
+<pre><code class="language-bash"># Manually test your JSONPath
+jq '$.items[*]' items.json
+
+# Test with filter
+jq '$.items[] | select(.score &gt;= 5)' items.json
+</code></pre>
+<h3 id="validate-workflow-syntax"><a class="header" href="#validate-workflow-syntax">Validate workflow syntax</a></h3>
+<pre><code class="language-bash"># Workflows are validated automatically when loaded
+# Check for syntax errors by attempting to run
+prodigy run workflow.yml
+
+# View the validation result file (if workflow validation completed)
+cat .prodigy/validation-result.json
+</code></pre>
+<h3 id="check-dlq-for-failed-items"><a class="header" href="#check-dlq-for-failed-items">Check DLQ for failed items</a></h3>
+<pre><code class="language-bash"># List failed items
+prodigy dlq list &lt;job_id&gt;
+
+# View failure details
+prodigy dlq inspect &lt;job_id&gt;
+
+# Retry failed items (primary recovery operation)
+prodigy dlq retry &lt;job_id&gt;
+
+# Retry with custom parallelism
+prodigy dlq retry &lt;job_id&gt; --max-parallel 10
+
+# Dry run to see what would be retried
+prodigy dlq retry &lt;job_id&gt; --dry-run
+</code></pre>
+<h3 id="monitor-mapreduce-progress"><a class="header" href="#monitor-mapreduce-progress">Monitor MapReduce progress</a></h3>
+<pre><code class="language-bash"># View events
+prodigy events &lt;job_id&gt;
+
+# Check checkpoints
+prodigy checkpoints list
+
+# View event logs directly
+ls ~/.prodigy/events/
+
+# Check session state
+cat .prodigy/session_state.json
+</code></pre>
+<hr />
+<h2 id="faq"><a class="header" href="#faq">FAQ</a></h2>
+<h3 id="q-why-are-my-changes-not-being-committed"><a class="header" href="#q-why-are-my-changes-not-being-committed">Q: Why are my changes not being committed?</a></h3>
+<p><strong>A:</strong> Add <code>commit_required: true</code> to your command or use <code>auto_commit: true</code> for automatic commits when changes are detected. Note: <code>auto_commit</code> can be set at the workflow level (applies to all steps) or per-step. When true, Prodigy creates commits automatically when git diff detects changes.</p>
+<h3 id="q-how-do-i-retry-failed-mapreduce-items"><a class="header" href="#q-how-do-i-retry-failed-mapreduce-items">Q: How do I retry failed MapReduce items?</a></h3>
+<p><strong>A:</strong> Use the DLQ retry command:</p>
+<pre><code class="language-bash">prodigy dlq retry &lt;job_id&gt;
+</code></pre>
+<h3 id="q-can-i-use-environment-variables-in-jsonpath-expressions"><a class="header" href="#q-can-i-use-environment-variables-in-jsonpath-expressions">Q: Can I use environment variables in JSONPath expressions?</a></h3>
+<p><strong>A:</strong> No, JSONPath expressions are evaluated against the input data, not the environment. Use variables in command arguments instead.</p>
+<h3 id="q-how-do-i-skip-items-in-mapreduce"><a class="header" href="#q-how-do-i-skip-items-in-mapreduce">Q: How do I skip items in MapReduce?</a></h3>
+<p><strong>A:</strong> Use the <code>filter</code> field:</p>
+<pre><code class="language-yaml">map:
+  filter: "item.score &gt;= 5"
+</code></pre>
+<h3 id="q-whats-the-difference-between-on_failure-and-on_incomplete"><a class="header" href="#q-whats-the-difference-between-on_failure-and-on_incomplete">Q: What’s the difference between <code>on_failure</code> and <code>on_incomplete</code>?</a></h3>
+<p><strong>A:</strong> <code>on_failure</code> runs when a command exits with a non-zero code. <code>on_incomplete</code> is used in goal_seek commands and runs when the validation score is below the threshold.</p>
+<h3 id="q-how-do-i-run-commands-in-parallel"><a class="header" href="#q-how-do-i-run-commands-in-parallel">Q: How do I run commands in parallel?</a></h3>
+<p><strong>A:</strong> Use MapReduce mode with <code>max_parallel</code>:</p>
+<pre><code class="language-yaml">mode: mapreduce
+map:
+  max_parallel: 5
+</code></pre>
+<h3 id="q-can-i-nest-workflows"><a class="header" href="#q-can-i-nest-workflows">Q: Can I nest workflows?</a></h3>
+<p><strong>A:</strong> Not directly, but you can use <code>shell</code> commands to invoke other workflows:</p>
+<pre><code class="language-yaml">- shell: "prodigy run other-workflow.yml"
+</code></pre>
+<hr />
+<h2 id="common-error-messages"><a class="header" href="#common-error-messages">Common Error Messages</a></h2>
+<h3 id="mapreduceerror-types"><a class="header" href="#mapreduceerror-types">MapReduceError Types</a></h3>
+<p>Prodigy uses structured errors to help diagnose issues:</p>
+<p><strong>Job-level errors:</strong></p>
+<ul>
+<li><code>JobNotFound</code> - Job ID doesn’t exist, check job_id spelling or if job was cleaned up</li>
+<li><code>InvalidJobConfiguration</code> - Workflow YAML has configuration errors</li>
+<li><code>WorktreeSetupFailed</code> - Failed to create git worktree, check disk space and git status</li>
+</ul>
+<p><strong>Agent-level errors:</strong></p>
+<ul>
+<li><code>AgentFailed</code> - Individual agent execution failed, check DLQ for details</li>
+<li><code>AgentTimeout</code> - Agent exceeded timeout, increase agent_timeout_secs</li>
+<li><code>CommandExecutionFailed</code> - Shell or Claude command failed in agent</li>
+</ul>
+<p><strong>Resource errors:</strong></p>
+<ul>
+<li><code>WorktreeMergeConflict</code> - Git merge conflict when merging agent results</li>
+<li><code>ResourceExhausted</code> - Out of disk space, memory, or other resources</li>
+<li><code>StorageError</code> - Failed to read/write to storage, check permissions</li>
+</ul>
+<p><strong>Recovery actions:</strong></p>
+<ul>
+<li>Check event logs: <code>prodigy events &lt;job_id&gt;</code></li>
+<li>Review DLQ: <code>prodigy dlq list &lt;job_id&gt;</code></li>
+<li>View detailed state: <code>cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/checkpoint.json</code></li>
+</ul>
+<h3 id="checkpoint-and-resume-errors"><a class="header" href="#checkpoint-and-resume-errors">Checkpoint and Resume Errors</a></h3>
+<p><strong>“Checkpoint not found”</strong></p>
+<ul>
+<li>Cause: No checkpoint file exists for this job</li>
+<li>Solution: Job may have completed or checkpoint was deleted, start fresh</li>
+</ul>
+<p><strong>“Failed to resume from checkpoint”</strong></p>
+<ul>
+<li>Cause: Checkpoint file is corrupted or format changed</li>
+<li>Solution: Check checkpoint JSON syntax, may need to start over</li>
+</ul>
+<p><strong>“Worktree conflicts during merge”</strong></p>
+<ul>
+<li>Cause: Git merge conflicts when combining agent results</li>
+<li>Solution: Resolve conflicts manually in worktree, then retry merge</li>
+</ul>
+<h3 id="variable-and-capture-errors"><a class="header" href="#variable-and-capture-errors">Variable and Capture Errors</a></h3>
+<p><strong>“Variable not found: ${variable_name}”</strong></p>
+<ul>
+<li>Cause: Variable not defined or out of scope</li>
+<li>Solution: Check variable is defined before use, verify scope (workflow vs item vs capture)</li>
+</ul>
+<p><strong>“Failed to parse capture output as {format}”</strong></p>
+<ul>
+<li>Cause: Command output doesn’t match capture_format</li>
+<li>Solution: Check output manually, adjust capture_format or command output</li>
+</ul>
+<p><strong>“JSONPath expression failed”</strong></p>
+<ul>
+<li>Cause: Invalid JSONPath syntax or doesn’t match data structure</li>
+<li>Solution: Test with <code>jq</code> command, simplify expression, check input data format</li>
+</ul>
+<hr />
+<h2 id="best-practices-for-debugging"><a class="header" href="#best-practices-for-debugging">Best Practices for Debugging</a></h2>
+<ol>
+<li><strong>Start simple</strong>: Test commands individually before adding to workflow</li>
+<li><strong>Use verbosity flags</strong>: Use <code>-v</code> to see Claude interactions, <code>-vv</code> for debug logs, <code>-vvv</code> for trace</li>
+<li><strong>Use echo liberally</strong>: Debug variable values with echo statements</li>
+<li><strong>Check logs and state</strong>: Review event logs (<code>~/.prodigy/events/</code>) and session state (<code>.prodigy/session_state.json</code>)</li>
+<li><strong>Test incrementally</strong>: Add commands one at a time and test after each</li>
+<li><strong>Validate input data</strong>: Ensure JSON files and data formats are correct before MapReduce</li>
+<li><strong>Check DLQ regularly</strong>: Monitor failed items with <code>prodigy dlq list</code> and retry when appropriate</li>
+<li><strong>Monitor resources</strong>: Check disk space, memory, and CPU during execution</li>
+<li><strong>Version control</strong>: Commit working workflows before making changes</li>
+<li><strong>Read error messages carefully</strong>: MapReduceError types indicate specific failure modes</li>
+<li><strong>Ask for help</strong>: Include full error messages, workflow config, and verbosity output when seeking support</li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="examples.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="examples.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

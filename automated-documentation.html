@@ -1,0 +1,988 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Automated Documentation - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/gbaker-prodigy/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/gbaker-prodigy/prodigy/edit/main/book/src/automated-documentation.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="automated-documentation-with-mdbook"><a class="header" href="#automated-documentation-with-mdbook">Automated Documentation with mdBook</a></h1>
+<p>This guide shows you how to set up automated, always-up-to-date documentation for any project using Prodigy’s book workflow system. This same system maintains the documentation you’re reading right now.</p>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>The book workflow system:</p>
+<ul>
+<li><strong>Analyzes your codebase</strong> to build a feature inventory</li>
+<li><strong>Detects documentation drift</strong> by comparing docs to implementation</li>
+<li><strong>Updates documentation</strong> automatically using Claude</li>
+<li><strong>Maintains consistency</strong> across all chapters</li>
+<li><strong>Runs on any project</strong> - just configure and go</li>
+</ul>
+<p>The generalized commands work for any codebase: Rust, Python, JavaScript, etc.</p>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<ol>
+<li>
+<p><strong>Install Prodigy</strong>:</p>
+<pre><code class="language-bash">cargo install prodigy
+</code></pre>
+</li>
+<li>
+<p><strong>Install mdBook</strong>:</p>
+<pre><code class="language-bash">cargo install mdbook
+</code></pre>
+</li>
+<li>
+<p><strong>Claude Code CLI</strong> with valid API credentials</p>
+</li>
+<li>
+<p><strong>Git repository</strong> for your project</p>
+</li>
+</ol>
+<h2 id="quick-start-30-minutes"><a class="header" href="#quick-start-30-minutes">Quick Start (30 Minutes)</a></h2>
+<h3 id="step-1-initialize-prodigy-commands"><a class="header" href="#step-1-initialize-prodigy-commands">Step 1: Initialize Prodigy Commands</a></h3>
+<p>In your project directory:</p>
+<pre><code class="language-bash"># Initialize Prodigy and install book documentation commands
+prodigy init
+</code></pre>
+<p>This creates <code>.claude/commands/</code> with the generalized book commands:</p>
+<ul>
+<li><code>/prodigy-analyze-features-for-book</code> - Analyze codebase for feature inventory</li>
+<li><code>/prodigy-analyze-book-chapter-drift</code> - Detect documentation drift per chapter</li>
+<li><code>/prodigy-fix-book-drift</code> - Update chapters to fix drift</li>
+<li><code>/prodigy-fix-book-build-errors</code> - Fix mdBook build errors</li>
+</ul>
+<h3 id="step-2-initialize-mdbook-structure"><a class="header" href="#step-2-initialize-mdbook-structure">Step 2: Initialize mdBook Structure</a></h3>
+<pre><code class="language-bash"># Create book directory structure
+mdbook init book --title "Your Project Documentation"
+
+# Create workflow and config directories
+mkdir -p workflows/data
+mkdir -p .myproject  # Or .config, whatever you prefer
+</code></pre>
+<h3 id="step-3-create-project-configuration"><a class="header" href="#step-3-create-project-configuration">Step 3: Create Project Configuration</a></h3>
+<p>Create <code>.myproject/book-config.json</code> (adjust paths and analysis targets for your project):</p>
+<pre><code class="language-json">{
+  "project_name": "YourProject",
+  "project_type": "cli_tool",
+  "book_dir": "book",
+  "book_src": "book/src",
+  "book_build_dir": "book/book",
+  "analysis_targets": [
+    {
+      "area": "cli_commands",
+      "source_files": ["src/cli/", "src/commands/"],
+      "feature_categories": ["commands", "arguments", "options"]
+    },
+    {
+      "area": "core_features",
+      "source_files": ["src/lib.rs", "src/core/"],
+      "feature_categories": ["api", "public_functions", "exports"]
+    },
+    {
+      "area": "configuration",
+      "source_files": ["src/config/"],
+      "feature_categories": ["config_options", "defaults", "validation"]
+    }
+  ],
+  "chapter_file": "workflows/data/chapters.json",
+  "custom_analysis": {
+    "include_examples": true,
+    "include_best_practices": true,
+    "include_troubleshooting": true
+  }
+}
+</code></pre>
+<p><strong>Key Fields to Customize</strong>:</p>
+<ul>
+<li><code>project_name</code>: Your project’s name (used in prompts)</li>
+<li><code>project_type</code>: <code>cli_tool</code>, <code>library</code>, <code>web_service</code>, etc.</li>
+<li><code>analysis_targets</code>: Areas of code to analyze for documentation
+<ul>
+<li><code>area</code>: Logical grouping name</li>
+<li><code>source_files</code>: Paths to analyze (relative to project root)</li>
+<li><code>feature_categories</code>: Types of features to extract</li>
+</ul>
+</li>
+</ul>
+<h3 id="step-4-define-chapter-structure"><a class="header" href="#step-4-define-chapter-structure">Step 4: Define Chapter Structure</a></h3>
+<p>Create <code>workflows/data/chapters.json</code>:</p>
+<pre><code class="language-json">{
+  "chapters": [
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "file": "book/src/getting-started.md",
+      "topics": ["Installation", "Quick start", "First steps"],
+      "validation": "Check installation instructions and basic usage"
+    },
+    {
+      "id": "user-guide",
+      "title": "User Guide",
+      "file": "book/src/user-guide.md",
+      "topics": ["Core features", "Common workflows", "Examples"],
+      "validation": "Verify all main features are documented"
+    },
+    {
+      "id": "configuration",
+      "title": "Configuration",
+      "file": "book/src/configuration.md",
+      "topics": ["Config files", "Options", "Defaults"],
+      "validation": "Check config options match implementation"
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting",
+      "file": "book/src/troubleshooting.md",
+      "topics": ["Common issues", "Debug mode", "FAQ"],
+      "validation": "Ensure common issues are covered"
+    }
+  ]
+}
+</code></pre>
+<p><strong>Chapter Definition Fields</strong>:</p>
+<ul>
+<li><code>id</code>: Unique identifier for the chapter</li>
+<li><code>title</code>: Display title in the book</li>
+<li><code>file</code>: Path to markdown file (relative to project root)</li>
+<li><code>topics</code>: What should be covered in this chapter</li>
+<li><code>validation</code>: What Claude should check for accuracy</li>
+</ul>
+<h3 id="step-5-create-book-configuration"><a class="header" href="#step-5-create-book-configuration">Step 5: Create Book Configuration</a></h3>
+<p>Edit <code>book/book.toml</code>:</p>
+<pre><code class="language-toml">[book]
+title = "Your Project Documentation"
+authors = ["Your Team"]
+description = "Comprehensive guide to Your Project"
+src = "src"
+language = "en"
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+default-theme = "rust"
+preferred-dark-theme = "navy"
+smart-punctuation = true
+git-repository-url = "https://github.com/yourorg/yourproject"
+git-repository-icon = "fa-github"
+edit-url-template = "https://github.com/yourorg/yourproject/edit/main/book/{path}"
+
+[output.html.search]
+enable = true
+limit-results = 30
+use-boolean-and = true
+boost-title = 2
+
+[output.html.fold]
+enable = true
+level = 1
+
+[output.html.playground]
+editable = false
+copyable = true
+line-numbers = true
+</code></pre>
+<h3 id="step-6-create-chapter-files"><a class="header" href="#step-6-create-chapter-files">Step 6: Create Chapter Files</a></h3>
+<p>Create placeholder files for each chapter:</p>
+<pre><code class="language-bash"># Create initial chapters with basic structure
+cat &gt; book/src/getting-started.md &lt;&lt;EOF
+# Getting Started
+
+This chapter covers installation and initial setup.
+
+## Installation
+
+TODO: Add installation instructions
+
+## Quick Start
+
+TODO: Add quick start guide
+EOF
+
+# Repeat for other chapters...
+</code></pre>
+<p>Update <code>book/src/SUMMARY.md</code>:</p>
+<pre><code class="language-markdown"># Summary
+
+[Introduction](intro.md)
+
+# User Guide
+
+- [Getting Started](getting-started.md)
+- [User Guide](user-guide.md)
+- [Configuration](configuration.md)
+
+# Reference
+
+- [Troubleshooting](troubleshooting.md)
+</code></pre>
+<h3 id="step-7-create-the-workflow"><a class="header" href="#step-7-create-the-workflow">Step 7: Create the Workflow</a></h3>
+<p>Create <code>workflows/book-docs-drift.yml</code>:</p>
+<pre><code class="language-yaml">name: book-docs-drift-detection
+mode: mapreduce
+
+env:
+  PROJECT_NAME: "YourProject"
+  PROJECT_CONFIG: ".myproject/book-config.json"
+  FEATURES_PATH: ".myproject/book-analysis/features.json"
+
+setup:
+  - shell: "mkdir -p .myproject/book-analysis"
+
+  # Analyze codebase and build feature inventory
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
+
+map:
+  input: "workflows/data/chapters.json"
+  json_path: "$.chapters[*]"
+
+  agent_template:
+    # Analyze each chapter for drift
+    - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
+      commit_required: true
+
+  max_parallel: 3
+  agent_timeout_secs: 900
+
+reduce:
+  # Aggregate all drift reports and fix issues
+  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME --config $PROJECT_CONFIG"
+    commit_required: true
+
+  # Build the book
+  - shell: "cd book &amp;&amp; mdbook build"
+    on_failure:
+      claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
+
+error_policy:
+  on_item_failure: dlq
+  continue_on_failure: true
+  max_failures: 2
+
+merge:
+  commands:
+    # Clean up temporary analysis files
+    - shell: "rm -rf .myproject/book-analysis"
+    - shell: "git add -A &amp;&amp; git commit -m 'chore: remove temporary book analysis files' || true"
+
+    # Final build verification
+    - shell: "cd book &amp;&amp; mdbook build"
+
+    # Merge back to main branch
+    - shell: "git fetch origin"
+    - claude: "/merge-master"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+</code></pre>
+<p><strong>Workflow Sections</strong>:</p>
+<ul>
+<li><strong>env</strong>: Environment variables for project-specific configuration</li>
+<li><strong>setup</strong>: Initialize analysis directory and build feature inventory</li>
+<li><strong>map</strong>: Process each chapter in parallel to detect drift</li>
+<li><strong>reduce</strong>: Aggregate results and update documentation</li>
+<li><strong>merge</strong>: Cleanup and merge changes back to main branch</li>
+</ul>
+<p><strong>Key Variables</strong>:</p>
+<ul>
+<li><code>PROJECT_NAME</code>: Used in prompts and context</li>
+<li><code>PROJECT_CONFIG</code>: Path to your book-config.json</li>
+<li><code>FEATURES_PATH</code>: Where feature inventory is stored</li>
+</ul>
+<h3 id="step-8-run-the-workflow"><a class="header" href="#step-8-run-the-workflow">Step 8: Run the Workflow</a></h3>
+<pre><code class="language-bash"># Run the documentation workflow
+prodigy run workflows/book-docs-drift.yml
+
+# The workflow will:
+# 1. Analyze your codebase for features
+# 2. Check each chapter for documentation drift
+# 3. Update chapters to match current implementation
+# 4. Build the book to verify everything works
+# 5. Merge changes back to your main branch
+</code></pre>
+<h2 id="understanding-the-workflow"><a class="header" href="#understanding-the-workflow">Understanding the Workflow</a></h2>
+<h3 id="phase-1-setup---feature-analysis"><a class="header" href="#phase-1-setup---feature-analysis">Phase 1: Setup - Feature Analysis</a></h3>
+<p>The setup phase analyzes your codebase and creates a feature inventory:</p>
+<pre><code class="language-yaml">setup:
+  - shell: "mkdir -p .myproject/book-analysis"
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
+</code></pre>
+<p>This generates <code>.myproject/book-analysis/features.json</code>:</p>
+<pre><code class="language-json">{
+  "cli_commands": [
+    {
+      "name": "run",
+      "description": "Execute a workflow",
+      "arguments": ["workflow_file"],
+      "options": ["--resume", "--dry-run"]
+    }
+  ],
+  "api_functions": [
+    {
+      "name": "execute_workflow",
+      "signature": "fn execute_workflow(config: Config) -&gt; Result&lt;()&gt;",
+      "purpose": "Main entry point for workflow execution"
+    }
+  ]
+}
+</code></pre>
+<h3 id="phase-2-map---chapter-drift-detection"><a class="header" href="#phase-2-map---chapter-drift-detection">Phase 2: Map - Chapter Drift Detection</a></h3>
+<p>Each chapter is processed in parallel to detect drift:</p>
+<pre><code class="language-yaml">map:
+  input: "workflows/data/chapters.json"
+  json_path: "$.chapters[*]"
+
+  agent_template:
+    - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
+      commit_required: true
+</code></pre>
+<p>For each chapter, Claude:</p>
+<ol>
+<li>Reads the current chapter content</li>
+<li>Compares it to the feature inventory</li>
+<li>Identifies missing, outdated, or incorrect information</li>
+<li>Creates a drift report</li>
+</ol>
+<h3 id="phase-3-reduce---fix-drift"><a class="header" href="#phase-3-reduce---fix-drift">Phase 3: Reduce - Fix Drift</a></h3>
+<p>The reduce phase aggregates all drift reports and updates chapters:</p>
+<pre><code class="language-yaml">reduce:
+  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME --config $PROJECT_CONFIG"
+    commit_required: true
+
+  - shell: "cd book &amp;&amp; mdbook build"
+    on_failure:
+      claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
+</code></pre>
+<p>Claude:</p>
+<ol>
+<li>Reviews all drift reports</li>
+<li>Updates chapters to fix issues</li>
+<li>Ensures consistency across chapters</li>
+<li>Verifies the book builds successfully</li>
+</ol>
+<h3 id="phase-4-merge---integration"><a class="header" href="#phase-4-merge---integration">Phase 4: Merge - Integration</a></h3>
+<p>The merge phase cleans up and integrates changes:</p>
+<pre><code class="language-yaml">merge:
+  commands:
+    - shell: "rm -rf .myproject/book-analysis"
+    - shell: "git add -A &amp;&amp; git commit -m 'chore: remove temporary book analysis files' || true"
+    - shell: "cd book &amp;&amp; mdbook build"
+    - shell: "git fetch origin"
+    - claude: "/merge-master"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+</code></pre>
+<h2 id="github-actions-integration"><a class="header" href="#github-actions-integration">GitHub Actions Integration</a></h2>
+<h3 id="automated-documentation-deployment"><a class="header" href="#automated-documentation-deployment">Automated Documentation Deployment</a></h3>
+<p>Create <code>.github/workflows/deploy-docs.yml</code>:</p>
+<pre><code class="language-yaml">name: Deploy Documentation
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'book/**'
+      - 'workflows/book-docs-drift.yml'
+  workflow_dispatch:  # Allow manual triggers
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: 'latest'
+
+      - name: Build book
+        run: |
+          cd book
+          mdbook build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./book/book
+          cname: docs.yourproject.com  # Optional: custom domain
+</code></pre>
+<h3 id="periodic-documentation-updates"><a class="header" href="#periodic-documentation-updates">Periodic Documentation Updates</a></h3>
+<p>Create <code>.github/workflows/update-docs.yml</code>:</p>
+<pre><code class="language-yaml">name: Update Documentation
+
+on:
+  schedule:
+    # Run weekly on Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # Allow manual triggers
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install Prodigy
+        run: cargo install prodigy
+
+      - name: Install mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: 'latest'
+
+      - name: Configure Claude API
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Configure Claude Code CLI with API key
+          echo "$ANTHROPIC_API_KEY" | claude-code auth login
+
+      - name: Run documentation workflow
+        run: |
+          prodigy run workflows/book-docs-drift.yml
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'docs: automated documentation update'
+          title: 'Automated Documentation Update'
+          body: |
+            This PR was automatically created by the documentation workflow.
+
+            Changes:
+            - Updated documentation to match current codebase
+            - Fixed any detected drift between docs and implementation
+
+            Please review the changes before merging.
+          branch: docs/automated-update
+          delete-branch: true
+</code></pre>
+<p><strong>Required Secrets</strong>:</p>
+<ul>
+<li><code>ANTHROPIC_API_KEY</code>: Your Claude API key (add in repository settings)</li>
+</ul>
+<h3 id="enable-github-pages"><a class="header" href="#enable-github-pages">Enable GitHub Pages</a></h3>
+<ol>
+<li>Go to repository Settings → Pages</li>
+<li>Source: Deploy from a branch</li>
+<li>Branch: <code>gh-pages</code> / <code>root</code></li>
+<li>Save</li>
+</ol>
+<p>Your documentation will be available at: <code>https://yourorg.github.io/yourproject</code></p>
+<h2 id="customization-examples"><a class="header" href="#customization-examples">Customization Examples</a></h2>
+<h3 id="for-cli-tools"><a class="header" href="#for-cli-tools">For CLI Tools</a></h3>
+<p>Focus on commands and usage:</p>
+<pre><code class="language-json">{
+  "analysis_targets": [
+    {
+      "area": "cli_commands",
+      "source_files": ["src/cli/", "src/commands/"],
+      "feature_categories": ["commands", "subcommands", "options", "arguments"]
+    },
+    {
+      "area": "configuration",
+      "source_files": ["src/config/"],
+      "feature_categories": ["config_file", "environment_vars", "flags"]
+    }
+  ]
+}
+</code></pre>
+<p>Chapter structure:</p>
+<ul>
+<li>Installation</li>
+<li>Quick Start</li>
+<li>Commands Reference</li>
+<li>Configuration</li>
+<li>Examples</li>
+<li>Troubleshooting</li>
+</ul>
+<h3 id="for-libraries"><a class="header" href="#for-libraries">For Libraries</a></h3>
+<p>Focus on API and usage patterns:</p>
+<pre><code class="language-json">{
+  "analysis_targets": [
+    {
+      "area": "public_api",
+      "source_files": ["src/lib.rs", "src/api/"],
+      "feature_categories": ["functions", "types", "traits", "macros"]
+    },
+    {
+      "area": "examples",
+      "source_files": ["examples/"],
+      "feature_categories": ["use_cases", "patterns", "integrations"]
+    }
+  ]
+}
+</code></pre>
+<p>Chapter structure:</p>
+<ul>
+<li>Getting Started</li>
+<li>API Reference</li>
+<li>Core Concepts</li>
+<li>Advanced Usage</li>
+<li>Examples</li>
+<li>Migration Guides</li>
+</ul>
+<h3 id="for-web-services"><a class="header" href="#for-web-services">For Web Services</a></h3>
+<p>Focus on endpoints and integration:</p>
+<pre><code class="language-json">{
+  "analysis_targets": [
+    {
+      "area": "api_endpoints",
+      "source_files": ["src/routes/", "src/handlers/"],
+      "feature_categories": ["endpoints", "methods", "parameters", "responses"]
+    },
+    {
+      "area": "authentication",
+      "source_files": ["src/auth/"],
+      "feature_categories": ["auth_methods", "tokens", "permissions"]
+    },
+    {
+      "area": "deployment",
+      "source_files": ["deploy/", "docker/"],
+      "feature_categories": ["docker", "kubernetes", "configuration"]
+    }
+  ]
+}
+</code></pre>
+<p>Chapter structure:</p>
+<ul>
+<li>Overview</li>
+<li>Authentication</li>
+<li>API Reference</li>
+<li>Integration Guide</li>
+<li>Deployment</li>
+<li>Monitoring</li>
+</ul>
+<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<h3 id="1-start-with-minimal-chapters"><a class="header" href="#1-start-with-minimal-chapters">1. Start with Minimal Chapters</a></h3>
+<p>Don’t try to document everything at once:</p>
+<pre><code class="language-json">{
+  "chapters": [
+    {"id": "intro", "title": "Introduction", ...},
+    {"id": "quickstart", "title": "Quick Start", ...},
+    {"id": "reference", "title": "Reference", ...}
+  ]
+}
+</code></pre>
+<p>Add more chapters as your project grows.</p>
+<h3 id="2-focus-analysis-targets"><a class="header" href="#2-focus-analysis-targets">2. Focus Analysis Targets</a></h3>
+<p>Be specific about what to analyze:</p>
+<pre><code class="language-json">{
+  "area": "cli_commands",
+  "source_files": ["src/cli/commands/"],  // Specific path
+  "feature_categories": ["commands", "options"]  // Specific categories
+}
+</code></pre>
+<p>Overly broad targets create unfocused documentation.</p>
+<h3 id="3-provide-chapter-context"><a class="header" href="#3-provide-chapter-context">3. Provide Chapter Context</a></h3>
+<p>Give Claude clear guidance on what each chapter should cover:</p>
+<pre><code class="language-json">{
+  "id": "advanced",
+  "title": "Advanced Features",
+  "topics": ["Custom plugins", "Scripting", "Automation"],
+  "validation": "Check that plugin API and scripting examples are up-to-date"
+}
+</code></pre>
+<h3 id="4-review-initial-output"><a class="header" href="#4-review-initial-output">4. Review Initial Output</a></h3>
+<p>The first workflow run will:</p>
+<ul>
+<li>Identify what’s missing</li>
+<li>Add current implementation details</li>
+<li>Create a baseline</li>
+</ul>
+<p>Review and refine before committing.</p>
+<h3 id="5-run-regularly"><a class="header" href="#5-run-regularly">5. Run Regularly</a></h3>
+<p>Documentation drift happens constantly:</p>
+<pre><code class="language-bash"># Run monthly or after major features
+prodigy run workflows/book-docs-drift.yml
+
+# Or set up GitHub Actions for automation
+</code></pre>
+<h3 id="6-use-validation-topics"><a class="header" href="#6-use-validation-topics">6. Use Validation Topics</a></h3>
+<p>Specify what Claude should validate:</p>
+<pre><code class="language-json">{
+  "validation": "Check that all CLI commands in src/cli/commands/ are documented with current options and examples"
+}
+</code></pre>
+<p>This ensures focused, accurate updates.</p>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="issue-feature-analysis-produces-empty-results"><a class="header" href="#issue-feature-analysis-produces-empty-results">Issue: Feature Analysis Produces Empty Results</a></h3>
+<p><strong>Cause</strong>: Analysis targets don’t match your code structure</p>
+<p><strong>Solution</strong>: Check that <code>source_files</code> paths exist:</p>
+<pre><code class="language-bash">ls -la src/cli/  # Verify paths in analysis_targets
+</code></pre>
+<p>Adjust paths in <code>book-config.json</code> to match your actual structure.</p>
+<h3 id="issue-chapters-not-updating"><a class="header" href="#issue-chapters-not-updating">Issue: Chapters Not Updating</a></h3>
+<p><strong>Cause</strong>: Chapter files don’t exist or paths are wrong</p>
+<p><strong>Solution</strong>: Verify chapter files exist:</p>
+<pre><code class="language-bash"># Check all chapters listed in chapters.json exist
+cat workflows/data/chapters.json | jq -r '.chapters[].file' | xargs ls -la
+</code></pre>
+<h3 id="issue-mdbook-build-fails"><a class="header" href="#issue-mdbook-build-fails">Issue: mdBook Build Fails</a></h3>
+<p><strong>Cause</strong>: SUMMARY.md doesn’t match chapter files</p>
+<p><strong>Solution</strong>: Ensure all chapters in <code>SUMMARY.md</code> have corresponding files:</p>
+<pre><code class="language-bash">cd book &amp;&amp; mdbook build
+</code></pre>
+<p>Fix any missing files or broken links.</p>
+<h3 id="issue-workflow-takes-too-long"><a class="header" href="#issue-workflow-takes-too-long">Issue: Workflow Takes Too Long</a></h3>
+<p><strong>Cause</strong>: Too many chapters or overly broad analysis</p>
+<p><strong>Solution</strong>:</p>
+<ol>
+<li>Reduce <code>max_parallel</code> in map phase (default: 3)</li>
+<li>Split large chapters into smaller ones</li>
+<li>Narrow <code>analysis_targets</code> to essential code paths</li>
+</ol>
+<h3 id="issue-documentation-quality-issues"><a class="header" href="#issue-documentation-quality-issues">Issue: Documentation Quality Issues</a></h3>
+<p><strong>Cause</strong>: Insufficient initial content or unclear validation</p>
+<p><strong>Solution</strong>:</p>
+<ol>
+<li>Create better chapter outlines before running workflow</li>
+<li>Add more specific <code>validation</code> criteria in chapters.json</li>
+<li>Review and manually refine after first run</li>
+</ol>
+<h2 id="advanced-configuration"><a class="header" href="#advanced-configuration">Advanced Configuration</a></h2>
+<h3 id="custom-analysis-functions"><a class="header" href="#custom-analysis-functions">Custom Analysis Functions</a></h3>
+<p>You can extend the analysis by providing custom analysis functions in your config:</p>
+<pre><code class="language-json">{
+  "custom_analysis": {
+    "include_examples": true,
+    "include_best_practices": true,
+    "include_troubleshooting": true,
+    "analyze_dependencies": true,
+    "extract_code_comments": true,
+    "include_performance_notes": true
+  }
+}
+</code></pre>
+<h3 id="multi-language-projects"><a class="header" href="#multi-language-projects">Multi-Language Projects</a></h3>
+<p>For projects with multiple languages:</p>
+<pre><code class="language-json">{
+  "analysis_targets": [
+    {
+      "area": "rust_backend",
+      "source_files": ["src/"],
+      "feature_categories": ["api", "services"],
+      "language": "rust"
+    },
+    {
+      "area": "typescript_frontend",
+      "source_files": ["web/src/"],
+      "feature_categories": ["components", "hooks"],
+      "language": "typescript"
+    }
+  ]
+}
+</code></pre>
+<h3 id="chapter-dependencies"><a class="header" href="#chapter-dependencies">Chapter Dependencies</a></h3>
+<p>Some chapters may depend on others:</p>
+<pre><code class="language-json">{
+  "chapters": [
+    {
+      "id": "basics",
+      "title": "Basic Usage",
+      "dependencies": []
+    },
+    {
+      "id": "advanced",
+      "title": "Advanced Usage",
+      "dependencies": ["basics"],
+      "validation": "Ensure examples build on concepts from Basic Usage chapter"
+    }
+  ]
+}
+</code></pre>
+<h2 id="real-world-example-prodigys-own-documentation"><a class="header" href="#real-world-example-prodigys-own-documentation">Real-World Example: Prodigy’s Own Documentation</a></h2>
+<p>This documentation you’re reading is maintained by the same workflow described here. You can examine the configuration:</p>
+<p><strong>Configuration</strong>: <code>.prodigy/book-config.json</code></p>
+<pre><code class="language-json">{
+  "project_name": "Prodigy",
+  "project_type": "cli_tool",
+  "analysis_targets": [
+    {
+      "area": "workflow_execution",
+      "source_files": ["src/workflow/", "src/orchestrator/"],
+      "feature_categories": ["workflow_types", "execution_modes", "lifecycle"]
+    },
+    {
+      "area": "mapreduce",
+      "source_files": ["src/mapreduce/"],
+      "feature_categories": ["map_phase", "reduce_phase", "parallelism"]
+    }
+  ]
+}
+</code></pre>
+<p><strong>Chapters</strong>: <code>workflows/data/prodigy-chapters.json</code></p>
+<pre><code class="language-json">{
+  "chapters": [
+    {
+      "id": "workflow-basics",
+      "title": "Workflow Basics",
+      "file": "book/src/workflow-basics.md",
+      "topics": ["Standard workflows", "Basic structure"],
+      "validation": "Check workflow syntax matches current implementation"
+    }
+  ]
+}
+</code></pre>
+<p><strong>Workflow</strong>: <code>workflows/book-docs-drift.yml</code></p>
+<p>Study these files for a complete working example.</p>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ol>
+<li><strong>Set up the basics</strong>: Follow the Quick Start to get a minimal book running</li>
+<li><strong>Customize for your project</strong>: Adjust analysis targets and chapters</li>
+<li><strong>Run the workflow</strong>: Generate your first automated update</li>
+<li><strong>Refine iteratively</strong>: Review output and improve configuration</li>
+<li><strong>Automate</strong>: Set up GitHub Actions for continuous documentation</li>
+<li><strong>Extend</strong>: Add more chapters as your project grows</li>
+</ol>
+<h2 id="benefits"><a class="header" href="#benefits">Benefits</a></h2>
+<p>This approach provides:</p>
+<ul>
+<li>✅ <strong>Always up-to-date documentation</strong> - Runs automatically to detect drift</li>
+<li>✅ <strong>Consistent quality</strong> - Same analysis across all chapters</li>
+<li>✅ <strong>Reduced maintenance</strong> - Less manual documentation work</li>
+<li>✅ <strong>Accurate examples</strong> - Extracted from actual code</li>
+<li>✅ <strong>Version control</strong> - All changes tracked in git</li>
+<li>✅ <strong>Easy to customize</strong> - Configuration-based, works for any project</li>
+</ul>
+<p>The same commands that maintain Prodigy’s documentation can maintain yours.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="error-handling.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="examples.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="error-handling.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="examples.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>
