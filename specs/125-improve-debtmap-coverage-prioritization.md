@@ -104,7 +104,7 @@ Redesign prioritization strategy to:
    - Public API function, OR
    - Entry point (main, framework callbacks)
 
-4. **Separate Coverage Report**: Add `--coverage-report` flag for dedicated testing gap analysis
+4. **Implement Category Filtering**: The existing `--filter` flag should filter recommendations by category (Architecture, Testing, Performance, CodeQuality)
 
 ### Non-Functional Requirements
 
@@ -118,7 +118,9 @@ Redesign prioritization strategy to:
 - [ ] Top 3 recommendations are architectural issues (God Objects, God Modules) when present
 - [ ] Coverage data appears as context within debt items, not as separate items
 - [ ] Untested functions only surface in top 10 if complexity ≥ 15 or dependencies ≥ 10
-- [ ] `--coverage-report` flag produces dedicated testing gap analysis
+- [ ] `--filter Testing` shows only Testing category items (testing gaps, test quality issues)
+- [ ] `--filter Architecture` shows only Architecture category items (God Objects, etc.)
+- [ ] `--filter` accepts comma-separated categories: `--filter Architecture,Testing`
 - [ ] Tier labels (Tier 1-4) shown clearly in output
 - [ ] Configuration allows customizing tier thresholds
 - [ ] All existing tests pass without modification
@@ -210,12 +212,18 @@ pub fn prioritize_tiered(items: &[DebtItem], config: &TierConfig) -> Vec<TieredR
    - Within each tier, sort by score descending
    - Attach coverage context to appropriate items
 
-4. **Phase 4: Update Output Formatting**
+4. **Phase 4: Implement Category Filtering**
+   - Implement filtering logic for `--filter` flag (currently defined but not implemented)
+   - Support single category: `--filter Testing`
+   - Support multiple categories: `--filter Architecture,Testing`
+   - Filter recommendations before output formatting
+
+5. **Phase 5: Update Output Formatting**
    - Show tier labels in markdown output
    - Display coverage context within architectural items
-   - Add `--coverage-report` flag for dedicated testing analysis
+   - Ensure filtered output shows category-specific context
 
-5. **Phase 5: Configuration Support**
+6. **Phase 6: Configuration Support**
    - Add tier threshold configuration options
    - Allow customizing tier weights and rules
    - Provide presets (strict, balanced, lenient)
@@ -225,13 +233,14 @@ pub fn prioritize_tiered(items: &[DebtItem], config: &TierConfig) -> Vec<TieredR
 **New Files:**
 - `src/priority/tiers.rs`: Tier classification logic
 - `src/priority/coverage_context.rs`: Coverage context building
-- `src/io/writers/coverage_report.rs`: Dedicated coverage report
+- `src/priority/filter.rs`: Category filtering implementation
 
 **Modified Files:**
 - `src/priority/scoring/debt_item.rs`: Add tier classification methods
 - `src/priority/formatter.rs`: Show tier labels and coverage context
 - `src/config.rs`: Add tier configuration options
-- `src/cli/commands/analyze.rs`: Add `--coverage-report` flag
+- `src/commands/analyze.rs`: Implement category filtering logic for existing `--filter` flag
+- `src/priority/mod.rs`: Apply filters before output
 
 ### Data Structures
 
@@ -349,12 +358,21 @@ fn test_tiered_prioritization_architecture_first() {
 }
 
 #[test]
-fn test_coverage_report_flag() {
-    let output = run_command("debtmap analyze . --coverage-report");
+fn test_filter_by_category_testing() {
+    let output = run_command("debtmap analyze . --filter Testing");
 
-    assert!(output.contains("TESTING GAP ANALYSIS"));
-    assert!(output.contains("Untested Functions by Severity"));
-    assert!(output.contains("Critical Gaps"));
+    assert!(output.contains("Testing Gaps"));
+    assert!(!output.contains("God Object"));  // Architecture items filtered out
+    assert!(!output.contains("Performance"));  // Performance items filtered out
+}
+
+#[test]
+fn test_filter_multiple_categories() {
+    let output = run_command("debtmap analyze . --filter Architecture,Testing");
+
+    assert!(output.contains("God Object") || output.contains("Architecture"));
+    assert!(output.contains("Testing Gaps") || output.contains("Testing"));
+    assert!(!output.contains("Performance"));  // Performance items filtered out
 }
 ```
 
@@ -362,8 +380,9 @@ fn test_coverage_report_flag() {
 
 1. Analyze project without coverage → see architectural issues in top 3
 2. Analyze project with coverage → still see architectural issues in top 3
-3. Run `--coverage-report` → see dedicated testing gap analysis
-4. Customize tier thresholds in config → see different prioritization
+3. Run `--filter Testing` → see only testing-related debt items
+4. Run `--filter Architecture,CodeQuality` → see only those categories
+5. Customize tier thresholds in config → see different prioritization
 
 ## Documentation Requirements
 
@@ -427,6 +446,23 @@ Debtmap uses a tiered prioritization strategy:
 
 **Action**: Address opportunistically
 
+### Filtering by Category
+
+Focus on specific types of debt using the `--filter` flag:
+
+```bash
+# Show only testing gaps
+debtmap analyze . --filter Testing
+
+# Show only architectural issues
+debtmap analyze . --filter Architecture
+
+# Show multiple categories
+debtmap analyze . --filter Architecture,Testing
+
+# Available categories: Architecture, Testing, Performance, CodeQuality
+```
+
 ### Customizing Tiers
 
 ```toml
@@ -468,33 +504,19 @@ This ensures users focus on high-impact architectural debt before tackling testi
 - **Balanced**: T2 complexity ≥ 15, T3 complexity ≥ 10 (default)
 - **Lenient**: T2 complexity ≥ 20, T3 complexity ≥ 15
 
-### Coverage Report Format
+### Category Filtering Implementation
 
-```markdown
-# Testing Gap Analysis
+The existing `--filter` flag (currently defined but not implemented) should:
+1. Parse comma-separated category names (case-insensitive)
+2. Map to `DebtCategory` enum values
+3. Filter `UnifiedDebtItem` list before prioritization
+4. Preserve tier ordering within filtered results
 
-## Summary
-- Total Functions: 1,234
-- Untested Functions: 456 (37%)
-- Critical Gaps: 23
-- High Priority Gaps: 89
-
-## Critical Gaps (Untested Public APIs)
-
-1. **user_auth::login()** - Entry point, 15 complexity
-2. **payment::process_transaction()** - Public API, 12 complexity
-...
-
-## Untested Functions by Severity
-
-### High (Complex Business Logic)
-- shared_cache::evict_entries() - 18 complexity, 8 callers
-...
-
-### Medium (Moderate Complexity)
-- formatter::format_output() - 10 complexity, 3 callers
-...
-```
+Valid category values:
+- `Architecture` → God Objects, Feature Envy, etc.
+- `Testing` → Testing gaps, test complexity, flaky tests
+- `Performance` → Async misuse, nested loops, blocking I/O
+- `CodeQuality` → Complexity hotspots, dead code, duplication
 
 ## Migration and Compatibility
 
