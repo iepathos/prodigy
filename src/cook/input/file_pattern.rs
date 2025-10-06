@@ -69,9 +69,14 @@ impl InputProvider for FilePatternInputProvider {
             for entry in glob(&pattern_to_use)? {
                 match entry {
                     Ok(path) => {
-                        if path.is_file() {
-                            all_files.insert(path);
+                        // Check file accessibility once during glob iteration
+                        // This avoids race conditions between glob and later metadata checks
+                        if let Ok(metadata) = fs::metadata(&path) {
+                            if metadata.is_file() {
+                                all_files.insert(path);
+                            }
                         }
+                        // Skip inaccessible files silently (broken symlinks, permission issues)
                     }
                     Err(e) => {
                         // Log but don't fail on individual glob errors
@@ -84,10 +89,12 @@ impl InputProvider for FilePatternInputProvider {
         let mut inputs = Vec::new();
 
         for (index, file_path) in all_files.iter().enumerate() {
-            // Skip broken symlinks and inaccessible files
+            // We already verified file accessibility during glob iteration
+            // But double-check here in case filesystem changed between glob and now
             let metadata = match fs::metadata(file_path) {
                 Ok(m) => m,
                 Err(e) => {
+                    // This shouldn't happen often since we checked during glob
                     eprintln!("Skipping inaccessible file {:?}: {}", file_path, e);
                     continue;
                 }
