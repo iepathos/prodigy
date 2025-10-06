@@ -314,15 +314,15 @@ async fn load_playbook_with_mapreduce(
             // Try to parse as MapReduce workflow
             match crate::config::parse_mapreduce_workflow(&content) {
                 Ok(mapreduce_config) => {
-                    // Return empty workflow config with the MapReduce config
+                    // Return workflow config with environment variables and merge workflow from MapReduce config
                     Ok((
                         WorkflowConfig {
                             commands: vec![],
-                            env: None,
-                            secrets: None,
-                            env_files: None,
-                            profiles: None,
-                            merge: None,
+                            env: mapreduce_config.env.clone(),
+                            secrets: mapreduce_config.secrets.clone(),
+                            env_files: mapreduce_config.env_files.clone(),
+                            profiles: mapreduce_config.profiles.clone(),
+                            merge: mapreduce_config.merge.clone(),
                         },
                         Some(mapreduce_config),
                     ))

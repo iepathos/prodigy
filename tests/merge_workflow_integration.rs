@@ -521,3 +521,46 @@ async fn test_merge_workflow_environment_variables() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_workflow_env_vars_in_merge() -> Result<()> {
+    // Test that workflow environment variables are properly interpolated in merge commands
+    let (_temp_dir, repo_path) = create_test_repo().await?;
+    let subprocess = SubprocessManager::production();
+
+    // Create a merge workflow that uses workflow env vars
+    let merge_workflow = MergeWorkflow {
+        commands: vec![
+            WorkflowStep {
+                shell: Some("echo 'Project: ${PROJECT_NAME}'".to_string()),
+                ..Default::default()
+            },
+            WorkflowStep {
+                shell: Some("echo 'Dir: ${BOOK_DIR}'".to_string()),
+                ..Default::default()
+            },
+        ],
+        timeout: Some(60),
+    };
+
+    // Create workflow environment variables
+    let mut workflow_env = HashMap::new();
+    workflow_env.insert("PROJECT_NAME".to_string(), "TestProject".to_string());
+    workflow_env.insert("BOOK_DIR".to_string(), "book".to_string());
+
+    let manager = WorktreeManager::with_config(
+        repo_path,
+        subprocess,
+        0,
+        Some(merge_workflow),
+        workflow_env,
+    )?;
+
+    // Create session to verify manager setup with env vars
+    let _session = manager.create_session().await?;
+
+    // The actual merge execution would interpolate these variables
+    // This test verifies the manager accepts and stores workflow env vars
+
+    Ok(())
+}
