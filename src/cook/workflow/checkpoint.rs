@@ -473,6 +473,78 @@ pub fn create_checkpoint_with_total_steps(
     }
 }
 
+/// Pure function: create checkpoint for successful completion
+///
+/// Creates a checkpoint marked as completed without performing any I/O.
+/// Returns `Result<WorkflowCheckpoint>` for consistency with error path.
+pub fn create_completion_checkpoint(
+    workflow_id: String,
+    workflow: &NormalizedWorkflow,
+    context: &WorkflowContext,
+    completed_steps: Vec<CompletedStep>,
+    current_step_index: usize,
+    workflow_hash: String,
+) -> Result<WorkflowCheckpoint> {
+    let mut checkpoint = create_checkpoint(
+        workflow_id,
+        workflow,
+        context,
+        completed_steps,
+        current_step_index,
+        workflow_hash,
+    );
+
+    checkpoint.execution_state.status = WorkflowStatus::Completed;
+    Ok(checkpoint)
+}
+
+/// Pure function: create checkpoint with error context for failure recovery
+///
+/// Creates a checkpoint marked as failed with error context stored in variable_state.
+/// This enables users to inspect failure details and potentially resume from the point of failure.
+///
+/// Error context is stored in special variables:
+/// - `__error_message`: The error message as a string
+/// - `__failed_step_index`: The index of the step that failed
+/// - `__error_timestamp`: ISO 8601 timestamp of when the error occurred
+pub fn create_error_checkpoint(
+    workflow_id: String,
+    workflow: &NormalizedWorkflow,
+    context: &WorkflowContext,
+    completed_steps: Vec<CompletedStep>,
+    workflow_hash: String,
+    error: &anyhow::Error,
+    failed_step_index: usize,
+) -> Result<WorkflowCheckpoint> {
+    let mut checkpoint = create_checkpoint(
+        workflow_id,
+        workflow,
+        context,
+        completed_steps,
+        failed_step_index,
+        workflow_hash,
+    );
+
+    // Set status to Failed
+    checkpoint.execution_state.status = WorkflowStatus::Failed;
+
+    // Store error context in variable_state for debugging
+    checkpoint.variable_state.insert(
+        "__error_message".to_string(),
+        Value::String(error.to_string()),
+    );
+    checkpoint.variable_state.insert(
+        "__failed_step_index".to_string(),
+        Value::Number(failed_step_index.into()),
+    );
+    checkpoint.variable_state.insert(
+        "__error_timestamp".to_string(),
+        Value::String(Utc::now().to_rfc3339()),
+    );
+
+    Ok(checkpoint)
+}
+
 /// Build resume context from a checkpoint
 pub fn build_resume_context(checkpoint: WorkflowCheckpoint) -> ResumeContext {
     let completed_steps = checkpoint.completed_steps.clone();
