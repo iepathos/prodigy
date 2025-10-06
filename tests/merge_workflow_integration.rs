@@ -548,13 +548,8 @@ async fn test_workflow_env_vars_in_merge() -> Result<()> {
     workflow_env.insert("PROJECT_NAME".to_string(), "TestProject".to_string());
     workflow_env.insert("BOOK_DIR".to_string(), "book".to_string());
 
-    let manager = WorktreeManager::with_config(
-        repo_path,
-        subprocess,
-        0,
-        Some(merge_workflow),
-        workflow_env,
-    )?;
+    let manager =
+        WorktreeManager::with_config(repo_path, subprocess, 0, Some(merge_workflow), workflow_env)?;
 
     // Create session to verify manager setup with env vars
     let _session = manager.create_session().await?;
