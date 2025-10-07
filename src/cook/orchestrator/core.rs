@@ -18,7 +18,7 @@ use crate::cook::command::CookCommand;
 use crate::cook::execution::{ClaudeExecutor, CommandExecutor};
 use crate::cook::interaction::UserInteraction;
 use crate::cook::session::{SessionManager, SessionState, SessionStatus, SessionUpdate};
-use crate::cook::workflow::{CaptureOutput, ExtendedWorkflowConfig, WorkflowStep};
+use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowStep};
 use crate::unified_session::{format_duration, TimingTracker};
 use std::time::Instant;
 
@@ -824,177 +824,7 @@ impl DefaultCookOrchestrator {
 
     /// Convert a workflow command to a workflow step
     fn convert_command_to_step(cmd: &WorkflowCommand) -> WorkflowStep {
-        match cmd {
-            WorkflowCommand::WorkflowStep(step) => {
-                // Handle new workflow step format directly
-                // For shell commands with on_failure (retry logic), convert to test format
-                let (shell, test, on_failure) = Self::process_step_failure_config(step);
-
-                WorkflowStep {
-                    name: None,
-                    command: None,
-                    claude: step.claude.clone(),
-                    shell,
-                    test, // Contains retry logic for shell commands
-                    goal_seek: step.goal_seek.clone(),
-                    foreach: step.foreach.clone(),
-                    handler: None,
-                    capture: None,
-                    auto_commit: false,
-                    commit_config: None,
-                    capture_format: step.capture_format.as_ref().and_then(|f| match f.as_str() {
-                        "json" => Some(crate::cook::workflow::variables::CaptureFormat::Json),
-                        "lines" => Some(crate::cook::workflow::variables::CaptureFormat::Lines),
-                        "string" => Some(crate::cook::workflow::variables::CaptureFormat::String),
-                        "number" => Some(crate::cook::workflow::variables::CaptureFormat::Number),
-                        "boolean" => Some(crate::cook::workflow::variables::CaptureFormat::Boolean),
-                        _ => None,
-                    }),
-                    capture_streams: match step.capture_streams.as_deref() {
-                        Some("stdout") => crate::cook::workflow::variables::CaptureStreams {
-                            stdout: true,
-                            stderr: false,
-                            exit_code: true,
-                            success: true,
-                            duration: true,
-                        },
-                        Some("stderr") => crate::cook::workflow::variables::CaptureStreams {
-                            stdout: false,
-                            stderr: true,
-                            exit_code: true,
-                            success: true,
-                            duration: true,
-                        },
-                        Some("both") => crate::cook::workflow::variables::CaptureStreams {
-                            stdout: true,
-                            stderr: true,
-                            exit_code: true,
-                            success: true,
-                            duration: true,
-                        },
-                        _ => crate::cook::workflow::variables::CaptureStreams::default(),
-                    },
-                    output_file: step.output_file.as_ref().map(std::path::PathBuf::from),
-                    capture_output: match &step.capture_output {
-                        Some(crate::config::command::CaptureOutputConfig::Boolean(true)) => {
-                            CaptureOutput::Default
-                        }
-                        Some(crate::config::command::CaptureOutputConfig::Boolean(false)) => {
-                            CaptureOutput::Disabled
-                        }
-                        Some(crate::config::command::CaptureOutputConfig::Variable(var)) => {
-                            CaptureOutput::Variable(var.clone())
-                        }
-                        None => CaptureOutput::Disabled,
-                    },
-                    timeout: None,
-                    working_dir: None,
-                    env: std::collections::HashMap::new(),
-                    on_failure,
-                    retry: None,
-                    on_success: None,
-                    on_exit_code: std::collections::HashMap::new(),
-                    // Commands don't require commits by default unless explicitly set
-                    commit_required: step.commit_required,
-                    validate: step.validate.clone(),
-                    step_validate: None,
-                    skip_validation: false,
-                    validation_timeout: None,
-                    ignore_validation_failure: false,
-                    when: None,
-                }
-            }
-            _ => {
-                // Convert to command and apply defaults to get proper commit_required
-                let mut command = cmd.to_command();
-                crate::config::apply_command_defaults(&mut command);
-
-                let command_str = command.name.clone();
-                let commit_required = Self::determine_commit_required(cmd, &command);
-
-                WorkflowStep {
-                    name: None,
-                    command: Some(if command_str.starts_with('/') {
-                        command_str
-                    } else {
-                        format!("/{command_str}")
-                    }),
-                    claude: None,
-                    shell: None,
-                    test: None,
-                    goal_seek: None,
-                    foreach: None,
-                    handler: None,
-                    capture: None,
-                    auto_commit: false,
-                    commit_config: None,
-                    capture_format: None,
-                    capture_streams: Default::default(),
-                    output_file: None,
-                    capture_output: CaptureOutput::Disabled,
-                    timeout: None,
-                    working_dir: None,
-                    env: std::collections::HashMap::new(),
-                    on_failure: None,
-                    retry: None,
-                    on_success: None,
-                    on_exit_code: std::collections::HashMap::new(),
-                    commit_required,
-                    validate: None,
-                    step_validate: None,
-                    skip_validation: false,
-                    validation_timeout: None,
-                    ignore_validation_failure: false,
-                    when: None,
-                }
-            }
-        }
-    }
-
-    /// Process step failure configuration
-    fn process_step_failure_config(
-        step: &crate::config::command::WorkflowStepCommand,
-    ) -> (
-        Option<String>,
-        Option<crate::config::command::TestCommand>,
-        Option<crate::cook::workflow::OnFailureConfig>,
-    ) {
-        if step.shell.is_some() && step.on_failure.is_some() {
-            // Convert shell command with on_failure to test command for retry logic
-            // Safe to use unwrap here as we just checked is_some() above
-            let test_cmd =
-                step.shell
-                    .as_ref()
-                    .map(|shell_cmd| crate::config::command::TestCommand {
-                        command: shell_cmd.clone(),
-                        on_failure: step.on_failure.clone(),
-                    });
-            // Clear shell field when converting to test
-            (None, test_cmd, None)
-        } else if step.on_failure.is_some() {
-            // For non-shell commands, convert TestDebugConfig to OnFailureConfig
-            let on_failure = step.on_failure.as_ref().map(|debug_config| {
-                // Use Advanced config with claude command
-                crate::cook::workflow::OnFailureConfig::Advanced {
-                    shell: None,
-                    claude: Some(debug_config.claude.clone()),
-                    fail_workflow: debug_config.fail_workflow,
-                    retry_original: false,
-                    max_retries: debug_config.max_attempts - 1, // max_attempts includes first try
-                }
-            });
-            (step.shell.clone(), step.test.clone(), on_failure)
-        } else {
-            (step.shell.clone(), step.test.clone(), None)
-        }
-    }
-
-    /// Determine if a command requires a commit
-    fn determine_commit_required(
-        cmd: &WorkflowCommand,
-        command: &crate::config::command::Command,
-    ) -> bool {
-        super::workflow_classifier::determine_commit_required(cmd, command)
+        super::normalization::convert_command_to_step(cmd)
     }
 
     #[allow(dead_code)]
@@ -2959,7 +2789,7 @@ mod tests {
         let cmd = WorkflowCommand::SimpleObject(simple);
         let command = crate::config::command::Command::new("test");
 
-        assert!(!DefaultCookOrchestrator::determine_commit_required(
+        assert!(!super::workflow_classifier::determine_commit_required(
             &cmd, &command
         ));
     }
@@ -2972,130 +2802,9 @@ mod tests {
         let mut command = crate::config::command::Command::new("test");
         command.metadata.commit_required = false;
 
-        assert!(!DefaultCookOrchestrator::determine_commit_required(
+        assert!(!super::workflow_classifier::determine_commit_required(
             &cmd, &command
         ));
-    }
-
-    #[test]
-    fn test_process_step_failure_config_shell_with_failure() {
-        let step = crate::config::command::WorkflowStepCommand {
-            shell: Some("echo test".to_string()),
-            on_failure: Some(crate::config::command::TestDebugConfig {
-                claude: "/fix-error".to_string(),
-                max_attempts: 3,
-                fail_workflow: false,
-                commit_required: true,
-            }),
-            claude: None,
-            test: None,
-            goal_seek: None,
-            foreach: None,
-            capture_output: None,
-            commit_required: false,
-            analyze: None,
-            id: None,
-            analysis: None,
-            outputs: None,
-            on_success: None,
-            validate: None,
-            timeout: None,
-            when: None,
-            capture_format: None,
-            capture_streams: None,
-            output_file: None,
-        };
-
-        let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
-
-        assert!(shell.is_none());
-        assert!(test.is_some());
-        assert!(on_failure.is_none());
-
-        let test_cmd = test.unwrap();
-        assert_eq!(test_cmd.command, "echo test");
-        assert!(test_cmd.on_failure.is_some());
-    }
-
-    #[test]
-    fn test_process_step_failure_config_non_shell_with_failure() {
-        let step = crate::config::command::WorkflowStepCommand {
-            shell: None,
-            claude: Some("/prodigy-test".to_string()),
-            on_failure: Some(crate::config::command::TestDebugConfig {
-                claude: "/fix-error".to_string(),
-                max_attempts: 2,
-                fail_workflow: true,
-                commit_required: true,
-            }),
-            test: None,
-            goal_seek: None,
-            foreach: None,
-            capture_output: None,
-            commit_required: false,
-            analyze: None,
-            id: None,
-            analysis: None,
-            outputs: None,
-            on_success: None,
-            validate: None,
-            timeout: None,
-            when: None,
-            capture_format: None,
-            capture_streams: None,
-            output_file: None,
-        };
-
-        let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
-
-        assert!(shell.is_none());
-        assert!(test.is_none());
-        assert!(on_failure.is_some());
-
-        if let Some(crate::cook::workflow::OnFailureConfig::Advanced {
-            claude,
-            fail_workflow,
-            max_retries,
-            ..
-        }) = on_failure
-        {
-            assert_eq!(claude, Some("/fix-error".to_string()));
-            assert!(fail_workflow);
-            assert_eq!(max_retries, 1); // max_attempts - 1
-        } else {
-            panic!("Expected Advanced OnFailureConfig");
-        }
-    }
-
-    #[test]
-    fn test_process_step_failure_config_no_failure() {
-        let step = crate::config::command::WorkflowStepCommand {
-            shell: Some("echo test".to_string()),
-            claude: None,
-            on_failure: None,
-            test: None,
-            goal_seek: None,
-            foreach: None,
-            capture_output: None,
-            commit_required: false,
-            analyze: None,
-            id: None,
-            analysis: None,
-            outputs: None,
-            on_success: None,
-            validate: None,
-            timeout: None,
-            when: None,
-            capture_format: None,
-            capture_streams: None,
-            output_file: None,
-        };
-
-        let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
-
-        assert_eq!(shell, Some("echo test".to_string()));
-        assert!(test.is_none());
-        assert!(on_failure.is_none());
     }
 
     #[test]
