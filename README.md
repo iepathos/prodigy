@@ -35,25 +35,16 @@
 
 ## Features
 
-✨ **Workflow Orchestration** - Define complex development workflows in simple YAML
-
-⚡ **Parallel Execution** - Run multiple Claude agents simultaneously with MapReduce
-
-🔄 **Automatic Retry** - Smart retry strategies with exponential backoff and circuit breakers
-
-💾 **Full State Management** - Checkpoint and resume interrupted workflows exactly where they left off
-
-🎯 **Goal-Seeking** - Iterative refinement until specifications are met
-
-🌳 **Git Integration** - Automatic worktree isolation for every workflow execution with commit tracking
-
-🛡️ **Error Recovery** - Comprehensive failure handling with on-failure handlers
-
-📊 **Analytics** - Cost tracking, performance metrics, and optimization recommendations
-
-🔧 **Extensible** - Custom validators, handlers, and workflow composition
-
-📚 **Documentation** - Comprehensive man pages and built-in help system
++ ✨ **Workflow Orchestration** - Define complex development workflows in simple YAML
++ ⚡ **Parallel Execution** - Run multiple Claude agents simultaneously with MapReduce
++ 🔄 **Automatic Retry** - Smart retry strategies with exponential backoff and circuit breakers
++ 💾 **Full State Management** - Checkpoint and resume interrupted workflows exactly where they left off
++ 🎯 **Goal-Seeking** - Iterative refinement until specifications are met
++ 🌳 **Git Integration** - Automatic worktree isolation for every workflow execution with commit tracking
++ 🛡️ **Error Recovery** - Comprehensive failure handling with on-failure handlers
++ 📊 **Analytics** - Cost tracking, performance metrics, and optimization recommendations
++ 🔧 **Extensible** - Custom validators, handlers, and workflow composition
++ 📚 **Documentation** - Comprehensive man pages and built-in help system
 
 ## Installation
 
