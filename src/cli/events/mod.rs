@@ -630,7 +630,8 @@ async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) 
 
     // Read all events and search using pure functions
     let all_events = read_events_from_files(&event_files)?;
-    let matching_events = transform::search_events_with_pattern(&all_events, &pattern, fields.as_deref())?;
+    let matching_events =
+        transform::search_events_with_pattern(&all_events, &pattern, fields.as_deref())?;
 
     // Display results
     format::display_search_results(&matching_events, true)
@@ -645,7 +646,8 @@ async fn search_events(file: PathBuf, pattern: String, fields: Option<Vec<String
 
     // Read events and search using pure functions
     let events = read_events_from_single_file(&file)?;
-    let matching_events = transform::search_events_with_pattern(&events, &pattern, fields.as_deref())?;
+    let matching_events =
+        transform::search_events_with_pattern(&events, &pattern, fields.as_deref())?;
 
     // Display results
     format::display_search_results(&matching_events, false)
@@ -1089,7 +1091,6 @@ async fn clean_specific_file(
     }
 }
 
-
 // I/O function: Process event file in dry-run mode
 async fn process_event_file_dry_run(
     event_file: PathBuf,
@@ -1110,7 +1111,8 @@ async fn process_event_file_dry_run(
         println!("    No events to remove");
     }
 
-    let archived = transform::calculate_archived_count(analysis.events_to_archive, policy.archive_old_events);
+    let archived =
+        transform::calculate_archived_count(analysis.events_to_archive, policy.archive_old_events);
     Ok((analysis.events_to_remove, archived))
 }
 
@@ -1132,7 +1134,8 @@ async fn process_event_file_actual(
         );
     }
 
-    let archived = transform::calculate_archived_count(stats.events_removed, policy.archive_old_events);
+    let archived =
+        transform::calculate_archived_count(stats.events_removed, policy.archive_old_events);
     Ok((stats.events_removed, archived))
 }
 
@@ -1402,9 +1405,9 @@ fn display_new_events(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::format::*;
     use super::transform::*;
+    use super::*;
     use chrono::TimeZone;
     use serde_json::json;
 
