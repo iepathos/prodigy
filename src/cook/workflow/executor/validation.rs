@@ -4,7 +4,10 @@
 
 use super::super::step_validation::StepValidationSpec;
 use super::super::validation::{ValidationConfig, ValidationResult};
-use super::{pure, ExecutionFlags, IterationContinuation, StepResult, WorkflowContext, WorkflowExecutor, WorkflowStep};
+use super::{
+    pure, ExecutionFlags, IterationContinuation, StepResult, WorkflowContext, WorkflowExecutor,
+    WorkflowStep,
+};
 use crate::cook::execution::ExecutionContext;
 use crate::cook::expression::{ExpressionEvaluator, VariableContext};
 use crate::cook::orchestrator::ExecutionEnvironment;
@@ -257,14 +260,13 @@ impl WorkflowExecutor {
         }
 
         // Create a validation executor with the command executor
-        let validation_executor = super::super::step_validation::StepValidationExecutor::new(Arc::new(
-            super::StepValidationCommandExecutor {
+        let validation_executor = super::super::step_validation::StepValidationExecutor::new(
+            Arc::new(super::StepValidationCommandExecutor {
                 workflow_executor: self as *mut WorkflowExecutor,
                 env: env.clone(),
                 ctx: ctx.clone(),
-            },
-        )
-            as Arc<dyn crate::cook::execution::CommandExecutor>);
+            }) as Arc<dyn crate::cook::execution::CommandExecutor>,
+        );
 
         // Create execution context for validation
         let exec_context = ExecutionContext {
@@ -663,12 +665,18 @@ impl WorkflowExecutor {
     }
 
     /// Determine if workflow should fail based on command result (delegated to pure module)
-    pub(super) fn should_fail_workflow_for_step(step_result: &StepResult, step: &WorkflowStep) -> bool {
+    pub(super) fn should_fail_workflow_for_step(
+        step_result: &StepResult,
+        step: &WorkflowStep,
+    ) -> bool {
         pure::should_fail_workflow_for_step(step_result, step)
     }
 
     /// Determine if workflow should continue iterations
-    pub(super) async fn should_continue_iterations(&self, _env: &ExecutionEnvironment) -> Result<bool> {
+    pub(super) async fn should_continue_iterations(
+        &self,
+        _env: &ExecutionEnvironment,
+    ) -> Result<bool> {
         // Always continue iterations until max_iterations is reached
         // The iteration loop already handles the max_iterations check
         Ok(true)

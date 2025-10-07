@@ -7,7 +7,10 @@
 //! - Result handling (output capture, file writing, validation)
 //! - Retry logic (enhanced retry with backoff and jitter)
 
-use super::{CaptureOutput, CommandType, HandlerStep, StepResult, WorkflowContext, WorkflowExecutor, WorkflowStep};
+use super::{
+    CaptureOutput, CommandType, HandlerStep, StepResult, WorkflowContext, WorkflowExecutor,
+    WorkflowStep,
+};
 use crate::cook::commit_tracker::TrackedCommit;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionUpdate;
@@ -758,8 +761,10 @@ impl WorkflowExecutor {
 
             // Calculate delay if this is a retry
             if !retry_ctx.is_first_attempt() {
-                let delay =
-                    super::failure_handler::calculate_retry_delay(&retry_config, retry_ctx.attempt - 1);
+                let delay = super::failure_handler::calculate_retry_delay(
+                    &retry_config,
+                    retry_ctx.attempt - 1,
+                );
                 let jittered_delay =
                     super::failure_handler::apply_jitter(delay, retry_config.jitter_factor);
 
@@ -832,8 +837,11 @@ impl WorkflowExecutor {
                         .await;
 
                     // Check if we should retry this error
-                    if !super::failure_handler::should_attempt_retry(&retry_ctx, &error_str, &retry_config)
-                    {
+                    if !super::failure_handler::should_attempt_retry(
+                        &retry_ctx,
+                        &error_str,
+                        &retry_config,
+                    ) {
                         return Err(err);
                     }
 

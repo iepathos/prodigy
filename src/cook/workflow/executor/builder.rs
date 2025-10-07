@@ -17,9 +17,9 @@ use super::{
 use crate::abstractions::git::RealGitOperations;
 use crate::commands::CommandRegistry;
 use crate::cook::execution::ClaudeExecutor;
+use crate::cook::interaction::UserInteraction;
 use crate::cook::retry_state::RetryStateManager;
 use crate::cook::session::SessionManager;
-use crate::cook::interaction::UserInteraction;
 use crate::testing::config::TestConfiguration;
 use crate::unified_session::TimingTracker;
 use anyhow::{anyhow, Context, Result};
@@ -288,18 +288,6 @@ impl WorkflowExecutor {
         }
     }
 
-    /// Create a test executor for testing
-    #[cfg(test)]
-    pub(super) fn create_test_executor() -> WorkflowExecutor {
-        use super::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
-
-        WorkflowExecutor::new(
-            Arc::new(MockClaudeExecutor::new()),
-            Arc::new(MockSessionManager::new()),
-            Arc::new(MockUserInteraction::new()),
-        )
-    }
-
     /// Restore error recovery state from resume context
     pub(super) fn restore_error_recovery_state(
         &self,
@@ -485,7 +473,11 @@ impl WorkflowExecutor {
     }
 
     /// Generate a commit message from template or default
-    pub fn generate_commit_message(&self, step: &WorkflowStep, context: &WorkflowContext) -> String {
+    pub fn generate_commit_message(
+        &self,
+        step: &WorkflowStep,
+        context: &WorkflowContext,
+    ) -> String {
         if let Some(ref config) = step.commit_config {
             if let Some(ref template) = config.message_template {
                 // Interpolate variables in template

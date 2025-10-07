@@ -536,11 +536,6 @@ pub struct WorkflowExecutor {
 }
 
 impl WorkflowExecutor {
-    /// Handle step validation (first-class validation feature)
-
-    /// Execute command based on its type
-
-    /// Handle conditional execution (on_failure, on_success, on_exit_code)
     /// Handle on_failure configuration with retry logic
     async fn handle_on_failure(
         &mut self,
@@ -906,10 +901,6 @@ impl WorkflowExecutor {
             Ok(true)
         }
     }
-
-    /// Execute a workflow
-    /// Initialize workflow execution context
-    /// Display dry-run mode information
 
     /// Handle commit squashing if enabled in workflow
     async fn handle_commit_squashing(
@@ -1564,12 +1555,6 @@ impl WorkflowExecutor {
         }
     }
 
-    /// Execute a shell command with retry logic (for shell commands with on_failure)
-
-    /// Execute a test command with retry logic
-
-    /// Handle test mode execution
-
     /// Get current git HEAD
     async fn get_current_head(&self, working_dir: &std::path::Path) -> Result<String> {
         // We need to run git commands in the correct working directory (especially for worktrees)
@@ -2095,7 +2080,7 @@ mod tests {
 
     // Minimal mock implementations for tests
     #[cfg(test)]
-    mod test_mocks {
+    pub(crate) mod test_mocks {
         use super::*;
         use crate::cook::execution::{ClaudeExecutor, ExecutionResult};
         use crate::cook::interaction::VerbosityLevel;
@@ -2254,7 +2239,13 @@ mod tests {
 
     // Test helper function for creating WorkflowExecutor with mocks
     fn create_test_executor() -> WorkflowExecutor {
-        WorkflowExecutor::create_test_executor()
+        use test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
+
+        WorkflowExecutor::new(
+            Arc::new(MockClaudeExecutor::new()),
+            Arc::new(MockSessionManager::new()),
+            Arc::new(MockUserInteraction::new()),
+        )
     }
 
     #[test]

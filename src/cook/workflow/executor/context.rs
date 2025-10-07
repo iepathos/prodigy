@@ -6,8 +6,8 @@
 use crate::cook::execution::interpolation::InterpolationContext;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::workflow::executor::{
-    VariableResolution, WorkflowContext, WorkflowExecutor, WorkflowStep,
-    BRACED_VAR_REGEX, UNBRACED_VAR_REGEX,
+    VariableResolution, WorkflowContext, WorkflowExecutor, WorkflowStep, BRACED_VAR_REGEX,
+    UNBRACED_VAR_REGEX,
 };
 use crate::cook::workflow::git_context::GitChangeTracker;
 use serde_json::Value;
