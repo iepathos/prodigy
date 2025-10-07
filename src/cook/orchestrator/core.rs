@@ -57,7 +57,7 @@ pub trait CookOrchestrator: Send + Sync {
 
 /// Classification of workflow types
 #[derive(Debug, Clone, PartialEq)]
-enum WorkflowType {
+pub(crate) enum WorkflowType {
     MapReduce,
     StructuredWithOutputs,
     WithArguments,
@@ -1018,6 +1018,14 @@ impl DefaultCookOrchestrator {
         cmd: &WorkflowCommand,
         command: &crate::config::command::Command,
     ) -> bool {
+        super::workflow_classifier::determine_commit_required(cmd, command)
+    }
+
+    #[allow(dead_code)]
+    fn determine_commit_required_old(
+        cmd: &WorkflowCommand,
+        command: &crate::config::command::Command,
+    ) -> bool {
         match cmd {
             WorkflowCommand::SimpleObject(simple) => {
                 // If explicitly set in YAML, use that value
@@ -1054,6 +1062,11 @@ impl DefaultCookOrchestrator {
 
     /// Classify the workflow type based on configuration
     fn classify_workflow_type(config: &CookConfig) -> WorkflowType {
+        super::workflow_classifier::classify_workflow_type(config)
+    }
+
+    #[allow(dead_code)]
+    fn classify_workflow_type_old(config: &CookConfig) -> WorkflowType {
         // MapReduce takes precedence
         if config.mapreduce_config.is_some() {
             return WorkflowType::MapReduce;
@@ -1787,6 +1800,11 @@ impl DefaultCookOrchestrator {
 
     /// Helper to match glob-style patterns
     fn matches_glob_pattern(&self, file: &str, pattern: &str) -> bool {
+        super::workflow_classifier::matches_glob_pattern(file, pattern)
+    }
+
+    #[allow(dead_code)]
+    fn matches_glob_pattern_old(&self, file: &str, pattern: &str) -> bool {
         // Simple glob matching for common cases
         if pattern == "*" {
             return true;
