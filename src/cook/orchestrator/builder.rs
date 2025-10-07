@@ -4,12 +4,12 @@
 //! It provides a builder pattern for configuring the orchestrator with its dependencies.
 
 use crate::abstractions::git::GitOperations;
-use crate::cook::environment::{EnvironmentConfig, EnvValue};
+use crate::config::WorkflowConfig;
+use crate::cook::environment::{EnvValue, EnvironmentConfig};
 use crate::cook::execution::{ClaudeExecutor, CommandExecutor};
 use crate::cook::interaction::UserInteraction;
 use crate::cook::session::SessionManager;
 use crate::cook::workflow::WorkflowExecutorImpl;
-use crate::config::WorkflowConfig;
 use crate::testing::config::TestConfiguration;
 use std::path::PathBuf;
 use std::sync::Arc;
