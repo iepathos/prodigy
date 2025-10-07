@@ -170,27 +170,7 @@ impl DefaultCookOrchestrator {
         &self,
         workflow: &WorkflowConfig,
     ) -> crate::cook::environment::EnvironmentConfig {
-        crate::cook::environment::EnvironmentConfig {
-            global_env: workflow
-                .env
-                .as_ref()
-                .map(|env| {
-                    env.iter()
-                        .map(|(k, v)| {
-                            (
-                                k.clone(),
-                                crate::cook::environment::EnvValue::Static(v.clone()),
-                            )
-                        })
-                        .collect()
-                })
-                .unwrap_or_default(),
-            secrets: workflow.secrets.clone().unwrap_or_default(),
-            env_files: workflow.env_files.clone().unwrap_or_default(),
-            inherit: true,
-            profiles: workflow.profiles.clone().unwrap_or_default(),
-            active_profile: None,
-        }
+        super::construction::create_env_config(workflow)
     }
 
     /// Create workflow executor - avoids repeated Arc cloning
@@ -198,12 +178,12 @@ impl DefaultCookOrchestrator {
         &self,
         config: &CookConfig,
     ) -> crate::cook::workflow::WorkflowExecutorImpl {
-        crate::cook::workflow::WorkflowExecutorImpl::new(
+        super::construction::create_workflow_executor(
             Arc::clone(&self.claude_executor),
             Arc::clone(&self.session_manager),
             Arc::clone(&self.user_interaction),
+            config.command.playbook.clone(),
         )
-        .with_workflow_path(config.command.playbook.clone())
     }
 
     /// Create base workflow state for session management - avoids field cloning
@@ -212,11 +192,7 @@ impl DefaultCookOrchestrator {
         &self,
         config: &CookConfig,
     ) -> (PathBuf, Vec<String>, Vec<String>) {
-        (
-            config.command.playbook.clone(),
-            config.command.args.clone(),
-            config.command.map.clone(),
-        )
+        super::construction::create_workflow_state_base(&config.command)
     }
 
     /// Display health score for the project
@@ -323,7 +299,7 @@ impl DefaultCookOrchestrator {
 
     /// Generate session ID using unified format
     fn generate_session_id(&self) -> String {
-        crate::unified_session::SessionId::new().to_string()
+        super::construction::generate_session_id()
     }
 
     /// Check prerequisites with config-aware git checking
