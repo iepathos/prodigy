@@ -15,42 +15,42 @@ setup:
 map:
   # Input configuration - debtmap-before.json contains items array
   input: .prodigy/debtmap-before.json
-  json_path: "$.items[*]"
+  json_path: "$.items[*].File"
 
   # Commands to execute for each debt item with planning and validation
   agent_template:
     # Phase 1: Create implementation plan
-    - claude: "/prodigy-debtmap-plan --item '${item}' --output .prodigy/plan-${item.id}.md"
+    - claude: "/prodigy-debtmap-plan --item '${item}' --output .prodigy/plan-${item_id}.md"
       capture_output: true
       validate:
         commands:
-          - claude: "/prodigy-validate-debtmap-plan --item '${item}' --plan .prodigy/plan-${item.id}.md --output .prodigy/validation-${item.id}.json"
-        result_file: ".prodigy/validation-${item.id}.json"
+          - claude: "/prodigy-validate-debtmap-plan --item '${item}' --plan .prodigy/plan-${item_id}.md --output .prodigy/validation-${item_id}.json"
+        result_file: ".prodigy/validation-${item_id}.json"
         threshold: 75
         on_incomplete:
           commands:
-            - claude: "/prodigy-revise-debtmap-plan --gaps ${validation.gaps} --plan .prodigy/plan-${item.id}.md"
+            - claude: "/prodigy-revise-debtmap-plan --gaps ${validation.gaps} --plan .prodigy/plan-${item_id}.md"
           max_attempts: 3
           fail_workflow: false
 
     # Phase 2: Execute the plan
-    - claude: "/prodigy-debtmap-implement --plan .prodigy/plan-${item.id}.md"
+    - claude: "/prodigy-debtmap-implement --plan .prodigy/plan-${item_id}.md"
       commit_required: true
       validate:
         commands:
           - shell: "just coverage-lcov"
-          - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output .prodigy/debtmap-after-${item.id}.json --format json"
-          - shell: "debtmap compare --before .prodigy/debtmap-before.json --after .prodigy/debtmap-after-${item.id}.json --plan .prodigy/plan-${item.id}.md --output .prodigy/comparison-${item.id}.json --format json"
-          - claude: "/prodigy-validate-debtmap-improvement --comparison .prodigy/comparison-${item.id}.json --previous-validation .prodigy/debtmap-validation-${item.id}.json --output .prodigy/debtmap-validation-${item.id}.json"
-        result_file: ".prodigy/debtmap-validation-${item.id}.json"
+          - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output .prodigy/debtmap-after-${item_id}.json --format json"
+          - shell: "debtmap compare --before .prodigy/debtmap-before.json --after .prodigy/debtmap-after-${item_id}.json --plan .prodigy/plan-${item_id}.md --output .prodigy/comparison-${item_id}.json --format json"
+          - claude: "/prodigy-validate-debtmap-improvement --comparison .prodigy/comparison-${item_id}.json --previous-validation .prodigy/debtmap-validation-${item_id}.json --output .prodigy/debtmap-validation-${item_id}.json"
+        result_file: ".prodigy/debtmap-validation-${item_id}.json"
         threshold: 75
         on_incomplete:
           commands:
-            - claude: "/prodigy-complete-debtmap-fix --plan .prodigy/plan-${item.id}.md --validation .prodigy/debtmap-validation-${item.id}.json --attempt ${validation.attempt_number}"
+            - claude: "/prodigy-complete-debtmap-fix --plan .prodigy/plan-${item_id}.md --validation .prodigy/debtmap-validation-${item_id}.json --attempt ${validation.attempt_number}"
               commit_required: true
             - shell: "just coverage-lcov"
-            - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output .prodigy/debtmap-after-${item.id}.json --format json"
-            - shell: "debtmap compare --before .prodigy/debtmap-before.json --after .prodigy/debtmap-after-${item.id}.json --plan .prodigy/plan-${item.id}.md --output .prodigy/comparison-${item.id}.json --format json"
+            - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output .prodigy/debtmap-after-${item_id}.json --format json"
+            - shell: "debtmap compare --before .prodigy/debtmap-before.json --after .prodigy/debtmap-after-${item_id}.json --plan .prodigy/plan-${item_id}.md --output .prodigy/comparison-${item_id}.json --format json"
           max_attempts: 5
           fail_workflow: true
 
@@ -72,8 +72,8 @@ map:
   max_parallel: 5  # Run up to 5 agents in parallel
 
   # Process high-score items first
-  filter: "unified_score.final_score >= 5"  # Only process items with score >= 5
-  sort_by: "unified_score.final_score DESC"  # Process highest score items first
+  filter: "score >= 100"  # Only process items with score >= 100
+  sort_by: "score DESC"  # Process highest score items first
   max_items: 10  # Limit to 10 items per run
 
 # Reduce phase: Aggregate results and verify overall improvements
