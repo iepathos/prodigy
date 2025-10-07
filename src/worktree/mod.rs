@@ -63,6 +63,7 @@
 use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 
+pub mod builder;
 pub mod display;
 pub mod manager;
 pub mod parsing;
