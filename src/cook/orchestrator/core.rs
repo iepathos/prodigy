@@ -14,11 +14,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
 
-use super::command::CookCommand;
-use super::execution::{ClaudeExecutor, CommandExecutor};
-use super::interaction::UserInteraction;
-use super::session::{SessionManager, SessionState, SessionStatus, SessionUpdate};
-use super::workflow::{CaptureOutput, ExtendedWorkflowConfig, WorkflowStep};
+use crate::cook::command::CookCommand;
+use crate::cook::execution::{ClaudeExecutor, CommandExecutor};
+use crate::cook::interaction::UserInteraction;
+use crate::cook::session::{SessionManager, SessionState, SessionStatus, SessionUpdate};
+use crate::cook::workflow::{CaptureOutput, ExtendedWorkflowConfig, WorkflowStep};
 use crate::unified_session::{format_duration, TimingTracker};
 use std::time::Instant;
 
@@ -57,7 +57,7 @@ pub trait CookOrchestrator: Send + Sync {
 
 /// Classification of workflow types
 #[derive(Debug, Clone, PartialEq)]
-enum WorkflowType {
+pub(crate) enum WorkflowType {
     MapReduce,
     StructuredWithOutputs,
     WithArguments,
@@ -142,6 +142,28 @@ impl DefaultCookOrchestrator {
         }
     }
 
+    /// Internal constructor used by the builder
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn from_builder(
+        session_manager: Arc<dyn SessionManager>,
+        command_executor: Arc<dyn CommandExecutor>,
+        claude_executor: Arc<dyn ClaudeExecutor>,
+        user_interaction: Arc<dyn UserInteraction>,
+        git_operations: Arc<dyn GitOperations>,
+        subprocess: crate::subprocess::SubprocessManager,
+        test_config: Option<Arc<TestConfiguration>>,
+    ) -> Self {
+        Self {
+            session_manager,
+            command_executor,
+            claude_executor,
+            user_interaction,
+            git_operations,
+            subprocess,
+            test_config,
+        }
+    }
+
     /// Create environment configuration from workflow config - avoids cloning
     #[allow(dead_code)]
     fn create_env_config(
@@ -172,7 +194,7 @@ impl DefaultCookOrchestrator {
     }
 
     /// Create workflow executor - avoids repeated Arc cloning
-    fn create_workflow_executor(
+    pub(super) fn create_workflow_executor_internal(
         &self,
         config: &CookConfig,
     ) -> crate::cook::workflow::WorkflowExecutorImpl {
@@ -186,7 +208,7 @@ impl DefaultCookOrchestrator {
 
     /// Create base workflow state for session management - avoids field cloning
     #[allow(dead_code)]
-    fn create_workflow_state_base(
+    pub(super) fn create_workflow_state_base_internal(
         &self,
         config: &CookConfig,
     ) -> (PathBuf, Vec<String>, Vec<String>) {
@@ -586,7 +608,7 @@ impl DefaultCookOrchestrator {
             .unwrap_or_default();
 
         // Create workflow state for checkpointing
-        let workflow_state = super::session::WorkflowState {
+        let workflow_state = crate::cook::session::WorkflowState {
             current_iteration: start_iteration,
             current_step: start_step,
             completed_steps,
@@ -665,7 +687,7 @@ impl DefaultCookOrchestrator {
             ));
 
             // Save checkpoint before executing
-            let mut workflow_state = super::session::WorkflowState {
+            let mut workflow_state = crate::cook::session::WorkflowState {
                 current_iteration: 0,
                 current_step: index,
                 completed_steps: Vec::new(),
@@ -685,7 +707,7 @@ impl DefaultCookOrchestrator {
             // Update completed steps
             workflow_state
                 .completed_steps
-                .push(super::session::StepResult {
+                .push(crate::cook::session::StepResult {
                     step_index: index,
                     command: format!("{:?}", step),
                     success: true,
@@ -743,7 +765,7 @@ impl DefaultCookOrchestrator {
 
             for (index, step) in steps.iter().enumerate().skip(step_start) {
                 // Save checkpoint and execute step
-                let workflow_state = super::session::WorkflowState {
+                let workflow_state = crate::cook::session::WorkflowState {
                     current_iteration: iteration,
                     current_step: index,
                     completed_steps: Vec::new(),
@@ -845,36 +867,36 @@ impl DefaultCookOrchestrator {
                     auto_commit: false,
                     commit_config: None,
                     capture_format: step.capture_format.as_ref().and_then(|f| match f.as_str() {
-                        "json" => Some(super::workflow::variables::CaptureFormat::Json),
-                        "lines" => Some(super::workflow::variables::CaptureFormat::Lines),
-                        "string" => Some(super::workflow::variables::CaptureFormat::String),
-                        "number" => Some(super::workflow::variables::CaptureFormat::Number),
-                        "boolean" => Some(super::workflow::variables::CaptureFormat::Boolean),
+                        "json" => Some(crate::cook::workflow::variables::CaptureFormat::Json),
+                        "lines" => Some(crate::cook::workflow::variables::CaptureFormat::Lines),
+                        "string" => Some(crate::cook::workflow::variables::CaptureFormat::String),
+                        "number" => Some(crate::cook::workflow::variables::CaptureFormat::Number),
+                        "boolean" => Some(crate::cook::workflow::variables::CaptureFormat::Boolean),
                         _ => None,
                     }),
                     capture_streams: match step.capture_streams.as_deref() {
-                        Some("stdout") => super::workflow::variables::CaptureStreams {
+                        Some("stdout") => crate::cook::workflow::variables::CaptureStreams {
                             stdout: true,
                             stderr: false,
                             exit_code: true,
                             success: true,
                             duration: true,
                         },
-                        Some("stderr") => super::workflow::variables::CaptureStreams {
+                        Some("stderr") => crate::cook::workflow::variables::CaptureStreams {
                             stdout: false,
                             stderr: true,
                             exit_code: true,
                             success: true,
                             duration: true,
                         },
-                        Some("both") => super::workflow::variables::CaptureStreams {
+                        Some("both") => crate::cook::workflow::variables::CaptureStreams {
                             stdout: true,
                             stderr: true,
                             exit_code: true,
                             success: true,
                             duration: true,
                         },
-                        _ => super::workflow::variables::CaptureStreams::default(),
+                        _ => crate::cook::workflow::variables::CaptureStreams::default(),
                     },
                     output_file: step.output_file.as_ref().map(std::path::PathBuf::from),
                     capture_output: match &step.capture_output {
@@ -996,6 +1018,14 @@ impl DefaultCookOrchestrator {
         cmd: &WorkflowCommand,
         command: &crate::config::command::Command,
     ) -> bool {
+        super::workflow_classifier::determine_commit_required(cmd, command)
+    }
+
+    #[allow(dead_code)]
+    fn determine_commit_required_old(
+        cmd: &WorkflowCommand,
+        command: &crate::config::command::Command,
+    ) -> bool {
         match cmd {
             WorkflowCommand::SimpleObject(simple) => {
                 // If explicitly set in YAML, use that value
@@ -1032,6 +1062,11 @@ impl DefaultCookOrchestrator {
 
     /// Classify the workflow type based on configuration
     fn classify_workflow_type(config: &CookConfig) -> WorkflowType {
+        super::workflow_classifier::classify_workflow_type(config)
+    }
+
+    #[allow(dead_code)]
+    fn classify_workflow_type_old(config: &CookConfig) -> WorkflowType {
         // MapReduce takes precedence
         if config.mapreduce_config.is_some() {
             return WorkflowType::MapReduce;
@@ -1125,7 +1160,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             merge_config,
             workflow_env,
         )?);
-        super::signal_handler::setup_interrupt_handlers(
+        crate::cook::signal_handler::setup_interrupt_handlers(
             worktree_manager,
             env.session_id.to_string(),
         )?;
@@ -1428,7 +1463,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         let workflow_id = format!("workflow-{}", chrono::Utc::now().timestamp_millis());
 
         let mut executor = self
-            .create_workflow_executor(config)
+            .create_workflow_executor_internal(config)
             .with_checkpoint_manager(checkpoint_manager, workflow_id)
             .with_dry_run(config.command.dry_run);
 
@@ -1765,6 +1800,11 @@ impl DefaultCookOrchestrator {
 
     /// Helper to match glob-style patterns
     fn matches_glob_pattern(&self, file: &str, pattern: &str) -> bool {
+        super::workflow_classifier::matches_glob_pattern(file, pattern)
+    }
+
+    #[allow(dead_code)]
+    fn matches_glob_pattern_old(&self, file: &str, pattern: &str) -> bool {
         // Simple glob matching for common cases
         if pattern == "*" {
             return true;
@@ -2128,7 +2168,7 @@ impl DefaultCookOrchestrator {
         let workflow_id = format!("workflow-{}", chrono::Utc::now().timestamp_millis());
 
         let mut executor = self
-            .create_workflow_executor(config)
+            .create_workflow_executor_internal(config)
             .with_checkpoint_manager(checkpoint_manager, workflow_id)
             .with_dry_run(config.command.dry_run);
 
@@ -2321,7 +2361,7 @@ impl DefaultCookOrchestrator {
 
         // Create workflow executor
         let mut executor = self
-            .create_workflow_executor(config)
+            .create_workflow_executor_internal(config)
             .with_dry_run(config.command.dry_run);
 
         // Set global environment configuration if present in MapReduce workflow

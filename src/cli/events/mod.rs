@@ -1,10 +1,12 @@
 //! CLI commands for viewing and searching MapReduce events
 
+pub mod format;
+pub mod transform;
+
 use crate::cook::interaction::prompts::{UserPrompter, UserPrompterImpl};
 use anyhow::Result;
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Local};
 use clap::{Args, Subcommand};
-use serde::Serialize;
 use serde_json::Value;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
@@ -155,27 +157,8 @@ pub enum EventsCommand {
     },
 }
 
-/// Information about available jobs in the global storage
-#[derive(Debug)]
-struct JobInfo {
-    id: String,
-    status: JobStatus,
-    start_time: Option<DateTime<Local>>,
-    end_time: Option<DateTime<Local>>,
-    success_count: u64,
-    failure_count: u64,
-}
-
-#[derive(Debug)]
-enum JobStatus {
-    InProgress,
-    Completed,
-    Failed,
-    Unknown,
-}
-
 /// Get list of available jobs from global storage
-fn get_available_jobs() -> Result<Vec<JobInfo>> {
+fn get_available_jobs() -> Result<Vec<format::JobInfo>> {
     let current_dir = std::env::current_dir()?;
     let repo_name = crate::storage::extract_repo_name(&current_dir)?;
     let global_base = crate::storage::get_default_storage_dir()?;
@@ -187,14 +170,14 @@ fn get_available_jobs() -> Result<Vec<JobInfo>> {
 
     let entries = fs::read_dir(&global_events_dir)?;
 
-    let jobs: Vec<JobInfo> = entries
+    let jobs: Vec<format::JobInfo> = entries
         .filter_map(|e| e.ok())
         .filter(|e| e.path().is_dir())
         .map(|entry| {
             let job_id = entry.file_name().to_string_lossy().to_string();
-            read_job_status(&global_events_dir.join(&job_id)).unwrap_or_else(|_| JobInfo {
+            read_job_status(&global_events_dir.join(&job_id)).unwrap_or_else(|_| format::JobInfo {
                 id: job_id.clone(),
-                status: JobStatus::Unknown,
+                status: format::JobStatus::Unknown,
                 start_time: None,
                 end_time: None,
                 success_count: 0,
@@ -207,14 +190,14 @@ fn get_available_jobs() -> Result<Vec<JobInfo>> {
 }
 
 /// Read job status from event files
-fn read_job_status(job_events_dir: &Path) -> Result<JobInfo> {
+fn read_job_status(job_events_dir: &Path) -> Result<format::JobInfo> {
     let job_id = job_events_dir
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("unknown")
         .to_string();
 
-    let mut status = JobStatus::Unknown;
+    let mut status = format::JobStatus::Unknown;
     let mut start_time = None;
     let mut end_time = None;
     let mut success_count = 0;
@@ -243,7 +226,7 @@ fn read_job_status(job_events_dir: &Path) -> Result<JobInfo> {
         }
     }
 
-    Ok(JobInfo {
+    Ok(format::JobInfo {
         id: job_id,
         status,
         start_time,
@@ -256,20 +239,20 @@ fn read_job_status(job_events_dir: &Path) -> Result<JobInfo> {
 /// Process a single event to extract status information
 fn process_event_for_status(
     event: &Value,
-    status: &mut JobStatus,
+    status: &mut format::JobStatus,
     start_time: &mut Option<DateTime<Local>>,
     end_time: &mut Option<DateTime<Local>>,
     success_count: &mut u64,
     failure_count: &mut u64,
 ) {
     if event.get("JobStarted").is_some() {
-        *status = JobStatus::InProgress;
-        if let Some(ts) = extract_timestamp(event) {
+        *status = format::JobStatus::InProgress;
+        if let Some(ts) = transform::extract_timestamp(event) {
             *start_time = Some(ts.with_timezone(&Local));
         }
     } else if let Some(completed) = event.get("JobCompleted") {
-        *status = JobStatus::Completed;
-        if let Some(ts) = extract_timestamp(event) {
+        *status = format::JobStatus::Completed;
+        if let Some(ts) = transform::extract_timestamp(event) {
             *end_time = Some(ts.with_timezone(&Local));
         }
         if let Some(s) = completed.get("success_count").and_then(|v| v.as_u64()) {
@@ -279,8 +262,8 @@ fn process_event_for_status(
             *failure_count = f;
         }
     } else if event.get("JobFailed").is_some() {
-        *status = JobStatus::Failed;
-        if let Some(ts) = extract_timestamp(event) {
+        *status = format::JobStatus::Failed;
+        if let Some(ts) = transform::extract_timestamp(event) {
             *end_time = Some(ts.with_timezone(&Local));
         }
     }
@@ -376,424 +359,11 @@ fn get_all_event_files() -> Result<Vec<PathBuf>> {
 }
 
 // =============================================================================
-// Pure Data Transformation Functions
+// Re-exports from submodules
 // =============================================================================
 
-/// Pure function to build event filter criteria
-#[derive(Debug, Clone)]
-pub struct EventFilter {
-    pub job_id: Option<String>,
-    pub event_type: Option<String>,
-    pub agent_id: Option<String>,
-    pub since_time: Option<DateTime<Utc>>,
-}
-
-impl EventFilter {
-    fn new(
-        job_id: Option<String>,
-        event_type: Option<String>,
-        agent_id: Option<String>,
-        since: Option<u64>,
-    ) -> Self {
-        let since_time =
-            since.map(|minutes| Utc::now() - chrono::Duration::minutes(minutes as i64));
-        Self {
-            job_id,
-            event_type,
-            agent_id,
-            since_time,
-        }
-    }
-
-    fn matches_event(&self, event: &Value) -> bool {
-        if let Some(ref jid) = self.job_id {
-            if !event_matches_field(event, "job_id", jid) {
-                return false;
-            }
-        }
-
-        if let Some(ref etype) = self.event_type {
-            if !event_matches_type(event, etype) {
-                return false;
-            }
-        }
-
-        if let Some(ref aid) = self.agent_id {
-            if !event_matches_field(event, "agent_id", aid) {
-                return false;
-            }
-        }
-
-        if let Some(since_time) = self.since_time {
-            if !event_is_recent(event, since_time) {
-                return false;
-            }
-        }
-
-        true
-    }
-}
-
-/// Pure function to transform events into statistics
-fn calculate_event_statistics(
-    events: impl Iterator<Item = Value>,
-    group_by: &str,
-) -> (std::collections::HashMap<String, usize>, usize) {
-    use std::collections::HashMap;
-
-    let mut stats = HashMap::new();
-    let mut total = 0;
-
-    for event in events {
-        total += 1;
-
-        let key = match group_by {
-            "event_type" => get_event_type(&event),
-            "job_id" => event
-                .get("job_id")
-                .or_else(|| extract_nested_field(&event, "job_id"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            "agent_id" => event
-                .get("agent_id")
-                .or_else(|| extract_nested_field(&event, "agent_id"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("n/a")
-                .to_string(),
-            _ => "unknown".to_string(),
-        };
-
-        *stats.entry(key).or_insert(0) += 1;
-    }
-
-    (stats, total)
-}
-
-/// Pure function to sort statistics by count
-fn sort_statistics_by_count(
-    stats: std::collections::HashMap<String, usize>,
-) -> Vec<(String, usize)> {
-    let mut sorted_stats: Vec<_> = stats.into_iter().collect();
-    sorted_stats.sort_by(|a, b| b.1.cmp(&a.1));
-    sorted_stats
-}
-
-/// Pure function to format statistics as human-readable string
-fn format_statistics_human(
-    sorted_stats: &[(String, usize)],
-    total: usize,
-    group_by: &str,
-) -> String {
-    let mut output = format!("Event Statistics (grouped by {})\n", group_by);
-    output.push_str(&"=".repeat(50));
-    output.push('\n');
-
-    for (key, count) in sorted_stats {
-        let percentage = (*count as f64 / total as f64) * 100.0;
-        output.push_str(&format!(
-            "{:<30} {:>6} ({:>5.1}%)\n",
-            key, count, percentage
-        ));
-    }
-
-    output.push_str(&"=".repeat(50));
-    output.push('\n');
-    output.push_str(&format!("Total events: {}\n", total));
-    output
-}
-
-/// Pure function to check if event matches search pattern
-fn event_matches_search(event: &Value, pattern: &regex::Regex, fields: Option<&[String]>) -> bool {
-    if let Some(fields) = fields {
-        fields.iter().any(|field| {
-            event
-                .get(field)
-                .and_then(|v| v.as_str())
-                .map(|s| pattern.is_match(s))
-                .unwrap_or(false)
-        })
-    } else {
-        search_in_value(event, pattern)
-    }
-}
-
-/// Pure function to process a single event line into a JSON Value
-fn parse_event_line(line: &str) -> Option<Value> {
-    if line.trim().is_empty() {
-        return None;
-    }
-    serde_json::from_str(line).ok()
-}
-
-/// Pure function to convert duration string to days
-fn convert_duration_to_days(duration_str: &str) -> Result<u32> {
-    let duration_str = duration_str.trim().to_lowercase();
-
-    if duration_str.is_empty() {
-        return Err(anyhow::anyhow!("Empty duration string"));
-    }
-
-    let (number_part, unit_part) =
-        if let Some(unit_pos) = duration_str.chars().position(|c| c.is_alphabetic()) {
-            let (num, unit) = duration_str.split_at(unit_pos);
-            (num, unit)
-        } else {
-            // If no unit specified, assume days
-            (duration_str.as_str(), "d")
-        };
-
-    let number: f64 = number_part
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid number in duration: '{}'", number_part))?;
-
-    let days = match unit_part {
-        "d" | "day" | "days" => number,
-        "w" | "week" | "weeks" => number * 7.0,
-        "h" | "hour" | "hours" => number / 24.0,
-        "m" | "min" | "minute" | "minutes" => number / (24.0 * 60.0),
-        "s" | "sec" | "second" | "seconds" => number / (24.0 * 60.0 * 60.0),
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Invalid duration unit: '{}'. Use d/day, w/week, h/hour, m/min, s/sec",
-                unit_part
-            ))
-        }
-    };
-
-    // Convert to u32, ensuring at least 0 days
-    Ok(days.max(0.0).ceil() as u32)
-}
-
-/// Pure function to convert size string to bytes
-fn convert_size_to_bytes(size_str: &str) -> Result<u64> {
-    let size_str = size_str.trim().to_uppercase();
-
-    if size_str.is_empty() {
-        return Err(anyhow::anyhow!("Empty size string"));
-    }
-
-    let (number_part, unit_part) =
-        if let Some(unit_pos) = size_str.chars().position(|c| c.is_alphabetic()) {
-            let (num, unit) = size_str.split_at(unit_pos);
-            (num, unit)
-        } else {
-            // If no unit specified, assume bytes
-            (size_str.as_str(), "B")
-        };
-
-    let number: f64 = number_part
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid number in size: '{}'", number_part))?;
-
-    let bytes = match unit_part {
-        "B" | "BYTE" | "BYTES" => number,
-        "KB" | "K" => number * 1024.0,
-        "MB" | "M" => number * 1024.0 * 1024.0,
-        "GB" | "G" => number * 1024.0 * 1024.0 * 1024.0,
-        "TB" | "T" => number * 1024.0 * 1024.0 * 1024.0 * 1024.0,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Invalid size unit: '{}'. Use B/byte, KB/K, MB/M, GB/G, TB/T",
-                unit_part
-            ))
-        }
-    };
-
-    // Convert to u64, ensuring at least 0 bytes
-    Ok(bytes.max(0.0) as u64)
-}
-
-/// Pure function to validate retention policy parameters
-fn validate_retention_policy(
-    older_than: &Option<String>,
-    max_events: &Option<usize>,
-    max_size: &Option<String>,
-) -> Result<()> {
-    if let Some(ref duration) = older_than {
-        convert_duration_to_days(duration)?;
-    }
-
-    if let Some(ref size) = max_size {
-        convert_size_to_bytes(size)?;
-    }
-
-    if older_than.is_none() && max_events.is_none() && max_size.is_none() {
-        return Err(anyhow::anyhow!(
-            "At least one retention criteria must be specified (older_than, max_events, or max_size)"
-        ));
-    }
-
-    Ok(())
-}
-
-// =============================================================================
-// Pure Formatting Functions
-// =============================================================================
-
-/// Pure function to format job info for display
-fn create_job_display_info(job: &JobInfo) -> String {
-    match job.status {
-        JobStatus::Completed => {
-            let duration = calculate_duration(job.start_time, job.end_time);
-            format!(
-                "{} [✓ COMPLETED{} - Success: {}, Failed: {}]",
-                job.id, duration, job.success_count, job.failure_count
-            )
-        }
-        JobStatus::Failed => {
-            format!("{} [✗ FAILED]", job.id)
-        }
-        JobStatus::InProgress => {
-            let elapsed = calculate_elapsed(job.start_time);
-            format!("{} [⟳ IN PROGRESS{}]", job.id, elapsed)
-        }
-        JobStatus::Unknown => {
-            format!("{} [? UNKNOWN]", job.id)
-        }
-    }
-}
-
-/// Pure function to format statistics as JSON
-fn format_statistics_json(
-    sorted_stats: &[(String, usize)],
-    total: usize,
-    group_by: &str,
-) -> Result<String> {
-    #[derive(Serialize)]
-    struct StatsOutput {
-        group_by: String,
-        stats: Vec<StatEntry>,
-        total: usize,
-    }
-
-    #[derive(Serialize)]
-    struct StatEntry {
-        key: String,
-        count: usize,
-        percentage: f64,
-    }
-
-    let entries: Vec<StatEntry> = sorted_stats
-        .iter()
-        .map(|(key, count)| StatEntry {
-            key: key.clone(),
-            count: *count,
-            percentage: (*count as f64 / total as f64) * 100.0,
-        })
-        .collect();
-
-    let output = StatsOutput {
-        group_by: group_by.to_string(),
-        stats: entries,
-        total,
-    };
-
-    Ok(serde_json::to_string_pretty(&output)?)
-}
-
-/// Pure function to format statistics as YAML
-fn format_statistics_yaml(
-    sorted_stats: &[(String, usize)],
-    total: usize,
-    group_by: &str,
-) -> Result<String> {
-    #[derive(Serialize)]
-    struct StatsOutput {
-        group_by: String,
-        stats: Vec<StatEntry>,
-        total: usize,
-    }
-
-    #[derive(Serialize)]
-    struct StatEntry {
-        key: String,
-        count: usize,
-        percentage: f64,
-    }
-
-    let entries: Vec<StatEntry> = sorted_stats
-        .iter()
-        .map(|(key, count)| StatEntry {
-            key: key.clone(),
-            count: *count,
-            percentage: (*count as f64 / total as f64) * 100.0,
-        })
-        .collect();
-
-    let output = StatsOutput {
-        group_by: group_by.to_string(),
-        stats: entries,
-        total,
-    };
-
-    Ok(serde_yaml::to_string(&output)?)
-}
-
-/// Pure function to format cleanup summary message
-fn create_cleanup_summary_message(total_cleaned: usize, dry_run: bool) -> String {
-    if total_cleaned == 0 {
-        "No events matched the cleanup criteria.".to_string()
-    } else if dry_run {
-        format!("Would clean {} events", total_cleaned)
-    } else {
-        format!("Cleaned {} events", total_cleaned)
-    }
-}
-
-/// Pure function to create cleanup summary JSON
-fn create_cleanup_summary_json(
-    total_cleaned: usize,
-    total_archived: usize,
-    dry_run: bool,
-) -> Result<String> {
-    #[derive(Serialize)]
-    struct CleanSummary {
-        dry_run: bool,
-        events_cleaned: usize,
-        events_archived: usize,
-        message: String,
-    }
-
-    let summary = CleanSummary {
-        dry_run,
-        events_cleaned: total_cleaned,
-        events_archived: total_archived,
-        message: create_cleanup_summary_message(total_cleaned, dry_run),
-    };
-
-    Ok(serde_json::to_string_pretty(&summary)?)
-}
-
-/// Pure function to create human-readable cleanup summary
-fn create_cleanup_summary_human(
-    total_cleaned: usize,
-    total_archived: usize,
-    dry_run: bool,
-) -> String {
-    let mut summary = String::new();
-
-    if dry_run {
-        summary.push_str(&format!(
-            "Summary (dry run): {} events would be cleaned\n",
-            total_cleaned
-        ));
-        if total_archived > 0 {
-            summary.push_str(&format!("  {} events would be archived\n", total_archived));
-        }
-    } else {
-        summary.push_str(&format!("Summary: {} events cleaned\n", total_cleaned));
-        if total_archived > 0 {
-            summary.push_str(&format!("  {} events archived\n", total_archived));
-        }
-    }
-
-    if total_cleaned == 0 {
-        summary.push_str("No events matched the cleanup criteria.\n");
-    }
-
-    summary
-}
+pub use format::{JobInfo, JobStatus};
+pub use transform::EventFilter;
 
 // =============================================================================
 // Command Execution Functions
@@ -924,7 +494,7 @@ fn display_available_jobs() -> Result<()> {
     println!("{}", "=".repeat(50));
 
     for job in jobs {
-        let job_info = format_job_info(&job);
+        let job_info = format::create_job_display_info(&job);
         println!("  • {}", job_info);
     }
 
@@ -935,33 +505,6 @@ fn display_available_jobs() -> Result<()> {
     println!("  prodigy events list --file .prodigy/events/mapreduce_events.jsonl");
 
     Ok(())
-}
-
-/// Format job information for display (now delegates to pure function)
-fn format_job_info(job: &JobInfo) -> String {
-    create_job_display_info(job)
-}
-
-/// Calculate duration between start and end times
-fn calculate_duration(start: Option<DateTime<Local>>, end: Option<DateTime<Local>>) -> String {
-    match (start, end) {
-        (Some(start), Some(end)) => {
-            let diff = end.signed_duration_since(start);
-            format!(" in {}m{}s", diff.num_minutes(), diff.num_seconds() % 60)
-        }
-        _ => String::new(),
-    }
-}
-
-/// Calculate elapsed time from start
-fn calculate_elapsed(start: Option<DateTime<Local>>) -> String {
-    match start {
-        Some(start) => {
-            let diff = Local::now().signed_duration_since(start);
-            format!(" - running for {}m", diff.num_minutes())
-        }
-        None => String::new(),
-    }
 }
 
 /// List events with optional filters (refactored to separate I/O from logic)
@@ -986,7 +529,7 @@ async fn list_events(
     let events = read_and_filter_events(&file, &filter, limit)?;
 
     // Display events using pure functions
-    display_events_with_format(&events, &output_format)
+    format::display_events_with_format(&events, &output_format)
 }
 
 /// Pure I/O function to read and filter events from file
@@ -1001,35 +544,12 @@ fn read_and_filter_events(
     let events = reader
         .lines()
         .map_while(Result::ok)
-        .filter_map(|line| parse_event_line(&line))
+        .filter_map(|line| transform::parse_event_line(&line))
         .filter(|event| filter.matches_event(event))
         .take(limit)
         .collect();
 
     Ok(events)
-}
-
-/// Pure function to display events in the specified format
-fn display_events_with_format(events: &[Value], output_format: &str) -> Result<()> {
-    match output_format {
-        "json" => {
-            println!("{}", serde_json::to_string_pretty(events)?);
-        }
-        "yaml" => {
-            println!("{}", serde_yaml::to_string(events)?);
-        }
-        "table" => {
-            display_events_as_table(events)?;
-        }
-        _ => {
-            // Default to human-readable output
-            for event in events {
-                display_event(event);
-            }
-            println!("\nDisplayed {} events", events.len());
-        }
-    }
-    Ok(())
 }
 
 /// Show aggregated statistics from all global event files (refactored)
@@ -1043,11 +563,11 @@ async fn show_aggregated_stats(group_by: String, output_format: String) -> Resul
 
     // Read all events and calculate statistics using pure functions
     let all_events = read_events_from_files(&event_files)?;
-    let (stats, total) = calculate_event_statistics(all_events.into_iter(), &group_by);
-    let sorted_stats = sort_statistics_by_count(stats);
+    let (stats, total) = transform::calculate_event_statistics(all_events.into_iter(), &group_by);
+    let sorted_stats = transform::sort_statistics_by_count(stats);
 
     // Display statistics using pure functions
-    display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, true)
+    format::display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, true)
 }
 
 /// Pure I/O function to read events from multiple files
@@ -1060,41 +580,13 @@ fn read_events_from_files(event_files: &[PathBuf]) -> Result<Vec<Value>> {
 
         for line in reader.lines() {
             let line = line?;
-            if let Some(event) = parse_event_line(&line) {
+            if let Some(event) = transform::parse_event_line(&line) {
                 all_events.push(event);
             }
         }
     }
 
     Ok(all_events)
-}
-
-/// Pure function to display statistics in the specified format
-fn display_statistics_with_format(
-    sorted_stats: &[(String, usize)],
-    total: usize,
-    group_by: &str,
-    output_format: &str,
-    is_aggregated: bool,
-) -> Result<()> {
-    match output_format {
-        "json" => {
-            let json_output = format_statistics_json(sorted_stats, total, group_by)?;
-            println!("{}", json_output);
-        }
-        "yaml" => {
-            let yaml_output = format_statistics_yaml(sorted_stats, total, group_by)?;
-            println!("{}", yaml_output);
-        }
-        _ => {
-            let title_suffix = if is_aggregated { " - All Jobs" } else { "" };
-            println!("Event Statistics (grouped by {}){}", group_by, title_suffix);
-            let human_output = format_statistics_human(sorted_stats, total, group_by);
-            print!("{}", human_output);
-        }
-    }
-
-    Ok(())
 }
 
 /// Show event statistics (refactored to use pure functions)
@@ -1106,11 +598,11 @@ async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> R
 
     // Read events and calculate statistics using pure functions
     let events = read_events_from_single_file(&file)?;
-    let (stats, total) = calculate_event_statistics(events.into_iter(), &group_by);
-    let sorted_stats = sort_statistics_by_count(stats);
+    let (stats, total) = transform::calculate_event_statistics(events.into_iter(), &group_by);
+    let sorted_stats = transform::sort_statistics_by_count(stats);
 
     // Display statistics using pure functions
-    display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, false)
+    format::display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, false)
 }
 
 /// Pure I/O function to read events from a single file
@@ -1121,7 +613,7 @@ fn read_events_from_single_file(file: &PathBuf) -> Result<Vec<Value>> {
     let events = reader
         .lines()
         .map_while(Result::ok)
-        .filter_map(|line| parse_event_line(&line))
+        .filter_map(|line| transform::parse_event_line(&line))
         .collect();
 
     Ok(events)
@@ -1138,47 +630,11 @@ async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) 
 
     // Read all events and search using pure functions
     let all_events = read_events_from_files(&event_files)?;
-    let matching_events = search_events_with_pattern(&all_events, &pattern, fields.as_deref())?;
+    let matching_events =
+        transform::search_events_with_pattern(&all_events, &pattern, fields.as_deref())?;
 
     // Display results
-    display_search_results(&matching_events, true)
-}
-
-/// Pure function to search events with a pattern
-fn search_events_with_pattern(
-    events: &[Value],
-    pattern: &str,
-    fields: Option<&[String]>,
-) -> Result<Vec<Value>> {
-    use regex::Regex;
-    let re = Regex::new(pattern)?;
-
-    let matching_events = events
-        .iter()
-        .filter(|event| event_matches_search(event, &re, fields))
-        .cloned()
-        .collect();
-
-    Ok(matching_events)
-}
-
-/// Pure function to display search results
-fn display_search_results(matching_events: &[Value], is_aggregated: bool) -> Result<()> {
-    for event in matching_events {
-        display_event(event);
-    }
-
-    let suffix = if is_aggregated {
-        " across all jobs"
-    } else {
-        ""
-    };
-    println!(
-        "\nFound {} matching events{}",
-        matching_events.len(),
-        suffix
-    );
-    Ok(())
+    format::display_search_results(&matching_events, true)
 }
 
 /// Search events by pattern (refactored to use pure functions)
@@ -1190,10 +646,11 @@ async fn search_events(file: PathBuf, pattern: String, fields: Option<Vec<String
 
     // Read events and search using pure functions
     let events = read_events_from_single_file(&file)?;
-    let matching_events = search_events_with_pattern(&events, &pattern, fields.as_deref())?;
+    let matching_events =
+        transform::search_events_with_pattern(&events, &pattern, fields.as_deref())?;
 
     // Display results
-    display_search_results(&matching_events, false)
+    format::display_search_results(&matching_events, false)
 }
 
 /// Follow events in real-time (refactored to smaller functions)
@@ -1336,9 +793,9 @@ async fn export_aggregated_events(format: String, output: Option<PathBuf>) -> Re
     }
 
     let exported = match format.as_str() {
-        "json" => export_as_json(&events)?,
-        "csv" => export_as_csv(&events)?,
-        "markdown" => export_as_markdown(&events)?,
+        "json" => format::export_as_json(&events)?,
+        "csv" => format::export_as_csv(&events)?,
+        "markdown" => format::export_as_markdown(&events)?,
         _ => return Err(anyhow::anyhow!("Unsupported format: {}", format)),
     };
 
@@ -1376,9 +833,9 @@ async fn export_events(file: PathBuf, format: String, output: Option<PathBuf>) -
     }
 
     let exported = match format.as_str() {
-        "json" => export_as_json(&events)?,
-        "csv" => export_as_csv(&events)?,
-        "markdown" => export_as_markdown(&events)?,
+        "json" => format::export_as_json(&events)?,
+        "csv" => format::export_as_csv(&events)?,
+        "markdown" => format::export_as_markdown(&events)?,
         _ => return Err(anyhow::anyhow!("Unsupported format: {}", format)),
     };
 
@@ -1431,7 +888,7 @@ async fn clean_events(
         clean_local_storage(&policy, dry_run, &output_format).await?
     };
 
-    display_cleanup_summary(total_cleaned, total_archived, dry_run, &output_format)?;
+    format::display_cleanup_summary(total_cleaned, total_archived, dry_run, &output_format)?;
 
     Ok(())
 }
@@ -1447,12 +904,12 @@ fn build_retention_policy(
     use crate::cook::execution::events::retention::RetentionPolicy;
 
     // Validate parameters first using pure function
-    validate_retention_policy(&older_than, &max_events, &max_size)?;
+    transform::validate_retention_policy(&older_than, &max_events, &max_size)?;
 
     let mut policy = RetentionPolicy::default();
 
     if let Some(duration_str) = older_than {
-        let days = convert_duration_to_days(&duration_str)?;
+        let days = transform::convert_duration_to_days(&duration_str)?;
         policy.max_age_days = Some(days);
     }
 
@@ -1461,7 +918,7 @@ fn build_retention_policy(
     }
 
     if let Some(size_str) = max_size {
-        let bytes = convert_size_to_bytes(&size_str)?;
+        let bytes = transform::convert_size_to_bytes(&size_str)?;
         policy.max_file_size_bytes = Some(bytes);
     }
 
@@ -1634,32 +1091,6 @@ async fn clean_specific_file(
     }
 }
 
-// Pure function: Calculate archived count based on policy
-fn calculate_archived_count(events_count: usize, archive_enabled: bool) -> usize {
-    if archive_enabled {
-        events_count
-    } else {
-        0
-    }
-}
-
-// Pure function: Aggregate statistics
-fn aggregate_stats(
-    (cleaned, archived): (usize, usize),
-    new_cleaned: usize,
-    new_archived: usize,
-) -> (usize, usize) {
-    (cleaned + new_cleaned, archived + new_archived)
-}
-
-// Pure function: Extract job name from directory path
-fn extract_job_name(job_dir: &Path) -> String {
-    job_dir
-        .file_name()
-        .map(|name| name.to_string_lossy().to_string())
-        .unwrap_or_else(|| "unknown".to_string())
-}
-
 // I/O function: Process event file in dry-run mode
 async fn process_event_file_dry_run(
     event_file: PathBuf,
@@ -1680,7 +1111,8 @@ async fn process_event_file_dry_run(
         println!("    No events to remove");
     }
 
-    let archived = calculate_archived_count(analysis.events_to_archive, policy.archive_old_events);
+    let archived =
+        transform::calculate_archived_count(analysis.events_to_archive, policy.archive_old_events);
     Ok((analysis.events_to_remove, archived))
 }
 
@@ -1702,7 +1134,8 @@ async fn process_event_file_actual(
         );
     }
 
-    let archived = calculate_archived_count(stats.events_removed, policy.archive_old_events);
+    let archived =
+        transform::calculate_archived_count(stats.events_removed, policy.archive_old_events);
     Ok((stats.events_removed, archived))
 }
 
@@ -1713,7 +1146,7 @@ async fn process_job_directory(
     dry_run: bool,
     output_format: &str,
 ) -> Result<(usize, usize)> {
-    let job_name = extract_job_name(&job_dir);
+    let job_name = transform::extract_job_name(&job_dir);
     println!("Processing job: {}", job_name);
 
     let event_files = find_event_files(&job_dir)?;
@@ -1726,7 +1159,7 @@ async fn process_job_directory(
             process_event_file_actual(event_file, policy).await?
         };
 
-        stats = aggregate_stats(stats, cleaned, archived);
+        stats = transform::aggregate_stats(stats, cleaned, archived);
     }
 
     Ok(stats)
@@ -1764,7 +1197,7 @@ async fn clean_global_storage(
     for job_dir in job_dirs {
         let (cleaned, archived) =
             process_job_directory(job_dir, policy, dry_run, output_format).await?;
-        total_stats = aggregate_stats(total_stats, cleaned, archived);
+        total_stats = transform::aggregate_stats(total_stats, cleaned, archived);
     }
 
     Ok(total_stats)
@@ -1817,119 +1250,7 @@ async fn clean_local_storage(
     }
 }
 
-/// Display cleanup summary (refactored to use pure functions)
-fn display_cleanup_summary(
-    total_cleaned: usize,
-    total_archived: usize,
-    dry_run: bool,
-    output_format: &str,
-) -> Result<()> {
-    if output_format == "json" {
-        let json_summary = create_cleanup_summary_json(total_cleaned, total_archived, dry_run)?;
-        println!("{}", json_summary);
-    } else {
-        let human_summary = create_cleanup_summary_human(total_cleaned, total_archived, dry_run);
-        print!("\n{}", human_summary);
-    }
-    Ok(())
-}
-
 // Helper functions
-
-fn event_matches_field(event: &Value, field: &str, value: &str) -> bool {
-    // First try direct field access
-    if let Some(v) = event.get(field) {
-        if let Some(s) = v.as_str() {
-            return s == value;
-        }
-    }
-
-    // Then try nested field access
-    if let Some(v) = extract_nested_field(event, field) {
-        if let Some(s) = v.as_str() {
-            return s == value;
-        }
-    }
-
-    false
-}
-
-fn event_matches_type(event: &Value, event_type: &str) -> bool {
-    get_event_type(event) == event_type
-}
-
-fn get_event_type(event: &Value) -> String {
-    // Extract event type from the event structure using functional pattern
-    const EVENT_TYPES: &[&str] = &[
-        "JobStarted",
-        "JobCompleted",
-        "JobFailed",
-        "JobPaused",
-        "JobResumed",
-        "AgentStarted",
-        "AgentProgress",
-        "AgentCompleted",
-        "AgentFailed",
-        "PipelineStarted",
-        "PipelineStageCompleted",
-        "PipelineCompleted",
-        "MetricsSnapshot",
-    ];
-
-    EVENT_TYPES
-        .iter()
-        .find(|&&event_type| event.get(event_type).is_some())
-        .map(|&s| s.to_string())
-        .unwrap_or_else(|| "Unknown".to_string())
-}
-
-fn event_is_recent(event: &Value, since_time: DateTime<Utc>) -> bool {
-    // Look for timestamp in various possible locations
-    let timestamp_str = event
-        .get("timestamp")
-        .or_else(|| event.get("JobStarted").and_then(|v| v.get("timestamp")))
-        .or_else(|| event.get("time"))
-        .and_then(|v| v.as_str());
-
-    if let Some(ts) = timestamp_str {
-        if let Ok(event_time) = DateTime::parse_from_rfc3339(ts) {
-            return event_time.with_timezone(&Utc) >= since_time;
-        }
-    }
-
-    false
-}
-
-/// Extract event metadata for display
-fn extract_event_metadata(event: &Value) -> (String, String, String) {
-    let event_type = get_event_type(event);
-    let timestamp = extract_timestamp(event);
-    let job_id = extract_job_id(event);
-
-    let time_str = format_timestamp(timestamp);
-    (event_type, time_str, job_id)
-}
-
-/// Extract job ID from event
-fn extract_job_id(event: &Value) -> String {
-    event
-        .get("job_id")
-        .or_else(|| extract_nested_field(event, "job_id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("n/a")
-        .to_string()
-}
-
-/// Format timestamp for display
-fn format_timestamp(timestamp: Option<DateTime<Utc>>) -> String {
-    timestamp
-        .map(|ts| {
-            ts.with_timezone(&Local)
-                .format("%Y-%m-%d %H:%M:%S")
-                .to_string()
-        })
-        .unwrap_or_else(|| "n/a".to_string())
-}
 
 /// Display JobStarted event
 fn display_job_started(event: &Value, time_str: &str, event_type: &str, job_id: &str) {
@@ -1994,54 +1315,13 @@ fn display_generic_event(event: &Value, time_str: &str, event_type: &str, job_id
 }
 
 fn display_event(event: &Value) {
-    let (event_type, time_str, job_id) = extract_event_metadata(event);
+    let (event_type, time_str, job_id) = transform::extract_event_metadata(event);
 
     match event_type.as_str() {
         "JobStarted" => display_job_started(event, &time_str, &event_type, &job_id),
         "JobCompleted" => display_job_completed(event, &time_str, &event_type, &job_id),
         "AgentProgress" => display_agent_progress(event, &time_str, &event_type, &job_id),
         _ => display_generic_event(event, &time_str, &event_type, &job_id),
-    }
-}
-
-fn extract_timestamp(event: &Value) -> Option<DateTime<Utc>> {
-    let timestamp_str = event
-        .get("timestamp")
-        .or_else(|| extract_nested_field(event, "timestamp"))
-        .or_else(|| event.get("time"))
-        .and_then(|v| v.as_str());
-
-    timestamp_str
-        .and_then(|ts| DateTime::parse_from_rfc3339(ts).ok())
-        .map(|dt| dt.with_timezone(&Utc))
-}
-
-fn extract_nested_field<'a>(event: &'a Value, field: &str) -> Option<&'a Value> {
-    // Look for field in nested event structures
-    for key in [
-        "JobStarted",
-        "JobCompleted",
-        "JobFailed",
-        "AgentStarted",
-        "AgentProgress",
-        "AgentCompleted",
-        "AgentFailed",
-    ] {
-        if let Some(nested) = event.get(key) {
-            if let Some(value) = nested.get(field) {
-                return Some(value);
-            }
-        }
-    }
-    None
-}
-
-fn search_in_value(value: &Value, re: &regex::Regex) -> bool {
-    match value {
-        Value::String(s) => re.is_match(s),
-        Value::Object(map) => map.values().any(|v| search_in_value(v, re)),
-        Value::Array(arr) => arr.iter().any(|v| search_in_value(v, re)),
-        _ => false,
     }
 }
 
@@ -2063,13 +1343,13 @@ fn display_existing_events(
 
         // Apply filters
         if let Some(ref jid) = job_id {
-            if !event_matches_field(&event, "job_id", jid) {
+            if !transform::event_matches_field(&event, "job_id", jid) {
                 continue;
             }
         }
 
         if let Some(ref etype) = event_type {
-            if !event_matches_type(&event, etype) {
+            if !transform::event_matches_type(&event, etype) {
                 continue;
             }
         }
@@ -2103,13 +1383,13 @@ fn display_new_events(
 
         // Apply filters
         if let Some(ref jid) = job_id {
-            if !event_matches_field(&event, "job_id", jid) {
+            if !transform::event_matches_field(&event, "job_id", jid) {
                 continue;
             }
         }
 
         if let Some(ref etype) = event_type {
-            if !event_matches_type(&event, etype) {
+            if !transform::event_matches_type(&event, etype) {
                 continue;
             }
         }
@@ -2123,213 +1403,10 @@ fn display_new_events(
     Ok(new_pos)
 }
 
-fn export_as_json(events: &[Value]) -> Result<String> {
-    Ok(serde_json::to_string_pretty(&events)?)
-}
-
-fn export_as_csv(events: &[Value]) -> Result<String> {
-    use std::fmt::Write;
-
-    let mut csv = String::new();
-
-    // Write header
-    writeln!(&mut csv, "timestamp,event_type,job_id,agent_id,details")?;
-
-    // Write rows
-    for event in events {
-        let timestamp = extract_timestamp(event)
-            .map(|ts| ts.to_rfc3339())
-            .unwrap_or_default();
-        let event_type = get_event_type(event);
-        let job_id = event
-            .get("job_id")
-            .or_else(|| extract_nested_field(event, "job_id"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let agent_id = event
-            .get("agent_id")
-            .or_else(|| extract_nested_field(event, "agent_id"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let details = serde_json::to_string(event)?
-            .replace('"', "\"\"")
-            .replace('\n', " ");
-
-        writeln!(
-            &mut csv,
-            "\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"",
-            timestamp, event_type, job_id, agent_id, details
-        )?;
-    }
-
-    Ok(csv)
-}
-
-fn export_as_markdown(events: &[Value]) -> Result<String> {
-    use std::fmt::Write;
-
-    let mut md = String::new();
-
-    writeln!(&mut md, "# MapReduce Events\n")?;
-    writeln!(
-        &mut md,
-        "| Timestamp | Event Type | Job ID | Agent ID | Details |"
-    )?;
-    writeln!(
-        &mut md,
-        "|-----------|------------|--------|----------|---------|"
-    )?;
-
-    for event in events {
-        let timestamp = extract_timestamp(event)
-            .map(|ts| {
-                ts.with_timezone(&Local)
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string()
-            })
-            .unwrap_or_else(|| "n/a".to_string());
-        let event_type = get_event_type(event);
-        let job_id = event
-            .get("job_id")
-            .or_else(|| extract_nested_field(event, "job_id"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("n/a");
-        let agent_id = event
-            .get("agent_id")
-            .or_else(|| extract_nested_field(event, "agent_id"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("n/a");
-
-        let details = format_event_details(event);
-
-        writeln!(
-            &mut md,
-            "| {} | {} | {} | {} | {} |",
-            timestamp, event_type, job_id, agent_id, details
-        )?;
-    }
-
-    Ok(md)
-}
-
-/// Print table header for events display
-fn print_table_header() {
-    println!(
-        "{:<20} {:<15} {:<20} {:<15} {:<30}",
-        "Timestamp", "Event Type", "Job ID", "Agent ID", "Details"
-    );
-    println!("{}", "-".repeat(100));
-}
-
-/// Extract agent ID from event
-fn extract_agent_id(event: &Value) -> String {
-    event
-        .get("agent_id")
-        .or_else(|| extract_nested_field(event, "agent_id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("n/a")
-        .to_string()
-}
-
-/// Truncate string to fit in table column
-fn truncate_field(s: &str, max_len: usize) -> String {
-    if s.len() > max_len {
-        format!("{}...", &s[..max_len.saturating_sub(3)])
-    } else {
-        s.to_string()
-    }
-}
-
-/// Extract table row data from event
-fn extract_table_row_data(event: &Value) -> (String, String, String, String, String) {
-    let timestamp = format_timestamp(extract_timestamp(event));
-    let event_type = get_event_type(event);
-    let job_id = extract_job_id(event);
-    let agent_id = extract_agent_id(event);
-    let details = format_event_details(event);
-
-    (timestamp, event_type, job_id, agent_id, details)
-}
-
-/// Print a single event as a table row
-fn print_event_row(event: &Value) {
-    let (timestamp, event_type, job_id, agent_id, details) = extract_table_row_data(event);
-
-    println!(
-        "{:<20} {:<15} {:<20} {:<15} {:<30}",
-        truncate_field(&timestamp, 19),
-        truncate_field(&event_type, 14),
-        truncate_field(&job_id, 19),
-        truncate_field(&agent_id, 14),
-        truncate_field(&details, 29)
-    );
-}
-
-/// Display events in a table format
-fn display_events_as_table(events: &[Value]) -> Result<()> {
-    if events.is_empty() {
-        println!("No events to display.");
-        return Ok(());
-    }
-
-    print_table_header();
-
-    for event in events {
-        print_event_row(event);
-    }
-
-    println!("\nTotal events: {}", events.len());
-    Ok(())
-}
-
-fn format_event_details(event: &Value) -> String {
-    let event_type = get_event_type(event);
-
-    match event_type.as_str() {
-        "JobStarted" => {
-            if let Some(data) = event.get("JobStarted") {
-                let total = data
-                    .get("total_items")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                format!("{} items", total)
-            } else {
-                "".to_string()
-            }
-        }
-        "JobCompleted" => {
-            if let Some(data) = event.get("JobCompleted") {
-                let success = data
-                    .get("success_count")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                let failure = data
-                    .get("failure_count")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                format!("✓ {} / ✗ {}", success, failure)
-            } else {
-                "".to_string()
-            }
-        }
-        "AgentProgress" => {
-            if let Some(data) = event.get("AgentProgress") {
-                let step = data.get("step").and_then(|v| v.as_str()).unwrap_or("n/a");
-                let progress = data
-                    .get("progress_pct")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.0);
-                format!("{} ({:.1}%)", step, progress)
-            } else {
-                "".to_string()
-            }
-        }
-        _ => "".to_string(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use super::format::*;
+    use super::transform::*;
     use super::*;
     use chrono::TimeZone;
     use serde_json::json;
@@ -2439,7 +1516,7 @@ mod tests {
             failure_count: 5,
         };
 
-        let formatted = format_job_info(&job);
+        let formatted = create_job_display_info(&job);
         assert!(formatted.contains("test-123"));
         assert!(formatted.contains("COMPLETED"));
         assert!(formatted.contains("Success: 95"));
