@@ -2643,6 +2643,8 @@ impl DefaultCookOrchestrator {
 mod tests {
     use super::*;
     use crate::config::{WorkflowCommand, WorkflowConfig};
+    use crate::cook::orchestrator::workflow_classifier;
+    use crate::cook::workflow::CaptureOutput;
 
     // Helper function to create a test CookCommand
     fn create_test_cook_command() -> CookCommand {
@@ -2789,7 +2791,7 @@ mod tests {
         let cmd = WorkflowCommand::SimpleObject(simple);
         let command = crate::config::command::Command::new("test");
 
-        assert!(!super::workflow_classifier::determine_commit_required(
+        assert!(!workflow_classifier::determine_commit_required(
             &cmd, &command
         ));
     }
@@ -2802,7 +2804,7 @@ mod tests {
         let mut command = crate::config::command::Command::new("test");
         command.metadata.commit_required = false;
 
-        assert!(!super::workflow_classifier::determine_commit_required(
+        assert!(!workflow_classifier::determine_commit_required(
             &cmd, &command
         ));
     }
