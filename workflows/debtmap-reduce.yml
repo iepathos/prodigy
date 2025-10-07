@@ -98,11 +98,13 @@ reduce:
   - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output .prodigy/debtmap-after.json --format json"
 
   # Phase 4: Compare debt metrics and create final commit with summary
+  - shell: "echo '${map.results}' > .prodigy/map-results.json"
+
   - claude: |
       /prodigy-compare-debt-results \
         --before .prodigy/debtmap-before.json \
         --after .prodigy/debtmap-after.json \
-        --map-results '${map.results}' \
+        --map-results-file .prodigy/map-results.json \
         --successful ${map.successful} \
         --failed ${map.failed} \
         --total ${map.total}

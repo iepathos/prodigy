@@ -8,9 +8,9 @@ args:
   - name: after
     required: true
     description: Path to the updated debtmap.json file after fixes
-  - name: map-results
+  - name: map-results-file
     required: false
-    description: JSON results from the map phase
+    description: Path to JSON file containing results from the map phase
   - name: successful
     required: false
     description: Number of successfully fixed items
@@ -29,13 +29,13 @@ Analyze the difference between before and after debtmap results to quantify tech
 
 ## Usage
 ```
-/prodigy-compare-debt-results --before <original-debtmap.json> --after <new-debtmap.json> --map-results '<results>' --successful <count> --failed <count>
+/prodigy-compare-debt-results --before <original-debtmap.json> --after <new-debtmap.json> --map-results-file <map-results.json> --successful <count> --failed <count>
 ```
 
 ## Parameters
 - `--before`: Path to the original debtmap.json file
 - `--after`: Path to the updated debtmap.json file after fixes
-- `--map-results`: JSON results from the map phase (optional)
+- `--map-results-file`: Path to JSON file containing results from the map phase (optional)
 - `--successful`: Number of successfully fixed items
 - `--failed`: Number of items that failed to fix
 
@@ -43,6 +43,7 @@ Analyze the difference between before and after debtmap results to quantify tech
 
 1. **Load and Parse JSON Files**
    - Read the before and after debtmap.json files
+   - If `--map-results-file` is provided, read and parse the map results JSON file
    - Parse the JSON structures
 
 2. **Calculate Overall Metrics**
