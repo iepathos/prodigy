@@ -65,6 +65,7 @@ use std::path::PathBuf;
 
 pub mod display;
 pub mod manager;
+pub mod parsing;
 pub mod pool;
 pub mod state;
 #[cfg(test)]
