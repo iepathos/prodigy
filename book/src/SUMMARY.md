@@ -9,10 +9,13 @@
 - [Command Types](commands.md)
 - [Variables and Interpolation](variables.md)
 - [Environment Configuration](environment.md)
+- [Configuration](configuration.md)
 
 # Advanced Topics
 
 - [Advanced Features](advanced.md)
+- [Workflow Composition](composition.md)
+- [Retry Configuration](retry-configuration.md)
 - [Error Handling](error-handling.md)
 - [Automated Documentation](automated-documentation.md)
 

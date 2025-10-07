@@ -98,6 +98,83 @@
         "circuit_breaker",
         "dlq"
       ]
+    },
+    {
+      "area": "retry_configuration",
+      "source_files": [
+        "src/config/command.rs",
+        "src/cook/workflow/retry.rs"
+      ],
+      "feature_categories": [
+        "retry_defaults",
+        "backoff_strategies",
+        "retry_budget",
+        "conditional_retry",
+        "jitter"
+      ]
+    },
+    {
+      "area": "workflow_composition",
+      "source_files": [
+        "src/config/workflow.rs",
+        "src/config/template.rs"
+      ],
+      "feature_categories": [
+        "imports",
+        "templates",
+        "extends",
+        "parameters",
+        "template_usage"
+      ]
+    },
+    {
+      "area": "configuration",
+      "source_files": [
+        "src/config/mod.rs",
+        "src/config/settings.rs"
+      ],
+      "feature_categories": [
+        "file_locations",
+        "precedence",
+        "claude_settings",
+        "worktree_settings",
+        "storage_settings",
+        "retry_defaults"
+      ]
+    },
+    {
+      "area": "git_context_advanced",
+      "source_files": [
+        "src/cook/workflow/variables.rs",
+        "src/cook/workflow/git_context.rs"
+      ],
+      "feature_categories": [
+        "pattern_filtering",
+        "format_modifiers",
+        "file_patterns",
+        "combined_filters"
+      ]
+    },
+    {
+      "area": "automated_documentation",
+      "source_files": [
+        "workflows/book-docs-drift.yml",
+        ".prodigy/book-config.json",
+        "workflows/data/prodigy-chapters.json",
+        ".claude/commands/prodigy-analyze-features-for-book.md",
+        ".claude/commands/prodigy-analyze-book-chapter-drift.md",
+        ".claude/commands/prodigy-fix-book-drift.md",
+        ".claude/commands/prodigy-fix-book-build-errors.md"
+      ],
+      "feature_categories": [
+        "workflow_setup",
+        "book_config_structure",
+        "chapter_definitions",
+        "claude_commands",
+        "mapreduce_phases",
+        "github_actions",
+        "customization"
+      ]
     }
   ],
   "chapter_file": "workflows/data/prodigy-chapters.json",

@@ -69,6 +69,27 @@
       "file": "book/src/automated-documentation.md",
       "topics": ["mdBook setup", "Book workflow configuration", "Feature analysis", "GitHub Actions integration", "Customization examples"],
       "validation": "Check that setup instructions are complete, configuration examples are valid, and GitHub Actions workflows are current"
+    },
+    {
+      "id": "retry-configuration",
+      "title": "Retry Configuration",
+      "file": "book/src/retry-configuration.md",
+      "topics": ["Retry defaults", "Backoff strategies", "Exponential backoff", "Fibonacci backoff", "Retry budget", "Conditional retry", "Jitter"],
+      "validation": "Check retry configuration options match RetryConfig struct and backoff strategies are documented"
+    },
+    {
+      "id": "composition",
+      "title": "Workflow Composition",
+      "file": "book/src/composition.md",
+      "topics": ["Workflow imports", "Template definitions", "Template parameters", "Workflow extension", "Template usage"],
+      "validation": "Check composition features match implementation and syntax examples are valid"
+    },
+    {
+      "id": "configuration",
+      "title": "Configuration",
+      "file": "book/src/configuration.md",
+      "topics": ["Config file locations", "Precedence rules", "Claude settings", "Worktree settings", "Storage settings", "Retry defaults"],
+      "validation": "Check configuration structure matches Settings struct and precedence is correctly documented"
     }
   ]
 }
