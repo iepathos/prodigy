@@ -195,7 +195,7 @@ pub struct ResumeOptions {
 /// # Example
 ///
 /// ```rust
-/// use prodigy::cook::workflow::checkpoint::{CheckpointManager, CheckpointStorage};
+/// use prodigy::cook::workflow::{CheckpointManager, CheckpointStorage};
 /// use std::time::Duration;
 ///
 /// let storage = CheckpointStorage::Session {
@@ -236,7 +236,7 @@ impl CheckpointManager {
     /// # Example
     ///
     /// ```rust
-    /// # use prodigy::cook::workflow::checkpoint::{CheckpointManager, CheckpointStorage};
+    /// # use prodigy::cook::workflow::{CheckpointManager, CheckpointStorage};
     /// # use std::time::Duration;
     /// let storage = CheckpointStorage::Session { session_id: "test".to_string() };
     /// let manager = CheckpointManager::with_storage(storage)
@@ -252,7 +252,7 @@ impl CheckpointManager {
     /// # Example
     ///
     /// ```rust
-    /// # use prodigy::cook::workflow::checkpoint::{CheckpointManager, CheckpointStorage};
+    /// # use prodigy::cook::workflow::{CheckpointManager, CheckpointStorage};
     /// let storage = CheckpointStorage::Session { session_id: "test".to_string() };
     /// let manager = CheckpointManager::with_storage(storage)
     ///     .with_enabled(false);
@@ -277,7 +277,7 @@ impl CheckpointManager {
     ///
     /// New API:
     /// ```rust
-    /// # use prodigy::cook::workflow::checkpoint::{CheckpointManager, CheckpointStorage};
+    /// # use prodigy::cook::workflow::{CheckpointManager, CheckpointStorage};
     /// # use std::time::Duration;
     /// # use std::path::PathBuf;
     /// let manager = CheckpointManager::with_storage(
@@ -313,7 +313,7 @@ impl CheckpointManager {
     ///
     /// New API:
     /// ```rust
-    /// # use prodigy::cook::workflow::checkpoint::{CheckpointManager, CheckpointStorage};
+    /// # use prodigy::cook::workflow::{CheckpointManager, CheckpointStorage};
     /// # use std::time::Duration;
     /// # use std::path::PathBuf;
     /// let manager = CheckpointManager::with_storage(
