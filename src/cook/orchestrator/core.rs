@@ -8,7 +8,6 @@ use crate::testing::config::TestConfiguration;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -118,6 +117,8 @@ pub struct DefaultCookOrchestrator {
     subprocess: crate::subprocess::SubprocessManager,
     /// Test configuration
     test_config: Option<Arc<TestConfiguration>>,
+    /// Session operations
+    session_ops: super::session_ops::SessionOperations,
 }
 
 impl DefaultCookOrchestrator {
@@ -131,6 +132,14 @@ impl DefaultCookOrchestrator {
         git_operations: Arc<dyn GitOperations>,
         subprocess: crate::subprocess::SubprocessManager,
     ) -> Self {
+        let session_ops = super::session_ops::SessionOperations::new(
+            Arc::clone(&session_manager),
+            Arc::clone(&claude_executor),
+            Arc::clone(&user_interaction),
+            Arc::clone(&git_operations),
+            subprocess.clone(),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -139,6 +148,7 @@ impl DefaultCookOrchestrator {
             git_operations,
             subprocess,
             test_config: None,
+            session_ops,
         }
     }
 
@@ -153,6 +163,14 @@ impl DefaultCookOrchestrator {
         subprocess: crate::subprocess::SubprocessManager,
         test_config: Option<Arc<TestConfiguration>>,
     ) -> Self {
+        let session_ops = super::session_ops::SessionOperations::new(
+            Arc::clone(&session_manager),
+            Arc::clone(&claude_executor),
+            Arc::clone(&user_interaction),
+            Arc::clone(&git_operations),
+            subprocess.clone(),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -161,6 +179,7 @@ impl DefaultCookOrchestrator {
             git_operations,
             subprocess,
             test_config,
+            session_ops,
         }
     }
 
@@ -286,6 +305,14 @@ impl DefaultCookOrchestrator {
         subprocess: crate::subprocess::SubprocessManager,
         test_config: Arc<TestConfiguration>,
     ) -> Self {
+        let session_ops = super::session_ops::SessionOperations::new(
+            Arc::clone(&session_manager),
+            Arc::clone(&claude_executor),
+            Arc::clone(&user_interaction),
+            Arc::clone(&git_operations),
+            subprocess.clone(),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -294,49 +321,25 @@ impl DefaultCookOrchestrator {
             git_operations,
             subprocess,
             test_config: Some(test_config),
+            session_ops,
         }
     }
 
     /// Generate session ID using unified format
     fn generate_session_id(&self) -> String {
-        super::construction::generate_session_id()
+        self.session_ops.generate_session_id()
     }
 
     /// Check prerequisites with config-aware git checking
     async fn check_prerequisites_with_config(&self, config: &CookConfig) -> Result<()> {
-        // Skip checks in test mode
-        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
-        if test_mode {
-            return Ok(());
-        }
-
-        // Check Claude CLI
-        if !self.claude_executor.check_claude_cli().await? {
-            anyhow::bail!("Claude CLI is not available. Please install it first.");
-        }
-
-        // Check if this is a temporary workflow (batch/exec commands)
-        let is_temp_workflow = config
-            .command
-            .playbook
-            .to_str()
-            .map(|s| s.contains("/tmp/") || s.contains("/var/folders/") || s.contains("Temp"))
-            .unwrap_or(false);
-
-        // Always check git except for temporary workflows
-        if !is_temp_workflow && !self.git_operations.is_git_repo().await {
-            anyhow::bail!("Not in a git repository. Please run from a git repository.");
-        }
-
-        Ok(())
+        self.session_ops
+            .check_prerequisites_with_config(config)
+            .await
     }
 
     /// Calculate workflow hash for validation
     fn calculate_workflow_hash(workflow: &WorkflowConfig) -> String {
-        let mut hasher = Sha256::new();
-        let serialized = serde_json::to_string(workflow).unwrap_or_default();
-        hasher.update(serialized);
-        format!("{:x}", hasher.finalize())
+        super::session_ops::SessionOperations::calculate_workflow_hash(workflow)
     }
 
     /// Resume an interrupted workflow
@@ -506,56 +509,7 @@ impl DefaultCookOrchestrator {
         state: &SessionState,
         config: &CookConfig,
     ) -> Result<ExecutionEnvironment> {
-        let mut working_dir = Arc::new(state.working_directory.clone());
-        let mut worktree_name: Option<Arc<str>> =
-            state.worktree_name.as_ref().map(|s| Arc::from(s.as_str()));
-
-        // If using a worktree, verify it still exists
-        if let Some(ref name) = worktree_name {
-            // Get merge config from workflow or mapreduce config
-            let merge_config = config.workflow.merge.clone().or_else(|| {
-                config
-                    .mapreduce_config
-                    .as_ref()
-                    .and_then(|m| m.merge.clone())
-            });
-
-            // Get workflow environment variables
-            let workflow_env = config.workflow.env.clone().unwrap_or_default();
-
-            let worktree_manager = WorktreeManager::with_config(
-                config.project_path.to_path_buf(),
-                self.subprocess.clone(),
-                config.command.verbosity,
-                merge_config,
-                workflow_env,
-            )?;
-
-            // Check if worktree still exists
-            // Check if worktree still exists by trying to list sessions
-            let sessions = worktree_manager.list_sessions().await?;
-            if !sessions.iter().any(|s| s.name.as_str() == name.as_ref()) {
-                // Recreate the worktree if it was deleted
-                self.user_interaction
-                    .display_warning(&format!("Worktree {} was deleted, recreating...", name));
-                let session = worktree_manager.create_session().await?;
-                working_dir = Arc::new(session.path.clone());
-                worktree_name = Some(Arc::from(session.name.as_ref()));
-            } else {
-                // Get the existing worktree path
-                let sessions = worktree_manager.list_sessions().await?;
-                if let Some(session) = sessions.iter().find(|s| s.name.as_str() == name.as_ref()) {
-                    working_dir = Arc::new(session.path.clone());
-                }
-            }
-        }
-
-        Ok(ExecutionEnvironment {
-            working_dir,
-            project_dir: Arc::clone(&config.project_path),
-            worktree_name,
-            session_id: Arc::from(state.session_id.as_str()),
-        })
+        self.session_ops.restore_environment(state, config).await
     }
 
     /// Resume workflow execution from a specific point
@@ -1120,23 +1074,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
     }
 
     async fn check_prerequisites(&self) -> Result<()> {
-        // Skip checks in test mode
-        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
-        if test_mode {
-            return Ok(());
-        }
-
-        // Check Claude CLI
-        if !self.claude_executor.check_claude_cli().await? {
-            anyhow::bail!("Claude CLI is not available. Please install it first.");
-        }
-
-        // Check git
-        if !self.git_operations.is_git_repo().await {
-            anyhow::bail!("Not in a git repository. Please run from a git repository.");
-        }
-
-        Ok(())
+        self.session_ops.check_prerequisites().await
     }
 
     async fn setup_environment(&self, config: &CookConfig) -> Result<ExecutionEnvironment> {
