@@ -66,6 +66,7 @@ fn test_resume_result_serialization() {
             branch_name: None,
             worktree_session_id: None,
             files_modified: vec![],
+            json_log_location: None,
         }],
     };
 
@@ -219,6 +220,7 @@ fn test_agent_result_serialization() {
         branch_name: Some("prodigy-agent-123-test_item".to_string()),
         worktree_session_id: Some("prodigy-session-123".to_string()),
         files_modified: vec!["src/main.rs".to_string()],
+        json_log_location: None,
     };
 
     let json = serde_json::to_string(&result).unwrap();
@@ -1468,6 +1470,7 @@ mod concurrency_tests {
                     branch_name: None,
                     worktree_session_id: None,
                     files_modified: vec![],
+                    json_log_location: None,
                 };
 
                 res.lock().await.push(result);
@@ -1516,6 +1519,7 @@ mod dlq_tests {
             agent_id: "agent-123".to_string(),
             step_failed: "map-phase".to_string(),
             duration_ms: 1500,
+            json_log_location: None,
         };
 
         let json = serde_json::to_value(&failure_detail).unwrap();
@@ -1546,6 +1550,7 @@ mod dlq_tests {
                 agent_id: "test-agent".to_string(),
                 step_failed: "test-step".to_string(),
                 duration_ms: 1000,
+                json_log_location: None,
             };
 
             let json = serde_json::to_value(&detail).unwrap();
@@ -1873,6 +1878,7 @@ mod additional_coverage_tests {
             branch_name: None,
             worktree_session_id: None,
             files_modified: vec![],
+            json_log_location: None,
         };
 
         assert_eq!(minimal_result.item_id, "minimal");
@@ -1892,6 +1898,7 @@ mod additional_coverage_tests {
             branch_name: None,
             worktree_session_id: None,
             files_modified: vec![],
+            json_log_location: None,
         };
 
         assert!(matches!(error_result.status, AgentStatus::Failed(_)));
@@ -1935,6 +1942,7 @@ mod additional_coverage_tests {
                 branch_name: None,
                 worktree_session_id: None,
                 files_modified: vec![],
+                json_log_location: None,
             });
         }
 

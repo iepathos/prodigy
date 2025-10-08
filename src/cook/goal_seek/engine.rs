@@ -213,6 +213,7 @@ mod tests {
                 stderr: String::new(),
                 exit_code: Some(0),
                 success: true,
+                metadata: std::collections::HashMap::new(),
             },
         );
         mock_executor.add_response(
@@ -222,6 +223,7 @@ mod tests {
                 stderr: String::new(),
                 exit_code: Some(0),
                 success: true,
+                metadata: std::collections::HashMap::new(),
             },
         );
 
@@ -253,6 +255,7 @@ mod tests {
                 stderr: String::new(),
                 exit_code: Some(0),
                 success: true,
+                metadata: std::collections::HashMap::new(),
             },
         );
         mock_executor.add_response(
@@ -262,6 +265,7 @@ mod tests {
                 stderr: String::new(),
                 exit_code: Some(0),
                 success: true,
+                metadata: std::collections::HashMap::new(),
             },
         );
 

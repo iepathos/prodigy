@@ -38,6 +38,7 @@ impl LegacyExecutorBridge {
             stdout: result.get_output_text().unwrap_or_default().to_string(),
             stderr: result.get_error_text().unwrap_or_default().to_string(),
             exit_code: result.exit_code,
+            metadata: HashMap::new(),
         }
     }
 }

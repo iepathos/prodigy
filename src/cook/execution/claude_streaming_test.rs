@@ -24,6 +24,7 @@ Result: File processed successfully"#;
             stdout: streaming_output.to_string(),
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         });
 
         let executor = ClaudeExecutorImpl::new(mock_runner);
@@ -50,6 +51,7 @@ Result: File processed successfully"#;
             stdout: "Command executed in print mode".to_string(),
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         });
 
         let executor = ClaudeExecutorImpl::new(mock_runner);
@@ -80,6 +82,7 @@ Done"#;
             stdout: mixed_output.to_string(),
             stderr: "Error occurred".to_string(),
             exit_code: Some(1),
+            metadata: HashMap::new(),
         });
 
         let executor = ClaudeExecutorImpl::new(mock_runner);

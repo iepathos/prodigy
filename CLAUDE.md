@@ -107,6 +107,129 @@ All error handling changes must:
 3. Maintain backward compatibility
 4. Provide clear error messages for debugging
 
+## Claude Command Observability (Spec 121)
+
+### JSON Log Location Tracking
+
+Prodigy captures the location of Claude JSON log files for debugging Claude command execution, especially useful for troubleshooting MapReduce agent failures.
+
+#### What are Claude JSON Logs?
+
+Claude Code creates detailed JSON log files for each command execution containing:
+- Complete message history (user messages and Claude responses)
+- All tool invocations with parameters and results
+- Token usage statistics (input, output, cache tokens)
+- Session metadata (model, tools available, timestamps)
+- Error details and stack traces
+
+These logs are stored in:
+```
+~/.local/state/claude/logs/session-{session_id}.json
+```
+
+#### Accessing JSON Log Location
+
+**Via Verbose Output (-v flag):**
+```bash
+prodigy run workflow.yml -v
+```
+With verbose mode, Prodigy displays the JSON log location after each Claude command:
+```
+Executing: claude /my-command
+Claude JSON log: /Users/username/.local/state/claude/logs/session-abc123.json
+✓ Command completed
+```
+
+**Programmatically via ExecutionResult:**
+```rust
+let result = execute_claude_command(&cmd).await?;
+if let Some(log_path) = result.json_log_location() {
+    println!("Debug logs available at: {}", log_path);
+}
+```
+
+**In MapReduce Events:**
+```rust
+// AgentCompleted events include json_log_location
+MapReduceEvent::AgentCompleted {
+    job_id: "job-123".to_string(),
+    agent_id: "agent-1".to_string(),
+    duration: Duration::seconds(30),
+    commits: vec!["abc123".to_string()],
+    json_log_location: Some("/path/to/logs/session-xyz.json".to_string()),
+}
+```
+
+**In Dead Letter Queue (DLQ) Items:**
+```rust
+// Failed items capture json_log_location in FailureDetail
+let dlq_item = DeadLetteredItem {
+    // ... other fields ...
+    failure_history: vec![
+        FailureDetail {
+            // ... error details ...
+            json_log_location: Some("/path/to/logs/session-xyz.json".to_string()),
+        }
+    ],
+};
+```
+
+#### Debugging with JSON Logs
+
+**View complete Claude interaction:**
+```bash
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'
+```
+
+**Check tool invocations:**
+```bash
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[].content[] | select(.type == "tool_use")'
+```
+
+**Analyze token usage:**
+```bash
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.usage'
+```
+
+**Extract error details:**
+```bash
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[] | select(.role == "assistant") | .content[] | select(.type == "error")'
+```
+
+#### MapReduce Debugging Workflow
+
+When a MapReduce agent fails:
+
+1. **Check DLQ for json_log_location:**
+```bash
+prodigy dlq show <job_id> | jq '.items[].failure_history[].json_log_location'
+```
+
+2. **Inspect the Claude JSON log:**
+```bash
+cat /path/from/step1/session-xyz.json | jq
+```
+
+3. **Identify the failing tool or message:**
+```bash
+# Find the last tool use before failure
+cat /path/from/step1/session-xyz.json | jq '.messages[-3:]'
+```
+
+4. **Understand the context:**
+- Review the full conversation history
+- Check what tools were invoked and their results
+- Examine token usage to identify context issues
+- Look for error messages or unexpected responses
+
+#### API Integration
+
+The json_log_location field is available in:
+- `AgentResult` - Captures log path for successful and failed agent executions
+- `MapReduceEvent::AgentCompleted` - Includes log path in event stream
+- `MapReduceEvent::ClaudeMessage` - Associates messages with their log files
+- `FailureDetail` - Preserves log location for DLQ debugging
+
 ## Custom Merge Workflows
 
 Prodigy now supports configurable merge workflows that execute when merging worktree changes back to the main branch. This allows you to customize the merge process with your own validation, conflict resolution, and post-merge steps.

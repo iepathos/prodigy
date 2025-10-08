@@ -90,6 +90,7 @@ impl HandlerCommandExecutor {
             duration: start.elapsed(),
             success: result.is_success(),
             stderr: result.stderr.unwrap_or_default(),
+            json_log_location: result.json_log_location,
         }
     }
 }

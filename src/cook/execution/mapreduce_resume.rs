@@ -649,6 +649,7 @@ mod tests {
                     duration: std::time::Duration::from_secs(10),
                     error: None,
                     worktree_path: Some(std::path::PathBuf::from("<test-worktree-path>")),
+                    json_log_location: None,
                 },
             );
         }

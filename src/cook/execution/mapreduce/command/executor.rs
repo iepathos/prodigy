@@ -23,6 +23,7 @@ pub struct CommandResult {
     pub duration: Duration,
     pub success: bool,
     pub stderr: String,
+    pub json_log_location: Option<String>,
 }
 
 impl From<CommandResult> for StepResult {

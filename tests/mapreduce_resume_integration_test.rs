@@ -130,6 +130,7 @@ impl ClaudeExecutor for MockClaudeExecutor {
             stdout: output,
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         })
     }
 
@@ -179,6 +180,7 @@ async fn create_partial_job_state(
                 worktree_path: Some(create_test_worktree_path(&i.to_string())),
                 branch_name: None,
                 worktree_session_id: None,
+                json_log_location: None,
             },
         );
     }
@@ -211,6 +213,7 @@ async fn create_partial_job_state(
                 worktree_path: Some(create_test_worktree_path(&i.to_string())),
                 branch_name: None,
                 worktree_session_id: None,
+                json_log_location: None,
             },
         );
     }
@@ -460,6 +463,7 @@ async fn test_resume_with_dlq_recovery() {
                 agent_id: format!("agent-failed-{}", i),
                 step_failed: "process".to_string(),
                 duration_ms: 1000,
+                json_log_location: None,
             }],
             error_signature: "temporary-failure".to_string(),
             worktree_artifacts: None,
@@ -625,6 +629,7 @@ async fn test_cross_worktree_coordination() {
                 worktree_path: Some(create_test_worktree_path("1")),
                 branch_name: None,
                 worktree_session_id: None,
+                json_log_location: None,
             },
         );
         state1.successful_count += 1;
@@ -657,6 +662,7 @@ async fn test_cross_worktree_coordination() {
                 worktree_path: Some(create_test_worktree_path("2")),
                 branch_name: None,
                 worktree_session_id: None,
+                json_log_location: None,
             },
         );
         state2.successful_count += 1;

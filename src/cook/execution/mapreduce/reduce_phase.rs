@@ -278,6 +278,7 @@ mod tests {
             worktree_path: None,
             branch_name: None,
             worktree_session_id: None,
+            json_log_location: None,
         }
     }
 }

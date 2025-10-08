@@ -53,6 +53,9 @@ pub struct FailureDetail {
     pub agent_id: String,
     pub step_failed: String,
     pub duration_ms: u64,
+    /// Path to Claude JSON log file for debugging
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub json_log_location: Option<String>,
 }
 
 /// Types of errors that can occur

@@ -2007,6 +2007,7 @@ impl crate::cook::execution::CommandExecutor for StepValidationCommandExecutor {
             stderr: result.stderr,
             exit_code: result.exit_code,
             success: result.success,
+            metadata: std::collections::HashMap::new(),
         })
     }
 }

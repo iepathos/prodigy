@@ -924,6 +924,7 @@ mod tests {
             exit_code: Some(0),
             stdout: "Command executed".to_string(),
             stderr: String::new(),
+            metadata: HashMap::new(),
         });
 
         let result = executor
@@ -1098,6 +1099,7 @@ mod tests {
             stderr: String::new(),
             exit_code: Some(0),
             success: true,
+            metadata: HashMap::new(),
         });
 
         let temp_dir = TempDir::new().unwrap();
@@ -1156,6 +1158,7 @@ mod tests {
             stderr: String::new(),
             exit_code: Some(0),
             success: true,
+            metadata: HashMap::new(),
         });
 
         let temp_dir = TempDir::new().unwrap();
@@ -1503,6 +1506,7 @@ mod tests {
             stderr: String::new(),
             exit_code: Some(0),
             success: true,
+            metadata: HashMap::new(),
         });
 
         let temp_dir = TempDir::new().unwrap();
@@ -1615,12 +1619,14 @@ mod tests {
             stderr: String::new(),
             exit_code: Some(0),
             success: true,
+            metadata: HashMap::new(),
         });
         claude_mock.add_response(ExecutionResult {
             stdout: "Iteration 2: Performance improved by 25%".to_string(),
             stderr: String::new(),
             exit_code: Some(0),
             success: true,
+            metadata: HashMap::new(),
         });
 
         let goal_seek_config = crate::cook::goal_seek::GoalSeekConfig {
@@ -1740,12 +1746,14 @@ mod tests {
             stderr: String::new(),
             exit_code: Some(0),
             success: true,
+            metadata: HashMap::new(),
         });
         claude_mock.add_response(ExecutionResult {
             stdout: "Code reviewed".to_string(),
             stderr: String::new(),
             exit_code: Some(0),
             success: true,
+            metadata: HashMap::new(),
         });
 
         let temp_dir = TempDir::new().unwrap();
@@ -1866,6 +1874,7 @@ mod tests {
                 stderr: String::new(),
                 exit_code: Some(0),
                 success: true,
+                metadata: HashMap::new(),
             });
         }
 
@@ -1961,6 +1970,7 @@ mod tests {
             stderr: String::new(),
             exit_code: Some(0),
             success: true,
+            metadata: HashMap::new(),
         });
 
         let temp_dir = TempDir::new().unwrap();
@@ -2007,6 +2017,7 @@ mod tests {
             stderr: String::new(),
             exit_code: Some(0),
             success: true,
+            metadata: HashMap::new(),
         });
 
         // Add mock response for validation
@@ -2021,6 +2032,7 @@ mod tests {
             stderr: String::new(),
             exit_code: Some(0),
             success: true,
+            metadata: HashMap::new(),
         });
 
         let temp_dir = TempDir::new().unwrap();

@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 /// Trait for executing Claude commands
 #[async_trait]
@@ -212,6 +213,9 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         project_path: &Path,
         env_vars: HashMap<String, String>,
     ) -> Result<ExecutionResult> {
+        // Record start time for log file detection
+        let execution_start = SystemTime::now();
+
         let mut context = ExecutionContext::default();
         #[allow(clippy::field_reassign_with_default)]
         {
@@ -278,7 +282,34 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
             .await;
 
         match result {
-            Ok(execution_result) => {
+            Ok(mut execution_result) => {
+                // Detect JSON log location after successful execution
+                if execution_result.success {
+                    use crate::cook::execution::claude_log_detection::detect_json_log_location;
+
+                    if let Some(log_location) = detect_json_log_location(
+                        project_path,
+                        &execution_result.stdout,
+                        execution_start,
+                    )
+                    .await
+                    {
+                        // Store in metadata
+                        execution_result =
+                            execution_result.with_json_log_location(log_location.clone());
+
+                        // Log to console if verbose
+                        if self.verbosity >= 1 {
+                            println!("📝 Claude JSON log: {}", log_location.display());
+                        }
+
+                        // Log to tracing for debugging
+                        tracing::info!("Claude JSON log saved to: {}", log_location.display());
+                    } else {
+                        tracing::debug!("Could not detect Claude JSON log location");
+                    }
+                }
+
                 if !execution_result.success {
                     // Claude command executed but failed
                     let error_details = if !execution_result.stderr.is_empty() {
@@ -291,11 +322,18 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
 
                     tracing::error!("Claude command '{}' failed - {}", command, error_details);
 
-                    return Err(anyhow::anyhow!(
-                        "Claude command '{}' failed: {}",
-                        command,
-                        error_details
-                    ));
+                    // Include JSON log location in error message if available
+                    let error_msg = if let Some(log_location) = execution_result.json_log_location()
+                    {
+                        format!(
+                            "Claude command '{}' failed: {}\n📝 Full log: {}",
+                            command, error_details, log_location
+                        )
+                    } else {
+                        format!("Claude command '{}' failed: {}", command, error_details)
+                    };
+
+                    return Err(anyhow::anyhow!(error_msg));
                 }
                 Ok(execution_result)
             }
@@ -334,6 +372,7 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
                     stdout: format!("Test mode - no changes for {command}"),
                     stderr: String::new(),
                     exit_code: Some(0),
+                    metadata: HashMap::new(),
                 });
             }
         }
@@ -343,6 +382,7 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
             stdout: format!("Test mode execution of {command}"),
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         })
     }
 }
@@ -426,6 +466,7 @@ mod tests {
             stdout: "claude version 1.0.0".to_string(),
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         });
 
         let executor = ClaudeExecutorImpl::new(mock_runner);
@@ -441,6 +482,7 @@ mod tests {
             stdout: "claude version 1.0.0\n".to_string(),
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         });
 
         let executor = ClaudeExecutorImpl::new(mock_runner);
@@ -456,6 +498,7 @@ mod tests {
             stdout: "Command executed".to_string(),
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         });
 
         let executor = ClaudeExecutorImpl::new(mock_runner);

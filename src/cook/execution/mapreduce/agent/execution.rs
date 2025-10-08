@@ -115,10 +115,11 @@ impl StandardExecutor {
         item: &Value,
         env: &ExecutionEnvironment,
         context: &ExecutionContext,
-    ) -> ExecutionResult<(String, Vec<String>, Vec<String>)> {
+    ) -> ExecutionResult<(String, Vec<String>, Vec<String>, Option<String>)> {
         let mut total_output = String::new();
         let all_commits = Vec::new();
         let all_files = Vec::new();
+        let mut json_log_location: Option<String> = None;
 
         // Build interpolation context
         let interp_context = self.build_interpolation_context(item, &handle.config.item_id);
@@ -142,9 +143,14 @@ impl StandardExecutor {
                 .await?;
 
             // Execute the command
-            let result = self
+            let (result, log_location) = self
                 .execute_single_command(&interpolated_step, handle.worktree_path(), env, context)
                 .await?;
+
+            // Store the log location from the last Claude command
+            if log_location.is_some() {
+                json_log_location = log_location;
+            }
 
             // Collect output
             total_output.push_str(&result.stdout);
@@ -163,7 +169,7 @@ impl StandardExecutor {
             }
         }
 
-        Ok((total_output, all_commits, all_files))
+        Ok((total_output, all_commits, all_files, json_log_location))
     }
 
     /// Build interpolation context for item
@@ -231,7 +237,7 @@ impl StandardExecutor {
         worktree_path: &Path,
         _env: &ExecutionEnvironment,
         context: &ExecutionContext,
-    ) -> ExecutionResult<StepResult> {
+    ) -> ExecutionResult<(StepResult, Option<String>)> {
         // Create execution context for command
         let mut exec_context = CommandExecutionContext::new(worktree_path.to_path_buf());
         exec_context.env_vars = step.env.clone();
@@ -283,12 +289,18 @@ impl StandardExecutor {
             ));
         };
 
-        Ok(StepResult {
-            success: result.exit_code == Some(0),
-            stdout: result.stdout.unwrap_or_default(),
-            stderr: result.stderr.unwrap_or_default(),
-            exit_code: result.exit_code,
-        })
+        // Extract json_log_location from command result
+        let json_log_location = result.json_log_location.clone();
+
+        Ok((
+            StepResult {
+                success: result.exit_code == Some(0),
+                stdout: result.stdout.unwrap_or_default(),
+                stderr: result.stderr.unwrap_or_default(),
+                exit_code: result.exit_code,
+            },
+            json_log_location,
+        ))
     }
 }
 
@@ -320,7 +332,7 @@ impl AgentExecutor for StandardExecutor {
 
         // Create agent result
         let agent_result = match result {
-            Ok((output, commits, files)) => {
+            Ok((output, commits, files, json_log_location)) => {
                 // Update state to completed
                 {
                     let mut state = handle.state.write().await;
@@ -338,6 +350,7 @@ impl AgentExecutor for StandardExecutor {
                     worktree_path: Some(handle.worktree_path().to_path_buf()),
                     branch_name: Some(handle.config.branch_name.clone()),
                     worktree_session_id: Some(handle.worktree_session.name.clone()),
+                    json_log_location,
                 }
             }
             Err(e) => {
@@ -358,6 +371,7 @@ impl AgentExecutor for StandardExecutor {
                     worktree_path: Some(handle.worktree_path().to_path_buf()),
                     branch_name: Some(handle.config.branch_name.clone()),
                     worktree_session_id: Some(handle.worktree_session.name.clone()),
+                    json_log_location: None, // No log location on failure since command didn't complete
                 }
             }
         };

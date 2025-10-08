@@ -74,6 +74,7 @@ fn test_claude_event_variants() {
         agent_id: "test-agent".to_string(),
         content: "Test message".to_string(),
         message_type: "text".to_string(),
+        json_log_location: None,
     };
 
     let json = serde_json::to_string(&event).unwrap();

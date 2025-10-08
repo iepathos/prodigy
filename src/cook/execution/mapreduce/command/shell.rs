@@ -69,6 +69,7 @@ impl ShellCommandExecutor {
             duration: start.elapsed(),
             success: output.status.success(),
             stderr,
+            json_log_location: None, // Shell commands don't produce JSON logs
         }
     }
 }

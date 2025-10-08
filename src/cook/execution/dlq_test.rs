@@ -21,6 +21,7 @@ mod tests {
             agent_id: format!("agent-{}", attempt),
             step_failed: "test-step".to_string(),
             duration_ms: 100,
+            json_log_location: None,
         }
     }
 

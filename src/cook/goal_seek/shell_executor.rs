@@ -72,6 +72,7 @@ impl CommandExecutor for ShellCommandExecutor {
             stdout,
             stderr,
             exit_code: output.status.code(),
+            metadata: std::collections::HashMap::new(),
         })
     }
 }

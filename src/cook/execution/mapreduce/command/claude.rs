@@ -69,6 +69,7 @@ impl ClaudeCommandExecutor {
         result: crate::cook::execution::ExecutionResult,
         start: Instant,
     ) -> CommandResult {
+        let json_log_location = result.json_log_location().map(String::from);
         CommandResult {
             output: Some(result.stdout.clone()),
             exit_code: result.exit_code.unwrap_or(0),
@@ -76,6 +77,7 @@ impl ClaudeCommandExecutor {
             duration: start.elapsed(),
             success: result.success,
             stderr: result.stderr,
+            json_log_location,
         }
     }
 }

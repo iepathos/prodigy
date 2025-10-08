@@ -34,6 +34,7 @@ impl ClaudeExecutor for MockClaudeExecutor {
             exit_code: Some(0),
             stdout: "Mock execution".to_string(),
             stderr: String::new(),
+            metadata: std::collections::HashMap::new(),
         })
     }
 

@@ -32,6 +32,7 @@ mod executor_tests {
                     duration: Duration::from_secs(1),
                     success: true,
                     stderr: String::new(),
+                    json_log_location: None,
                 })
             } else {
                 Err(CommandError::ExecutionFailed(
@@ -115,6 +116,7 @@ mod executor_tests {
             duration: Duration::from_secs(1),
             success: true,
             stderr: "test stderr".to_string(),
+            json_log_location: None,
         };
 
         let step_result: crate::cook::workflow::StepResult = command_result.into();
