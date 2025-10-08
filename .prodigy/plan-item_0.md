@@ -1,340 +1,246 @@
-# Implementation Plan: Split God Object Core Orchestrator
+# Implementation Plan: Refactor God Object - CookOrchestrator Core
 
 ## Problem Summary
 
 **Location**: ./src/cook/orchestrator/core.rs:DefaultCookOrchestrator:105
-**Priority Score**: 148.67
-**Debt Type**: God Object
+**Priority Score**: 120.14
+**Debt Type**: GOD_OBJECT
 **Current Metrics**:
-- Lines of Code: 3176
-- Functions: 86
-- Cyclomatic Complexity: 331 (avg 3.85 per function, max 29)
-- Coverage: 20.9%
-- Uncovered Lines: 2511
+- Lines of Code: 2864
+- Functions: 77
+- Cyclomatic Complexity: 297 (avg 3.86, max 29)
+- Coverage: 20.78%
+- Uncovered Lines: 2268
 
-**Issue**: The `DefaultCookOrchestrator` is a massive god object with 61 methods, 7 fields, and a god object score of 1.0. It handles construction, workflow execution, environment management, session management, file operations, validation, and computation. The file contains 3176 lines with mixed responsibilities making it difficult to test, maintain, and understand.
+**Issue**: URGENT - God Object with 2864 lines and 77 functions across 6 distinct responsibilities. The DefaultCookOrchestrator class violates single responsibility principle with mixed concerns: construction, core operations, validation, processing, data access, and computation. This creates testing challenges, high complexity, and tight coupling.
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 66.2 points
-- Maintainability Improvement: 14.87 points
-- Test Effort: 251.1 points
+**Expected Impact**:
+- Complexity Reduction: 59.4 points
+- Maintainability Improvement: 12.01 points
+- Test Effort Reduction: 226.8 points
 
 **Success Criteria**:
-- [ ] Split into 3-4 focused modules (construction, execution, validation, utilities)
-- [ ] Each module has <30 functions and <800 lines
-- [ ] Extract pure functions for easier unit testing
-- [ ] Separate I/O operations from business logic
-- [ ] Coverage increases from 20.9% to >40% through testable pure functions
+- [ ] Core orchestrator reduced to <500 lines with single responsibility (coordination)
+- [ ] Extract 3+ focused modules with <30 functions each
+- [ ] Pure functions separated from I/O operations
+- [ ] Test coverage increased to >40% for extracted modules
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting with `cargo fmt`
 
 ## Implementation Phases
 
-### Phase 1: Extract Construction Module
+### Phase 1: Extract Session Management Operations
 
-**Goal**: Move construction-related methods to a dedicated `construction.rs` module to handle object creation and configuration.
+**Goal**: Separate session lifecycle and state management from core orchestrator
 
 **Changes**:
-- Create `src/cook/orchestrator/construction.rs`
-- Extract construction functions:
-  - `new()` - Main constructor
-  - `from_builder()` - Builder constructor
-  - `create_env_config()` - Environment configuration creation
-  - `create_workflow_executor_internal()` - Workflow executor creation
-  - `create_workflow_state_base_internal()` - State base creation
-  - `with_test_config()` - Test configuration setter
-  - `generate_session_id()` - Session ID generation
-- Move these as pure functions or methods on a `OrchestratorConstruction` struct
-- Update `core.rs` to use the construction module
-- Update `mod.rs` to expose construction types
+- Create `src/cook/orchestrator/session_ops.rs` module
+- Extract functions (~10-12 functions, ~400 lines):
+  - `generate_session_id()` - Pure function
+  - `calculate_workflow_hash()` - Pure function
+  - `resume_workflow()` - Session operation
+  - `restore_environment()` - Session operation
+  - `resume_workflow_execution()` - Session operation
+  - `check_prerequisites()` - Validation
+  - `check_prerequisites_with_config()` - Validation
+- Create `SessionOperations` struct with dependencies
+- Update `DefaultCookOrchestrator` to use `SessionOperations`
 
 **Testing**:
-- Run `cargo test --lib` to verify construction tests pass
-- Verify builder pattern still works correctly
-- Test session ID generation is deterministic
+- Unit tests for pure functions (hash, session ID generation)
+- Integration tests for resume operations
+- Run `cargo test --lib orchestrator::core`
 
 **Success Criteria**:
-- [ ] Construction module created with ~120 lines
-- [ ] All construction logic extracted from core.rs
-- [ ] Core.rs reduced by ~200 lines
+- [ ] SessionOperations module created with clear API
+- [ ] Pure functions (hash, ID gen) have 100% test coverage
+- [ ] Core orchestrator delegates to SessionOperations
+- [ ] All existing session tests pass
+- [ ] Ready to commit
+
+### Phase 2: Extract Workflow Execution Logic
+
+**Goal**: Separate workflow execution strategies from orchestration
+
+**Changes**:
+- Create `src/cook/orchestrator/workflow_executor.rs` module
+- Extract functions (~15-20 functions, ~600 lines):
+  - `execute_standard_workflow_from()` - Execution strategy
+  - `execute_iterative_workflow_from()` - Execution strategy
+  - `execute_structured_workflow_from()` - Execution strategy
+  - `execute_unified()` - Unified execution
+  - `execute_normalized()` - Normalized execution
+  - `normalize_workflow()` - Pure transformation
+  - `execute_mapreduce_workflow()` - MapReduce execution
+  - `classify_workflow_type()` - Pure classification logic
+  - `convert_command_to_step()` - Pure transformation
+  - `determine_commit_required_old()` - Pure decision logic
+- Create `WorkflowExecutor` struct with execution strategies
+- Extract workflow classification into pure functions
+
+**Testing**:
+- Unit tests for pure classification/transformation functions
+- Integration tests for each execution strategy
+- Run `cargo test --lib orchestrator`
+
+**Success Criteria**:
+- [ ] WorkflowExecutor module with strategy pattern
+- [ ] Pure functions (classify, convert) have 100% test coverage
+- [ ] Each execution strategy independently testable
+- [ ] Workflow type classification logic is pure and tested
+- [ ] All workflow execution tests pass
+- [ ] Ready to commit
+
+### Phase 3: Extract Command Execution and Validation
+
+**Goal**: Separate command execution and validation logic
+
+**Changes**:
+- Create `src/cook/orchestrator/command_ops.rs` module
+- Extract functions (~12-15 functions, ~500 lines):
+  - `execute_workflow_command()` - Command execution
+  - `execute_and_validate_command()` - Validation wrapper
+  - `build_command()` - Pure command building
+  - `prepare_environment_variables()` - Pure env preparation
+  - `execute_step()` - Step execution
+  - `collect_workflow_inputs()` - Input collection
+  - `extract_input_from_path()` - Pure extraction
+  - `process_workflow_input()` - Input processing
+  - `find_files_matching_pattern()` - File search
+  - `matches_glob_pattern()` - Pure pattern matching
+  - `process_glob_pattern()` - Pattern processing
+- Create `CommandOperations` struct
+- Separate pure functions from I/O operations
+
+**Testing**:
+- Unit tests for pure functions (build_command, prepare_env, pattern matching)
+- Integration tests for command execution
+- Run `cargo test --lib orchestrator::command`
+
+**Success Criteria**:
+- [ ] CommandOperations module with clear separation
+- [ ] Pure functions (build, prepare, match) have 100% test coverage
+- [ ] Command execution delegates to CommandOperations
+- [ ] Pattern matching logic is pure and tested
+- [ ] All command execution tests pass
+- [ ] Ready to commit
+
+### Phase 4: Extract Analysis and Metrics
+
+**Goal**: Separate project analysis and metrics collection
+
+**Changes**:
+- Create `src/cook/orchestrator/analysis.rs` module
+- Extract functions (~6-8 functions, ~300 lines):
+  - `display_health_score()` - Display logic
+  - `get_test_coverage()` - Metrics collection
+  - `get_lint_warnings()` - Metrics collection
+  - `get_code_duplication()` - Metrics collection
+  - `run_analysis_if_needed()` - Analysis orchestration
+  - `execute_workflow_with_analysis()` - Analysis wrapper
+- Create `AnalysisOperations` struct
+- Extract metrics collection into separate module
+
+**Testing**:
+- Unit tests for metrics parsing
+- Integration tests for analysis operations
+- Run `cargo test --lib orchestrator::analysis`
+
+**Success Criteria**:
+- [ ] AnalysisOperations module created
+- [ ] Metrics collection separated from orchestration
+- [ ] Analysis logic is testable
+- [ ] All metrics tests pass
+- [ ] Ready to commit
+
+### Phase 5: Refactor Core Orchestrator to Pure Coordination
+
+**Goal**: Reduce core orchestrator to pure coordination logic using extracted modules
+
+**Changes**:
+- Update `DefaultCookOrchestrator` to compose extracted modules:
+  - `session_ops: SessionOperations`
+  - `workflow_executor: WorkflowExecutor`
+  - `command_ops: CommandOperations`
+  - `analysis_ops: AnalysisOperations`
+- Simplify `run()` method to orchestrate via delegation
+- Reduce `setup_environment()` to pure coordination
+- Simplify `execute_workflow()` to delegate to WorkflowExecutor
+- Reduce core file to <500 lines
+- Update all tests to use new structure
+
+**Testing**:
+- Integration tests for full orchestration flow
+- Verify all existing tests still pass
+- Run full test suite: `cargo test --lib`
+- Run `cargo clippy` for warnings
+- Check coverage improvement with `cargo tarpaulin --lib`
+
+**Success Criteria**:
+- [ ] Core orchestrator reduced to <500 lines
+- [ ] All orchestration delegates to focused modules
+- [ ] No business logic in core orchestrator (pure coordination)
+- [ ] Test coverage increased to >40%
 - [ ] All tests pass
 - [ ] No clippy warnings
 - [ ] Ready to commit
-
-### Phase 2: Extract Workflow Classification and Normalization
-
-**Goal**: Extract workflow type classification and normalization logic into a dedicated module for pure business logic.
-
-**Changes**:
-- Create `src/cook/orchestrator/normalization.rs`
-- Extract pure classification functions:
-  - `classify_workflow_type()` - Determine workflow type
-  - `classify_workflow_type_old()` - Legacy classifier
-  - `normalize_workflow()` - Normalize workflow config
-  - `determine_commit_required()` - Check commit requirement
-  - `determine_commit_required_old()` - Legacy commit check
-  - `convert_command_to_step()` - Convert commands to steps
-  - `process_step_failure_config()` - Process failure config
-- Make these pure functions that take config as input and return results
-- Add comprehensive unit tests for each pure function
-- Update `core.rs` to delegate to normalization module
-
-**Testing**:
-- Run `cargo test --lib`
-- Add new unit tests for each extracted function
-- Test workflow classification with various inputs
-- Test normalization edge cases
-
-**Success Criteria**:
-- [ ] Normalization module created with ~300 lines
-- [ ] 7 pure functions extracted and tested
-- [ ] Test coverage >80% for normalization module
-- [ ] Core.rs reduced by ~400 lines
-- [ ] All tests pass including new tests
-- [ ] No clippy warnings
-- [ ] Ready to commit
-
-### Phase 3: Extract File and Pattern Matching Utilities
-
-**Goal**: Extract file operations and pattern matching into a pure utility module.
-
-**Changes**:
-- Create `src/cook/orchestrator/file_utils.rs`
-- Extract pure file utility functions:
-  - `find_files_matching_pattern()` - File search (make pure by returning paths)
-  - `matches_glob_pattern()` - Glob pattern matching
-  - `matches_glob_pattern_old()` - Legacy pattern matching
-  - `collect_workflow_inputs()` - Collect inputs (make pure)
-  - `process_glob_pattern()` - Process glob patterns (make pure)
-  - `extract_input_from_path()` - Extract input from path
-- Refactor to separate I/O (file reading) from logic (pattern matching)
-- Pure functions for pattern matching
-- Separate functions for I/O operations
-- Add comprehensive unit tests
-
-**Testing**:
-- Run `cargo test --lib`
-- Add unit tests for glob pattern matching
-- Add tests for path extraction
-- Test with various file patterns
-
-**Success Criteria**:
-- [ ] File utilities module created with ~250 lines
-- [ ] Pure pattern matching functions with >70% test coverage
-- [ ] I/O separated from pattern logic
-- [ ] Core.rs reduced by ~300 lines
-- [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] Ready to commit
-
-### Phase 4: Extract Project Analysis Functions
-
-**Goal**: Extract project health scoring and analysis into a focused module.
-
-**Changes**:
-- Create `src/cook/orchestrator/analysis.rs`
-- Extract analysis functions:
-  - `display_health_score()` - Display project health
-  - `get_test_coverage()` - Extract coverage data
-  - `get_lint_warnings()` - Extract lint warnings
-  - `get_code_duplication()` - Extract duplication metrics
-- Separate pure calculation logic from I/O
-- Make metrics extraction pure by returning Result<Metrics>
-- Display logic stays as thin wrapper
-- Add unit tests for pure functions
-
-**Testing**:
-- Run `cargo test --lib`
-- Add unit tests for metrics calculation
-- Mock file I/O for testing
-- Test health score calculation
-
-**Success Criteria**:
-- [ ] Analysis module created with ~150 lines
-- [ ] Pure metrics functions tested
-- [ ] I/O separated from calculation logic
-- [ ] Core.rs reduced by ~200 lines
-- [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] Ready to commit
-
-### Phase 5: Extract Resume and Session Management
-
-**Goal**: Extract workflow resume and session restoration logic into a dedicated module.
-
-**Changes**:
-- Create `src/cook/orchestrator/resume.rs`
-- Extract session/resume functions:
-  - `resume_workflow()` - Resume workflow execution
-  - `restore_environment()` - Restore execution environment
-  - `resume_workflow_execution()` - Resume from checkpoint
-  - `execute_standard_workflow_from()` - Execute from iteration
-  - `execute_iterative_workflow_from()` - Execute iterative from checkpoint
-  - `execute_structured_workflow_from()` - Execute structured from checkpoint
-  - `get_current_head()` - Get current git head
-- Separate state restoration (pure) from execution (I/O)
-- Add tests for resume logic
-
-**Testing**:
-- Run `cargo test --lib`
-- Test resume with various session states
-- Test environment restoration
-- Test checkpoint recovery
-
-**Success Criteria**:
-- [ ] Resume module created with ~400 lines
-- [ ] Session restoration logic extracted
-- [ ] Resume functions tested
-- [ ] Core.rs reduced by ~500 lines
-- [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] Ready to commit
-
-### Phase 6: Refactor Core Execution Methods
-
-**Goal**: With helper modules extracted, refactor remaining core execution methods to be leaner and delegate to specialized modules.
-
-**Changes**:
-- Refactor `execute_workflow()` to delegate to specialized modules
-- Refactor `execute_unified()` to use normalization module
-- Refactor `execute_mapreduce_workflow()` to use file_utils
-- Refactor `execute_workflow_with_args()` to use resume module
-- Ensure core methods are thin orchestration layers
-- Update documentation to reference new modules
-- Core.rs should now be <1500 lines
-
-**Testing**:
-- Run `cargo test --lib`
-- Run `cargo test --all` for integration tests
-- Test all workflow types (standard, structured, iterative, mapreduce)
-- Verify end-to-end workflows still work
-
-**Success Criteria**:
-- [ ] Core.rs reduced to <1500 lines (from 3176)
-- [ ] Core methods delegate to specialized modules
-- [ ] All workflow types tested and working
-- [ ] Integration tests pass
-- [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] Ready to commit
-
-### Phase 7: Final Cleanup and Documentation
-
-**Goal**: Clean up remaining code, update documentation, and verify all quality metrics.
-
-**Changes**:
-- Remove any duplicate or dead code
-- Update module documentation
-- Ensure all public APIs are documented
-- Update `mod.rs` to properly expose new modules
-- Run full CI suite
-- Verify coverage improvements
-- Generate final debtmap to confirm reduction
-
-**Testing**:
-- Run `just ci` - Full CI checks
-- Run `cargo tarpaulin` - Verify coverage increase
-- Run `debtmap analyze` - Confirm debt reduction
-- Manual testing of key workflows
-
-**Success Criteria**:
-- [ ] All modules properly documented
-- [ ] Coverage increased from 20.9% to >40%
-- [ ] God object score reduced from 1.0 to <0.5
-- [ ] Cyclomatic complexity reduced by >50 points
-- [ ] All CI checks pass
-- [ ] Ready for final commit and PR
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify unit tests pass
-2. Run `cargo clippy -- -D warnings` to check for issues
-3. Run `cargo fmt -- --check` to verify formatting
-4. Manually test affected functionality if needed
-5. Commit only when phase is complete and working
+1. Run `cargo test --lib orchestrator` to verify module tests pass
+2. Run `cargo test` to verify all tests pass
+3. Run `cargo clippy` to check for warnings
+4. Verify file count and line reduction
 
 **Final verification**:
 1. `just ci` - Full CI checks
-2. `cargo tarpaulin --out Xml` - Generate coverage report
-3. `debtmap analyze --output final-debt.json` - Verify improvement
-4. Compare metrics: before (3176 lines, 86 functions) vs after (<2000 lines distributed across modules)
+2. `cargo tarpaulin --lib` - Verify coverage improvement
+3. `cargo build --release` - Verify no build errors
+4. Review module structure:
+   - `core.rs`: <500 lines (coordination)
+   - `session_ops.rs`: ~400 lines (session management)
+   - `workflow_executor.rs`: ~600 lines (execution strategies)
+   - `command_ops.rs`: ~500 lines (command operations)
+   - `analysis.rs`: ~300 lines (metrics/analysis)
 
 ## Rollback Plan
 
 If a phase fails:
-1. Review the error carefully
-2. `git diff` to see what changed
-3. `git reset --hard HEAD` to revert uncommitted changes
-4. Or `git revert HEAD` if already committed
-5. Analyze the failure and adjust the plan
-6. Retry the phase with fixes
-
-For integration issues:
-1. Revert to last known good commit
-2. Review module boundaries
-3. Check for missed dependencies
-4. Fix and retry
+1. Revert the phase with `git reset --hard HEAD~1`
+2. Review the failure reason
+3. Adjust the extraction strategy:
+   - Too many functions at once? Split into smaller chunks
+   - Dependencies unclear? Map dependencies first
+   - Tests failing? Fix tests before proceeding
+4. Retry with adjusted plan
 
 ## Notes
 
-### Key Architectural Principles
+### Key Principles:
+- **Separate I/O from logic**: Pure functions (hash, classify, transform) should be extracted first and tested independently
+- **Extract by responsibility**: Each module should have one clear purpose
+- **Maintain test coverage**: Existing tests must continue to pass after each phase
+- **Incremental commits**: Each phase should result in working, committable code
 
-1. **Separation of Concerns**: Each module handles one responsibility
-2. **Pure Functions**: Extract pure logic from I/O operations
-3. **Testability**: Pure functions are easy to unit test
-4. **Incremental**: Each phase is independently valuable
-5. **Backward Compatible**: Existing tests must continue to pass
+### Architectural Pattern:
+The refactored orchestrator will follow a **Facade pattern**:
+- Core orchestrator coordinates high-level workflow
+- Specialized modules handle specific concerns
+- Pure functions separated from effectful operations
+- Dependencies injected via constructor
 
-### Module Structure After Refactoring
+### Complexity Reduction Strategy:
+- Move complex conditionals into pure predicate functions
+- Extract nested logic into well-named functions
+- Use strategy pattern for workflow execution variants
+- Separate validation from execution
 
-```
-src/cook/orchestrator/
-├── mod.rs                    # Module exports
-├── core.rs                   # <1500 lines - main orchestration
-├── builder.rs                # Existing builder
-├── workflow_classifier.rs    # Existing classifier
-├── construction.rs           # NEW - Object construction (~120 lines)
-├── normalization.rs          # NEW - Workflow classification/normalization (~300 lines)
-├── file_utils.rs             # NEW - File operations and patterns (~250 lines)
-├── analysis.rs               # NEW - Health scoring and metrics (~150 lines)
-└── resume.rs                 # NEW - Session resume logic (~400 lines)
-```
-
-### Potential Issues and Mitigations
-
-**Issue**: Tests may be tightly coupled to core.rs structure
-- **Mitigation**: Update tests incrementally, preserve test behavior
-
-**Issue**: Circular dependencies between new modules
-- **Mitigation**: Ensure dependency flow is one-way (core → modules)
-
-**Issue**: Breaking changes to public API
-- **Mitigation**: Keep public API unchanged, only refactor internals
-
-**Issue**: Performance regression from extra indirection
-- **Mitigation**: Modules are in same compilation unit, optimizer will inline
-
-### Debtmap Alignment
-
-This plan directly addresses the debtmap recommendations:
-- **God Object Split**: Creating 5 new focused modules from 1 massive file
-- **Responsibility Separation**: Each module has clear, single responsibility
-- **Complexity Reduction**: Pure functions reduce cyclomatic complexity
-- **Test Coverage**: Extracting pure functions enables unit testing
-- **Maintainability**: Smaller, focused modules are easier to understand and modify
-
-The recommended splits from debtmap suggested:
-1. Construction (120 lines) - ✓ Phase 1
-2. Core Operations (880 lines) - ✓ Phases 2-6 (distributed across normalization, file_utils, resume)
-
-We're further breaking down "Core Operations" into:
-- Normalization (~300 lines) - Pure workflow logic
-- File Utils (~250 lines) - File operations
-- Analysis (~150 lines) - Health scoring
-- Resume (~400 lines) - Session management
-
-This results in better separation of concerns than the debtmap suggestion.
+### Testing Approach:
+- Pure functions: Unit tests with 100% coverage target
+- I/O operations: Integration tests with mocks
+- Orchestration: End-to-end workflow tests
+- Focus on behavior, not implementation details
