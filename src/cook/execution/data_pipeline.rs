@@ -691,11 +691,11 @@ impl FilterExpression {
                 if (i == 0
                     || chars
                         .get(i.saturating_sub(1))
-                        .map_or(true, |c| c.is_whitespace()))
+                        .is_none_or(|c| c.is_whitespace()))
                     && expr_upper[i..].starts_with(op)
                     && expr
                         .get(i + op.len()..i + op.len() + 1)
-                        .map_or(true, |s| s.starts_with(char::is_whitespace))
+                        .is_none_or(|s| s.starts_with(char::is_whitespace))
                 {
                     return Some(i);
                 }
