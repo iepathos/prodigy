@@ -2818,6 +2818,7 @@ mod tests {
             test: None,
             goal_seek: None,
             foreach: None,
+            write_file: None,
             capture_output: Some(crate::config::command::CaptureOutputConfig::Boolean(true)),
             commit_required: false,
             analyze: None,

@@ -21,6 +21,7 @@ pub(super) fn convert_command_to_step(cmd: &WorkflowCommand) -> WorkflowStep {
                 test, // Contains retry logic for shell commands
                 goal_seek: step.goal_seek.clone(),
                 foreach: step.foreach.clone(),
+                write_file: None,
                 handler: None,
                 capture: None,
                 auto_commit: false,
@@ -107,6 +108,7 @@ pub(super) fn convert_command_to_step(cmd: &WorkflowCommand) -> WorkflowStep {
                 test: None,
                 goal_seek: None,
                 foreach: None,
+                write_file: None,
                 handler: None,
                 capture: None,
                 auto_commit: false,
@@ -186,6 +188,7 @@ mod tests {
             test: None,
             goal_seek: None,
             foreach: None,
+            write_file: None,
             id: None,
             commit_required: false,
             analysis: None,

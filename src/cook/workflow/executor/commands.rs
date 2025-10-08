@@ -275,6 +275,98 @@ pub async fn execute_foreach_command(
 }
 
 // ============================================================================
+// Write File Command Execution
+// ============================================================================
+
+/// Execute a write_file command with validation and formatting
+///
+/// Writes content to a file with optional validation, formatting, directory creation,
+/// and permission setting. Provides clean logging without exposing file content.
+pub async fn execute_write_file_command(
+    config: &crate::config::command::WriteFileConfig,
+    working_dir: &Path,
+) -> Result<StepResult> {
+    use std::fs;
+
+    // Validate path (reject parent directory traversal)
+    if config.path.contains("..") {
+        return Err(anyhow!(
+            "Invalid path: parent directory traversal not allowed"
+        ));
+    }
+
+    // Resolve file path relative to working directory
+    let file_path = working_dir.join(&config.path);
+
+    // Create parent directories if requested
+    if config.create_dirs {
+        if let Some(parent) = file_path.parent() {
+            fs::create_dir_all(parent).with_context(|| {
+                format!(
+                    "Failed to create parent directories for {}",
+                    file_path.display()
+                )
+            })?;
+        }
+    }
+
+    // Process content based on format
+    let content_to_write = match config.format {
+        crate::config::command::WriteFileFormat::Text => {
+            // Plain text - no processing
+            config.content.clone()
+        }
+        crate::config::command::WriteFileFormat::Json => {
+            // Validate and pretty-print JSON
+            let value: serde_json::Value =
+                serde_json::from_str(&config.content).context("Invalid JSON content")?;
+            serde_json::to_string_pretty(&value).context("Failed to format JSON")?
+        }
+        crate::config::command::WriteFileFormat::Yaml => {
+            // Validate and format YAML
+            let value: serde_yaml::Value =
+                serde_yaml::from_str(&config.content).context("Invalid YAML content")?;
+            serde_yaml::to_string(&value).context("Failed to format YAML")?
+        }
+    };
+
+    // Write content to file
+    fs::write(&file_path, &content_to_write)
+        .with_context(|| format!("Failed to write file: {}", file_path.display()))?;
+
+    // Set file permissions on Unix systems
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = u32::from_str_radix(&config.mode, 8)
+            .with_context(|| format!("Invalid file mode: {}", config.mode))?;
+        let permissions = fs::Permissions::from_mode(mode);
+        fs::set_permissions(&file_path, permissions)
+            .with_context(|| format!("Failed to set file permissions: {}", file_path.display()))?;
+    }
+
+    // Calculate content size for logging
+    let content_size = content_to_write.len();
+
+    // Log file write without exposing content
+    let format_str = match config.format {
+        crate::config::command::WriteFileFormat::Text => "Text",
+        crate::config::command::WriteFileFormat::Json => "Json",
+        crate::config::command::WriteFileFormat::Yaml => "Yaml",
+    };
+
+    Ok(StepResult {
+        success: true,
+        exit_code: Some(0),
+        stdout: format!(
+            "Wrote {} bytes to {} (format: {})",
+            content_size, config.path, format_str
+        ),
+        stderr: String::new(),
+    })
+}
+
+// ============================================================================
 // Utility Functions
 // ============================================================================
 
@@ -292,6 +384,7 @@ pub fn format_command_description(command_type: &CommandType) -> String {
         }
         CommandType::GoalSeek(cfg) => format!("goal_seek: {}", cfg.goal),
         CommandType::Foreach(cfg) => format!("foreach: {:?}", cfg.input),
+        CommandType::WriteFile(cfg) => format!("write_file: {}", cfg.path),
     }
 }
 
@@ -322,6 +415,7 @@ impl WorkflowExecutor {
                 }
                 CommandType::GoalSeek(cfg) => format!("goal_seek: {}", cfg.goal),
                 CommandType::Foreach(cfg) => format!("foreach: {:?}", cfg.input),
+                CommandType::WriteFile(cfg) => format!("write_file: {}", cfg.path),
             };
 
             println!("[DRY RUN] Would execute: {}", command_desc);
@@ -429,6 +523,24 @@ impl WorkflowExecutor {
             CommandType::Foreach(foreach_config) => {
                 self.execute_foreach_command(foreach_config, env, ctx, &env_vars)
                     .await
+            }
+            CommandType::WriteFile(mut config) => {
+                // Interpolate path and content
+                let (interpolated_path, path_resolutions) =
+                    ctx.interpolate_with_tracking(&config.path);
+                let (interpolated_content, content_resolutions) =
+                    ctx.interpolate_with_tracking(&config.content);
+
+                // Log all variable resolutions
+                self.log_variable_resolutions(&path_resolutions);
+                self.log_variable_resolutions(&content_resolutions);
+
+                // Update config with interpolated values
+                config.path = interpolated_path;
+                config.content = interpolated_content;
+
+                // Execute write_file command
+                execute_write_file_command(&config, &env.working_dir).await
             }
         }
     }
@@ -896,6 +1008,7 @@ impl WorkflowExecutor {
                 };
                 format!("Foreach command: {} items", item_count)
             }
+            CommandType::WriteFile(config) => format!("Write file command: {}", config.path),
         };
 
         println!("[TEST MODE] Would execute {command_str}");
@@ -909,6 +1022,7 @@ impl WorkflowExecutor {
             CommandType::Test(_) => false,
             CommandType::Handler { .. } => false,
             CommandType::GoalSeek(_) => false,
+            CommandType::WriteFile(_) => false,
             CommandType::Foreach(_) => false,
         };
 
