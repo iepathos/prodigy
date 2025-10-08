@@ -65,7 +65,8 @@ impl WorktreeBuilder {
     /// Build the WorktreeManager instance
     pub fn build(self) -> Result<WorktreeManager> {
         // Get the repository name from the path
-        let repo_name = self.repo_path
+        let repo_name = self
+            .repo_path
             .file_name()
             .and_then(|n| n.to_str())
             .ok_or_else(|| {
@@ -251,7 +252,11 @@ impl WorktreeManager {
     }
 
     /// Create a worktree session from an existing worktree path and branch
-    pub(crate) fn create_worktree_session(&self, path: PathBuf, branch: String) -> Option<WorktreeSession> {
+    pub(crate) fn create_worktree_session(
+        &self,
+        path: PathBuf,
+        branch: String,
+    ) -> Option<WorktreeSession> {
         let canonical_path = path.canonicalize().unwrap_or(path.clone());
 
         // Include all worktrees in our base directory, regardless of branch name
@@ -386,6 +391,7 @@ pub(crate) mod test_helpers {
     use tempfile::TempDir;
 
     /// Set up a test git repository with initial commit
+    #[allow(dead_code)]
     pub async fn setup_test_git_repo(
         temp_dir: &TempDir,
         subprocess: &SubprocessManager,
@@ -430,7 +436,10 @@ pub(crate) mod test_helpers {
     }
 
     /// Set up a test WorktreeManager with initialized git repo
-    pub async fn setup_test_worktree_manager(temp_dir: &TempDir) -> anyhow::Result<WorktreeManager> {
+    #[allow(dead_code)]
+    pub async fn setup_test_worktree_manager(
+        temp_dir: &TempDir,
+    ) -> anyhow::Result<WorktreeManager> {
         let subprocess = SubprocessManager::production();
         setup_test_git_repo(temp_dir, &subprocess).await?;
         let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
@@ -443,6 +452,7 @@ pub(crate) mod test_helpers {
     }
 
     /// Create a test worktree state with checkpoint
+    #[allow(dead_code)]
     pub fn create_test_worktree_state_with_checkpoint(
         session_id: &str,
         iteration: u32,
@@ -488,6 +498,7 @@ pub(crate) mod test_helpers {
     }
 
     /// Create a test session state JSON
+    #[allow(dead_code)]
     pub fn create_test_session_state(
         session_id: &str,
         status: &str,
@@ -524,6 +535,7 @@ pub(crate) mod test_helpers {
     }
 
     /// Create mock worktree directories for testing
+    #[allow(dead_code)]
     pub fn create_mock_worktree_dirs(
         manager: &WorktreeManager,
         session_ids: &[&str],
@@ -538,6 +550,7 @@ pub(crate) mod test_helpers {
     }
 
     /// Create a test worktree with session state
+    #[allow(dead_code)]
     pub async fn create_test_worktree_with_session_state(
         manager: &WorktreeManager,
         temp_dir: &TempDir,

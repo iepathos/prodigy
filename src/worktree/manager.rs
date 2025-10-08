@@ -127,7 +127,6 @@ impl WorktreeManager {
             .build()
     }
 
-
     pub fn update_session_state<F>(&self, name: &str, updater: F) -> Result<()>
     where
         F: FnOnce(&mut WorktreeState),
