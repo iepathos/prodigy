@@ -676,4 +676,99 @@ mod git_error_tests {
         assert_eq!(status.modified_files[0], "");
         assert_eq!(status.modified_files[1], "file.rs");
     }
+
+    // Phase 2: Git Status Code Coverage - Deleted, Renamed, Copied, Dual-Status
+
+    #[tokio::test]
+    async fn test_status_deleted_files() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## main\n D deleted1.rs\n D deleted2.rs\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some("main".to_string()));
+        assert!(!status.clean);
+        assert_eq!(status.modified_files.len(), 2);
+        assert_eq!(status.modified_files[0], "deleted1.rs");
+        assert_eq!(status.modified_files[1], "deleted2.rs");
+    }
+
+    #[tokio::test]
+    async fn test_status_renamed_files() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## main\n R old.rs -> new.rs\nR  another_old.rs -> another_new.rs\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some("main".to_string()));
+        assert!(!status.clean);
+        assert_eq!(status.modified_files.len(), 2);
+        assert_eq!(status.modified_files[0], "old.rs -> new.rs");
+        assert_eq!(status.modified_files[1], "another_old.rs -> another_new.rs");
+    }
+
+    #[tokio::test]
+    async fn test_status_copied_files() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## main\n C original.rs -> copy.rs\nC  file1.rs -> file2.rs\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some("main".to_string()));
+        assert!(!status.clean);
+        assert_eq!(status.modified_files.len(), 2);
+        assert_eq!(status.modified_files[0], "original.rs -> copy.rs");
+        assert_eq!(status.modified_files[1], "file1.rs -> file2.rs");
+    }
+
+    #[tokio::test]
+    async fn test_status_dual_status_files() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## main\nMM staged_and_modified.rs\nAM added_and_modified.rs\nMA modified_and_added.rs\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some("main".to_string()));
+        assert!(!status.clean);
+        assert_eq!(status.modified_files.len(), 3);
+        assert_eq!(status.modified_files[0], "staged_and_modified.rs");
+        assert_eq!(status.modified_files[1], "added_and_modified.rs");
+        assert_eq!(status.modified_files[2], "modified_and_added.rs");
+    }
 }
