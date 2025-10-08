@@ -351,6 +351,41 @@ mod tests {
         assert_eq!(result, false);
     }
 
+    // Tests for should_exclude_file
+    #[test]
+    fn test_should_exclude_file_no_patterns() {
+        let result = CommitTracker::should_exclude_file("file.tmp", &[]);
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_exclude_file_single_match() {
+        let result = CommitTracker::should_exclude_file("file.tmp", &["*.tmp".to_string()]);
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_exclude_file_single_no_match() {
+        let result = CommitTracker::should_exclude_file("file.rs", &["*.tmp".to_string()]);
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_exclude_file_multiple_with_match() {
+        let result = CommitTracker::should_exclude_file(
+            "file.log",
+            &["*.tmp".to_string(), "*.log".to_string()],
+        );
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_exclude_file_invalid_pattern() {
+        // Invalid pattern should be skipped gracefully
+        let result = CommitTracker::should_exclude_file("file.tmp", &["[invalid".to_string()]);
+        assert_eq!(result, false);
+    }
+
     // Tests for get_files_to_stage
     #[tokio::test]
     async fn test_get_files_to_stage_no_config() {
