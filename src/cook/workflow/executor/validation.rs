@@ -51,6 +51,19 @@ fn format_failed_validation_detail(idx: usize, message: &str, exit_code: i32) ->
     )
 }
 
+/// Determine step name for logging based on step properties
+fn determine_step_name(step: &WorkflowStep) -> &str {
+    step.name.as_deref().unwrap_or_else(|| {
+        if step.claude.is_some() {
+            "claude command"
+        } else if step.shell.is_some() {
+            "shell command"
+        } else {
+            "workflow step"
+        }
+    })
+}
+
 impl WorkflowExecutor {
     // ============================================================================
     // Validation functions
@@ -316,15 +329,7 @@ impl WorkflowExecutor {
         };
 
         // Get step name for logging
-        let step_name = step.name.as_deref().unwrap_or_else(|| {
-            if step.claude.is_some() {
-                "claude command"
-            } else if step.shell.is_some() {
-                "shell command"
-            } else {
-                "workflow step"
-            }
-        });
+        let step_name = determine_step_name(step);
 
         // Execute validation with timeout if specified
         let validation_future =
@@ -819,5 +824,69 @@ mod tests {
             detail,
             "  Validation 4: Error: file \"test.txt\" not found (exit code: 2)"
         );
+    }
+
+    // ============================================================================
+    // Phase 4: Tests for Pure Validation Step Name Logic
+    // ============================================================================
+
+    #[test]
+    fn test_determine_step_name_with_explicit_name() {
+        let step = WorkflowStep {
+            name: Some("my-custom-step".to_string()),
+            claude: Some("/prodigy-lint".to_string()),
+            shell: Some("cargo test".to_string()),
+            ..Default::default()
+        };
+
+        assert_eq!(determine_step_name(&step), "my-custom-step");
+    }
+
+    #[test]
+    fn test_determine_step_name_with_claude_no_name() {
+        let step = WorkflowStep {
+            name: None,
+            claude: Some("/prodigy-code-review".to_string()),
+            shell: None,
+            ..Default::default()
+        };
+
+        assert_eq!(determine_step_name(&step), "claude command");
+    }
+
+    #[test]
+    fn test_determine_step_name_with_shell_no_name() {
+        let step = WorkflowStep {
+            name: None,
+            claude: None,
+            shell: Some("cargo build --release".to_string()),
+            ..Default::default()
+        };
+
+        assert_eq!(determine_step_name(&step), "shell command");
+    }
+
+    #[test]
+    fn test_determine_step_name_with_neither_fallback() {
+        let step = WorkflowStep {
+            name: None,
+            claude: None,
+            shell: None,
+            ..Default::default()
+        };
+
+        assert_eq!(determine_step_name(&step), "workflow step");
+    }
+
+    #[test]
+    fn test_determine_step_name_empty_name_uses_fallback() {
+        // If name is None (not just empty string), should use fallback logic
+        let step = WorkflowStep {
+            name: None,
+            claude: Some("/command".to_string()),
+            ..Default::default()
+        };
+
+        assert_eq!(determine_step_name(&step), "claude command");
     }
 }
