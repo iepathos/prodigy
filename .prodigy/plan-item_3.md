@@ -1,185 +1,182 @@
-# Implementation Plan: Add Comprehensive Test Coverage for list_resumable_jobs_internal
+# Implementation Plan: Add Test Coverage for CookSessionAdapter::update_session
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/state.rs:DefaultJobStateManager::list_resumable_jobs_internal:884
-**Priority Score**: 33.102062072615965
-**Debt Type**: ComplexityHotspot (cognitive: 56, cyclomatic: 10)
+**Location**: ./src/unified_session/cook_adapter.rs:CookSessionAdapter::update_session:184
+**Priority Score**: 39.64
+**Debt Type**: ComplexityHotspot (Cognitive: 17, Cyclomatic: 5)
 **Current Metrics**:
-- Lines of Code: 59
-- Cyclomatic Complexity: 10
-- Cognitive Complexity: 56
-- Nesting Depth: 6
+- Lines of Code: 26
+- Cyclomatic Complexity: 5
+- Cognitive Complexity: 17
 - Coverage: 0%
+- Upstream Dependencies: 14 callers
+- Downstream Dependencies: 3 callees
 
-**Issue**: Add 10 tests for 100% coverage gap. NO refactoring needed (complexity 10 is acceptable)
+**Issue**: Add 5 tests for 100% coverage gap. NO refactoring needed (complexity 5 is acceptable)
 
-**Rationale**: Complexity 10 is manageable. Coverage at 0%. Focus on test coverage, not refactoring.
+**Rationale**: Complexity 5 is manageable. Coverage at 0%. Focus on test coverage, not refactoring. Current structure is clean and simple.
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 5.0
-- Coverage Improvement: 0.0 (test coverage, not production code coverage metric)
-- Risk Reduction: 11.585721725415588
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 2.5
+- Coverage Improvement: 0.0
+- Risk Reduction: 13.87
 
 **Success Criteria**:
-- [ ] 10+ focused tests covering all decision branches
-- [ ] Each test is < 15 lines and tests ONE path
+- [ ] 100% test coverage for `CookSessionAdapter::update_session` function
+- [ ] All 5 uncovered branches tested
+- [ ] Each test is focused (<15 lines) and tests ONE path
+- [ ] Edge cases and boundary conditions covered
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
-- [ ] 100% coverage of list_resumable_jobs_internal function
 
 ## Implementation Phases
 
-### Phase 1: Test Infrastructure Setup
+### Phase 1: Read and Understand Current Implementation
 
-**Goal**: Set up test helpers and infrastructure for comprehensive testing
-
-**Changes**:
-- Create helper function to set up test job directories
-- Create helper function to write checkpoint files
-- Add test utilities for creating various job states
-
-**Testing**:
-- Verify helpers can create valid test scenarios
-- Run `cargo test --lib state` to ensure no regressions
-
-**Success Criteria**:
-- [ ] Test helpers compile and work correctly
-- [ ] All existing tests pass
-- [ ] Ready to commit
-
-### Phase 2: Test Empty/Missing Directory Cases (3 tests)
-
-**Goal**: Cover edge cases when jobs directory doesn't exist or is empty
+**Goal**: Analyze the `update_session` function to identify the 5 uncovered branches and understand the test scenarios needed.
 
 **Changes**:
-- Test 1: jobs_dir doesn't exist (line 888-890)
-- Test 2: jobs_dir exists but is empty
-- Test 3: jobs_dir exists but contains only non-directory entries
+- Read `src/unified_session/cook_adapter.rs` starting at line 184
+- Identify all conditional branches and error paths
+- Review existing tests to understand testing patterns
+- Map out the 5 specific test cases needed
 
 **Testing**:
-- Each test verifies correct empty Vec<ResumableJob> return
-- Run `cargo test test_list_resumable_empty` pattern
+- Run `cargo test cook_adapter` to see existing test coverage
+- Run `cargo tarpaulin --lib` to identify uncovered lines
 
 **Success Criteria**:
-- [ ] All 3 tests pass
-- [ ] Cover lines 888-890 (early return path)
-- [ ] All existing tests pass
-- [ ] Ready to commit
+- [ ] Identified all 5 uncovered branches/paths
+- [ ] Understood what each branch does
+- [ ] Documented the test scenarios needed
 
-### Phase 3: Test Directory Entry Processing (3 tests)
+### Phase 2: Write Tests for Basic Update Scenarios
 
-**Goal**: Cover directory iteration and metadata check branches
+**Goal**: Cover the primary update paths with 2-3 focused tests.
 
 **Changes**:
-- Test 4: Directory entry with invalid metadata (line 898 Err path)
-- Test 5: Directory entry that's a file (line 899 false path)
-- Test 6: Directory entry with invalid filename (line 900 None path)
+- Add test for successful session update with metadata changes
+- Add test for successful session update with progress changes
+- Add test for successful session update with file changes
+- Each test should be <15 lines and test ONE specific update path
 
 **Testing**:
-- Verify each edge case is handled gracefully
-- Run `cargo test test_list_resumable_dir` pattern
+- Run `cargo test cook_adapter::tests::test_update_*`
+- Verify each new test passes independently
+- Check coverage improvement with `cargo tarpaulin`
 
 **Success Criteria**:
-- [ ] All 3 tests pass
-- [ ] Cover lines 898-900 edge cases
-- [ ] All existing tests pass
+- [ ] 2-3 new tests added for basic update scenarios
+- [ ] Each test is focused and <15 lines
+- [ ] All new tests pass
+- [ ] All existing tests still pass
 - [ ] Ready to commit
 
-### Phase 4: Test Checkpoint Loading Branches (2 tests)
+### Phase 3: Write Tests for Edge Cases
 
-**Goal**: Cover checkpoint loading success and failure paths
+**Goal**: Cover edge cases and boundary conditions with 2-3 focused tests.
 
 **Changes**:
-- Test 7: Valid job directory but load_checkpoint fails (line 930-933)
-- Test 8: Valid checkpoint but job is complete (line 905 false path)
+- Add test for empty/minimal update (no changes)
+- Add test for update with all fields changed simultaneously
+- Add test for update with boundary values (e.g., max iterations, zero files)
+- Each test should be <15 lines and test ONE edge case
 
 **Testing**:
-- Test 7: Verify job is skipped when checkpoint invalid
-- Test 8: Verify complete job is not added to resumable list
-- Run `cargo test test_list_resumable_checkpoint` pattern
+- Run `cargo test cook_adapter::tests::test_update_*`
+- Verify edge case tests pass
+- Check coverage improvement with `cargo tarpaulin`
 
 **Success Criteria**:
-- [ ] Both tests pass
-- [ ] Cover lines 905 and 930-933
-- [ ] All existing tests pass
+- [ ] 2-3 new tests added for edge cases
+- [ ] Each test is focused and <15 lines
+- [ ] All new tests pass
+- [ ] All existing tests still pass
 - [ ] Ready to commit
 
-### Phase 5: Test Checkpoint Version Processing (2 tests)
+### Phase 4: Verify 100% Coverage Achievement
 
-**Goal**: Cover checkpoint list retrieval and max calculation
+**Goal**: Ensure all branches are covered and cleanup any test issues.
 
 **Changes**:
-- Test 9: list_checkpoints returns empty (line 910 unwrap_or_default path)
-- Test 10: Multiple checkpoints, verify max version selected (lines 912-916)
+- Run full coverage analysis with `cargo tarpaulin`
+- Identify any remaining uncovered lines
+- Add any missing tests if gaps remain
+- Refine existing tests if needed for clarity
 
 **Testing**:
-- Test 9: Verify default checkpoint version 0 used
-- Test 10: Verify highest version checkpoint is selected
-- Run `cargo test test_list_resumable_version` pattern
+- Run `cargo test --lib` to verify all tests pass
+- Run `cargo tarpaulin --lib` to verify 100% coverage of target function
+- Run `cargo clippy` to check for warnings
 
 **Success Criteria**:
-- [ ] Both tests pass
-- [ ] Cover lines 910-916 checkpoint version logic
-- [ ] All existing tests pass
+- [ ] 100% coverage achieved for `update_session` function
+- [ ] Total of 5 new focused tests added
+- [ ] All tests pass
+- [ ] No clippy warnings
 - [ ] Ready to commit
+
+### Phase 5: Final Validation and Documentation
+
+**Goal**: Run full CI checks and verify the debt item is resolved.
+
+**Changes**:
+- Run `just ci` to ensure all checks pass
+- Update any relevant documentation if needed
+- Verify the debtmap score has improved
+
+**Testing**:
+- Run `just ci` for full CI validation
+- Run `cargo tarpaulin` to regenerate coverage report
+- Run `debtmap analyze` to verify improvement in debt score
+
+**Success Criteria**:
+- [ ] All CI checks pass
+- [ ] Coverage report shows improvement
+- [ ] Debtmap analysis shows reduced debt score
+- [ ] Code is ready for final commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Write focused tests (< 15 lines each)
-2. Run `cargo test --lib state::tests::test_list_resumable` after each test
-3. Verify test covers exactly ONE decision branch
-4. Run `cargo clippy` to check for warnings
-5. Commit after each phase completes
-
-**Test Design Principles**:
-- ONE assertion per test when possible
-- Clear test names describing the scenario
-- Use existing test utilities (TempDir, tokio::test)
-- Tests should be deterministic
-- Focus on behavior, not implementation
+1. Run `cargo test cook_adapter` to verify existing tests pass
+2. Run `cargo test --lib` for full test suite validation
+3. Run `cargo clippy` to check for warnings
+4. Run `cargo tarpaulin --lib` to measure coverage improvement
 
 **Final verification**:
-1. `cargo test --lib state` - All state module tests pass
-2. `cargo clippy -- -D warnings` - No clippy warnings
-3. `cargo fmt --check` - Proper formatting
-4. `cargo tarpaulin --out Stdout -- --test-threads=1 state::tests` - Verify coverage improvement
+1. `just ci` - Full CI checks
+2. `cargo tarpaulin` - Regenerate coverage
+3. `debtmap analyze` - Verify improvement
 
-## Decision Branch Coverage Map
-
-| Line(s) | Branch | Test # | Scenario |
-|---------|--------|--------|----------|
-| 888-890 | jobs_dir doesn't exist | 1 | Empty directory returns empty vec |
-| 893-895 | read_dir succeeds, no entries | 2 | Empty jobs dir |
-| 895-896 | next_entry returns None | 3 | Only non-directories present |
-| 898 | metadata().await.is_err() | 4 | Invalid metadata |
-| 899 | !metadata.is_dir() | 5 | Entry is file not dir |
-| 900 | file_name().is_none() | 6 | Invalid filename |
-| 902-933 | load_checkpoint() fails | 7 | Skip invalid checkpoint |
-| 905 | !state.is_complete (false) | 8 | Complete job excluded |
-| 905 | !state.is_complete (true) | existing | Incomplete job included |
-| 910 | list_checkpoints unwrap_or | 9 | Empty checkpoint list |
-| 912-916 | max_by_key version | 10 | Multiple checkpoints |
+**Test Structure Pattern** (following existing patterns):
+```rust
+#[test]
+fn test_update_<scenario>() {
+    // Setup: Create test session
+    // Action: Call update_session with specific update
+    // Assert: Verify expected changes
+}
+```
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failure output
-3. Check if test helpers need adjustment
-4. Verify async test setup is correct
-5. Retry with adjusted test
+2. Review the test failure or coverage gap
+3. Adjust the test approach
+4. Retry with refined tests
 
 ## Notes
 
-- The function has high cognitive complexity (56) but manageable cyclomatic complexity (10)
-- Nesting depth of 6 makes it harder to read but doesn't require refactoring per debtmap guidance
-- Focus is purely on test coverage - NO production code changes
-- All tests should be async (`#[tokio::test]`)
-- Use TempDir for isolated test environments
-- Follow existing test patterns in the module (lines 1040-1102)
-- The existing test_list_resumable_jobs covers the happy path, we need edge cases
+- **NO REFACTORING**: The function has complexity 5, which is acceptable. Focus ONLY on adding tests.
+- **Test Independence**: Each test should be completely independent and test ONE specific path.
+- **Follow Existing Patterns**: Review tests in the same file to match the testing style.
+- **Coverage Tool**: Use `cargo tarpaulin` to identify exact uncovered lines.
+- **Function Role**: The function is classified as "PureLogic" with 14 upstream callers, so comprehensive testing is critical.
+- **Keep Tests Simple**: Each test should be <15 lines as recommended by debtmap.
+- **Edge Cases Matter**: With 0% current coverage, both happy paths AND edge cases need testing.
