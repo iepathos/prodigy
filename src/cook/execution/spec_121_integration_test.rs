@@ -31,7 +31,8 @@ mod spec_121_tests {
     #[test]
     fn test_agent_result_captures_log_location() {
         // Test that AgentResult properly stores json_log_location
-        let log_location = Some("/Users/test/.local/state/claude/logs/session-abc.json".to_string());
+        let log_location =
+            Some("/Users/test/.local/state/claude/logs/session-abc.json".to_string());
 
         let agent_result = AgentResult {
             item_id: "test-item".to_string(),
@@ -122,9 +123,9 @@ mod spec_121_tests {
         // Test that builder methods preserve json_log_location
         let log_path = "/path/to/logs/session-456.json".to_string();
 
-        let result = crate::commands::CommandResult::success(
-            serde_json::Value::String("success".to_string())
-        )
+        let result = crate::commands::CommandResult::success(serde_json::Value::String(
+            "success".to_string(),
+        ))
         .with_duration(1000)
         .with_json_log_location(log_path.clone());
 
