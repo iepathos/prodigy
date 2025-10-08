@@ -358,8 +358,14 @@ mod handle_commit_verification_tests {
         git_mock.add_success_response("def456ghi789").await; // HEAD after (different)
 
         // Mock: get_commits_between returns commit metadata
-        git_mock.add_success_response("abc123|Test commit|Author|2024-01-01T12:00:00Z\nsrc/file1.rs\nsrc/file2.rs").await;
-        git_mock.add_success_response(" 2 files changed, 10 insertions(+), 3 deletions(-)").await;
+        git_mock
+            .add_success_response(
+                "abc123|Test commit|Author|2024-01-01T12:00:00Z\nsrc/file1.rs\nsrc/file2.rs",
+            )
+            .await;
+        git_mock
+            .add_success_response(" 2 files changed, 10 insertions(+), 3 deletions(-)")
+            .await;
 
         let temp_dir = TempDir::new().unwrap();
         let step = WorkflowStep {
@@ -401,8 +407,12 @@ mod handle_commit_verification_tests {
         git_mock.add_success_response("abc123def456").await; // get_current_head after commit
 
         // Mock for get_commits_between (to get created commit details)
-        git_mock.add_success_response("abc123|Auto commit|Author|2024-01-01T12:00:00Z\nsrc/file1.rs").await;
-        git_mock.add_success_response(" 1 file changed, 5 insertions(+)").await;
+        git_mock
+            .add_success_response("abc123|Auto commit|Author|2024-01-01T12:00:00Z\nsrc/file1.rs")
+            .await;
+        git_mock
+            .add_success_response(" 1 file changed, 5 insertions(+)")
+            .await;
 
         let temp_dir = TempDir::new().unwrap();
         let step = WorkflowStep {
@@ -494,6 +504,10 @@ mod handle_commit_verification_tests {
         let err_msg = result.unwrap_err().to_string();
         eprintln!("Error message: {}", err_msg);
         // The error message should mention commits not being created
-        assert!(err_msg.contains("No commits") || err_msg.contains("commit") || err_msg.contains("required"));
+        assert!(
+            err_msg.contains("No commits")
+                || err_msg.contains("commit")
+                || err_msg.contains("required")
+        );
     }
 }
