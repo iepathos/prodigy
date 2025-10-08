@@ -457,4 +457,22 @@ mod tests {
         let state = adapter.get_state().unwrap();
         assert_eq!(state.status, CookSessionStatus::Completed);
     }
+
+    #[tokio::test]
+    async fn test_update_files_changed_delta() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(3))
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(5))
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(2))
+            .await
+            .unwrap();
+    }
 }
