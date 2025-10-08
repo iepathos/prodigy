@@ -581,3 +581,109 @@ async fn test_list_files_without_extensions() -> Result<()> {
     assert_eq!(templates.len(), 1);
     Ok(())
 }
+
+#[tokio::test]
+async fn test_list_with_valid_metadata() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create template with valid metadata
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    let metadata_content = r#"{
+            "description": "Test template",
+            "author": "Test Author",
+            "version": "1.0.0",
+            "tags": ["test", "example"],
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }"#;
+    std::fs::write(
+        temp_dir.path().join("template.meta.json"),
+        metadata_content,
+    )?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    assert_eq!(templates[0].description, Some("Test template".to_string()));
+    assert_eq!(templates[0].version, "1.0.0");
+    assert_eq!(templates[0].tags, vec!["test", "example"]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_without_metadata() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create template without metadata file
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    assert_eq!(templates[0].description, None);
+    assert_eq!(templates[0].version, "1.0.0"); // Default version
+    assert!(templates[0].tags.is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_with_invalid_metadata_json() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create template with corrupted metadata JSON
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    std::fs::write(
+        temp_dir.path().join("template.meta.json"),
+        "{ invalid json syntax",
+    )?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    // Should use default metadata when JSON is invalid
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    assert_eq!(templates[0].description, None);
+    assert_eq!(templates[0].version, "1.0.0");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_with_unreadable_metadata() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create template with unreadable metadata file
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    let metadata_path = temp_dir.path().join("template.meta.json");
+    std::fs::write(&metadata_path, r#"{"description": "Should not be read"}"#)?;
+
+    // Make metadata file unreadable (Unix only)
+    #[cfg(unix)]
+    std::fs::set_permissions(&metadata_path, std::fs::Permissions::from_mode(0o000))?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    // Restore permissions for cleanup
+    #[cfg(unix)]
+    std::fs::set_permissions(&metadata_path, std::fs::Permissions::from_mode(0o644))?;
+
+    // Should use default metadata when file is unreadable
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    assert_eq!(templates[0].description, None);
+    Ok(())
+}
