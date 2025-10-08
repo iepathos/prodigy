@@ -440,8 +440,7 @@ impl RealClaudeClient {
         attempt: u32,
         max_retries: u32,
     ) -> bool {
-        matches!(classification, OutputClassification::TransientFailure(_))
-            && attempt < max_retries
+        matches!(classification, OutputClassification::TransientFailure(_)) && attempt < max_retries
     }
 
     /// Handle process output result and determine next action
@@ -1084,10 +1083,7 @@ mod tests {
         assert_eq!(cmd.program, "claude");
         assert_eq!(cmd.args, vec!["/lint"]);
         assert_eq!(cmd.env.len(), 2);
-        assert_eq!(
-            cmd.env.get("PRODIGY_AUTOMATION"),
-            Some(&"true".to_string())
-        );
+        assert_eq!(cmd.env.get("PRODIGY_AUTOMATION"), Some(&"true".to_string()));
         assert_eq!(cmd.env.get("VERBOSE"), Some(&"1".to_string()));
 
         // Test command with empty args and no environment variables
