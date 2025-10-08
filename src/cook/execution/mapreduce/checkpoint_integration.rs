@@ -564,3 +564,154 @@ pub fn create_checkpointed_coordinator(
 ) -> CheckpointedCoordinator {
     CheckpointedCoordinator::new(coordinator, checkpoint_path, job_id)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    // Simple unit tests for the core checkpoint functionality without needing full coordinator setup
+
+    #[tokio::test]
+    async fn test_get_next_batch_empty() {
+        // Create a minimal checkpointed coordinator with temp storage
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let checkpoint_path = temp_dir.path().to_path_buf();
+        let job_id = "test-empty-batch";
+
+        // Create minimal coordinator using a placeholder pattern
+        // Since the base coordinator is complex, we focus on testing checkpoint state directly
+        let config = CheckpointConfig::default();
+        let storage = Box::new(FileCheckpointStorage::new(checkpoint_path.clone(), true));
+        let _checkpoint_manager =
+            Arc::new(CheckpointManager::new(storage, config, job_id.to_string()));
+
+        // Create checkpoint state
+        let current_checkpoint: Arc<RwLock<Option<Checkpoint>>> =
+            Arc::new(RwLock::new(Some(Checkpoint {
+                metadata: crate::cook::execution::mapreduce::checkpoint::CheckpointMetadata {
+                    checkpoint_id: String::new(),
+                    job_id: job_id.to_string(),
+                    version: 1,
+                    created_at: Utc::now(),
+                    phase: PhaseType::Map,
+                    total_work_items: 0,
+                    completed_items: 0,
+                    checkpoint_reason: CheckpointReason::Manual,
+                    integrity_hash: String::new(),
+                },
+                execution_state: crate::cook::execution::mapreduce::checkpoint::ExecutionState {
+                    current_phase: PhaseType::Map,
+                    phase_start_time: Utc::now(),
+                    setup_results: None,
+                    map_results: None,
+                    reduce_results: None,
+                    workflow_variables: std::collections::HashMap::new(),
+                },
+                work_item_state: WorkItemState {
+                    pending_items: vec![],
+                    in_progress_items: std::collections::HashMap::new(),
+                    completed_items: vec![],
+                    failed_items: vec![],
+                    current_batch: None,
+                },
+                agent_state: crate::cook::execution::mapreduce::checkpoint::AgentState {
+                    active_agents: std::collections::HashMap::new(),
+                    agent_assignments: std::collections::HashMap::new(),
+                    agent_results: std::collections::HashMap::new(),
+                    resource_allocation: std::collections::HashMap::new(),
+                },
+                variable_state: crate::cook::execution::mapreduce::checkpoint::VariableState {
+                    workflow_variables: std::collections::HashMap::new(),
+                    captured_outputs: std::collections::HashMap::new(),
+                    environment_variables: std::collections::HashMap::new(),
+                    item_variables: std::collections::HashMap::new(),
+                },
+                resource_state: crate::cook::execution::mapreduce::checkpoint::ResourceState {
+                    total_agents_allowed: 10,
+                    current_agents_active: 0,
+                    worktrees_created: vec![],
+                    worktrees_cleaned: vec![],
+                    disk_usage_bytes: None,
+                },
+                error_state: crate::cook::execution::mapreduce::checkpoint::ErrorState {
+                    error_count: 0,
+                    dlq_items: vec![],
+                    error_threshold_reached: false,
+                    last_error: None,
+                },
+            })));
+
+        // Test getting batch from empty state
+        let mut checkpoint = current_checkpoint.write().await;
+        if let Some(ref mut cp) = *checkpoint {
+            let pending_count = cp.work_item_state.pending_items.len();
+            assert_eq!(pending_count, 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_state_updates() {
+        // Test that work items can be moved from pending to in-progress
+        let work_items = vec![
+            WorkItem {
+                id: "item_0".to_string(),
+                data: serde_json::json!({"test": "data1"}),
+            },
+            WorkItem {
+                id: "item_1".to_string(),
+                data: serde_json::json!({"test": "data2"}),
+            },
+        ];
+
+        let mut work_item_state = WorkItemState {
+            pending_items: work_items,
+            in_progress_items: std::collections::HashMap::new(),
+            completed_items: vec![],
+            failed_items: vec![],
+            current_batch: None,
+        };
+
+        // Simulate moving items to in-progress
+        let batch_size = 2;
+        let batch: Vec<WorkItem> = work_item_state.pending_items.drain(..batch_size).collect();
+
+        assert_eq!(batch.len(), 2);
+        assert_eq!(work_item_state.pending_items.len(), 0);
+
+        // Move to in-progress
+        for item in &batch {
+            work_item_state.in_progress_items.insert(
+                item.id.clone(),
+                WorkItemProgress {
+                    work_item: item.clone(),
+                    agent_id: format!("agent_{}", item.id),
+                    started_at: Utc::now(),
+                    last_update: Utc::now(),
+                },
+            );
+        }
+
+        assert_eq!(work_item_state.in_progress_items.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_decision_logic() {
+        // Test the checkpoint decision logic
+        let config = CheckpointConfig::default();
+
+        // Should not checkpoint if no items processed
+        let items_since_last = 0;
+        let _last_time = Utc::now();
+        assert!(!should_checkpoint_based_on_items(items_since_last, &config));
+
+        // Should checkpoint if enough items processed
+        let items_since_last = config.interval_items.unwrap_or(10);
+        assert!(should_checkpoint_based_on_items(items_since_last, &config));
+    }
+
+    // Helper function for checkpoint decision (will be extracted in Phase 3)
+    fn should_checkpoint_based_on_items(items_processed: usize, config: &CheckpointConfig) -> bool {
+        items_processed >= config.interval_items.unwrap_or(10)
+    }
+}

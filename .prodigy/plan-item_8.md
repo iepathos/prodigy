@@ -1,214 +1,235 @@
-# Implementation Plan: Add Tests and Refactor YamlValidator::validate_mapreduce_workflow
+# Implementation Plan: Add Test Coverage and Refactor `execute_map_with_checkpoints`
 
 ## Problem Summary
 
-**Location**: ./src/cli/yaml_validator.rs:YamlValidator::validate_mapreduce_workflow:61
-**Priority Score**: 31.88125
-**Debt Type**: TestingGap (cognitive: 41, cyclomatic: 20, coverage: 0.0%)
+**Location**: ./src/cook/execution/mapreduce/checkpoint_integration.rs:CheckpointedCoordinator::execute_map_with_checkpoints:215
+**Priority Score**: 31.56
+**Debt Type**: TestingGap (cognitive: 53, cyclomatic: 11, coverage: 0.0%)
 
 **Current Metrics**:
-- Lines of Code: 90
-- Cyclomatic Complexity: 20
-- Cognitive Complexity: 41
+- Lines of Code: 59
+- Cyclomatic Complexity: 11
+- Cognitive Complexity: 53
 - Coverage: 0.0%
-- Nesting Depth: 5
+- Nesting Depth: 2
+- Uncovered Lines: 215, 220, 223-225, 229-230, 233-240, 242, 246-247, 250, 252-253, 256, 258, 261-263, 268-269, 271
 
-**Issue**: Complex business logic with 100% testing gap. Cyclomatic complexity of 20 requires at least 20 test cases for full path coverage. After extracting 8 functions, each will need only 3-5 tests. Testing before refactoring ensures no regressions.
+**Issue**: Complex business logic with 100% testing gap and high cognitive complexity (53). Cyclomatic complexity of 11 requires at least 11 test cases for full path coverage. The function orchestrates checkpoint-based map phase execution but mixes concerns: checkpoint state management, work item loading, batch processing coordination, and periodic checkpoint saving.
 
 ## Target State
 
 **Expected Impact**:
-- Complexity Reduction: 6.0 (from 20 to ~14)
+- Complexity Reduction: 3.3 (from 11 to ~7-8)
 - Coverage Improvement: 50.0% (from 0% to 50%+)
-- Risk Reduction: 13.39
+- Risk Reduction: 13.26
 
 **Success Criteria**:
-- [ ] Coverage increases from 0% to at least 50%
-- [ ] Cyclomatic complexity reduced from 20 to ≤14
-- [ ] Extract 6-8 pure validation functions with complexity ≤3 each
+- [ ] At least 7 comprehensive tests covering critical branches (minimum for 50% coverage)
+- [ ] Extract 3-5 pure functions for validation, checkpoint decision logic, and state updates
+- [ ] Reduce cyclomatic complexity to ≤8 per function
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting
+- [ ] Proper formatting (rustfmt)
 
 ## Implementation Phases
 
-### Phase 1: Add Comprehensive Tests for Current Implementation
+### Phase 1: Add Foundation Tests for Happy Path
 
-**Goal**: Achieve baseline test coverage before refactoring to prevent regressions
+**Goal**: Establish baseline test coverage for the main execution flow, proving the function works correctly in the common case.
 
 **Changes**:
-- Create `tests/yaml_validator_tests.rs` or add to existing test module
-- Write tests covering all 20 branches:
-  - Missing 'name' field
-  - Missing 'map' section
-  - Missing 'input' field in map
-  - Missing 'json_path' field in map
-  - Missing 'agent_template' field
-  - Simplified syntax (sequence agent_template)
-  - Nested 'commands' syntax (deprecated)
-  - Invalid agent_template structure
-  - Deprecated 'timeout_per_agent' parameter
-  - Deprecated 'retry_on_failure' parameter
-  - Simplified reduce syntax (sequence)
-  - Nested reduce 'commands' syntax (deprecated)
-  - Invalid reduce structure
-  - Valid MapReduce workflow (happy path)
-  - Workflow with check_simplified=false (skip syntax checks)
+1. Create new test module `#[cfg(test)]` in `checkpoint_integration.rs` (or separate test file)
+2. Add helper functions for test setup:
+   - `create_test_coordinator()` - Build CheckpointedCoordinator with test dependencies
+   - `create_test_map_phase()` - Create simple MapPhase configuration
+   - `create_test_env()` - Create minimal ExecutionEnvironment
+3. Write 3 core tests:
+   - `test_execute_map_with_checkpoints_empty_items` - Verify behavior with no work items
+   - `test_execute_map_with_checkpoints_single_batch` - Process one batch successfully
+   - `test_execute_map_with_checkpoints_multiple_batches` - Process multiple batches with checkpointing
 
 **Testing**:
 ```bash
-cargo test yaml_validator --lib
-cargo tarpaulin --lib --out Stdout | grep yaml_validator
+cargo test --lib checkpoint_integration::tests
+cargo test --lib  # Verify no regressions
 ```
 
 **Success Criteria**:
-- [ ] At least 15 test cases written covering critical branches
-- [ ] Coverage for validate_mapreduce_workflow increases to 70%+
+- [ ] 3 passing tests for happy path scenarios
+- [ ] Test coverage increases from 0% to ~20-30%
+- [ ] All existing tests still pass
+- [ ] No clippy warnings
+
+### Phase 2: Add Error Path and Edge Case Tests
+
+**Goal**: Cover error conditions, checkpoint triggers, and boundary cases to improve branch coverage.
+
+**Changes**:
+1. Add tests for error scenarios:
+   - `test_execute_map_checkpoint_on_interval` - Verify checkpointing triggers based on item count
+   - `test_execute_map_checkpoint_on_time` - Verify time-based checkpoint triggers (if applicable)
+   - `test_execute_map_with_failed_batch` - Handle batch processing failures
+   - `test_execute_map_resumes_correctly` - Verify state persistence across checkpoint saves
+2. Mock or stub dependencies to control behavior:
+   - Checkpoint save operations
+   - Batch processing results
+   - Work item loading
+
+**Testing**:
+```bash
+cargo test --lib checkpoint_integration::tests::test_execute_map
+cargo tarpaulin --lib --packages prodigy --exclude-files "tests/*"
+```
+
+**Success Criteria**:
+- [ ] 7+ total tests covering critical branches
+- [ ] Test coverage reaches 50%+ on `execute_map_with_checkpoints`
 - [ ] All tests pass
-- [ ] Ready to commit
+- [ ] Error paths properly validated
 
-### Phase 2: Extract Pure Validation Functions (Part 1 - Map Section)
+### Phase 3: Extract Pure Function - Checkpoint Decision Logic
 
-**Goal**: Extract map section validation logic into focused, testable functions
+**Goal**: Reduce complexity by extracting the checkpoint decision logic into a pure, testable function.
 
 **Changes**:
-- Extract `validate_map_section(map: &Mapping) -> Result<Vec<String>>` - validates map fields
-- Extract `validate_agent_template(template: &Value, check_simplified: bool) -> Result<Vec<String>>` - validates agent_template structure
-- Extract `check_deprecated_map_params(map: &Mapping) -> Vec<String>` - checks for deprecated parameters
-- Update `validate_mapreduce_workflow` to call these extracted functions
-- Each function should have complexity ≤3
+1. Create new pure function:
+   ```rust
+   fn should_save_checkpoint_for_batch(
+       items_processed_since_last: usize,
+       last_checkpoint_time: DateTime<Utc>,
+       checkpoint_config: &CheckpointConfig,
+   ) -> bool
+   ```
+2. Replace inline checkpoint decision in `execute_map_with_checkpoints` (lines 261-263)
+3. Add 3-5 unit tests specifically for this function:
+   - `test_should_checkpoint_by_item_count`
+   - `test_should_checkpoint_by_time_interval`
+   - `test_should_not_checkpoint_too_soon`
 
 **Testing**:
 ```bash
-cargo test yaml_validator --lib
+cargo test --lib should_save_checkpoint
 cargo clippy -- -D warnings
 ```
 
 **Success Criteria**:
-- [ ] 3 new pure functions extracted with clear single responsibilities
-- [ ] Each function has complexity ≤3
-- [ ] All existing tests still pass
-- [ ] Add 2-3 unit tests per extracted function
-- [ ] Ready to commit
-
-### Phase 3: Extract Pure Validation Functions (Part 2 - Reduce Section)
-
-**Goal**: Extract reduce section validation logic into focused, testable functions
-
-**Changes**:
-- Extract `validate_reduce_section(reduce: &Value, check_simplified: bool) -> Result<Vec<String>>` - validates reduce structure
-- Extract `validate_simplified_syntax(value: &Value, section_name: &str) -> Option<String>` - checks for deprecated nested syntax
-- Update `validate_mapreduce_workflow` to call these functions
-- Each function should have complexity ≤3
-
-**Testing**:
-```bash
-cargo test yaml_validator --lib
-cargo clippy -- -D warnings
-```
-
-**Success Criteria**:
-- [ ] 2 new pure functions extracted
-- [ ] Each function has complexity ≤3
-- [ ] All existing tests still pass
-- [ ] Add 2-3 unit tests per extracted function
-- [ ] Ready to commit
-
-### Phase 4: Extract Required Fields Validation
-
-**Goal**: Extract top-level field validation into a pure function
-
-**Changes**:
-- Extract `validate_required_fields(workflow: &Mapping) -> Vec<String>` - validates required fields like 'name'
-- Update `validate_mapreduce_workflow` to call this function
-- Function should have complexity ≤2
-
-**Testing**:
-```bash
-cargo test yaml_validator --lib
-cargo clippy -- -D warnings
-```
-
-**Success Criteria**:
-- [ ] 1 new pure function extracted
-- [ ] Function has complexity ≤2
-- [ ] All existing tests still pass
-- [ ] Add 2-3 unit tests for the extracted function
-- [ ] Ready to commit
-
-### Phase 5: Final Verification and Cleanup
-
-**Goal**: Verify all improvements meet target metrics and clean up any remaining issues
-
-**Changes**:
-- Run full test suite and coverage analysis
-- Verify cyclomatic complexity reduction
-- Add any missing edge case tests
-- Clean up any remaining clippy warnings
-- Update documentation if needed
-
-**Testing**:
-```bash
-just ci
-cargo tarpaulin --lib --out Stdout
-cargo clippy -- -D warnings
-```
-
-**Success Criteria**:
-- [ ] Coverage for validate_mapreduce_workflow ≥50%
-- [ ] Cyclomatic complexity reduced to ≤14
-- [ ] All 6-8 extracted functions have complexity ≤3
+- [ ] Pure function extracted with clear inputs/outputs
+- [ ] Function has 3-5 dedicated unit tests
+- [ ] Complexity of `execute_map_with_checkpoints` reduced by 1-2 points
 - [ ] All tests pass
 - [ ] No clippy warnings
-- [ ] Code is properly formatted
-- [ ] Ready for final commit
+
+### Phase 4: Extract Pure Function - Checkpoint State Initialization
+
+**Goal**: Extract the checkpoint state mutation logic (lines 223-243) into a testable function.
+
+**Changes**:
+1. Create new function:
+   ```rust
+   fn initialize_map_phase_checkpoint(
+       checkpoint: &mut Checkpoint,
+       work_items: Vec<Value>,
+       phase: PhaseType,
+   ) -> Vec<WorkItem>
+   ```
+2. Replace inline state setup in `execute_map_with_checkpoints`
+3. Add 3-4 unit tests:
+   - `test_initialize_map_checkpoint_empty`
+   - `test_initialize_map_checkpoint_with_items`
+   - `test_initialize_map_checkpoint_preserves_metadata`
+
+**Testing**:
+```bash
+cargo test --lib initialize_map_phase_checkpoint
+cargo test --lib checkpoint_integration
+```
+
+**Success Criteria**:
+- [ ] State initialization logic extracted
+- [ ] Function has 3-4 dedicated tests
+- [ ] Complexity further reduced
+- [ ] All tests pass
+- [ ] Main function reads more clearly
+
+### Phase 5: Extract Pure Function - Results Aggregation Logic
+
+**Goal**: Separate the results collection and checkpoint update coordination (lines 250-265).
+
+**Changes**:
+1. Create new function:
+   ```rust
+   async fn process_batches_with_checkpointing(
+       coordinator: &CheckpointedCoordinator,
+       map_phase: &MapPhase,
+       env: &ExecutionEnvironment,
+       max_parallel: usize,
+   ) -> Result<Vec<AgentResult>>
+   ```
+2. Replace the while loop and result aggregation in `execute_map_with_checkpoints`
+3. Add 3-4 tests:
+   - `test_process_batches_single_batch`
+   - `test_process_batches_triggers_checkpoint`
+   - `test_process_batches_aggregates_results`
+
+**Testing**:
+```bash
+cargo test --lib process_batches
+cargo tarpaulin --lib --packages prodigy
+```
+
+**Success Criteria**:
+- [ ] Batch processing loop extracted
+- [ ] 3-4 tests for batch coordination
+- [ ] `execute_map_with_checkpoints` now has complexity ≤8
+- [ ] Test coverage ≥60% for the module
+- [ ] All tests pass
 
 ## Testing Strategy
 
 **For each phase**:
 1. Run `cargo test --lib` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Run `cargo tarpaulin --lib` to verify coverage improvements
-4. Verify extracted functions are truly pure (no side effects)
+2. Run `cargo clippy -- -D warnings` to check for warnings
+3. Run `cargo fmt` to ensure formatting
+4. For phases with extraction, run `cargo tarpaulin` to measure coverage improvement
 
 **Final verification**:
-1. `just ci` - Full CI checks
-2. `cargo tarpaulin --lib` - Verify coverage meets 50%+ target
-3. Run debtmap analysis to verify improvement (if available)
+1. `cargo test --lib` - All tests pass
+2. `cargo clippy -- -D warnings` - No warnings
+3. `cargo fmt --check` - Properly formatted
+4. `cargo tarpaulin --lib --packages prodigy` - Verify coverage ≥50%
+5. Review `execute_map_with_checkpoints` - Confirm complexity ≤8, function length ≤30 lines
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failures or compilation errors
-3. Adjust the extraction approach
-4. Retry with smaller, more incremental changes
+2. Review the test failures or errors
+3. If test design issue: Adjust test approach and retry
+4. If implementation issue: Simplify extraction and retry
+5. Document any blockers or assumptions that were incorrect
 
 ## Notes
 
-**Key Insights from Code Analysis**:
-- The function has 5 levels of nesting due to nested pattern matching
-- Main complexity sources:
-  - Pattern matching on `agent_template` (3 branches)
-  - Pattern matching on `reduce` (3 branches)
-  - Multiple deprecated parameter checks
-  - Conditional logic based on `check_simplified` flag
+**Key Testing Challenges**:
+- Mocking async checkpoint operations may require `tokio::test` and careful setup
+- `ExecutionEnvironment` may have complex dependencies - consider builder pattern for tests
+- Work items are `serde_json::Value` - use simple JSON objects in tests
+- Checkpoint state is wrapped in `Arc<RwLock<>>` - tests need to handle async locking
 
-**Extraction Strategy**:
-- Extract validation logic that returns `Vec<String>` of issues
-- Keep the function focused on orchestration
-- Each extracted function validates a specific section
-- Use Result<Vec<String>> for error-prone operations
+**Refactoring Principles**:
+- Extract functions that take inputs and return results (minimize state mutations)
+- Keep checkpoint state updates explicit and visible in main function
+- Don't over-extract - keep related logic together if it reduces readability
+- Prefer small, focused functions over large orchestrators
 
-**Testing Approach**:
-- Start with happy path tests
-- Add edge cases for each validation branch
-- Test deprecated parameter detection
-- Test both check_simplified=true and false modes
-- Use helper functions to create test YAML structures
+**Coverage Target Justification**:
+- 50% coverage is realistic for first pass (7-8 tests covering main branches)
+- 100% coverage would require extensive mocking of coordinator internals
+- Focus on business logic paths, not every error branch in dependencies
+- Priority: test checkpoint triggers, state updates, and batch coordination
 
-**Gotchas**:
-- The function mutates `issues` and `suggestions` vectors
-- Extracted functions should return new vectors instead
-- Need to handle both `Value::Mapping` and `Value::Sequence` for agent_template/reduce
-- `check_simplified` flag affects validation behavior
+**Complexity Sources**:
+- Multiple mutable checkpoint state accesses (lines 223-243)
+- While loop with multiple conditional branches (lines 252-265)
+- Async operations and error handling throughout
+- Integration with multiple dependencies (checkpoint manager, coordinator)
