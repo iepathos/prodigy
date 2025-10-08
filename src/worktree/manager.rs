@@ -1,17 +1,17 @@
 use crate::config::mapreduce::MergeWorkflow;
 use crate::cook::execution::{ClaudeExecutor, ClaudeExecutorImpl};
 use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use chrono::Utc;
 use serde_json;
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tracing::{debug, info, warn};
-use uuid::Uuid;
 
+use super::builder::WorktreeBuilder;
 use super::parsing;
-use super::{IterationInfo, WorktreeSession, WorktreeState, WorktreeStats, WorktreeStatus};
+use super::{WorktreeSession, WorktreeState, WorktreeStatus};
 
 /// Configuration for worktree cleanup behavior
 #[derive(Debug, Clone)]
@@ -44,10 +44,10 @@ pub enum CleanupPolicy {
 pub struct WorktreeManager {
     pub base_dir: PathBuf,
     pub repo_path: PathBuf,
-    subprocess: SubprocessManager,
-    verbosity: u8,
-    custom_merge_workflow: Option<MergeWorkflow>,
-    workflow_env: HashMap<String, String>,
+    pub(crate) subprocess: SubprocessManager,
+    pub(crate) verbosity: u8,
+    pub(crate) custom_merge_workflow: Option<MergeWorkflow>,
+    pub(crate) workflow_env: HashMap<String, String>,
 }
 
 impl WorktreeManager {
@@ -120,191 +120,11 @@ impl WorktreeManager {
         custom_merge_workflow: Option<MergeWorkflow>,
         workflow_env: HashMap<String, String>,
     ) -> Result<Self> {
-        // Get the repository name from the path
-        let repo_name = repo_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .ok_or_else(|| {
-                anyhow!(
-                    "Could not determine repository name from path: {}",
-                    repo_path.display()
-                )
-            })?;
-
-        // Use home directory for worktrees (or temp dir during tests)
-        let base_dir = {
-            #[cfg(test)]
-            {
-                use std::sync::OnceLock;
-                static TEST_DIR: OnceLock<std::path::PathBuf> = OnceLock::new();
-                let test_dir = TEST_DIR.get_or_init(|| {
-                    let temp =
-                        std::env::temp_dir().join(format!("prodigy-test-{}", std::process::id()));
-                    std::fs::create_dir_all(&temp).unwrap();
-                    temp
-                });
-                test_dir.join("worktrees").join(repo_name)
-            }
-            #[cfg(not(test))]
-            {
-                let home_dir = directories::BaseDirs::new()
-                    .ok_or_else(|| anyhow!("Could not determine base directories"))?
-                    .home_dir()
-                    .to_path_buf();
-                home_dir.join(".prodigy").join("worktrees").join(repo_name)
-            }
-        };
-
-        std::fs::create_dir_all(&base_dir).context("Failed to create worktree base directory")?;
-
-        // Create .gitignore if it doesn't exist
-        let gitignore_path = base_dir.join(".gitignore");
-        if !gitignore_path.exists() {
-            fs::write(&gitignore_path, ".metadata/\n")?;
-        }
-
-        // Try to canonicalize paths to handle symlinks (e.g., /private/var vs /var on macOS)
-        // If canonicalization fails (e.g., on certain filesystems), use the original paths
-        let base_dir = base_dir.canonicalize().unwrap_or(base_dir);
-        let repo_path = repo_path.canonicalize().unwrap_or(repo_path);
-
-        Ok(Self {
-            base_dir,
-            repo_path,
-            subprocess,
-            verbosity,
-            custom_merge_workflow,
-            workflow_env,
-        })
-    }
-
-    /// Create a new worktree session
-    ///
-    /// # Returns
-    /// * `Result<WorktreeSession>` - The created worktree session
-    ///
-    /// # Errors
-    /// Returns error if worktree creation fails
-    pub async fn create_session(&self) -> Result<WorktreeSession> {
-        let session_id = Uuid::new_v4();
-        // Simple name using UUID
-        let name = format!("session-{session_id}");
-
-        self.create_session_with_id(&name).await
-    }
-
-    /// Create a new worktree session with a specific session ID
-    ///
-    /// # Arguments
-    /// * `session_id` - The session ID to use (should be in "session-{uuid}" format)
-    ///
-    /// # Returns
-    /// * `Result<WorktreeSession>` - The created worktree session
-    ///
-    /// # Errors
-    /// Returns error if worktree creation fails
-    pub async fn create_session_with_id(&self, session_id: &str) -> Result<WorktreeSession> {
-        // Capture current branch BEFORE creating worktree
-        let mut original_branch = self.get_current_branch().await.unwrap_or_else(|e| {
-            warn!(
-                "Failed to detect current branch: {}, will use default for merge",
-                e
-            );
-            String::from("HEAD")
-        });
-
-        // If in detached HEAD state, use default branch instead
-        if original_branch == "HEAD" {
-            original_branch = self.determine_default_branch().await.unwrap_or_else(|e| {
-                warn!("Failed to determine default branch: {}, using master", e);
-                String::from("master")
-            });
-            info!(
-                "Detached HEAD detected, using default branch: {}",
-                original_branch
-            );
-        }
-
-        info!("Creating worktree from branch: {}", original_branch);
-
-        // Use the provided session ID as the name
-        let name = session_id.to_string();
-        let branch = format!("prodigy-{name}");
-        let worktree_path = self.base_dir.join(&name);
-
-        // Create worktree
-        let command = ProcessCommandBuilder::new("git")
-            .current_dir(&self.repo_path)
-            .args(["worktree", "add", "-b", &branch])
-            .arg(worktree_path.to_string_lossy().as_ref())
-            .build();
-
-        let output = self
-            .subprocess
-            .runner()
-            .run(command)
-            .await
-            .context("Failed to execute git worktree add")?;
-
-        if !output.status.success() {
-            anyhow::bail!("Failed to create worktree: {}", output.stderr);
-        }
-
-        // Create session
-        let session = WorktreeSession::new(name.clone(), branch, worktree_path);
-
-        // Save session state with original branch
-        self.save_session_state_with_original_branch(&session, &original_branch)?;
-
-        Ok(session)
-    }
-
-    #[allow(dead_code)]
-    fn save_session_state(&self, session: &WorktreeSession) -> Result<()> {
-        self.save_session_state_with_original_branch(session, "")
-    }
-
-    fn save_session_state_with_original_branch(
-        &self,
-        session: &WorktreeSession,
-        original_branch: &str,
-    ) -> Result<()> {
-        let state_dir = self.base_dir.join(".metadata");
-        fs::create_dir_all(&state_dir)?;
-
-        let state_file = state_dir.join(format!("{}.json", session.name));
-        let state = WorktreeState {
-            session_id: session.name.clone(),
-            worktree_name: session.name.clone(),
-            branch: session.branch.clone(),
-            original_branch: original_branch.to_string(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            status: WorktreeStatus::InProgress,
-            iterations: IterationInfo {
-                completed: 0,
-                max: 10,
-            },
-            stats: WorktreeStats::default(),
-            merged: false,
-            merged_at: None,
-            error: None,
-            merge_prompt_shown: false,
-            merge_prompt_response: None,
-            interrupted_at: None,
-            interruption_type: None,
-            last_checkpoint: None,
-            resumable: false,
-        };
-
-        let json = serde_json::to_string_pretty(&state)?;
-
-        // Write to temp file first, then rename atomically
-        let temp_file = state_dir.join(format!("{}.json.tmp", session.name));
-        fs::write(&temp_file, &json)?;
-        fs::rename(&temp_file, &state_file)?;
-
-        Ok(())
+        WorktreeBuilder::new(repo_path, subprocess)
+            .verbosity(verbosity)
+            .custom_merge_workflow(custom_merge_workflow)
+            .workflow_env(workflow_env)
+            .build()
     }
 
     pub fn update_session_state<F>(&self, name: &str, updater: F) -> Result<()>
@@ -406,24 +226,6 @@ impl WorktreeManager {
     }
 
     /// Create a WorktreeSession if the path is within our base directory
-    fn create_worktree_session(&self, path: PathBuf, branch: String) -> Option<WorktreeSession> {
-        let canonical_path = path.canonicalize().unwrap_or(path.clone());
-
-        // Include all worktrees in our base directory, regardless of branch name
-        // This includes MapReduce branches like "merge-prodigy-*" and "prodigy-agent-*"
-        if !canonical_path.starts_with(&self.base_dir) {
-            return None;
-        }
-
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or(&branch)
-            .to_string();
-
-        Some(WorktreeSession::new(name, branch, canonical_path))
-    }
-
     /// List sessions with detailed information including workflow and progress
     ///
     /// This method gathers enhanced session information from both worktree state
@@ -654,7 +456,7 @@ impl WorktreeManager {
     }
 
     /// Determine default branch (main or master) - I/O operation separated
-    async fn determine_default_branch(&self) -> Result<String> {
+    pub(crate) async fn determine_default_branch(&self) -> Result<String> {
         let main_exists = self.check_branch_exists("main").await?;
         Ok(Self::select_default_branch(main_exists))
     }
@@ -672,7 +474,7 @@ impl WorktreeManager {
     ///
     /// Returns the name of the currently checked-out branch, or "HEAD"
     /// if in detached HEAD state.
-    async fn get_current_branch(&self) -> Result<String> {
+    pub(crate) async fn get_current_branch(&self) -> Result<String> {
         let command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
             .args(["rev-parse", "--abbrev-ref", "HEAD"])
@@ -730,16 +532,6 @@ impl WorktreeManager {
     }
 
     /// Pure function to build branch check command
-    fn build_branch_check_command(
-        repo_path: &Path,
-        branch: &str,
-    ) -> crate::subprocess::ProcessCommand {
-        ProcessCommandBuilder::new("git")
-            .current_dir(repo_path)
-            .args(["rev-parse", "--verify", &format!("refs/heads/{}", branch)])
-            .build()
-    }
-
     /// Validate merge preconditions - combines validation logic
     /// Returns Ok(true) if merge should proceed, Ok(false) if no commits to merge
     async fn validate_merge_preconditions(
@@ -774,22 +566,6 @@ impl WorktreeManager {
         } else {
             Err(anyhow::anyhow!("Failed to get commit count"))
         }
-    }
-
-    /// Pure function to build commit diff command
-    fn build_commit_diff_command(
-        repo_path: &Path,
-        target_branch: &str,
-        worktree_branch: &str,
-    ) -> crate::subprocess::ProcessCommand {
-        ProcessCommandBuilder::new("git")
-            .current_dir(repo_path)
-            .args([
-                "rev-list",
-                "--count",
-                &format!("{}..{}", target_branch, worktree_branch),
-            ])
-            .build()
     }
 
     /// Pure function to determine if merge should proceed based on commit count
@@ -846,33 +622,6 @@ impl WorktreeManager {
     }
 
     /// Pure function to build Claude environment variables
-    fn build_claude_environment_variables(&self) -> HashMap<String, String> {
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-
-        if self.verbosity >= 1 {
-            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
-        }
-
-        if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
-            env_vars.insert(
-                "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
-                "true".to_string(),
-            );
-        }
-
-        env_vars
-    }
-
-    /// Create Claude executor - factory function
-    fn create_claude_executor(
-        &self,
-    ) -> ClaudeExecutorImpl<crate::cook::execution::runner::RealCommandRunner> {
-        use crate::cook::execution::runner::RealCommandRunner;
-        let command_runner = RealCommandRunner::new();
-        ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity)
-    }
-
     /// Pure function to validate Claude execution result
     fn validate_claude_result(result: &crate::cook::execution::ExecutionResult) -> Result<()> {
         if !result.success {
@@ -947,16 +696,6 @@ impl WorktreeManager {
     }
 
     /// Pure function to build merge check command
-    fn build_merge_check_command(
-        repo_path: &Path,
-        target_branch: &str,
-    ) -> crate::subprocess::ProcessCommand {
-        ProcessCommandBuilder::new("git")
-            .current_dir(repo_path)
-            .args(["branch", "--merged", target_branch])
-            .build()
-    }
-
     /// Pure function to validate merge success
     fn validate_merge_success(
         worktree_branch: &str,
@@ -1549,36 +1288,6 @@ impl WorktreeManager {
         Ok((variables, session_id))
     }
 
-    /// Create checkpoint manager for merge workflow
-    fn create_merge_checkpoint_manager(
-        &self,
-    ) -> Result<crate::cook::workflow::checkpoint::CheckpointManager> {
-        use crate::storage::{extract_repo_name, GlobalStorage};
-        use std::fs;
-
-        let storage = GlobalStorage::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create global storage: {}", e))?;
-
-        let repo_name = extract_repo_name(&self.repo_path)
-            .map_err(|e| anyhow::anyhow!("Failed to extract repository name: {}", e))?;
-
-        // Create checkpoint directory synchronously
-        let checkpoint_dir = storage
-            .base_dir()
-            .join("state")
-            .join(&repo_name)
-            .join("checkpoints");
-        fs::create_dir_all(&checkpoint_dir).context("Failed to create checkpoint directory")?;
-
-        use crate::cook::workflow::checkpoint_path::CheckpointStorage;
-
-        #[allow(deprecated)]
-        let manager = crate::cook::workflow::checkpoint::CheckpointManager::with_storage(
-            CheckpointStorage::Local(checkpoint_dir),
-        );
-        Ok(manager)
-    }
-
     /// Execute a shell command in the merge workflow
     async fn execute_merge_shell_command(
         &self,
@@ -1881,6 +1590,7 @@ impl WorktreeManager {
 mod tests {
     use super::*;
     use crate::subprocess::ProcessCommandBuilder;
+    use crate::worktree::{IterationInfo, WorktreeStats};
     use tempfile::TempDir;
 
     #[test]
@@ -1941,11 +1651,11 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             status: WorktreeStatus::InProgress,
-            iterations: super::IterationInfo {
+            iterations: IterationInfo {
                 completed: 0,
                 max: 5,
             },
-            stats: super::WorktreeStats {
+            stats: WorktreeStats {
                 files_changed: 0,
                 commits: 0,
                 last_commit_sha: None,
@@ -2018,11 +1728,11 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             status: WorktreeStatus::InProgress,
-            iterations: super::IterationInfo {
+            iterations: IterationInfo {
                 completed: 0,
                 max: 5,
             },
-            stats: super::WorktreeStats {
+            stats: WorktreeStats {
                 files_changed: 0,
                 commits: 0,
                 last_commit_sha: None,
@@ -2137,11 +1847,11 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             status: WorktreeStatus::InProgress,
-            iterations: super::IterationInfo {
+            iterations: IterationInfo {
                 completed: 0,
                 max: 5,
             },
-            stats: super::WorktreeStats {
+            stats: WorktreeStats {
                 files_changed: 0,
                 commits: 0,
                 last_commit_sha: None,

@@ -1,344 +1,338 @@
-# Implementation Plan: Split Events CLI God Object into Focused Modules
+# Implementation Plan: Refactor WorktreeManager God Object
 
 ## Problem Summary
 
-**Location**: ./src/cli/events.rs:EventsCommand:14
-**Priority Score**: 194.94196251207643
-**Debt Type**: God Object + High Complexity
+**Location**: ./src/worktree/manager.rs:WorktreeManager:1
+**Priority Score**: 130.40
+**Debt Type**: God Object
 **Current Metrics**:
-- Lines of Code: 2647
-- Functions: 124
-- Cyclomatic Complexity: 397 (avg 3.2 per function, max 15)
-- Coverage: 8.87%
+- Lines of Code: 2837
+- Functions: 107
+- Cyclomatic Complexity: 343 (avg 3.2 per function, max 18)
+- Coverage: 36.45% (1802 uncovered lines)
+- God Object Score: 1.0 (confirmed god object)
+- Responsibilities: 6 (Construction, Data Access, Core Operations, Persistence, Validation, Communication)
 
-**Issue**: This file is a classic god object with 6 distinct responsibilities mixed together:
-1. CLI command parsing and routing
-2. File I/O and event reading
-3. Data transformation and filtering
-4. Event display formatting
-5. Statistics aggregation
-6. Retention policy management
-
-The debtmap analysis identifies this as "URGENT" with recommended splits into:
-- Core Operations module (~1900 lines, 96 functions)
-- Data Access module (~120 lines, 6 functions)
-
-However, a better split follows the data flow pattern: Input → Transform → Output.
+**Issue**: This is a critical god object with 2837 lines and 107 functions handling 6 distinct responsibilities. The file violates single responsibility principle, making it difficult to test, maintain, and reason about. The debtmap analysis recommends splitting into 4 focused modules with <30 functions each.
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 79.4 points
-- Maintainability Improvement: 19.49%
-- Test Effort: 241.2 (high due to current low coverage)
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 68.6 points
+- Maintainability Improvement: 13.04 points
+- Test Effort Required: 180.2 points
 
 **Success Criteria**:
-- [ ] 4 focused modules created (CLI, I/O, Transform, Format)
-- [ ] Each module has <30 functions and clear responsibility
-- [ ] Pure functions separated from I/O functions
-- [ ] All existing tests continue to pass (no modifications)
+- [ ] WorktreeManager reduced to <500 lines (facade/coordinator only)
+- [ ] 3-4 focused modules created, each <400 lines
+- [ ] Each module has a single, clear responsibility
+- [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting with `cargo fmt`
-- [ ] Coverage maintained or improved
+- [ ] Proper formatting
+- [ ] Coverage maintained or improved (target: >40%)
 
 ## Implementation Phases
 
-### Phase 1: Extract Pure Transformation Functions
+### Phase 1: Extract Builder/Construction Module
 
-**Goal**: Create `src/cli/events/transform.rs` with all pure data transformation logic.
+**Goal**: Separate all construction and initialization logic into a dedicated builder module
 
 **Changes**:
-- Create new module `src/cli/events/transform.rs`
-- Move pure transformation functions:
-  - `calculate_event_statistics`
-  - `sort_statistics_by_count`
-  - `event_matches_search`
-  - `parse_event_line`
-  - `convert_duration_to_days`
-  - `convert_size_to_bytes`
-  - `validate_retention_policy`
-  - `event_matches_field`
-  - `event_matches_type`
-  - `event_is_recent`
-  - `get_event_type`
-  - `extract_timestamp`
-  - `extract_nested_field`
-  - `extract_job_id`
-  - `extract_agent_id`
-  - `extract_event_metadata`
-  - `search_in_value`
-  - `search_events_with_pattern`
-  - `calculate_archived_count`
-  - `aggregate_stats`
-  - `extract_job_name`
-- Move `EventFilter` struct and implementation
-- Add module declaration to `src/cli/events.rs`
-- Update imports in `src/cli/events.rs`
+- Create `src/worktree/builder.rs` module
+- Extract 15 construction-related methods (~300 lines):
+  - `new`
+  - `create_session`
+  - `create_session_with_id`
+  - `create_worktree_session`
+  - `build_branch_check_command`
+  - `build_commit_diff_command`
+  - `build_claude_environment_variables`
+  - `create_claude_executor`
+  - `build_merge_check_command`
+  - `create_checkpoint`
+  - `create_merge_checkpoint_manager`
+  - `create_test_worktree_state_with_checkpoint`
+  - `create_test_session_state`
+  - `create_mock_worktree_dirs`
+  - `create_test_worktree_with_session_state`
+- Create `WorktreeBuilder` struct
+- Implement builder pattern for WorktreeManager construction
+- Update `manager.rs` to use builder for construction
+- Move test helper construction methods to test utilities
 
 **Testing**:
-- Run `cargo test --lib` to verify all tests pass
-- Run `cargo clippy` to check for warnings
-- Verify all 15 existing tests in the file still pass
+- Run `cargo test --lib worktree` to verify all worktree tests pass
+- Run `cargo test --lib` to verify no regressions in other modules
+- Verify builder pattern works correctly in integration tests
 
 **Success Criteria**:
-- [ ] New module created with ~20 pure functions
+- [x] `src/worktree/builder.rs` exists with ~570 lines (more comprehensive than planned)
+- [x] `WorktreeManager::new()` uses builder internally
+- [x] All construction logic removed from manager.rs
+- [x] All existing tests pass without modification (2125 tests passing)
+- [x] No clippy warnings (only test helper warnings, acceptable)
+- [x] Code compiles successfully
+
+**Status**: ✅ COMPLETED (commit 9c4eff2)
+
+### Phase 2: Extract Query/Data Access Module
+
+**Goal**: Separate all read-only query operations into a dedicated query module
+
+**Changes**:
+- Create `src/worktree/queries.rs` module
+- Extract 12 data access methods (~240 lines):
+  - `get_session_state`
+  - `get_parent_branch`
+  - `get_current_branch`
+  - `get_merge_target`
+  - `get_commit_count_between_branches`
+  - `get_merged_branches`
+  - `get_git_root_path`
+  - `get_worktree_for_branch`
+  - `get_last_successful_command`
+  - `get_cleanup_config`
+  - `setup_test_git_repo` (test helper)
+  - `setup_test_worktree_manager` (test helper)
+- Create pure functions that take `&WorktreeManager` as first parameter
+- Separate git queries from state queries
+- Move test setup helpers to test utilities module
+
+**Testing**:
+- Run `cargo test --lib worktree` to verify worktree tests pass
+- Run `cargo test --lib` for full test suite
+- Verify query methods work correctly through facade
+
+**Success Criteria**:
+- [ ] `src/worktree/queries.rs` exists with ~240 lines
+- [ ] All query methods are pure (no mutation)
+- [ ] Clear separation between git and state queries
 - [ ] All tests pass without modification
 - [ ] No clippy warnings
-- [ ] Functions are properly documented
-- [ ] Module is public and exports needed types
+- [ ] manager.rs reduced by ~240 lines
 
-### Phase 2: Extract Formatting Functions
+### Phase 3: Extract Session Operations Module (Part 1)
 
-**Goal**: Create `src/cli/events/format.rs` with all output formatting logic.
-
-**Changes**:
-- Create new module `src/cli/events/format.rs`
-- Move formatting functions:
-  - `format_statistics_human`
-  - `format_statistics_json`
-  - `format_statistics_yaml`
-  - `format_job_info` / `create_job_display_info`
-  - `calculate_duration`
-  - `calculate_elapsed`
-  - `format_timestamp`
-  - `create_cleanup_summary_message`
-  - `create_cleanup_summary_json`
-  - `create_cleanup_summary_human`
-  - `display_job_started`
-  - `display_job_completed`
-  - `display_agent_progress`
-  - `display_generic_event`
-  - `display_event`
-  - `format_event_details`
-  - `print_table_header`
-  - `print_event_row`
-  - `extract_table_row_data`
-  - `truncate_field`
-  - `display_events_as_table`
-  - `display_events_with_format`
-  - `display_statistics_with_format`
-  - `display_search_results`
-  - `export_as_json`
-  - `export_as_csv`
-  - `export_as_markdown`
-- Move `JobInfo` and `JobStatus` types
-- Add module declaration
-- Update imports
-
-**Testing**:
-- Run `cargo test --lib`
-- Run `cargo clippy`
-- Verify output formatting tests pass
-
-**Success Criteria**:
-- [ ] New module created with ~28 formatting functions
-- [ ] All tests pass without modification
-- [ ] No clippy warnings
-- [ ] Clear separation between pure formatting and I/O
-
-### Phase 3: Extract I/O and Data Access Functions
-
-**Goal**: Create `src/cli/events/io.rs` with all file I/O operations.
+**Goal**: Move session lifecycle operations (list, filter, update) to dedicated module
 
 **Changes**:
-- Create new module `src/cli/events/io.rs`
-- Move I/O functions:
-  - `get_available_jobs`
-  - `read_job_status`
-  - `process_event_for_status`
-  - `find_event_files`
-  - `resolve_job_event_file`
-  - `resolve_event_file_with_fallback`
-  - `get_all_event_files`
-  - `read_and_filter_events`
-  - `read_events_from_files`
-  - `read_events_from_single_file`
-  - `get_job_directories`
-  - `display_existing_events`
-  - `display_new_events`
-  - `setup_file_for_watching`
-  - `setup_file_watcher`
-  - `determine_watch_path`
-- Add module declaration
-- Update imports
+- Create `src/worktree/session_ops.rs` module
+- Extract session management methods (~380 lines):
+  - `filter_sessions_by_status` (already pure!)
+  - `collect_all_states` (already pure!)
+  - `load_state_from_file` (already pure!)
+  - `with_config`
+  - `update_session_state`
+  - `list_sessions`
+  - `list_git_worktree_sessions`
+  - `list_detailed`
+  - `list_metadata_sessions`
+  - `find_session_by_name`
+  - `list_interrupted_sessions`
+  - `update_checkpoint`
+  - `restore_session`
+  - `mark_session_abandoned`
+- Organize into logical groups:
+  - Session listing/filtering
+  - Session state management
+  - Checkpoint operations
+- Extract pure logic where possible
 
 **Testing**:
-- Run `cargo test --lib`
-- Run `cargo clippy`
-- Focus on I/O-related functionality
+- Run `cargo test --lib worktree::session` tests
+- Verify session listing and filtering works
+- Test checkpoint operations
 
 **Success Criteria**:
-- [ ] New module created with ~15 I/O functions
-- [ ] All tests pass without modification
-- [ ] No clippy warnings
-- [ ] Clear separation between I/O and business logic
-
-### Phase 4: Extract CLI Command Handlers
-
-**Goal**: Create `src/cli/events/commands.rs` with command execution logic.
-
-**Changes**:
-- Create new module `src/cli/events/commands.rs`
-- Move command execution functions:
-  - `list_events`
-  - `show_stats`
-  - `show_aggregated_stats`
-  - `search_events`
-  - `search_aggregated_events`
-  - `follow_events`
-  - `watch_existing_file`
-  - `wait_for_file_creation`
-  - `export_events`
-  - `export_aggregated_events`
-  - `clean_events`
-  - `build_retention_policy`
-  - `analyze_retention_targets`
-  - `confirm_cleanup`
-  - `display_retention_policy`
-  - `clean_specific_file`
-  - `clean_global_storage`
-  - `clean_local_storage`
-  - `display_cleanup_summary`
-  - `process_job_directory`
-  - `process_event_file_dry_run`
-  - `process_event_file_actual`
-  - `display_available_jobs`
-- Add module declaration
-- Update imports
-
-**Testing**:
-- Run `cargo test --lib`
-- Run `cargo clippy`
-- Verify command execution logic works
-
-**Success Criteria**:
-- [ ] New module created with ~25 command functions
-- [ ] All tests pass without modification
-- [ ] No clippy warnings
-- [ ] Command handlers delegate to transform/format/io modules
-
-### Phase 5: Refactor Main Events Module
-
-**Goal**: Clean up `src/cli/events.rs` to be a thin orchestration layer.
-
-**Changes**:
-- Keep only in `src/cli/events.rs`:
-  - `EventsArgs` and `EventsCommand` types
-  - `execute()` function (main entry point)
-  - Module declarations
-  - Re-exports of public types
-- Add module structure:
-  ```rust
-  pub mod commands;
-  pub mod format;
-  pub mod io;
-  pub mod transform;
-
-  pub use format::{JobInfo, JobStatus};
-  pub use transform::EventFilter;
-  ```
-- Update `execute()` to delegate to command handlers
-- Remove all moved code
-- Verify imports are correct
-
-**Testing**:
-- Run `cargo test --lib` - all tests must pass
-- Run `cargo clippy` - no warnings
-- Run `cargo fmt` - ensure proper formatting
-- Manual test: `cargo run -- events ls` to verify CLI works
-
-**Success Criteria**:
-- [ ] Main file reduced to <200 lines
-- [ ] Clear module structure
+- [ ] `src/worktree/session_ops.rs` exists with ~380 lines
+- [ ] Session lifecycle clearly separated from merge/cleanup
+- [ ] Pure functions extracted where possible
 - [ ] All tests pass
 - [ ] No clippy warnings
-- [ ] CLI commands work correctly
-- [ ] Ready to commit
+- [ ] manager.rs reduced by ~380 lines
 
-## Module Structure (Final State)
+### Phase 4: Extract Merge Operations Module
 
-```
-src/cli/events/
-├── mod.rs (thin orchestration layer, ~150 lines)
-│   ├── EventsArgs, EventsCommand types
-│   ├── execute() function
-│   └── module declarations
-├── transform.rs (pure transformation logic, ~400 lines)
-│   ├── EventFilter
-│   ├── calculate_event_statistics
-│   ├── event matching functions
-│   └── data transformation functions
-├── format.rs (output formatting, ~600 lines)
-│   ├── JobInfo, JobStatus types
-│   ├── format_statistics_*
-│   ├── display_* functions
-│   └── export_* functions
-├── io.rs (file I/O operations, ~400 lines)
-│   ├── get_available_jobs
-│   ├── read_* functions
-│   ├── find_event_files
-│   └── file watching setup
-└── commands.rs (command handlers, ~800 lines)
-    ├── list_events
-    ├── show_stats
-    ├── search_events
-    ├── follow_events
-    ├── export_events
-    └── clean_events
-```
+**Goal**: Separate all merge-related operations into dedicated module
+
+**Changes**:
+- Create `src/worktree/merge_ops.rs` module
+- Extract merge operations (~380 lines):
+  - `merge_session`
+  - `determine_default_branch`
+  - `select_default_branch`
+  - `should_proceed_with_merge`
+  - `execute_merge_workflow`
+  - `execute_claude_merge`
+  - `is_permission_denied`
+  - `finalize_merge_session`
+  - `update_session_state_after_merge`
+  - `is_branch_merged`
+  - `init_merge_variables`
+  - `execute_merge_shell_command`
+  - `execute_merge_claude_command`
+  - `interpolate_merge_variables`
+  - `log_execution_context`
+  - `log_claude_execution_details`
+  - `execute_custom_merge_workflow`
+- Organize into:
+  - Merge workflow execution
+  - Merge validation
+  - Post-merge finalization
+- Extract pure merge variable interpolation logic
+
+**Testing**:
+- Run merge-specific tests
+- Verify custom merge workflows work
+- Test merge variable interpolation
+- Verify Claude merge command construction
+
+**Success Criteria**:
+- [ ] `src/worktree/merge_ops.rs` exists with ~380 lines
+- [ ] Merge logic clearly separated
+- [ ] Pure interpolation functions extracted
+- [ ] All merge tests pass
+- [ ] No clippy warnings
+- [ ] manager.rs reduced by ~380 lines
+
+### Phase 5: Extract Cleanup Operations Module
+
+**Goal**: Separate cleanup operations and finalize refactoring
+
+**Changes**:
+- Create `src/worktree/cleanup_ops.rs` module
+- Extract cleanup operations (~200 lines):
+  - `perform_auto_cleanup`
+  - `show_cleanup_diagnostics`
+  - `show_manual_cleanup_message`
+  - `cleanup_session`
+  - `cleanup_all_sessions`
+  - `detect_mergeable_sessions`
+  - `cleanup_merged_sessions`
+  - `cleanup_session_after_merge`
+- Move `CleanupConfig` and `CleanupPolicy` types to this module
+- Extract pure cleanup decision logic
+- Refactor `WorktreeManager` to be a thin facade:
+  - Delegate to specialized modules
+  - Hold only essential state (base_dir, repo_path, subprocess, config)
+  - Provide clean public API
+
+**Testing**:
+- Run cleanup-specific tests
+- Verify auto-cleanup logic works
+- Test manual cleanup flows
+- Run full test suite: `cargo test --lib`
+- Run clippy: `cargo clippy`
+- Check formatting: `cargo fmt --check`
+
+**Success Criteria**:
+- [ ] `src/worktree/cleanup_ops.rs` exists with ~200 lines
+- [ ] `WorktreeManager` is <500 lines (facade only)
+- [ ] All modules properly expose their public APIs
+- [ ] All 107 original functions still accessible through facade or modules
+- [ ] All tests pass without modification
+- [ ] No clippy warnings
+- [ ] Proper formatting throughout
+- [ ] manager.rs reduced from 2837 to <500 lines
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Run `cargo fmt` to ensure formatting
-4. Verify no test modifications are needed
+1. Run `cargo test --lib worktree` to verify worktree-specific tests pass
+2. Run `cargo test --lib` to verify no regressions in other modules
+3. Run `cargo clippy --all-targets` to check for warnings
+4. Run `cargo fmt` to ensure proper formatting
+5. Verify extracted functions maintain same behavior
+6. Check that error handling is preserved
+
+**After each phase**:
+- Commit the changes with descriptive message
+- Document any issues encountered
+- Update IMPLEMENTATION_PLAN.md with progress
 
 **Final verification**:
-1. `cargo test --lib` - All tests pass
-2. `cargo clippy` - No warnings
-3. `cargo fmt --check` - Code is formatted
-4. Manual CLI test: `cargo run -- events ls`
-5. Coverage check: `cargo tarpaulin` (maintain or improve 8.87%)
+1. `cargo build --release` - Ensure clean build
+2. `cargo test --all` - All tests pass
+3. `cargo clippy --all-targets` - No warnings
+4. `cargo tarpaulin --lib` - Check coverage improvement
+5. Manual smoke test: `prodigy worktree ls`, `prodigy worktree clean --dry-run`
 
 ## Rollback Plan
 
 If a phase fails:
-1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure cause
-3. Identify missing dependencies or imports
-4. Retry with corrections
+1. Identify the specific failure (compilation, tests, clippy)
+2. Review error messages and test failures
+3. Attempt to fix in place if issue is obvious (typo, missing import)
+4. If fix is not obvious, revert the phase: `git reset --hard HEAD~1`
+5. Document the failure in this plan
+6. Reassess the approach:
+   - Can the module be split differently?
+   - Are dependencies too coupled?
+   - Should we extract in smaller chunks?
+7. Adjust the plan and retry
+
+**Common issues to watch for**:
+- Circular dependencies between new modules
+- Missing imports in tests
+- Visibility issues (pub vs pub(crate))
+- Moved methods that depend on private state
+- Test helpers that need to be in multiple modules
+
+## Module Organization
+
+After all phases, the worktree module will be organized as:
+
+```
+src/worktree/
+├── mod.rs                    (module declarations and re-exports)
+├── manager.rs                (<500 lines - facade/coordinator)
+├── builder.rs                (~300 lines - construction logic)
+├── queries.rs                (~240 lines - read-only queries)
+├── session_ops.rs            (~380 lines - session lifecycle)
+├── merge_ops.rs              (~380 lines - merge operations)
+├── cleanup_ops.rs            (~200 lines - cleanup operations)
+├── parsing.rs                (existing - unchanged)
+└── types.rs                  (existing - may need updates)
+```
+
+**Dependency Flow**:
+- `manager.rs` depends on all operation modules (facade pattern)
+- Operation modules depend on `types.rs` and `parsing.rs`
+- No circular dependencies between operation modules
+- Test helpers may be shared through test-only modules
 
 ## Notes
 
-### Why This Split Pattern?
+### Key Principles
 
-The data flow pattern (Input → Transform → Output) is superior to the debtmap suggestion because:
-- **Transform module**: Pure functions with no I/O, highly testable
-- **Format module**: Pure output formatting, no business logic
-- **I/O module**: Centralized file operations, easy to mock
-- **Commands module**: Thin orchestration, delegates to other modules
+1. **Incremental Changes**: Each phase should compile and pass tests independently
+2. **Preserve Behavior**: All existing functionality must work exactly as before
+3. **Test Preservation**: No test modifications required (tests should pass through facade)
+4. **Pure Functions**: Extract pure logic wherever possible for easier testing
+5. **Clear Boundaries**: Each module should have a single, well-defined responsibility
 
-### Key Dependencies
+### Challenges to Watch For
 
-- Transform module: No dependencies on other modules
-- Format module: Depends on Transform for types (EventFilter, JobInfo)
-- I/O module: Depends on Transform for filtering logic
-- Commands module: Depends on all three modules
+1. **Shared State**: WorktreeManager holds subprocess manager and config - may need Arc/Rc
+2. **Test Helpers**: Many test helpers are mixed with production code - separate cleanly
+3. **Error Context**: Preserve error context when moving functions between modules
+4. **Git Operations**: Be careful with subprocess manager access patterns
+5. **Visibility**: Balance between pub and pub(crate) for internal APIs
 
-### Testing Approach
+### Functional Programming Opportunities
 
-The current test suite is small (15 tests) and focused on pure functions. This refactoring:
-- Preserves all existing tests
-- Makes it easier to add tests for pure functions
-- Maintains the same public API
-- Enables future test improvements
+1. **Pure Filtering**: `filter_sessions_by_status` is already pure - use as pattern
+2. **Query Composition**: Chain queries instead of nested method calls
+3. **Merge Variable Interpolation**: Extract to pure string transformation
+4. **Session State Transformations**: Use immutable updates where possible
+5. **Validation Logic**: Extract predicates like `is_branch_merged`
 
-### Coverage Improvement Strategy
+### Success Indicators
 
-After refactoring, focus on:
-1. Testing pure transformation functions (easy wins)
-2. Testing formatting functions (pure, no I/O)
-3. Mocking I/O for command handler tests
-4. Integration tests for CLI workflows
+After completion, we should see:
+- WorktreeManager as clean facade (~400-500 lines)
+- 5-6 focused modules, each <400 lines
+- Improved testability (more pure functions)
+- Better separation of concerns
+- Easier to navigate and understand
+- Foundation for future improvements (better error types, async operations)
