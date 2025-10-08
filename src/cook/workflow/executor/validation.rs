@@ -15,6 +15,42 @@ use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+// ============================================================================
+// Pure formatting functions for validation messages
+// ============================================================================
+
+/// Format a success message for passed validation
+fn format_validation_passed_message(results_count: usize, attempts: u32) -> String {
+    format!(
+        "Step validation passed ({} validation{}, {} attempt{})",
+        results_count,
+        if results_count == 1 { "" } else { "s" },
+        attempts,
+        if attempts == 1 { "" } else { "s" }
+    )
+}
+
+/// Format a warning message for failed validation
+fn format_validation_failed_message(results_count: usize, attempts: u32) -> String {
+    format!(
+        "Step validation failed ({} validation{}, {} attempt{})",
+        results_count,
+        if results_count == 1 { "" } else { "s" },
+        attempts,
+        if attempts == 1 { "" } else { "s" }
+    )
+}
+
+/// Format detailed message for a single failed validation
+fn format_failed_validation_detail(idx: usize, message: &str, exit_code: i32) -> String {
+    format!(
+        "  Validation {}: {} (exit code: {})",
+        idx + 1,
+        message,
+        exit_code
+    )
+}
+
 impl WorkflowExecutor {
     // ============================================================================
     // Validation functions
@@ -317,47 +353,27 @@ impl WorkflowExecutor {
 
         // Display validation result
         if validation_result.passed {
-            self.user_interaction.display_success(&format!(
-                "Step validation passed ({} validation{}, {} attempt{})",
+            let message = format_validation_passed_message(
                 validation_result.results.len(),
-                if validation_result.results.len() == 1 {
-                    ""
-                } else {
-                    "s"
-                },
                 validation_result.attempts,
-                if validation_result.attempts == 1 {
-                    ""
-                } else {
-                    "s"
-                }
-            ));
+            );
+            self.user_interaction.display_success(&message);
         } else {
-            self.user_interaction.display_warning(&format!(
-                "Step validation failed ({} validation{}, {} attempt{})",
+            let message = format_validation_failed_message(
                 validation_result.results.len(),
-                if validation_result.results.len() == 1 {
-                    ""
-                } else {
-                    "s"
-                },
                 validation_result.attempts,
-                if validation_result.attempts == 1 {
-                    ""
-                } else {
-                    "s"
-                }
-            ));
+            );
+            self.user_interaction.display_warning(&message);
 
             // Show details of failed validations
             for (idx, result) in validation_result.results.iter().enumerate() {
                 if !result.passed {
-                    self.user_interaction.display_info(&format!(
-                        "  Validation {}: {} (exit code: {})",
-                        idx + 1,
-                        result.message,
-                        result.exit_code
-                    ));
+                    let detail = format_failed_validation_detail(
+                        idx,
+                        &result.message,
+                        result.exit_code,
+                    );
+                    self.user_interaction.display_info(&detail);
                 }
             }
         }
@@ -716,5 +732,92 @@ impl WorkflowExecutor {
                 .any(|cmd| cmd.trim() == command_name);
         }
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ============================================================================
+    // Phase 3: Tests for Pure Display Formatting Functions
+    // ============================================================================
+
+    #[test]
+    fn test_format_validation_passed_message_single_validation_single_attempt() {
+        let message = format_validation_passed_message(1, 1);
+        assert_eq!(message, "Step validation passed (1 validation, 1 attempt)");
+    }
+
+    #[test]
+    fn test_format_validation_passed_message_multiple_validations_single_attempt() {
+        let message = format_validation_passed_message(3, 1);
+        assert_eq!(message, "Step validation passed (3 validations, 1 attempt)");
+    }
+
+    #[test]
+    fn test_format_validation_passed_message_single_validation_multiple_attempts() {
+        let message = format_validation_passed_message(1, 5);
+        assert_eq!(message, "Step validation passed (1 validation, 5 attempts)");
+    }
+
+    #[test]
+    fn test_format_validation_passed_message_multiple_validations_multiple_attempts() {
+        let message = format_validation_passed_message(4, 3);
+        assert_eq!(message, "Step validation passed (4 validations, 3 attempts)");
+    }
+
+    #[test]
+    fn test_format_validation_failed_message_single_validation_single_attempt() {
+        let message = format_validation_failed_message(1, 1);
+        assert_eq!(message, "Step validation failed (1 validation, 1 attempt)");
+    }
+
+    #[test]
+    fn test_format_validation_failed_message_multiple_validations_single_attempt() {
+        let message = format_validation_failed_message(2, 1);
+        assert_eq!(message, "Step validation failed (2 validations, 1 attempt)");
+    }
+
+    #[test]
+    fn test_format_validation_failed_message_single_validation_multiple_attempts() {
+        let message = format_validation_failed_message(1, 4);
+        assert_eq!(message, "Step validation failed (1 validation, 4 attempts)");
+    }
+
+    #[test]
+    fn test_format_validation_failed_message_multiple_validations_multiple_attempts() {
+        let message = format_validation_failed_message(5, 2);
+        assert_eq!(message, "Step validation failed (5 validations, 2 attempts)");
+    }
+
+    #[test]
+    fn test_format_failed_validation_detail_simple_message() {
+        let detail = format_failed_validation_detail(0, "test failed", 1);
+        assert_eq!(detail, "  Validation 1: test failed (exit code: 1)");
+    }
+
+    #[test]
+    fn test_format_failed_validation_detail_multiple_validations() {
+        let detail1 = format_failed_validation_detail(0, "first failure", 1);
+        let detail2 = format_failed_validation_detail(1, "second failure", 2);
+        let detail3 = format_failed_validation_detail(2, "third failure", 127);
+
+        assert_eq!(detail1, "  Validation 1: first failure (exit code: 1)");
+        assert_eq!(detail2, "  Validation 2: second failure (exit code: 2)");
+        assert_eq!(detail3, "  Validation 3: third failure (exit code: 127)");
+    }
+
+    #[test]
+    fn test_format_failed_validation_detail_with_special_characters() {
+        let detail = format_failed_validation_detail(
+            3,
+            "Error: file \"test.txt\" not found",
+            2,
+        );
+        assert_eq!(
+            detail,
+            "  Validation 4: Error: file \"test.txt\" not found (exit code: 2)"
+        );
     }
 }

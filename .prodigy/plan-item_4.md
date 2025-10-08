@@ -1,278 +1,237 @@
-# Implementation Plan: Refactor Orchestrator God Object
+# Implementation Plan: Test Coverage for handle_step_validation Function
 
 ## Problem Summary
 
-**Location**: ./src/cook/orchestrator.rs:DefaultCookOrchestrator:105
-**Priority Score**: 143.92
-**Debt Type**: God Object
+**Location**: ./src/cook/workflow/executor/validation.rs:WorkflowExecutor::handle_step_validation:224
+**Priority Score**: 33.04
+**Debt Type**: TestingGap (0% coverage, complexity 19, cognitive complexity 41)
 **Current Metrics**:
-- Lines of Code: 3136
-- Functions: 82
-- Cyclomatic Complexity: 327 (avg: 3.99, max: 29)
-- Coverage: 21.95%
-- Uncovered Lines: 2447
+- Lines of Code: 144
+- Cyclomatic Complexity: 19
+- Cognitive Complexity: 41
+- Coverage: 0%
+- Nesting Depth: 3
 
-**Issue**: URGENT god object with 3136 lines and 82 functions. The `DefaultCookOrchestrator` has 57 methods across 6 distinct responsibilities (Construction, Core Operations, Computation, Processing, Validation, Data Access). Analysis recommends splitting by data flow into focused modules with <30 functions each.
+**Issue**: Complex business logic with 100% coverage gap. This function handles step validation with multiple execution paths including dry-run mode simulation, timeout handling, validation result display, and error message formatting. Cyclomatic complexity of 19 requires comprehensive test coverage to ensure reliability.
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 65.4 points
-- Maintainability Improvement: 14.39 points
-- Test Effort: 244.7 (current complexity to test)
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 5.7 (through extraction of pure functions)
+- Coverage Improvement: 50.0%
+- Risk Reduction: 13.87
 
 **Success Criteria**:
-- [ ] Orchestrator split into 3-4 focused modules, each <500 lines
-- [ ] Each module has single clear responsibility
-- [ ] Pure functions extracted from I/O-heavy orchestration code
-- [ ] Coverage improves from 21.95% to >40%
-- [ ] Cyclomatic complexity reduced by >50%
+- [ ] Achieve 80%+ test coverage for handle_step_validation
+- [ ] Extract 8 pure functions (complexity ≤3 each)
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting maintained
+- [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Extract Construction and Configuration Logic
+### Phase 1: Add Core Path Tests
 
-**Goal**: Separate orchestrator construction/setup from execution logic into a dedicated builder module.
-
-**Changes**:
-- Create new module `src/cook/orchestrator/builder.rs`
-- Extract constructor and configuration methods:
-  - `new()`
-  - `create_env_config()`
-  - `create_workflow_executor()`
-  - `create_workflow_state_base()`
-  - `build_command()`
-  - `create_test_cook_command()`
-  - `with_test_config()`
-- Create `OrchestratorBuilder` struct with fluent API
-- Update `DefaultCookOrchestrator` to use builder pattern
-- Keep original `new()` as wrapper for backward compatibility
-
-**Estimated Lines**: ~150 lines in new module
-
-**Testing**:
-- Run `cargo test --lib orchestrator` to verify construction tests pass
-- Run `cargo build` to ensure no compilation errors
-- Verify builder can create orchestrator instances correctly
-
-**Success Criteria**:
-- [ ] Builder module created with all construction logic
-- [ ] Backward compatibility maintained via `new()` wrapper
-- [ ] All existing tests pass
-- [ ] Code compiles without warnings
-- [ ] Ready to commit
-
-### Phase 2: Extract Workflow Classification and Normalization
-
-**Goal**: Separate workflow type detection and normalization into pure functions in a dedicated module.
+**Goal**: Establish baseline test coverage for the primary execution paths
 
 **Changes**:
-- Create new module `src/cook/orchestrator/workflow_classifier.rs`
-- Extract pure classification functions:
-  - `classify_workflow_type()` - detect Standard/Iterative/Structured/MapReduce
-  - `normalize_workflow()` - convert simple commands to structured format
-  - `determine_commit_required()` - extract commit requirement logic
-  - `convert_command_to_step()` - command conversion logic
-- Extract helper functions:
-  - `find_files_matching_pattern()`
-  - `matches_glob_pattern()`
-- Make all functions pure (take inputs, return results, no side effects)
-- Add comprehensive unit tests for classification logic
-
-**Estimated Lines**: ~200 lines in new module
+- Add test for dry-run mode with single validation command
+- Add test for dry-run mode with multiple validation commands
+- Add test for dry-run mode with detailed validation config
+- Add test for successful validation execution (passed result)
+- Add test for failed validation execution (failed result)
 
 **Testing**:
-- Run existing classification tests (moved to new module)
-- Add new tests for edge cases
-- Run `cargo test --lib workflow_classifier`
-- Verify all workflow types are correctly detected
+```bash
+cargo test --lib handle_step_validation
+cargo test --lib validation::tests
+```
 
 **Success Criteria**:
-- [ ] Workflow classifier module with pure functions
-- [ ] 10+ unit tests covering all workflow types
-- [ ] All classification logic extracted from orchestrator
-- [ ] All existing tests pass
-- [ ] Ready to commit
-
-### Phase 3: Extract Workflow Execution Engine
-
-**Goal**: Separate the core workflow execution logic into a focused execution engine module.
-
-**Changes**:
-- Create new module `src/cook/orchestrator/executor.rs`
-- Extract execution methods:
-  - `execute_workflow()` - main dispatch logic
-  - `execute_standard_workflow_from()`
-  - `execute_iterative_workflow_from()`
-  - `execute_structured_workflow_from()`
-  - `execute_step()`
-  - `execute_workflow_command()`
-  - `execute_and_validate_command()`
-- Create `WorkflowExecutor` struct with focused responsibilities
-- Separate I/O operations from pure logic
-- Extract command preparation into pure functions:
-  - `prepare_environment_variables()`
-  - `collect_workflow_inputs()`
-  - `extract_input_from_path()`
-
-**Estimated Lines**: ~400 lines in new module
-
-**Testing**:
-- Run `cargo test --lib executor`
-- Verify workflow execution end-to-end
-- Test standard, iterative, and structured workflows separately
-- Ensure environment variable interpolation works
-
-**Success Criteria**:
-- [ ] Executor module handles all workflow execution
-- [ ] Pure functions separated from I/O operations
-- [ ] Each workflow type has dedicated execution path
-- [ ] All existing workflow tests pass
-- [ ] Ready to commit
-
-### Phase 4: Extract MapReduce Workflow Handling
-
-**Goal**: Move MapReduce-specific logic into its own module to reduce main orchestrator complexity.
-
-**Changes**:
-- Create new module `src/cook/orchestrator/mapreduce.rs`
-- Extract MapReduce execution:
-  - `execute_mapreduce_workflow()`
-  - MapReduce-specific setup and teardown
-  - Result aggregation logic
-- Create `MapReduceExecutor` struct
-- Move MapReduce config handling from main orchestrator
-- Extract pure functions for result processing
-
-**Estimated Lines**: ~150 lines in new module
-
-**Testing**:
-- Run `cargo test --lib mapreduce`
-- Verify MapReduce workflows execute correctly
-- Test parallel execution scenarios
-- Ensure result aggregation works
-
-**Success Criteria**:
-- [ ] MapReduce module handles all MapReduce workflows
-- [ ] Main orchestrator delegates to MapReduce module
-- [ ] MapReduce tests pass independently
-- [ ] All existing tests pass
-- [ ] Ready to commit
-
-### Phase 5: Refactor Main Orchestrator as Coordinator
-
-**Goal**: Reduce main orchestrator to a thin coordination layer that delegates to specialized modules.
-
-**Changes**:
-- Refactor `DefaultCookOrchestrator` to use extracted modules
-- Keep only coordination methods:
-  - `run()` - main entry point
-  - `check_prerequisites()`
-  - `setup_environment()`
-  - `cleanup()`
-  - High-level workflow dispatch
-- Remove all extracted logic
-- Update to delegate to:
-  - `OrchestratorBuilder` for construction
-  - `WorkflowClassifier` for classification
-  - `WorkflowExecutor` for standard execution
-  - `MapReduceExecutor` for MapReduce execution
-- Update module structure in `src/cook/orchestrator/mod.rs`
-
-**Estimated Lines**: Main orchestrator reduced to ~200-300 lines
-
-**Testing**:
-- Run full test suite: `cargo test`
-- Run integration tests
-- Verify all workflow types still work
-- Test error handling and cleanup
-
-**Success Criteria**:
-- [ ] Main orchestrator is <300 lines
-- [ ] Delegates to specialized modules
-- [ ] All 82 original functions accounted for
+- [ ] 5 new tests covering main branches
+- [ ] ~30% coverage achieved
 - [ ] All tests pass
-- [ ] Clippy clean
 - [ ] Ready to commit
 
-## Implementation Phases Summary
+### Phase 2: Add Timeout and Error Handling Tests
 
-| Phase | Module | Lines | Functions | Purpose |
-|-------|--------|-------|-----------|---------|
-| 1 | `builder.rs` | ~150 | 7 | Construction & config |
-| 2 | `workflow_classifier.rs` | ~200 | 8 | Pure classification logic |
-| 3 | `executor.rs` | ~400 | 12 | Core execution engine |
-| 4 | `mapreduce.rs` | ~150 | 4 | MapReduce workflows |
-| 5 | `orchestrator.rs` (refactored) | ~250 | 4 | Thin coordinator |
-| - | Tests | ~800 | 40+ | Moved test functions |
+**Goal**: Cover timeout scenarios and error handling paths
 
-**Total**: ~1950 lines across focused modules vs 3136 in monolithic file (38% reduction)
+**Changes**:
+- Add test for validation with timeout (successful completion before timeout)
+- Add test for validation timeout (timeout occurs)
+- Add test for validation error/exception handling
+- Add test for display_error when timeout occurs
+
+**Testing**:
+```bash
+cargo test --lib handle_step_validation
+```
+
+**Success Criteria**:
+- [ ] 4 new tests covering timeout branches
+- [ ] ~50% coverage achieved
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 3: Extract Pure Display Formatting Functions
+
+**Goal**: Extract pure functions for result message formatting
+
+**Changes**:
+- Extract `format_validation_passed_message(results_count: usize, attempts: usize) -> String`
+- Extract `format_validation_failed_message(results_count: usize, attempts: usize) -> String`
+- Extract `format_failed_validation_detail(idx: usize, message: &str, exit_code: i32) -> String`
+- Add unit tests for each extracted function (3 tests per function = 9 tests)
+- Update handle_step_validation to use extracted functions
+
+**Testing**:
+```bash
+cargo test --lib format_validation_
+cargo test --lib handle_step_validation
+```
+
+**Success Criteria**:
+- [ ] 3 pure functions extracted (complexity ≤2 each)
+- [ ] 9 new unit tests for pure functions
+- [ ] handle_step_validation complexity reduced by ~3
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 4: Extract Pure Validation Step Name Logic
+
+**Goal**: Extract pure logic for determining step names
+
+**Changes**:
+- Extract `determine_step_name(step: &WorkflowStep) -> &str` as pure function
+- Move the if/else logic for step name determination (lines 283-291)
+- Add unit tests covering:
+  - Step with explicit name
+  - Step with claude command (no name)
+  - Step with shell command (no name)
+  - Step with neither (fallback case)
+- Update handle_step_validation to use extracted function
+
+**Testing**:
+```bash
+cargo test --lib determine_step_name
+cargo test --lib handle_step_validation
+```
+
+**Success Criteria**:
+- [ ] 1 pure function extracted (complexity ≤3)
+- [ ] 4 new unit tests for pure function
+- [ ] handle_step_validation complexity reduced by ~2
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 5: Extract Validation Result Display Logic
+
+**Goal**: Separate validation result display into testable functions
+
+**Changes**:
+- Extract `should_display_validation_success(result: &StepValidationResult) -> bool`
+- Extract `should_display_validation_details(result: &StepValidationResult) -> Vec<(usize, &ValidationItemResult)>` (returns failed validations)
+- Add unit tests for extracted functions:
+  - Test successful validation result
+  - Test failed validation result with no failed items
+  - Test failed validation result with multiple failed items
+  - Test edge cases (empty results, all passed)
+- Update handle_step_validation to use extracted functions
+
+**Testing**:
+```bash
+cargo test --lib should_display_validation_
+cargo test --lib handle_step_validation
+```
+
+**Success Criteria**:
+- [ ] 2 pure functions extracted (complexity ≤3 each)
+- [ ] 6 new unit tests for pure functions
+- [ ] handle_step_validation complexity reduced by ~3
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 6: Final Coverage and Integration Tests
+
+**Goal**: Achieve 80%+ total coverage and verify all paths
+
+**Changes**:
+- Add integration test for full validation workflow with retries
+- Add test for validation with step name variations
+- Add edge case tests:
+  - Empty validation results
+  - Very long messages
+  - Multiple failed validation details
+- Verify all uncovered lines from debtmap are now covered
+
+**Testing**:
+```bash
+cargo test --lib handle_step_validation
+cargo tarpaulin --lib --packages prodigy -- validation::tests
+```
+
+**Success Criteria**:
+- [ ] 80%+ coverage for handle_step_validation achieved
+- [ ] All edge cases covered
+- [ ] Integration tests pass
+- [ ] debtmap shows improvement
+- [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
 1. Run `cargo test --lib` to verify existing tests pass
 2. Run `cargo clippy` to check for warnings
-3. Run `cargo build` to ensure compilation
-4. Add new unit tests for extracted modules
-5. Commit working code before next phase
-
-**Coverage improvement plan**:
-1. Phase 2: Add 10+ tests for workflow classification (pure functions)
-2. Phase 3: Add 15+ tests for execution logic
-3. Phase 4: Add 5+ tests for MapReduce handling
-4. Final: Aim for >40% coverage (up from 21.95%)
+3. Run phase-specific tests listed above
+4. Verify coverage improvement with `cargo tarpaulin --lib`
 
 **Final verification**:
-1. `cargo test` - All tests pass
-2. `cargo clippy` - No warnings
-3. `cargo fmt --check` - Formatting correct
-4. `just ci` - Full CI checks pass
-5. Integration test with sample workflows
+1. `just ci` - Full CI checks
+2. `cargo tarpaulin` - Regenerate coverage
+3. `debtmap analyze` - Verify improvement in unified_score
+
+**Test file location**: `src/cook/workflow/executor/validation.rs` (add `#[cfg(test)] mod tests` section)
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the compilation/test errors
-3. Check for missed dependencies or incorrect extraction
-4. Adjust extraction approach (smaller chunks if needed)
-5. Retry with corrected approach
+2. Review the failure using `cargo test --lib -- --nocapture`
+3. Check compilation errors with `cargo check`
+4. Adjust the implementation approach
+5. Retry the phase
 
 ## Notes
 
-### Key Challenges
+### Key Testing Considerations
 
-**Dependency Management**: The orchestrator has 7 injected dependencies. All extracted modules will need appropriate subset of these dependencies. Consider:
-- Builder only needs construction parameters
-- Executor needs session_manager, command_executor, claude_executor, git_operations
-- Classifier needs no dependencies (pure functions)
+1. **Mocking Strategy**: Use the existing `tests::test_mocks::MockUserInteraction` for display methods
+2. **Async Testing**: Use `tokio::test` for async test functions
+3. **Validation Executor Mocking**: May need to create mock for `StepValidationExecutor`
+4. **Context Setup**: Create minimal `WorkflowContext` and `ExecutionEnvironment` for tests
 
-**Backward Compatibility**: The `new()` constructor must remain unchanged to avoid breaking existing code. Use wrapper pattern in Phase 1.
+### Pure Function Extraction Targets
 
-**Test Organization**: 40+ test functions currently in orchestrator.rs. Move tests to corresponding new modules as logic is extracted.
+The following functions are good candidates for extraction (from debtmap recommendation):
+1. Message formatting functions (already planned in Phase 3)
+2. Step name determination logic (already planned in Phase 4)
+3. Validation result display logic (already planned in Phase 5)
+4. Additional candidates:
+   - Pluralization helper: `fn pluralize(count: usize, singular: &str, plural: &str) -> &str`
+   - Result filtering: `fn filter_failed_validations(results: &[ValidationItemResult]) -> Vec<&ValidationItemResult>`
 
-**Async Boundaries**: Many methods are async. Maintain async/await boundaries correctly when extracting to new modules.
+### Complexity Reduction Path
 
-### Functional Programming Approach
+- Start: Cyclomatic complexity 19
+- After Phase 3: ~16 (extract display formatting)
+- After Phase 4: ~14 (extract step name logic)
+- After Phase 5: ~11 (extract result display logic)
+- Target: ≤13 (meets "extract 8 functions" goal with ~8 smaller helper functions)
 
-Each extracted module should favor:
-- **Pure functions** for business logic (classification, normalization)
-- **I/O at boundaries** (executor handles I/O, delegates to pure logic)
-- **Single responsibility** (each module does one thing well)
-- **Composition** (orchestrator composes specialized modules)
+### Coverage Strategy
 
-### Success Metrics
-
-After all phases:
-- Main orchestrator: <300 lines (from 3136)
-- Average module size: ~250 lines (manageable)
-- Functions per module: <15 (focused)
-- Coverage: >40% (from 21.95%)
-- Cyclomatic complexity: Reduced by >50%
-- God object score: From 1.0 to <0.3
-
-This plan transforms a 3136-line god object into a clean, modular architecture following functional programming principles with proper separation of concerns.
+- Phase 1: Cover main execution branches (30%)
+- Phase 2: Cover error/timeout paths (50%)
+- Phases 3-5: Add pure function tests (70%)
+- Phase 6: Integration and edge cases (80%+)
