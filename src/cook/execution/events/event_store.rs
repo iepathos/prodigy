@@ -1244,7 +1244,14 @@ mod tests {
         };
         let mut time_range = (None, None);
 
-        process_event_line(&line, Path::new("/test.jsonl"), 1, 0, &mut index, &mut time_range);
+        process_event_line(
+            &line,
+            Path::new("/test.jsonl"),
+            1,
+            0,
+            &mut index,
+            &mut time_range,
+        );
 
         assert_eq!(index.total_events, 1);
         assert_eq!(index.event_counts.get("job_started"), Some(&1));
@@ -1264,7 +1271,14 @@ mod tests {
         };
         let mut time_range = (None, None);
 
-        process_event_line("invalid json", Path::new("/test.jsonl"), 1, 0, &mut index, &mut time_range);
+        process_event_line(
+            "invalid json",
+            Path::new("/test.jsonl"),
+            1,
+            0,
+            &mut index,
+            &mut time_range,
+        );
 
         assert_eq!(index.total_events, 0);
         assert!(index.event_counts.is_empty());
