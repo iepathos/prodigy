@@ -303,6 +303,88 @@ impl CommitTracker {
         Ok(false)
     }
 
+    /// Parse a git status line to extract the filename
+    ///
+    /// Returns Some(filename) if the line is valid (length > 3), None otherwise
+    fn parse_git_status_line(line: &str) -> Option<String> {
+        if line.len() > 3 {
+            Some(line[3..].trim().to_string())
+        } else {
+            None
+        }
+    }
+
+    /// Check if a file should be included based on include patterns
+    ///
+    /// Returns false if include_patterns is empty (no patterns = exclude all)
+    /// Returns true if any pattern matches the file
+    /// Handles invalid patterns gracefully by skipping them
+    fn should_include_file(file: &str, include_patterns: &[String]) -> bool {
+        if include_patterns.is_empty() {
+            return false;
+        }
+
+        for pattern_str in include_patterns {
+            if let Ok(pattern) = Pattern::new(pattern_str) {
+                if pattern.matches(file) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Check if a file should be excluded based on exclude patterns
+    ///
+    /// Returns false if exclude_patterns is empty (no patterns = exclude nothing)
+    /// Returns true if any pattern matches the file
+    /// Handles invalid patterns gracefully by skipping them
+    fn should_exclude_file(file: &str, exclude_patterns: &[String]) -> bool {
+        if exclude_patterns.is_empty() {
+            return false;
+        }
+
+        for pattern_str in exclude_patterns {
+            if let Ok(pattern) = Pattern::new(pattern_str) {
+                if pattern.matches(file) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Determine if a file should be staged based on commit configuration
+    ///
+    /// Returns true if the file should be staged, considering both include and exclude patterns
+    /// - If config is None, returns true (stage all files)
+    /// - Otherwise, checks include patterns first, then exclude patterns
+    fn should_stage_file(file: &str, config: Option<&CommitConfig>) -> bool {
+        match config {
+            None => true, // No config means stage all files
+            Some(cfg) => {
+                // Check include patterns
+                let passes_include = match &cfg.include_files {
+                    Some(patterns) => Self::should_include_file(file, patterns),
+                    None => true, // No include patterns means include all
+                };
+
+                // If file doesn't pass include check, exclude it
+                if !passes_include {
+                    return false;
+                }
+
+                // Check exclude patterns
+                match &cfg.exclude_files {
+                    Some(patterns) => !Self::should_exclude_file(file, patterns),
+                    None => true, // No exclude patterns means exclude none
+                }
+            }
+        }
+    }
+
     /// Filter files based on include/exclude patterns
     async fn get_files_to_stage(
         &self,
@@ -317,45 +399,8 @@ impl CommitTracker {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let mut files = Vec::new();
         for line in stdout.lines() {
-            if line.len() > 3 {
-                let file = line[3..].trim().to_string();
-
-                // Check if file should be included based on patterns
-                if let Some(config) = commit_config {
-                    let mut should_include = true;
-
-                    // Check include patterns
-                    if let Some(include_patterns) = &config.include_files {
-                        should_include = false;
-                        for pattern_str in include_patterns {
-                            if let Ok(pattern) = Pattern::new(pattern_str) {
-                                if pattern.matches(&file) {
-                                    should_include = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // Check exclude patterns
-                    if should_include {
-                        if let Some(exclude_patterns) = &config.exclude_files {
-                            for pattern_str in exclude_patterns {
-                                if let Ok(pattern) = Pattern::new(pattern_str) {
-                                    if pattern.matches(&file) {
-                                        should_include = false;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if should_include {
-                        files.push(file);
-                    }
-                } else {
-                    // No patterns configured, include all files
+            if let Some(file) = Self::parse_git_status_line(line) {
+                if Self::should_stage_file(&file, commit_config) {
                     files.push(file);
                 }
             }
