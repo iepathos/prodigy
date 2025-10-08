@@ -67,7 +67,7 @@ merge:
 
     # Step 3: Fetch latest changes and merge master into worktree
     - shell: "git fetch origin"
-    - claude: "/merge-master --project ${PROJECT_NAME}"
+    - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
 
     # Step 4: Merge worktree back to master
     - claude: "/prodigy-merge-worktree ${merge.source_branch}"

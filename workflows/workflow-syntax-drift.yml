@@ -43,7 +43,7 @@ merge:
 
   # Step 2: Fetch latest changes and merge master into worktree
   - shell: "git fetch origin"
-  - claude: "/merge-master"
+  - claude: "/prodigy-merge-master"
 
   # Step 3: Merge worktree back to master
   - claude: "/prodigy-merge-worktree ${merge.source_branch}"

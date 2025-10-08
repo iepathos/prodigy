@@ -33,7 +33,7 @@ commands:
 merge:
   # Step 1: Fetch latest changes and merge master into worktree
   - shell: "git fetch origin"
-  - claude: "/merge-master"  # Handles merge conflicts if any
+  - claude: "/prodigy-merge-master"  # Handles merge conflicts if any
 
   # Step 2: Run CI checks and fix any issues
   - claude: "/ci"
