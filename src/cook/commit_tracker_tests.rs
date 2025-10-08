@@ -282,13 +282,40 @@ mod tests {
         assert_eq!(result.total_deletions, 8);
     }
 
+    // Tests for parse_git_status_line
+    #[test]
+    fn test_parse_git_status_line_valid() {
+        let result = CommitTracker::parse_git_status_line("M  src/file.rs");
+        assert_eq!(result, Some("src/file.rs".to_string()));
+    }
+
+    #[test]
+    fn test_parse_git_status_line_short() {
+        let result = CommitTracker::parse_git_status_line("M ");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_git_status_line_empty() {
+        let result = CommitTracker::parse_git_status_line("");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_git_status_line_with_spaces() {
+        let result = CommitTracker::parse_git_status_line("A  path with spaces/file.rs");
+        assert_eq!(result, Some("path with spaces/file.rs".to_string()));
+    }
+
     // Tests for get_files_to_stage
     #[tokio::test]
     async fn test_get_files_to_stage_no_config() {
         let mock_git = Arc::new(MockGitOperations::new());
 
         // Mock git status output
-        mock_git.add_success_response("M  src/main.rs\nA  src/lib.rs\nD  old.rs\n").await;
+        mock_git
+            .add_success_response("M  src/main.rs\nA  src/lib.rs\nD  old.rs\n")
+            .await;
 
         let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
         let files = tracker.get_files_to_stage(None).await.unwrap();
@@ -304,7 +331,9 @@ mod tests {
         let mock_git = Arc::new(MockGitOperations::new());
 
         // Mock git status output
-        mock_git.add_success_response("M  src/main.rs\nA  src/lib.rs\nM  README.md\n").await;
+        mock_git
+            .add_success_response("M  src/main.rs\nA  src/lib.rs\nM  README.md\n")
+            .await;
 
         let config = CommitConfig {
             message_template: None,
@@ -330,7 +359,9 @@ mod tests {
         let mock_git = Arc::new(MockGitOperations::new());
 
         // Mock git status output
-        mock_git.add_success_response("M  README.md\nA  docs/guide.md\n").await;
+        mock_git
+            .add_success_response("M  README.md\nA  docs/guide.md\n")
+            .await;
 
         let config = CommitConfig {
             message_template: None,
@@ -353,7 +384,9 @@ mod tests {
         let mock_git = Arc::new(MockGitOperations::new());
 
         // Mock git status output
-        mock_git.add_success_response("M  src/main.rs\nA  test.tmp\nM  cache.log\n").await;
+        mock_git
+            .add_success_response("M  src/main.rs\nA  test.tmp\nM  cache.log\n")
+            .await;
 
         let config = CommitConfig {
             message_template: None,
@@ -379,7 +412,9 @@ mod tests {
         let mock_git = Arc::new(MockGitOperations::new());
 
         // Mock git status output
-        mock_git.add_success_response("M  src/main.rs\nA  src/test.rs\nM  tests/helper.rs\n").await;
+        mock_git
+            .add_success_response("M  src/main.rs\nA  src/test.rs\nM  tests/helper.rs\n")
+            .await;
 
         let config = CommitConfig {
             message_template: None,
@@ -418,7 +453,9 @@ mod tests {
         let mock_git = Arc::new(MockGitOperations::new());
 
         // Mock git status with malformed lines (< 3 chars)
-        mock_git.add_success_response("M  src/main.rs\nM \nA  src/lib.rs\n\n").await;
+        mock_git
+            .add_success_response("M  src/main.rs\nM \nA  src/lib.rs\n\n")
+            .await;
 
         let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
         let files = tracker.get_files_to_stage(None).await.unwrap();
@@ -434,7 +471,9 @@ mod tests {
         let mock_git = Arc::new(MockGitOperations::new());
 
         // Mock git status output
-        mock_git.add_success_response("M  src/main.rs\nA  src/lib.rs\n").await;
+        mock_git
+            .add_success_response("M  src/main.rs\nA  src/lib.rs\n")
+            .await;
 
         // Invalid glob pattern with unbalanced brackets
         let config = CommitConfig {

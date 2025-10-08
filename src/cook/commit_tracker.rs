@@ -303,6 +303,17 @@ impl CommitTracker {
         Ok(false)
     }
 
+    /// Parse a git status line to extract the filename
+    ///
+    /// Returns Some(filename) if the line is valid (length > 3), None otherwise
+    fn parse_git_status_line(line: &str) -> Option<String> {
+        if line.len() > 3 {
+            Some(line[3..].trim().to_string())
+        } else {
+            None
+        }
+    }
+
     /// Filter files based on include/exclude patterns
     async fn get_files_to_stage(
         &self,
@@ -317,9 +328,7 @@ impl CommitTracker {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let mut files = Vec::new();
         for line in stdout.lines() {
-            if line.len() > 3 {
-                let file = line[3..].trim().to_string();
-
+            if let Some(file) = Self::parse_git_status_line(line) {
                 // Check if file should be included based on patterns
                 if let Some(config) = commit_config {
                     let mut should_include = true;
