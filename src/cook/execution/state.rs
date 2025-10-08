@@ -1414,4 +1414,75 @@ mod tests {
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
         assert_eq!(jobs.len(), 50);
     }
+
+    // Phase 2: Checkpoint State Variations
+
+    #[tokio::test]
+    async fn test_list_resumable_metadata_missing() {
+        let temp_dir = create_unique_temp_dir("test-no-metadata");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let jobs_dir = manager.checkpoint_manager.jobs_dir();
+        let job_dir = jobs_dir.join("job-no-metadata");
+        tokio::fs::create_dir_all(&job_dir).await.unwrap();
+
+        // Create checkpoint but no metadata.json
+        let config = create_test_config();
+        let state = MapReduceJobState::new("job-no-metadata".to_string(), config, vec![json!({"id": 1})]);
+        let checkpoint_json = serde_json::to_string(&state).unwrap();
+        tokio::fs::write(job_dir.join("checkpoint-v0.json"), checkpoint_json).await.unwrap();
+
+        // Should be skipped (no metadata file means load_checkpoint fails)
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_checkpoints_but_metadata_invalid() {
+        let temp_dir = create_unique_temp_dir("test-invalid-metadata");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let jobs_dir = manager.checkpoint_manager.jobs_dir();
+        let job_dir = jobs_dir.join("job-bad-metadata");
+        tokio::fs::create_dir_all(&job_dir).await.unwrap();
+
+        // Create valid checkpoint
+        let config = create_test_config();
+        let state = MapReduceJobState::new("job-bad-metadata".to_string(), config, vec![json!({"id": 1})]);
+        let checkpoint_json = serde_json::to_string(&state).unwrap();
+        tokio::fs::write(job_dir.join("checkpoint-v0.json"), checkpoint_json).await.unwrap();
+
+        // Create invalid metadata.json
+        tokio::fs::write(job_dir.join("metadata.json"), "bad json").await.unwrap();
+
+        // Should be skipped (corrupted metadata)
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_mixed_checkpoint_versions() {
+        let temp_dir = create_unique_temp_dir("test-mixed-versions");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = create_test_config();
+
+        // Create job with version 1
+        let job1 = manager.create_job(config.clone(), vec![json!({"id": 1})], vec![], None).await.unwrap();
+
+        // Create job with version 5
+        let job2 = manager.create_job(config, vec![json!({"id": 2})], vec![], None).await.unwrap();
+        let mut state = manager.get_job_state(&job2).await.unwrap();
+        state.checkpoint_version = 5;
+        manager.checkpoint_manager.save_checkpoint(&state).await.unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 2);
+
+        // Find each job and verify versions
+        let j1 = jobs.iter().find(|j| j.job_id == job1).unwrap();
+        let j2 = jobs.iter().find(|j| j.job_id == job2).unwrap();
+        assert_eq!(j1.checkpoint_version, 0);
+        assert_eq!(j2.checkpoint_version, 5);
+    }
 }
