@@ -444,6 +444,65 @@ impl RealClaudeClient {
             && attempt < max_retries
     }
 
+    /// Handle process output result and determine next action
+    ///
+    /// Returns Ok(Some(output)) if we should return the result,
+    /// Ok(None) if we should retry, or Err if there's a fatal error.
+    fn handle_process_output(
+        output: crate::subprocess::runner::ProcessOutput,
+        attempt: u32,
+        max_retries: u32,
+        verbose: bool,
+    ) -> (Option<std::process::Output>, Option<String>) {
+        let classification = Self::classify_output_result(&output);
+
+        match classification {
+            OutputClassification::Success => (Some(Self::convert_to_std_output(output)), None),
+            OutputClassification::TransientFailure(ref stderr) => {
+                if Self::should_continue_retry(&classification, attempt, max_retries) {
+                    if verbose {
+                        eprintln!(
+                            "⚠️  Transient error detected: {}",
+                            stderr.lines().next().unwrap_or("Unknown error")
+                        );
+                    }
+                    (None, Some(stderr.clone()))
+                } else {
+                    // Exhausted retries - return with failure
+                    (Some(Self::convert_to_std_output(output)), None)
+                }
+            }
+            OutputClassification::PermanentFailure => {
+                (Some(Self::convert_to_std_output(output)), None)
+            }
+        }
+    }
+
+    /// Handle process execution error and determine next action
+    ///
+    /// Returns Ok(None) if we should retry, or Err if it's a fatal error.
+    fn handle_process_error(
+        error: crate::subprocess::ProcessError,
+        attempt: u32,
+        max_retries: u32,
+        verbose: bool,
+    ) -> Result<(Option<std::process::Output>, Option<String>)> {
+        let error_type = Self::classify_command_error(&error, "");
+
+        if error_type == CommandErrorType::CommandNotFound {
+            return Err(anyhow::anyhow!("Claude CLI not found: {}", error));
+        }
+
+        if Self::should_retry_error(&error_type, attempt, max_retries) {
+            if verbose {
+                eprintln!("⚠️  IO error: {error}");
+            }
+            Ok((None, Some(error.to_string())))
+        } else {
+            Err(anyhow::anyhow!("Failed to execute command: {}", error))
+        }
+    }
+
     /// Convert ProcessOutput to std::process::Output
     ///
     /// Converts the subprocess abstraction's output format to the standard library's
@@ -495,56 +554,30 @@ impl ClaudeClient for RealClaudeClient {
             let cmd = Self::build_claude_command(args, env_vars.as_ref());
             let result = self.subprocess.runner().run(cmd).await;
 
-            // Handle successful execution - check if we can return immediately
-            if let Ok(output) = result {
-                let classification = Self::classify_output_result(&output);
+            match result {
+                Ok(output) => {
+                    let (maybe_output, maybe_error) =
+                        Self::handle_process_output(output, attempt, max_retries, verbose);
 
-                match classification {
-                    OutputClassification::Success => {
-                        return Ok(Self::convert_to_std_output(output));
+                    if let Some(output) = maybe_output {
+                        return Ok(output);
                     }
-                    OutputClassification::TransientFailure(ref stderr) => {
-                        if Self::should_continue_retry(&classification, attempt, max_retries) {
-                            if verbose {
-                                eprintln!(
-                                    "⚠️  Transient error detected: {}",
-                                    stderr.lines().next().unwrap_or("Unknown error")
-                                );
-                            }
-                            last_error = Some(stderr.clone());
-                            attempt += 1;
-                            continue;
-                        }
-                        // Exhausted retries - return with failure
-                        return Ok(Self::convert_to_std_output(output));
+
+                    last_error = maybe_error;
+                }
+                Err(error) => {
+                    let (maybe_output, maybe_error) =
+                        Self::handle_process_error(error, attempt, max_retries, verbose)?;
+
+                    if let Some(output) = maybe_output {
+                        return Ok(output);
                     }
-                    OutputClassification::PermanentFailure => {
-                        return Ok(Self::convert_to_std_output(output));
-                    }
+
+                    last_error = maybe_error;
                 }
             }
 
-            // Handle execution errors
-            let error = result.unwrap_err();
-            let error_type = Self::classify_command_error(&error, "");
-
-            // CommandNotFound is always fatal
-            if error_type == CommandErrorType::CommandNotFound {
-                return Err(anyhow::anyhow!("Claude CLI not found: {}", error));
-            }
-
-            // Check if we should retry other errors
-            if Self::should_retry_error(&error_type, attempt, max_retries) {
-                if verbose {
-                    eprintln!("⚠️  IO error: {error}");
-                }
-                last_error = Some(error.to_string());
-                attempt += 1;
-                continue;
-            }
-
-            // Non-retryable error
-            return Err(anyhow::anyhow!("Failed to execute {}: {}", command, error));
+            attempt += 1;
         }
 
         Err(anyhow::anyhow!(
