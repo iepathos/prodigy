@@ -1272,4 +1272,36 @@ mod tests {
         assert!(time_range.0.is_none());
         assert!(time_range.1.is_none());
     }
+
+    #[tokio::test]
+    async fn test_save_index_success() {
+        let temp_dir = TempDir::new().unwrap();
+        let index_path = temp_dir.path().join("index.json");
+
+        let index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 5,
+        };
+
+        let result = save_index(&index, &index_path).await;
+        assert!(result.is_ok());
+        assert!(index_path.exists());
+    }
+
+    #[tokio::test]
+    async fn test_save_index_invalid_path() {
+        let index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 5,
+        };
+
+        let result = save_index(&index, Path::new("/nonexistent/dir/index.json")).await;
+        assert!(result.is_err());
+    }
 }
