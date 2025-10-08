@@ -1489,10 +1489,6 @@ mod handle_on_failure_tests {
                 executed_commands: Arc::new(Mutex::new(Vec::new())),
             }
         }
-
-        fn get_executed_commands(&self) -> Vec<String> {
-            self.executed_commands.lock().unwrap().clone()
-        }
     }
 
     #[async_trait]
