@@ -4,7 +4,8 @@ use anyhow::Result;
 use prodigy::config::WorkflowConfig;
 use prodigy::cook::workflow::{
     ComposableWorkflow, Parameter, ParameterDefinitions, ParameterType, SubWorkflow,
-    TemplateRegistry, TemplateSource, WorkflowComposer, WorkflowImport, WorkflowTemplate,
+    TemplateRegistry, TemplateSource, TemplateStorage, WorkflowComposer, WorkflowImport,
+    WorkflowTemplate,
 };
 use serde_json::Value;
 use std::collections::HashMap;
@@ -451,5 +452,53 @@ async fn test_template_search_by_tags() -> Result<()> {
     assert_eq!(test_templates.len(), 1);
     assert_eq!(test_templates[0].name, "test-template");
 
+    Ok(())
+}
+
+// ========================================
+// FileTemplateStorage::list Test Coverage
+// ========================================
+
+#[tokio::test]
+async fn test_list_non_existent_directory() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let non_existent_path = PathBuf::from("/tmp/prodigy-test-non-existent-dir-12345");
+    let storage = FileTemplateStorage::new(non_existent_path);
+
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_empty_directory() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_no_yml_files() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create non-YAML files
+    std::fs::write(temp_dir.path().join("readme.txt"), "Documentation")?;
+    std::fs::write(temp_dir.path().join("config.json"), "{}")?;
+    std::fs::write(temp_dir.path().join("data.xml"), "<root></root>")?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 0);
     Ok(())
 }
