@@ -78,13 +78,16 @@ impl CommandHandler for ShellHandler {
 
         // Extract additional environment variables
         let mut env = context.full_env();
-        if let Some(env_attr) = attributes.get("env").and_then(|v| v.as_object()) {
-            for (key, value) in env_attr {
-                if let Some(val_str) = value.as_string() {
-                    env.insert(key.clone(), val_str.clone());
-                }
-            }
-        }
+
+        // Add environment variables from attributes if present
+        let env_vars = attributes
+            .get("env")
+            .and_then(|v| v.as_object())
+            .into_iter()
+            .flat_map(|env_attr| env_attr.iter())
+            .filter_map(|(key, value)| value.as_string().map(|val| (key.clone(), val.clone())));
+
+        env.extend(env_vars);
 
         // Execute command
         let start = Instant::now();
