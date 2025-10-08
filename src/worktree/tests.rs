@@ -1,5 +1,5 @@
-use super::*;
 use super::manager_queries::{collect_all_states, filter_sessions_by_status, load_state_from_file};
+use super::*;
 use crate::subprocess::SubprocessManager;
 use crate::testing::fixtures::isolation::TestGitRepo;
 use std::process::Command;
@@ -406,16 +406,14 @@ fn test_filter_sessions_by_status() {
     ];
 
     // Test filtering for interrupted sessions
-    let interrupted =
-        filter_sessions_by_status(states.clone(), WorktreeStatus::Interrupted);
+    let interrupted = filter_sessions_by_status(states.clone(), WorktreeStatus::Interrupted);
     assert_eq!(interrupted.len(), 2);
     assert!(interrupted
         .iter()
         .all(|s| s.status == WorktreeStatus::Interrupted));
 
     // Test filtering for completed sessions
-    let completed =
-        filter_sessions_by_status(states.clone(), WorktreeStatus::Completed);
+    let completed = filter_sessions_by_status(states.clone(), WorktreeStatus::Completed);
     assert_eq!(completed.len(), 1);
     assert_eq!(completed[0].session_id, "session2");
 

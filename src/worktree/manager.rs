@@ -1293,7 +1293,9 @@ impl WorktreeManager {
 mod tests {
     use super::*;
     use crate::subprocess::ProcessCommandBuilder;
-    use crate::worktree::manager_queries::{collect_all_states, filter_sessions_by_status, load_state_from_file};
+    use crate::worktree::manager_queries::{
+        collect_all_states, filter_sessions_by_status, load_state_from_file,
+    };
     use crate::worktree::{IterationInfo, WorktreeStats};
     use tempfile::TempDir;
 
@@ -2123,14 +2125,12 @@ mod tests {
             },
         ];
 
-        let in_progress =
-            filter_sessions_by_status(states.clone(), WorktreeStatus::InProgress);
+        let in_progress = filter_sessions_by_status(states.clone(), WorktreeStatus::InProgress);
         assert_eq!(in_progress.len(), 2);
         assert_eq!(in_progress[0].session_id, "session1");
         assert_eq!(in_progress[1].session_id, "session3");
 
-        let complete =
-            filter_sessions_by_status(states, WorktreeStatus::Completed);
+        let complete = filter_sessions_by_status(states, WorktreeStatus::Completed);
         assert_eq!(complete.len(), 1);
         assert_eq!(complete[0].session_id, "session2");
     }

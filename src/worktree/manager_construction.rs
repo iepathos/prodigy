@@ -7,8 +7,8 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use super::{Checkpoint, WorktreeManager};
 use super::builder::WorktreeBuilder;
+use super::{Checkpoint, WorktreeManager};
 use crate::config::mapreduce::MergeWorkflow;
 use crate::subprocess::SubprocessManager;
 
@@ -50,11 +50,7 @@ impl WorktreeManager {
     }
 
     /// Create a checkpoint for the current state
-    pub fn create_checkpoint(
-        &self,
-        session_name: &str,
-        checkpoint: Checkpoint,
-    ) -> Result<()> {
+    pub fn create_checkpoint(&self, session_name: &str, checkpoint: Checkpoint) -> Result<()> {
         self.update_session_state(session_name, |state| {
             state.last_checkpoint = Some(checkpoint);
             state.resumable = true;
