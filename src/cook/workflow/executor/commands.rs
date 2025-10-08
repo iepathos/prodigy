@@ -597,6 +597,33 @@ impl WorkflowExecutor {
             .await
     }
 
+    // Pure helper functions for shell retry output management
+
+    /// Determine if output should be written to a temp file (pure function)
+    fn should_use_temp_file(stdout_len: usize, stderr_len: usize) -> bool {
+        stdout_len + stderr_len > 10000
+    }
+
+    /// Format shell output for display or storage (pure function)
+    fn format_shell_output(stdout: &str, stderr: &str) -> String {
+        format!("=== STDOUT ===\n{}\n\n=== STDERR ===\n{}", stdout, stderr)
+    }
+
+    /// Format smaller shell output for inline display (pure function)
+    fn format_inline_output(stdout: &str, stderr: &str) -> String {
+        format!("STDOUT:\n{}\n\nSTDERR:\n{}", stdout, stderr)
+    }
+
+    /// Create a temp file with shell output (returns Result for I/O operation)
+    fn create_output_temp_file(stdout: &str, stderr: &str) -> Result<tempfile::NamedTempFile> {
+        use std::fs;
+
+        let temp_file = tempfile::NamedTempFile::new()?;
+        let combined_output = Self::format_shell_output(stdout, stderr);
+        fs::write(temp_file.path(), &combined_output)?;
+        Ok(temp_file)
+    }
+
     /// Execute a shell command with retry logic (for shell commands with on_failure)
     async fn execute_shell_with_retry(
         &self,
@@ -607,9 +634,6 @@ impl WorkflowExecutor {
         mut env_vars: HashMap<String, String>,
         timeout: Option<u64>,
     ) -> Result<StepResult> {
-        use std::fs;
-        use tempfile::NamedTempFile;
-
         let (interpolated_cmd, resolutions) = ctx.interpolate_with_tracking(command);
         self.log_variable_resolutions(&resolutions);
 
@@ -655,16 +679,15 @@ impl WorkflowExecutor {
                     }
                 }
 
-                // Save shell output to a temp file if it's too large
-                let temp_file = if shell_result.stdout.len() + shell_result.stderr.len() > 10000 {
-                    // Create a temporary file for large outputs
-                    let temp_file = NamedTempFile::new()?;
-                    let combined_output = format!(
-                        "=== STDOUT ===\n{}\n\n=== STDERR ===\n{}",
-                        shell_result.stdout, shell_result.stderr
-                    );
-                    fs::write(temp_file.path(), &combined_output)?;
-                    Some(temp_file)
+                // Save shell output to a temp file if it's too large (using pure helper)
+                let temp_file = if Self::should_use_temp_file(
+                    shell_result.stdout.len(),
+                    shell_result.stderr.len(),
+                ) {
+                    Some(Self::create_output_temp_file(
+                        &shell_result.stdout,
+                        &shell_result.stderr,
+                    )?)
                 } else {
                     None
                 };
@@ -688,11 +711,9 @@ impl WorkflowExecutor {
                     ctx.variables
                         .insert("shell.output".to_string(), output_file);
                 } else {
-                    // For smaller outputs, pass directly
-                    let combined_output = format!(
-                        "STDOUT:\n{}\n\nSTDERR:\n{}",
-                        shell_result.stdout, shell_result.stderr
-                    );
+                    // For smaller outputs, pass directly (using pure helper)
+                    let combined_output =
+                        Self::format_inline_output(&shell_result.stdout, &shell_result.stderr);
                     ctx.variables
                         .insert("shell.output".to_string(), combined_output);
                 }
@@ -1917,6 +1938,115 @@ mod tests {
 
             assert!(!result.success);
             assert_eq!(result.exit_code, Some(1));
+        }
+
+        // Unit tests for output management pure functions
+
+        #[test]
+        fn test_should_use_temp_file_small_output() {
+            assert!(!WorkflowExecutor::should_use_temp_file(100, 100));
+            assert!(!WorkflowExecutor::should_use_temp_file(5000, 4999));
+        }
+
+        #[test]
+        fn test_should_use_temp_file_large_output() {
+            assert!(WorkflowExecutor::should_use_temp_file(5000, 5001));
+            assert!(WorkflowExecutor::should_use_temp_file(10000, 1));
+            assert!(WorkflowExecutor::should_use_temp_file(20000, 20000));
+        }
+
+        #[test]
+        fn test_should_use_temp_file_boundary() {
+            assert!(!WorkflowExecutor::should_use_temp_file(5000, 5000));
+            assert!(WorkflowExecutor::should_use_temp_file(5000, 5001));
+            assert!(WorkflowExecutor::should_use_temp_file(10001, 0));
+        }
+
+        #[test]
+        fn test_format_shell_output() {
+            let stdout = "output line 1\noutput line 2";
+            let stderr = "error line 1\nerror line 2";
+            let result = WorkflowExecutor::format_shell_output(stdout, stderr);
+
+            assert!(result.contains("=== STDOUT ==="));
+            assert!(result.contains("=== STDERR ==="));
+            assert!(result.contains("output line 1"));
+            assert!(result.contains("error line 1"));
+        }
+
+        #[test]
+        fn test_format_shell_output_empty_stderr() {
+            let stdout = "output";
+            let stderr = "";
+            let result = WorkflowExecutor::format_shell_output(stdout, stderr);
+
+            assert!(result.contains("=== STDOUT ==="));
+            assert!(result.contains("=== STDERR ==="));
+            assert!(result.contains("output"));
+        }
+
+        #[test]
+        fn test_format_inline_output() {
+            let stdout = "stdout content";
+            let stderr = "stderr content";
+            let result = WorkflowExecutor::format_inline_output(stdout, stderr);
+
+            assert!(result.contains("STDOUT:"));
+            assert!(result.contains("STDERR:"));
+            assert!(result.contains("stdout content"));
+            assert!(result.contains("stderr content"));
+        }
+
+        #[test]
+        fn test_format_inline_output_with_newlines() {
+            let stdout = "line1\nline2\nline3";
+            let stderr = "err1\nerr2";
+            let result = WorkflowExecutor::format_inline_output(stdout, stderr);
+
+            assert!(result.contains("STDOUT:"));
+            assert!(result.contains("line1\nline2\nline3"));
+            assert!(result.contains("err1\nerr2"));
+        }
+
+        #[test]
+        fn test_create_output_temp_file() {
+            let stdout = "test stdout";
+            let stderr = "test stderr";
+            let result = WorkflowExecutor::create_output_temp_file(stdout, stderr);
+
+            assert!(result.is_ok());
+            let temp_file = result.unwrap();
+            let content = std::fs::read_to_string(temp_file.path()).unwrap();
+
+            assert!(content.contains("=== STDOUT ==="));
+            assert!(content.contains("=== STDERR ==="));
+            assert!(content.contains("test stdout"));
+            assert!(content.contains("test stderr"));
+        }
+
+        #[test]
+        fn test_create_output_temp_file_large_content() {
+            let stdout = "x".repeat(100000);
+            let stderr = "y".repeat(50000);
+            let result = WorkflowExecutor::create_output_temp_file(&stdout, &stderr);
+
+            assert!(result.is_ok());
+            let temp_file = result.unwrap();
+            let content = std::fs::read_to_string(temp_file.path()).unwrap();
+
+            assert!(content.contains(&stdout));
+            assert!(content.contains(&stderr));
+        }
+
+        #[test]
+        fn test_create_output_temp_file_empty() {
+            let result = WorkflowExecutor::create_output_temp_file("", "");
+            assert!(result.is_ok());
+
+            let temp_file = result.unwrap();
+            let content = std::fs::read_to_string(temp_file.path()).unwrap();
+            assert!(content.contains("=== STDOUT ==="));
+            assert!(content.contains("=== STDERR ==="));
         }
     }
 }
