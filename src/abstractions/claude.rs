@@ -1194,6 +1194,138 @@ mod tests {
         ));
     }
 
+    mod proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            /// Property: Retry count never exceeds max_retries
+            #[test]
+            fn prop_should_retry_error_respects_max_retries(
+                attempt in 0u32..100,
+                max_retries in 0u32..100
+            ) {
+                let result = RealClaudeClient::should_retry_error(
+                    &CommandErrorType::TransientError,
+                    attempt,
+                    max_retries
+                );
+
+                // If we should retry, it means attempt < max_retries
+                if result {
+                    prop_assert!(attempt < max_retries);
+                } else {
+                    prop_assert!(attempt >= max_retries);
+                }
+            }
+
+            /// Property: Permanent errors never retry regardless of attempt count
+            #[test]
+            fn prop_permanent_errors_never_retry(
+                attempt in 0u32..100,
+                max_retries in 0u32..100
+            ) {
+                prop_assert!(!RealClaudeClient::should_retry_error(
+                    &CommandErrorType::PermanentError,
+                    attempt,
+                    max_retries
+                ));
+            }
+
+            /// Property: CommandNotFound never retries
+            #[test]
+            fn prop_command_not_found_never_retries(
+                attempt in 0u32..100,
+                max_retries in 0u32..100
+            ) {
+                prop_assert!(!RealClaudeClient::should_retry_error(
+                    &CommandErrorType::CommandNotFound,
+                    attempt,
+                    max_retries
+                ));
+            }
+
+            /// Property: Retry delay increases exponentially up to cap
+            #[test]
+            fn prop_retry_delay_exponential_backoff(attempt in 0u32..10) {
+                use std::time::Duration;
+
+                let delay = RealClaudeClient::calculate_retry_delay(attempt);
+                let capped_attempt = attempt.min(3);
+                let expected = Duration::from_secs(2u64.pow(capped_attempt));
+
+                prop_assert_eq!(delay, expected);
+            }
+
+            /// Property: Output classification is consistent
+            #[test]
+            fn prop_classify_output_consistent(
+                exit_code in 0i32..10,
+                has_transient_error in proptest::bool::ANY
+            ) {
+                use crate::subprocess::runner::{ExitStatus, ProcessOutput};
+                use std::time::Duration;
+
+                let stderr = if has_transient_error {
+                    "rate limit exceeded".to_string()
+                } else {
+                    "other error".to_string()
+                };
+
+                let status = if exit_code == 0 {
+                    ExitStatus::Success
+                } else {
+                    ExitStatus::Error(exit_code)
+                };
+
+                let output = ProcessOutput {
+                    status,
+                    stdout: String::new(),
+                    stderr,
+                    duration: Duration::from_secs(1),
+                };
+
+                let classification = RealClaudeClient::classify_output_result(&output);
+
+                // Verify classification is consistent with input
+                match classification {
+                    OutputClassification::Success => {
+                        prop_assert_eq!(exit_code, 0);
+                    }
+                    OutputClassification::TransientFailure(_) => {
+                        prop_assert!(exit_code != 0);
+                        prop_assert!(has_transient_error);
+                    }
+                    OutputClassification::PermanentFailure => {
+                        prop_assert!(exit_code != 0);
+                        prop_assert!(!has_transient_error);
+                    }
+                }
+            }
+
+            /// Property: should_continue_retry matches should_retry_error for transient errors
+            #[test]
+            fn prop_continue_retry_consistency(
+                attempt in 0u32..100,
+                max_retries in 0u32..100
+            ) {
+                let classification = OutputClassification::TransientFailure("error".to_string());
+                let continue_result = RealClaudeClient::should_continue_retry(
+                    &classification,
+                    attempt,
+                    max_retries
+                );
+                let retry_result = RealClaudeClient::should_retry_error(
+                    &CommandErrorType::TransientError,
+                    attempt,
+                    max_retries
+                );
+
+                prop_assert_eq!(continue_result, retry_result);
+            }
+        }
+    }
+
     #[test]
     fn test_convert_to_std_output() {
         use crate::subprocess::runner::{ExitStatus, ProcessOutput};
