@@ -27,6 +27,9 @@ pub struct CommandResult {
 
     /// Execution time in milliseconds
     pub duration_ms: Option<u64>,
+
+    /// Claude JSON log location for observability
+    pub json_log_location: Option<String>,
 }
 
 impl CommandResult {
@@ -40,6 +43,7 @@ impl CommandResult {
             stdout: None,
             stderr: None,
             duration_ms: None,
+            json_log_location: None,
         }
     }
 
@@ -53,6 +57,7 @@ impl CommandResult {
             stdout: None,
             stderr: None,
             duration_ms: None,
+            json_log_location: None,
         }
     }
 
@@ -71,12 +76,19 @@ impl CommandResult {
             stdout: Some(stdout),
             stderr: Some(stderr),
             duration_ms: None,
+            json_log_location: None,
         }
     }
 
     /// Sets the execution duration
     pub fn with_duration(mut self, duration_ms: u64) -> Self {
         self.duration_ms = Some(duration_ms);
+        self
+    }
+
+    /// Sets the Claude JSON log location
+    pub fn with_json_log_location(mut self, location: String) -> Self {
+        self.json_log_location = Some(location);
         self
     }
 
