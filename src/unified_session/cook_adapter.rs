@@ -407,4 +407,90 @@ mod tests {
             .await
             .unwrap();
     }
+
+    #[tokio::test]
+    async fn test_update_session_multiple_sequential_updates() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::IncrementIteration)
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(3))
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::UpdateStatus(
+                CookSessionStatus::Completed,
+            ))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_complete_iteration() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::CompleteIteration)
+            .await
+            .unwrap();
+        let state = adapter.get_state().unwrap();
+        assert!(state.session_id.starts_with("session-"));
+    }
+
+    #[tokio::test]
+    async fn test_update_session_after_completion() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::UpdateStatus(
+                CookSessionStatus::Completed,
+            ))
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(1))
+            .await
+            .unwrap();
+        let state = adapter.get_state().unwrap();
+        assert_eq!(state.status, CookSessionStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn test_update_files_changed_delta() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(3))
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(5))
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(2))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_metadata() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::IncrementIteration)
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(3))
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::IncrementIteration)
+            .await
+            .unwrap();
+    }
 }
