@@ -311,6 +311,110 @@ steps:
 
 ### Workflow Syntax
 
+#### Write File Command
+
+The `write_file` command allows workflows to create files with content, supporting multiple formats with validation and automatic formatting.
+
+**Basic Syntax:**
+```yaml
+- write_file:
+    path: "output/results.txt"
+    content: "Processing complete!"
+    format: text  # text, json, or yaml
+    mode: "0644"  # Unix permissions (default: 0644)
+    create_dirs: false  # Create parent directories (default: false)
+```
+
+**Supported Formats:**
+
+1. **Text** (default) - Plain text with no processing:
+```yaml
+- write_file:
+    path: "logs/build.log"
+    content: "Build started at ${timestamp}"
+    format: text
+```
+
+2. **JSON** - Validates and pretty-prints JSON:
+```yaml
+- write_file:
+    path: "output/results.json"
+    content: '{"status": "success", "items_processed": ${map.total}}'
+    format: json
+    create_dirs: true
+```
+
+3. **YAML** - Validates and formats YAML:
+```yaml
+- write_file:
+    path: "config/settings.yml"
+    content: |
+      environment: production
+      server:
+        port: 8080
+        host: localhost
+    format: yaml
+```
+
+**Variable Interpolation:**
+
+All fields support variable interpolation:
+```yaml
+# In MapReduce map phase
+- write_file:
+    path: "output/${item.name}.json"
+    content: '{"id": "${item.id}", "processed": true}'
+    format: json
+    create_dirs: true
+
+# In reduce phase
+- write_file:
+    path: "summary.txt"
+    content: "Processed ${map.total} items, ${map.successful} successful"
+    format: text
+```
+
+**Security Features:**
+- Path traversal protection (rejects paths containing `..`)
+- JSON/YAML validation before writing
+- Configurable file permissions (Unix systems only)
+
+**Common Use Cases:**
+
+1. **Aggregating MapReduce results:**
+```yaml
+reduce:
+  - write_file:
+      path: "results/summary.json"
+      content: '{"total": ${map.total}, "successful": ${map.successful}, "failed": ${map.failed}}'
+      format: json
+```
+
+2. **Generating configuration files:**
+```yaml
+- write_file:
+    path: ".config/app.yml"
+    content: |
+      name: ${PROJECT_NAME}
+      version: ${VERSION}
+      features:
+        - authentication
+        - caching
+    format: yaml
+```
+
+3. **Creating executable scripts:**
+```yaml
+- write_file:
+    path: "scripts/deploy.sh"
+    content: |
+      #!/bin/bash
+      echo "Deploying ${APP_NAME}"
+      ./deploy.sh --env production
+    mode: "0755"
+    create_dirs: true
+```
+
 #### Validation and Error Recovery
 
 Prodigy supports multi-step validation and error recovery with two formats:

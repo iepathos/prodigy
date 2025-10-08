@@ -1183,4 +1183,214 @@ mod tests {
         assert!(!step_result.success);
         assert!(step_result.stderr.contains("timed out"));
     }
+
+    // ============================================================================
+    // Tests for execute_write_file_command
+    // ============================================================================
+
+    #[tokio::test]
+    async fn test_write_file_text_success() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let config = crate::config::command::WriteFileConfig {
+            path: "test.txt".to_string(),
+            content: "Hello, World!".to_string(),
+            format: crate::config::command::WriteFileFormat::Text,
+            mode: "0644".to_string(),
+            create_dirs: false,
+        };
+
+        let result = execute_write_file_command(&config, temp_dir.path()).await;
+        assert!(result.is_ok());
+
+        let step_result = result.unwrap();
+        assert!(step_result.success);
+        assert_eq!(step_result.exit_code, Some(0));
+        assert!(step_result.stdout.contains("Wrote 13 bytes"));
+        assert!(step_result.stdout.contains("test.txt"));
+        assert!(step_result.stdout.contains("Text"));
+
+        // Verify file contents
+        let file_path = temp_dir.path().join("test.txt");
+        let contents = std::fs::read_to_string(&file_path).unwrap();
+        assert_eq!(contents, "Hello, World!");
+    }
+
+    #[tokio::test]
+    async fn test_write_file_json_validation_and_formatting() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let config = crate::config::command::WriteFileConfig {
+            path: "data.json".to_string(),
+            content: r#"{"name":"test","value":123}"#.to_string(),
+            format: crate::config::command::WriteFileFormat::Json,
+            mode: "0644".to_string(),
+            create_dirs: false,
+        };
+
+        let result = execute_write_file_command(&config, temp_dir.path()).await;
+        assert!(result.is_ok());
+
+        let step_result = result.unwrap();
+        assert!(step_result.success);
+        assert!(step_result.stdout.contains("Json"));
+
+        // Verify file is pretty-printed JSON
+        let file_path = temp_dir.path().join("data.json");
+        let contents = std::fs::read_to_string(&file_path).unwrap();
+        assert!(contents.contains("\"name\": \"test\""));
+        assert!(contents.contains("\"value\": 123"));
+    }
+
+    #[tokio::test]
+    async fn test_write_file_yaml_validation_and_formatting() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let config = crate::config::command::WriteFileConfig {
+            path: "config.yml".to_string(),
+            content: "name: test\nvalue: 123".to_string(),
+            format: crate::config::command::WriteFileFormat::Yaml,
+            mode: "0644".to_string(),
+            create_dirs: false,
+        };
+
+        let result = execute_write_file_command(&config, temp_dir.path()).await;
+        assert!(result.is_ok());
+
+        let step_result = result.unwrap();
+        assert!(step_result.success);
+        assert!(step_result.stdout.contains("Yaml"));
+
+        // Verify file contents
+        let file_path = temp_dir.path().join("config.yml");
+        let contents = std::fs::read_to_string(&file_path).unwrap();
+        assert!(contents.contains("name: test"));
+    }
+
+    #[tokio::test]
+    async fn test_write_file_create_dirs() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let config = crate::config::command::WriteFileConfig {
+            path: "subdir/nested/file.txt".to_string(),
+            content: "test".to_string(),
+            format: crate::config::command::WriteFileFormat::Text,
+            mode: "0644".to_string(),
+            create_dirs: true,
+        };
+
+        let result = execute_write_file_command(&config, temp_dir.path()).await;
+        assert!(result.is_ok());
+
+        // Verify directories were created
+        let file_path = temp_dir.path().join("subdir/nested/file.txt");
+        assert!(file_path.exists());
+        let contents = std::fs::read_to_string(&file_path).unwrap();
+        assert_eq!(contents, "test");
+    }
+
+    #[tokio::test]
+    async fn test_write_file_reject_path_traversal() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let config = crate::config::command::WriteFileConfig {
+            path: "../etc/passwd".to_string(),
+            content: "malicious".to_string(),
+            format: crate::config::command::WriteFileFormat::Text,
+            mode: "0644".to_string(),
+            create_dirs: false,
+        };
+
+        let result = execute_write_file_command(&config, temp_dir.path()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("parent directory traversal"));
+    }
+
+    #[tokio::test]
+    async fn test_write_file_invalid_json() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let config = crate::config::command::WriteFileConfig {
+            path: "bad.json".to_string(),
+            content: "{invalid json}".to_string(),
+            format: crate::config::command::WriteFileFormat::Json,
+            mode: "0644".to_string(),
+            create_dirs: false,
+        };
+
+        let result = execute_write_file_command(&config, temp_dir.path()).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid JSON"));
+    }
+
+    #[tokio::test]
+    async fn test_write_file_invalid_yaml() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let config = crate::config::command::WriteFileConfig {
+            path: "bad.yml".to_string(),
+            content: "invalid: [unclosed".to_string(),
+            format: crate::config::command::WriteFileFormat::Yaml,
+            mode: "0644".to_string(),
+            create_dirs: false,
+        };
+
+        let result = execute_write_file_command(&config, temp_dir.path()).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid YAML"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_write_file_unix_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let config = crate::config::command::WriteFileConfig {
+            path: "executable.sh".to_string(),
+            content: "#!/bin/bash\necho test".to_string(),
+            format: crate::config::command::WriteFileFormat::Text,
+            mode: "0755".to_string(),
+            create_dirs: false,
+        };
+
+        let result = execute_write_file_command(&config, temp_dir.path()).await;
+        assert!(result.is_ok());
+
+        // Verify permissions
+        let file_path = temp_dir.path().join("executable.sh");
+        let metadata = std::fs::metadata(&file_path).unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(permissions.mode() & 0o777, 0o755);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_write_file_invalid_mode() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let config = crate::config::command::WriteFileConfig {
+            path: "test.txt".to_string(),
+            content: "test".to_string(),
+            format: crate::config::command::WriteFileFormat::Text,
+            mode: "invalid".to_string(),
+            create_dirs: false,
+        };
+
+        let result = execute_write_file_command(&config, temp_dir.path()).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid file mode"));
+    }
 }
