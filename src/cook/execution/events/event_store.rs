@@ -1461,7 +1461,9 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let store = FileEventStore::new(temp_dir.path().to_path_buf());
         let job_id = "empty-dir-job";
-        fs::create_dir_all(store.job_events_dir(job_id)).await.unwrap();
+        fs::create_dir_all(store.job_events_dir(job_id))
+            .await
+            .unwrap();
 
         let result = store.index(job_id).await.unwrap();
 
@@ -1488,7 +1490,9 @@ mod tests {
         let events_dir = store.job_events_dir(job_id);
         fs::create_dir_all(&events_dir).await.unwrap();
         let event_file = events_dir.join("events-001.jsonl");
-        fs::write(&event_file, "invalid\n{bad:json}\n").await.unwrap();
+        fs::write(&event_file, "invalid\n{bad:json}\n")
+            .await
+            .unwrap();
 
         let result = store.index(job_id).await.unwrap();
 
@@ -1527,7 +1531,12 @@ mod tests {
             },
             metadata: HashMap::new(),
         };
-        fs::write(&events_dir.join("events-001.jsonl"), format!("{}\n", serde_json::to_string(&event).unwrap())).await.unwrap();
+        fs::write(
+            &events_dir.join("events-001.jsonl"),
+            format!("{}\n", serde_json::to_string(&event).unwrap()),
+        )
+        .await
+        .unwrap();
 
         let result = store.index(job_id).await.unwrap();
 
@@ -1577,8 +1586,14 @@ mod tests {
             },
             metadata: HashMap::new(),
         };
-        let content = format!("{}\n{}\n", serde_json::to_string(&event1).unwrap(), serde_json::to_string(&event2).unwrap());
-        fs::write(&events_dir.join("events-001.jsonl"), content).await.unwrap();
+        let content = format!(
+            "{}\n{}\n",
+            serde_json::to_string(&event1).unwrap(),
+            serde_json::to_string(&event2).unwrap()
+        );
+        fs::write(&events_dir.join("events-001.jsonl"), content)
+            .await
+            .unwrap();
 
         let result = store.index(job_id).await.unwrap();
 
@@ -1592,12 +1607,17 @@ mod tests {
         let job_id = "no-valid-events-job";
         let events_dir = store.job_events_dir(job_id);
         fs::create_dir_all(&events_dir).await.unwrap();
-        fs::write(&events_dir.join("events-001.jsonl"), "invalid\n").await.unwrap();
+        fs::write(&events_dir.join("events-001.jsonl"), "invalid\n")
+            .await
+            .unwrap();
 
         let result = store.index(job_id).await.unwrap();
 
         let (start, end) = result.time_range;
         let diff = (end - start).num_milliseconds().abs();
-        assert!(diff < 100, "Time range should be nearly identical when no events");
+        assert!(
+            diff < 100,
+            "Time range should be nearly identical when no events"
+        );
     }
 }
