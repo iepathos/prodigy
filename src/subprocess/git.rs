@@ -771,4 +771,92 @@ mod git_error_tests {
         assert_eq!(status.modified_files[1], "added_and_modified.rs");
         assert_eq!(status.modified_files[2], "modified_and_added.rs");
     }
+
+    // Phase 3: Branch Parsing Edge Cases
+
+    #[tokio::test]
+    async fn test_status_branch_with_spaces_no_upstream() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## feature/branch with spaces\n M file.rs\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some("feature/branch with spaces".to_string()));
+        assert!(!status.clean);
+    }
+
+    #[tokio::test]
+    async fn test_status_branch_with_special_characters() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## feature/foo-bar.baz_123\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(
+            status.branch,
+            Some("feature/foo-bar.baz_123".to_string())
+        );
+        assert!(status.clean);
+    }
+
+    #[tokio::test]
+    async fn test_status_branch_very_long_name() {
+        let long_branch = "feature/very-long-branch-name-that-exceeds-typical-limits-but-is-still-technically-valid-in-git-repositories-with-many-nested-components";
+        let output = format!("## {}\n", long_branch);
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout(&output)
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some(long_branch.to_string()));
+        assert!(status.clean);
+    }
+
+    #[tokio::test]
+    async fn test_status_branch_multiple_separators() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## feature...origin...malformed\n M file.rs\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        // split("...").next() takes the first part before any "..."
+        assert_eq!(status.branch, Some("feature".to_string()));
+        assert!(!status.clean);
+    }
 }
