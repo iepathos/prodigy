@@ -792,4 +792,105 @@ mod tests {
         // Verify duration is tracked even for errors
         assert!(result.duration_ms.is_some());
     }
+
+    #[tokio::test]
+    async fn test_shell_none_value_fallback() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Shell attribute as None should fallback to "bash"
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_timeout_zero_value() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Zero timeout should be used as-is (edge case)
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(0)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        attributes.insert("timeout".to_string(), AttributeValue::Number(0.0));
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_timeout_non_number_fallback() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Non-number timeout should fallback to default 30
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        attributes.insert(
+            "timeout".to_string(),
+            AttributeValue::String("invalid".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
 }
