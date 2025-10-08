@@ -83,6 +83,7 @@ impl ClaudeStreamHandler for EventLoggingClaudeHandler {
             agent_id: self.agent_id.clone(),
             content: content.to_string(),
             message_type: message_type.to_string(),
+            json_log_location: None,
         };
 
         if let Err(e) = self.event_logger.log(event).await {

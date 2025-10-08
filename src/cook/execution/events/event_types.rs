@@ -56,6 +56,7 @@ pub enum MapReduceEvent {
         agent_id: String,
         duration: Duration,
         commits: Vec<String>,
+        json_log_location: Option<String>,
     },
     AgentFailed {
         job_id: String,
@@ -164,6 +165,7 @@ pub enum MapReduceEvent {
         agent_id: String,
         content: String,
         message_type: String,
+        json_log_location: Option<String>,
     },
 }
 

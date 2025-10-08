@@ -548,6 +548,7 @@ impl ErrorPolicyExecutor {
                 agent_id: "map-agent".to_string(),
                 step_failed: "map_phase".to_string(),
                 duration_ms: 0,
+                json_log_location: None,
             }],
             error_signature: format!("{:?}", error),
             worktree_artifacts: None,

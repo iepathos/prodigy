@@ -459,6 +459,7 @@ async fn test_resume_with_dlq_recovery() {
                 agent_id: format!("agent-failed-{}", i),
                 step_failed: "process".to_string(),
                 duration_ms: 1000,
+                json_log_location: None,
             }],
             error_signature: "temporary-failure".to_string(),
             worktree_artifacts: None,

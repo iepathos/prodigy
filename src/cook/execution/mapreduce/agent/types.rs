@@ -58,6 +58,9 @@ pub struct AgentResult {
     /// Worktree session ID for cleanup tracking
     #[serde(skip_serializing_if = "Option::is_none")]
     pub worktree_session_id: Option<String>,
+    /// Path to Claude JSON log file for debugging
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub json_log_location: Option<String>,
 }
 
 impl AgentResult {
@@ -74,6 +77,7 @@ impl AgentResult {
             worktree_path: None,
             branch_name: None,
             worktree_session_id: None,
+            json_log_location: None,
         }
     }
 
@@ -90,6 +94,7 @@ impl AgentResult {
             worktree_path: None,
             branch_name: None,
             worktree_session_id: None,
+            json_log_location: None,
         }
     }
 

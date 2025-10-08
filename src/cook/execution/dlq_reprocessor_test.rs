@@ -50,6 +50,7 @@ async fn create_test_dlq_with_items(
             agent_id: "agent-1".to_string(),
             step_failed: "map".to_string(),
             duration_ms: 100,
+            json_log_location: None,
         }],
         error_signature: "test-error".to_string(),
         worktree_artifacts: None,
@@ -602,6 +603,7 @@ async fn test_integration_end_to_end_dlq_retry_with_mock_failures() {
                     agent_id: format!("agent-{}", i % 3),
                     step_failed: if i % 2 == 0 { "map" } else { "reduce" }.to_string(),
                     duration_ms: 100 + i as u64 * 10,
+                    json_log_location: None,
                 }],
                 error_signature: format!("error-sig-{}", i % 7),
                 worktree_artifacts: if i % 5 == 0 {

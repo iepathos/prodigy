@@ -214,6 +214,7 @@ mod tests {
             agent_id: "agent-1".to_string(),
             duration: chrono::Duration::seconds(30),
             commits: vec!["abc123".to_string()],
+            json_log_location: None,
         };
         assert_eq!(agent_event.category(), EventCategory::AgentLifecycle);
 

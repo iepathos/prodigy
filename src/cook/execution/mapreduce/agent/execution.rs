@@ -338,6 +338,7 @@ impl AgentExecutor for StandardExecutor {
                     worktree_path: Some(handle.worktree_path().to_path_buf()),
                     branch_name: Some(handle.config.branch_name.clone()),
                     worktree_session_id: Some(handle.worktree_session.name.clone()),
+                    json_log_location: None,
                 }
             }
             Err(e) => {
@@ -358,6 +359,7 @@ impl AgentExecutor for StandardExecutor {
                     worktree_path: Some(handle.worktree_path().to_path_buf()),
                     branch_name: Some(handle.config.branch_name.clone()),
                     worktree_session_id: Some(handle.worktree_session.name.clone()),
+                    json_log_location: None,
                 }
             }
         };

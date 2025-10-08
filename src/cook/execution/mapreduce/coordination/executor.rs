@@ -579,6 +579,7 @@ impl MapReduceCoordinator {
                                 branch_name: None,
                                 worktree_session_id: Some(agent_id),
                                 files_modified: vec![],
+                                json_log_location: None,
                             }
                         }
                     };
@@ -815,6 +816,7 @@ impl MapReduceCoordinator {
                 branch_name: Some(handle.worktree_session.branch.clone()),
                 worktree_session_id: Some(agent_id.to_string()),
                 files_modified: all_files_modified.clone(),
+                json_log_location: None,
             }
         };
 

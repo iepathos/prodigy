@@ -269,6 +269,7 @@ impl AgentResultAggregator for DefaultResultAggregator {
             worktree_path: Some(worktree_path.to_path_buf()),
             branch_name: Some(branch_name.to_string()),
             worktree_session_id: Some(worktree_session_id),
+            json_log_location: None,
         })
     }
 

@@ -458,6 +458,7 @@ impl CheckpointedCoordinator {
                 branch_name: None,
                 worktree_session_id: None,
                 files_modified: vec![],
+                json_log_location: None,
             });
 
             *self.items_since_checkpoint.write().await += 1;
