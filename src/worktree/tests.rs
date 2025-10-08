@@ -1,3 +1,4 @@
+use super::manager_queries::{collect_all_states, filter_sessions_by_status, load_state_from_file};
 use super::*;
 use crate::subprocess::SubprocessManager;
 use crate::testing::fixtures::isolation::TestGitRepo;
@@ -405,21 +406,19 @@ fn test_filter_sessions_by_status() {
     ];
 
     // Test filtering for interrupted sessions
-    let interrupted =
-        WorktreeManager::filter_sessions_by_status(states.clone(), WorktreeStatus::Interrupted);
+    let interrupted = filter_sessions_by_status(states.clone(), WorktreeStatus::Interrupted);
     assert_eq!(interrupted.len(), 2);
     assert!(interrupted
         .iter()
         .all(|s| s.status == WorktreeStatus::Interrupted));
 
     // Test filtering for completed sessions
-    let completed =
-        WorktreeManager::filter_sessions_by_status(states.clone(), WorktreeStatus::Completed);
+    let completed = filter_sessions_by_status(states.clone(), WorktreeStatus::Completed);
     assert_eq!(completed.len(), 1);
     assert_eq!(completed[0].session_id, "session2");
 
     // Test filtering for non-existent status
-    let merged = WorktreeManager::filter_sessions_by_status(states, WorktreeStatus::Merged);
+    let merged = filter_sessions_by_status(states, WorktreeStatus::Merged);
     assert_eq!(merged.len(), 0);
 }
 
@@ -462,23 +461,23 @@ fn test_load_state_from_file() {
     fs::write(&json_path, serde_json::to_string(&state).unwrap()).unwrap();
 
     // Should successfully load the state
-    let loaded = WorktreeManager::load_state_from_file(&json_path);
+    let loaded = load_state_from_file(&json_path);
     assert!(loaded.is_some());
     assert_eq!(loaded.unwrap().session_id, "test-session");
 
     // Test with non-JSON file
     let txt_path = temp_dir.path().join("state.txt");
     fs::write(&txt_path, "not json").unwrap();
-    assert!(WorktreeManager::load_state_from_file(&txt_path).is_none());
+    assert!(load_state_from_file(&txt_path).is_none());
 
     // Test with invalid JSON
     let bad_json_path = temp_dir.path().join("bad.json");
     fs::write(&bad_json_path, "{ invalid json }").unwrap();
-    assert!(WorktreeManager::load_state_from_file(&bad_json_path).is_none());
+    assert!(load_state_from_file(&bad_json_path).is_none());
 
     // Test with non-existent file
     let missing_path = temp_dir.path().join("missing.json");
-    assert!(WorktreeManager::load_state_from_file(&missing_path).is_none());
+    assert!(load_state_from_file(&missing_path).is_none());
 }
 
 #[tokio::test]

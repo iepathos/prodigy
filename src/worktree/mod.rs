@@ -66,6 +66,8 @@ use std::path::PathBuf;
 pub mod builder;
 pub mod display;
 pub mod manager;
+pub mod manager_construction;
+pub mod manager_queries;
 pub mod parsing;
 pub mod pool;
 pub mod state;

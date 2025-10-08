@@ -7,9 +7,9 @@ use serde_json;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
-use super::builder::WorktreeBuilder;
+use super::manager_queries::load_state_from_file;
 use super::parsing;
 use super::{WorktreeSession, WorktreeState, WorktreeStatus};
 
@@ -51,82 +51,6 @@ pub struct WorktreeManager {
 }
 
 impl WorktreeManager {
-    /// Filter session states by a specific status
-    ///
-    /// This is a pure function that can be tested in isolation
-    pub(crate) fn filter_sessions_by_status(
-        states: Vec<WorktreeState>,
-        target_status: WorktreeStatus,
-    ) -> Vec<WorktreeState> {
-        states
-            .into_iter()
-            .filter(|state| state.status == target_status)
-            .collect()
-    }
-
-    /// Load and parse a worktree state from a JSON file path
-    ///
-    /// Returns None if the file cannot be read or parsed
-    pub(crate) fn load_state_from_file(path: &std::path::Path) -> Option<WorktreeState> {
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            return None;
-        }
-
-        fs::read_to_string(path)
-            .ok()
-            .and_then(|content| serde_json::from_str::<WorktreeState>(&content).ok())
-    }
-
-    /// Collect all worktree states from a metadata directory
-    pub(crate) fn collect_all_states(metadata_dir: &std::path::Path) -> Result<Vec<WorktreeState>> {
-        if !metadata_dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        let mut states = Vec::new();
-
-        for entry in fs::read_dir(metadata_dir)? {
-            let path = entry?.path();
-            if let Some(state) = Self::load_state_from_file(&path) {
-                states.push(state);
-            }
-        }
-
-        Ok(states)
-    }
-
-    /// Create a new WorktreeManager for the given repository
-    ///
-    /// # Arguments
-    /// * `repo_path` - Path to the git repository
-    /// * `subprocess` - Subprocess manager for git operations
-    ///
-    /// # Returns
-    /// * `Result<Self>` - WorktreeManager instance or error
-    ///
-    /// # Errors
-    /// Returns error if:
-    /// - Repository path is invalid
-    /// - Git repository is not found
-    pub fn new(repo_path: PathBuf, subprocess: SubprocessManager) -> Result<Self> {
-        Self::with_config(repo_path, subprocess, 0, None, HashMap::new())
-    }
-
-    /// Create a new WorktreeManager with configuration
-    pub fn with_config(
-        repo_path: PathBuf,
-        subprocess: SubprocessManager,
-        verbosity: u8,
-        custom_merge_workflow: Option<MergeWorkflow>,
-        workflow_env: HashMap<String, String>,
-    ) -> Result<Self> {
-        WorktreeBuilder::new(repo_path, subprocess)
-            .verbosity(verbosity)
-            .custom_merge_workflow(custom_merge_workflow)
-            .workflow_env(workflow_env)
-            .build()
-    }
-
     pub fn update_session_state<F>(&self, name: &str, updater: F) -> Result<()>
     where
         F: FnOnce(&mut WorktreeState),
@@ -148,13 +72,6 @@ impl WorktreeManager {
         fs::rename(&temp_file, &state_file)?;
 
         Ok(())
-    }
-
-    pub fn get_session_state(&self, name: &str) -> Result<WorktreeState> {
-        let state_file = self.base_dir.join(".metadata").join(format!("{name}.json"));
-        let state_json = fs::read_to_string(&state_file)?;
-        let state: WorktreeState = serde_json::from_str(&state_json)?;
-        Ok(state)
     }
 
     /// List all active worktree sessions
@@ -341,27 +258,6 @@ impl WorktreeManager {
         })
     }
 
-    /// Get the parent branch for a given branch
-    async fn get_parent_branch(&self, branch_name: &str) -> Result<String> {
-        let command = ProcessCommandBuilder::new("git")
-            .current_dir(&self.repo_path)
-            .args(["config", "--get", &format!("branch.{}.merge", branch_name)])
-            .build();
-
-        let output = self.subprocess.runner().run(command).await?;
-
-        if output.status.success() && !output.stdout.is_empty() {
-            // Extract branch name from refs/heads/main format
-            let parent = output.stdout.trim();
-            if let Some(name) = parent.strip_prefix("refs/heads/") {
-                return Ok(name.to_string());
-            }
-        }
-
-        // Default to main or master if we can't determine
-        Ok("main".to_string())
-    }
-
     /// List sessions from metadata files
     fn list_metadata_sessions(&self) -> Result<Vec<WorktreeSession>> {
         let metadata_dir = self.base_dir.join(".metadata");
@@ -385,7 +281,7 @@ impl WorktreeManager {
                 continue;
             }
 
-            if let Some(state) = Self::load_state_from_file(&path) {
+            if let Some(state) = load_state_from_file(&path) {
                 // Only include sessions that are not cleaned up
                 if state.status != WorktreeStatus::CleanedUp {
                     let worktree_path = self.base_dir.join(&state.worktree_name);
@@ -455,82 +351,6 @@ impl WorktreeManager {
             .ok_or_else(|| anyhow::anyhow!("Worktree '{}' not found", name))
     }
 
-    /// Determine default branch (main or master) - I/O operation separated
-    pub(crate) async fn determine_default_branch(&self) -> Result<String> {
-        let main_exists = self.check_branch_exists("main").await?;
-        Ok(Self::select_default_branch(main_exists))
-    }
-
-    /// Pure function to select default branch based on main existence
-    fn select_default_branch(main_exists: bool) -> String {
-        if main_exists {
-            "main".to_string()
-        } else {
-            "master".to_string()
-        }
-    }
-
-    /// Get the current branch name from the repository
-    ///
-    /// Returns the name of the currently checked-out branch, or "HEAD"
-    /// if in detached HEAD state.
-    pub(crate) async fn get_current_branch(&self) -> Result<String> {
-        let command = ProcessCommandBuilder::new("git")
-            .current_dir(&self.repo_path)
-            .args(["rev-parse", "--abbrev-ref", "HEAD"])
-            .build();
-
-        let output = self.subprocess.runner().run(command).await?;
-
-        if !output.status.success() {
-            anyhow::bail!("Failed to get current branch");
-        }
-
-        Ok(output.stdout.trim().to_string())
-    }
-
-    /// Determine the merge target for a worktree session
-    ///
-    /// Returns the original branch from session state, with fallbacks:
-    /// 1. If original_branch is empty (old session): use main/master
-    /// 2. If original_branch is "HEAD" (detached): use main/master
-    /// 3. If original_branch was deleted: warn and use main/master
-    /// 4. Otherwise: use original_branch
-    pub async fn get_merge_target(&self, session_name: &str) -> Result<String> {
-        let state = self.get_session_state(session_name)?;
-
-        // Handle old sessions or edge cases
-        if state.original_branch.is_empty() || state.original_branch == "HEAD" {
-            if !state.original_branch.is_empty() {
-                warn!("Detached HEAD state detected, using default branch");
-            }
-            return self.determine_default_branch().await;
-        }
-
-        // Verify original branch still exists
-        if !self.check_branch_exists(&state.original_branch).await? {
-            warn!(
-                "Original branch '{}' no longer exists, using default branch",
-                state.original_branch
-            );
-            return self.determine_default_branch().await;
-        }
-
-        Ok(state.original_branch.clone())
-    }
-
-    /// Check if a branch exists - I/O operation
-    async fn check_branch_exists(&self, branch: &str) -> Result<bool> {
-        let command = Self::build_branch_check_command(&self.repo_path, branch);
-        Ok(self
-            .subprocess
-            .runner()
-            .run(command)
-            .await
-            .map(|o| o.status.success())
-            .unwrap_or(false))
-    }
-
     /// Pure function to build branch check command
     /// Validate merge preconditions - combines validation logic
     /// Returns Ok(true) if merge should proceed, Ok(false) if no commits to merge
@@ -544,28 +364,6 @@ impl WorktreeManager {
             .get_commit_count_between_branches(target_branch, worktree_branch)
             .await?;
         Ok(Self::should_proceed_with_merge(&commit_count))
-    }
-
-    /// Get commit count between branches - I/O operation
-    async fn get_commit_count_between_branches(
-        &self,
-        target_branch: &str,
-        worktree_branch: &str,
-    ) -> Result<String> {
-        let command =
-            Self::build_commit_diff_command(&self.repo_path, target_branch, worktree_branch);
-        let output = self
-            .subprocess
-            .runner()
-            .run(command)
-            .await
-            .context("Failed to check for new commits")?;
-
-        if output.status.success() {
-            Ok(output.stdout.trim().to_string())
-        } else {
-            Err(anyhow::anyhow!("Failed to get commit count"))
-        }
     }
 
     /// Pure function to determine if merge should proceed based on commit count
@@ -651,48 +449,6 @@ impl WorktreeManager {
             &merged_branches,
             merge_output,
         )
-    }
-
-    /// Get merged branches - I/O operation
-    async fn get_merged_branches(&self, target_branch: &str) -> Result<String> {
-        // Use current directory's git root instead of self.repo_path
-        // This ensures we check merges in the correct location when running from a worktree
-        let check_path = self
-            .get_git_root_path()
-            .await
-            .unwrap_or_else(|_| self.repo_path.clone());
-        let command = Self::build_merge_check_command(&check_path, target_branch);
-        let output = self
-            .subprocess
-            .runner()
-            .run(command)
-            .await
-            .context("Failed to check merged branches")?;
-
-        if output.status.success() {
-            Ok(output.stdout)
-        } else {
-            Err(anyhow::anyhow!("Failed to check merged branches"))
-        }
-    }
-
-    /// Get the git root path for the current working directory
-    async fn get_git_root_path(&self) -> Result<PathBuf> {
-        let command = ProcessCommandBuilder::new("git")
-            .args(["rev-parse", "--show-toplevel"])
-            .build();
-        let output = self
-            .subprocess
-            .runner()
-            .run(command)
-            .await
-            .context("Failed to get git root path")?;
-
-        if output.status.success() {
-            Ok(PathBuf::from(output.stdout.trim()))
-        } else {
-            Err(anyhow::anyhow!("Failed to get git root path"))
-        }
     }
 
     /// Pure function to build merge check command
@@ -905,26 +661,6 @@ impl WorktreeManager {
         Ok(())
     }
 
-    pub async fn get_worktree_for_branch(&self, branch: &str) -> Result<Option<PathBuf>> {
-        let sessions = self.list_sessions().await?;
-        Ok(sessions
-            .into_iter()
-            .find(|s| s.branch == branch)
-            .map(|s| s.path))
-    }
-
-    /// Create a checkpoint for the current state
-    pub fn create_checkpoint(
-        &self,
-        session_name: &str,
-        checkpoint: super::Checkpoint,
-    ) -> Result<()> {
-        self.update_session_state(session_name, |state| {
-            state.last_checkpoint = Some(checkpoint);
-            state.resumable = true;
-        })
-    }
-
     /// Update an existing checkpoint
     pub fn update_checkpoint<F>(&self, session_name: &str, updater: F) -> Result<()>
     where
@@ -935,11 +671,6 @@ impl WorktreeManager {
                 updater(checkpoint);
             }
         })
-    }
-
-    /// Load session state by session ID (name)
-    pub fn load_session_state(&self, session_id: &str) -> Result<WorktreeState> {
-        self.get_session_state(session_id)
     }
 
     /// Restore a session for resuming work
@@ -959,16 +690,6 @@ impl WorktreeManager {
             state.worktree_name.clone(),
             state.branch.clone(),
             worktree_path,
-        ))
-    }
-
-    /// List all interrupted sessions
-    pub fn list_interrupted_sessions(&self) -> Result<Vec<WorktreeState>> {
-        let metadata_dir = self.base_dir.join(".metadata");
-        let all_states = Self::collect_all_states(&metadata_dir)?;
-        Ok(Self::filter_sessions_by_status(
-            all_states,
-            WorktreeStatus::Interrupted,
         ))
     }
 
@@ -1163,24 +884,6 @@ impl WorktreeManager {
         Ok(())
     }
 
-    /// Get cleanup configuration from environment or defaults
-    pub fn get_cleanup_config() -> CleanupConfig {
-        CleanupConfig {
-            auto_cleanup: std::env::var("PRODIGY_AUTO_CLEANUP")
-                .map(|v| v.to_lowercase() == "true")
-                .unwrap_or(true),
-            confirm_before_cleanup: std::env::var("PRODIGY_CONFIRM_CLEANUP")
-                .map(|v| v.to_lowercase() == "true")
-                .unwrap_or(std::env::var("PRODIGY_AUTOMATION").is_err()),
-            retention_days: std::env::var("PRODIGY_RETENTION_DAYS")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(7),
-            dry_run: std::env::var("PRODIGY_DRY_RUN")
-                .map(|v| v.to_lowercase() == "true")
-                .unwrap_or(false),
-        }
-    }
     /// Execute a custom merge workflow
     /// Initialize variables for merge workflow execution
     async fn init_merge_variables(
@@ -1590,6 +1293,9 @@ impl WorktreeManager {
 mod tests {
     use super::*;
     use crate::subprocess::ProcessCommandBuilder;
+    use crate::worktree::manager_queries::{
+        collect_all_states, filter_sessions_by_status, load_state_from_file,
+    };
     use crate::worktree::{IterationInfo, WorktreeStats};
     use tempfile::TempDir;
 
@@ -2419,14 +2125,12 @@ mod tests {
             },
         ];
 
-        let in_progress =
-            WorktreeManager::filter_sessions_by_status(states.clone(), WorktreeStatus::InProgress);
+        let in_progress = filter_sessions_by_status(states.clone(), WorktreeStatus::InProgress);
         assert_eq!(in_progress.len(), 2);
         assert_eq!(in_progress[0].session_id, "session1");
         assert_eq!(in_progress[1].session_id, "session3");
 
-        let complete =
-            WorktreeManager::filter_sessions_by_status(states, WorktreeStatus::Completed);
+        let complete = filter_sessions_by_status(states, WorktreeStatus::Completed);
         assert_eq!(complete.len(), 1);
         assert_eq!(complete[0].session_id, "session2");
     }
@@ -2467,7 +2171,7 @@ mod tests {
         let json_content = serde_json::to_string(&state).unwrap();
         fs::write(&json_path, json_content).unwrap();
 
-        let loaded = WorktreeManager::load_state_from_file(&json_path);
+        let loaded = load_state_from_file(&json_path);
         assert!(loaded.is_some());
         let loaded_state = loaded.unwrap();
         assert_eq!(loaded_state.session_id, "test-session");
@@ -2475,16 +2179,16 @@ mod tests {
         // Test with non-JSON file
         let txt_path = temp_dir.path().join("not_json.txt");
         fs::write(&txt_path, "not json content").unwrap();
-        assert!(WorktreeManager::load_state_from_file(&txt_path).is_none());
+        assert!(load_state_from_file(&txt_path).is_none());
 
         // Test with invalid JSON
         let bad_json_path = temp_dir.path().join("bad.json");
         fs::write(&bad_json_path, "{ invalid json }").unwrap();
-        assert!(WorktreeManager::load_state_from_file(&bad_json_path).is_none());
+        assert!(load_state_from_file(&bad_json_path).is_none());
 
         // Test with non-existent file
         let missing_path = temp_dir.path().join("missing.json");
-        assert!(WorktreeManager::load_state_from_file(&missing_path).is_none());
+        assert!(load_state_from_file(&missing_path).is_none());
     }
 
     #[test]
@@ -2530,7 +2234,7 @@ mod tests {
         // Also create a non-JSON file that should be ignored
         fs::write(metadata_dir.join("readme.txt"), "ignored").unwrap();
 
-        let states = WorktreeManager::collect_all_states(&metadata_dir).unwrap();
+        let states = collect_all_states(&metadata_dir).unwrap();
         assert_eq!(states.len(), 3);
 
         // Verify all states were loaded
@@ -2541,7 +2245,7 @@ mod tests {
 
         // Test with non-existent directory
         let missing_dir = temp_dir.path().join("missing");
-        let result = WorktreeManager::collect_all_states(&missing_dir).unwrap();
+        let result = collect_all_states(&missing_dir).unwrap();
         assert_eq!(result.len(), 0);
     }
 }
