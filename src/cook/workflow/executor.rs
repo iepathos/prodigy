@@ -6,7 +6,7 @@
 #[path = "executor/builder.rs"]
 mod builder;
 #[path = "executor/commands.rs"]
-mod commands;
+pub(crate) mod commands;
 #[path = "executor/context.rs"]
 mod context;
 #[path = "executor/failure_handler.rs"]

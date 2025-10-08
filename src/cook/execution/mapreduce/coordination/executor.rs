@@ -396,9 +396,26 @@ impl MapReduceCoordinator {
                 stdout: Some(result.stdout),
                 stderr: Some(result.stderr),
             })
+        } else if let Some(write_file_cfg) = &step.write_file {
+            info!("Executing write_file command: {}", write_file_cfg.path);
+
+            let result =
+                crate::cook::workflow::execute_write_file_command(write_file_cfg, &env.working_dir)
+                    .await
+                    .map_err(|e| {
+                        MapReduceError::ProcessingError(format!("Write file command failed: {}", e))
+                    })?;
+
+            Ok(StepResult {
+                success: result.success,
+                exit_code: result.exit_code,
+                stdout: Some(result.stdout),
+                stderr: Some(result.stderr),
+            })
         } else {
             Err(MapReduceError::InvalidConfiguration {
-                reason: "Step must have either 'claude' or 'shell' command".to_string(),
+                reason: "Step must have either 'claude', 'shell', or 'write_file' command"
+                    .to_string(),
                 field: "step".to_string(),
                 value: format!("{:?}", step),
             })
@@ -1009,9 +1026,61 @@ impl MapReduceCoordinator {
                 stdout: Some(output.stdout),
                 stderr: Some(output.stderr),
             })
+        } else if let Some(write_file_cfg) = &step.write_file {
+            // Interpolate variables in path and content
+            let interpolated_path = engine
+                .interpolate(&write_file_cfg.path, &interp_context)
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!(
+                        "Variable interpolation failed for path: {}",
+                        e
+                    ))
+                })?;
+
+            let interpolated_content = engine
+                .interpolate(&write_file_cfg.content, &interp_context)
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!(
+                        "Variable interpolation failed for content: {}",
+                        e
+                    ))
+                })?;
+
+            // Create interpolated config
+            let interpolated_cfg = crate::config::command::WriteFileConfig {
+                path: interpolated_path,
+                content: interpolated_content,
+                format: write_file_cfg.format.clone(),
+                create_dirs: write_file_cfg.create_dirs,
+                mode: write_file_cfg.mode.clone(),
+            };
+
+            // Execute write_file command
+            info!(
+                "Executing write_file command in worktree: {}",
+                interpolated_cfg.path
+            );
+
+            let result =
+                crate::cook::workflow::execute_write_file_command(&interpolated_cfg, worktree_path)
+                    .await
+                    .map_err(|e| {
+                        MapReduceError::ProcessingError(format!(
+                            "Failed to execute write_file command: {}",
+                            e
+                        ))
+                    })?;
+
+            Ok(StepResult {
+                success: result.success,
+                exit_code: result.exit_code,
+                stdout: Some(result.stdout),
+                stderr: Some(result.stderr),
+            })
         } else {
             Err(MapReduceError::InvalidConfiguration {
-                reason: "Step must have either 'claude' or 'shell' command".to_string(),
+                reason: "Step must have either 'claude', 'shell', or 'write_file' command"
+                    .to_string(),
                 field: "step".to_string(),
                 value: format!("{:?}", step),
             })
