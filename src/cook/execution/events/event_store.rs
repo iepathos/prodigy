@@ -1207,4 +1207,69 @@ mod tests {
         assert_eq!(offset.event_id, event_id);
         assert_eq!(offset.timestamp, timestamp);
     }
+
+    #[test]
+    fn test_process_event_line_valid_json() {
+        let timestamp = Utc::now();
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp,
+            correlation_id: "test-corr".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test-job".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp,
+            },
+            metadata: HashMap::new(),
+        };
+
+        let line = serde_json::to_string(&event).unwrap();
+        let mut index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 0,
+        };
+        let mut time_range = (None, None);
+
+        process_event_line(&line, Path::new("/test.jsonl"), 1, 0, &mut index, &mut time_range);
+
+        assert_eq!(index.total_events, 1);
+        assert_eq!(index.event_counts.get("job_started"), Some(&1));
+        assert_eq!(index.file_offsets.len(), 1);
+        assert!(time_range.0.is_some());
+        assert!(time_range.1.is_some());
+    }
+
+    #[test]
+    fn test_process_event_line_invalid_json() {
+        let mut index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 0,
+        };
+        let mut time_range = (None, None);
+
+        process_event_line("invalid json", Path::new("/test.jsonl"), 1, 0, &mut index, &mut time_range);
+
+        assert_eq!(index.total_events, 0);
+        assert!(index.event_counts.is_empty());
+        assert!(index.file_offsets.is_empty());
+        assert!(time_range.0.is_none());
+        assert!(time_range.1.is_none());
+    }
 }
