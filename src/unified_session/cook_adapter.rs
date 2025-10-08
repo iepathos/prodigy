@@ -407,4 +407,24 @@ mod tests {
             .await
             .unwrap();
     }
+
+    #[tokio::test]
+    async fn test_update_session_multiple_sequential_updates() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::IncrementIteration)
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(3))
+            .await
+            .unwrap();
+        adapter
+            .update_session(CookSessionUpdate::UpdateStatus(
+                CookSessionStatus::Completed,
+            ))
+            .await
+            .unwrap();
+    }
 }

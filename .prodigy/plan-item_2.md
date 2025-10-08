@@ -1,201 +1,191 @@
-# Implementation Plan: Improve Test Coverage for list_resumable_jobs_internal
+# Implementation Plan: Add Test Coverage for CookSessionAdapter::update_session
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/state.rs:DefaultJobStateManager::list_resumable_jobs_internal:884
-**Priority Score**: 48.102062072615965
-**Debt Type**: ComplexityHotspot (Cognitive: 56, Cyclomatic: 10)
+**Location**: ./src/unified_session/cook_adapter.rs:CookSessionAdapter::update_session:184
+**Priority Score**: 48.64
+**Debt Type**: ComplexityHotspot (cognitive: 17, cyclomatic: 5)
 **Current Metrics**:
-- Lines of Code: 59
-- Cyclomatic Complexity: 10
-- Cognitive Complexity: 56
-- Nesting Depth: 6
-- Coverage: 0% (significant gap)
+- Lines of Code: 26
+- Cyclomatic Complexity: 5
+- Cognitive Complexity: 17
+- Coverage: 0% (missing coverage for critical branches)
+- Upstream Callers: 22 different call sites
 
-**Issue**: Add 10 tests for 100% coverage gap. NO refactoring needed (complexity 10 is acceptable)
-
-The function `list_resumable_jobs_internal` is responsible for scanning checkpoint directories and identifying resumable MapReduce jobs. While existing tests cover many scenarios, the coverage analysis shows gaps that need to be addressed.
+**Issue**: Add 5 tests for 100% coverage gap. NO refactoring needed (complexity 5 is acceptable). The function has good structure but lacks comprehensive test coverage for edge cases and error conditions.
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 5.0 (minimal - focus is on testing, not refactoring)
-- Coverage Improvement: 0.0 → 100%
-- Risk Reduction: 16.8%
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 2.5 (via test-driven clarity)
+- Coverage Improvement: 0.0 (needs measurement after tests)
+- Risk Reduction: 17.02 (significantly reduce regression risk)
 
 **Success Criteria**:
-- [x] 10 new focused tests added (each < 15 lines)
-- [x] Each test covers ONE specific code path/branch
-- [x] All existing tests continue to pass
-- [x] Test coverage reaches 100% for the function
-- [x] No clippy warnings
-- [x] Proper formatting
-- [x] Tests are deterministic and fast
+- [ ] 5 new focused tests added (each <15 lines)
+- [ ] Each test covers ONE specific code path
+- [ ] All edge cases and error conditions tested
+- [ ] All existing tests continue to pass
+- [ ] No clippy warnings
+- [ ] Proper formatting with `cargo fmt`
 
 ## Implementation Phases
 
-### Phase 1: Add Tests for Entry Iteration Edge Cases
+### Phase 1: Add Test for Multiple Sequential Updates
 
-**Goal**: Cover edge cases in the directory entry iteration loop (lines 895-938)
-
-**Changes**:
-- Add test for multiple job directories with mixed states
-- Add test for directory with special characters in name
-- Add test for concurrent checkpoint modifications
-- Add test for very large number of job directories
-
-**Tests to Add**:
-1. `test_list_resumable_multiple_mixed_jobs` - Mix of complete, incomplete, and invalid jobs
-2. `test_list_resumable_special_chars_in_name` - Job IDs with hyphens, underscores
-3. `test_list_resumable_many_jobs` - Verify performance with 50+ job directories
-
-**Testing**:
-- Run `cargo test test_list_resumable_multiple` to verify new tests pass
-- Verify existing tests still pass with `cargo test list_resumable`
-
-**Success Criteria**:
-- [x] 3 new tests added
-- [x] All tests pass
-- [x] Coverage increases for loop iteration paths
-- [x] Ready to commit
-
-### Phase 2: Add Tests for Checkpoint State Variations
-
-**Goal**: Cover different checkpoint states and version scenarios
+**Goal**: Verify that multiple updates can be applied in sequence and cached state remains consistent
 
 **Changes**:
-- Add test for job with no metadata file but valid checkpoint
-- Add test for job with metadata but no checkpoint files
-- Add test for job with checkpoints but failed list_checkpoints call
-- Add test for jobs with different completion states
-
-**Tests to Add**:
-4. `test_list_resumable_metadata_missing` - Valid checkpoint but no metadata.json
-5. `test_list_resumable_checkpoints_but_metadata_invalid` - Checkpoints exist but metadata is corrupted
-6. `test_list_resumable_mixed_checkpoint_versions` - Jobs at different checkpoint versions
+- Add test `test_update_session_multiple_sequential_updates` to verify:
+  - Increment iteration
+  - Add files changed
+  - Update status
+  - All updates are properly reflected in cached state
 
 **Testing**:
-- Run `cargo test test_list_resumable` to verify all variations
-- Check that incomplete jobs with various checkpoint states are handled correctly
+```bash
+cargo test test_update_session_multiple_sequential_updates
+```
 
 **Success Criteria**:
-- [x] 3 new tests added
-- [x] All tests pass
-- [x] Coverage increases for checkpoint loading paths
-- [x] Ready to commit
+- [ ] Test passes and verifies sequential update behavior
+- [ ] Cached state reflects all accumulated updates
+- [ ] Test is <15 lines
+- [ ] All tests pass: `cargo test --lib`
 
-### Phase 3: Add Tests for Data Integrity and Edge Values
+### Phase 2: Add Test for CompleteIteration Update Path
 
-**Goal**: Cover edge cases in the data processing and aggregation
+**Goal**: Verify that `CookSessionUpdate::CompleteIteration` is handled correctly (maps to empty vec)
 
 **Changes**:
-- Add test for job with zero work items
-- Add test for job with very high checkpoint version numbers
-- Add test for job with partial failure records
-- Add test for timestamp boundary conditions
-
-**Tests to Add**:
-7. `test_list_resumable_zero_items` - Job with empty work_items list
-8. `test_list_resumable_high_checkpoint_version` - Checkpoint version near u32::MAX
-9. `test_list_resumable_partial_failures` - Job with some failed agents
-10. `test_list_resumable_recent_vs_old_jobs` - Jobs with different updated_at timestamps
+- Add test `test_update_session_complete_iteration` to verify:
+  - CompleteIteration update is accepted
+  - No error occurs
+  - Cached state is still updated (even though unified_updates is empty)
 
 **Testing**:
-- Run `cargo test test_list_resumable` to verify all edge cases
-- Ensure no panics or unexpected behavior with boundary values
+```bash
+cargo test test_update_session_complete_iteration
+```
 
 **Success Criteria**:
-- [x] 4 new tests added (total 10 new tests)
-- [x] All tests pass
-- [x] Coverage reaches 100% for the function
-- [x] No edge cases cause panics or errors
-- [x] Ready to commit
+- [ ] Test passes and verifies CompleteIteration handling
+- [ ] No panic or error occurs
+- [ ] Test is <15 lines
+- [ ] All tests pass: `cargo test --lib`
 
-### Phase 4: Verify Coverage and Finalize
+### Phase 3: Add Test for Update After Session Completion
 
-**Goal**: Confirm 100% test coverage and clean up
+**Goal**: Verify behavior when trying to update an already-completed session
 
 **Changes**:
-- Run coverage analysis with `cargo tarpaulin`
-- Identify any remaining uncovered branches
-- Add additional tests if needed
-- Ensure all tests are documented
+- Add test `test_update_session_after_completion` to verify:
+  - Start a session
+  - Mark it as completed
+  - Try to update it (should succeed gracefully)
+  - Verify cached state reflects the final state
 
 **Testing**:
-- `cargo test list_resumable` - All tests pass
-- `cargo tarpaulin --lib` - Verify 100% coverage of target function
-- `cargo clippy` - No warnings
-- `cargo fmt --check` - Proper formatting
+```bash
+cargo test test_update_session_after_completion
+```
 
 **Success Criteria**:
-- [x] 100% coverage achieved for `list_resumable_jobs_internal`
-- [x] All 10+ tests passing consistently
-- [x] No clippy warnings
-- [x] Code formatted correctly
-- [x] Tests are fast (< 5s total)
-- [x] Ready for final commit
+- [ ] Test passes and verifies post-completion update behavior
+- [ ] No errors occur
+- [ ] Test is <15 lines
+- [ ] All tests pass: `cargo test --lib`
+
+### Phase 4: Add Test for Files Changed Delta Accumulation
+
+**Goal**: Verify that multiple AddFilesChanged updates accumulate correctly
+
+**Changes**:
+- Add test `test_update_files_changed_delta` to verify:
+  - Add 3 files changed
+  - Add 5 more files changed
+  - Add 2 more files changed
+  - Verify cumulative total in cached state
+
+**Testing**:
+```bash
+cargo test test_update_files_changed_delta
+```
+
+**Success Criteria**:
+- [ ] Test passes and verifies accumulation logic
+- [ ] Delta values are properly accumulated
+- [ ] Test is <15 lines
+- [ ] All tests pass: `cargo test --lib`
+
+### Phase 5: Add Test for Update Metadata Path
+
+**Goal**: Verify custom metadata updates work correctly
+
+**Changes**:
+- Add test `test_update_metadata` to verify:
+  - Custom metadata can be set via CookSessionUpdate variants
+  - Metadata is preserved in cached state
+  - Multiple metadata updates don't interfere with each other
+
+**Testing**:
+- Run all tests to ensure coverage is complete
+```bash
+cargo test --lib
+cargo clippy
+cargo fmt --check
+```
+
+**Success Criteria**:
+- [ ] Test passes and verifies metadata handling
+- [ ] All 5 new tests pass
+- [ ] No clippy warnings
+- [ ] Code is properly formatted
+- [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Write tests one at a time
-2. Run `cargo test <test_name>` after each test
-3. Verify test passes and covers intended branch
-4. Run full test suite to ensure no regressions
-5. Commit after each phase
-
-**Test Design Principles**:
-- Each test should be < 15 lines (excluding setup)
-- Use helper functions `create_unique_temp_dir()` and `create_test_config()` (already in file)
-- Test ONE specific branch or condition per test
-- Use descriptive test names that explain what's being tested
-- Follow existing test patterns in the file
-
-**Coverage Verification**:
-```bash
-# After each phase, check coverage
-cargo tarpaulin --lib --line --ignore-tests \
-  --exclude-files 'src/main.rs' \
-  --out Stdout | grep 'state.rs'
-```
+1. Write the test first (TDD approach)
+2. Run `cargo test <test_name>` to verify the specific test
+3. Run `cargo test --lib` to verify all tests still pass
+4. Run `cargo clippy` to check for warnings
+5. Run `cargo fmt` to ensure proper formatting
+6. Commit the phase with a clear message
 
 **Final verification**:
-```bash
-just ci                    # Full CI checks
-cargo clippy -- -D warnings # No warnings allowed
-cargo test --lib           # All tests pass
-```
+1. `cargo test --lib` - All tests pass
+2. `cargo clippy` - No warnings
+3. `cargo fmt --check` - Proper formatting
+4. `cargo tarpaulin --lib` - Measure coverage improvement
+5. Review test coverage report to confirm gaps are filled
+
+## Test Design Guidelines
+
+Each test should:
+- Be <15 lines of code
+- Test ONE specific code path
+- Use descriptive assertion messages
+- Follow the existing test pattern in the file
+- Use `create_test_adapter()` helper for setup
+- Clean up with temp dir drop (automatic)
 
 ## Rollback Plan
 
 If a phase fails:
-1. Identify which test is failing
-2. Review the test logic and the function behavior
-3. Adjust the test to match actual function behavior
-4. If the function has a bug, document it but DON'T fix it (this is test-only work)
-5. If stuck after 3 attempts, commit what works and document the gap
-
-**Important**: This plan focuses ONLY on adding tests. Do NOT refactor the function, even if you see opportunities to improve it.
+1. Review the test failure carefully
+2. Check if the test expectation is correct
+3. If test is wrong, fix the test
+4. If code behavior is unexpected, investigate further
+5. Do NOT refactor the production code (per debtmap recommendation)
+6. If completely blocked, document findings and reassess
 
 ## Notes
 
-### Why No Refactoring?
-
-The recommendation explicitly states: "NO refactoring needed (complexity 10 is acceptable)". The cyclomatic complexity of 10 is at the threshold of acceptability, and the function's logic is straightforward directory scanning. The high cognitive complexity (56) comes from deep nesting, but since the function is pure logic with clear intent, adding tests is more valuable than restructuring.
-
-### Test Coverage Strategy
-
-The 10 tests should focus on:
-- **Boundary conditions**: Empty directories, missing files, edge values
-- **Error paths**: Invalid checkpoints, missing metadata, I/O errors
-- **State variations**: Complete vs incomplete jobs, different checkpoint versions
-- **Data integrity**: Correct aggregation of job information
-
-### Expected Outcomes
-
-After completing this plan:
-- 100% branch coverage for `list_resumable_jobs_internal`
-- 10+ high-quality, focused tests
-- Increased confidence in the function's correctness
-- Clear documentation of expected behavior through tests
-- Foundation for future refactoring if needed (but not in this plan)
+- The function structure is clean and well-designed
+- Cyclomatic complexity of 5 is acceptable and manageable
+- Cognitive complexity of 17 is due to async/await patterns, not poor design
+- Focus is purely on test coverage, NOT refactoring
+- Existing tests cover happy paths; new tests cover edge cases
+- The 22 upstream callers indicate this is a critical function
+- High test coverage will significantly reduce regression risk
