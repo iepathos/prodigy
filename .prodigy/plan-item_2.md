@@ -1,245 +1,179 @@
-# Implementation Plan: Retire mod_old.rs God Object
+# Implementation Plan: Refactor execute_command with Functional Patterns
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/mapreduce/mod_old.rs:MapReduceExecutor:882
-**Priority Score**: 163.69723256426784
-**Debt Type**: God Object / Excessive Complexity
+**Location**: ./src/abstractions/claude.rs:RealClaudeClient::execute_command:407
+**Priority Score**: 33.74
+**Debt Type**: ComplexityHotspot (Cognitive: 41, Cyclomatic: 16)
 **Current Metrics**:
-- Lines of Code: 4027
-- Functions: 95 (74 impl methods, 21+ tests)
-- Cyclomatic Complexity: 295 total, 28 max, 3.1 avg
-- Coverage: 0%
-- God Object Score: 1.0 (maximum)
-- Responsibilities: 8 distinct areas
-- Fields: 25
-- Methods: 77
+- Lines of Code: 99
+- Cyclomatic Complexity: 16
+- Cognitive Complexity: 41
+- Nesting Depth: 4
 
-**Issue**: The `mod_old.rs` file is a massive 4027-line God Object containing the old MapReduce implementation. A refactored implementation already exists in `mod.rs` with properly decomposed modules. The old file should be retired by:
-1. Identifying any missing functionality not yet migrated
-2. Ensuring all tests pass with the new implementation
-3. Updating all imports to use the new modules
-4. Removing the old file entirely
+**Issue**: This function has moderate cyclomatic complexity (16) and high cognitive complexity (41), combining retry logic, error classification, command building, and result handling in a single large function. The recommendation is to apply functional patterns by extracting 4 pure functions with Iterator chains.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 59.0 points
-- Maintainability Improvement: 16.37 points
-- Test Effort: 402.7 (currently 0% coverage in old file)
+- Complexity Reduction: 8.0
+- Coverage Improvement: 0.0
+- Risk Reduction: 11.81
 
 **Success Criteria**:
-- [ ] All functionality from mod_old.rs is available in new modules
-- [ ] All tests pass with new implementation
-- [ ] No code references mod_old.rs
-- [ ] File mod_old.rs is deleted
-- [ ] Code coverage maintained or improved
-- [ ] All existing integration tests pass
+- [ ] Cyclomatic complexity reduced from 16 to ≤8
+- [ ] Cognitive complexity reduced from 41 to ≤25
+- [ ] Pure functions extracted for predicates, transformations
+- [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting maintained
+- [ ] Proper formatting
 
 ## Implementation Phases
 
-This is a **retirement** project, not a refactoring project. The new modular implementation already exists. Our job is to safely transition away from the old code.
+### Phase 1: Extract Pure Predicate Functions
 
-### Phase 1: Analyze Migration Gap
-
-**Goal**: Identify any functionality in mod_old.rs that hasn't been migrated to the new modular structure
+**Goal**: Extract error classification and retry decision logic into pure, testable functions
 
 **Changes**:
-- Compare public API of mod_old.rs vs mod.rs
-- Check for any unique functions/types only in mod_old.rs
-- Verify all imports in the codebase
-- Document any missing pieces
+- Already exists: `is_transient_error(stderr: &str) -> bool` (line 326)
+- Already exists: `should_retry_error(error_type, attempt, max_retries) -> bool` (line 376)
+- Already exists: `classify_command_error(error, stderr) -> CommandErrorType` (line 357)
+- Add unit tests for these three existing pure functions to ensure they're properly validated
 
 **Testing**:
-- Run `cargo build` to identify compile errors
-- Run `grep -r "mod_old" src/` to find references
-- Check for any integration tests specifically using mod_old
+- Add tests for `is_transient_error` with various error patterns
+- Add tests for `should_retry_error` with different retry scenarios
+- Add tests for `classify_command_error` with ProcessError variants
+- Run `cargo test --lib`
 
 **Success Criteria**:
-- [ ] Complete list of functions only in mod_old.rs
-- [ ] List of files importing from mod_old
-- [ ] Documentation of migration status
-- [ ] Ready to proceed with migration
-
-### Phase 2: Migrate Missing Functionality (if any)
-
-**Goal**: Move any remaining unique functionality from mod_old.rs to appropriate new modules
-
-**Changes**:
-- For each unique function/type identified:
-  - Determine correct target module based on responsibility
-  - Copy implementation to new module
-  - Add tests for the migrated code
-  - Update visibility as needed
-- Update re-exports in mod.rs if needed
-
-**Testing**:
-- Run `cargo test --lib` for each migrated piece
-- Verify function signatures match
-- Check that all dependencies are satisfied
-
-**Success Criteria**:
-- [ ] All unique functionality migrated
-- [ ] Tests pass for migrated code
-- [ ] No functionality lost
-- [ ] Ready to update imports
-
-### Phase 3: Update Imports
-
-**Goal**: Change all imports from mod_old to the new modular structure
-
-**Changes**:
-- Find all `use crate::cook::execution::mapreduce::mod_old` imports
-- Replace with appropriate new module imports
-- Update any type paths (e.g., `mod_old::MapReduceExecutor` → `MapReduceExecutor`)
-- Fix any visibility issues that arise
-
-**Testing**:
-- Run `cargo build` after each file's imports are updated
-- Run `cargo test` to verify no behavioral changes
-- Check that all integration tests still pass
-
-**Success Criteria**:
-- [ ] No references to mod_old remain
-- [ ] All code compiles
+- [ ] Tests added for all three predicate functions
 - [ ] All tests pass
-- [ ] Ready to remove old file
+- [ ] Coverage for predicates is >80%
+- [ ] Ready to commit
 
-### Phase 4: Remove mod_old.rs
+### Phase 2: Extract Command Building Logic
 
-**Goal**: Delete the old God Object file and clean up module declarations
+**Goal**: Separate command construction into a pure function
 
 **Changes**:
-- Remove `pub mod mod_old;` declaration from parent module
-- Delete `src/cook/execution/mapreduce/mod_old.rs`
-- Update any documentation references
-- Clean up any dev comments mentioning the old file
+- Extract function: `build_claude_command(args: &[&str], env_vars: Option<&HashMap<String, String>>) -> ProcessCommand`
+- This function takes arguments and environment variables and returns a configured ProcessCommand
+- Remove command building logic from main retry loop
+- Use the extracted function in `execute_command`
 
 **Testing**:
-- Run `cargo build` - should succeed
-- Run `cargo test --all` - all tests should pass
-- Run `cargo clippy` - no warnings about missing modules
-- Run `just ci` - full CI validation
+- Add unit tests for `build_claude_command` with various argument combinations
+- Test with and without environment variables
+- Verify existing integration tests still pass
+- Run `cargo test --lib`
 
 **Success Criteria**:
-- [ ] File deleted
-- [ ] Build succeeds
+- [ ] Command building extracted to pure function
+- [ ] Unit tests for command building pass
+- [ ] All existing tests pass
+- [ ] Ready to commit
+
+### Phase 3: Extract Result Processing Logic
+
+**Goal**: Create pure functions for processing command execution results
+
+**Changes**:
+- Extract function: `classify_output_result(output: &ProcessOutput) -> OutputClassification`
+  - Returns enum: `Success`, `TransientFailure(String)`, `PermanentFailure`
+- Extract function: `should_continue_retry(classification: &OutputClassification, attempt: u32, max_retries: u32) -> bool`
+- Simplify main retry loop to use these classification functions
+- Note: `convert_to_std_output` already exists (line 387)
+
+**Testing**:
+- Add tests for `classify_output_result` with various ProcessOutput states
+- Add tests for `should_continue_retry` logic
+- Verify retry behavior is preserved
+- Run `cargo test --lib`
+
+**Success Criteria**:
+- [ ] Result classification functions extracted
+- [ ] Unit tests for classification pass
+- [ ] Retry behavior unchanged
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 4: Refactor Main Loop with Functional Patterns
+
+**Goal**: Simplify the main retry loop using the extracted pure functions
+
+**Changes**:
+- Refactor retry loop to use extracted functions
+- Reduce nesting by early returns
+- Use pattern matching more effectively
+- Simplify control flow with the pure functions
+- Goal: Reduce cyclomatic complexity to ≤8
+
+**Testing**:
+- Run full test suite: `cargo test`
+- Run clippy: `cargo clippy`
+- Verify verbose output behavior is preserved
+- Test retry scenarios manually if needed
+
+**Success Criteria**:
+- [ ] Main function cyclomatic complexity ≤8
+- [ ] Nesting depth ≤2
 - [ ] All tests pass
 - [ ] No clippy warnings
-- [ ] Git shows clean removal
+- [ ] Ready to commit
 
-### Phase 5: Verification & Cleanup
+### Phase 5: Add Property-Based Tests
 
-**Goal**: Final verification that the retirement is complete and code quality is maintained
+**Goal**: Verify function invariants with property-based testing
 
 **Changes**:
-- Run full test suite
-- Check code coverage with tarpaulin
-- Run clippy with all warnings
-- Verify formatting
-- Update CHANGELOG if applicable
+- Add proptest tests for retry logic invariants:
+  - Retry count never exceeds max_retries
+  - Transient errors always retry (when attempts remain)
+  - Permanent errors never retry
+  - Delay increases exponentially
+- Add proptest tests for error classification:
+  - Known patterns always classified correctly
+  - Classification is consistent
 
 **Testing**:
-- `cargo test --all --verbose`
-- `cargo tarpaulin --lib --out Stdout`
-- `cargo clippy -- -W clippy::all`
-- `cargo fmt -- --check`
-- `just ci`
+- Run property-based tests: `cargo test`
+- Ensure tests catch edge cases
+- Verify no regressions
 
 **Success Criteria**:
-- [ ] All tests pass (100% of existing tests)
-- [ ] Coverage maintained or improved from baseline
-- [ ] No clippy warnings
-- [ ] Code properly formatted
-- [ ] Documentation updated
+- [ ] Property-based tests added
+- [ ] Tests discover and validate key invariants
+- [ ] All tests pass
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify library tests pass
-2. Run `cargo build` to check compilation
-3. Run `cargo clippy` to check for warnings
-4. Commit working code at end of each phase
-
-**Integration testing**:
-- Test MapReduce workflows end-to-end
-- Verify resume functionality works
-- Test DLQ operations
-- Verify checkpoint/restore
-- Test parallel agent execution
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run `cargo clippy` to check for warnings
+3. Run `cargo fmt` to ensure consistent formatting
+4. Verify new tests cover the extracted functions
 
 **Final verification**:
-1. `just ci` - Full CI checks including:
-   - Build
-   - All tests
-   - Clippy
-   - Format check
-2. `cargo tarpaulin --lib` - Verify coverage
-3. Manual smoke test of key workflows
+1. `just ci` - Full CI checks
+2. `cargo tarpaulin --lib` - Verify coverage improvements
+3. Verify cognitive/cyclomatic complexity reduction
+4. Manual testing of retry scenarios if needed
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure reason
-3. If it's a missing migration:
-   - Go back to Phase 2
-   - Migrate the missing piece
-   - Retry the failed phase
-4. If it's an incompatibility:
-   - Document the issue
-   - Create a bridge/adapter if needed
-   - Retry with the fix
+2. Review the test failures or compilation errors
+3. Adjust the implementation approach
+4. Retry with refined strategy
 
 ## Notes
 
-### Key Success Factors
-
-1. **Don't rush**: The old code is 4000+ lines. Take time to verify completeness
-2. **Test continuously**: Run tests after every significant change
-3. **One file at a time**: When updating imports, do one file at a time and test
-4. **Verify equivalence**: Make sure new code does exactly what old code did
-
-### Common Pitfalls to Avoid
-
-1. **Assuming complete migration**: Some edge case might only be in old code
-2. **Breaking APIs**: Make sure public interfaces remain compatible
-3. **Losing test coverage**: Verify tests exercise new code paths
-4. **Visibility issues**: Private functions in old code might need to be pub in new modules
-
-### Module Mapping (from analysis)
-
-The new modular structure already has:
-- `agent/` - Agent lifecycle and management
-- `aggregation/` - Result aggregation
-- `checkpoint.rs` - State persistence
-- `command/` - Command execution
-- `coordination/` - Work scheduling and orchestration
-- `phases/` - Phase execution
-- `progress/` - Progress tracking
-- `resources/` - Resource management
-- `state/` - State management
-- `utils.rs` - Pure utility functions
-- `types.rs` - Type definitions
-
-This is a well-designed decomposition following functional programming principles.
-
-### Expected Outcome
-
-After completion:
-- 4027 lines of legacy code removed
-- God Object eliminated
-- 8 focused modules with single responsibilities
-- Improved testability
-- Better maintainability
-- Foundation for future development
-
-### Estimated Impact
-
-- **Complexity Reduction**: 59.0 points (massive)
-- **Maintainability**: +16.37 points
-- **Code Organization**: From 1 file (4027 lines) to ~15 focused modules (<500 lines each)
-- **Testability**: From god object to isolated, testable units
+- The function already has several pure helper functions (`is_transient_error`, `should_retry_error`, `classify_command_error`, `convert_to_std_output`, `calculate_retry_delay`)
+- The main complexity comes from the nested retry loop logic with multiple error handling paths
+- Focus is on extracting the remaining impure logic into testable chunks and simplifying the main control flow
+- Preserve existing behavior exactly - this is a refactoring, not a feature change
+- The goal is to make the code more testable and reduce cognitive load, not to change functionality
+- Property-based testing will help ensure retry invariants hold across all scenarios
