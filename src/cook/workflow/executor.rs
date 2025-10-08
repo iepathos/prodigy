@@ -2655,3 +2655,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "handle_commit_verification_tests.rs"]
+mod handle_commit_verification_tests;
