@@ -275,6 +275,47 @@ pub struct SimpleCommand {
     pub analysis: Option<AnalysisConfig>,
 }
 
+/// Configuration for write_file command
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct WriteFileConfig {
+    /// Path to write file (supports variable interpolation)
+    pub path: String,
+
+    /// Content to write (supports variable interpolation)
+    pub content: String,
+
+    /// Format to use when writing (default: text)
+    #[serde(default)]
+    pub format: WriteFileFormat,
+
+    /// File permissions in octal format (default: "0644")
+    #[serde(default = "default_file_mode")]
+    pub mode: String,
+
+    /// Create parent directories if they don't exist (default: false)
+    #[serde(default)]
+    pub create_dirs: bool,
+}
+
+/// File format for write_file command
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum WriteFileFormat {
+    /// Plain text (no processing)
+    #[default]
+    Text,
+
+    /// JSON with validation and pretty-printing
+    Json,
+
+    /// YAML with validation and formatting
+    Yaml,
+}
+
+fn default_file_mode() -> String {
+    "0644".to_string()
+}
+
 /// New workflow step command format supporting claude:, shell:, analyze:, and test: syntax
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct WorkflowStepCommand {
@@ -301,6 +342,10 @@ pub struct WorkflowStepCommand {
     /// Foreach configuration for parallel iteration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub foreach: Option<ForeachConfig>,
+
+    /// File writing configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub write_file: Option<WriteFileConfig>,
 
     /// Command ID for referencing outputs
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -378,6 +423,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             test: Option<TestCommand>,
             goal_seek: Option<crate::cook::goal_seek::GoalSeekConfig>,
             foreach: Option<ForeachConfig>,
+            write_file: Option<WriteFileConfig>,
             id: Option<String>,
             #[serde(default)]
             commit_required: bool,
@@ -422,9 +468,10 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             && helper.analyze.is_none()
             && helper.goal_seek.is_none()
             && helper.foreach.is_none()
+            && helper.write_file.is_none()
         {
             return Err(serde::de::Error::custom(
-                "WorkflowStepCommand must have 'claude', 'shell', 'analyze', 'goal_seek', or 'foreach' field",
+                "WorkflowStepCommand must have 'claude', 'shell', 'analyze', 'goal_seek', 'foreach', or 'write_file' field",
             ));
         }
 
@@ -435,6 +482,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             test,
             goal_seek: helper.goal_seek,
             foreach: helper.foreach,
+            write_file: helper.write_file,
             id: helper.id,
             commit_required: helper.commit_required,
             analysis: helper.analysis,
@@ -482,6 +530,9 @@ impl WorkflowCommand {
                         ForeachInput::Command(cmd) => format!("foreach {}", cmd),
                         ForeachInput::List(items) => format!("foreach {} items", items.len()),
                     }
+                } else if let Some(write_file_config) = &step.write_file {
+                    // For write_file commands
+                    format!("write_file {}", write_file_config.path)
                 } else {
                     // No command specified
                     String::new()
@@ -896,6 +947,7 @@ when: "${build.success} == true"
             test: None,
             goal_seek: None,
             foreach: None,
+            write_file: None,
             id: Some("test-step".to_string()),
             commit_required: false,
             analysis: None,

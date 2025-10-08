@@ -259,6 +259,7 @@ impl WorkflowExecutor {
                 test: None,
                 goal_seek: None,
                 foreach: None,
+                write_file: None,
                 command: None,
                 handler: None,
                 capture: None,

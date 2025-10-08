@@ -101,6 +101,7 @@ impl CaptureOutput {
                     CommandType::Test(_) => "test.output".to_string(),
                     CommandType::GoalSeek(_) => "goal_seek.output".to_string(),
                     CommandType::Foreach(_) => "foreach.output".to_string(),
+                    CommandType::WriteFile(_) => "write_file.output".to_string(),
                 })
             }
             CaptureOutput::Variable(name) => Some(name.clone()),
@@ -143,6 +144,8 @@ pub enum CommandType {
     GoalSeek(crate::cook::goal_seek::GoalSeekConfig),
     /// Foreach command for parallel iteration
     Foreach(crate::config::command::ForeachConfig),
+    /// Write file command with formatting and validation
+    WriteFile(crate::config::command::WriteFileConfig),
     /// Legacy name-based approach
     Legacy(String),
     /// Modular command handler
@@ -296,6 +299,10 @@ pub struct WorkflowStep {
     /// Foreach configuration for parallel iteration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub foreach: Option<crate::config::command::ForeachConfig>,
+
+    /// Write file configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub write_file: Option<crate::config::command::WriteFileConfig>,
 
     /// Legacy command field (for backward compatibility)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -587,6 +594,7 @@ impl WorkflowExecutor {
                     test: None,
                     goal_seek: None,
                     foreach: None,
+                    write_file: None,
                     command: None,
                     handler: None,
                     capture: None,
@@ -738,6 +746,9 @@ impl WorkflowExecutor {
         if step.foreach.is_some() {
             specified_count += 1;
         }
+        if step.write_file.is_some() {
+            specified_count += 1;
+        }
         if step.name.is_some() || step.command.is_some() {
             specified_count += 1;
         }
@@ -745,13 +756,13 @@ impl WorkflowExecutor {
         // Ensure only one command type is specified
         if specified_count > 1 {
             return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, handler, goal_seek, foreach, or name/command"
+                "Multiple command types specified. Use only one of: claude, shell, test, handler, goal_seek, foreach, write_file, or name/command"
             ));
         }
 
         if specified_count == 0 {
             return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, test, handler, goal_seek, foreach, or name/command"
+                "No command specified. Use one of: claude, shell, test, handler, goal_seek, foreach, write_file, or name/command"
             ));
         }
 
@@ -776,6 +787,8 @@ impl WorkflowExecutor {
             Ok(CommandType::GoalSeek(goal_seek_config.clone()))
         } else if let Some(foreach_config) = &step.foreach {
             Ok(CommandType::Foreach(foreach_config.clone()))
+        } else if let Some(write_file_config) = &step.write_file {
+            Ok(CommandType::WriteFile(write_file_config.clone()))
         } else if let Some(name) = &step.name {
             // Legacy support - prepend / if not present
             let command = if name.starts_with('/') {
@@ -801,6 +814,8 @@ impl WorkflowExecutor {
             format!("test: {}", test_cmd.command)
         } else if let Some(handler_step) = &step.handler {
             format!("handler: {}", handler_step.name)
+        } else if let Some(write_file_config) = &step.write_file {
+            format!("write_file: {}", write_file_config.path)
         } else if let Some(name) = &step.name {
             name.clone()
         } else if let Some(command) = &step.command {
@@ -1660,6 +1675,7 @@ impl WorkflowExecutor {
             CommandType::Handler { handler_name, .. } => handler_name,
             CommandType::GoalSeek(config) => &config.goal,
             CommandType::Foreach(_) => "foreach",
+            CommandType::WriteFile(config) => &config.path,
         };
 
         eprintln!("\nWorkflow stopped: No changes were committed by {step_display}");
