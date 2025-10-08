@@ -181,6 +181,7 @@ impl CommandExecutor for CommandExecutorMock {
                 stdout: result.stdout.clone(),
                 stderr: result.stderr.clone(),
                 exit_code: result.exit_code,
+                metadata: HashMap::new(),
             })
         } else {
             Ok(ExecutionResult {
@@ -188,6 +189,7 @@ impl CommandExecutor for CommandExecutorMock {
                 stdout: "default output".to_string(),
                 stderr: String::new(),
                 exit_code: Some(0),
+                metadata: HashMap::new(),
             })
         }
     }

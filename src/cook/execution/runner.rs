@@ -5,6 +5,7 @@ use crate::abstractions::exit_status::ExitStatusExt;
 use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use std::collections::HashMap;
 
 /// Trait for running system commands
 #[async_trait]
@@ -181,6 +182,7 @@ impl CommandRunner for RealCommandRunner {
                     stdout: output.stdout.join("\n"),
                     stderr: output.stderr.join("\n"),
                     exit_code: output.status.code(),
+                    metadata: HashMap::new(),
                 });
             }
         }
@@ -198,6 +200,7 @@ impl CommandRunner for RealCommandRunner {
             stdout: output.stdout,
             stderr: output.stderr,
             exit_code: output.status.code(),
+            metadata: HashMap::new(),
         })
     }
 
@@ -246,6 +249,7 @@ impl CommandRunner for RealCommandRunner {
             stdout: output.stdout.join("\n"),
             stderr: output.stderr.join("\n"),
             exit_code: output.status.code(),
+            metadata: HashMap::new(),
         })
     }
 }
@@ -392,6 +396,7 @@ pub mod tests {
             stdout: "mocked output".to_string(),
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         });
 
         let result = mock

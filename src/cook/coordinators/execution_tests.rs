@@ -35,6 +35,7 @@ mod tests {
                 stdout: "test output".to_string(),
                 stderr: String::new(),
                 exit_code: Some(self.exit_code),
+                metadata: HashMap::new(),
             })
         }
     }
@@ -60,6 +61,7 @@ mod tests {
                 stdout: "claude output".to_string(),
                 stderr: String::new(),
                 exit_code: Some(0),
+                metadata: HashMap::new(),
             })
         }
 

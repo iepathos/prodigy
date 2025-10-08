@@ -130,6 +130,7 @@ impl ClaudeExecutor for MockClaudeExecutor {
             stdout: output,
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         })
     }
 

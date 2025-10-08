@@ -6,6 +6,7 @@ pub mod bridge;
 #[cfg(test)]
 pub mod bridge_tests;
 pub mod claude;
+pub mod claude_log_detection;
 pub mod claude_stream_handler;
 #[cfg(test)]
 pub mod claude_streaming_test;
@@ -127,6 +128,24 @@ pub struct ExecutionResult {
     pub stderr: String,
     /// Exit code
     pub exit_code: Option<i32>,
+    /// Metadata for additional execution information
+    pub metadata: HashMap<String, String>,
+}
+
+impl ExecutionResult {
+    /// Add JSON log location to metadata
+    pub fn with_json_log_location(mut self, location: std::path::PathBuf) -> Self {
+        self.metadata.insert(
+            "claude_json_log".to_string(),
+            location.to_string_lossy().to_string(),
+        );
+        self
+    }
+
+    /// Get JSON log location from metadata
+    pub fn json_log_location(&self) -> Option<&str> {
+        self.metadata.get("claude_json_log").map(String::as_str)
+    }
 }
 
 /// Trait for executing commands

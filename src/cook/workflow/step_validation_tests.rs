@@ -51,6 +51,7 @@ async fn test_single_validation_success() {
             stdout: "All tests passed".to_string(),
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         },
     ));
 
@@ -85,6 +86,7 @@ async fn test_single_validation_failure() {
             stdout: "Test failed".to_string(),
             stderr: "Error".to_string(),
             exit_code: Some(1),
+            metadata: HashMap::new(),
         },
     ));
 
@@ -121,6 +123,7 @@ async fn test_multiple_validations_all_pass() {
                     stdout: "Tests passed".to_string(),
                     stderr: String::new(),
                     exit_code: Some(0),
+                    metadata: HashMap::new(),
                 },
             )
             .with_response(
@@ -130,6 +133,7 @@ async fn test_multiple_validations_all_pass() {
                     stdout: "No warnings".to_string(),
                     stderr: String::new(),
                     exit_code: Some(0),
+                    metadata: HashMap::new(),
                 },
             ),
     );
@@ -167,6 +171,7 @@ async fn test_multiple_validations_one_fails() {
                     stdout: "Tests passed".to_string(),
                     stderr: String::new(),
                     exit_code: Some(0),
+                    metadata: HashMap::new(),
                 },
             )
             .with_response(
@@ -176,6 +181,7 @@ async fn test_multiple_validations_one_fails() {
                     stdout: "Warnings found".to_string(),
                     stderr: "Error".to_string(),
                     exit_code: Some(1),
+                    metadata: HashMap::new(),
                 },
             ),
     );
@@ -213,6 +219,7 @@ async fn test_validation_with_any_criteria() {
                     stdout: "Failed".to_string(),
                     stderr: String::new(),
                     exit_code: Some(1),
+                    metadata: HashMap::new(),
                 },
             )
             .with_response(
@@ -222,6 +229,7 @@ async fn test_validation_with_any_criteria() {
                     stdout: "Passed".to_string(),
                     stderr: String::new(),
                     exit_code: Some(0),
+                    metadata: HashMap::new(),
                 },
             ),
     );
@@ -273,6 +281,7 @@ async fn test_validation_with_expected_output() {
             stdout: "Version 1.2.3".to_string(),
             stderr: String::new(),
             exit_code: Some(0),
+            metadata: HashMap::new(),
         },
     ));
 

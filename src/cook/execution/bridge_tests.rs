@@ -218,6 +218,7 @@ mod tests {
                     stdout: "test output".to_string(),
                     stderr: String::new(),
                     exit_code: Some(0),
+                    metadata: HashMap::new(),
                 })
             }
         }

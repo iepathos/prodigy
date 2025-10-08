@@ -991,6 +991,7 @@ mod tests {
             exit_code: Some(0),
             stdout: "output".to_string(),
             stderr: String::new(),
+            metadata: HashMap::new(),
         };
 
         let step_result = convert_execution_result(exec_result);
@@ -1006,6 +1007,7 @@ mod tests {
             exit_code: Some(1),
             stdout: String::new(),
             stderr: "error".to_string(),
+            metadata: HashMap::new(),
         };
 
         let step_result = convert_execution_result(exec_result);
