@@ -277,7 +277,8 @@ impl WorkflowExecutor {
                     self.user_interaction
                         .display_progress(&format!("Running recovery step: {}", step_display));
 
-                    let handler_result = Box::pin(self.execute_step(&handler_step, env, ctx)).await?;
+                    let handler_result =
+                        Box::pin(self.execute_step(&handler_step, env, ctx)).await?;
                     handler_result.success
                 }
                 HandlerType::NoHandler => {
