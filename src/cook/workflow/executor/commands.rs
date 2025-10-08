@@ -624,6 +624,24 @@ impl WorkflowExecutor {
         Ok(temp_file)
     }
 
+    // Pure helper functions for shell retry context management
+
+    /// Build shell-specific context variables (pure function)
+    fn build_shell_context_vars(
+        attempt: u32,
+        exit_code: Option<i32>,
+        output: String,
+    ) -> HashMap<String, String> {
+        let mut vars = HashMap::new();
+        vars.insert("shell.attempt".to_string(), attempt.to_string());
+        vars.insert(
+            "shell.exit_code".to_string(),
+            exit_code.unwrap_or(-1).to_string(),
+        );
+        vars.insert("shell.output".to_string(), output);
+        vars
+    }
+
     /// Execute a shell command with retry logic (for shell commands with on_failure)
     async fn execute_shell_with_retry(
         &self,
@@ -699,23 +717,21 @@ impl WorkflowExecutor {
                 // Prepare the debug command with variables
                 let mut debug_cmd = debug_config.claude.clone();
 
-                // Add shell-specific variables to context
-                ctx.variables
-                    .insert("shell.attempt".to_string(), attempt.to_string());
-                ctx.variables.insert(
-                    "shell.exit_code".to_string(),
-                    shell_result.exit_code.unwrap_or(-1).to_string(),
-                );
-
-                if let Some(output_file) = output_path {
-                    ctx.variables
-                        .insert("shell.output".to_string(), output_file);
+                // Determine output value based on size (using pure helpers)
+                let output = if let Some(output_file) = output_path {
+                    output_file
                 } else {
-                    // For smaller outputs, pass directly (using pure helper)
-                    let combined_output =
-                        Self::format_inline_output(&shell_result.stdout, &shell_result.stderr);
-                    ctx.variables
-                        .insert("shell.output".to_string(), combined_output);
+                    Self::format_inline_output(&shell_result.stdout, &shell_result.stderr)
+                };
+
+                // Build and add shell-specific variables to context (using pure helper)
+                let shell_vars = Self::build_shell_context_vars(
+                    attempt,
+                    shell_result.exit_code,
+                    output,
+                );
+                for (key, value) in shell_vars {
+                    ctx.variables.insert(key, value);
                 }
 
                 // Interpolate the debug command
@@ -2047,6 +2063,105 @@ mod tests {
             let content = std::fs::read_to_string(temp_file.path()).unwrap();
             assert!(content.contains("=== STDOUT ==="));
             assert!(content.contains("=== STDERR ==="));
+        }
+
+        // Unit tests for context management pure functions
+
+        #[test]
+        fn test_build_shell_context_vars_basic() {
+            let vars = WorkflowExecutor::build_shell_context_vars(
+                2,
+                Some(1),
+                "test output".to_string(),
+            );
+
+            assert_eq!(vars.get("shell.attempt").unwrap(), "2");
+            assert_eq!(vars.get("shell.exit_code").unwrap(), "1");
+            assert_eq!(vars.get("shell.output").unwrap(), "test output");
+            assert_eq!(vars.len(), 3);
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_no_exit_code() {
+            let vars = WorkflowExecutor::build_shell_context_vars(
+                1,
+                None,
+                "output".to_string(),
+            );
+
+            assert_eq!(vars.get("shell.attempt").unwrap(), "1");
+            assert_eq!(vars.get("shell.exit_code").unwrap(), "-1");
+            assert_eq!(vars.get("shell.output").unwrap(), "output");
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_zero_exit_code() {
+            let vars = WorkflowExecutor::build_shell_context_vars(
+                1,
+                Some(0),
+                "success".to_string(),
+            );
+
+            assert_eq!(vars.get("shell.exit_code").unwrap(), "0");
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_high_attempt() {
+            let vars = WorkflowExecutor::build_shell_context_vars(
+                999,
+                Some(127),
+                "output".to_string(),
+            );
+
+            assert_eq!(vars.get("shell.attempt").unwrap(), "999");
+            assert_eq!(vars.get("shell.exit_code").unwrap(), "127");
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_multiline_output() {
+            let output = "line1\nline2\nline3".to_string();
+            let vars = WorkflowExecutor::build_shell_context_vars(
+                1,
+                Some(1),
+                output.clone(),
+            );
+
+            assert_eq!(vars.get("shell.output").unwrap(), &output);
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_large_output() {
+            let output = "x".repeat(100000);
+            let vars = WorkflowExecutor::build_shell_context_vars(
+                1,
+                Some(1),
+                output.clone(),
+            );
+
+            assert_eq!(vars.get("shell.output").unwrap(), &output);
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_empty_output() {
+            let vars = WorkflowExecutor::build_shell_context_vars(
+                1,
+                Some(0),
+                String::new(),
+            );
+
+            assert_eq!(vars.get("shell.output").unwrap(), "");
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_special_characters() {
+            let output = "test\t\n\r$var ${var} `cmd`".to_string();
+            let vars = WorkflowExecutor::build_shell_context_vars(
+                1,
+                Some(1),
+                output.clone(),
+            );
+
+            assert_eq!(vars.get("shell.output").unwrap(), &output);
         }
     }
 }
