@@ -281,4 +281,391 @@ mod tests {
         assert_eq!(result.total_insertions, 30);
         assert_eq!(result.total_deletions, 8);
     }
+
+    // Tests for parse_git_status_line
+    #[test]
+    fn test_parse_git_status_line_valid() {
+        let result = CommitTracker::parse_git_status_line("M  src/file.rs");
+        assert_eq!(result, Some("src/file.rs".to_string()));
+    }
+
+    #[test]
+    fn test_parse_git_status_line_short() {
+        let result = CommitTracker::parse_git_status_line("M ");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_git_status_line_empty() {
+        let result = CommitTracker::parse_git_status_line("");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_git_status_line_with_spaces() {
+        let result = CommitTracker::parse_git_status_line("A  path with spaces/file.rs");
+        assert_eq!(result, Some("path with spaces/file.rs".to_string()));
+    }
+
+    // Tests for should_include_file
+    #[test]
+    fn test_should_include_file_no_patterns() {
+        let result = CommitTracker::should_include_file("file.rs", &[]);
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_include_file_single_match() {
+        let result = CommitTracker::should_include_file("file.rs", &["*.rs".to_string()]);
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_include_file_single_no_match() {
+        let result = CommitTracker::should_include_file("file.txt", &["*.rs".to_string()]);
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_include_file_multiple_first_matches() {
+        let result = CommitTracker::should_include_file(
+            "file.rs",
+            &["*.rs".to_string(), "*.md".to_string()],
+        );
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_include_file_multiple_second_matches() {
+        let result = CommitTracker::should_include_file(
+            "file.md",
+            &["*.rs".to_string(), "*.md".to_string()],
+        );
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_include_file_invalid_pattern() {
+        // Invalid pattern should be skipped gracefully
+        let result = CommitTracker::should_include_file("file.rs", &["[invalid".to_string()]);
+        assert_eq!(result, false);
+    }
+
+    // Tests for should_exclude_file
+    #[test]
+    fn test_should_exclude_file_no_patterns() {
+        let result = CommitTracker::should_exclude_file("file.tmp", &[]);
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_exclude_file_single_match() {
+        let result = CommitTracker::should_exclude_file("file.tmp", &["*.tmp".to_string()]);
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_exclude_file_single_no_match() {
+        let result = CommitTracker::should_exclude_file("file.rs", &["*.tmp".to_string()]);
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_exclude_file_multiple_with_match() {
+        let result = CommitTracker::should_exclude_file(
+            "file.log",
+            &["*.tmp".to_string(), "*.log".to_string()],
+        );
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_exclude_file_invalid_pattern() {
+        // Invalid pattern should be skipped gracefully
+        let result = CommitTracker::should_exclude_file("file.tmp", &["[invalid".to_string()]);
+        assert_eq!(result, false);
+    }
+
+    // Tests for should_stage_file
+    #[test]
+    fn test_should_stage_file_no_config() {
+        let result = CommitTracker::should_stage_file("file.rs", None);
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_stage_file_only_include_matching() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["*.rs".to_string()]),
+            exclude_files: None,
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("file.rs", Some(&config));
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_stage_file_only_include_not_matching() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["*.rs".to_string()]),
+            exclude_files: None,
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("file.md", Some(&config));
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_stage_file_only_exclude_matching() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: None,
+            exclude_files: Some(vec!["*.tmp".to_string()]),
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("file.tmp", Some(&config));
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_stage_file_only_exclude_not_matching() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: None,
+            exclude_files: Some(vec!["*.tmp".to_string()]),
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("file.rs", Some(&config));
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_stage_file_include_and_exclude_passes() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["*.rs".to_string()]),
+            exclude_files: Some(vec!["*_test.rs".to_string()]),
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("main.rs", Some(&config));
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_stage_file_include_and_exclude_blocked() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["*.rs".to_string()]),
+            exclude_files: Some(vec!["*_test.rs".to_string()]),
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("foo_test.rs", Some(&config));
+        assert_eq!(result, false);
+    }
+
+    // Tests for get_files_to_stage
+    #[tokio::test]
+    async fn test_get_files_to_stage_no_config() {
+        let mock_git = Arc::new(MockGitOperations::new());
+
+        // Mock git status output
+        mock_git
+            .add_success_response("M  src/main.rs\nA  src/lib.rs\nD  old.rs\n")
+            .await;
+
+        let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
+        let files = tracker.get_files_to_stage(None).await.unwrap();
+
+        assert_eq!(files.len(), 3);
+        assert!(files.contains(&"src/main.rs".to_string()));
+        assert!(files.contains(&"src/lib.rs".to_string()));
+        assert!(files.contains(&"old.rs".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_get_files_to_stage_include_patterns_match() {
+        let mock_git = Arc::new(MockGitOperations::new());
+
+        // Mock git status output
+        mock_git
+            .add_success_response("M  src/main.rs\nA  src/lib.rs\nM  README.md\n")
+            .await;
+
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["*.rs".to_string()]),
+            exclude_files: None,
+            squash: false,
+        };
+
+        let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
+        let files = tracker.get_files_to_stage(Some(&config)).await.unwrap();
+
+        assert_eq!(files.len(), 2);
+        assert!(files.contains(&"src/main.rs".to_string()));
+        assert!(files.contains(&"src/lib.rs".to_string()));
+        assert!(!files.contains(&"README.md".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_get_files_to_stage_include_patterns_no_match() {
+        let mock_git = Arc::new(MockGitOperations::new());
+
+        // Mock git status output
+        mock_git
+            .add_success_response("M  README.md\nA  docs/guide.md\n")
+            .await;
+
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["*.rs".to_string()]),
+            exclude_files: None,
+            squash: false,
+        };
+
+        let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
+        let files = tracker.get_files_to_stage(Some(&config)).await.unwrap();
+
+        assert_eq!(files.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_files_to_stage_exclude_patterns_block() {
+        let mock_git = Arc::new(MockGitOperations::new());
+
+        // Mock git status output
+        mock_git
+            .add_success_response("M  src/main.rs\nA  test.tmp\nM  cache.log\n")
+            .await;
+
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: None,
+            exclude_files: Some(vec!["*.tmp".to_string(), "*.log".to_string()]),
+            squash: false,
+        };
+
+        let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
+        let files = tracker.get_files_to_stage(Some(&config)).await.unwrap();
+
+        assert_eq!(files.len(), 1);
+        assert!(files.contains(&"src/main.rs".to_string()));
+        assert!(!files.contains(&"test.tmp".to_string()));
+        assert!(!files.contains(&"cache.log".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_get_files_to_stage_include_and_exclude_interaction() {
+        let mock_git = Arc::new(MockGitOperations::new());
+
+        // Mock git status output
+        mock_git
+            .add_success_response("M  src/main.rs\nA  src/test.rs\nM  tests/helper.rs\n")
+            .await;
+
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["src/**/*.rs".to_string()]),
+            exclude_files: Some(vec!["**/test*.rs".to_string()]),
+            squash: false,
+        };
+
+        let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
+        let files = tracker.get_files_to_stage(Some(&config)).await.unwrap();
+
+        assert_eq!(files.len(), 1);
+        assert!(files.contains(&"src/main.rs".to_string()));
+        assert!(!files.contains(&"src/test.rs".to_string())); // excluded
+        assert!(!files.contains(&"tests/helper.rs".to_string())); // not included
+    }
+
+    #[tokio::test]
+    async fn test_get_files_to_stage_empty_status() {
+        let mock_git = Arc::new(MockGitOperations::new());
+
+        // Mock empty git status output
+        mock_git.add_success_response("").await;
+
+        let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
+        let files = tracker.get_files_to_stage(None).await.unwrap();
+
+        assert_eq!(files.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_files_to_stage_malformed_lines() {
+        let mock_git = Arc::new(MockGitOperations::new());
+
+        // Mock git status with malformed lines (< 3 chars)
+        mock_git
+            .add_success_response("M  src/main.rs\nM \nA  src/lib.rs\n\n")
+            .await;
+
+        let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
+        let files = tracker.get_files_to_stage(None).await.unwrap();
+
+        // Should skip malformed lines
+        assert_eq!(files.len(), 2);
+        assert!(files.contains(&"src/main.rs".to_string()));
+        assert!(files.contains(&"src/lib.rs".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_get_files_to_stage_invalid_glob_pattern() {
+        let mock_git = Arc::new(MockGitOperations::new());
+
+        // Mock git status output
+        mock_git
+            .add_success_response("M  src/main.rs\nA  src/lib.rs\n")
+            .await;
+
+        // Invalid glob pattern with unbalanced brackets
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["[invalid".to_string()]),
+            exclude_files: None,
+            squash: false,
+        };
+
+        let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
+        let files = tracker.get_files_to_stage(Some(&config)).await.unwrap();
+
+        // Invalid patterns should be skipped, resulting in no matches
+        assert_eq!(files.len(), 0);
+    }
 }

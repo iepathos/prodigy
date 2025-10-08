@@ -308,3 +308,103 @@ impl CookSessionManager for CookSessionAdapter {
         Ok(summaries.first().map(|s| s.id.as_str().to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::GlobalStorage;
+    use tempfile::TempDir;
+
+    async fn create_test_adapter() -> (CookSessionAdapter, TempDir) {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
+        let adapter = CookSessionAdapter::new(temp_dir.path().to_path_buf(), storage)
+            .await
+            .unwrap();
+        (adapter, temp_dir)
+    }
+
+    #[tokio::test]
+    async fn test_update_session_with_status_change() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::UpdateStatus(
+                CookSessionStatus::Completed,
+            ))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_increment_iteration() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::IncrementIteration)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_add_files_changed() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddFilesChanged(5))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_no_active_session() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter
+            .update_session(CookSessionUpdate::IncrementIteration)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_empty_update() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::StartIteration(1))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_with_timing() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::RecordCommandTiming(
+                "test-cmd".to_string(),
+                std::time::Duration::from_secs(1),
+            ))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_mark_interrupted() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::MarkInterrupted)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_add_error() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddError("test error".to_string()))
+            .await
+            .unwrap();
+    }
+}

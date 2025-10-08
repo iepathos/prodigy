@@ -1453,4 +1453,171 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(index.total_events, 2);
     }
+
+    // Phase 1: Tests for empty and error cases
+
+    #[tokio::test]
+    async fn test_index_with_empty_directory_creates_empty_index() {
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "empty-dir-job";
+        fs::create_dir_all(store.job_events_dir(job_id))
+            .await
+            .unwrap();
+
+        let result = store.index(job_id).await.unwrap();
+
+        assert_eq!(result.total_events, 0);
+        assert!(result.event_counts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_index_fails_when_save_directory_missing() {
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "missing-dir-job";
+
+        let result = store.index(job_id).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_index_with_only_invalid_json_events() {
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "invalid-events-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+        let event_file = events_dir.join("events-001.jsonl");
+        fs::write(&event_file, "invalid\n{bad:json}\n")
+            .await
+            .unwrap();
+
+        let result = store.index(job_id).await.unwrap();
+
+        assert_eq!(result.total_events, 0);
+    }
+
+    // Phase 2: Tests for time range calculation paths
+
+    #[tokio::test]
+    async fn test_index_time_range_with_single_event() {
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "single-event-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+        let event_time = Utc::now();
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: event_time,
+            correlation_id: "corr-1".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: job_id.to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: event_time,
+            },
+            metadata: HashMap::new(),
+        };
+        fs::write(
+            &events_dir.join("events-001.jsonl"),
+            format!("{}\n", serde_json::to_string(&event).unwrap()),
+        )
+        .await
+        .unwrap();
+
+        let result = store.index(job_id).await.unwrap();
+
+        assert_eq!(result.time_range, (event_time, event_time));
+    }
+
+    #[tokio::test]
+    async fn test_index_time_range_with_multiple_events() {
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "multi-time-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+        let start_time = Utc::now() - chrono::Duration::hours(2);
+        let end_time = Utc::now();
+        let event1 = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: start_time,
+            correlation_id: "corr-1".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: job_id.to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: start_time,
+            },
+            metadata: HashMap::new(),
+        };
+        let event2 = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: end_time,
+            correlation_id: "corr-2".to_string(),
+            event: MapReduceEvent::JobCompleted {
+                job_id: job_id.to_string(),
+                duration: chrono::Duration::hours(2),
+                success_count: 10,
+                failure_count: 0,
+            },
+            metadata: HashMap::new(),
+        };
+        let content = format!(
+            "{}\n{}\n",
+            serde_json::to_string(&event1).unwrap(),
+            serde_json::to_string(&event2).unwrap()
+        );
+        fs::write(&events_dir.join("events-001.jsonl"), content)
+            .await
+            .unwrap();
+
+        let result = store.index(job_id).await.unwrap();
+
+        assert_eq!(result.time_range, (start_time, end_time));
+    }
+
+    #[tokio::test]
+    async fn test_index_default_time_range_no_valid_events() {
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "no-valid-events-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+        fs::write(&events_dir.join("events-001.jsonl"), "invalid\n")
+            .await
+            .unwrap();
+
+        let result = store.index(job_id).await.unwrap();
+
+        let (start, end) = result.time_range;
+        let diff = (end - start).num_milliseconds().abs();
+        assert!(
+            diff < 100,
+            "Time range should be nearly identical when no events"
+        );
+    }
 }

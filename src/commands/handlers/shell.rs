@@ -78,13 +78,16 @@ impl CommandHandler for ShellHandler {
 
         // Extract additional environment variables
         let mut env = context.full_env();
-        if let Some(env_attr) = attributes.get("env").and_then(|v| v.as_object()) {
-            for (key, value) in env_attr {
-                if let Some(val_str) = value.as_string() {
-                    env.insert(key.clone(), val_str.clone());
-                }
-            }
-        }
+
+        // Add environment variables from attributes if present
+        let env_vars = attributes
+            .get("env")
+            .and_then(|v| v.as_object())
+            .into_iter()
+            .flat_map(|env_attr| env_attr.iter())
+            .filter_map(|(key, value)| value.as_string().map(|val| (key.clone(), val.clone())));
+
+        env.extend(env_vars);
 
         // Execute command
         let start = Instant::now();
@@ -788,5 +791,249 @@ mod tests {
         assert!(!result.is_success());
         // Verify duration is tracked even for errors
         assert!(result.duration_ms.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_shell_none_value_fallback() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Shell attribute as None should fallback to "bash"
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_timeout_zero_value() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Zero timeout should be used as-is (edge case)
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(0)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        attributes.insert("timeout".to_string(), AttributeValue::Number(0.0));
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_timeout_non_number_fallback() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Non-number timeout should fallback to default 30
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        attributes.insert(
+            "timeout".to_string(),
+            AttributeValue::String("invalid".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_working_dir_empty_string() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Empty string should resolve to context.working_dir
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        attributes.insert(
+            "working_dir".to_string(),
+            AttributeValue::String("".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_working_dir_with_spaces() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Path with spaces should be handled correctly
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/test/path with spaces")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/test/path with spaces\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        attributes.insert(
+            "working_dir".to_string(),
+            AttributeValue::String("path with spaces".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_env_empty_object() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Empty env object should work without issues
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let env_obj = HashMap::new();
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        attributes.insert("env".to_string(), AttributeValue::Object(env_obj));
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_env_non_object_ignored() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Non-object env should be ignored
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo test"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo test".to_string()),
+        );
+        attributes.insert(
+            "env".to_string(),
+            AttributeValue::String("not an object".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
     }
 }

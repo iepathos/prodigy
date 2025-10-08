@@ -1,186 +1,177 @@
-# Implementation Plan: Add Test Coverage for GitRunnerImpl::status
+# Implementation Plan: Complete Test Coverage for GitRunnerImpl::status
 
 ## Problem Summary
 
 **Location**: ./src/subprocess/git.rs:GitRunnerImpl::status:52
-**Priority Score**: 47.2625
-**Debt Type**: ComplexityHotspot (cognitive: 30, cyclomatic: 12)
+**Priority Score**: 54.7625
+**Debt Type**: ComplexityHotspot (Cognitive: 30, Cyclomatic: 12)
 **Current Metrics**:
-- Function Length: 41 lines
+- Lines of Code: 41
 - Cyclomatic Complexity: 12
 - Cognitive Complexity: 30
-- Coverage: 0%
 - Nesting Depth: 4 levels
+- Coverage: 0% (based on debtmap analysis)
 
-**Issue**: Add 12 tests for 100% coverage gap. NO refactoring needed (complexity 12 is acceptable). Complexity 12 is manageable. Coverage at 0%. Focus on test coverage, not refactoring.
+**Issue**: Add 12 tests for 100% coverage gap. NO refactoring needed (complexity 12 is acceptable)
+
+**Rationale**: Complexity 12 is manageable. Coverage at 0%. Focus on test coverage, not refactoring.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
 - Complexity Reduction: 6.0
 - Coverage Improvement: 0.0
-- Risk Reduction: 16.541875
+- Risk Reduction: 19.166875
 
 **Success Criteria**:
-- [ ] 12 focused tests covering all branches in GitRunnerImpl::status
-- [ ] 100% line coverage for the status function
+- [ ] 100% branch coverage for GitRunnerImpl::status function
+- [ ] All edge cases tested (short lines, malformed input, various git status codes)
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting
+- [ ] Proper formatting with rustfmt
 
 ## Implementation Phases
 
-### Phase 1: Test Happy Path and Basic Error Cases
+### Phase 1: Edge Case Coverage - Line Length Boundaries
 
-**Goal**: Establish baseline test coverage for successful status calls and basic error handling
+**Goal**: Test the `line.len() > 2` condition and boundary cases for line parsing
 
 **Changes**:
-- Add test for clean repository (no untracked/modified files)
-- Add test for repository with branch information
-- Add test for non-zero exit code handling
+- Add test for lines with length exactly 2 (boundary case)
+- Add test for lines with length 1 (should be ignored)
+- Add test for empty lines in status output
+- Add test for lines with only whitespace
 
 **Testing**:
-- Run `cargo test git_runner_status` to verify new tests pass
-- Verify existing git_error_tests still pass
+- Run `cargo test git_error_tests::test_status_line_length_*` for new tests
+- Run `cargo test git_error_tests` to ensure all existing tests pass
 
 **Success Criteria**:
-- [ ] 3 tests added and passing
-- [ ] Tests cover: clean repo, branch parsing, exit code error
+- [ ] 4 new tests added covering line length edge cases
+- [ ] Tests validate that short lines (<= 2 chars) are properly handled
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 2: Test File Status Variants
+### Phase 2: Git Status Code Coverage - Deleted and Renamed Files
 
-**Goal**: Cover all file status parsing branches (untracked, modified, edge cases)
+**Goal**: Cover all git status codes, not just modified (M) and added (A)
 
 **Changes**:
-- Add test for untracked files (lines starting with "??")
-- Add test for modified files (lines with length > 2)
-- Add test for mixed status (both untracked and modified files)
-- Add test for empty status output
+- Add test for deleted files (status code 'D')
+- Add test for renamed files (status code 'R')
+- Add test for copied files (status code 'C')
+- Add test for files with both staged and unstaged changes (e.g., 'MM', 'AM')
 
 **Testing**:
-- Run `cargo test git_runner_status` to verify all file status parsing works
-- Verify coverage increases for lines 71-84
+- Run `cargo test git_error_tests::test_status_*_status_code` for new tests
+- Verify modified_files array correctly captures all status types
 
 **Success Criteria**:
-- [ ] 4 tests added and passing
-- [ ] Tests cover: untracked files, modified files, mixed status, empty output
-- [ ] File parsing logic fully covered
+- [ ] 4 new tests added for D, R, C, and dual-status files
+- [ ] All git status codes properly categorized as modified_files
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 3: Test Branch Parsing Edge Cases
+### Phase 3: Branch Parsing Edge Cases
 
-**Goal**: Cover all branch information parsing branches and edge cases
+**Goal**: Ensure robust branch name parsing for unusual branch formats
 
 **Changes**:
-- Add test for branch with upstream info ("## main...origin/main")
-- Add test for branch without upstream ("## main")
-- Add test for detached HEAD (no branch line)
-- Add test for malformed branch line
+- Add test for branch line with no upstream but with spaces
+- Add test for branch name containing special characters (slashes, dashes, dots)
+- Add test for very long branch names (>100 chars)
+- Add test for branch line with multiple "..." separators (malformed)
 
 **Testing**:
-- Run `cargo test git_runner_status` to verify branch parsing edge cases
-- Verify lines 72-75 have full coverage
+- Run `cargo test git_error_tests::test_status_branch_*` for new tests
+- Verify branch parsing handles edge cases gracefully
 
 **Success Criteria**:
-- [ ] 4 tests added and passing
-- [ ] Tests cover: branch with upstream, branch without upstream, no branch, malformed input
-- [ ] Branch parsing logic fully covered
+- [ ] 4 new tests added for branch parsing edge cases
+- [ ] Branch parser handles unusual formats without panicking
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 4: Test Output Edge Cases and Integration
+### Phase 4: Final Coverage Verification
 
-**Goal**: Cover remaining edge cases and ensure comprehensive coverage
-
-**Changes**:
-- Add test for status output with only branch line (no files)
-- Add test for status output with files but no branch line
-- Add test combining all scenarios (branch + untracked + modified)
-
-**Testing**:
-- Run `cargo test git_runner_status` to verify all tests pass
-- Run `cargo tarpaulin --lib --packages prodigy -- git_runner` to verify 100% coverage for status function
-
-**Success Criteria**:
-- [ ] 3 tests added (total: 12 tests for status function)
-- [ ] 100% line coverage for GitRunnerImpl::status achieved
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 5: Final Validation and Cleanup
-
-**Goal**: Ensure all quality gates pass and coverage is verified
+**Goal**: Achieve 100% branch coverage and verify all paths are tested
 
 **Changes**:
-- Run full test suite
-- Run clippy for warnings
-- Format code
-- Verify coverage metrics
+- Run `cargo tarpaulin --out Html --output-dir coverage` to generate coverage report
+- Identify any remaining uncovered branches in GitRunnerImpl::status (lines 52-92)
+- Add focused tests for any remaining gaps
+- Document test coverage in commit message
 
 **Testing**:
-- `cargo test --lib` - All tests pass
-- `cargo clippy` - No warnings
-- `cargo fmt --check` - Properly formatted
-- `cargo tarpaulin --lib` - Verify coverage improvement
+- Review HTML coverage report
+- Verify 100% line and branch coverage for GitRunnerImpl::status
+- Run full test suite: `cargo test`
+- Run `cargo clippy` to check for warnings
 
 **Success Criteria**:
-- [ ] All 12 tests passing consistently
+- [ ] 100% branch coverage achieved for GitRunnerImpl::status
+- [ ] Coverage report confirms all branches tested
+- [ ] All tests pass (`cargo test`)
 - [ ] No clippy warnings
-- [ ] Code properly formatted
-- [ ] Coverage metrics show improvement
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib subprocess::git` to verify git-specific tests pass
-2. Run `cargo clippy -- -D warnings` to check for warnings
-3. Each test should be < 15 lines and test ONE path
+1. Write tests following existing patterns in `git_error_tests` module
+2. Use `MockProcessRunner` to simulate git command output
+3. Keep each test focused on ONE specific edge case
+4. Test name should clearly describe the scenario
+5. Run `cargo test --lib git_error_tests` after each test
+6. Commit after each phase with descriptive message
 
-**Test pattern to follow** (using existing git_error_tests as reference):
+**Test Pattern to Follow**:
 ```rust
 #[tokio::test]
-async fn test_status_<scenario>() {
+async fn test_status_<specific_scenario>() {
     let mut mock_runner = MockProcessRunner::new();
     mock_runner
         .expect_command("git")
         .with_args(|args| args == ["status", "--porcelain", "--branch"])
-        .returns_stdout("<scenario_output>")
-        .returns_success()  // or .returns_exit_code(128) for error cases
+        .returns_stdout("<specific_test_output>")
+        .returns_success()
         .finish();
 
     let git = GitRunnerImpl::new(Arc::new(mock_runner));
     let temp_dir = TempDir::new().unwrap();
     let result = git.status(temp_dir.path()).await;
 
-    // Assert specific expectations
     assert!(result.is_ok());
-    // ... more assertions
+    let status = result.unwrap();
+    // Specific assertions for this scenario
 }
 ```
 
 **Final verification**:
-1. `cargo test --lib` - Full library test suite
-2. `cargo tarpaulin --lib` - Verify coverage increase
-3. `cargo clippy` - No warnings
+1. `cargo test --lib` - All unit tests pass
+2. `cargo clippy` - No warnings
+3. `cargo fmt --check` - Proper formatting
+4. `cargo tarpaulin --out Html` - Generate coverage report
+5. Review coverage/index.html - Verify 100% coverage for GitRunnerImpl::status
 
 ## Rollback Plan
 
 If a phase fails:
-1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failure or clippy warning
-3. Adjust the test implementation
-4. Retry the phase
+1. Review test failure output carefully
+2. Check if MockProcessRunner expectations match actual function behavior
+3. If test design is flawed, fix the test (not the production code)
+4. If a genuine bug is found, document it separately (do not fix in this workflow)
+5. For build failures: `git reset --hard HEAD~1` and revise approach
+
+**Important**: This is a test-only workflow. Do NOT modify the `status` function itself. Only add tests.
 
 ## Notes
 
-- The existing test module `git_error_tests` provides a good pattern for using `MockProcessRunner`
-- Focus on testing the parsing logic in lines 71-84 (file status parsing)
-- Focus on testing the branch parsing logic in lines 72-75
-- The function has 0% coverage despite being called by multiple upstream callers, indicating it's only tested indirectly
-- Each test should use `MockProcessRunner` to control git output and test specific parsing paths
-- Avoid testing implementation details; focus on behavior and output correctness
-- The complexity (12) is acceptable; the issue is purely lack of direct test coverage
+- The existing test suite already has 18 comprehensive tests
+- The debtmap recommendation is to add 12 more tests for complete coverage
+- Focus on edge cases and boundary conditions not covered by existing tests
+- Each test should be < 15 lines and test ONE specific path
+- The complexity of 12 is acceptable per the debtmap analysis
+- DO NOT refactor the status function - only add tests
+- Use early returns pattern in tests for clarity
+- Follow existing test naming convention: `test_status_<scenario_description>`
