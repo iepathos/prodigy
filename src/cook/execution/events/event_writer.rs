@@ -898,4 +898,74 @@ mod tests {
         let size = *writer.current_size.lock().await;
         assert!(size > 0);
     }
+
+    #[tokio::test]
+    async fn test_jsonl_writer_rotation_on_write() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::with_rotation(file_path.clone(), 500)
+            .await
+            .unwrap();
+
+        let events: Vec<EventRecord> = (0..10)
+            .map(|i| EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: chrono::Utc::now(),
+                correlation_id: format!("test-correlation-{}", i),
+                event: MapReduceEvent::JobStarted {
+                    job_id: format!("test-job-{}", i),
+                    config: MapReduceConfig {
+                        agent_timeout_secs: None,
+                        continue_on_failure: false,
+                        batch_size: None,
+                        enable_checkpoints: true,
+                        input: "test.json".to_string(),
+                        json_path: "$.items".to_string(),
+                        max_parallel: 5,
+                        max_items: None,
+                        offset: None,
+                    },
+                    total_items: 10,
+                    timestamp: chrono::Utc::now(),
+                },
+                metadata: Default::default(),
+            })
+            .collect();
+
+        writer.write(&events).await.unwrap();
+        writer.flush().await.unwrap();
+
+        let size_before_rotation = *writer.current_size.lock().await;
+        assert!(size_before_rotation >= 500);
+
+        let small_event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: chrono::Utc::now(),
+            correlation_id: "small".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "small".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: chrono::Utc::now(),
+            },
+            metadata: Default::default(),
+        };
+
+        writer.write(&[small_event]).await.unwrap();
+        writer.flush().await.unwrap();
+
+        let size_after_rotation = *writer.current_size.lock().await;
+        assert!(size_after_rotation < 500);
+    }
 }
