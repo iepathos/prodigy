@@ -5,7 +5,6 @@
 
 #[cfg(test)]
 mod spec_121_tests {
-    use crate::cook::execution::dlq::FailureDetail;
     use crate::cook::execution::mapreduce::agent::types::{AgentResult, AgentStatus};
     use crate::cook::execution::mapreduce::command::executor::CommandResult;
     use std::path::PathBuf;
