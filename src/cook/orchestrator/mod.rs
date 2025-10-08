@@ -6,6 +6,7 @@ pub mod builder;
 pub mod construction;
 mod core;
 mod normalization;
+mod session_ops;
 pub mod workflow_classifier;
 
 // Re-export public types and traits from core
