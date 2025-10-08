@@ -24,7 +24,6 @@ use std::sync::Arc;
 /// Returns true if:
 /// - attempts < max_attempts AND
 /// - validation is incomplete
-#[allow(dead_code)]
 fn should_continue_retry(attempts: u32, max_attempts: u32, is_complete: bool) -> bool {
     attempts < max_attempts && !is_complete
 }
@@ -74,7 +73,6 @@ fn calculate_retry_progress(attempts: u32, max_attempts: u32, completion: f64) -
 /// Determine if the workflow should fail based on validation state
 ///
 /// Returns true if validation is incomplete AND fail_workflow is true
-#[allow(dead_code)]
 fn should_fail_workflow(is_complete: bool, fail_workflow_flag: bool, _attempts: u32) -> bool {
     !is_complete && fail_workflow_flag
 }
@@ -232,9 +230,11 @@ impl WorkflowExecutor {
         let mut attempts = 0;
         let mut current_result = initial_result;
 
-        while attempts < on_incomplete.max_attempts
-            && !validation_config.is_complete(&current_result)
-        {
+        while should_continue_retry(
+            attempts,
+            on_incomplete.max_attempts,
+            validation_config.is_complete(&current_result),
+        ) {
             attempts += 1;
 
             self.user_interaction.display_info(&format!(
@@ -322,7 +322,11 @@ impl WorkflowExecutor {
         }
 
         // Check if we should fail the workflow
-        if !validation_config.is_complete(&current_result) && on_incomplete.fail_workflow {
+        if should_fail_workflow(
+            validation_config.is_complete(&current_result),
+            on_incomplete.fail_workflow,
+            attempts,
+        ) {
             return Err(anyhow!(
                 "Validation failed after {} attempts. Completion: {:.1}%",
                 attempts,
