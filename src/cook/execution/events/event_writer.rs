@@ -838,4 +838,21 @@ mod tests {
         let size = *writer.current_size.lock().await;
         assert!(size > 0);
     }
+
+    #[tokio::test]
+    async fn test_jsonl_writer_write_empty_array() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::new(file_path.clone()).await.unwrap();
+
+        writer.write(&[]).await.unwrap();
+        writer.flush().await.unwrap();
+
+        let content = tokio::fs::read_to_string(&file_path).await.unwrap();
+        assert_eq!(content.len(), 0);
+
+        let size = *writer.current_size.lock().await;
+        assert_eq!(size, 0);
+    }
 }
