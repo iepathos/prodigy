@@ -386,6 +386,103 @@ mod tests {
         assert_eq!(result, false);
     }
 
+    // Tests for should_stage_file
+    #[test]
+    fn test_should_stage_file_no_config() {
+        let result = CommitTracker::should_stage_file("file.rs", None);
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_stage_file_only_include_matching() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["*.rs".to_string()]),
+            exclude_files: None,
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("file.rs", Some(&config));
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_stage_file_only_include_not_matching() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["*.rs".to_string()]),
+            exclude_files: None,
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("file.md", Some(&config));
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_stage_file_only_exclude_matching() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: None,
+            exclude_files: Some(vec!["*.tmp".to_string()]),
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("file.tmp", Some(&config));
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_stage_file_only_exclude_not_matching() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: None,
+            exclude_files: Some(vec!["*.tmp".to_string()]),
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("file.rs", Some(&config));
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_stage_file_include_and_exclude_passes() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["*.rs".to_string()]),
+            exclude_files: Some(vec!["*_test.rs".to_string()]),
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("main.rs", Some(&config));
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_stage_file_include_and_exclude_blocked() {
+        let config = CommitConfig {
+            message_template: None,
+            message_pattern: None,
+            sign: false,
+            author: None,
+            include_files: Some(vec!["*.rs".to_string()]),
+            exclude_files: Some(vec!["*_test.rs".to_string()]),
+            squash: false,
+        };
+        let result = CommitTracker::should_stage_file("foo_test.rs", Some(&config));
+        assert_eq!(result, false);
+    }
+
     // Tests for get_files_to_stage
     #[tokio::test]
     async fn test_get_files_to_stage_no_config() {

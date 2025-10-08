@@ -356,6 +356,35 @@ impl CommitTracker {
         false
     }
 
+    /// Determine if a file should be staged based on commit configuration
+    ///
+    /// Returns true if the file should be staged, considering both include and exclude patterns
+    /// - If config is None, returns true (stage all files)
+    /// - Otherwise, checks include patterns first, then exclude patterns
+    fn should_stage_file(file: &str, config: Option<&CommitConfig>) -> bool {
+        match config {
+            None => true, // No config means stage all files
+            Some(cfg) => {
+                // Check include patterns
+                let passes_include = match &cfg.include_files {
+                    Some(patterns) => Self::should_include_file(file, patterns),
+                    None => true, // No include patterns means include all
+                };
+
+                // If file doesn't pass include check, exclude it
+                if !passes_include {
+                    return false;
+                }
+
+                // Check exclude patterns
+                match &cfg.exclude_files {
+                    Some(patterns) => !Self::should_exclude_file(file, patterns),
+                    None => true, // No exclude patterns means exclude none
+                }
+            }
+        }
+    }
+
     /// Filter files based on include/exclude patterns
     async fn get_files_to_stage(
         &self,
@@ -371,27 +400,7 @@ impl CommitTracker {
         let mut files = Vec::new();
         for line in stdout.lines() {
             if let Some(file) = Self::parse_git_status_line(line) {
-                // Check if file should be included based on patterns
-                if let Some(config) = commit_config {
-                    let mut should_include = true;
-
-                    // Check include patterns
-                    if let Some(include_patterns) = &config.include_files {
-                        should_include = Self::should_include_file(&file, include_patterns);
-                    }
-
-                    // Check exclude patterns
-                    if should_include {
-                        if let Some(exclude_patterns) = &config.exclude_files {
-                            should_include = !Self::should_exclude_file(&file, exclude_patterns);
-                        }
-                    }
-
-                    if should_include {
-                        files.push(file);
-                    }
-                } else {
-                    // No patterns configured, include all files
+                if Self::should_stage_file(&file, commit_config) {
                     files.push(file);
                 }
             }
