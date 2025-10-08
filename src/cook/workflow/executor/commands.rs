@@ -706,7 +706,7 @@ impl WorkflowExecutor {
                     ));
 
                     // Determine if workflow should fail (using pure helper)
-                    if let Err(_) = Self::should_fail_workflow_on_max_attempts(debug_config.fail_workflow) {
+                    if Self::should_fail_workflow_on_max_attempts(debug_config.fail_workflow).is_err() {
                         return Err(anyhow!(
                             "Shell command failed after {} attempts and fail_workflow is true",
                             debug_config.max_attempts
