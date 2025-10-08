@@ -283,4 +283,67 @@ mod git_error_tests {
         assert!(result.is_ok()); // Log returns Ok with the output
         assert_eq!(result.unwrap(), "invalid log format");
     }
+
+    #[tokio::test]
+    async fn test_status_clean_repository() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## main\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some("main".to_string()));
+        assert!(status.clean);
+        assert!(status.untracked_files.is_empty());
+        assert!(status.modified_files.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_status_with_branch_information() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## feature/test...origin/feature/test\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some("feature/test".to_string()));
+        assert!(status.clean);
+    }
+
+    #[tokio::test]
+    async fn test_status_exit_code_error() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stderr("fatal: not a git repository")
+            .returns_exit_code(128)
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ProcessError::ExitCode(code) => assert_eq!(code, 128),
+            _ => panic!("Expected ExitCode error"),
+        }
+    }
 }
