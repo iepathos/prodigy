@@ -4,7 +4,8 @@ use anyhow::Result;
 use prodigy::config::WorkflowConfig;
 use prodigy::cook::workflow::{
     ComposableWorkflow, Parameter, ParameterDefinitions, ParameterType, SubWorkflow,
-    TemplateRegistry, TemplateSource, WorkflowComposer, WorkflowImport, WorkflowTemplate,
+    TemplateRegistry, TemplateSource, TemplateStorage, WorkflowComposer, WorkflowImport,
+    WorkflowTemplate,
 };
 use serde_json::Value;
 use std::collections::HashMap;
@@ -450,6 +451,332 @@ async fn test_template_search_by_tags() -> Result<()> {
     let test_templates = registry.search_by_tags(&["test".to_string()]).await?;
     assert_eq!(test_templates.len(), 1);
     assert_eq!(test_templates[0].name, "test-template");
+
+    Ok(())
+}
+
+// ========================================
+// FileTemplateStorage::list Test Coverage
+// ========================================
+
+#[tokio::test]
+async fn test_list_non_existent_directory() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let non_existent_path = PathBuf::from("/tmp/prodigy-test-non-existent-dir-12345");
+    let storage = FileTemplateStorage::new(non_existent_path);
+
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_empty_directory() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_no_yml_files() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create non-YAML files
+    std::fs::write(temp_dir.path().join("readme.txt"), "Documentation")?;
+    std::fs::write(temp_dir.path().join("config.json"), "{}")?;
+    std::fs::write(temp_dir.path().join("data.xml"), "<root></root>")?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_yml_files_only() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create .yml files
+    std::fs::write(temp_dir.path().join("template1.yml"), "commands: []")?;
+    std::fs::write(temp_dir.path().join("template2.yml"), "commands: []")?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_skips_meta_files() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create .yml template and its .meta.json file
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    std::fs::write(
+        temp_dir.path().join("template.meta.yml"),
+        "description: metadata",
+    )?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    // Should only find template.yml, skip template.meta.yml
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_mixed_file_types() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create mixed file types
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    std::fs::write(temp_dir.path().join("readme.txt"), "Documentation")?;
+    std::fs::write(temp_dir.path().join("config.json"), "{}")?;
+    std::fs::write(temp_dir.path().join("data.yaml"), "key: value")?; // .yaml extension
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    // Should only find .yml files
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_files_without_extensions() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create files with and without extensions
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    std::fs::write(temp_dir.path().join("noextension"), "content")?;
+    std::fs::write(temp_dir.path().join("README"), "docs")?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    // Should only find .yml files
+    assert_eq!(templates.len(), 1);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_with_valid_metadata() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create template with valid metadata
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    let metadata_content = r#"{
+            "description": "Test template",
+            "author": "Test Author",
+            "version": "1.0.0",
+            "tags": ["test", "example"],
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }"#;
+    std::fs::write(temp_dir.path().join("template.meta.json"), metadata_content)?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    assert_eq!(templates[0].description, Some("Test template".to_string()));
+    assert_eq!(templates[0].version, "1.0.0");
+    assert_eq!(templates[0].tags, vec!["test", "example"]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_without_metadata() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create template without metadata file
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    assert_eq!(templates[0].description, None);
+    assert_eq!(templates[0].version, "1.0.0"); // Default version
+    assert!(templates[0].tags.is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_with_invalid_metadata_json() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create template with corrupted metadata JSON
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    std::fs::write(
+        temp_dir.path().join("template.meta.json"),
+        "{ invalid json syntax",
+    )?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    // Should use default metadata when JSON is invalid
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    assert_eq!(templates[0].description, None);
+    assert_eq!(templates[0].version, "1.0.0");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_with_unreadable_metadata() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create template with unreadable metadata file
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    let metadata_path = temp_dir.path().join("template.meta.json");
+    std::fs::write(&metadata_path, r#"{"description": "Should not be read"}"#)?;
+
+    // Make metadata file unreadable (Unix only)
+    #[cfg(unix)]
+    std::fs::set_permissions(&metadata_path, std::fs::Permissions::from_mode(0o000))?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    // Restore permissions for cleanup
+    #[cfg(unix)]
+    std::fs::set_permissions(&metadata_path, std::fs::Permissions::from_mode(0o644))?;
+
+    // Should use default metadata when file is unreadable
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    assert_eq!(templates[0].description, None);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_multiple_templates() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create multiple templates with various metadata states
+    std::fs::write(temp_dir.path().join("template1.yml"), "commands: []")?;
+    std::fs::write(
+        temp_dir.path().join("template1.meta.json"),
+        r#"{
+            "description": "First template",
+            "author": "Author1",
+            "version": "1.0.0",
+            "tags": ["test"],
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }"#,
+    )?;
+
+    std::fs::write(temp_dir.path().join("template2.yml"), "commands: []")?;
+    // No metadata for template2
+
+    std::fs::write(temp_dir.path().join("template3.yml"), "commands: []")?;
+    std::fs::write(
+        temp_dir.path().join("template3.meta.json"),
+        r#"{
+            "description": "Third template",
+            "author": "Author3",
+            "version": "2.0.0",
+            "tags": ["prod", "critical"],
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }"#,
+    )?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 3);
+
+    // Find each template and verify
+    let t1 = templates.iter().find(|t| t.name == "template1").unwrap();
+    assert_eq!(t1.description, Some("First template".to_string()));
+    assert_eq!(t1.version, "1.0.0");
+
+    let t2 = templates.iter().find(|t| t.name == "template2").unwrap();
+    assert_eq!(t2.description, None);
+    assert_eq!(t2.version, "1.0.0"); // Default
+
+    let t3 = templates.iter().find(|t| t.name == "template3").unwrap();
+    assert_eq!(t3.description, Some("Third template".to_string()));
+    assert_eq!(t3.version, "2.0.0");
+    assert_eq!(t3.tags, vec!["prod", "critical"]);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_populates_template_info_correctly() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create template with all metadata fields populated
+    std::fs::write(temp_dir.path().join("full-template.yml"), "commands: []")?;
+    std::fs::write(
+        temp_dir.path().join("full-template.meta.json"),
+        r#"{
+            "description": "Complete template description",
+            "author": "Test Author",
+            "version": "3.2.1",
+            "tags": ["integration", "test", "complete"],
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-06-01T00:00:00Z"
+        }"#,
+    )?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 1);
+
+    // Verify all TemplateInfo fields are correctly populated
+    let template = &templates[0];
+    assert_eq!(template.name, "full-template");
+    assert_eq!(
+        template.description,
+        Some("Complete template description".to_string())
+    );
+    assert_eq!(template.version, "3.2.1");
+    assert_eq!(template.tags, vec!["integration", "test", "complete"]);
 
     Ok(())
 }
