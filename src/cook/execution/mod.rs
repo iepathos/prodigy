@@ -60,6 +60,8 @@ pub mod runner;
 pub mod setup_executor;
 #[cfg(test)]
 pub mod shell_failure_tests;
+#[cfg(test)]
+pub mod spec_121_integration_test;
 pub mod state;
 #[cfg(test)]
 pub mod state_tests;
