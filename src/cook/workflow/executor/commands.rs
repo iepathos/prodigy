@@ -1398,4 +1398,525 @@ mod tests {
             .to_string()
             .contains("Invalid file mode"));
     }
+
+    // Tests for execute_shell_with_retry
+    mod shell_retry_tests {
+        use super::*;
+        use crate::abstractions::git::MockGitOperations;
+        use crate::config::command::TestDebugConfig;
+        use crate::cook::execution::ClaudeExecutor;
+        use crate::cook::execution::ExecutionResult;
+        use crate::cook::interaction::SpinnerHandle;
+        use crate::cook::interaction::UserInteraction;
+        use crate::cook::interaction::VerbosityLevel;
+        use crate::cook::orchestrator::ExecutionEnvironment;
+        use crate::cook::session::state::SessionState;
+        use crate::cook::session::summary::SessionSummary;
+        use crate::cook::session::SessionInfo;
+        use crate::cook::session::{SessionManager, SessionUpdate};
+        use crate::cook::workflow::WorkflowContext;
+        use crate::testing::config::TestConfiguration;
+        use async_trait::async_trait;
+        use std::collections::HashMap;
+        use std::path::{Path, PathBuf};
+        use std::sync::{Arc, Mutex};
+        use tempfile::TempDir;
+
+        // Mock implementations
+        pub struct MockClaudeExecutor {
+            responses: Arc<Mutex<Vec<ExecutionResult>>>,
+            #[allow(clippy::type_complexity)]
+            calls: Arc<Mutex<Vec<(String, PathBuf, HashMap<String, String>)>>>,
+        }
+
+        impl MockClaudeExecutor {
+            fn new() -> Self {
+                Self {
+                    responses: Arc::new(Mutex::new(Vec::new())),
+                    calls: Arc::new(Mutex::new(Vec::new())),
+                }
+            }
+
+            fn add_response(&self, response: ExecutionResult) {
+                self.responses.lock().unwrap().push(response);
+            }
+        }
+
+        #[async_trait]
+        impl ClaudeExecutor for MockClaudeExecutor {
+            async fn execute_claude_command(
+                &self,
+                command: &str,
+                working_dir: &Path,
+                env_vars: HashMap<String, String>,
+            ) -> Result<ExecutionResult> {
+                self.calls.lock().unwrap().push((
+                    command.to_string(),
+                    working_dir.to_path_buf(),
+                    env_vars.clone(),
+                ));
+
+                self.responses
+                    .lock()
+                    .unwrap()
+                    .pop()
+                    .ok_or_else(|| anyhow::anyhow!("No mock response configured"))
+            }
+
+            async fn check_claude_cli(&self) -> Result<bool> {
+                Ok(true)
+            }
+
+            async fn get_claude_version(&self) -> Result<String> {
+                Ok("mock-version-1.0.0".to_string())
+            }
+        }
+
+        pub struct MockSessionManager {
+            updates: Arc<Mutex<Vec<SessionUpdate>>>,
+        }
+
+        impl MockSessionManager {
+            fn new() -> Self {
+                Self {
+                    updates: Arc::new(Mutex::new(Vec::new())),
+                }
+            }
+        }
+
+        #[async_trait]
+        impl SessionManager for MockSessionManager {
+            async fn update_session(&self, update: SessionUpdate) -> Result<()> {
+                self.updates.lock().unwrap().push(update);
+                Ok(())
+            }
+
+            async fn start_session(&self, _session_id: &str) -> Result<()> {
+                Ok(())
+            }
+
+            async fn complete_session(&self) -> Result<SessionSummary> {
+                Ok(SessionSummary {
+                    iterations: 1,
+                    files_changed: 0,
+                })
+            }
+
+            fn get_state(&self) -> Result<SessionState> {
+                Ok(SessionState::new(
+                    "test-session".to_string(),
+                    PathBuf::from("/tmp"),
+                ))
+            }
+
+            async fn save_state(&self, _path: &Path) -> Result<()> {
+                Ok(())
+            }
+
+            async fn load_state(&self, _path: &Path) -> Result<()> {
+                Ok(())
+            }
+
+            async fn load_session(&self, _session_id: &str) -> Result<SessionState> {
+                Ok(SessionState::new(
+                    "test-session".to_string(),
+                    PathBuf::from("/tmp"),
+                ))
+            }
+
+            async fn save_checkpoint(&self, _state: &SessionState) -> Result<()> {
+                Ok(())
+            }
+
+            async fn list_resumable(&self) -> Result<Vec<SessionInfo>> {
+                Ok(vec![])
+            }
+
+            async fn get_last_interrupted(&self) -> Result<Option<String>> {
+                Ok(None)
+            }
+        }
+
+        struct MockSpinnerHandle;
+
+        impl SpinnerHandle for MockSpinnerHandle {
+            fn update_message(&mut self, _message: &str) {}
+            fn success(&mut self, _message: &str) {}
+            fn fail(&mut self, _message: &str) {}
+        }
+
+        pub struct MockUserInteraction {
+            messages: Arc<Mutex<Vec<(String, String)>>>,
+        }
+
+        impl MockUserInteraction {
+            fn new() -> Self {
+                Self {
+                    messages: Arc::new(Mutex::new(Vec::new())),
+                }
+            }
+        }
+
+        #[async_trait]
+        impl UserInteraction for MockUserInteraction {
+            fn display_info(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("info".to_string(), message.to_string()));
+            }
+
+            fn display_progress(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("progress".to_string(), message.to_string()));
+            }
+
+            fn display_success(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("success".to_string(), message.to_string()));
+            }
+
+            fn display_error(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("error".to_string(), message.to_string()));
+            }
+
+            fn display_warning(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("warning".to_string(), message.to_string()));
+            }
+
+            fn display_action(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("action".to_string(), message.to_string()));
+            }
+
+            fn display_metric(&self, label: &str, value: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("metric".to_string(), format!("{}: {}", label, value)));
+            }
+
+            fn display_status(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("status".to_string(), message.to_string()));
+            }
+
+            async fn prompt_yes_no(&self, _message: &str) -> Result<bool> {
+                Ok(true)
+            }
+
+            async fn prompt_text(&self, _message: &str, _default: Option<&str>) -> Result<String> {
+                Ok("test".to_string())
+            }
+
+            fn start_spinner(&self, _message: &str) -> Box<dyn SpinnerHandle> {
+                Box::new(MockSpinnerHandle)
+            }
+
+            fn iteration_start(&self, current: u32, total: u32) {
+                self.messages.lock().unwrap().push((
+                    "iteration_start".to_string(),
+                    format!("{}/{}", current, total),
+                ));
+            }
+
+            fn iteration_end(&self, current: u32, duration: std::time::Duration, success: bool) {
+                self.messages.lock().unwrap().push((
+                    "iteration_end".to_string(),
+                    format!("{} {:?} {}", current, duration, success),
+                ));
+            }
+
+            fn step_start(&self, step: u32, total: u32, description: &str) {
+                self.messages.lock().unwrap().push((
+                    "step_start".to_string(),
+                    format!("{}/{} {}", step, total, description),
+                ));
+            }
+
+            fn step_end(&self, step: u32, success: bool) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("step_end".to_string(), format!("{} {}", step, success)));
+            }
+
+            fn command_output(
+                &self,
+                output: &str,
+                _verbosity: crate::cook::interaction::VerbosityLevel,
+            ) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("command_output".to_string(), output.to_string()));
+            }
+
+            fn debug_output(
+                &self,
+                message: &str,
+                _min_verbosity: crate::cook::interaction::VerbosityLevel,
+            ) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("debug".to_string(), message.to_string()));
+            }
+
+            fn verbosity(&self) -> VerbosityLevel {
+                VerbosityLevel::Normal
+            }
+        }
+
+        async fn create_test_executor() -> (
+            WorkflowExecutor,
+            Arc<MockClaudeExecutor>,
+            Arc<MockUserInteraction>,
+        ) {
+            let claude_executor = Arc::new(MockClaudeExecutor::new());
+            let session_manager = Arc::new(MockSessionManager::new());
+            let user_interaction = Arc::new(MockUserInteraction::new());
+            let git_operations = Arc::new(MockGitOperations::new());
+
+            // Set up default git mock responses
+            for _ in 0..20 {
+                git_operations.add_success_response("abc123").await;
+            }
+
+            let test_config = Arc::new(TestConfiguration {
+                test_mode: false,
+                ..Default::default()
+            });
+
+            let executor = WorkflowExecutor::with_test_config_and_git(
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                session_manager.clone() as Arc<dyn SessionManager>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                test_config,
+                git_operations,
+            );
+
+            (executor, claude_executor, user_interaction)
+        }
+
+        #[tokio::test]
+        async fn test_shell_retry_success_first_attempt() {
+            let (executor, _, _) = create_test_executor().await;
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let mut ctx = WorkflowContext::default();
+            let env_vars = HashMap::new();
+
+            let result = executor
+                .execute_shell_with_retry("echo 'success'", None, &env, &mut ctx, env_vars, None)
+                .await
+                .unwrap();
+
+            assert!(result.success);
+            assert_eq!(result.exit_code, Some(0));
+            assert!(result.stdout.contains("success"));
+        }
+
+        #[tokio::test]
+        async fn test_shell_retry_success_after_retry() {
+            let (executor, claude_mock, _) = create_test_executor().await;
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let mut ctx = WorkflowContext::default();
+            let env_vars = HashMap::new();
+
+            // Configure debug command to succeed
+            let mut metadata = HashMap::new();
+            metadata.insert("test".to_string(), "value".to_string());
+            claude_mock.add_response(ExecutionResult {
+                success: true,
+                exit_code: Some(0),
+                stdout: "debug output".to_string(),
+                stderr: String::new(),
+                metadata,
+            });
+
+            let on_failure = TestDebugConfig {
+                claude: "/debug".to_string(),
+                max_attempts: 3,
+                fail_workflow: false,
+                commit_required: false,
+            };
+
+            // First attempt fails, second succeeds
+            let result = executor
+                .execute_shell_with_retry(
+                    "test -f /nonexistent && echo 'found' || (test $SHELL_ATTEMPT -gt 1 && echo 'retry success')",
+                    Some(&on_failure),
+                    &env,
+                    &mut ctx,
+                    env_vars,
+                    None,
+                )
+                .await
+                .unwrap();
+
+            assert!(result.success);
+            assert!(result.stdout.contains("retry success"));
+        }
+
+        #[tokio::test]
+        async fn test_shell_retry_max_attempts_fail_workflow() {
+            let (executor, claude_mock, _) = create_test_executor().await;
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let mut ctx = WorkflowContext::default();
+            let env_vars = HashMap::new();
+
+            // Configure debug commands to succeed (but shell command will keep failing)
+            for _ in 0..2 {
+                let mut metadata = HashMap::new();
+                metadata.insert("test".to_string(), "value".to_string());
+                claude_mock.add_response(ExecutionResult {
+                    success: true,
+                    exit_code: Some(0),
+                    stdout: "debug output".to_string(),
+                    stderr: String::new(),
+                    metadata,
+                });
+            }
+
+            let on_failure = TestDebugConfig {
+                claude: "/debug".to_string(),
+                max_attempts: 2,
+                fail_workflow: true,
+                commit_required: false,
+            };
+
+            // Command that always fails
+            let result = executor
+                .execute_shell_with_retry(
+                    "exit 1",
+                    Some(&on_failure),
+                    &env,
+                    &mut ctx,
+                    env_vars,
+                    None,
+                )
+                .await;
+
+            assert!(result.is_err());
+            assert!(result
+                .unwrap_err()
+                .to_string()
+                .contains("failed after 2 attempts"));
+        }
+
+        #[tokio::test]
+        async fn test_shell_retry_max_attempts_no_fail_workflow() {
+            let (executor, claude_mock, _) = create_test_executor().await;
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let mut ctx = WorkflowContext::default();
+            let env_vars = HashMap::new();
+
+            // Configure debug commands to succeed
+            for _ in 0..2 {
+                let mut metadata = HashMap::new();
+                metadata.insert("test".to_string(), "value".to_string());
+                claude_mock.add_response(ExecutionResult {
+                    success: true,
+                    exit_code: Some(0),
+                    stdout: "debug output".to_string(),
+                    stderr: String::new(),
+                    metadata,
+                });
+            }
+
+            let on_failure = TestDebugConfig {
+                claude: "/debug".to_string(),
+                max_attempts: 2,
+                fail_workflow: false,
+                commit_required: false,
+            };
+
+            // Command that always fails
+            let result = executor
+                .execute_shell_with_retry(
+                    "exit 1",
+                    Some(&on_failure),
+                    &env,
+                    &mut ctx,
+                    env_vars,
+                    None,
+                )
+                .await
+                .unwrap();
+
+            assert!(!result.success);
+            assert_eq!(result.exit_code, Some(1));
+        }
+
+        #[tokio::test]
+        async fn test_shell_retry_no_on_failure_config() {
+            let (executor, _, _) = create_test_executor().await;
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let mut ctx = WorkflowContext::default();
+            let env_vars = HashMap::new();
+
+            // Command that fails - should return immediately without retry
+            let result = executor
+                .execute_shell_with_retry("exit 1", None, &env, &mut ctx, env_vars, None)
+                .await
+                .unwrap();
+
+            assert!(!result.success);
+            assert_eq!(result.exit_code, Some(1));
+        }
+    }
 }
