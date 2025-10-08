@@ -437,4 +437,85 @@ mod git_error_tests {
         assert!(status.untracked_files.is_empty());
         assert!(status.modified_files.is_empty());
     }
+
+    #[tokio::test]
+    async fn test_status_branch_with_upstream() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## feature/my-branch...origin/feature/my-branch [ahead 2]\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some("feature/my-branch".to_string()));
+        assert!(status.clean);
+    }
+
+    #[tokio::test]
+    async fn test_status_branch_without_upstream() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## develop\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some("develop".to_string()));
+        assert!(status.clean);
+    }
+
+    #[tokio::test]
+    async fn test_status_detached_head() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("?? file.txt\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert!(status.branch.is_none());
+        assert!(!status.clean);
+        assert_eq!(status.untracked_files.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_status_malformed_branch_line() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner
+            .expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stdout("## \n?? file.txt\n")
+            .returns_success()
+            .finish();
+
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert_eq!(status.branch, Some("".to_string()));
+        assert!(!status.clean);
+    }
 }
