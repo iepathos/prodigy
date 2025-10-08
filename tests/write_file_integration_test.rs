@@ -288,7 +288,10 @@ fn test_write_file_workflow_structure() -> Result<()> {
     // Verify setup prepares input file
     let setup = config.get("setup").unwrap().as_sequence().unwrap();
     let setup_cmd = setup[0].get("shell").unwrap().as_str().unwrap();
-    assert!(setup_cmd.contains("items.json"), "Setup should create input");
+    assert!(
+        setup_cmd.contains("items.json"),
+        "Setup should create input"
+    );
 
     Ok(())
 }

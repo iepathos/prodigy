@@ -1391,6 +1391,9 @@ mod tests {
 
         let result = execute_write_file_command(&config, temp_dir.path()).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid file mode"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid file mode"));
     }
 }
