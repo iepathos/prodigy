@@ -1112,4 +1112,47 @@ mod tests {
             "Index should be pretty-printed"
         );
     }
+
+    // Unit tests for helper functions
+
+    #[test]
+    fn test_update_time_range_first_event() {
+        let event_time = Utc::now();
+        let (start, end) = update_time_range(None, None, event_time);
+        assert_eq!(start, Some(event_time));
+        assert_eq!(end, Some(event_time));
+    }
+
+    #[test]
+    fn test_update_time_range_earlier_than_start() {
+        let current_start = Utc::now();
+        let current_end = current_start + chrono::Duration::hours(1);
+        let earlier_time = current_start - chrono::Duration::hours(1);
+
+        let (start, end) = update_time_range(Some(current_start), Some(current_end), earlier_time);
+        assert_eq!(start, Some(earlier_time));
+        assert_eq!(end, Some(current_end));
+    }
+
+    #[test]
+    fn test_update_time_range_later_than_end() {
+        let current_start = Utc::now();
+        let current_end = current_start + chrono::Duration::hours(1);
+        let later_time = current_end + chrono::Duration::hours(1);
+
+        let (start, end) = update_time_range(Some(current_start), Some(current_end), later_time);
+        assert_eq!(start, Some(current_start));
+        assert_eq!(end, Some(later_time));
+    }
+
+    #[test]
+    fn test_update_time_range_within_range() {
+        let current_start = Utc::now();
+        let current_end = current_start + chrono::Duration::hours(2);
+        let within_time = current_start + chrono::Duration::hours(1);
+
+        let (start, end) = update_time_range(Some(current_start), Some(current_end), within_time);
+        assert_eq!(start, Some(current_start));
+        assert_eq!(end, Some(current_end));
+    }
 }
