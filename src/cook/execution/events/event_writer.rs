@@ -798,4 +798,213 @@ mod tests {
         let size = *writer.current_size.lock().await;
         assert!(size > 0);
     }
+
+    #[tokio::test]
+    async fn test_jsonl_writer_write_single_event() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::new(file_path.clone()).await.unwrap();
+
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: chrono::Utc::now(),
+            correlation_id: "test-correlation".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test-job".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: chrono::Utc::now(),
+            },
+            metadata: Default::default(),
+        };
+
+        writer.write(&[event]).await.unwrap();
+        writer.flush().await.unwrap();
+
+        let content = tokio::fs::read_to_string(&file_path).await.unwrap();
+        assert!(content.contains("test-job"));
+
+        let size = *writer.current_size.lock().await;
+        assert!(size > 0);
+    }
+
+    #[tokio::test]
+    async fn test_jsonl_writer_write_empty_array() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::new(file_path.clone()).await.unwrap();
+
+        writer.write(&[]).await.unwrap();
+        writer.flush().await.unwrap();
+
+        let content = tokio::fs::read_to_string(&file_path).await.unwrap();
+        assert_eq!(content.len(), 0);
+
+        let size = *writer.current_size.lock().await;
+        assert_eq!(size, 0);
+    }
+
+    #[tokio::test]
+    async fn test_jsonl_writer_write_batch_events() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::new(file_path.clone()).await.unwrap();
+
+        let events: Vec<EventRecord> = (0..10)
+            .map(|i| EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: chrono::Utc::now(),
+                correlation_id: format!("correlation-{}", i),
+                event: MapReduceEvent::JobStarted {
+                    job_id: format!("job-{}", i),
+                    config: MapReduceConfig {
+                        agent_timeout_secs: None,
+                        continue_on_failure: false,
+                        batch_size: None,
+                        enable_checkpoints: true,
+                        input: "test.json".to_string(),
+                        json_path: "$.items".to_string(),
+                        max_parallel: 5,
+                        max_items: None,
+                        offset: None,
+                    },
+                    total_items: 10,
+                    timestamp: chrono::Utc::now(),
+                },
+                metadata: Default::default(),
+            })
+            .collect();
+
+        writer.write(&events).await.unwrap();
+        writer.flush().await.unwrap();
+
+        let content = tokio::fs::read_to_string(&file_path).await.unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(lines.len(), 10);
+
+        let size = *writer.current_size.lock().await;
+        assert!(size > 0);
+    }
+
+    #[tokio::test]
+    async fn test_jsonl_writer_rotation_on_write() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::with_rotation(file_path.clone(), 500)
+            .await
+            .unwrap();
+
+        let events: Vec<EventRecord> = (0..10)
+            .map(|i| EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: chrono::Utc::now(),
+                correlation_id: format!("test-correlation-{}", i),
+                event: MapReduceEvent::JobStarted {
+                    job_id: format!("test-job-{}", i),
+                    config: MapReduceConfig {
+                        agent_timeout_secs: None,
+                        continue_on_failure: false,
+                        batch_size: None,
+                        enable_checkpoints: true,
+                        input: "test.json".to_string(),
+                        json_path: "$.items".to_string(),
+                        max_parallel: 5,
+                        max_items: None,
+                        offset: None,
+                    },
+                    total_items: 10,
+                    timestamp: chrono::Utc::now(),
+                },
+                metadata: Default::default(),
+            })
+            .collect();
+
+        writer.write(&events).await.unwrap();
+        writer.flush().await.unwrap();
+
+        let size_before_rotation = *writer.current_size.lock().await;
+        assert!(size_before_rotation >= 500);
+
+        let small_event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: chrono::Utc::now(),
+            correlation_id: "small".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "small".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: chrono::Utc::now(),
+            },
+            metadata: Default::default(),
+        };
+
+        writer.write(&[small_event]).await.unwrap();
+        writer.flush().await.unwrap();
+
+        let size_after_rotation = *writer.current_size.lock().await;
+        assert!(size_after_rotation < 500);
+    }
+
+    #[tokio::test]
+    async fn test_jsonl_writer_write_after_close() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::new(file_path.clone()).await.unwrap();
+
+        {
+            let mut writer_guard = writer.writer.lock().await;
+            *writer_guard = None;
+        }
+
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: chrono::Utc::now(),
+            correlation_id: "test".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: chrono::Utc::now(),
+            },
+            metadata: Default::default(),
+        };
+
+        let result = writer.write(&[event]).await;
+        assert!(result.is_ok());
+    }
 }

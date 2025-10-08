@@ -597,6 +597,67 @@ impl WorkflowExecutor {
             .await
     }
 
+    // Pure helper functions for shell retry output management
+
+    /// Determine if output should be written to a temp file (pure function)
+    fn should_use_temp_file(stdout_len: usize, stderr_len: usize) -> bool {
+        stdout_len + stderr_len > 10000
+    }
+
+    /// Format shell output for display or storage (pure function)
+    fn format_shell_output(stdout: &str, stderr: &str) -> String {
+        format!("=== STDOUT ===\n{}\n\n=== STDERR ===\n{}", stdout, stderr)
+    }
+
+    /// Format smaller shell output for inline display (pure function)
+    fn format_inline_output(stdout: &str, stderr: &str) -> String {
+        format!("STDOUT:\n{}\n\nSTDERR:\n{}", stdout, stderr)
+    }
+
+    /// Create a temp file with shell output (returns Result for I/O operation)
+    fn create_output_temp_file(stdout: &str, stderr: &str) -> Result<tempfile::NamedTempFile> {
+        use std::fs;
+
+        let temp_file = tempfile::NamedTempFile::new()?;
+        let combined_output = Self::format_shell_output(stdout, stderr);
+        fs::write(temp_file.path(), &combined_output)?;
+        Ok(temp_file)
+    }
+
+    // Pure helper functions for shell retry context management
+
+    /// Build shell-specific context variables (pure function)
+    fn build_shell_context_vars(
+        attempt: u32,
+        exit_code: Option<i32>,
+        output: String,
+    ) -> HashMap<String, String> {
+        let mut vars = HashMap::new();
+        vars.insert("shell.attempt".to_string(), attempt.to_string());
+        vars.insert(
+            "shell.exit_code".to_string(),
+            exit_code.unwrap_or(-1).to_string(),
+        );
+        vars.insert("shell.output".to_string(), output);
+        vars
+    }
+
+    // Pure helper functions for shell retry logic
+
+    /// Check if max attempts have been reached (pure function)
+    fn has_reached_max_attempts(attempt: u32, max_attempts: u32) -> bool {
+        attempt >= max_attempts
+    }
+
+    /// Determine if workflow should fail on max attempts (pure function)
+    fn should_fail_workflow_on_max_attempts(fail_workflow: bool) -> Result<(), String> {
+        if fail_workflow {
+            Err("fail_workflow is true".to_string())
+        } else {
+            Ok(())
+        }
+    }
+
     /// Execute a shell command with retry logic (for shell commands with on_failure)
     async fn execute_shell_with_retry(
         &self,
@@ -607,9 +668,6 @@ impl WorkflowExecutor {
         mut env_vars: HashMap<String, String>,
         timeout: Option<u64>,
     ) -> Result<StepResult> {
-        use std::fs;
-        use tempfile::NamedTempFile;
-
         let (interpolated_cmd, resolutions) = ctx.interpolate_with_tracking(command);
         self.log_variable_resolutions(&resolutions);
 
@@ -638,13 +696,17 @@ impl WorkflowExecutor {
 
             // Command failed - check if we should retry
             if let Some(debug_config) = on_failure {
-                if attempt >= debug_config.max_attempts {
+                // Check if max attempts reached (using pure helper)
+                if Self::has_reached_max_attempts(attempt, debug_config.max_attempts) {
                     self.user_interaction.display_error(&format!(
                         "Shell command failed after {} attempts",
                         debug_config.max_attempts
                     ));
 
-                    if debug_config.fail_workflow {
+                    // Determine if workflow should fail (using pure helper)
+                    if Self::should_fail_workflow_on_max_attempts(debug_config.fail_workflow)
+                        .is_err()
+                    {
                         return Err(anyhow!(
                             "Shell command failed after {} attempts and fail_workflow is true",
                             debug_config.max_attempts
@@ -655,16 +717,15 @@ impl WorkflowExecutor {
                     }
                 }
 
-                // Save shell output to a temp file if it's too large
-                let temp_file = if shell_result.stdout.len() + shell_result.stderr.len() > 10000 {
-                    // Create a temporary file for large outputs
-                    let temp_file = NamedTempFile::new()?;
-                    let combined_output = format!(
-                        "=== STDOUT ===\n{}\n\n=== STDERR ===\n{}",
-                        shell_result.stdout, shell_result.stderr
-                    );
-                    fs::write(temp_file.path(), &combined_output)?;
-                    Some(temp_file)
+                // Save shell output to a temp file if it's too large (using pure helper)
+                let temp_file = if Self::should_use_temp_file(
+                    shell_result.stdout.len(),
+                    shell_result.stderr.len(),
+                ) {
+                    Some(Self::create_output_temp_file(
+                        &shell_result.stdout,
+                        &shell_result.stderr,
+                    )?)
                 } else {
                     None
                 };
@@ -676,25 +737,18 @@ impl WorkflowExecutor {
                 // Prepare the debug command with variables
                 let mut debug_cmd = debug_config.claude.clone();
 
-                // Add shell-specific variables to context
-                ctx.variables
-                    .insert("shell.attempt".to_string(), attempt.to_string());
-                ctx.variables.insert(
-                    "shell.exit_code".to_string(),
-                    shell_result.exit_code.unwrap_or(-1).to_string(),
-                );
-
-                if let Some(output_file) = output_path {
-                    ctx.variables
-                        .insert("shell.output".to_string(), output_file);
+                // Determine output value based on size (using pure helpers)
+                let output = if let Some(output_file) = output_path {
+                    output_file
                 } else {
-                    // For smaller outputs, pass directly
-                    let combined_output = format!(
-                        "STDOUT:\n{}\n\nSTDERR:\n{}",
-                        shell_result.stdout, shell_result.stderr
-                    );
-                    ctx.variables
-                        .insert("shell.output".to_string(), combined_output);
+                    Self::format_inline_output(&shell_result.stdout, &shell_result.stderr)
+                };
+
+                // Build and add shell-specific variables to context (using pure helper)
+                let shell_vars =
+                    Self::build_shell_context_vars(attempt, shell_result.exit_code, output);
+                for (key, value) in shell_vars {
+                    ctx.variables.insert(key, value);
                 }
 
                 // Interpolate the debug command
@@ -1397,5 +1451,750 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("Invalid file mode"));
+    }
+
+    // Tests for execute_shell_with_retry
+    mod shell_retry_tests {
+        use super::*;
+        use crate::abstractions::git::MockGitOperations;
+        use crate::config::command::TestDebugConfig;
+        use crate::cook::execution::ClaudeExecutor;
+        use crate::cook::execution::ExecutionResult;
+        use crate::cook::interaction::SpinnerHandle;
+        use crate::cook::interaction::UserInteraction;
+        use crate::cook::interaction::VerbosityLevel;
+        use crate::cook::orchestrator::ExecutionEnvironment;
+        use crate::cook::session::state::SessionState;
+        use crate::cook::session::summary::SessionSummary;
+        use crate::cook::session::SessionInfo;
+        use crate::cook::session::{SessionManager, SessionUpdate};
+        use crate::cook::workflow::WorkflowContext;
+        use crate::testing::config::TestConfiguration;
+        use async_trait::async_trait;
+        use std::collections::HashMap;
+        use std::path::{Path, PathBuf};
+        use std::sync::{Arc, Mutex};
+        use tempfile::TempDir;
+
+        // Mock implementations
+        pub struct MockClaudeExecutor {
+            responses: Arc<Mutex<Vec<ExecutionResult>>>,
+            #[allow(clippy::type_complexity)]
+            calls: Arc<Mutex<Vec<(String, PathBuf, HashMap<String, String>)>>>,
+        }
+
+        impl MockClaudeExecutor {
+            fn new() -> Self {
+                Self {
+                    responses: Arc::new(Mutex::new(Vec::new())),
+                    calls: Arc::new(Mutex::new(Vec::new())),
+                }
+            }
+
+            fn add_response(&self, response: ExecutionResult) {
+                self.responses.lock().unwrap().push(response);
+            }
+        }
+
+        #[async_trait]
+        impl ClaudeExecutor for MockClaudeExecutor {
+            async fn execute_claude_command(
+                &self,
+                command: &str,
+                working_dir: &Path,
+                env_vars: HashMap<String, String>,
+            ) -> Result<ExecutionResult> {
+                self.calls.lock().unwrap().push((
+                    command.to_string(),
+                    working_dir.to_path_buf(),
+                    env_vars.clone(),
+                ));
+
+                self.responses
+                    .lock()
+                    .unwrap()
+                    .pop()
+                    .ok_or_else(|| anyhow::anyhow!("No mock response configured"))
+            }
+
+            async fn check_claude_cli(&self) -> Result<bool> {
+                Ok(true)
+            }
+
+            async fn get_claude_version(&self) -> Result<String> {
+                Ok("mock-version-1.0.0".to_string())
+            }
+        }
+
+        pub struct MockSessionManager {
+            updates: Arc<Mutex<Vec<SessionUpdate>>>,
+        }
+
+        impl MockSessionManager {
+            fn new() -> Self {
+                Self {
+                    updates: Arc::new(Mutex::new(Vec::new())),
+                }
+            }
+        }
+
+        #[async_trait]
+        impl SessionManager for MockSessionManager {
+            async fn update_session(&self, update: SessionUpdate) -> Result<()> {
+                self.updates.lock().unwrap().push(update);
+                Ok(())
+            }
+
+            async fn start_session(&self, _session_id: &str) -> Result<()> {
+                Ok(())
+            }
+
+            async fn complete_session(&self) -> Result<SessionSummary> {
+                Ok(SessionSummary {
+                    iterations: 1,
+                    files_changed: 0,
+                })
+            }
+
+            fn get_state(&self) -> Result<SessionState> {
+                Ok(SessionState::new(
+                    "test-session".to_string(),
+                    PathBuf::from("/tmp"),
+                ))
+            }
+
+            async fn save_state(&self, _path: &Path) -> Result<()> {
+                Ok(())
+            }
+
+            async fn load_state(&self, _path: &Path) -> Result<()> {
+                Ok(())
+            }
+
+            async fn load_session(&self, _session_id: &str) -> Result<SessionState> {
+                Ok(SessionState::new(
+                    "test-session".to_string(),
+                    PathBuf::from("/tmp"),
+                ))
+            }
+
+            async fn save_checkpoint(&self, _state: &SessionState) -> Result<()> {
+                Ok(())
+            }
+
+            async fn list_resumable(&self) -> Result<Vec<SessionInfo>> {
+                Ok(vec![])
+            }
+
+            async fn get_last_interrupted(&self) -> Result<Option<String>> {
+                Ok(None)
+            }
+        }
+
+        struct MockSpinnerHandle;
+
+        impl SpinnerHandle for MockSpinnerHandle {
+            fn update_message(&mut self, _message: &str) {}
+            fn success(&mut self, _message: &str) {}
+            fn fail(&mut self, _message: &str) {}
+        }
+
+        pub struct MockUserInteraction {
+            messages: Arc<Mutex<Vec<(String, String)>>>,
+        }
+
+        impl MockUserInteraction {
+            fn new() -> Self {
+                Self {
+                    messages: Arc::new(Mutex::new(Vec::new())),
+                }
+            }
+        }
+
+        #[async_trait]
+        impl UserInteraction for MockUserInteraction {
+            fn display_info(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("info".to_string(), message.to_string()));
+            }
+
+            fn display_progress(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("progress".to_string(), message.to_string()));
+            }
+
+            fn display_success(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("success".to_string(), message.to_string()));
+            }
+
+            fn display_error(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("error".to_string(), message.to_string()));
+            }
+
+            fn display_warning(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("warning".to_string(), message.to_string()));
+            }
+
+            fn display_action(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("action".to_string(), message.to_string()));
+            }
+
+            fn display_metric(&self, label: &str, value: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("metric".to_string(), format!("{}: {}", label, value)));
+            }
+
+            fn display_status(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("status".to_string(), message.to_string()));
+            }
+
+            async fn prompt_yes_no(&self, _message: &str) -> Result<bool> {
+                Ok(true)
+            }
+
+            async fn prompt_text(&self, _message: &str, _default: Option<&str>) -> Result<String> {
+                Ok("test".to_string())
+            }
+
+            fn start_spinner(&self, _message: &str) -> Box<dyn SpinnerHandle> {
+                Box::new(MockSpinnerHandle)
+            }
+
+            fn iteration_start(&self, current: u32, total: u32) {
+                self.messages.lock().unwrap().push((
+                    "iteration_start".to_string(),
+                    format!("{}/{}", current, total),
+                ));
+            }
+
+            fn iteration_end(&self, current: u32, duration: std::time::Duration, success: bool) {
+                self.messages.lock().unwrap().push((
+                    "iteration_end".to_string(),
+                    format!("{} {:?} {}", current, duration, success),
+                ));
+            }
+
+            fn step_start(&self, step: u32, total: u32, description: &str) {
+                self.messages.lock().unwrap().push((
+                    "step_start".to_string(),
+                    format!("{}/{} {}", step, total, description),
+                ));
+            }
+
+            fn step_end(&self, step: u32, success: bool) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("step_end".to_string(), format!("{} {}", step, success)));
+            }
+
+            fn command_output(
+                &self,
+                output: &str,
+                _verbosity: crate::cook::interaction::VerbosityLevel,
+            ) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("command_output".to_string(), output.to_string()));
+            }
+
+            fn debug_output(
+                &self,
+                message: &str,
+                _min_verbosity: crate::cook::interaction::VerbosityLevel,
+            ) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("debug".to_string(), message.to_string()));
+            }
+
+            fn verbosity(&self) -> VerbosityLevel {
+                VerbosityLevel::Normal
+            }
+        }
+
+        async fn create_test_executor() -> (
+            WorkflowExecutor,
+            Arc<MockClaudeExecutor>,
+            Arc<MockUserInteraction>,
+        ) {
+            let claude_executor = Arc::new(MockClaudeExecutor::new());
+            let session_manager = Arc::new(MockSessionManager::new());
+            let user_interaction = Arc::new(MockUserInteraction::new());
+            let git_operations = Arc::new(MockGitOperations::new());
+
+            // Set up default git mock responses
+            for _ in 0..20 {
+                git_operations.add_success_response("abc123").await;
+            }
+
+            let test_config = Arc::new(TestConfiguration {
+                test_mode: false,
+                ..Default::default()
+            });
+
+            let executor = WorkflowExecutor::with_test_config_and_git(
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                session_manager.clone() as Arc<dyn SessionManager>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                test_config,
+                git_operations,
+            );
+
+            (executor, claude_executor, user_interaction)
+        }
+
+        #[tokio::test]
+        async fn test_shell_retry_success_first_attempt() {
+            let (executor, _, _) = create_test_executor().await;
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let mut ctx = WorkflowContext::default();
+            let env_vars = HashMap::new();
+
+            let result = executor
+                .execute_shell_with_retry("echo 'success'", None, &env, &mut ctx, env_vars, None)
+                .await
+                .unwrap();
+
+            assert!(result.success);
+            assert_eq!(result.exit_code, Some(0));
+            assert!(result.stdout.contains("success"));
+        }
+
+        #[tokio::test]
+        async fn test_shell_retry_success_after_retry() {
+            let (executor, claude_mock, _) = create_test_executor().await;
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let mut ctx = WorkflowContext::default();
+            let env_vars = HashMap::new();
+
+            // Configure debug command to succeed
+            let mut metadata = HashMap::new();
+            metadata.insert("test".to_string(), "value".to_string());
+            claude_mock.add_response(ExecutionResult {
+                success: true,
+                exit_code: Some(0),
+                stdout: "debug output".to_string(),
+                stderr: String::new(),
+                metadata,
+            });
+
+            let on_failure = TestDebugConfig {
+                claude: "/debug".to_string(),
+                max_attempts: 3,
+                fail_workflow: false,
+                commit_required: false,
+            };
+
+            // First attempt fails, second succeeds
+            let result = executor
+                .execute_shell_with_retry(
+                    "test -f /nonexistent && echo 'found' || (test $SHELL_ATTEMPT -gt 1 && echo 'retry success')",
+                    Some(&on_failure),
+                    &env,
+                    &mut ctx,
+                    env_vars,
+                    None,
+                )
+                .await
+                .unwrap();
+
+            assert!(result.success);
+            assert!(result.stdout.contains("retry success"));
+        }
+
+        #[tokio::test]
+        async fn test_shell_retry_max_attempts_fail_workflow() {
+            let (executor, claude_mock, _) = create_test_executor().await;
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let mut ctx = WorkflowContext::default();
+            let env_vars = HashMap::new();
+
+            // Configure debug commands to succeed (but shell command will keep failing)
+            for _ in 0..2 {
+                let mut metadata = HashMap::new();
+                metadata.insert("test".to_string(), "value".to_string());
+                claude_mock.add_response(ExecutionResult {
+                    success: true,
+                    exit_code: Some(0),
+                    stdout: "debug output".to_string(),
+                    stderr: String::new(),
+                    metadata,
+                });
+            }
+
+            let on_failure = TestDebugConfig {
+                claude: "/debug".to_string(),
+                max_attempts: 2,
+                fail_workflow: true,
+                commit_required: false,
+            };
+
+            // Command that always fails
+            let result = executor
+                .execute_shell_with_retry(
+                    "exit 1",
+                    Some(&on_failure),
+                    &env,
+                    &mut ctx,
+                    env_vars,
+                    None,
+                )
+                .await;
+
+            assert!(result.is_err());
+            assert!(result
+                .unwrap_err()
+                .to_string()
+                .contains("failed after 2 attempts"));
+        }
+
+        #[tokio::test]
+        async fn test_shell_retry_max_attempts_no_fail_workflow() {
+            let (executor, claude_mock, _) = create_test_executor().await;
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let mut ctx = WorkflowContext::default();
+            let env_vars = HashMap::new();
+
+            // Configure debug commands to succeed
+            for _ in 0..2 {
+                let mut metadata = HashMap::new();
+                metadata.insert("test".to_string(), "value".to_string());
+                claude_mock.add_response(ExecutionResult {
+                    success: true,
+                    exit_code: Some(0),
+                    stdout: "debug output".to_string(),
+                    stderr: String::new(),
+                    metadata,
+                });
+            }
+
+            let on_failure = TestDebugConfig {
+                claude: "/debug".to_string(),
+                max_attempts: 2,
+                fail_workflow: false,
+                commit_required: false,
+            };
+
+            // Command that always fails
+            let result = executor
+                .execute_shell_with_retry(
+                    "exit 1",
+                    Some(&on_failure),
+                    &env,
+                    &mut ctx,
+                    env_vars,
+                    None,
+                )
+                .await
+                .unwrap();
+
+            assert!(!result.success);
+            assert_eq!(result.exit_code, Some(1));
+        }
+
+        #[tokio::test]
+        async fn test_shell_retry_no_on_failure_config() {
+            let (executor, _, _) = create_test_executor().await;
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let mut ctx = WorkflowContext::default();
+            let env_vars = HashMap::new();
+
+            // Command that fails - should return immediately without retry
+            let result = executor
+                .execute_shell_with_retry("exit 1", None, &env, &mut ctx, env_vars, None)
+                .await
+                .unwrap();
+
+            assert!(!result.success);
+            assert_eq!(result.exit_code, Some(1));
+        }
+
+        // Unit tests for output management pure functions
+
+        #[test]
+        fn test_should_use_temp_file_small_output() {
+            assert!(!WorkflowExecutor::should_use_temp_file(100, 100));
+            assert!(!WorkflowExecutor::should_use_temp_file(5000, 4999));
+        }
+
+        #[test]
+        fn test_should_use_temp_file_large_output() {
+            assert!(WorkflowExecutor::should_use_temp_file(5000, 5001));
+            assert!(WorkflowExecutor::should_use_temp_file(10000, 1));
+            assert!(WorkflowExecutor::should_use_temp_file(20000, 20000));
+        }
+
+        #[test]
+        fn test_should_use_temp_file_boundary() {
+            assert!(!WorkflowExecutor::should_use_temp_file(5000, 5000));
+            assert!(WorkflowExecutor::should_use_temp_file(5000, 5001));
+            assert!(WorkflowExecutor::should_use_temp_file(10001, 0));
+        }
+
+        #[test]
+        fn test_format_shell_output() {
+            let stdout = "output line 1\noutput line 2";
+            let stderr = "error line 1\nerror line 2";
+            let result = WorkflowExecutor::format_shell_output(stdout, stderr);
+
+            assert!(result.contains("=== STDOUT ==="));
+            assert!(result.contains("=== STDERR ==="));
+            assert!(result.contains("output line 1"));
+            assert!(result.contains("error line 1"));
+        }
+
+        #[test]
+        fn test_format_shell_output_empty_stderr() {
+            let stdout = "output";
+            let stderr = "";
+            let result = WorkflowExecutor::format_shell_output(stdout, stderr);
+
+            assert!(result.contains("=== STDOUT ==="));
+            assert!(result.contains("=== STDERR ==="));
+            assert!(result.contains("output"));
+        }
+
+        #[test]
+        fn test_format_inline_output() {
+            let stdout = "stdout content";
+            let stderr = "stderr content";
+            let result = WorkflowExecutor::format_inline_output(stdout, stderr);
+
+            assert!(result.contains("STDOUT:"));
+            assert!(result.contains("STDERR:"));
+            assert!(result.contains("stdout content"));
+            assert!(result.contains("stderr content"));
+        }
+
+        #[test]
+        fn test_format_inline_output_with_newlines() {
+            let stdout = "line1\nline2\nline3";
+            let stderr = "err1\nerr2";
+            let result = WorkflowExecutor::format_inline_output(stdout, stderr);
+
+            assert!(result.contains("STDOUT:"));
+            assert!(result.contains("line1\nline2\nline3"));
+            assert!(result.contains("err1\nerr2"));
+        }
+
+        #[test]
+        fn test_create_output_temp_file() {
+            let stdout = "test stdout";
+            let stderr = "test stderr";
+            let result = WorkflowExecutor::create_output_temp_file(stdout, stderr);
+
+            assert!(result.is_ok());
+            let temp_file = result.unwrap();
+            let content = std::fs::read_to_string(temp_file.path()).unwrap();
+
+            assert!(content.contains("=== STDOUT ==="));
+            assert!(content.contains("=== STDERR ==="));
+            assert!(content.contains("test stdout"));
+            assert!(content.contains("test stderr"));
+        }
+
+        #[test]
+        fn test_create_output_temp_file_large_content() {
+            let stdout = "x".repeat(100000);
+            let stderr = "y".repeat(50000);
+            let result = WorkflowExecutor::create_output_temp_file(&stdout, &stderr);
+
+            assert!(result.is_ok());
+            let temp_file = result.unwrap();
+            let content = std::fs::read_to_string(temp_file.path()).unwrap();
+
+            assert!(content.contains(&stdout));
+            assert!(content.contains(&stderr));
+        }
+
+        #[test]
+        fn test_create_output_temp_file_empty() {
+            let result = WorkflowExecutor::create_output_temp_file("", "");
+            assert!(result.is_ok());
+
+            let temp_file = result.unwrap();
+            let content = std::fs::read_to_string(temp_file.path()).unwrap();
+            assert!(content.contains("=== STDOUT ==="));
+            assert!(content.contains("=== STDERR ==="));
+        }
+
+        // Unit tests for context management pure functions
+
+        #[test]
+        fn test_build_shell_context_vars_basic() {
+            let vars =
+                WorkflowExecutor::build_shell_context_vars(2, Some(1), "test output".to_string());
+
+            assert_eq!(vars.get("shell.attempt").unwrap(), "2");
+            assert_eq!(vars.get("shell.exit_code").unwrap(), "1");
+            assert_eq!(vars.get("shell.output").unwrap(), "test output");
+            assert_eq!(vars.len(), 3);
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_no_exit_code() {
+            let vars = WorkflowExecutor::build_shell_context_vars(1, None, "output".to_string());
+
+            assert_eq!(vars.get("shell.attempt").unwrap(), "1");
+            assert_eq!(vars.get("shell.exit_code").unwrap(), "-1");
+            assert_eq!(vars.get("shell.output").unwrap(), "output");
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_zero_exit_code() {
+            let vars =
+                WorkflowExecutor::build_shell_context_vars(1, Some(0), "success".to_string());
+
+            assert_eq!(vars.get("shell.exit_code").unwrap(), "0");
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_high_attempt() {
+            let vars =
+                WorkflowExecutor::build_shell_context_vars(999, Some(127), "output".to_string());
+
+            assert_eq!(vars.get("shell.attempt").unwrap(), "999");
+            assert_eq!(vars.get("shell.exit_code").unwrap(), "127");
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_multiline_output() {
+            let output = "line1\nline2\nline3".to_string();
+            let vars = WorkflowExecutor::build_shell_context_vars(1, Some(1), output.clone());
+
+            assert_eq!(vars.get("shell.output").unwrap(), &output);
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_large_output() {
+            let output = "x".repeat(100000);
+            let vars = WorkflowExecutor::build_shell_context_vars(1, Some(1), output.clone());
+
+            assert_eq!(vars.get("shell.output").unwrap(), &output);
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_empty_output() {
+            let vars = WorkflowExecutor::build_shell_context_vars(1, Some(0), String::new());
+
+            assert_eq!(vars.get("shell.output").unwrap(), "");
+        }
+
+        #[test]
+        fn test_build_shell_context_vars_special_characters() {
+            let output = "test\t\n\r$var ${var} `cmd`".to_string();
+            let vars = WorkflowExecutor::build_shell_context_vars(1, Some(1), output.clone());
+
+            assert_eq!(vars.get("shell.output").unwrap(), &output);
+        }
+
+        // Unit tests for retry logic pure functions
+
+        #[test]
+        fn test_has_reached_max_attempts_not_reached() {
+            assert!(!WorkflowExecutor::has_reached_max_attempts(1, 3));
+            assert!(!WorkflowExecutor::has_reached_max_attempts(2, 3));
+        }
+
+        #[test]
+        fn test_has_reached_max_attempts_exactly_reached() {
+            assert!(WorkflowExecutor::has_reached_max_attempts(3, 3));
+        }
+
+        #[test]
+        fn test_has_reached_max_attempts_exceeded() {
+            assert!(WorkflowExecutor::has_reached_max_attempts(4, 3));
+            assert!(WorkflowExecutor::has_reached_max_attempts(10, 3));
+        }
+
+        #[test]
+        fn test_has_reached_max_attempts_boundary() {
+            assert!(!WorkflowExecutor::has_reached_max_attempts(0, 1));
+            assert!(WorkflowExecutor::has_reached_max_attempts(1, 1));
+            assert!(WorkflowExecutor::has_reached_max_attempts(2, 1));
+        }
+
+        #[test]
+        fn test_has_reached_max_attempts_first_attempt() {
+            assert!(WorkflowExecutor::has_reached_max_attempts(1, 1));
+            assert!(!WorkflowExecutor::has_reached_max_attempts(1, 2));
+        }
+
+        #[test]
+        fn test_should_fail_workflow_on_max_attempts_true() {
+            let result = WorkflowExecutor::should_fail_workflow_on_max_attempts(true);
+            assert!(result.is_err());
+            assert_eq!(result.unwrap_err(), "fail_workflow is true");
+        }
+
+        #[test]
+        fn test_should_fail_workflow_on_max_attempts_false() {
+            let result = WorkflowExecutor::should_fail_workflow_on_max_attempts(false);
+            assert!(result.is_ok());
+        }
     }
 }

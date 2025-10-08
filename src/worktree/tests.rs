@@ -1,4 +1,4 @@
-use super::manager_queries::{collect_all_states, filter_sessions_by_status, load_state_from_file};
+use super::manager_queries::{filter_sessions_by_status, load_state_from_file};
 use super::*;
 use crate::subprocess::SubprocessManager;
 use crate::testing::fixtures::isolation::TestGitRepo;

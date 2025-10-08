@@ -5,7 +5,8 @@
 
 use crate::abstractions::exit_status::ExitStatusExt;
 use crate::subprocess::{
-    ClaudeRunner as SubprocessClaudeRunner, ProcessCommandBuilder, SubprocessManager,
+    ClaudeRunner as SubprocessClaudeRunner, ProcessCommand, ProcessCommandBuilder,
+    SubprocessManager,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -22,6 +23,17 @@ enum CommandErrorType {
     CommandNotFound,
     /// Permanent error that won't succeed on retry
     PermanentError,
+}
+
+/// Classification of command output results
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum OutputClassification {
+    /// Command succeeded
+    Success,
+    /// Transient failure that may succeed on retry
+    TransientFailure(String),
+    /// Permanent failure that won't succeed on retry
+    PermanentFailure,
 }
 
 /// Trait for Claude CLI operations providing testable abstraction
@@ -380,6 +392,116 @@ impl RealClaudeClient {
         }
     }
 
+    /// Build a Claude command with arguments and environment variables
+    ///
+    /// This is a pure function that constructs a ProcessCommand for Claude CLI
+    /// execution. It takes command arguments and optional environment variables,
+    /// returning a fully configured ProcessCommand.
+    fn build_claude_command(
+        args: &[&str],
+        env_vars: Option<&HashMap<String, String>>,
+    ) -> ProcessCommand {
+        let mut builder = ProcessCommandBuilder::new("claude");
+        for arg in args {
+            builder = builder.arg(arg);
+        }
+
+        if let Some(vars) = env_vars {
+            for (key, value) in vars {
+                builder = builder.env(key, value);
+            }
+        }
+
+        builder.build()
+    }
+
+    /// Classify a command output result
+    ///
+    /// Determines whether the output represents a success, transient failure,
+    /// or permanent failure based on the exit status and stderr content.
+    fn classify_output_result(
+        output: &crate::subprocess::runner::ProcessOutput,
+    ) -> OutputClassification {
+        if output.status.success() {
+            OutputClassification::Success
+        } else if Self::is_transient_error(&output.stderr) {
+            OutputClassification::TransientFailure(output.stderr.clone())
+        } else {
+            OutputClassification::PermanentFailure
+        }
+    }
+
+    /// Determine if a retry should continue based on output classification
+    ///
+    /// Returns true if the classification indicates a transient failure and
+    /// we haven't exhausted our retry attempts.
+    fn should_continue_retry(
+        classification: &OutputClassification,
+        attempt: u32,
+        max_retries: u32,
+    ) -> bool {
+        matches!(classification, OutputClassification::TransientFailure(_)) && attempt < max_retries
+    }
+
+    /// Handle process output result and determine next action
+    ///
+    /// Returns Ok(Some(output)) if we should return the result,
+    /// Ok(None) if we should retry, or Err if there's a fatal error.
+    fn handle_process_output(
+        output: crate::subprocess::runner::ProcessOutput,
+        attempt: u32,
+        max_retries: u32,
+        verbose: bool,
+    ) -> (Option<std::process::Output>, Option<String>) {
+        let classification = Self::classify_output_result(&output);
+
+        match classification {
+            OutputClassification::Success => (Some(Self::convert_to_std_output(output)), None),
+            OutputClassification::TransientFailure(ref stderr) => {
+                if Self::should_continue_retry(&classification, attempt, max_retries) {
+                    if verbose {
+                        eprintln!(
+                            "⚠️  Transient error detected: {}",
+                            stderr.lines().next().unwrap_or("Unknown error")
+                        );
+                    }
+                    (None, Some(stderr.clone()))
+                } else {
+                    // Exhausted retries - return with failure
+                    (Some(Self::convert_to_std_output(output)), None)
+                }
+            }
+            OutputClassification::PermanentFailure => {
+                (Some(Self::convert_to_std_output(output)), None)
+            }
+        }
+    }
+
+    /// Handle process execution error and determine next action
+    ///
+    /// Returns Ok(None) if we should retry, or Err if it's a fatal error.
+    fn handle_process_error(
+        error: crate::subprocess::ProcessError,
+        attempt: u32,
+        max_retries: u32,
+        verbose: bool,
+    ) -> Result<(Option<std::process::Output>, Option<String>)> {
+        let error_type = Self::classify_command_error(&error, "");
+
+        if error_type == CommandErrorType::CommandNotFound {
+            return Err(anyhow::anyhow!("Claude CLI not found: {}", error));
+        }
+
+        if Self::should_retry_error(&error_type, attempt, max_retries) {
+            if verbose {
+                eprintln!("⚠️  IO error: {error}");
+            }
+            Ok((None, Some(error.to_string())))
+        } else {
+            Err(anyhow::anyhow!("Failed to execute command: {}", error))
+        }
+    }
+
     /// Convert ProcessOutput to std::process::Output
     ///
     /// Converts the subprocess abstraction's output format to the standard library's
@@ -428,72 +550,33 @@ impl ClaudeClient for RealClaudeClient {
                 sleep(delay).await;
             }
 
-            let mut builder = ProcessCommandBuilder::new("claude");
-            for arg in args {
-                builder = builder.arg(arg);
-            }
+            let cmd = Self::build_claude_command(args, env_vars.as_ref());
+            let result = self.subprocess.runner().run(cmd).await;
 
-            // Set environment variables if provided
-            if let Some(ref vars) = env_vars {
-                for (key, value) in vars {
-                    builder = builder.env(key, value);
-                }
-            }
+            match result {
+                Ok(output) => {
+                    let (maybe_output, maybe_error) =
+                        Self::handle_process_output(output, attempt, max_retries, verbose);
 
-            let result = self.subprocess.runner().run(builder.build()).await;
-
-            // Handle successful execution - check if we can return immediately
-            if let Ok(output) = result {
-                // Success case - return immediately
-                if output.status.success() {
-                    return Ok(Self::convert_to_std_output(output));
-                }
-
-                // Failed command - check if transient and should retry
-                let stderr = &output.stderr;
-                let error_type = if Self::is_transient_error(stderr) {
-                    CommandErrorType::TransientError
-                } else {
-                    CommandErrorType::PermanentError
-                };
-
-                if Self::should_retry_error(&error_type, attempt, max_retries) {
-                    if verbose {
-                        eprintln!(
-                            "⚠️  Transient error detected: {}",
-                            stderr.lines().next().unwrap_or("Unknown error")
-                        );
+                    if let Some(output) = maybe_output {
+                        return Ok(output);
                     }
-                    last_error = Some(stderr.to_string());
-                    attempt += 1;
-                    continue;
+
+                    last_error = maybe_error;
                 }
+                Err(error) => {
+                    let (maybe_output, maybe_error) =
+                        Self::handle_process_error(error, attempt, max_retries, verbose)?;
 
-                // Non-transient error - return with failure
-                return Ok(Self::convert_to_std_output(output));
-            }
+                    if let Some(output) = maybe_output {
+                        return Ok(output);
+                    }
 
-            // Handle execution errors
-            let error = result.unwrap_err();
-            let error_type = Self::classify_command_error(&error, "");
-
-            // CommandNotFound is always fatal
-            if error_type == CommandErrorType::CommandNotFound {
-                return Err(anyhow::anyhow!("Claude CLI not found: {}", error));
-            }
-
-            // Check if we should retry other errors
-            if Self::should_retry_error(&error_type, attempt, max_retries) {
-                if verbose {
-                    eprintln!("⚠️  IO error: {error}");
+                    last_error = maybe_error;
                 }
-                last_error = Some(error.to_string());
-                attempt += 1;
-                continue;
             }
 
-            // Non-retryable error
-            return Err(anyhow::anyhow!("Failed to execute {}: {}", command, error));
+            attempt += 1;
         }
 
         Err(anyhow::anyhow!(
@@ -968,6 +1051,275 @@ mod tests {
             2,
             3
         ));
+    }
+
+    #[test]
+    fn test_build_claude_command() {
+        use std::collections::HashMap;
+
+        // Test basic command building
+        let args = vec!["--help"];
+        let cmd = RealClaudeClient::build_claude_command(&args, None);
+        assert_eq!(cmd.program, "claude");
+        assert_eq!(cmd.args, vec!["--help"]);
+        assert!(cmd.env.is_empty());
+
+        // Test command with multiple arguments
+        let args = vec!["--dangerously-skip-permissions", "--print", "/test"];
+        let cmd = RealClaudeClient::build_claude_command(&args, None);
+        assert_eq!(cmd.program, "claude");
+        assert_eq!(
+            cmd.args,
+            vec!["--dangerously-skip-permissions", "--print", "/test"]
+        );
+
+        // Test command with environment variables
+        let mut env_vars = HashMap::new();
+        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+        env_vars.insert("VERBOSE".to_string(), "1".to_string());
+
+        let args = vec!["/lint"];
+        let cmd = RealClaudeClient::build_claude_command(&args, Some(&env_vars));
+        assert_eq!(cmd.program, "claude");
+        assert_eq!(cmd.args, vec!["/lint"]);
+        assert_eq!(cmd.env.len(), 2);
+        assert_eq!(cmd.env.get("PRODIGY_AUTOMATION"), Some(&"true".to_string()));
+        assert_eq!(cmd.env.get("VERBOSE"), Some(&"1".to_string()));
+
+        // Test command with empty args and no environment variables
+        let args: Vec<&str> = vec![];
+        let cmd = RealClaudeClient::build_claude_command(&args, None);
+        assert_eq!(cmd.program, "claude");
+        assert!(cmd.args.is_empty());
+        assert!(cmd.env.is_empty());
+    }
+
+    #[test]
+    fn test_classify_output_result() {
+        use crate::subprocess::runner::{ExitStatus, ProcessOutput};
+        use std::time::Duration;
+
+        // Test successful output
+        let output = ProcessOutput {
+            status: ExitStatus::Success,
+            stdout: "success".to_string(),
+            stderr: String::new(),
+            duration: Duration::from_secs(1),
+        };
+        assert_eq!(
+            RealClaudeClient::classify_output_result(&output),
+            OutputClassification::Success
+        );
+
+        // Test transient failure
+        let output = ProcessOutput {
+            status: ExitStatus::Error(1),
+            stdout: String::new(),
+            stderr: "rate limit exceeded".to_string(),
+            duration: Duration::from_secs(1),
+        };
+        assert_eq!(
+            RealClaudeClient::classify_output_result(&output),
+            OutputClassification::TransientFailure("rate limit exceeded".to_string())
+        );
+
+        // Test permanent failure
+        let output = ProcessOutput {
+            status: ExitStatus::Error(1),
+            stdout: String::new(),
+            stderr: "invalid argument".to_string(),
+            duration: Duration::from_secs(1),
+        };
+        assert_eq!(
+            RealClaudeClient::classify_output_result(&output),
+            OutputClassification::PermanentFailure
+        );
+    }
+
+    #[test]
+    fn test_should_continue_retry() {
+        // Test transient failure with retries available
+        let classification = OutputClassification::TransientFailure("error".to_string());
+        assert!(RealClaudeClient::should_continue_retry(
+            &classification,
+            0,
+            3
+        ));
+        assert!(RealClaudeClient::should_continue_retry(
+            &classification,
+            2,
+            3
+        ));
+
+        // Test transient failure with retries exhausted
+        assert!(!RealClaudeClient::should_continue_retry(
+            &classification,
+            3,
+            3
+        ));
+        assert!(!RealClaudeClient::should_continue_retry(
+            &classification,
+            5,
+            3
+        ));
+
+        // Test permanent failure never retries
+        let classification = OutputClassification::PermanentFailure;
+        assert!(!RealClaudeClient::should_continue_retry(
+            &classification,
+            0,
+            3
+        ));
+        assert!(!RealClaudeClient::should_continue_retry(
+            &classification,
+            2,
+            3
+        ));
+
+        // Test success never retries
+        let classification = OutputClassification::Success;
+        assert!(!RealClaudeClient::should_continue_retry(
+            &classification,
+            0,
+            3
+        ));
+        assert!(!RealClaudeClient::should_continue_retry(
+            &classification,
+            2,
+            3
+        ));
+    }
+
+    mod proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            /// Property: Retry count never exceeds max_retries
+            #[test]
+            fn prop_should_retry_error_respects_max_retries(
+                attempt in 0u32..100,
+                max_retries in 0u32..100
+            ) {
+                let result = RealClaudeClient::should_retry_error(
+                    &CommandErrorType::TransientError,
+                    attempt,
+                    max_retries
+                );
+
+                // If we should retry, it means attempt < max_retries
+                if result {
+                    prop_assert!(attempt < max_retries);
+                } else {
+                    prop_assert!(attempt >= max_retries);
+                }
+            }
+
+            /// Property: Permanent errors never retry regardless of attempt count
+            #[test]
+            fn prop_permanent_errors_never_retry(
+                attempt in 0u32..100,
+                max_retries in 0u32..100
+            ) {
+                prop_assert!(!RealClaudeClient::should_retry_error(
+                    &CommandErrorType::PermanentError,
+                    attempt,
+                    max_retries
+                ));
+            }
+
+            /// Property: CommandNotFound never retries
+            #[test]
+            fn prop_command_not_found_never_retries(
+                attempt in 0u32..100,
+                max_retries in 0u32..100
+            ) {
+                prop_assert!(!RealClaudeClient::should_retry_error(
+                    &CommandErrorType::CommandNotFound,
+                    attempt,
+                    max_retries
+                ));
+            }
+
+            /// Property: Retry delay increases exponentially up to cap
+            #[test]
+            fn prop_retry_delay_exponential_backoff(attempt in 0u32..10) {
+                use std::time::Duration;
+
+                let delay = RealClaudeClient::calculate_retry_delay(attempt);
+                let capped_attempt = attempt.min(3);
+                let expected = Duration::from_secs(2u64.pow(capped_attempt));
+
+                prop_assert_eq!(delay, expected);
+            }
+
+            /// Property: Output classification is consistent
+            #[test]
+            fn prop_classify_output_consistent(
+                exit_code in 0i32..10,
+                has_transient_error in proptest::bool::ANY
+            ) {
+                use crate::subprocess::runner::{ExitStatus, ProcessOutput};
+                use std::time::Duration;
+
+                let stderr = if has_transient_error {
+                    "rate limit exceeded".to_string()
+                } else {
+                    "other error".to_string()
+                };
+
+                let status = if exit_code == 0 {
+                    ExitStatus::Success
+                } else {
+                    ExitStatus::Error(exit_code)
+                };
+
+                let output = ProcessOutput {
+                    status,
+                    stdout: String::new(),
+                    stderr,
+                    duration: Duration::from_secs(1),
+                };
+
+                let classification = RealClaudeClient::classify_output_result(&output);
+
+                // Verify classification is consistent with input
+                match classification {
+                    OutputClassification::Success => {
+                        prop_assert_eq!(exit_code, 0);
+                    }
+                    OutputClassification::TransientFailure(_) => {
+                        prop_assert!(exit_code != 0);
+                        prop_assert!(has_transient_error);
+                    }
+                    OutputClassification::PermanentFailure => {
+                        prop_assert!(exit_code != 0);
+                        prop_assert!(!has_transient_error);
+                    }
+                }
+            }
+
+            /// Property: should_continue_retry matches should_retry_error for transient errors
+            #[test]
+            fn prop_continue_retry_consistency(
+                attempt in 0u32..100,
+                max_retries in 0u32..100
+            ) {
+                let classification = OutputClassification::TransientFailure("error".to_string());
+                let continue_result = RealClaudeClient::should_continue_retry(
+                    &classification,
+                    attempt,
+                    max_retries
+                );
+                let retry_result = RealClaudeClient::should_retry_error(
+                    &CommandErrorType::TransientError,
+                    attempt,
+                    max_retries
+                );
+
+                prop_assert_eq!(continue_result, retry_result);
+            }
+        }
     }
 
     #[test]

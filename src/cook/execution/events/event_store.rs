@@ -1112,4 +1112,345 @@ mod tests {
             "Index should be pretty-printed"
         );
     }
+
+    // Unit tests for helper functions
+
+    #[test]
+    fn test_update_time_range_first_event() {
+        let event_time = Utc::now();
+        let (start, end) = update_time_range(None, None, event_time);
+        assert_eq!(start, Some(event_time));
+        assert_eq!(end, Some(event_time));
+    }
+
+    #[test]
+    fn test_update_time_range_earlier_than_start() {
+        let current_start = Utc::now();
+        let current_end = current_start + chrono::Duration::hours(1);
+        let earlier_time = current_start - chrono::Duration::hours(1);
+
+        let (start, end) = update_time_range(Some(current_start), Some(current_end), earlier_time);
+        assert_eq!(start, Some(earlier_time));
+        assert_eq!(end, Some(current_end));
+    }
+
+    #[test]
+    fn test_update_time_range_later_than_end() {
+        let current_start = Utc::now();
+        let current_end = current_start + chrono::Duration::hours(1);
+        let later_time = current_end + chrono::Duration::hours(1);
+
+        let (start, end) = update_time_range(Some(current_start), Some(current_end), later_time);
+        assert_eq!(start, Some(current_start));
+        assert_eq!(end, Some(later_time));
+    }
+
+    #[test]
+    fn test_update_time_range_within_range() {
+        let current_start = Utc::now();
+        let current_end = current_start + chrono::Duration::hours(2);
+        let within_time = current_start + chrono::Duration::hours(1);
+
+        let (start, end) = update_time_range(Some(current_start), Some(current_end), within_time);
+        assert_eq!(start, Some(current_start));
+        assert_eq!(end, Some(current_end));
+    }
+
+    #[test]
+    fn test_increment_event_count_first_occurrence() {
+        let mut counts = HashMap::new();
+        increment_event_count(&mut counts, "job_started".to_string());
+        assert_eq!(counts.get("job_started"), Some(&1));
+    }
+
+    #[test]
+    fn test_increment_event_count_subsequent_occurrence() {
+        let mut counts = HashMap::new();
+        counts.insert("agent_completed".to_string(), 3);
+        increment_event_count(&mut counts, "agent_completed".to_string());
+        assert_eq!(counts.get("agent_completed"), Some(&4));
+    }
+
+    #[test]
+    fn test_create_file_offset() {
+        let timestamp = Utc::now();
+        let event_id = Uuid::new_v4();
+        let event = EventRecord {
+            id: event_id,
+            timestamp,
+            correlation_id: "test-corr".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test-job".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp,
+            },
+            metadata: HashMap::new(),
+        };
+
+        let file_path = PathBuf::from("/path/to/events.jsonl");
+        let offset = create_file_offset(file_path.clone(), 1024, 42, &event);
+
+        assert_eq!(offset.file_path, file_path);
+        assert_eq!(offset.byte_offset, 1024);
+        assert_eq!(offset.line_number, 42);
+        assert_eq!(offset.event_id, event_id);
+        assert_eq!(offset.timestamp, timestamp);
+    }
+
+    #[test]
+    fn test_process_event_line_valid_json() {
+        let timestamp = Utc::now();
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp,
+            correlation_id: "test-corr".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test-job".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp,
+            },
+            metadata: HashMap::new(),
+        };
+
+        let line = serde_json::to_string(&event).unwrap();
+        let mut index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 0,
+        };
+        let mut time_range = (None, None);
+
+        process_event_line(
+            &line,
+            Path::new("/test.jsonl"),
+            1,
+            0,
+            &mut index,
+            &mut time_range,
+        );
+
+        assert_eq!(index.total_events, 1);
+        assert_eq!(index.event_counts.get("job_started"), Some(&1));
+        assert_eq!(index.file_offsets.len(), 1);
+        assert!(time_range.0.is_some());
+        assert!(time_range.1.is_some());
+    }
+
+    #[test]
+    fn test_process_event_line_invalid_json() {
+        let mut index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 0,
+        };
+        let mut time_range = (None, None);
+
+        process_event_line(
+            "invalid json",
+            Path::new("/test.jsonl"),
+            1,
+            0,
+            &mut index,
+            &mut time_range,
+        );
+
+        assert_eq!(index.total_events, 0);
+        assert!(index.event_counts.is_empty());
+        assert!(index.file_offsets.is_empty());
+        assert!(time_range.0.is_none());
+        assert!(time_range.1.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_save_index_success() {
+        let temp_dir = TempDir::new().unwrap();
+        let index_path = temp_dir.path().join("index.json");
+
+        let index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 5,
+        };
+
+        let result = save_index(&index, &index_path).await;
+        assert!(result.is_ok());
+        assert!(index_path.exists());
+    }
+
+    #[tokio::test]
+    async fn test_save_index_invalid_path() {
+        let index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 5,
+        };
+
+        let result = save_index(&index, Path::new("/nonexistent/dir/index.json")).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_process_event_file_multiple_events() {
+        let temp_dir = TempDir::new().unwrap();
+        let event_file = temp_dir.path().join("events.jsonl");
+
+        let timestamp = Utc::now();
+        let event1 = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp,
+            correlation_id: "corr-1".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test-job".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp,
+            },
+            metadata: HashMap::new(),
+        };
+
+        let event2 = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp,
+            correlation_id: "corr-2".to_string(),
+            event: MapReduceEvent::AgentCompleted {
+                job_id: "test-job".to_string(),
+                agent_id: "agent-1".to_string(),
+                duration: chrono::Duration::seconds(30),
+                commits: vec!["abc123".to_string()],
+                json_log_location: None,
+            },
+            metadata: HashMap::new(),
+        };
+
+        let mut content = String::new();
+        content.push_str(&serde_json::to_string(&event1).unwrap());
+        content.push('\n');
+        content.push_str(&serde_json::to_string(&event2).unwrap());
+        content.push('\n');
+        fs::write(&event_file, &content).await.unwrap();
+
+        let mut index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 0,
+        };
+        let mut time_range = (None, None);
+
+        let result = process_event_file(&event_file, &mut index, &mut time_range).await;
+        assert!(result.is_ok());
+        assert_eq!(index.total_events, 2);
+    }
+
+    #[tokio::test]
+    async fn test_process_event_file_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let event_file = temp_dir.path().join("empty.jsonl");
+        fs::write(&event_file, "").await.unwrap();
+
+        let mut index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 0,
+        };
+        let mut time_range = (None, None);
+
+        let result = process_event_file(&event_file, &mut index, &mut time_range).await;
+        assert!(result.is_ok());
+        assert_eq!(index.total_events, 0);
+    }
+
+    #[tokio::test]
+    async fn test_process_event_file_mixed_valid_invalid() {
+        let temp_dir = TempDir::new().unwrap();
+        let event_file = temp_dir.path().join("mixed.jsonl");
+
+        let timestamp = Utc::now();
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp,
+            correlation_id: "corr-1".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test-job".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp,
+            },
+            metadata: HashMap::new(),
+        };
+
+        let mut content = String::new();
+        content.push_str(&serde_json::to_string(&event).unwrap());
+        content.push('\n');
+        content.push_str("invalid json line\n");
+        content.push_str(&serde_json::to_string(&event).unwrap());
+        content.push('\n');
+        fs::write(&event_file, &content).await.unwrap();
+
+        let mut index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 0,
+        };
+        let mut time_range = (None, None);
+
+        let result = process_event_file(&event_file, &mut index, &mut time_range).await;
+        assert!(result.is_ok());
+        assert_eq!(index.total_events, 2);
+    }
 }
