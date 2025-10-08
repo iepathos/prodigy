@@ -72,8 +72,9 @@ map:
   max_parallel: 5  # Run up to 5 agents in parallel
 
   # Process high-score items first
-  filter: "score >= 30"  # Only process items with score >= 30
-  sort_by: "score DESC"  # Process highest score items first
+  # Note: File items have .File.score, Function items have .Function.unified_score.final_score
+  filter: "(File.score >= 30) OR (Function.unified_score.final_score >= 30)"
+  sort_by: "File.score DESC, Function.unified_score.final_score DESC"  # Process highest score items first
   max_items: 10  # Limit to 10 items per run
 
 # Reduce phase: Aggregate results and verify overall improvements
