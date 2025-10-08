@@ -688,9 +688,14 @@ impl FilterExpression {
             // Only check for operator if not inside parentheses
             if paren_depth == 0 {
                 // Check if we're at a word boundary and the operator matches
-                if (i == 0 || chars.get(i.saturating_sub(1)).map_or(true, |c| c.is_whitespace()))
+                if (i == 0
+                    || chars
+                        .get(i.saturating_sub(1))
+                        .map_or(true, |c| c.is_whitespace()))
                     && expr_upper[i..].starts_with(op)
-                    && expr.get(i + op.len()..i + op.len() + 1).map_or(true, |s| s.starts_with(char::is_whitespace))
+                    && expr
+                        .get(i + op.len()..i + op.len() + 1)
+                        .map_or(true, |s| s.starts_with(char::is_whitespace))
                 {
                     return Some(i);
                 }
@@ -1508,7 +1513,9 @@ mod tests {
         assert!(!filter.evaluate(&item3));
 
         // Test word-based OR operator
-        let filter_or = FilterExpression::parse("File.score >= 30 OR Function.unified_score.final_score >= 30").unwrap();
+        let filter_or =
+            FilterExpression::parse("File.score >= 30 OR Function.unified_score.final_score >= 30")
+                .unwrap();
 
         let file_item = json!({"File": {"score": 105.0}});
         let func_item = json!({"Function": {"unified_score": {"final_score": 45.0}}});

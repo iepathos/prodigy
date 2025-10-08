@@ -373,11 +373,8 @@ impl WorkflowExecutor {
             // Show details of failed validations
             for (idx, result) in validation_result.results.iter().enumerate() {
                 if !result.passed {
-                    let detail = format_failed_validation_detail(
-                        idx,
-                        &result.message,
-                        result.exit_code,
-                    );
+                    let detail =
+                        format_failed_validation_detail(idx, &result.message, result.exit_code);
                     self.user_interaction.display_info(&detail);
                 }
             }
@@ -769,7 +766,10 @@ mod tests {
     #[test]
     fn test_format_validation_passed_message_multiple_validations_multiple_attempts() {
         let message = format_validation_passed_message(4, 3);
-        assert_eq!(message, "Step validation passed (4 validations, 3 attempts)");
+        assert_eq!(
+            message,
+            "Step validation passed (4 validations, 3 attempts)"
+        );
     }
 
     #[test]
@@ -793,7 +793,10 @@ mod tests {
     #[test]
     fn test_format_validation_failed_message_multiple_validations_multiple_attempts() {
         let message = format_validation_failed_message(5, 2);
-        assert_eq!(message, "Step validation failed (5 validations, 2 attempts)");
+        assert_eq!(
+            message,
+            "Step validation failed (5 validations, 2 attempts)"
+        );
     }
 
     #[test]
@@ -815,11 +818,7 @@ mod tests {
 
     #[test]
     fn test_format_failed_validation_detail_with_special_characters() {
-        let detail = format_failed_validation_detail(
-            3,
-            "Error: file \"test.txt\" not found",
-            2,
-        );
+        let detail = format_failed_validation_detail(3, "Error: file \"test.txt\" not found", 2);
         assert_eq!(
             detail,
             "  Validation 4: Error: file \"test.txt\" not found (exit code: 2)"
