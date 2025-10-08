@@ -1453,4 +1453,45 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(index.total_events, 2);
     }
+
+    // Phase 1: Tests for empty and error cases
+
+    #[tokio::test]
+    async fn test_index_with_empty_directory_creates_empty_index() {
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "empty-dir-job";
+        fs::create_dir_all(store.job_events_dir(job_id)).await.unwrap();
+
+        let result = store.index(job_id).await.unwrap();
+
+        assert_eq!(result.total_events, 0);
+        assert!(result.event_counts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_index_fails_when_save_directory_missing() {
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "missing-dir-job";
+
+        let result = store.index(job_id).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_index_with_only_invalid_json_events() {
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "invalid-events-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+        let event_file = events_dir.join("events-001.jsonl");
+        fs::write(&event_file, "invalid\n{bad:json}\n").await.unwrap();
+
+        let result = store.index(job_id).await.unwrap();
+
+        assert_eq!(result.total_events, 0);
+    }
 }
