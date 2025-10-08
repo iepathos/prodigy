@@ -1374,10 +1374,16 @@ mod tests {
         let config = create_test_config();
 
         // Create incomplete job
-        let incomplete_job = manager.create_job(config.clone(), vec![json!({"id": 1})], vec![], None).await.unwrap();
+        let incomplete_job = manager
+            .create_job(config.clone(), vec![json!({"id": 1})], vec![], None)
+            .await
+            .unwrap();
 
         // Create complete job
-        let complete_job = manager.create_job(config.clone(), vec![json!({"id": 2})], vec![], None).await.unwrap();
+        let complete_job = manager
+            .create_job(config.clone(), vec![json!({"id": 2})], vec![], None)
+            .await
+            .unwrap();
         manager.mark_job_complete(&complete_job).await.unwrap();
 
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
@@ -1392,7 +1398,10 @@ mod tests {
 
         // Create job with hyphens and underscores (valid job IDs)
         let config = create_test_config();
-        let _job_id = manager.create_job(config, vec![json!({"id": 1})], vec![], None).await.unwrap();
+        let _job_id = manager
+            .create_job(config, vec![json!({"id": 1})], vec![], None)
+            .await
+            .unwrap();
 
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
         assert_eq!(jobs.len(), 1);
@@ -1408,7 +1417,10 @@ mod tests {
 
         // Create 50 incomplete jobs
         for _ in 0..50 {
-            manager.create_job(config.clone(), vec![json!({"id": 1})], vec![], None).await.unwrap();
+            manager
+                .create_job(config.clone(), vec![json!({"id": 1})], vec![], None)
+                .await
+                .unwrap();
         }
 
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
@@ -1428,9 +1440,15 @@ mod tests {
 
         // Create checkpoint but no metadata.json
         let config = create_test_config();
-        let state = MapReduceJobState::new("job-no-metadata".to_string(), config, vec![json!({"id": 1})]);
+        let state = MapReduceJobState::new(
+            "job-no-metadata".to_string(),
+            config,
+            vec![json!({"id": 1})],
+        );
         let checkpoint_json = serde_json::to_string(&state).unwrap();
-        tokio::fs::write(job_dir.join("checkpoint-v0.json"), checkpoint_json).await.unwrap();
+        tokio::fs::write(job_dir.join("checkpoint-v0.json"), checkpoint_json)
+            .await
+            .unwrap();
 
         // Should be skipped (no metadata file means load_checkpoint fails)
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
@@ -1448,12 +1466,20 @@ mod tests {
 
         // Create valid checkpoint
         let config = create_test_config();
-        let state = MapReduceJobState::new("job-bad-metadata".to_string(), config, vec![json!({"id": 1})]);
+        let state = MapReduceJobState::new(
+            "job-bad-metadata".to_string(),
+            config,
+            vec![json!({"id": 1})],
+        );
         let checkpoint_json = serde_json::to_string(&state).unwrap();
-        tokio::fs::write(job_dir.join("checkpoint-v0.json"), checkpoint_json).await.unwrap();
+        tokio::fs::write(job_dir.join("checkpoint-v0.json"), checkpoint_json)
+            .await
+            .unwrap();
 
         // Create invalid metadata.json
-        tokio::fs::write(job_dir.join("metadata.json"), "bad json").await.unwrap();
+        tokio::fs::write(job_dir.join("metadata.json"), "bad json")
+            .await
+            .unwrap();
 
         // Should be skipped (corrupted metadata)
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
@@ -1468,13 +1494,23 @@ mod tests {
         let config = create_test_config();
 
         // Create job with version 1
-        let job1 = manager.create_job(config.clone(), vec![json!({"id": 1})], vec![], None).await.unwrap();
+        let job1 = manager
+            .create_job(config.clone(), vec![json!({"id": 1})], vec![], None)
+            .await
+            .unwrap();
 
         // Create job with version 5
-        let job2 = manager.create_job(config, vec![json!({"id": 2})], vec![], None).await.unwrap();
+        let job2 = manager
+            .create_job(config, vec![json!({"id": 2})], vec![], None)
+            .await
+            .unwrap();
         let mut state = manager.get_job_state(&job2).await.unwrap();
         state.checkpoint_version = 5;
-        manager.checkpoint_manager.save_checkpoint(&state).await.unwrap();
+        manager
+            .checkpoint_manager
+            .save_checkpoint(&state)
+            .await
+            .unwrap();
 
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
         assert_eq!(jobs.len(), 2);
@@ -1496,7 +1532,10 @@ mod tests {
         let config = create_test_config();
 
         // Create job with empty work_items list
-        let _job_id = manager.create_job(config, vec![], vec![], None).await.unwrap();
+        let _job_id = manager
+            .create_job(config, vec![], vec![], None)
+            .await
+            .unwrap();
 
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
         assert_eq!(jobs.len(), 1);
@@ -1510,12 +1549,19 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = create_test_config();
-        let job_id = manager.create_job(config, vec![json!({"id": 1})], vec![], None).await.unwrap();
+        let job_id = manager
+            .create_job(config, vec![json!({"id": 1})], vec![], None)
+            .await
+            .unwrap();
 
         // Create checkpoint with very high version number
         let mut state = manager.get_job_state(&job_id).await.unwrap();
         state.checkpoint_version = u32::MAX - 1;
-        manager.checkpoint_manager.save_checkpoint(&state).await.unwrap();
+        manager
+            .checkpoint_manager
+            .save_checkpoint(&state)
+            .await
+            .unwrap();
 
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
         assert_eq!(jobs.len(), 1);
@@ -1529,36 +1575,51 @@ mod tests {
 
         let config = create_test_config();
         let work_items = vec![json!({"id": 1}), json!({"id": 2}), json!({"id": 3})];
-        let job_id = manager.create_job(config, work_items, vec![], None).await.unwrap();
+        let job_id = manager
+            .create_job(config, work_items, vec![], None)
+            .await
+            .unwrap();
 
         // Add one success and one failure
-        manager.update_agent_result(&job_id, AgentResult {
-            item_id: "item_0".to_string(),
-            status: AgentStatus::Success,
-            output: Some("success".to_string()),
-            commits: vec![],
-            duration: std::time::Duration::from_secs(1),
-            error: None,
-            worktree_path: None,
-            branch_name: None,
-            worktree_session_id: None,
-            files_modified: vec![],
-            json_log_location: None,
-        }).await.unwrap();
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_0".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("success".to_string()),
+                    commits: vec![],
+                    duration: std::time::Duration::from_secs(1),
+                    error: None,
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                    json_log_location: None,
+                },
+            )
+            .await
+            .unwrap();
 
-        manager.update_agent_result(&job_id, AgentResult {
-            item_id: "item_1".to_string(),
-            status: AgentStatus::Failed("test error".to_string()),
-            output: None,
-            commits: vec![],
-            duration: std::time::Duration::from_secs(1),
-            error: Some("test error".to_string()),
-            worktree_path: None,
-            branch_name: None,
-            worktree_session_id: None,
-            files_modified: vec![],
-            json_log_location: None,
-        }).await.unwrap();
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_1".to_string(),
+                    status: AgentStatus::Failed("test error".to_string()),
+                    output: None,
+                    commits: vec![],
+                    duration: std::time::Duration::from_secs(1),
+                    error: Some("test error".to_string()),
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                    json_log_location: None,
+                },
+            )
+            .await
+            .unwrap();
 
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
         assert_eq!(jobs.len(), 1);
@@ -1575,9 +1636,15 @@ mod tests {
         let config = create_test_config();
 
         // Create two jobs with different timestamps
-        let old_job = manager.create_job(config.clone(), vec![json!({"id": 1})], vec![], None).await.unwrap();
+        let old_job = manager
+            .create_job(config.clone(), vec![json!({"id": 1})], vec![], None)
+            .await
+            .unwrap();
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-        let new_job = manager.create_job(config, vec![json!({"id": 2})], vec![], None).await.unwrap();
+        let new_job = manager
+            .create_job(config, vec![json!({"id": 2})], vec![], None)
+            .await
+            .unwrap();
 
         let jobs = manager.list_resumable_jobs_internal().await.unwrap();
         assert_eq!(jobs.len(), 2);
