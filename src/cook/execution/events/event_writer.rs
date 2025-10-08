@@ -968,4 +968,43 @@ mod tests {
         let size_after_rotation = *writer.current_size.lock().await;
         assert!(size_after_rotation < 500);
     }
+
+    #[tokio::test]
+    async fn test_jsonl_writer_write_after_close() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::new(file_path.clone()).await.unwrap();
+
+        {
+            let mut writer_guard = writer.writer.lock().await;
+            *writer_guard = None;
+        }
+
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: chrono::Utc::now(),
+            correlation_id: "test".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: chrono::Utc::now(),
+            },
+            metadata: Default::default(),
+        };
+
+        let result = writer.write(&[event]).await;
+        assert!(result.is_ok());
+    }
 }
