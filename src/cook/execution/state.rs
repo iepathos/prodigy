@@ -1485,4 +1485,108 @@ mod tests {
         assert_eq!(j1.checkpoint_version, 0);
         assert_eq!(j2.checkpoint_version, 5);
     }
+
+    // Phase 3: Data Integrity and Edge Values
+
+    #[tokio::test]
+    async fn test_list_resumable_zero_items() {
+        let temp_dir = create_unique_temp_dir("test-zero-items");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = create_test_config();
+
+        // Create job with empty work_items list
+        let _job_id = manager.create_job(config, vec![], vec![], None).await.unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].total_items, 0);
+        assert_eq!(jobs[0].completed_items, 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_high_checkpoint_version() {
+        let temp_dir = create_unique_temp_dir("test-high-version");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = create_test_config();
+        let job_id = manager.create_job(config, vec![json!({"id": 1})], vec![], None).await.unwrap();
+
+        // Create checkpoint with very high version number
+        let mut state = manager.get_job_state(&job_id).await.unwrap();
+        state.checkpoint_version = u32::MAX - 1;
+        manager.checkpoint_manager.save_checkpoint(&state).await.unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].checkpoint_version, u32::MAX - 1);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_partial_failures() {
+        let temp_dir = create_unique_temp_dir("test-partial-failures");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = create_test_config();
+        let work_items = vec![json!({"id": 1}), json!({"id": 2}), json!({"id": 3})];
+        let job_id = manager.create_job(config, work_items, vec![], None).await.unwrap();
+
+        // Add one success and one failure
+        manager.update_agent_result(&job_id, AgentResult {
+            item_id: "item_0".to_string(),
+            status: AgentStatus::Success,
+            output: Some("success".to_string()),
+            commits: vec![],
+            duration: std::time::Duration::from_secs(1),
+            error: None,
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            files_modified: vec![],
+            json_log_location: None,
+        }).await.unwrap();
+
+        manager.update_agent_result(&job_id, AgentResult {
+            item_id: "item_1".to_string(),
+            status: AgentStatus::Failed("test error".to_string()),
+            output: None,
+            commits: vec![],
+            duration: std::time::Duration::from_secs(1),
+            error: Some("test error".to_string()),
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            files_modified: vec![],
+            json_log_location: None,
+        }).await.unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].completed_items, 1);
+        assert_eq!(jobs[0].failed_items, 1);
+        assert_eq!(jobs[0].total_items, 3);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_recent_vs_old_jobs() {
+        let temp_dir = create_unique_temp_dir("test-timestamps");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = create_test_config();
+
+        // Create two jobs with different timestamps
+        let old_job = manager.create_job(config.clone(), vec![json!({"id": 1})], vec![], None).await.unwrap();
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        let new_job = manager.create_job(config, vec![json!({"id": 2})], vec![], None).await.unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 2);
+
+        // Find each job
+        let old = jobs.iter().find(|j| j.job_id == old_job).unwrap();
+        let new = jobs.iter().find(|j| j.job_id == new_job).unwrap();
+
+        // Verify newer job has later timestamp
+        assert!(new.started_at >= old.started_at);
+    }
 }
