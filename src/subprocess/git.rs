@@ -790,7 +790,10 @@ mod git_error_tests {
 
         assert!(result.is_ok());
         let status = result.unwrap();
-        assert_eq!(status.branch, Some("feature/branch with spaces".to_string()));
+        assert_eq!(
+            status.branch,
+            Some("feature/branch with spaces".to_string())
+        );
         assert!(!status.clean);
     }
 
@@ -810,10 +813,7 @@ mod git_error_tests {
 
         assert!(result.is_ok());
         let status = result.unwrap();
-        assert_eq!(
-            status.branch,
-            Some("feature/foo-bar.baz_123".to_string())
-        );
+        assert_eq!(status.branch, Some("feature/foo-bar.baz_123".to_string()));
         assert!(status.clean);
     }
 
