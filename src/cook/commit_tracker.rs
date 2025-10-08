@@ -314,6 +314,27 @@ impl CommitTracker {
         }
     }
 
+    /// Check if a file should be included based on include patterns
+    ///
+    /// Returns false if include_patterns is empty (no patterns = exclude all)
+    /// Returns true if any pattern matches the file
+    /// Handles invalid patterns gracefully by skipping them
+    fn should_include_file(file: &str, include_patterns: &[String]) -> bool {
+        if include_patterns.is_empty() {
+            return false;
+        }
+
+        for pattern_str in include_patterns {
+            if let Ok(pattern) = Pattern::new(pattern_str) {
+                if pattern.matches(file) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     /// Filter files based on include/exclude patterns
     async fn get_files_to_stage(
         &self,
@@ -335,15 +356,7 @@ impl CommitTracker {
 
                     // Check include patterns
                     if let Some(include_patterns) = &config.include_files {
-                        should_include = false;
-                        for pattern_str in include_patterns {
-                            if let Ok(pattern) = Pattern::new(pattern_str) {
-                                if pattern.matches(&file) {
-                                    should_include = true;
-                                    break;
-                                }
-                            }
-                        }
+                        should_include = Self::should_include_file(&file, include_patterns);
                     }
 
                     // Check exclude patterns

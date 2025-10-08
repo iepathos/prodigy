@@ -307,6 +307,50 @@ mod tests {
         assert_eq!(result, Some("path with spaces/file.rs".to_string()));
     }
 
+    // Tests for should_include_file
+    #[test]
+    fn test_should_include_file_no_patterns() {
+        let result = CommitTracker::should_include_file("file.rs", &[]);
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_include_file_single_match() {
+        let result = CommitTracker::should_include_file("file.rs", &["*.rs".to_string()]);
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_include_file_single_no_match() {
+        let result = CommitTracker::should_include_file("file.txt", &["*.rs".to_string()]);
+        assert_eq!(result, false);
+    }
+
+    #[test]
+    fn test_should_include_file_multiple_first_matches() {
+        let result = CommitTracker::should_include_file(
+            "file.rs",
+            &["*.rs".to_string(), "*.md".to_string()],
+        );
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_include_file_multiple_second_matches() {
+        let result = CommitTracker::should_include_file(
+            "file.md",
+            &["*.rs".to_string(), "*.md".to_string()],
+        );
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn test_should_include_file_invalid_pattern() {
+        // Invalid pattern should be skipped gracefully
+        let result = CommitTracker::should_include_file("file.rs", &["[invalid".to_string()]);
+        assert_eq!(result, false);
+    }
+
     // Tests for get_files_to_stage
     #[tokio::test]
     async fn test_get_files_to_stage_no_config() {
