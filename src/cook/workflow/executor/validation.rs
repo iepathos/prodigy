@@ -24,14 +24,12 @@ use std::sync::Arc;
 /// Returns true if:
 /// - attempts < max_attempts AND
 /// - validation is incomplete
-#[allow(dead_code)]
 fn should_continue_retry(attempts: u32, max_attempts: u32, is_complete: bool) -> bool {
     attempts < max_attempts && !is_complete
 }
 
 /// Handler type for incomplete validation
 #[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)]
 enum HandlerType {
     MultiCommand,
     SingleCommand,
@@ -39,7 +37,6 @@ enum HandlerType {
 }
 
 /// Determine what type of handler is configured
-#[allow(dead_code)]
 fn determine_handler_type(
     on_incomplete: &crate::cook::workflow::validation::OnIncompleteConfig,
 ) -> HandlerType {
@@ -74,7 +71,6 @@ fn calculate_retry_progress(attempts: u32, max_attempts: u32, completion: f64) -
 /// Determine if the workflow should fail based on validation state
 ///
 /// Returns true if validation is incomplete AND fail_workflow is true
-#[allow(dead_code)]
 fn should_fail_workflow(is_complete: bool, fail_workflow_flag: bool, _attempts: u32) -> bool {
     !is_complete && fail_workflow_flag
 }
@@ -232,9 +228,11 @@ impl WorkflowExecutor {
         let mut attempts = 0;
         let mut current_result = initial_result;
 
-        while attempts < on_incomplete.max_attempts
-            && !validation_config.is_complete(&current_result)
-        {
+        while should_continue_retry(
+            attempts,
+            on_incomplete.max_attempts,
+            validation_config.is_complete(&current_result),
+        ) {
             attempts += 1;
 
             self.user_interaction.display_info(&format!(
@@ -242,45 +240,52 @@ impl WorkflowExecutor {
                 attempts, on_incomplete.max_attempts
             ));
 
-            // Execute the completion handler(s)
-            let handler_success = if let Some(commands) = &on_incomplete.commands {
-                // Execute array of commands
-                self.user_interaction
-                    .display_progress(&format!("Running {} recovery commands", commands.len()));
+            // Execute the completion handler(s) based on handler type
+            let handler_success = match determine_handler_type(on_incomplete) {
+                HandlerType::MultiCommand => {
+                    // Execute array of commands
+                    let commands = on_incomplete.commands.as_ref().unwrap();
+                    self.user_interaction
+                        .display_progress(&format!("Running {} recovery commands", commands.len()));
 
-                let mut all_success = true;
-                for (idx, cmd) in commands.iter().enumerate() {
-                    let step = self.convert_workflow_command_to_step(cmd, ctx)?;
-                    let step_display = self.get_step_display_name(&step);
-                    self.user_interaction.display_progress(&format!(
-                        "  Recovery step {}/{}: {}",
-                        idx + 1,
-                        commands.len(),
-                        step_display
-                    ));
+                    let mut all_success = true;
+                    for (idx, cmd) in commands.iter().enumerate() {
+                        let step = self.convert_workflow_command_to_step(cmd, ctx)?;
+                        let step_display = self.get_step_display_name(&step);
+                        self.user_interaction.display_progress(&format!(
+                            "  Recovery step {}/{}: {}",
+                            idx + 1,
+                            commands.len(),
+                            step_display
+                        ));
 
-                    let handler_result = Box::pin(self.execute_step(&step, env, ctx)).await?;
+                        let handler_result = Box::pin(self.execute_step(&step, env, ctx)).await?;
 
-                    if !handler_result.success {
-                        self.user_interaction
-                            .display_error(&format!("Recovery step {} failed", idx + 1));
-                        all_success = false;
-                        break;
+                        if !handler_result.success {
+                            self.user_interaction
+                                .display_error(&format!("Recovery step {} failed", idx + 1));
+                            all_success = false;
+                            break;
+                        }
                     }
+                    all_success
                 }
-                all_success
-            } else if let Some(handler_step) = self.create_validation_handler(on_incomplete, ctx) {
-                // Execute single command (legacy)
-                let step_display = self.get_step_display_name(&handler_step);
-                self.user_interaction
-                    .display_progress(&format!("Running recovery step: {}", step_display));
+                HandlerType::SingleCommand => {
+                    // Execute single command (legacy)
+                    let handler_step = self.create_validation_handler(on_incomplete, ctx).unwrap();
+                    let step_display = self.get_step_display_name(&handler_step);
+                    self.user_interaction
+                        .display_progress(&format!("Running recovery step: {}", step_display));
 
-                let handler_result = Box::pin(self.execute_step(&handler_step, env, ctx)).await?;
-                handler_result.success
-            } else {
-                self.user_interaction
-                    .display_error("No recovery commands configured");
-                false
+                    let handler_result =
+                        Box::pin(self.execute_step(&handler_step, env, ctx)).await?;
+                    handler_result.success
+                }
+                HandlerType::NoHandler => {
+                    self.user_interaction
+                        .display_error("No recovery commands configured");
+                    false
+                }
             };
 
             if !handler_success {
@@ -322,7 +327,11 @@ impl WorkflowExecutor {
         }
 
         // Check if we should fail the workflow
-        if !validation_config.is_complete(&current_result) && on_incomplete.fail_workflow {
+        if should_fail_workflow(
+            validation_config.is_complete(&current_result),
+            on_incomplete.fail_workflow,
+            attempts,
+        ) {
             return Err(anyhow!(
                 "Validation failed after {} attempts. Completion: {:.1}%",
                 attempts,
