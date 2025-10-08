@@ -73,7 +73,10 @@ impl YamlValidator {
 
     /// Validate agent_template structure and syntax
     /// Returns (issues, suggestions)
-    fn validate_agent_template(template: &Value, check_simplified: bool) -> Result<(Vec<String>, Vec<String>)> {
+    fn validate_agent_template(
+        template: &Value,
+        check_simplified: bool,
+    ) -> Result<(Vec<String>, Vec<String>)> {
         let mut issues = Vec::new();
         let mut suggestions = Vec::new();
 
@@ -111,8 +114,7 @@ impl YamlValidator {
         }
         if map.contains_key("retry_on_failure") {
             issues.push(
-                "Error: Deprecated parameter 'retry_on_failure' is no longer supported"
-                    .to_string(),
+                "Error: Deprecated parameter 'retry_on_failure' is no longer supported".to_string(),
             );
             suggestions.push("Remove 'retry_on_failure' from your workflow file. See MIGRATION.md for updated syntax.".to_string());
         }
@@ -122,7 +124,10 @@ impl YamlValidator {
 
     /// Validate reduce section structure and syntax
     /// Returns (issues, suggestions)
-    fn validate_reduce_section(reduce: &Value, check_simplified: bool) -> (Vec<String>, Vec<String>) {
+    fn validate_reduce_section(
+        reduce: &Value,
+        check_simplified: bool,
+    ) -> (Vec<String>, Vec<String>) {
         let mut issues = Vec::new();
         let mut suggestions = Vec::new();
 
@@ -174,14 +179,16 @@ impl YamlValidator {
             issues.append(&mut map_issues);
 
             if let Some(agent_template) = map.get("agent_template") {
-                let (mut template_issues, mut template_suggestions) = Self::validate_agent_template(agent_template, self.check_simplified)?;
+                let (mut template_issues, mut template_suggestions) =
+                    Self::validate_agent_template(agent_template, self.check_simplified)?;
                 issues.append(&mut template_issues);
                 suggestions.append(&mut template_suggestions);
             } else {
                 issues.push("Map section missing required field 'agent_template'".to_string());
             }
 
-            let (mut deprecated_issues, mut deprecated_suggestions) = Self::check_deprecated_map_params(map);
+            let (mut deprecated_issues, mut deprecated_suggestions) =
+                Self::check_deprecated_map_params(map);
             issues.append(&mut deprecated_issues);
             suggestions.append(&mut deprecated_suggestions);
         } else {
@@ -190,7 +197,8 @@ impl YamlValidator {
 
         // Check reduce section
         if let Some(reduce) = workflow.get("reduce") {
-            let (mut reduce_issues, mut reduce_suggestions) = Self::validate_reduce_section(reduce, self.check_simplified);
+            let (mut reduce_issues, mut reduce_suggestions) =
+                Self::validate_reduce_section(reduce, self.check_simplified);
             issues.append(&mut reduce_issues);
             suggestions.append(&mut reduce_suggestions);
         }
@@ -347,7 +355,10 @@ mode: mapreduce
         let result = validator.validate_file(temp_file.path())?;
 
         assert!(!result.is_valid);
-        assert!(result.issues.iter().any(|i| i.contains("Missing required 'map' section")));
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.contains("Missing required 'map' section")));
 
         Ok(())
     }
@@ -661,7 +672,10 @@ reduce: "invalid string"
         let result = validator.validate_file(temp_file.path())?;
 
         assert!(!result.is_valid);
-        assert!(result.issues.iter().any(|i| i.contains("Invalid reduce structure")));
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.contains("Invalid reduce structure")));
 
         Ok(())
     }
