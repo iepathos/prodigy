@@ -387,4 +387,24 @@ mod tests {
             .await
             .unwrap();
     }
+
+    #[tokio::test]
+    async fn test_update_session_mark_interrupted() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::MarkInterrupted)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_add_error() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::AddError("test error".to_string()))
+            .await
+            .unwrap();
+    }
 }
