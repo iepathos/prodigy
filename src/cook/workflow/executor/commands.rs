@@ -642,6 +642,24 @@ impl WorkflowExecutor {
         vars
     }
 
+    // Pure helper functions for shell retry logic
+
+    /// Check if max attempts have been reached (pure function)
+    fn has_reached_max_attempts(attempt: u32, max_attempts: u32) -> bool {
+        attempt >= max_attempts
+    }
+
+    /// Determine if workflow should fail on max attempts (pure function)
+    fn should_fail_workflow_on_max_attempts(
+        fail_workflow: bool,
+    ) -> Result<(), String> {
+        if fail_workflow {
+            Err("fail_workflow is true".to_string())
+        } else {
+            Ok(())
+        }
+    }
+
     /// Execute a shell command with retry logic (for shell commands with on_failure)
     async fn execute_shell_with_retry(
         &self,
@@ -680,13 +698,15 @@ impl WorkflowExecutor {
 
             // Command failed - check if we should retry
             if let Some(debug_config) = on_failure {
-                if attempt >= debug_config.max_attempts {
+                // Check if max attempts reached (using pure helper)
+                if Self::has_reached_max_attempts(attempt, debug_config.max_attempts) {
                     self.user_interaction.display_error(&format!(
                         "Shell command failed after {} attempts",
                         debug_config.max_attempts
                     ));
 
-                    if debug_config.fail_workflow {
+                    // Determine if workflow should fail (using pure helper)
+                    if let Err(_) = Self::should_fail_workflow_on_max_attempts(debug_config.fail_workflow) {
                         return Err(anyhow!(
                             "Shell command failed after {} attempts and fail_workflow is true",
                             debug_config.max_attempts
@@ -2162,6 +2182,51 @@ mod tests {
             );
 
             assert_eq!(vars.get("shell.output").unwrap(), &output);
+        }
+
+        // Unit tests for retry logic pure functions
+
+        #[test]
+        fn test_has_reached_max_attempts_not_reached() {
+            assert!(!WorkflowExecutor::has_reached_max_attempts(1, 3));
+            assert!(!WorkflowExecutor::has_reached_max_attempts(2, 3));
+        }
+
+        #[test]
+        fn test_has_reached_max_attempts_exactly_reached() {
+            assert!(WorkflowExecutor::has_reached_max_attempts(3, 3));
+        }
+
+        #[test]
+        fn test_has_reached_max_attempts_exceeded() {
+            assert!(WorkflowExecutor::has_reached_max_attempts(4, 3));
+            assert!(WorkflowExecutor::has_reached_max_attempts(10, 3));
+        }
+
+        #[test]
+        fn test_has_reached_max_attempts_boundary() {
+            assert!(!WorkflowExecutor::has_reached_max_attempts(0, 1));
+            assert!(WorkflowExecutor::has_reached_max_attempts(1, 1));
+            assert!(WorkflowExecutor::has_reached_max_attempts(2, 1));
+        }
+
+        #[test]
+        fn test_has_reached_max_attempts_first_attempt() {
+            assert!(WorkflowExecutor::has_reached_max_attempts(1, 1));
+            assert!(!WorkflowExecutor::has_reached_max_attempts(1, 2));
+        }
+
+        #[test]
+        fn test_should_fail_workflow_on_max_attempts_true() {
+            let result = WorkflowExecutor::should_fail_workflow_on_max_attempts(true);
+            assert!(result.is_err());
+            assert_eq!(result.unwrap_err(), "fail_workflow is true");
+        }
+
+        #[test]
+        fn test_should_fail_workflow_on_max_attempts_false() {
+            let result = WorkflowExecutor::should_fail_workflow_on_max_attempts(false);
+            assert!(result.is_ok());
         }
     }
 }
