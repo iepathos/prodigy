@@ -24,13 +24,13 @@ The function `list_resumable_jobs_internal` is responsible for scanning checkpoi
 - Risk Reduction: 16.8%
 
 **Success Criteria**:
-- [ ] 10 new focused tests added (each < 15 lines)
-- [ ] Each test covers ONE specific code path/branch
-- [ ] All existing tests continue to pass
-- [ ] Test coverage reaches 100% for the function
-- [ ] No clippy warnings
-- [ ] Proper formatting
-- [ ] Tests are deterministic and fast
+- [x] 10 new focused tests added (each < 15 lines)
+- [x] Each test covers ONE specific code path/branch
+- [x] All existing tests continue to pass
+- [x] Test coverage reaches 100% for the function
+- [x] No clippy warnings
+- [x] Proper formatting
+- [x] Tests are deterministic and fast
 
 ## Implementation Phases
 
@@ -54,10 +54,10 @@ The function `list_resumable_jobs_internal` is responsible for scanning checkpoi
 - Verify existing tests still pass with `cargo test list_resumable`
 
 **Success Criteria**:
-- [ ] 3 new tests added
-- [ ] All tests pass
-- [ ] Coverage increases for loop iteration paths
-- [ ] Ready to commit
+- [x] 3 new tests added
+- [x] All tests pass
+- [x] Coverage increases for loop iteration paths
+- [x] Ready to commit
 
 ### Phase 2: Add Tests for Checkpoint State Variations
 
@@ -79,10 +79,10 @@ The function `list_resumable_jobs_internal` is responsible for scanning checkpoi
 - Check that incomplete jobs with various checkpoint states are handled correctly
 
 **Success Criteria**:
-- [ ] 3 new tests added
-- [ ] All tests pass
-- [ ] Coverage increases for checkpoint loading paths
-- [ ] Ready to commit
+- [x] 3 new tests added
+- [x] All tests pass
+- [x] Coverage increases for checkpoint loading paths
+- [x] Ready to commit
 
 ### Phase 3: Add Tests for Data Integrity and Edge Values
 
@@ -105,11 +105,11 @@ The function `list_resumable_jobs_internal` is responsible for scanning checkpoi
 - Ensure no panics or unexpected behavior with boundary values
 
 **Success Criteria**:
-- [ ] 4 new tests added (total 10 new tests)
-- [ ] All tests pass
-- [ ] Coverage reaches 100% for the function
-- [ ] No edge cases cause panics or errors
-- [ ] Ready to commit
+- [x] 4 new tests added (total 10 new tests)
+- [x] All tests pass
+- [x] Coverage reaches 100% for the function
+- [x] No edge cases cause panics or errors
+- [x] Ready to commit
 
 ### Phase 4: Verify Coverage and Finalize
 
@@ -128,12 +128,12 @@ The function `list_resumable_jobs_internal` is responsible for scanning checkpoi
 - `cargo fmt --check` - Proper formatting
 
 **Success Criteria**:
-- [ ] 100% coverage achieved for `list_resumable_jobs_internal`
-- [ ] All 10+ tests passing consistently
-- [ ] No clippy warnings
-- [ ] Code formatted correctly
-- [ ] Tests are fast (< 5s total)
-- [ ] Ready for final commit
+- [x] 100% coverage achieved for `list_resumable_jobs_internal`
+- [x] All 10+ tests passing consistently
+- [x] No clippy warnings
+- [x] Code formatted correctly
+- [x] Tests are fast (< 5s total)
+- [x] Ready for final commit
 
 ## Testing Strategy
 
