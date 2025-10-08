@@ -1,237 +1,219 @@
-# Implementation Plan: Test Coverage for handle_step_validation Function
+# Implementation Plan: Add Test Coverage for ShellHandler::execute
 
 ## Problem Summary
 
-**Location**: ./src/cook/workflow/executor/validation.rs:WorkflowExecutor::handle_step_validation:224
-**Priority Score**: 33.04
-**Debt Type**: TestingGap (0% coverage, complexity 19, cognitive complexity 41)
+**Location**: ./src/commands/handlers/shell.rs:ShellHandler::execute:45
+**Priority Score**: 33.99
+**Debt Type**: ComplexityHotspot (Cognitive: 41, Cyclomatic: 7)
 **Current Metrics**:
-- Lines of Code: 144
-- Cyclomatic Complexity: 19
+- Lines of Code: 80
+- Cyclomatic Complexity: 7
 - Cognitive Complexity: 41
-- Coverage: 0%
+- Coverage: 0% (test coverage gap)
+- Function Role: EntryPoint
 - Nesting Depth: 3
 
-**Issue**: Complex business logic with 100% coverage gap. This function handles step validation with multiple execution paths including dry-run mode simulation, timeout handling, validation result display, and error message formatting. Cyclomatic complexity of 19 requires comprehensive test coverage to ensure reliability.
+**Issue**: Add 7 tests for 100% coverage gap. NO refactoring needed (complexity 7 is acceptable)
+
+**Rationale**: Complexity 7 is manageable. Coverage at 0%. Focus on test coverage, not refactoring. The function has 82 upstream callers and 14 downstream dependencies, making it a critical entry point that needs comprehensive test coverage.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 5.7 (through extraction of pure functions)
-- Coverage Improvement: 50.0%
-- Risk Reduction: 13.87
+- Complexity Reduction: 3.5 (through guard clauses to reduce nesting)
+- Coverage Improvement: 0.0 (increase from current state)
+- Risk Reduction: 11.90
 
 **Success Criteria**:
-- [ ] Achieve 80%+ test coverage for handle_step_validation
-- [ ] Extract 8 pure functions (complexity ≤3 each)
-- [ ] All existing tests continue to pass
+- [ ] 7 focused tests added for uncovered decision branches
+- [ ] Each test is <15 lines and tests ONE path
+- [ ] All tests focus on individual decision branches
+- [ ] Nesting depth reduced from 3 to 2 using guard clauses
+- [ ] Validation checks moved to beginning with early returns
+- [ ] All existing tests continue to pass (currently 21 tests exist)
 - [ ] No clippy warnings
 - [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Add Core Path Tests
+### Phase 1: Analyze Current Coverage and Identify Missing Test Cases
 
-**Goal**: Establish baseline test coverage for the primary execution paths
+**Goal**: Understand which decision branches in the `execute` function are not covered by existing tests
 
 **Changes**:
-- Add test for dry-run mode with single validation command
-- Add test for dry-run mode with multiple validation commands
-- Add test for dry-run mode with detailed validation config
-- Add test for successful validation execution (passed result)
-- Add test for failed validation execution (failed result)
+- Run cargo-tarpaulin with line-level coverage report for shell.rs
+- Identify the 7 uncovered decision branches/paths
+- Document the specific test scenarios needed
 
 **Testing**:
-```bash
-cargo test --lib handle_step_validation
-cargo test --lib validation::tests
-```
+- Review existing 21 tests to understand coverage patterns
+- Map each test to the code paths it exercises
 
 **Success Criteria**:
-- [ ] 5 new tests covering main branches
-- [ ] ~30% coverage achieved
+- [ ] List of 7 specific uncovered decision branches identified
+- [ ] Test scenarios documented for each branch
+- [ ] No code changes yet - analysis only
+
+### Phase 2: Add Guard Clauses to Reduce Nesting
+
+**Goal**: Reduce nesting depth from 3 to 2 by introducing early returns for validation checks
+
+**Changes**:
+- Move the `command` extraction and validation to the top with early return (line 54-57)
+- This already exists, so verify it follows guard clause pattern
+- Ensure schema defaults are applied first
+- Keep the structure simple and readable
+
+**Testing**:
+- Run existing test suite: `cargo test --lib handlers::shell`
+- Verify all 21 existing tests still pass
+- Verify no clippy warnings: `cargo clippy -- -D warnings`
+
+**Success Criteria**:
+- [ ] Nesting depth reduced to 2
+- [ ] Early returns for validation errors
+- [ ] All 21 existing tests pass
+- [ ] No clippy warnings
+- [ ] Code is more readable
+
+### Phase 3: Add Tests for Shell and Timeout Edge Cases
+
+**Goal**: Add 3 focused tests for shell and timeout attribute handling edge cases
+
+**Changes**:
+- Test 1: Shell attribute with None value (tests fallback to default)
+- Test 2: Timeout attribute with zero value (edge case)
+- Test 3: Timeout attribute as non-number type (type conversion)
+
+**Testing**:
+Each test should:
+- Be <15 lines
+- Test ONE specific path
+- Have clear assertions
+- Use MockSubprocessExecutor
+
+**Success Criteria**:
+- [ ] 3 new tests added
+- [ ] Each test is <15 lines
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 2: Add Timeout and Error Handling Tests
+### Phase 4: Add Tests for Working Directory Edge Cases
 
-**Goal**: Cover timeout scenarios and error handling paths
+**Goal**: Add 2 focused tests for working_dir attribute handling edge cases
 
 **Changes**:
-- Add test for validation with timeout (successful completion before timeout)
-- Add test for validation timeout (timeout occurs)
-- Add test for validation error/exception handling
-- Add test for display_error when timeout occurs
+- Test 1: working_dir with empty string (edge case)
+- Test 2: working_dir with special characters or spaces
 
 **Testing**:
-```bash
-cargo test --lib handle_step_validation
-```
+Each test should:
+- Be <15 lines
+- Test ONE specific path
+- Verify path resolution behavior
 
 **Success Criteria**:
-- [ ] 4 new tests covering timeout branches
-- [ ] ~50% coverage achieved
+- [ ] 2 new tests added
+- [ ] Each test is <15 lines
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 3: Extract Pure Display Formatting Functions
+### Phase 5: Add Tests for Environment Variable Edge Cases
 
-**Goal**: Extract pure functions for result message formatting
+**Goal**: Add 2 focused tests for env attribute handling edge cases
 
 **Changes**:
-- Extract `format_validation_passed_message(results_count: usize, attempts: usize) -> String`
-- Extract `format_validation_failed_message(results_count: usize, attempts: usize) -> String`
-- Extract `format_failed_validation_detail(idx: usize, message: &str, exit_code: i32) -> String`
-- Add unit tests for each extracted function (3 tests per function = 9 tests)
-- Update handle_step_validation to use extracted functions
+- Test 1: env attribute with empty object (tests code path)
+- Test 2: env attribute with mixed valid and invalid types (already tested, verify coverage)
 
 **Testing**:
-```bash
-cargo test --lib format_validation_
-cargo test --lib handle_step_validation
-```
+Each test should:
+- Be <15 lines
+- Test ONE specific path
+- Verify env handling behavior
 
 **Success Criteria**:
-- [ ] 3 pure functions extracted (complexity ≤2 each)
-- [ ] 9 new unit tests for pure functions
-- [ ] handle_step_validation complexity reduced by ~3
+- [ ] 2 new tests added (or verify existing coverage)
+- [ ] Each test is <15 lines
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 4: Extract Pure Validation Step Name Logic
+### Phase 6: Verify Coverage Improvement and Final Validation
 
-**Goal**: Extract pure logic for determining step names
-
-**Changes**:
-- Extract `determine_step_name(step: &WorkflowStep) -> &str` as pure function
-- Move the if/else logic for step name determination (lines 283-291)
-- Add unit tests covering:
-  - Step with explicit name
-  - Step with claude command (no name)
-  - Step with shell command (no name)
-  - Step with neither (fallback case)
-- Update handle_step_validation to use extracted function
-
-**Testing**:
-```bash
-cargo test --lib determine_step_name
-cargo test --lib handle_step_validation
-```
-
-**Success Criteria**:
-- [ ] 1 pure function extracted (complexity ≤3)
-- [ ] 4 new unit tests for pure function
-- [ ] handle_step_validation complexity reduced by ~2
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 5: Extract Validation Result Display Logic
-
-**Goal**: Separate validation result display into testable functions
+**Goal**: Confirm that coverage has improved and all quality checks pass
 
 **Changes**:
-- Extract `should_display_validation_success(result: &StepValidationResult) -> bool`
-- Extract `should_display_validation_details(result: &StepValidationResult) -> Vec<(usize, &ValidationItemResult)>` (returns failed validations)
-- Add unit tests for extracted functions:
-  - Test successful validation result
-  - Test failed validation result with no failed items
-  - Test failed validation result with multiple failed items
-  - Test edge cases (empty results, all passed)
-- Update handle_step_validation to use extracted functions
+- No code changes - validation only
 
 **Testing**:
-```bash
-cargo test --lib should_display_validation_
-cargo test --lib handle_step_validation
-```
+1. Run full test suite: `cargo test --lib`
+2. Run clippy: `cargo clippy -- -D warnings`
+3. Check formatting: `cargo fmt --check`
+4. Run tarpaulin to verify coverage: `cargo tarpaulin --lib`
+5. Verify ShellHandler::execute coverage improved
 
 **Success Criteria**:
-- [ ] 2 pure functions extracted (complexity ≤3 each)
-- [ ] 6 new unit tests for pure functions
-- [ ] handle_step_validation complexity reduced by ~3
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 6: Final Coverage and Integration Tests
-
-**Goal**: Achieve 80%+ total coverage and verify all paths
-
-**Changes**:
-- Add integration test for full validation workflow with retries
-- Add test for validation with step name variations
-- Add edge case tests:
-  - Empty validation results
-  - Very long messages
-  - Multiple failed validation details
-- Verify all uncovered lines from debtmap are now covered
-
-**Testing**:
-```bash
-cargo test --lib handle_step_validation
-cargo tarpaulin --lib --packages prodigy -- validation::tests
-```
-
-**Success Criteria**:
-- [ ] 80%+ coverage for handle_step_validation achieved
-- [ ] All edge cases covered
-- [ ] Integration tests pass
-- [ ] debtmap shows improvement
-- [ ] Ready to commit
+- [ ] All tests pass (21 existing + 7 new = 28 total)
+- [ ] Coverage for ShellHandler::execute significantly improved
+- [ ] No clippy warnings
+- [ ] Code properly formatted
+- [ ] Ready for final commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Run phase-specific tests listed above
-4. Verify coverage improvement with `cargo tarpaulin --lib`
+1. Run `cargo test --lib handlers::shell` to verify existing tests pass
+2. Run `cargo clippy -- -D warnings` to check for warnings
+3. Focus on testing each decision branch independently
 
 **Final verification**:
-1. `just ci` - Full CI checks
-2. `cargo tarpaulin` - Regenerate coverage
-3. `debtmap analyze` - Verify improvement in unified_score
-
-**Test file location**: `src/cook/workflow/executor/validation.rs` (add `#[cfg(test)] mod tests` section)
+1. `cargo test --lib` - Full test suite
+2. `cargo clippy -- -D warnings` - No warnings
+3. `cargo fmt --check` - Proper formatting
+4. `cargo tarpaulin --lib` - Regenerate coverage to verify improvement
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure using `cargo test --lib -- --nocapture`
-3. Check compilation errors with `cargo check`
-4. Adjust the implementation approach
-5. Retry the phase
+2. Review the failure
+3. Adjust the approach
+4. Retry the phase
 
 ## Notes
 
-### Key Testing Considerations
+### Current Test Coverage Analysis
 
-1. **Mocking Strategy**: Use the existing `tests::test_mocks::MockUserInteraction` for display methods
-2. **Async Testing**: Use `tokio::test` for async test functions
-3. **Validation Executor Mocking**: May need to create mock for `StepValidationExecutor`
-4. **Context Setup**: Create minimal `WorkflowContext` and `ExecutionEnvironment` for tests
+The file already has 21 comprehensive tests covering:
+- Schema validation
+- Basic execution
+- Dry run mode
+- Custom shell, timeout, working_dir
+- Environment variables
+- Execution failures and error handling
+- Edge cases (non-UTF8 output, signal termination, etc.)
 
-### Pure Function Extraction Targets
+However, the debtmap indicates 0% coverage for the `execute` function itself, which likely means:
+1. The function's internal decision branches are not fully exercised
+2. Some edge cases in attribute extraction may be missing
+3. Error paths in the control flow may not be covered
 
-The following functions are good candidates for extraction (from debtmap recommendation):
-1. Message formatting functions (already planned in Phase 3)
-2. Step name determination logic (already planned in Phase 4)
-3. Validation result display logic (already planned in Phase 5)
-4. Additional candidates:
-   - Pluralization helper: `fn pluralize(count: usize, singular: &str, plural: &str) -> &str`
-   - Result filtering: `fn filter_failed_validations(results: &[ValidationItemResult]) -> Vec<&ValidationItemResult>`
+### Key Decision Branches to Test
 
-### Complexity Reduction Path
+Based on code analysis, potential uncovered branches:
+1. Lines 54-57: Missing command attribute (COVERED by test_missing_command_attribute)
+2. Lines 60-64: Shell attribute edge cases (default fallback)
+3. Lines 67-70: Timeout attribute edge cases (default fallback)
+4. Lines 72-77: Working directory attribute edge cases (default fallback)
+5. Lines 81-87: Environment variable iteration with non-string values (COVERED by test_env_with_non_string_values)
+6. Lines 92-98: Dry run branch (COVERED by test_shell_handler_dry_run)
+7. Lines 113-123: Success/error result handling (COVERED by multiple tests)
 
-- Start: Cyclomatic complexity 19
-- After Phase 3: ~16 (extract display formatting)
-- After Phase 4: ~14 (extract step name logic)
-- After Phase 5: ~11 (extract result display logic)
-- Target: ≤13 (meets "extract 8 functions" goal with ~8 smaller helper functions)
+### Important Considerations
 
-### Coverage Strategy
-
-- Phase 1: Cover main execution branches (30%)
-- Phase 2: Cover error/timeout paths (50%)
-- Phases 3-5: Add pure function tests (70%)
-- Phase 6: Integration and edge cases (80%+)
+- The function is already well-tested with 21 tests
+- Focus on finding any remaining uncovered edge cases
+- Don't add redundant tests - analyze coverage data first
+- Guard clause refactoring should be minimal since validation is already at the top
+- The cognitive complexity (41) comes from the many attribute extractions, not from complex logic
+- The function is an entry point with high downstream dependencies, so stability is critical
