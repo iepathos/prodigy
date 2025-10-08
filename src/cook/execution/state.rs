@@ -1363,4 +1363,55 @@ mod tests {
         assert_eq!(jobs.len(), 1);
         assert_eq!(jobs[0].checkpoint_version, 3);
     }
+
+    // Phase 1: Entry Iteration Edge Cases
+
+    #[tokio::test]
+    async fn test_list_resumable_multiple_mixed_jobs() {
+        let temp_dir = create_unique_temp_dir("test-mixed-jobs");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = create_test_config();
+
+        // Create incomplete job
+        let incomplete_job = manager.create_job(config.clone(), vec![json!({"id": 1})], vec![], None).await.unwrap();
+
+        // Create complete job
+        let complete_job = manager.create_job(config.clone(), vec![json!({"id": 2})], vec![], None).await.unwrap();
+        manager.mark_job_complete(&complete_job).await.unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].job_id, incomplete_job);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_special_chars_in_name() {
+        let temp_dir = create_unique_temp_dir("test-special-chars");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        // Create job with hyphens and underscores (valid job IDs)
+        let config = create_test_config();
+        let _job_id = manager.create_job(config, vec![json!({"id": 1})], vec![], None).await.unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert!(jobs[0].job_id.contains("mapreduce"));
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_many_jobs() {
+        let temp_dir = create_unique_temp_dir("test-many-jobs");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = create_test_config();
+
+        // Create 50 incomplete jobs
+        for _ in 0..50 {
+            manager.create_job(config.clone(), vec![json!({"id": 1})], vec![], None).await.unwrap();
+        }
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 50);
+    }
 }
