@@ -1155,4 +1155,19 @@ mod tests {
         assert_eq!(start, Some(current_start));
         assert_eq!(end, Some(current_end));
     }
+
+    #[test]
+    fn test_increment_event_count_first_occurrence() {
+        let mut counts = HashMap::new();
+        increment_event_count(&mut counts, "job_started".to_string());
+        assert_eq!(counts.get("job_started"), Some(&1));
+    }
+
+    #[test]
+    fn test_increment_event_count_subsequent_occurrence() {
+        let mut counts = HashMap::new();
+        counts.insert("agent_completed".to_string(), 3);
+        increment_event_count(&mut counts, "agent_completed".to_string());
+        assert_eq!(counts.get("agent_completed"), Some(&4));
+    }
 }
