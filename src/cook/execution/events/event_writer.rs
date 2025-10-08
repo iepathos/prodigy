@@ -855,4 +855,47 @@ mod tests {
         let size = *writer.current_size.lock().await;
         assert_eq!(size, 0);
     }
+
+    #[tokio::test]
+    async fn test_jsonl_writer_write_batch_events() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("events.jsonl");
+
+        let writer = JsonlEventWriter::new(file_path.clone()).await.unwrap();
+
+        let events: Vec<EventRecord> = (0..10)
+            .map(|i| EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: chrono::Utc::now(),
+                correlation_id: format!("correlation-{}", i),
+                event: MapReduceEvent::JobStarted {
+                    job_id: format!("job-{}", i),
+                    config: MapReduceConfig {
+                        agent_timeout_secs: None,
+                        continue_on_failure: false,
+                        batch_size: None,
+                        enable_checkpoints: true,
+                        input: "test.json".to_string(),
+                        json_path: "$.items".to_string(),
+                        max_parallel: 5,
+                        max_items: None,
+                        offset: None,
+                    },
+                    total_items: 10,
+                    timestamp: chrono::Utc::now(),
+                },
+                metadata: Default::default(),
+            })
+            .collect();
+
+        writer.write(&events).await.unwrap();
+        writer.flush().await.unwrap();
+
+        let content = tokio::fs::read_to_string(&file_path).await.unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(lines.len(), 10);
+
+        let size = *writer.current_size.lock().await;
+        assert!(size > 0);
+    }
 }
