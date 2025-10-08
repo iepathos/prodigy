@@ -16,6 +16,68 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 // ============================================================================
+// Pure decision functions for validation retry logic
+// ============================================================================
+
+/// Determine if the retry loop should continue
+///
+/// Returns true if:
+/// - attempts < max_attempts AND
+/// - validation is incomplete
+fn should_continue_retry(attempts: u32, max_attempts: u32, is_complete: bool) -> bool {
+    attempts < max_attempts && !is_complete
+}
+
+/// Handler type for incomplete validation
+#[derive(Debug, Clone, PartialEq)]
+enum HandlerType {
+    MultiCommand,
+    SingleCommand,
+    NoHandler,
+}
+
+/// Determine what type of handler is configured
+fn determine_handler_type(
+    on_incomplete: &crate::cook::workflow::validation::OnIncompleteConfig,
+) -> HandlerType {
+    if on_incomplete.commands.is_some() {
+        HandlerType::MultiCommand
+    } else if on_incomplete.claude.is_some() || on_incomplete.shell.is_some() {
+        HandlerType::SingleCommand
+    } else {
+        HandlerType::NoHandler
+    }
+}
+
+/// Retry progress information
+#[derive(Debug, Clone, PartialEq)]
+struct RetryProgress {
+    attempts: u32,
+    max_attempts: u32,
+    completion_percentage: f64,
+}
+
+/// Calculate retry progress for display/logging
+fn calculate_retry_progress(
+    attempts: u32,
+    max_attempts: u32,
+    completion: f64,
+) -> RetryProgress {
+    RetryProgress {
+        attempts,
+        max_attempts,
+        completion_percentage: completion,
+    }
+}
+
+/// Determine if the workflow should fail based on validation state
+///
+/// Returns true if validation is incomplete AND fail_workflow is true
+fn should_fail_workflow(is_complete: bool, fail_workflow_flag: bool, _attempts: u32) -> bool {
+    !is_complete && fail_workflow_flag
+}
+
+// ============================================================================
 // Pure formatting functions for validation messages
 // ============================================================================
 
@@ -883,6 +945,159 @@ mod tests {
         // Verify the prompt configuration
         assert!(on_incomplete.prompt.is_some());
         assert_eq!(on_incomplete.prompt.unwrap(), "Continue anyway?");
+    }
+
+    // ============================================================================
+    // Phase 2: Tests for Pure Decision Functions
+    // ============================================================================
+
+    #[test]
+    fn test_should_continue_retry_true_when_incomplete_and_attempts_remain() {
+        // Should continue: validation incomplete, attempts < max
+        assert!(should_continue_retry(1, 3, false));
+        assert!(should_continue_retry(0, 1, false));
+        assert!(should_continue_retry(2, 5, false));
+    }
+
+    #[test]
+    fn test_should_continue_retry_false_when_complete() {
+        // Should not continue: validation complete
+        assert!(!should_continue_retry(0, 3, true));
+        assert!(!should_continue_retry(2, 3, true));
+    }
+
+    #[test]
+    fn test_should_continue_retry_false_when_max_attempts_reached() {
+        // Should not continue: attempts >= max_attempts
+        assert!(!should_continue_retry(3, 3, false));
+        assert!(!should_continue_retry(5, 3, false));
+        assert!(!should_continue_retry(0, 0, false));
+    }
+
+    #[test]
+    fn test_should_continue_retry_boundary_conditions() {
+        // Boundary: last attempt before max
+        assert!(should_continue_retry(2, 3, false));
+        // Boundary: at max attempts
+        assert!(!should_continue_retry(3, 3, false));
+        // Boundary: complete on first try
+        assert!(!should_continue_retry(0, 3, true));
+    }
+
+    #[test]
+    fn test_determine_handler_type_multi_command() {
+        let on_incomplete = OnIncompleteConfig {
+            commands: Some(vec![]),
+            claude: None,
+            shell: None,
+            max_attempts: 1,
+            fail_workflow: false,
+            prompt: None,
+            commit_required: false,
+        };
+        assert_eq!(determine_handler_type(&on_incomplete), HandlerType::MultiCommand);
+    }
+
+    #[test]
+    fn test_determine_handler_type_single_command_claude() {
+        let on_incomplete = OnIncompleteConfig {
+            commands: None,
+            claude: Some("/fix".to_string()),
+            shell: None,
+            max_attempts: 1,
+            fail_workflow: false,
+            prompt: None,
+            commit_required: false,
+        };
+        assert_eq!(determine_handler_type(&on_incomplete), HandlerType::SingleCommand);
+    }
+
+    #[test]
+    fn test_determine_handler_type_single_command_shell() {
+        let on_incomplete = OnIncompleteConfig {
+            commands: None,
+            claude: None,
+            shell: Some("echo test".to_string()),
+            max_attempts: 1,
+            fail_workflow: false,
+            prompt: None,
+            commit_required: false,
+        };
+        assert_eq!(determine_handler_type(&on_incomplete), HandlerType::SingleCommand);
+    }
+
+    #[test]
+    fn test_determine_handler_type_no_handler() {
+        let on_incomplete = OnIncompleteConfig {
+            commands: None,
+            claude: None,
+            shell: None,
+            max_attempts: 1,
+            fail_workflow: false,
+            prompt: Some("Continue?".to_string()),
+            commit_required: false,
+        };
+        assert_eq!(determine_handler_type(&on_incomplete), HandlerType::NoHandler);
+    }
+
+    #[test]
+    fn test_calculate_retry_progress_basic() {
+        let progress = calculate_retry_progress(2, 5, 60.0);
+        assert_eq!(progress.attempts, 2);
+        assert_eq!(progress.max_attempts, 5);
+        assert_eq!(progress.completion_percentage, 60.0);
+    }
+
+    #[test]
+    fn test_calculate_retry_progress_zero_completion() {
+        let progress = calculate_retry_progress(1, 3, 0.0);
+        assert_eq!(progress.completion_percentage, 0.0);
+    }
+
+    #[test]
+    fn test_calculate_retry_progress_full_completion() {
+        let progress = calculate_retry_progress(3, 3, 100.0);
+        assert_eq!(progress.attempts, 3);
+        assert_eq!(progress.completion_percentage, 100.0);
+    }
+
+    #[test]
+    fn test_calculate_retry_progress_partial() {
+        let progress = calculate_retry_progress(1, 2, 45.5);
+        assert_eq!(progress.attempts, 1);
+        assert_eq!(progress.max_attempts, 2);
+        assert_eq!(progress.completion_percentage, 45.5);
+    }
+
+    #[test]
+    fn test_should_fail_workflow_true_when_incomplete_and_flag_set() {
+        // Should fail: incomplete + fail_workflow=true
+        assert!(should_fail_workflow(false, true, 3));
+        assert!(should_fail_workflow(false, true, 0));
+    }
+
+    #[test]
+    fn test_should_fail_workflow_false_when_complete() {
+        // Should not fail: complete
+        assert!(!should_fail_workflow(true, true, 3));
+        assert!(!should_fail_workflow(true, false, 3));
+    }
+
+    #[test]
+    fn test_should_fail_workflow_false_when_flag_not_set() {
+        // Should not fail: fail_workflow=false
+        assert!(!should_fail_workflow(false, false, 3));
+        assert!(!should_fail_workflow(true, false, 0));
+    }
+
+    #[test]
+    fn test_should_fail_workflow_boundary_conditions() {
+        // Boundary: incomplete but flag false
+        assert!(!should_fail_workflow(false, false, 3));
+        // Boundary: complete but flag true
+        assert!(!should_fail_workflow(true, true, 3));
+        // Boundary: incomplete and flag true (should fail)
+        assert!(should_fail_workflow(false, true, 3));
     }
 
     // ============================================================================
