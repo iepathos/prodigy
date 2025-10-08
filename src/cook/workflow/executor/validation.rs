@@ -24,12 +24,14 @@ use std::sync::Arc;
 /// Returns true if:
 /// - attempts < max_attempts AND
 /// - validation is incomplete
+#[allow(dead_code)]
 fn should_continue_retry(attempts: u32, max_attempts: u32, is_complete: bool) -> bool {
     attempts < max_attempts && !is_complete
 }
 
 /// Handler type for incomplete validation
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 enum HandlerType {
     MultiCommand,
     SingleCommand,
@@ -37,6 +39,7 @@ enum HandlerType {
 }
 
 /// Determine what type of handler is configured
+#[allow(dead_code)]
 fn determine_handler_type(
     on_incomplete: &crate::cook::workflow::validation::OnIncompleteConfig,
 ) -> HandlerType {
@@ -51,6 +54,7 @@ fn determine_handler_type(
 
 /// Retry progress information
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 struct RetryProgress {
     attempts: u32,
     max_attempts: u32,
@@ -58,11 +62,8 @@ struct RetryProgress {
 }
 
 /// Calculate retry progress for display/logging
-fn calculate_retry_progress(
-    attempts: u32,
-    max_attempts: u32,
-    completion: f64,
-) -> RetryProgress {
+#[allow(dead_code)]
+fn calculate_retry_progress(attempts: u32, max_attempts: u32, completion: f64) -> RetryProgress {
     RetryProgress {
         attempts,
         max_attempts,
@@ -73,6 +74,7 @@ fn calculate_retry_progress(
 /// Determine if the workflow should fail based on validation state
 ///
 /// Returns true if validation is incomplete AND fail_workflow is true
+#[allow(dead_code)]
 fn should_fail_workflow(is_complete: bool, fail_workflow_flag: bool, _attempts: u32) -> bool {
     !is_complete && fail_workflow_flag
 }
@@ -995,7 +997,10 @@ mod tests {
             prompt: None,
             commit_required: false,
         };
-        assert_eq!(determine_handler_type(&on_incomplete), HandlerType::MultiCommand);
+        assert_eq!(
+            determine_handler_type(&on_incomplete),
+            HandlerType::MultiCommand
+        );
     }
 
     #[test]
@@ -1009,7 +1014,10 @@ mod tests {
             prompt: None,
             commit_required: false,
         };
-        assert_eq!(determine_handler_type(&on_incomplete), HandlerType::SingleCommand);
+        assert_eq!(
+            determine_handler_type(&on_incomplete),
+            HandlerType::SingleCommand
+        );
     }
 
     #[test]
@@ -1023,7 +1031,10 @@ mod tests {
             prompt: None,
             commit_required: false,
         };
-        assert_eq!(determine_handler_type(&on_incomplete), HandlerType::SingleCommand);
+        assert_eq!(
+            determine_handler_type(&on_incomplete),
+            HandlerType::SingleCommand
+        );
     }
 
     #[test]
@@ -1037,7 +1048,10 @@ mod tests {
             prompt: Some("Continue?".to_string()),
             commit_required: false,
         };
-        assert_eq!(determine_handler_type(&on_incomplete), HandlerType::NoHandler);
+        assert_eq!(
+            determine_handler_type(&on_incomplete),
+            HandlerType::NoHandler
+        );
     }
 
     #[test]
