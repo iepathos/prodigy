@@ -1,209 +1,270 @@
-# Implementation Plan: Add Test Coverage for FileTemplateStorage::list
+# Implementation Plan: Add Test Coverage and Refactor `handle_incomplete_validation`
 
 ## Problem Summary
 
-**Location**: ./src/cook/workflow/composition/registry.rs:FileTemplateStorage::list:329
-**Priority Score**: 31.89
-**Debt Type**: ComplexityHotspot (Cognitive: 44, Cyclomatic: 12)
-**Current Metrics**:
-- Lines of Code: 45
-- Cyclomatic Complexity: 12
-- Cognitive Complexity: 44
-- Nesting Depth: 5
-- Coverage: 0%
+**Location**: ./src/cook/workflow/executor/validation.rs:WorkflowExecutor::handle_incomplete_validation:160
+**Priority Score**: 31.589442719099992
+**Debt Type**: TestingGap (0% coverage, cognitive complexity: 56, cyclomatic complexity: 20)
 
-**Issue**: Add 12 tests for 100% coverage gap. NO refactoring needed (complexity 12 is acceptable). Complexity 12 is manageable. Coverage at 0%. Focus on test coverage, not refactoring.
+**Current Metrics**:
+- Lines of Code: 112
+- Functions: 1 (monolithic function)
+- Cyclomatic Complexity: 20 (high - requires ~20 test cases for full branch coverage)
+- Cognitive Complexity: 56 (very high - difficult to understand)
+- Coverage: 0.0% direct, 18.2% transitive
+- Uncovered Lines: 35 ranges (lines 160-265)
+
+**Issue**: Complex business logic with 100% coverage gap. This function handles validation retry logic with multiple branches for command execution, failure handling, and user interaction. The high cyclomatic complexity (20) requires at least 20 test cases for full path coverage. With 11 downstream dependencies, this is a critical orchestration point that needs comprehensive testing.
+
+**Rationale**: Testing before refactoring ensures no regressions. After extracting 11 pure functions, each will need only 3-5 tests instead of 20 tests for the monolithic function.
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 6.0
-- Coverage Improvement: 0.0
-- Risk Reduction: 11.16
+**Expected Impact**:
+- Complexity Reduction: 6.0 (from 20 to ~14 cyclomatic complexity)
+- Coverage Improvement: 50.0% (from 0% to 50%+)
+- Risk Reduction: 13.27 points
 
 **Success Criteria**:
-- [ ] 12 focused tests covering all branches in FileTemplateStorage::list
-- [ ] 100% coverage for the list() function
-- [ ] Each test is <15 lines and tests ONE path
+- [ ] Direct test coverage increases from 0% to 80%+
+- [ ] Extract at least 11 pure functions with complexity ≤3 each
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting
+- [ ] Proper formatting with rustfmt
+- [ ] Each extracted function has 3-5 unit tests
+- [ ] Integration tests cover the main orchestration flow
 
 ## Implementation Phases
 
-### Phase 1: Test Empty Directory and Non-Existent Directory
+### Phase 1: Add Foundational Integration Tests
 
-**Goal**: Cover the early return paths when directory doesn't exist or is empty
+**Goal**: Establish baseline test coverage for the main execution paths before refactoring.
 
 **Changes**:
-- Add test for non-existent base directory (returns empty Vec)
-- Add test for existing but empty directory
-- Add test for directory with no .yml files
+- Add test module with mock setup for `WorkflowExecutor`
+- Create mock implementations for `UserInteraction`, `ValidationConfig`, `OnIncompleteConfig`
+- Write 5 integration tests covering critical paths:
+  1. Success after first retry attempt
+  2. Failure after max attempts exhausted
+  3. Multiple command execution success
+  4. Single command handler execution
+  5. Interactive prompt handling
 
 **Testing**:
-```bash
-cargo test --lib file_template_storage_list
-```
+- Run `cargo test --lib -- handle_incomplete_validation` to verify tests pass
+- Verify coverage improvement with `cargo tarpaulin --lib`
+- Ensure no existing tests break
 
 **Success Criteria**:
-- [ ] test_list_non_existent_directory passes
-- [ ] test_list_empty_directory passes
-- [ ] test_list_no_yml_files passes
-- [ ] All existing tests pass
+- [ ] 5 new integration tests added
+- [ ] Coverage increases from 0% to ~25-30%
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 2: Test YAML File Detection and Filtering
+### Phase 2: Extract Pure Decision Functions
 
-**Goal**: Cover the path filtering logic for .yml extensions and .meta files
+**Goal**: Extract decision logic into pure, testable functions.
 
 **Changes**:
-- Add test for directory with valid .yml files
-- Add test for directory with .meta.json files (should be skipped)
-- Add test for mixed file types (.yml, .txt, .json)
-- Add test for files without extensions
+Extract these 4 pure functions to the top of the file:
+1. `should_continue_retry(attempts: u32, max_attempts: u32, is_complete: bool) -> bool`
+   - Determines if retry loop should continue
+   - Complexity: 1 (simple boolean logic)
+
+2. `determine_handler_type(on_incomplete: &OnIncompleteConfig) -> HandlerType`
+   - Returns enum: `MultiCommand | SingleCommand | NoHandler`
+   - Complexity: 2 (3 branches)
+
+3. `calculate_retry_progress(attempts: u32, max_attempts: u32, completion: f64) -> RetryProgress`
+   - Pure calculation of retry state
+   - Complexity: 1
+
+4. `should_fail_workflow(is_complete: bool, fail_workflow_flag: bool, attempts: u32) -> bool`
+   - Determines if workflow should fail
+   - Complexity: 2
 
 **Testing**:
-```bash
-cargo test --lib file_template_storage_list
-```
+- Write 3-5 unit tests per function (16 tests total)
+- Test edge cases: max_attempts=0, completion=0.0, completion=100.0
+- Run `cargo test --lib` to verify all tests pass
 
 **Success Criteria**:
-- [ ] test_list_yml_files_only passes
-- [ ] test_list_skips_meta_files passes
-- [ ] test_list_mixed_file_types passes
-- [ ] test_list_files_without_extensions passes
-- [ ] All existing tests pass
+- [ ] 4 pure functions extracted
+- [ ] 16 unit tests added
+- [ ] Coverage increases to ~40-45%
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 3: Test Metadata Loading Paths
+### Phase 3: Extract Command Execution Orchestration
 
-**Goal**: Cover the metadata loading logic with all branches (exists/doesn't exist, valid/invalid JSON)
+**Goal**: Separate command execution logic into testable functions.
 
 **Changes**:
-- Add test for template with valid metadata file
-- Add test for template without metadata file (uses default)
-- Add test for template with invalid/corrupted metadata JSON (uses default)
-- Add test for template with unreadable metadata file (uses default)
+Extract these 3 functions as methods on `WorkflowExecutor`:
+1. `async fn execute_multi_commands(&mut self, commands: &[WorkflowCommand], env: &ExecutionEnvironment, ctx: &mut WorkflowContext) -> Result<bool>`
+   - Executes array of recovery commands
+   - Returns success/failure
+   - Complexity: 3
+
+2. `async fn execute_single_handler(&mut self, handler: &WorkflowStep, env: &ExecutionEnvironment, ctx: &mut WorkflowContext) -> Result<bool>`
+   - Executes single command handler
+   - Returns success/failure
+   - Complexity: 2
+
+3. `async fn execute_no_handler(&mut self) -> Result<bool>`
+   - Displays error for missing handler
+   - Returns false
+   - Complexity: 1
 
 **Testing**:
-```bash
-cargo test --lib file_template_storage_list
-```
+- Write integration tests for each function (9 tests total)
+- Mock `execute_step` to return controlled results
+- Test command array execution with partial failures
+- Run `cargo test --lib` to verify all tests pass
 
 **Success Criteria**:
-- [ ] test_list_with_valid_metadata passes
-- [ ] test_list_without_metadata passes
-- [ ] test_list_with_invalid_metadata_json passes
-- [ ] test_list_with_unreadable_metadata passes
-- [ ] All existing tests pass
+- [ ] 3 execution functions extracted
+- [ ] 9 integration tests added
+- [ ] Coverage increases to ~55-60%
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 4: Test Complete Scenarios
+### Phase 4: Extract Display and User Interaction Logic
 
-**Goal**: Cover end-to-end scenarios with multiple templates and various metadata states
+**Goal**: Isolate all user interaction into pure formatting + display calls.
 
 **Changes**:
-- Add test for multiple templates with and without metadata
-- Add test verifying TemplateInfo structure is correctly populated (name, description, version, tags)
+Extract these 4 pure formatting functions:
+1. `format_retry_attempt_message(attempt: u32, max_attempts: u32) -> String`
+   - Pure string formatting
+   - Complexity: 1
+
+2. `format_validation_status_message(percentage: f64, threshold: f64, is_complete: bool) -> String`
+   - Pure string formatting with conditional
+   - Complexity: 2
+
+3. `format_recovery_step_progress(step_idx: usize, total_steps: usize, step_name: &str) -> String`
+   - Pure string formatting
+   - Complexity: 1
+
+4. `format_workflow_failure_message(attempts: u32, completion: f64) -> String`
+   - Pure string formatting
+   - Complexity: 1
 
 **Testing**:
-```bash
-cargo test --lib file_template_storage_list
-cargo test --lib workflow_composition_test
-```
+- Write 3-4 unit tests per function (14 tests total)
+- Test edge cases: attempt=0, percentage=0.0, percentage=100.0
+- Test string interpolation correctness
+- Run `cargo test --lib` to verify all tests pass
 
 **Success Criteria**:
-- [ ] test_list_multiple_templates passes
-- [ ] test_list_populates_template_info_correctly passes
-- [ ] All existing workflow_composition tests pass
+- [ ] 4 formatting functions extracted
+- [ ] 14 unit tests added
+- [ ] Coverage increases to ~70-75%
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 5: Verify Coverage and Final Validation
+### Phase 5: Refactor Main Function and Complete Coverage
 
-**Goal**: Ensure 100% coverage achieved and all quality gates pass
+**Goal**: Simplify `handle_incomplete_validation` by using extracted functions and achieve 80%+ coverage.
 
 **Changes**:
-- Run coverage analysis on FileTemplateStorage::list
-- Verify all 12 branches are covered
-- Run full test suite and clippy
+- Refactor `handle_incomplete_validation` to use all extracted functions:
+  - Replace inline decision logic with pure decision functions
+  - Replace command execution blocks with orchestration functions
+  - Replace inline formatting with pure formatting functions
+- Add final integration tests for:
+  1. Prompt confirmation flow
+  2. Result context updates
+  3. Edge case: max_attempts=1
+  4. Edge case: validation passes immediately after first retry
+  5. Error propagation from command failures
 
 **Testing**:
-```bash
-cargo tarpaulin --lib --packages prodigy --out Stdout -- file_template_storage_list
-cargo test --lib
-cargo clippy
-cargo fmt --check
-```
+- Write 5 comprehensive integration tests
+- Run full test suite: `cargo test --lib`
+- Run `cargo tarpaulin --lib` to verify coverage ≥80%
+- Run `cargo clippy` to ensure no warnings
+- Run `cargo fmt --check` to ensure formatting
 
 **Success Criteria**:
-- [ ] FileTemplateStorage::list shows 100% line coverage
-- [ ] All 12 test cases pass
+- [ ] `handle_incomplete_validation` reduced from 112 lines to ~60 lines
+- [ ] Cyclomatic complexity reduced from 20 to ~14
+- [ ] Cognitive complexity reduced from 56 to ~30
+- [ ] 5 integration tests added
+- [ ] Coverage reaches 80%+
+- [ ] All tests pass
 - [ ] No clippy warnings
-- [ ] Code is properly formatted
+- [ ] Proper formatting
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib file_template_storage_list` to verify new tests pass
-2. Run `cargo test --lib workflow_composition_test` to ensure integration tests still work
-3. Run `cargo clippy` to check for warnings
-4. Commit after each phase with descriptive message
+1. Run `cargo test --lib -- validation` to verify existing tests pass
+2. Run `cargo test --lib -- <new_test_module>` for new tests
+3. Run `cargo clippy -- -D warnings` to check for warnings
+4. Run `cargo fmt --check` to verify formatting
 
-**Test Structure Pattern**:
-```rust
-#[tokio::test]
-async fn test_list_<scenario>() -> Result<()> {
-    // Setup: Create temp directory and FileTemplateStorage
-    // Action: Call list() under specific conditions
-    // Assert: Verify expected behavior (one assertion per test)
-    Ok(())
-}
-```
+**Phase-specific verification**:
+- **Phase 1-2**: Focus on unit tests for pure functions
+- **Phase 3-4**: Integration tests with mocked dependencies
+- **Phase 5**: End-to-end integration tests
 
 **Final verification**:
-1. `cargo test --lib` - All tests pass
-2. `cargo tarpaulin --lib --packages prodigy` - Coverage report
-3. `cargo clippy` - No warnings
-4. `cargo fmt` - Code formatted
+1. `just ci` - Full CI checks
+2. `cargo tarpaulin --lib --exclude-files 'tests/*'` - Verify coverage ≥80%
+3. `debtmap analyze` - Verify improvement in complexity and coverage metrics
+
+**Coverage Targets by Phase**:
+- Phase 1: ~25-30% (baseline integration tests)
+- Phase 2: ~40-45% (pure decision functions)
+- Phase 3: ~55-60% (command execution)
+- Phase 4: ~70-75% (formatting functions)
+- Phase 5: 80%+ (complete coverage)
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failure output
-3. Adjust the test implementation
-4. Retry the phase
+2. Review the failure:
+   - Check test output for specific failure
+   - Run `cargo clippy` to identify issues
+   - Verify mock setup is correct
+3. Adjust the plan:
+   - Break phase into smaller sub-phases if needed
+   - Add missing test cases
+   - Fix mock implementations
+4. Retry with adjusted approach
 
-If tests break existing functionality:
-1. Review what existing behavior was inadvertently changed
-2. Adjust tests to match actual contract/behavior
-3. If behavior is wrong, create separate issue for bug fix
+**Common failure scenarios**:
+- **Test compilation errors**: Check that extracted functions are properly scoped (pub(crate) vs private)
+- **Mock setup issues**: Ensure all required traits are implemented on mocks
+- **Coverage not improving**: Verify tests actually exercise the target function
 
 ## Notes
 
-### Key Branches to Cover:
-1. Base directory doesn't exist → return empty Vec
-2. Directory exists but empty → return empty Vec
-3. File has no .yml extension → skip
-4. File has .yml extension but no stem → skip
-5. File stem ends with ".meta" → skip (metadata file)
-6. Metadata path exists + read succeeds + parse succeeds → use parsed metadata
-7. Metadata path exists + read succeeds + parse fails → use default
-8. Metadata path exists + read fails → use default
-9. Metadata path doesn't exist → use default
-10. Valid template file with metadata → add to results
-11. Multiple files in directory → iterate all
-12. Async read_dir iteration completes → return results
+**Key Considerations**:
+- This function is an async orchestration function with many side effects (user interaction, command execution)
+- Pure functions should be extracted for ALL decision logic and formatting
+- Command execution functions will remain async but should be thin wrappers
+- Mock `UserInteraction` and `ExecutionEnvironment` for testing
+- Focus on testing business logic, not implementation details
 
-### Test File Location:
-- Add new test module at end of `tests/workflow_composition_test.rs`
-- Or create new file: `tests/workflow_composition_storage_test.rs`
-- Use `tempfile::TempDir` for test isolation
+**Dependencies**:
+- Downstream callees (11): All must continue to work unchanged
+- Upstream callers (1): `WorkflowExecutor::handle_validation` must not break
+- Transitive coverage comes from 2 functions - ensure they remain testable
 
-### Important Considerations:
-- Use async/await correctly (function is async)
-- Create realistic test fixtures (actual .yml and .meta.json files)
-- Test both success and error paths
-- Follow existing test patterns in workflow_composition_test.rs
-- Ensure tests are deterministic and don't depend on external state
+**Refactoring Patterns**:
+- **Decision logic** → Pure functions (testable with unit tests)
+- **Command execution** → Thin async wrappers (testable with integration tests + mocks)
+- **User interaction** → Pure formatting + display calls (format functions are pure and testable)
+
+**Expected Outcome**:
+After all phases, the codebase will have:
+- 1 simplified orchestration function (~60 lines, complexity ~14)
+- 11 extracted pure functions (each ≤3 complexity)
+- 63+ unit and integration tests
+- 80%+ test coverage
+- Significantly improved maintainability and readability
