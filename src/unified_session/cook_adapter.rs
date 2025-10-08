@@ -427,4 +427,16 @@ mod tests {
             .await
             .unwrap();
     }
+
+    #[tokio::test]
+    async fn test_update_session_complete_iteration() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::CompleteIteration)
+            .await
+            .unwrap();
+        let state = adapter.get_state().unwrap();
+        assert!(state.session_id.starts_with("session-"));
+    }
 }
