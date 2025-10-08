@@ -598,10 +598,7 @@ async fn test_list_with_valid_metadata() -> Result<()> {
             "created_at": "2024-01-01T00:00:00Z",
             "updated_at": "2024-01-01T00:00:00Z"
         }"#;
-    std::fs::write(
-        temp_dir.path().join("template.meta.json"),
-        metadata_content,
-    )?;
+    std::fs::write(temp_dir.path().join("template.meta.json"), metadata_content)?;
 
     let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
     let templates = storage.list().await?;
