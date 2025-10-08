@@ -502,3 +502,82 @@ async fn test_list_no_yml_files() -> Result<()> {
     assert_eq!(templates.len(), 0);
     Ok(())
 }
+
+#[tokio::test]
+async fn test_list_yml_files_only() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create .yml files
+    std::fs::write(temp_dir.path().join("template1.yml"), "commands: []")?;
+    std::fs::write(temp_dir.path().join("template2.yml"), "commands: []")?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    assert_eq!(templates.len(), 2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_skips_meta_files() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create .yml template and its .meta.json file
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    std::fs::write(
+        temp_dir.path().join("template.meta.yml"),
+        "description: metadata",
+    )?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    // Should only find template.yml, skip template.meta.yml
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_mixed_file_types() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create mixed file types
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    std::fs::write(temp_dir.path().join("readme.txt"), "Documentation")?;
+    std::fs::write(temp_dir.path().join("config.json"), "{}")?;
+    std::fs::write(temp_dir.path().join("data.yaml"), "key: value")?; // .yaml extension
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    // Should only find .yml files
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0].name, "template");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_list_files_without_extensions() -> Result<()> {
+    use prodigy::cook::workflow::composition::registry::FileTemplateStorage;
+
+    let temp_dir = TempDir::new()?;
+
+    // Create files with and without extensions
+    std::fs::write(temp_dir.path().join("template.yml"), "commands: []")?;
+    std::fs::write(temp_dir.path().join("noextension"), "content")?;
+    std::fs::write(temp_dir.path().join("README"), "docs")?;
+
+    let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+    let templates = storage.list().await?;
+
+    // Should only find .yml files
+    assert_eq!(templates.len(), 1);
+    Ok(())
+}
