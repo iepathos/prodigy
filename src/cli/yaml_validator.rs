@@ -120,6 +120,32 @@ impl YamlValidator {
         (issues, suggestions)
     }
 
+    /// Validate reduce section structure and syntax
+    /// Returns (issues, suggestions)
+    fn validate_reduce_section(reduce: &Value, check_simplified: bool) -> (Vec<String>, Vec<String>) {
+        let mut issues = Vec::new();
+        let mut suggestions = Vec::new();
+
+        if check_simplified {
+            match reduce {
+                Value::Sequence(_) => {
+                    // Good - simplified syntax
+                }
+                Value::Mapping(reduce_map) => {
+                    if reduce_map.contains_key("commands") {
+                        issues.push("Reduce section uses nested 'commands' syntax. Use simplified syntax with commands directly under 'reduce'".to_string());
+                        suggestions.push("Run 'prodigy migrate-yaml' to automatically convert to simplified syntax".to_string());
+                    }
+                }
+                _ => {
+                    issues.push("Invalid reduce structure".to_string());
+                }
+            }
+        }
+
+        (issues, suggestions)
+    }
+
     /// Validate MapReduce workflow structure
     fn validate_mapreduce_workflow(
         &self,
@@ -154,23 +180,9 @@ impl YamlValidator {
 
         // Check reduce section
         if let Some(reduce) = workflow.get("reduce") {
-            if self.check_simplified {
-                // Check for simplified syntax
-                match reduce {
-                    Value::Sequence(_) => {
-                        // Good - simplified syntax
-                    }
-                    Value::Mapping(reduce_map) => {
-                        if reduce_map.contains_key("commands") {
-                            issues.push("Reduce section uses nested 'commands' syntax. Use simplified syntax with commands directly under 'reduce'".to_string());
-                            suggestions.push("Run 'prodigy migrate-yaml' to automatically convert to simplified syntax".to_string());
-                        }
-                    }
-                    _ => {
-                        issues.push("Invalid reduce structure".to_string());
-                    }
-                }
-            }
+            let (mut reduce_issues, mut reduce_suggestions) = Self::validate_reduce_section(reduce, self.check_simplified);
+            issues.append(&mut reduce_issues);
+            suggestions.append(&mut reduce_suggestions);
         }
 
         // Check for common issues in command definitions
@@ -918,5 +930,52 @@ retry_on_failure: true
         assert!(issues[0].contains("retry_on_failure"));
         assert_eq!(suggestions.len(), 1);
         assert!(suggestions[0].contains("Remove 'retry_on_failure'"));
+    }
+
+    #[test]
+    fn test_validate_reduce_section_simplified_valid() {
+        let yaml_content = r#"
+- claude: "/summarize"
+- shell: "echo done"
+"#;
+        let reduce: Value = serde_yaml::from_str(yaml_content).unwrap();
+        let (issues, suggestions) = YamlValidator::validate_reduce_section(&reduce, true);
+        assert!(issues.is_empty());
+        assert!(suggestions.is_empty());
+    }
+
+    #[test]
+    fn test_validate_reduce_section_nested_commands() {
+        let yaml_content = r#"
+commands:
+  - claude: "/summarize"
+"#;
+        let reduce: Value = serde_yaml::from_str(yaml_content).unwrap();
+        let (issues, suggestions) = YamlValidator::validate_reduce_section(&reduce, true);
+        assert_eq!(issues.len(), 1);
+        assert!(issues[0].contains("nested 'commands' syntax"));
+        assert_eq!(suggestions.len(), 1);
+        assert!(suggestions[0].contains("prodigy migrate-yaml"));
+    }
+
+    #[test]
+    fn test_validate_reduce_section_invalid_structure() {
+        let reduce = Value::String("invalid".to_string());
+        let (issues, suggestions) = YamlValidator::validate_reduce_section(&reduce, true);
+        assert_eq!(issues.len(), 1);
+        assert!(issues[0].contains("Invalid reduce structure"));
+        assert!(suggestions.is_empty());
+    }
+
+    #[test]
+    fn test_validate_reduce_section_check_simplified_false() {
+        let yaml_content = r#"
+commands:
+  - claude: "/summarize"
+"#;
+        let reduce: Value = serde_yaml::from_str(yaml_content).unwrap();
+        let (issues, suggestions) = YamlValidator::validate_reduce_section(&reduce, false);
+        assert!(issues.is_empty());
+        assert!(suggestions.is_empty());
     }
 }
