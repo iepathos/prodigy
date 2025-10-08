@@ -893,4 +893,76 @@ mod tests {
         let result = handler.execute(&context, attributes).await;
         assert!(result.is_success());
     }
+
+    #[tokio::test]
+    async fn test_working_dir_empty_string() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Empty string should resolve to context.working_dir
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/test\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        attributes.insert(
+            "working_dir".to_string(),
+            AttributeValue::String("".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_working_dir_with_spaces() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Path with spaces should be handled correctly
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/test/path with spaces")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/test/path with spaces\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        attributes.insert(
+            "working_dir".to_string(),
+            AttributeValue::String("path with spaces".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
 }
