@@ -5,7 +5,8 @@
 
 use crate::abstractions::exit_status::ExitStatusExt;
 use crate::subprocess::{
-    ClaudeRunner as SubprocessClaudeRunner, ProcessCommandBuilder, SubprocessManager,
+    ClaudeRunner as SubprocessClaudeRunner, ProcessCommand, ProcessCommandBuilder,
+    SubprocessManager,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -380,6 +381,29 @@ impl RealClaudeClient {
         }
     }
 
+    /// Build a Claude command with arguments and environment variables
+    ///
+    /// This is a pure function that constructs a ProcessCommand for Claude CLI
+    /// execution. It takes command arguments and optional environment variables,
+    /// returning a fully configured ProcessCommand.
+    fn build_claude_command(
+        args: &[&str],
+        env_vars: Option<&HashMap<String, String>>,
+    ) -> ProcessCommand {
+        let mut builder = ProcessCommandBuilder::new("claude");
+        for arg in args {
+            builder = builder.arg(arg);
+        }
+
+        if let Some(vars) = env_vars {
+            for (key, value) in vars {
+                builder = builder.env(key, value);
+            }
+        }
+
+        builder.build()
+    }
+
     /// Convert ProcessOutput to std::process::Output
     ///
     /// Converts the subprocess abstraction's output format to the standard library's
@@ -428,19 +452,8 @@ impl ClaudeClient for RealClaudeClient {
                 sleep(delay).await;
             }
 
-            let mut builder = ProcessCommandBuilder::new("claude");
-            for arg in args {
-                builder = builder.arg(arg);
-            }
-
-            // Set environment variables if provided
-            if let Some(ref vars) = env_vars {
-                for (key, value) in vars {
-                    builder = builder.env(key, value);
-                }
-            }
-
-            let result = self.subprocess.runner().run(builder.build()).await;
+            let cmd = Self::build_claude_command(args, env_vars.as_ref());
+            let result = self.subprocess.runner().run(cmd).await;
 
             // Handle successful execution - check if we can return immediately
             if let Ok(output) = result {
@@ -968,6 +981,50 @@ mod tests {
             2,
             3
         ));
+    }
+
+    #[test]
+    fn test_build_claude_command() {
+        use std::collections::HashMap;
+
+        // Test basic command building
+        let args = vec!["--help"];
+        let cmd = RealClaudeClient::build_claude_command(&args, None);
+        assert_eq!(cmd.program, "claude");
+        assert_eq!(cmd.args, vec!["--help"]);
+        assert!(cmd.env.is_empty());
+
+        // Test command with multiple arguments
+        let args = vec!["--dangerously-skip-permissions", "--print", "/test"];
+        let cmd = RealClaudeClient::build_claude_command(&args, None);
+        assert_eq!(cmd.program, "claude");
+        assert_eq!(
+            cmd.args,
+            vec!["--dangerously-skip-permissions", "--print", "/test"]
+        );
+
+        // Test command with environment variables
+        let mut env_vars = HashMap::new();
+        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+        env_vars.insert("VERBOSE".to_string(), "1".to_string());
+
+        let args = vec!["/lint"];
+        let cmd = RealClaudeClient::build_claude_command(&args, Some(&env_vars));
+        assert_eq!(cmd.program, "claude");
+        assert_eq!(cmd.args, vec!["/lint"]);
+        assert_eq!(cmd.env.len(), 2);
+        assert_eq!(
+            cmd.env.get("PRODIGY_AUTOMATION"),
+            Some(&"true".to_string())
+        );
+        assert_eq!(cmd.env.get("VERBOSE"), Some(&"1".to_string()));
+
+        // Test command with empty args and no environment variables
+        let args: Vec<&str> = vec![];
+        let cmd = RealClaudeClient::build_claude_command(&args, None);
+        assert_eq!(cmd.program, "claude");
+        assert!(cmd.args.is_empty());
+        assert!(cmd.env.is_empty());
     }
 
     #[test]
