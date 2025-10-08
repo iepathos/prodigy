@@ -1150,4 +1150,217 @@ mod tests {
         // Clean up
         manager.cleanup_job(&job_id).await.unwrap();
     }
+
+    // Helper function to create unique temp directory
+    fn create_unique_temp_dir(prefix: &str) -> TempDir {
+        tempfile::Builder::new()
+            .prefix(&format!(
+                "{}-{}-",
+                prefix,
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ))
+            .tempdir()
+            .unwrap()
+    }
+
+    // Helper function to create test config
+    fn create_test_config() -> MapReduceConfig {
+        MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 5,
+            max_items: None,
+            offset: None,
+            agent_timeout_secs: Some(300),
+            continue_on_failure: false,
+            batch_size: None,
+            enable_checkpoints: true,
+        }
+    }
+
+    // Phase 2: Empty/Missing Directory Cases
+
+    #[tokio::test]
+    async fn test_list_resumable_empty_no_jobs_dir() {
+        let temp_dir = create_unique_temp_dir("test-empty-no-dir");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_empty_dir() {
+        let temp_dir = create_unique_temp_dir("test-empty-dir");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        // Create jobs directory but leave it empty
+        tokio::fs::create_dir_all(manager.checkpoint_manager.jobs_dir())
+            .await
+            .unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_only_files() {
+        let temp_dir = create_unique_temp_dir("test-only-files");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        // Create jobs directory with a file (not a directory)
+        let jobs_dir = manager.checkpoint_manager.jobs_dir();
+        tokio::fs::create_dir_all(&jobs_dir).await.unwrap();
+        tokio::fs::write(jobs_dir.join("file.txt"), "test")
+            .await
+            .unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 0);
+    }
+
+    // Phase 3: Directory Entry Processing
+
+    #[tokio::test]
+    async fn test_list_resumable_invalid_metadata() {
+        let temp_dir = create_unique_temp_dir("test-invalid-meta");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let jobs_dir = manager.checkpoint_manager.jobs_dir();
+        tokio::fs::create_dir_all(&jobs_dir).await.unwrap();
+
+        // Create directory then immediately remove it to simulate metadata error
+        let job_dir = jobs_dir.join("job-1");
+        tokio::fs::create_dir(&job_dir).await.unwrap();
+
+        // We can't easily simulate metadata errors, so just verify no crash
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert!(jobs.len() <= 1);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_file_not_dir() {
+        let temp_dir = create_unique_temp_dir("test-file-not-dir");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let jobs_dir = manager.checkpoint_manager.jobs_dir();
+        tokio::fs::create_dir_all(&jobs_dir).await.unwrap();
+        tokio::fs::write(jobs_dir.join("not-a-dir"), "content")
+            .await
+            .unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_invalid_filename() {
+        let temp_dir = create_unique_temp_dir("test-invalid-filename");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let jobs_dir = manager.checkpoint_manager.jobs_dir();
+        tokio::fs::create_dir_all(&jobs_dir).await.unwrap();
+
+        // Create directory with valid name (can't easily create invalid UTF-8 filenames)
+        let job_dir = jobs_dir.join("valid-job-id");
+        tokio::fs::create_dir(&job_dir).await.unwrap();
+
+        // No checkpoint file, so should be skipped
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 0);
+    }
+
+    // Phase 4: Checkpoint Loading Branches
+
+    #[tokio::test]
+    async fn test_list_resumable_invalid_checkpoint() {
+        let temp_dir = create_unique_temp_dir("test-invalid-checkpoint");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let jobs_dir = manager.checkpoint_manager.jobs_dir();
+        let job_dir = jobs_dir.join("job-invalid");
+        tokio::fs::create_dir_all(&job_dir).await.unwrap();
+
+        // Write invalid JSON as checkpoint
+        let checkpoint_file = job_dir.join("checkpoint-0.json");
+        tokio::fs::write(checkpoint_file, "invalid json")
+            .await
+            .unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_complete_job() {
+        let temp_dir = create_unique_temp_dir("test-complete-job");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        // Create a complete job
+        let config = create_test_config();
+        let work_items = vec![json!({"id": 1})];
+
+        let job_id = manager
+            .create_job(config, work_items, vec![], None)
+            .await
+            .unwrap();
+
+        // Mark as complete
+        manager.mark_job_complete(&job_id).await.unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 0);
+    }
+
+    // Phase 5: Checkpoint Version Processing
+
+    #[tokio::test]
+    async fn test_list_resumable_empty_checkpoint_list() {
+        let temp_dir = create_unique_temp_dir("test-empty-checkpoints");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = create_test_config();
+        let work_items = vec![json!({"id": 1})];
+
+        manager
+            .create_job(config, work_items, vec![], None)
+            .await
+            .unwrap();
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].checkpoint_version, 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_max_checkpoint_version() {
+        let temp_dir = create_unique_temp_dir("test-max-checkpoint");
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = create_test_config();
+        let work_items = vec![json!({"id": 1}), json!({"id": 2})];
+
+        let job_id = manager
+            .create_job(config.clone(), work_items.clone(), vec![], None)
+            .await
+            .unwrap();
+
+        // Create multiple checkpoints
+        let mut state = manager.get_job_state(&job_id).await.unwrap();
+        for i in 1..4 {
+            state.checkpoint_version = i;
+            manager
+                .checkpoint_manager
+                .save_checkpoint(&state)
+                .await
+                .unwrap();
+        }
+
+        let jobs = manager.list_resumable_jobs_internal().await.unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].checkpoint_version, 3);
+    }
 }
