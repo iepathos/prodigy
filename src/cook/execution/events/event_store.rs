@@ -1170,4 +1170,41 @@ mod tests {
         increment_event_count(&mut counts, "agent_completed".to_string());
         assert_eq!(counts.get("agent_completed"), Some(&4));
     }
+
+    #[test]
+    fn test_create_file_offset() {
+        let timestamp = Utc::now();
+        let event_id = Uuid::new_v4();
+        let event = EventRecord {
+            id: event_id,
+            timestamp,
+            correlation_id: "test-corr".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: "test-job".to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp,
+            },
+            metadata: HashMap::new(),
+        };
+
+        let file_path = PathBuf::from("/path/to/events.jsonl");
+        let offset = create_file_offset(file_path.clone(), 1024, 42, &event);
+
+        assert_eq!(offset.file_path, file_path);
+        assert_eq!(offset.byte_offset, 1024);
+        assert_eq!(offset.line_number, 42);
+        assert_eq!(offset.event_id, event_id);
+        assert_eq!(offset.timestamp, timestamp);
+    }
 }
