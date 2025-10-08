@@ -630,16 +630,24 @@ impl FilterExpression {
         })
     }
 
-    /// Try to parse an OR logical operator
+    /// Try to parse an OR logical operator (supports both || and OR)
     fn try_parse_or_operator(expr: &str) -> Option<Result<Self>> {
         Self::find_logical_operator(expr, "||")
             .map(|pos| Self::parse_binary_logical(expr, pos, 2, LogicalOp::Or))
+            .or_else(|| {
+                Self::find_word_logical_operator(expr, "OR")
+                    .map(|pos| Self::parse_binary_logical(expr, pos, 2, LogicalOp::Or))
+            })
     }
 
-    /// Try to parse an AND logical operator
+    /// Try to parse an AND logical operator (supports both && and AND)
     fn try_parse_and_operator(expr: &str) -> Option<Result<Self>> {
         Self::find_logical_operator(expr, "&&")
             .map(|pos| Self::parse_binary_logical(expr, pos, 2, LogicalOp::And))
+            .or_else(|| {
+                Self::find_word_logical_operator(expr, "AND")
+                    .map(|pos| Self::parse_binary_logical(expr, pos, 3, LogicalOp::And))
+            })
     }
 
     /// Find the position of a logical operator outside of parentheses
@@ -657,6 +665,38 @@ impl FilterExpression {
                 }
                 _ => {}
             }
+        }
+
+        None
+    }
+
+    /// Find the position of a word-based logical operator (OR, AND) outside of parentheses
+    /// Ensures the operator is surrounded by whitespace to avoid false matches
+    fn find_word_logical_operator(expr: &str, op: &str) -> Option<usize> {
+        let expr_upper = expr.to_uppercase();
+        let mut paren_depth = 0;
+        let chars: Vec<char> = expr.chars().collect();
+
+        let mut i = 0;
+        while i < chars.len() {
+            match chars[i] {
+                '(' => paren_depth += 1,
+                ')' => paren_depth -= 1,
+                _ => {}
+            }
+
+            // Only check for operator if not inside parentheses
+            if paren_depth == 0 {
+                // Check if we're at a word boundary and the operator matches
+                if (i == 0 || chars.get(i.saturating_sub(1)).map_or(true, |c| c.is_whitespace()))
+                    && expr_upper[i..].starts_with(op)
+                    && expr.get(i + op.len()..i + op.len() + 1).map_or(true, |s| s.starts_with(char::is_whitespace))
+                {
+                    return Some(i);
+                }
+            }
+
+            i += 1;
         }
 
         None
@@ -1466,6 +1506,25 @@ mod tests {
         assert!(filter.evaluate(&item1));
         assert!(!filter.evaluate(&item2));
         assert!(!filter.evaluate(&item3));
+
+        // Test word-based OR operator
+        let filter_or = FilterExpression::parse("File.score >= 30 OR Function.unified_score.final_score >= 30").unwrap();
+
+        let file_item = json!({"File": {"score": 105.0}});
+        let func_item = json!({"Function": {"unified_score": {"final_score": 45.0}}});
+        let low_score_file = json!({"File": {"score": 15.0}});
+        let low_score_func = json!({"Function": {"unified_score": {"final_score": 10.0}}});
+
+        assert!(filter_or.evaluate(&file_item));
+        assert!(filter_or.evaluate(&func_item));
+        assert!(!filter_or.evaluate(&low_score_file));
+        assert!(!filter_or.evaluate(&low_score_func));
+
+        // Test word-based AND operator
+        let filter_and = FilterExpression::parse("priority > 5 AND severity == 'high'").unwrap();
+        assert!(filter_and.evaluate(&item1));
+        assert!(!filter_and.evaluate(&item2));
+        assert!(!filter_and.evaluate(&item3));
     }
 
     #[test]
