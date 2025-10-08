@@ -355,4 +355,36 @@ mod tests {
             .await
             .unwrap();
     }
+
+    #[tokio::test]
+    async fn test_update_session_no_active_session() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter
+            .update_session(CookSessionUpdate::IncrementIteration)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_empty_update() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::StartIteration(1))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_session_with_timing() {
+        let (adapter, _temp) = create_test_adapter().await;
+        adapter.start_session("test-session").await.unwrap();
+        adapter
+            .update_session(CookSessionUpdate::RecordCommandTiming(
+                "test-cmd".to_string(),
+                std::time::Duration::from_secs(1),
+            ))
+            .await
+            .unwrap();
+    }
 }
