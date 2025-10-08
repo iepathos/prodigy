@@ -650,9 +650,7 @@ impl WorkflowExecutor {
     }
 
     /// Determine if workflow should fail on max attempts (pure function)
-    fn should_fail_workflow_on_max_attempts(
-        fail_workflow: bool,
-    ) -> Result<(), String> {
+    fn should_fail_workflow_on_max_attempts(fail_workflow: bool) -> Result<(), String> {
         if fail_workflow {
             Err("fail_workflow is true".to_string())
         } else {
@@ -706,7 +704,9 @@ impl WorkflowExecutor {
                     ));
 
                     // Determine if workflow should fail (using pure helper)
-                    if Self::should_fail_workflow_on_max_attempts(debug_config.fail_workflow).is_err() {
+                    if Self::should_fail_workflow_on_max_attempts(debug_config.fail_workflow)
+                        .is_err()
+                    {
                         return Err(anyhow!(
                             "Shell command failed after {} attempts and fail_workflow is true",
                             debug_config.max_attempts
@@ -745,11 +745,8 @@ impl WorkflowExecutor {
                 };
 
                 // Build and add shell-specific variables to context (using pure helper)
-                let shell_vars = Self::build_shell_context_vars(
-                    attempt,
-                    shell_result.exit_code,
-                    output,
-                );
+                let shell_vars =
+                    Self::build_shell_context_vars(attempt, shell_result.exit_code, output);
                 for (key, value) in shell_vars {
                     ctx.variables.insert(key, value);
                 }
@@ -2089,11 +2086,8 @@ mod tests {
 
         #[test]
         fn test_build_shell_context_vars_basic() {
-            let vars = WorkflowExecutor::build_shell_context_vars(
-                2,
-                Some(1),
-                "test output".to_string(),
-            );
+            let vars =
+                WorkflowExecutor::build_shell_context_vars(2, Some(1), "test output".to_string());
 
             assert_eq!(vars.get("shell.attempt").unwrap(), "2");
             assert_eq!(vars.get("shell.exit_code").unwrap(), "1");
@@ -2103,11 +2097,7 @@ mod tests {
 
         #[test]
         fn test_build_shell_context_vars_no_exit_code() {
-            let vars = WorkflowExecutor::build_shell_context_vars(
-                1,
-                None,
-                "output".to_string(),
-            );
+            let vars = WorkflowExecutor::build_shell_context_vars(1, None, "output".to_string());
 
             assert_eq!(vars.get("shell.attempt").unwrap(), "1");
             assert_eq!(vars.get("shell.exit_code").unwrap(), "-1");
@@ -2116,22 +2106,16 @@ mod tests {
 
         #[test]
         fn test_build_shell_context_vars_zero_exit_code() {
-            let vars = WorkflowExecutor::build_shell_context_vars(
-                1,
-                Some(0),
-                "success".to_string(),
-            );
+            let vars =
+                WorkflowExecutor::build_shell_context_vars(1, Some(0), "success".to_string());
 
             assert_eq!(vars.get("shell.exit_code").unwrap(), "0");
         }
 
         #[test]
         fn test_build_shell_context_vars_high_attempt() {
-            let vars = WorkflowExecutor::build_shell_context_vars(
-                999,
-                Some(127),
-                "output".to_string(),
-            );
+            let vars =
+                WorkflowExecutor::build_shell_context_vars(999, Some(127), "output".to_string());
 
             assert_eq!(vars.get("shell.attempt").unwrap(), "999");
             assert_eq!(vars.get("shell.exit_code").unwrap(), "127");
@@ -2140,11 +2124,7 @@ mod tests {
         #[test]
         fn test_build_shell_context_vars_multiline_output() {
             let output = "line1\nline2\nline3".to_string();
-            let vars = WorkflowExecutor::build_shell_context_vars(
-                1,
-                Some(1),
-                output.clone(),
-            );
+            let vars = WorkflowExecutor::build_shell_context_vars(1, Some(1), output.clone());
 
             assert_eq!(vars.get("shell.output").unwrap(), &output);
         }
@@ -2152,22 +2132,14 @@ mod tests {
         #[test]
         fn test_build_shell_context_vars_large_output() {
             let output = "x".repeat(100000);
-            let vars = WorkflowExecutor::build_shell_context_vars(
-                1,
-                Some(1),
-                output.clone(),
-            );
+            let vars = WorkflowExecutor::build_shell_context_vars(1, Some(1), output.clone());
 
             assert_eq!(vars.get("shell.output").unwrap(), &output);
         }
 
         #[test]
         fn test_build_shell_context_vars_empty_output() {
-            let vars = WorkflowExecutor::build_shell_context_vars(
-                1,
-                Some(0),
-                String::new(),
-            );
+            let vars = WorkflowExecutor::build_shell_context_vars(1, Some(0), String::new());
 
             assert_eq!(vars.get("shell.output").unwrap(), "");
         }
@@ -2175,11 +2147,7 @@ mod tests {
         #[test]
         fn test_build_shell_context_vars_special_characters() {
             let output = "test\t\n\r$var ${var} `cmd`".to_string();
-            let vars = WorkflowExecutor::build_shell_context_vars(
-                1,
-                Some(1),
-                output.clone(),
-            );
+            let vars = WorkflowExecutor::build_shell_context_vars(1, Some(1), output.clone());
 
             assert_eq!(vars.get("shell.output").unwrap(), &output);
         }
