@@ -146,6 +146,17 @@ impl YamlValidator {
         (issues, suggestions)
     }
 
+    /// Validate required top-level fields
+    fn validate_required_fields(workflow: &serde_yaml::Mapping) -> Vec<String> {
+        let mut issues = Vec::new();
+
+        if !workflow.contains_key("name") {
+            issues.push("Missing required field 'name'".to_string());
+        }
+
+        issues
+    }
+
     /// Validate MapReduce workflow structure
     fn validate_mapreduce_workflow(
         &self,
@@ -154,9 +165,8 @@ impl YamlValidator {
         suggestions: &mut Vec<String>,
     ) -> Result<()> {
         // Check for required fields
-        if !workflow.contains_key("name") {
-            issues.push("Missing required field 'name'".to_string());
-        }
+        let mut required_field_issues = Self::validate_required_fields(workflow);
+        issues.append(&mut required_field_issues);
 
         // Check map section
         if let Some(Value::Mapping(map)) = workflow.get("map") {
@@ -977,5 +987,27 @@ commands:
         let (issues, suggestions) = YamlValidator::validate_reduce_section(&reduce, false);
         assert!(issues.is_empty());
         assert!(suggestions.is_empty());
+    }
+
+    #[test]
+    fn test_validate_required_fields_all_present() {
+        let yaml_content = r#"
+name: "test-workflow"
+mode: mapreduce
+"#;
+        let workflow: serde_yaml::Mapping = serde_yaml::from_str(yaml_content).unwrap();
+        let issues = YamlValidator::validate_required_fields(&workflow);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_validate_required_fields_missing_name() {
+        let yaml_content = r#"
+mode: mapreduce
+"#;
+        let workflow: serde_yaml::Mapping = serde_yaml::from_str(yaml_content).unwrap();
+        let issues = YamlValidator::validate_required_fields(&workflow);
+        assert_eq!(issues.len(), 1);
+        assert!(issues[0].contains("Missing required field 'name'"));
     }
 }
