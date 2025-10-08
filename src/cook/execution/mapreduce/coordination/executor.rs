@@ -1408,3 +1408,391 @@ impl SessionManager for DummySessionManager {
         Ok(None)
     }
 }
+
+#[cfg(test)]
+mod handle_on_failure_tests {
+    use super::*;
+    use crate::cook::execution::claude::ClaudeExecutor;
+    use crate::cook::execution::ExecutionResult;
+    use crate::cook::workflow::OnFailureConfig;
+    use crate::subprocess::error::ProcessError;
+    use crate::subprocess::runner::{
+        ExitStatus, ProcessCommand, ProcessOutput, ProcessRunner, ProcessStream,
+    };
+    use async_trait::async_trait;
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    // Mock ClaudeExecutor for testing
+    #[derive(Clone)]
+    struct MockClaudeExecutor {
+        should_succeed: bool,
+        executed_commands: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl MockClaudeExecutor {
+        fn new(should_succeed: bool) -> Self {
+            Self {
+                should_succeed,
+                executed_commands: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn get_executed_commands(&self) -> Vec<String> {
+            self.executed_commands.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait]
+    impl ClaudeExecutor for MockClaudeExecutor {
+        async fn execute_claude_command(
+            &self,
+            command: &str,
+            _project_path: &Path,
+            _env_vars: HashMap<String, String>,
+        ) -> anyhow::Result<ExecutionResult> {
+            self.executed_commands
+                .lock()
+                .unwrap()
+                .push(command.to_string());
+            Ok(ExecutionResult {
+                success: self.should_succeed,
+                stdout: format!("Output from: {}", command),
+                stderr: String::new(),
+                exit_code: Some(if self.should_succeed { 0 } else { 1 }),
+                metadata: HashMap::new(),
+            })
+        }
+
+        async fn check_claude_cli(&self) -> anyhow::Result<bool> {
+            Ok(true)
+        }
+
+        async fn get_claude_version(&self) -> anyhow::Result<String> {
+            Ok("1.0.0".to_string())
+        }
+    }
+
+    // Mock ProcessRunner for testing
+    #[derive(Clone)]
+    struct MockProcessRunner {
+        should_succeed: bool,
+        executed_commands: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl MockProcessRunner {
+        fn new(should_succeed: bool) -> Self {
+            Self {
+                should_succeed,
+                executed_commands: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn get_executed_commands(&self) -> Vec<String> {
+            self.executed_commands.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait]
+    impl ProcessRunner for MockProcessRunner {
+        async fn run(&self, command: ProcessCommand) -> Result<ProcessOutput, ProcessError> {
+            // Extract the actual command from the args (skip "sh" and "-c")
+            if command.args.len() > 1 {
+                self.executed_commands
+                    .lock()
+                    .unwrap()
+                    .push(command.args[1].clone());
+            }
+
+            Ok(ProcessOutput {
+                status: if self.should_succeed {
+                    ExitStatus::Success
+                } else {
+                    ExitStatus::Error(1)
+                },
+                stdout: "".to_string(),
+                stderr: "".to_string(),
+                duration: Duration::from_secs(0),
+            })
+        }
+
+        async fn run_streaming(
+            &self,
+            _command: ProcessCommand,
+        ) -> Result<ProcessStream, ProcessError> {
+            unimplemented!("Not used in these tests")
+        }
+    }
+
+    // Helper to create a mock SubprocessManager
+    fn create_mock_subprocess(should_succeed: bool) -> Arc<SubprocessManager> {
+        Arc::new(SubprocessManager::new(Arc::new(MockProcessRunner::new(
+            should_succeed,
+        ))))
+    }
+
+    // Helper to create a test ExecutionEnvironment
+    fn create_test_env() -> ExecutionEnvironment {
+        ExecutionEnvironment {
+            working_dir: Arc::new(PathBuf::from("/tmp/test")),
+            project_dir: Arc::new(PathBuf::from("/tmp/test")),
+            worktree_name: None,
+            session_id: Arc::from("test-session"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_advanced_config_with_claude_command_success() {
+        let config = OnFailureConfig::Advanced {
+            claude: Some("/test-command".to_string()),
+            shell: None,
+            max_retries: 1,
+            fail_workflow: false,
+            retry_original: false,
+        };
+
+        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(MockClaudeExecutor::new(true));
+        let subprocess = create_mock_subprocess(true);
+        let worktree_path = PathBuf::from("/tmp/test");
+        let variables = HashMap::new();
+        let env = create_test_env();
+
+        let result = MapReduceCoordinator::handle_on_failure(
+            &config,
+            &worktree_path,
+            &variables,
+            &env,
+            &claude_executor,
+            &subprocess,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_advanced_config_with_claude_command_failure() {
+        let config = OnFailureConfig::Advanced {
+            claude: Some("/test-command".to_string()),
+            shell: None,
+            max_retries: 1,
+            fail_workflow: false,
+            retry_original: false,
+        };
+
+        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(MockClaudeExecutor::new(false));
+        let subprocess = create_mock_subprocess(true);
+        let worktree_path = PathBuf::from("/tmp/test");
+        let variables = HashMap::new();
+        let env = create_test_env();
+
+        let result = MapReduceCoordinator::handle_on_failure(
+            &config,
+            &worktree_path,
+            &variables,
+            &env,
+            &claude_executor,
+            &subprocess,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_advanced_config_with_shell_command_success() {
+        let config = OnFailureConfig::Advanced {
+            claude: None,
+            shell: Some("echo test".to_string()),
+            max_retries: 1,
+            fail_workflow: false,
+            retry_original: false,
+        };
+
+        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(MockClaudeExecutor::new(true));
+        let subprocess = create_mock_subprocess(true);
+        let worktree_path = PathBuf::from("/tmp/test");
+        let variables = HashMap::new();
+        let env = create_test_env();
+
+        let result = MapReduceCoordinator::handle_on_failure(
+            &config,
+            &worktree_path,
+            &variables,
+            &env,
+            &claude_executor,
+            &subprocess,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_advanced_config_with_shell_command_failure() {
+        let config = OnFailureConfig::Advanced {
+            claude: None,
+            shell: Some("echo test".to_string()),
+            max_retries: 1,
+            fail_workflow: false,
+            retry_original: false,
+        };
+
+        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(MockClaudeExecutor::new(true));
+        let subprocess = create_mock_subprocess(false);
+        let worktree_path = PathBuf::from("/tmp/test");
+        let variables = HashMap::new();
+        let env = create_test_env();
+
+        let result = MapReduceCoordinator::handle_on_failure(
+            &config,
+            &worktree_path,
+            &variables,
+            &env,
+            &claude_executor,
+            &subprocess,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_single_command_with_claude() {
+        let config = OnFailureConfig::SingleCommand("/test-claude-cmd".to_string());
+
+        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(MockClaudeExecutor::new(true));
+        let subprocess = create_mock_subprocess(true);
+        let worktree_path = PathBuf::from("/tmp/test");
+        let variables = HashMap::new();
+        let env = create_test_env();
+
+        let result = MapReduceCoordinator::handle_on_failure(
+            &config,
+            &worktree_path,
+            &variables,
+            &env,
+            &claude_executor,
+            &subprocess,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_single_command_with_shell() {
+        let config = OnFailureConfig::SingleCommand("echo test".to_string());
+
+        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(MockClaudeExecutor::new(true));
+        let subprocess = create_mock_subprocess(true);
+        let worktree_path = PathBuf::from("/tmp/test");
+        let variables = HashMap::new();
+        let env = create_test_env();
+
+        let result = MapReduceCoordinator::handle_on_failure(
+            &config,
+            &worktree_path,
+            &variables,
+            &env,
+            &claude_executor,
+            &subprocess,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_default_config_returns_ok() {
+        let config = OnFailureConfig::IgnoreErrors(true);
+
+        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(MockClaudeExecutor::new(true));
+        let subprocess = create_mock_subprocess(true);
+        let worktree_path = PathBuf::from("/tmp/test");
+        let variables = HashMap::new();
+        let env = create_test_env();
+
+        let result = MapReduceCoordinator::handle_on_failure(
+            &config,
+            &worktree_path,
+            &variables,
+            &env,
+            &claude_executor,
+            &subprocess,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_variable_interpolation_success() {
+        let config = OnFailureConfig::SingleCommand("/test ${item_id}".to_string());
+
+        let mock_executor = MockClaudeExecutor::new(true);
+        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(mock_executor.clone());
+        let subprocess = create_mock_subprocess(true);
+        let worktree_path = PathBuf::from("/tmp/test");
+        let mut variables = HashMap::new();
+        variables.insert("item_id".to_string(), "item-123".to_string());
+        let env = create_test_env();
+
+        let result = MapReduceCoordinator::handle_on_failure(
+            &config,
+            &worktree_path,
+            &variables,
+            &env,
+            &claude_executor,
+            &subprocess,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        let executed = mock_executor.get_executed_commands();
+        assert_eq!(executed.len(), 1);
+        assert_eq!(executed[0], "/test item-123");
+    }
+
+    #[tokio::test]
+    async fn test_variable_interpolation_with_missing_variable() {
+        // When a variable is missing and strict_mode is false (default),
+        // the interpolation engine leaves the variable unchanged
+        let config = OnFailureConfig::SingleCommand("/test ${missing_var}".to_string());
+
+        let mock_executor = MockClaudeExecutor::new(true);
+        let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(mock_executor.clone());
+        let subprocess = create_mock_subprocess(true);
+        let worktree_path = PathBuf::from("/tmp/test");
+        let variables = HashMap::new();
+        let env = create_test_env();
+
+        let result = MapReduceCoordinator::handle_on_failure(
+            &config,
+            &worktree_path,
+            &variables,
+            &env,
+            &claude_executor,
+            &subprocess,
+        )
+        .await;
+
+        // Should succeed, but variable is left unchanged
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        let executed = mock_executor.get_executed_commands();
+        assert_eq!(executed.len(), 1);
+        // The variable remains unchanged when not found in non-strict mode
+        assert!(executed[0].contains("missing_var") || executed[0] == "/test ");
+    }
+}
