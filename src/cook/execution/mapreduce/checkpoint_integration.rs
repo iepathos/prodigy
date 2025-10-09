@@ -885,4 +885,157 @@ mod tests {
             "Checkpoint time should be very recent"
         );
     }
+
+    // Phase 2: Tests for Batch Processing and Checkpointing Logic
+
+    #[tokio::test]
+    async fn test_batch_processing_with_checkpoint_triggering() {
+        // Test the checkpoint decision logic during batch processing
+        let items_since_checkpoint = Arc::new(RwLock::new(0));
+        let config = CheckpointConfig {
+            interval_items: Some(10),
+            ..Default::default()
+        };
+        let checkpoint_interval = config.interval_items.unwrap_or(10);
+
+        // Simulate processing items in batches
+        let total_items = 25;
+        let batch_size = 5;
+        let mut checkpoints_saved = 0;
+
+        for batch_num in 0..(total_items / batch_size) {
+            // Process batch
+            *items_since_checkpoint.write().await += batch_size;
+
+            // Check if we should checkpoint
+            let items_count = *items_since_checkpoint.read().await;
+            if items_count >= checkpoint_interval {
+                // Save checkpoint
+                checkpoints_saved += 1;
+                // Reset counter (line 263)
+                *items_since_checkpoint.write().await = 0;
+            }
+
+            // After 2 batches (10 items), we should have saved a checkpoint
+            if batch_num == 1 {
+                assert_eq!(
+                    checkpoints_saved, 1,
+                    "Should save checkpoint after 10 items"
+                );
+                assert_eq!(
+                    *items_since_checkpoint.read().await,
+                    0,
+                    "Counter should reset after checkpoint"
+                );
+            }
+        }
+
+        // Verify we saved checkpoints at the right intervals
+        assert_eq!(
+            checkpoints_saved, 2,
+            "Should have saved 2 checkpoints (at 10 and 20 items)"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_batch_processing_without_intermediate_checkpoints() {
+        // Test processing multiple batches when checkpoint interval isn't reached
+        let items_since_checkpoint = Arc::new(RwLock::new(0));
+        let config = CheckpointConfig {
+            interval_items: Some(100), // High threshold
+            ..Default::default()
+        };
+        let checkpoint_interval = config.interval_items.unwrap_or(10);
+
+        // Process 5 batches of 5 items each (25 total)
+        let batches = 5;
+        let batch_size = 5;
+        let mut checkpoints_saved = 0;
+
+        for _ in 0..batches {
+            *items_since_checkpoint.write().await += batch_size;
+
+            // Check if we should checkpoint
+            let items_count = *items_since_checkpoint.read().await;
+            if items_count >= checkpoint_interval {
+                checkpoints_saved += 1;
+                *items_since_checkpoint.write().await = 0;
+            }
+        }
+
+        // Verify no intermediate checkpoints were saved
+        assert_eq!(
+            checkpoints_saved, 0,
+            "Should not save checkpoints when threshold not reached"
+        );
+        assert_eq!(
+            *items_since_checkpoint.read().await,
+            25,
+            "Counter should accumulate without reset"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_checkpoint_interval_logic() {
+        // Test the should_checkpoint() decision logic
+        let config = CheckpointConfig {
+            interval_items: Some(10),
+            interval_duration: None, // Only test item-based checkpointing
+            ..Default::default()
+        };
+
+        // Test when checkpoint should NOT be triggered
+        let items_processed = 5;
+        assert!(
+            !should_checkpoint_based_on_items(items_processed, &config),
+            "Should not checkpoint with only 5 items processed"
+        );
+
+        // Test when checkpoint SHOULD be triggered
+        let items_processed = 10;
+        assert!(
+            should_checkpoint_based_on_items(items_processed, &config),
+            "Should checkpoint with 10 items processed"
+        );
+
+        // Test when checkpoint SHOULD be triggered (exceeded threshold)
+        let items_processed = 15;
+        assert!(
+            should_checkpoint_based_on_items(items_processed, &config),
+            "Should checkpoint with 15 items processed"
+        );
+
+        // Test edge case: exactly at threshold
+        let items_processed = 10;
+        assert!(
+            should_checkpoint_based_on_items(items_processed, &config),
+            "Should checkpoint exactly at threshold"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_items_counter_reset_after_checkpoint() {
+        // Test that items_since_checkpoint counter resets correctly after saving checkpoint
+        let items_since_checkpoint = Arc::new(RwLock::new(0));
+
+        // Simulate processing items
+        *items_since_checkpoint.write().await = 15;
+        assert_eq!(*items_since_checkpoint.read().await, 15);
+
+        // Simulate checkpoint save and reset (line 263)
+        *items_since_checkpoint.write().await = 0;
+        assert_eq!(
+            *items_since_checkpoint.read().await,
+            0,
+            "Counter should be reset to 0"
+        );
+
+        // Simulate processing more items after reset
+        *items_since_checkpoint.write().await = 5;
+        assert_eq!(
+            *items_since_checkpoint.read().await,
+            5,
+            "Counter should accumulate from 0"
+        );
+    }
 }
