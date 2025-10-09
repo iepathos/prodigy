@@ -118,6 +118,50 @@ impl TokioProcessRunner {
         })) as ProcessStreamFut
     }
 
+    /// Convert a std ExitStatus to our ExitStatus enum
+    fn convert_exit_status(status: std::process::ExitStatus) -> ExitStatus {
+        if status.success() {
+            ExitStatus::Success
+        } else {
+            ExitStatus::Error(status.code().unwrap_or(-1))
+        }
+    }
+
+    /// Create a status future with optional timeout
+    fn create_status_future(
+        mut child: tokio::process::Child,
+        timeout: Option<Duration>,
+        program: String,
+        args: Vec<String>,
+    ) -> Pin<Box<dyn futures::Future<Output = Result<ExitStatus, ProcessError>> + Send>> {
+        Box::pin(async move {
+            let status = if let Some(timeout_duration) = timeout {
+                match tokio::time::timeout(timeout_duration, child.wait()).await {
+                    Ok(Ok(status)) => Self::convert_exit_status(status),
+                    Ok(Err(e)) => {
+                        return Err(ProcessError::IoError {
+                            command: format!("{} {}", program, args.join(" ")),
+                            source: e,
+                        })
+                    }
+                    Err(_) => ExitStatus::Timeout,
+                }
+            } else {
+                match child.wait().await {
+                    Ok(status) => Self::convert_exit_status(status),
+                    Err(e) => {
+                        return Err(ProcessError::IoError {
+                            command: format!("{} {}", program, args.join(" ")),
+                            source: e,
+                        })
+                    }
+                }
+            };
+
+            Ok(status)
+        })
+    }
+
     /// Log command execution details
     fn log_command_start(command: &ProcessCommand) {
         tracing::debug!(
@@ -418,48 +462,12 @@ impl ProcessRunner for TokioProcessRunner {
         let stderr_stream = Self::create_line_stream(BufReader::new(stderr));
 
         // Create status future
-        let timeout = command.timeout;
-        let program = command.program.clone();
-        let args = command.args.clone();
-
-        let status_fut = Box::pin(async move {
-            let status = if let Some(timeout_duration) = timeout {
-                match tokio::time::timeout(timeout_duration, child.wait()).await {
-                    Ok(Ok(status)) => {
-                        if status.success() {
-                            ExitStatus::Success
-                        } else {
-                            ExitStatus::Error(status.code().unwrap_or(-1))
-                        }
-                    }
-                    Ok(Err(e)) => {
-                        return Err(ProcessError::IoError {
-                            command: format!("{} {}", program, args.join(" ")),
-                            source: e,
-                        })
-                    }
-                    Err(_) => ExitStatus::Timeout,
-                }
-            } else {
-                match child.wait().await {
-                    Ok(status) => {
-                        if status.success() {
-                            ExitStatus::Success
-                        } else {
-                            ExitStatus::Error(status.code().unwrap_or(-1))
-                        }
-                    }
-                    Err(e) => {
-                        return Err(ProcessError::IoError {
-                            command: format!("{} {}", program, args.join(" ")),
-                            source: e,
-                        })
-                    }
-                }
-            };
-
-            Ok(status)
-        });
+        let status_fut = Self::create_status_future(
+            child,
+            command.timeout,
+            command.program.clone(),
+            command.args.clone(),
+        );
 
         Ok(ProcessStream {
             stdout: stdout_stream,
