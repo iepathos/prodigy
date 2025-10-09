@@ -582,4 +582,41 @@ mod tests {
         assert_eq!(loaded.metadata.version, "1.0.0"); // Default version
         assert_eq!(loaded.metadata.description, None); // Default no description
     }
+
+    #[tokio::test]
+    async fn test_file_template_storage_load_missing_template() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+
+        // Attempt to load a template that doesn't exist
+        let result = storage.load("nonexistent-template").await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Failed to read template file"));
+    }
+
+    #[tokio::test]
+    async fn test_file_template_storage_load_invalid_yaml() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+
+        // Create directory
+        tokio::fs::create_dir_all(temp_dir.path()).await.unwrap();
+
+        // Write invalid YAML to template file
+        let template_path = temp_dir.path().join("invalid-template.yml");
+        tokio::fs::write(&template_path, "{ invalid yaml: [ unclosed").await.unwrap();
+
+        // Attempt to load - should fail with parse error
+        let result = storage.load("invalid-template").await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Failed to parse template YAML"));
+    }
 }
