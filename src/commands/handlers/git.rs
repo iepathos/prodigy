@@ -117,6 +117,105 @@ impl GitHandler {
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
     }
+
+    /// Validates and extracts the operation attribute
+    ///
+    /// Returns the operation string if present, or an error message if missing.
+    fn validate_operation(attributes: &HashMap<String, AttributeValue>) -> Result<String, String> {
+        attributes
+            .get("operation")
+            .and_then(|v| v.as_string())
+            .cloned()
+            .ok_or_else(|| "Missing required attribute: operation".to_string())
+    }
+
+    /// Executes auto-staging for commit operations if required
+    ///
+    /// This function checks if auto-staging is enabled and performs the staging operation
+    /// by executing `git add` with the appropriate files.
+    async fn execute_auto_staging(
+        context: &ExecutionContext,
+        operation: &str,
+        attributes: &HashMap<String, AttributeValue>,
+    ) -> Result<(), String> {
+        if !Self::should_auto_stage(operation, attributes) {
+            return Ok(());
+        }
+
+        let files = Self::extract_files(attributes);
+        let add_args: Vec<&str> = std::iter::once("add")
+            .chain(files.iter().map(|s| s.as_str()))
+            .collect();
+
+        context
+            .executor
+            .execute(
+                "git",
+                &add_args,
+                Some(&context.working_dir),
+                Some(context.full_env()),
+                None,
+            )
+            .await
+            .map_err(|e| format!("Failed to stage files: {e}"))?;
+
+        Ok(())
+    }
+
+    /// Builds a dry-run response for git commands
+    ///
+    /// Returns a CommandResult indicating what would be executed without actually running it.
+    fn build_dry_run_response(git_args: &[String], duration: u64) -> CommandResult {
+        CommandResult::success(json!({
+            "dry_run": true,
+            "command": format!("git {}", git_args.join(" ")),
+        }))
+        .with_duration(duration)
+    }
+
+    /// Executes a git command and processes the result
+    ///
+    /// This function handles the actual command execution, stdout/stderr processing,
+    /// and result transformation into a CommandResult.
+    async fn execute_git_command(
+        context: &ExecutionContext,
+        operation: String,
+        git_args: Vec<String>,
+        start: Instant,
+    ) -> CommandResult {
+        let result = context
+            .executor
+            .execute(
+                "git",
+                &git_args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                Some(&context.working_dir),
+                Some(context.full_env()),
+                None,
+            )
+            .await;
+
+        let duration = start.elapsed().as_millis() as u64;
+
+        match result {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+                if output.status.success() {
+                    CommandResult::success(json!({
+                        "output": stdout,
+                        "operation": operation,
+                    }))
+                    .with_duration(duration)
+                } else {
+                    CommandResult::error(format!("Git command failed: {stderr}"))
+                        .with_duration(duration)
+                }
+            }
+            Err(e) => CommandResult::error(format!("Failed to execute git command: {e}"))
+                .with_duration(duration),
+        }
+    }
 }
 
 #[async_trait]
@@ -152,12 +251,10 @@ impl CommandHandler for GitHandler {
         // Apply defaults
         self.schema().apply_defaults(&mut attributes);
 
-        // Extract operation
-        let operation = match attributes.get("operation").and_then(|v| v.as_string()) {
-            Some(op) => op.clone(),
-            None => {
-                return CommandResult::error("Missing required attribute: operation".to_string())
-            }
+        // Validate operation
+        let operation = match Self::validate_operation(&attributes) {
+            Ok(op) => op,
+            Err(e) => return CommandResult::error(e),
         };
 
         let start = Instant::now();
@@ -169,70 +266,20 @@ impl CommandHandler for GitHandler {
         };
 
         // Handle auto-staging for commits
-        if Self::should_auto_stage(&operation, &attributes) && !context.dry_run {
-            let files = Self::extract_files(&attributes);
-            let add_args: Vec<&str> = std::iter::once("add")
-                .chain(files.iter().map(|s| s.as_str()))
-                .collect();
-
-            if let Err(e) = context
-                .executor
-                .execute(
-                    "git",
-                    &add_args,
-                    Some(&context.working_dir),
-                    Some(context.full_env()),
-                    None,
-                )
-                .await
-            {
-                return CommandResult::error(format!("Failed to stage files: {e}"));
+        if !context.dry_run {
+            if let Err(e) = Self::execute_auto_staging(context, &operation, &attributes).await {
+                return CommandResult::error(e);
             }
         }
 
         // Handle dry run
         if context.dry_run {
             let duration = start.elapsed().as_millis() as u64;
-            return CommandResult::success(json!({
-                "dry_run": true,
-                "command": format!("git {}", git_args.join(" ")),
-            }))
-            .with_duration(duration);
+            return Self::build_dry_run_response(&git_args, duration);
         }
 
         // Execute git command
-        let result = context
-            .executor
-            .execute(
-                "git",
-                &git_args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
-                Some(&context.working_dir),
-                Some(context.full_env()),
-                None,
-            )
-            .await;
-
-        let duration = start.elapsed().as_millis() as u64;
-
-        match result {
-            Ok(output) => {
-                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-                if output.status.success() {
-                    CommandResult::success(json!({
-                        "output": stdout,
-                        "operation": operation,
-                    }))
-                    .with_duration(duration)
-                } else {
-                    CommandResult::error(format!("Git command failed: {stderr}"))
-                        .with_duration(duration)
-                }
-            }
-            Err(e) => CommandResult::error(format!("Failed to execute git command: {e}"))
-                .with_duration(duration),
-        }
+        Self::execute_git_command(context, operation, git_args, start).await
     }
 
     fn description(&self) -> &str {

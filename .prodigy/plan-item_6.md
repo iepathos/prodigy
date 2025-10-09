@@ -1,232 +1,218 @@
-# Implementation Plan: Add Test Coverage for handle_commit_verification
+# Implementation Plan: Reduce Cognitive Complexity in GitHandler::execute
 
 ## Problem Summary
 
-**Location**: ./src/cook/workflow/executor.rs:WorkflowExecutor::handle_commit_verification:850
-**Priority Score**: 31.60
-**Debt Type**: TestingGap (Cognitive: 81, Cyclomatic: 21, Coverage: 0%)
+**Location**: ./src/commands/handlers/git.rs:GitHandler::execute:147
+**Priority Score**: 32.57
+**Debt Type**: ComplexityHotspot (Cognitive: 31, Cyclomatic: 9)
 **Current Metrics**:
-- Lines of Code: 70
-- Cyclomatic Complexity: 21
-- Cognitive Complexity: 81
-- Coverage: 0% (23 uncovered lines)
-- Nesting Depth: 6
+- Lines of Code: 90
+- Cyclomatic Complexity: 9
+- Cognitive Complexity: 31
+- Upstream Callers: 86 (heavily used across tests and handlers)
 
-**Issue**: The `handle_commit_verification` function is a complex piece of business logic with 100% test coverage gap. With cyclomatic complexity of 21, it requires at least 21 test cases for full path coverage. The function has 7 downstream dependencies and handles critical commit verification logic including auto-commits, commit requirements, and change detection.
+**Issue**: While cyclomatic complexity (9) is manageable, cognitive complexity (31) is high. The function has multiple responsibilities: validation, auto-staging logic, dry-run handling, and command execution. This makes the code harder to understand and maintain despite being well-structured.
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 6.3
-- Coverage Improvement: 50%
-- Risk Reduction: 13.27
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 4.5
+- Coverage Improvement: 0.0 (already well-tested)
+- Risk Reduction: 11.4
 
 **Success Criteria**:
-- [ ] Add comprehensive tests covering all 21 branches
-- [ ] Extract 16 pure functions from complex conditional logic
-- [ ] Achieve 80%+ test coverage for this function and its extracted helpers
-- [ ] All existing tests continue to pass
+- [ ] Cognitive complexity reduced from 31 to ~20 or below
+- [ ] Guard clauses extracted into separate validation functions
+- [ ] Auto-staging logic isolated into a pure function
+- [ ] All 86 existing tests continue to pass without modification
 - [ ] No clippy warnings
-- [ ] Proper formatting
+- [ ] Proper formatting maintained
 
 ## Implementation Phases
 
-### Phase 1: Add Foundation Tests for Main Scenarios
+### Phase 1: Extract Validation Guard Clauses
 
-**Goal**: Establish baseline test coverage for the 4 main execution paths
-
-**Changes**:
-- Add test for successful commit scenario (commits created)
-- Add test for auto-commit with changes
-- Add test for auto-commit with no changes
-- Add test for commit_required failure scenario
-
-**Testing**:
-- Run `cargo test handle_commit_verification` to verify new tests pass
-- Run `cargo test --lib` to ensure no regressions
-- Run `cargo tarpaulin --lib` to measure coverage improvement
-
-**Success Criteria**:
-- [ ] 4 new tests added and passing
-- [ ] Coverage for handle_commit_verification increases to ~20%
-- [ ] All existing tests pass
-- [ ] Ready to commit
-
-### Phase 2: Add Edge Case Tests for Conditional Branches
-
-**Goal**: Cover the complex nested conditional logic with 12 additional tests
+**Goal**: Extract the operation validation logic into a separate pure function to reduce nesting and improve readability.
 
 **Changes**:
-- Add tests for auto_commit disabled with commit_required
-- Add tests for check_for_changes returning error
-- Add tests for create_auto_commit failures
-- Add tests for successful auto-commit with display_success
-- Add tests for commit metadata tracking with multiple commits
-- Add tests for commit metadata tracking with single commit
-- Add tests for different file change counts in commits
+- Create pure function `validate_operation(attributes: &HashMap<String, AttributeValue>) -> Result<String, String>`
+- Move operation extraction and validation logic (lines 156-161) into this function
+- Replace inline validation with call to `validate_operation()`
+- Function should be pure and testable in isolation
 
 **Testing**:
-- Run `cargo test handle_commit_verification` to verify all tests pass
-- Run `cargo tarpaulin --lib` to measure coverage (target: 50%+)
-- Verify all 21 branches are being exercised
+- Run `cargo test --lib handlers::git` to verify all git handler tests pass
+- Verify error message for missing operation is unchanged
+- Check that all 86 upstream callers continue to work correctly
 
 **Success Criteria**:
-- [ ] 12 additional edge case tests added and passing
-- [ ] Coverage for handle_commit_verification reaches 50%+
-- [ ] All existing tests pass
-- [ ] Ready to commit
+- [ ] New `validate_operation` function is pure (no side effects)
+- [ ] All tests pass without modification
+- [ ] Code compiles without warnings
+- [ ] Ready to commit with message: "refactor: extract operation validation in GitHandler::execute"
 
-### Phase 3: Extract Pure Helper Functions (Part 1 - Decision Logic)
+### Phase 2: Extract Auto-Staging Logic
 
-**Goal**: Extract 8 pure functions for decision-making logic to reduce complexity
+**Goal**: Isolate the auto-staging decision and execution logic into a dedicated function to reduce the cognitive load in the main execute function.
 
 **Changes**:
-- Extract `should_auto_commit(step: &WorkflowStep, head_before: &str, head_after: &str) -> bool`
-- Extract `should_require_commit(step: &WorkflowStep) -> bool`
-- Extract `needs_commit_verification(has_changes: bool, auto_commit: bool, commit_required: bool) -> CommitAction` (enum: CreateCommit, RequireCommit, Skip)
-- Extract `determine_commit_strategy(step: &WorkflowStep, has_changes: bool) -> CommitStrategy`
-- Extract `format_commit_count_message(count: usize) -> String`
-- Extract `format_file_count_message(count: usize) -> String`
-- Extract `build_commit_success_message(commit_count: usize, file_count: usize, step_display: &str) -> String`
-- Extract `extract_unique_files(commits: &[CommitInfo]) -> HashSet<String>`
+- Create async function `execute_auto_staging(context: &ExecutionContext, operation: &str, attributes: &HashMap<String, AttributeValue>) -> Result<(), String>`
+- Move auto-staging logic (lines 172-191) into this function
+- The function should encapsulate both the decision (`should_auto_stage`) and the execution
+- Replace inline auto-staging block with call to `execute_auto_staging()`
 
 **Testing**:
-- Add 3-5 unit tests per extracted function
-- Run `cargo test` to ensure all tests pass
-- Run `cargo clippy` to verify no new warnings
+- Run `cargo test --lib handlers::git::test_git_commit_with_auto_stage`
+- Run `cargo test --lib handlers::git::test_git_commit_auto_stage_failure`
+- Run `cargo test --lib handlers::git::test_git_commit_auto_stage_custom_files`
+- Verify all auto-staging behavior remains identical
 
 **Success Criteria**:
-- [ ] 8 pure helper functions extracted
-- [ ] 24-40 new unit tests for helpers added
-- [ ] Cyclomatic complexity of handle_commit_verification reduced by ~8
-- [ ] All tests pass
-- [ ] Ready to commit
+- [ ] Auto-staging logic is isolated and clearly separated
+- [ ] Error messages remain unchanged
+- [ ] All auto-staging tests pass without modification
+- [ ] Ready to commit with message: "refactor: extract auto-staging logic in GitHandler::execute"
 
-### Phase 4: Extract Pure Helper Functions (Part 2 - Error Handling & State)
+### Phase 3: Extract Dry-Run Response Building
 
-**Goal**: Extract 8 more pure functions for error handling and state management
+**Goal**: Separate the dry-run response building logic into a pure function to further reduce nesting in the main execute function.
 
 **Changes**:
-- Extract `handle_auto_commit_error(error: &Error, step: &WorkflowStep, commit_required: bool) -> Result<()>`
-- Extract `handle_check_for_changes_error(error: &Error, step: &WorkflowStep) -> Result<()>`
-- Extract `build_commit_context_vars(commits: &[CommitInfo]) -> HashMap<String, String>`
-- Extract `extract_commit_hashes(commits: &[CommitInfo]) -> Vec<String>`
-- Extract `format_commit_hashes(commits: &[CommitInfo]) -> String`
-- Extract `parse_commits_metadata(commits: &[CommitInfo]) -> CommitMetadata` (struct with count, files)
-- Extract `should_handle_commit_error(step: &WorkflowStep, auto_commit_failed: bool) -> bool`
-- Extract `validate_commit_requirements(step: &WorkflowStep, has_commits: bool) -> Result<()>`
+- Create pure function `build_dry_run_response(operation: &str, git_args: &[String], duration: u64) -> CommandResult`
+- Move dry-run response building (lines 196-200) into this function
+- Replace inline dry-run block with call to `build_dry_run_response()`
+- Function should be pure and independently testable
 
 **Testing**:
-- Add 3-5 unit tests per extracted function
-- Run `cargo test` to ensure all tests pass
-- Verify coverage is now 80%+
+- Run `cargo test --lib handlers::git::test_git_commit_dry_run`
+- Run all tests with `dry_run` flag to ensure behavior is unchanged
+- Verify JSON response format is identical
 
 **Success Criteria**:
-- [ ] 8 additional pure helper functions extracted
-- [ ] 24-40 new unit tests for helpers added
-- [ ] Cyclomatic complexity of handle_commit_verification reduced to ≤8
-- [ ] Coverage reaches 80%+
-- [ ] All tests pass
-- [ ] Ready to commit
+- [ ] Dry-run response building is pure function
+- [ ] All dry-run tests pass without modification
+- [ ] Response format unchanged
+- [ ] Ready to commit with message: "refactor: extract dry-run response building in GitHandler::execute"
 
-### Phase 5: Refactor Main Function Using Extracted Helpers
+### Phase 4: Extract Command Execution and Result Processing
 
-**Goal**: Simplify handle_commit_verification by using the 16 extracted pure functions
+**Goal**: Simplify the main execute function by extracting the command execution and result processing logic into a dedicated function.
 
 **Changes**:
-- Refactor handle_commit_verification to use extracted helpers
-- Reduce nesting depth from 6 to 3 or less
-- Improve readability with descriptive function calls
-- Ensure all error paths use proper error handling (no unwrap/panic)
-- Update existing tests if needed to work with refactored structure
+- Create async function `execute_git_command(context: &ExecutionContext, operation: String, git_args: Vec<String>, start: Instant) -> CommandResult`
+- Move command execution and result processing (lines 204-235) into this function
+- This function handles the actual git execution and result transformation
+- Replace inline execution block with call to `execute_git_command()`
 
 **Testing**:
-- Run `cargo test handle_commit_verification` to verify all scenarios still work
-- Run `cargo clippy` to ensure no warnings
-- Run `cargo tarpaulin --lib` to verify coverage maintained at 80%+
-- Run `just ci` to verify full CI passes
+- Run `cargo test --lib handlers::git` to verify all tests pass
+- Pay special attention to tests for success cases, failure cases, and error handling
+- Verify duration tracking works correctly
+- Ensure stdout/stderr handling is unchanged
 
 **Success Criteria**:
-- [ ] handle_commit_verification now uses 16 extracted helpers
-- [ ] Cyclomatic complexity reduced to ≤8
-- [ ] Nesting depth reduced to ≤3
-- [ ] Coverage maintained at 80%+
-- [ ] All tests pass
+- [ ] Command execution logic is isolated
+- [ ] All execution tests pass without modification
+- [ ] Error messages and result format unchanged
+- [ ] Duration tracking works correctly
+- [ ] Ready to commit with message: "refactor: extract command execution in GitHandler::execute"
+
+### Phase 5: Final Verification and Documentation
+
+**Goal**: Verify the refactoring achieved its goals and ensure code quality standards are met.
+
+**Changes**:
+- Verify the main `execute` function now has clear, linear flow with minimal nesting
+- Add doc comments to new helper functions explaining their purpose
+- Ensure all helper functions follow functional programming principles (pure where possible)
+- Run comprehensive test suite
+
+**Testing**:
+- Run `cargo test` - Full test suite
+- Run `cargo clippy` - No new warnings
+- Run `cargo fmt --check` - Proper formatting
+- Optional: Run debtmap analysis to verify complexity reduction
+
+**Success Criteria**:
+- [ ] Main execute function has reduced cognitive complexity (~20 or below)
+- [ ] All 86 upstream callers work correctly
+- [ ] All tests pass (no test modifications required)
 - [ ] No clippy warnings
-- [ ] Ready to commit
+- [ ] Code is properly formatted
+- [ ] Helper functions have clear documentation
+- [ ] Ready to commit with message: "refactor: finalize GitHandler::execute complexity reduction"
 
 ## Testing Strategy
 
 **For each phase**:
-1. Write tests first for the specific functionality being added/refactored
-2. Run `cargo test --lib handle_commit_verification` to verify new tests
-3. Run `cargo test --lib` to ensure no regressions
-4. Run `cargo clippy` to check for warnings
-5. Run `cargo fmt` to ensure proper formatting
+1. Run `cargo test --lib handlers::git` to verify git handler tests pass
+2. Run `cargo clippy -- -D warnings` to ensure no new warnings
+3. Verify error messages and behavior are unchanged from baseline
 
 **Final verification**:
-1. `just ci` - Full CI checks including all tests, clippy, and formatting
-2. `cargo tarpaulin --lib` - Verify 80%+ coverage for the function
-3. Review debtmap output - Verify score reduction and complexity improvement
+1. `cargo test` - Full test suite (all 86+ tests must pass)
+2. `cargo clippy` - Zero warnings
+3. `cargo fmt --check` - Verify formatting
+4. Optional: `debtmap analyze` - Verify complexity metrics improved
 
-**Test Coverage Targets by Phase**:
-- Phase 1: 20% coverage (4 main paths)
-- Phase 2: 50%+ coverage (all 21 branches)
-- Phase 3: 60% coverage (helpers add coverage)
-- Phase 4: 80%+ coverage (comprehensive helper tests)
-- Phase 5: 80%+ coverage maintained (refactored code)
+**Critical Constraint**: NO test modifications are allowed. All 86 upstream callers must continue to work without changes.
 
 ## Rollback Plan
 
-If a phase fails:
+If any phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failures and error messages
-3. Identify the issue (incorrect test assumptions, missing mocks, logic errors)
-4. Adjust the approach:
-   - For test failures: Review mock setup and test assertions
-   - For refactoring issues: Extract smaller functions first
-   - For integration issues: Add integration tests before refactoring
-5. Retry the phase with fixes
+2. Review the test failure or compilation error
+3. Identify what behavior changed unexpectedly
+4. Adjust the extraction to preserve exact behavior
+5. Retry the phase
+
+If multiple phases fail, consider:
+- Are we changing behavior inadvertently?
+- Do we need to preserve more context in extracted functions?
+- Should we adjust the phase boundaries?
 
 ## Notes
 
-### Key Testing Challenges:
-- The function uses async git operations (mocked via MockGitOperations)
-- User interaction display methods need mocking (MockUserInteraction)
-- Multiple error paths require careful error injection
-- Commit metadata extraction needs realistic commit data
+### Key Considerations
 
-### Mock Setup Required:
-- MockGitOperations for get_current_head responses
-- MockGitOperations for check_for_changes responses
-- MockGitOperations for get_commits_between responses
-- MockUserInteraction to verify display_success calls
-- Mock commit creation and verification
+1. **No Behavioral Changes**: This is a pure refactoring. All 86 existing tests must pass without modification.
 
-### Function Dependencies to Mock:
-- `get_current_head()` - Returns git HEAD hash
-- `check_for_changes()` - Returns bool for git status
-- `create_auto_commit()` - Creates commit, can fail
-- `get_commits_between()` - Returns commit metadata
-- `handle_no_commits_error()` - Raises error for commit_required
-- `generate_commit_message()` - Generates commit message (needs implementation or mock)
+2. **Functional Programming**: Follow the codebase guidelines:
+   - Pure functions where possible (validation, dry-run response building)
+   - Clear separation between I/O (command execution) and logic (validation, decision-making)
+   - Single responsibility per function
 
-### Existing Test Patterns:
-The codebase uses comprehensive mocking infrastructure:
-- `create_test_executor_with_git_mock()` sets up executor with all mocks
-- MockGitOperations provides `add_success_response()` and `add_error_response()`
-- Tests use TempDir for isolated working directories
-- ExecutionEnvironment provides context for command execution
+3. **Cognitive Complexity Reduction**: The goal is to reduce mental overhead by:
+   - Eliminating nested conditionals through guard clauses
+   - Extracting distinct responsibilities into named functions
+   - Creating a linear, easy-to-follow flow in the main execute function
 
-### Coverage Measurement:
-Use `cargo tarpaulin --lib` to measure coverage. Focus on:
-- Line coverage for all 23 uncovered lines
-- Branch coverage for all 21 conditional branches
-- Integration coverage through end-to-end tests
+4. **High Test Coverage**: The function has 86 upstream callers (mostly tests), which provides excellent safety for refactoring. Any behavioral changes will be immediately detected.
 
-### Refactoring Principles:
-- Extract pure functions (no side effects) where possible
-- Keep I/O operations at the boundaries
-- Use Result types for error handling (no unwrap/panic per Spec 101)
-- Make functions testable in isolation
-- Prefer composition over complexity
+5. **Incremental Progress**: Each phase is independently valuable and moves us toward the goal. Commit after each successful phase.
+
+### Expected Final Structure
+
+After refactoring, `execute` should have a clear linear flow:
+```rust
+async fn execute(...) -> CommandResult {
+    // Phase 1: Validation
+    let operation = validate_operation(&attributes)?;
+
+    // Build git args
+    let git_args = Self::build_git_args(&operation, &attributes)?;
+
+    // Phase 2: Auto-staging (if needed)
+    execute_auto_staging(context, &operation, &attributes).await?;
+
+    // Phase 3: Dry-run handling
+    if context.dry_run {
+        return build_dry_run_response(&operation, &git_args, duration);
+    }
+
+    // Phase 4: Command execution
+    execute_git_command(context, operation, git_args, start).await
+}
+```
+
+This structure is much easier to understand and maintain while preserving all existing behavior.
