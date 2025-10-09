@@ -872,6 +872,36 @@ impl DefaultJobStateManager {
             .map(String::from)
     }
 
+    /// Build a ResumableJob from state and checkpoint list if incomplete
+    fn build_resumable_job(
+        job_id: &str,
+        state: MapReduceJobState,
+        checkpoints: Vec<CheckpointInfo>,
+    ) -> Option<ResumableJob> {
+        // Skip if job is complete
+        if state.is_complete {
+            return None;
+        }
+
+        // Calculate latest checkpoint version
+        let latest_checkpoint = checkpoints
+            .into_iter()
+            .max_by_key(|c| c.version)
+            .map(|c| c.version)
+            .unwrap_or(0);
+
+        Some(ResumableJob {
+            job_id: job_id.to_string(),
+            started_at: state.started_at,
+            updated_at: state.updated_at,
+            total_items: state.total_items,
+            completed_items: state.successful_count,
+            failed_items: state.failed_count,
+            is_complete: false,
+            checkpoint_version: latest_checkpoint,
+        })
+    }
+
     /// Resume a job from a specific checkpoint version (internal use)
     pub async fn resume_job_from_checkpoint(
         &self,
@@ -916,38 +946,21 @@ impl DefaultJobStateManager {
             };
 
             // Try to load the latest checkpoint for this job
-            match self.checkpoint_manager.load_checkpoint(&job_id).await {
-                Ok(state) => {
-                    // Check if job is incomplete
-                    if !state.is_complete {
-                        let checkpoints = self
-                            .checkpoint_manager
-                            .list_checkpoints(&job_id)
-                            .await
-                            .unwrap_or_default();
+            let state = match self.checkpoint_manager.load_checkpoint(&job_id).await {
+                Ok(s) => s,
+                Err(_) => continue, // Skip jobs without valid checkpoints
+            };
 
-                        let latest_checkpoint = checkpoints
-                            .into_iter()
-                            .max_by_key(|c| c.version)
-                            .map(|c| c.version)
-                            .unwrap_or(0);
+            // Get checkpoint list for version calculation
+            let checkpoints = self
+                .checkpoint_manager
+                .list_checkpoints(&job_id)
+                .await
+                .unwrap_or_default();
 
-                        resumable_jobs.push(ResumableJob {
-                            job_id: job_id.to_string(),
-                            started_at: state.started_at,
-                            updated_at: state.updated_at,
-                            total_items: state.total_items,
-                            completed_items: state.successful_count,
-                            failed_items: state.failed_count,
-                            is_complete: false,
-                            checkpoint_version: latest_checkpoint,
-                        });
-                    }
-                }
-                Err(_) => {
-                    // Skip jobs without valid checkpoints
-                    continue;
-                }
+            // Build resumable job if incomplete
+            if let Some(job) = Self::build_resumable_job(&job_id, state, checkpoints) {
+                resumable_jobs.push(job);
             }
         }
 
