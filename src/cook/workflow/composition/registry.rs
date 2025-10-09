@@ -294,11 +294,24 @@ impl FileTemplateStorage {
     }
 
     /// Check if a path represents a template file (has .yml extension)
+    ///
+    /// # Arguments
+    /// * `path` - The file path to check
+    ///
+    /// # Returns
+    /// `true` if the file has a .yml extension, `false` otherwise
     fn is_template_file(path: &std::path::Path) -> bool {
         path.extension().and_then(|s| s.to_str()) == Some("yml")
     }
 
     /// Extract template name from a file path, filtering out metadata files
+    ///
+    /// # Arguments
+    /// * `path` - The file path to extract the template name from
+    ///
+    /// # Returns
+    /// `Some(String)` with the template name if valid, `None` if the file is a metadata file
+    /// or if the file stem cannot be extracted
     fn extract_template_name(path: &std::path::Path) -> Option<String> {
         let stem = path.file_stem().and_then(|s| s.to_str())?;
 
@@ -311,6 +324,13 @@ impl FileTemplateStorage {
     }
 
     /// Load template metadata for listing, falling back to default on errors
+    ///
+    /// # Arguments
+    /// * `name` - The template name to load metadata for
+    ///
+    /// # Returns
+    /// The loaded metadata, or default metadata if the file doesn't exist or cannot be read/parsed.
+    /// Errors are logged as warnings but don't fail the operation.
     async fn load_template_metadata(&self, name: &str) -> TemplateMetadata {
         let metadata_path = self.metadata_path(name);
 
