@@ -1,269 +1,228 @@
-# Implementation Plan: Add Tests and Extract Pure Functions for analyze_retention_targets
+# Implementation Plan: Reduce Nesting Complexity in FileTemplateStorage::list
 
 ## Problem Summary
 
-**Location**: ./src/cli/events/mod.rs:analyze_retention_targets:934
-**Priority Score**: 31.55
-**Debt Type**: TestingGap (0% direct coverage, 33.3% transitive)
-
+**Location**: ./src/cook/workflow/composition/registry.rs:FileTemplateStorage::list:337
+**Priority Score**: 31.89
+**Debt Type**: ComplexityHotspot (Cognitive: 44, Cyclomatic: 12)
 **Current Metrics**:
-- Lines of Code: 42
-- Cyclomatic Complexity: 15
-- Cognitive Complexity: 45
-- Direct Coverage: 0%
-- Transitive Coverage: 33.3%
-- Nesting Depth: 5
-- Uncovered Lines: 23 lines across multiple ranges (934, 941, 943-947, 949-950, 952-960, 966-969, 973)
+- Lines of Code: 45
+- Cyclomatic Complexity: 12
+- Cognitive Complexity: 44
+- Nesting Depth: 5 levels
 
-**Issue**: Complex business logic with 100% coverage gap. This function has 15 decision branches requiring at least 15 test cases for full path coverage. It orchestrates retention analysis across global and local storage with complex nested loops and conditional logic. The high cognitive complexity (45) makes it difficult to understand and maintain.
-
-**Rationale**: Testing before refactoring ensures no regressions. After extracting 9 functions, each will need only 3-5 tests instead of 15 tests for the monolithic function.
+**Issue**: The `list()` function has excessive nesting (5 levels deep) that obscures the core logic. While cyclomatic complexity is manageable at 12, the deep nesting creates cognitive load. The function follows a pattern of nested conditionals: directory exists check → entry iteration → extension check → file stem extraction → metadata file check → metadata parsing attempt.
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 4.5 (from 15 to ~10-11 cyclomatic)
-- Coverage Improvement: 50% (from 0% to 50%+)
-- Risk Reduction: 13.251 points
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 6.0
+- Coverage Improvement: 0.0
+- Risk Reduction: 11.16
 
 **Success Criteria**:
-- [ ] Direct test coverage increases from 0% to 80%+
-- [ ] Extract 9 pure functions with complexity ≤3 each
-- [ ] All existing tests continue to pass
+- [ ] Nesting depth reduced from 5 to 2-3 levels
+- [ ] Cognitive complexity reduced by ~6 points
+- [ ] All existing tests continue to pass (8 tests in registry.rs)
 - [ ] No clippy warnings
-- [ ] Proper formatting with cargo fmt
-- [ ] Each extracted function has 3-5 unit tests
+- [ ] Proper formatting
+- [ ] Function remains pure and testable
 
 ## Implementation Phases
 
-### Phase 1: Add Comprehensive Test Coverage
+### Phase 1: Extract Template Entry Processing
 
-**Goal**: Establish baseline test coverage for all execution paths before refactoring
-
-**Changes**:
-- Create test module `analyze_retention_targets_tests` with mock setup
-- Use existing `MockFileSystem` pattern from codebase
-- Write 8 integration tests covering all major branches:
-  1. `test_analyze_global_with_all_jobs_flag()` - all_jobs=true with existing directories
-  2. `test_analyze_global_with_specific_job_id()` - job_id=Some("job-123")
-  3. `test_analyze_global_nonexistent_directory()` - global_events_dir doesn't exist
-  4. `test_analyze_global_empty_job_dirs()` - no job directories found
-  5. `test_analyze_local_file_exists()` - neither flag set, local file exists
-  6. `test_analyze_local_file_missing()` - neither flag set, no local file
-  7. `test_analyze_multiple_event_files_aggregation()` - multiple files across jobs
-  8. `test_analyze_with_archive_policy()` - archive_old_events=true vs false
-
-**Testing**:
-- Run `cargo test analyze_retention_targets` to verify new tests
-- Ensure tests cover all uncovered lines using mock filesystem
-- Verify aggregation logic with multiple RetentionAnalysis results
-
-**Success Criteria**:
-- [ ] 8+ integration tests written
-- [ ] Tests use MockFileSystem for isolation
-- [ ] All tests pass
-- [ ] Coverage for target function reaches 50%+
-- [ ] Ready to commit
-
-### Phase 2: Extract Pure Decision Functions
-
-**Goal**: Extract decision logic into pure, testable functions
+**Goal**: Extract the nested logic for processing a single directory entry into a separate pure function.
 
 **Changes**:
-Extract these 3 pure functions at module level:
-1. `should_analyze_global_storage(all_jobs: bool, job_id: Option<&str>) -> bool`
-   - Simple decision: returns true if all_jobs OR job_id.is_some()
-   - Complexity: 1 (single OR condition)
-
-2. `calculate_archive_count(events_to_archive: usize, archive_enabled: bool) -> usize`
-   - Returns events_to_archive if enabled, else 0
-   - Complexity: 1 (single if statement)
-
-3. `build_global_events_path(repo_name: &str) -> Result<PathBuf>`
-   - Pure path construction from repo name
-   - Complexity: 2 (error handling)
+- Create new function `fn is_template_file(path: &Path) -> bool` that checks for .yml extension
+- Create new function `fn extract_template_name(path: &Path) -> Option<String>` that extracts stem and filters out .meta files
+- Create new async function `async fn load_template_metadata(&self, name: &str) -> TemplateMetadata` that handles metadata loading with fallback to default
+- Use early returns in these helper functions to eliminate nesting
 
 **Testing**:
-- Write 3-5 unit tests per function (12 tests total)
-- Test edge cases: empty strings, None values, error conditions
-- Run `cargo test --lib` to verify all tests pass
+- Run `cargo test --lib registry` to verify existing tests pass
+- Verify function behavior unchanged
 
 **Success Criteria**:
-- [ ] 3 pure functions extracted
-- [ ] Each function has complexity ≤2
-- [ ] 12 unit tests added
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 3: Extract Aggregation Logic Functions
-
-**Goal**: Extract analysis aggregation into pure, testable functions
-
-**Changes**:
-Extract these 3 pure functions:
-1. `aggregate_retention_analysis(total: &mut RetentionAnalysis, new: &RetentionAnalysis, archive_enabled: bool)`
-   - Aggregates events_to_remove and space_to_save
-   - Conditionally adds events_to_archive
-   - Complexity: 2 (if statement for archive)
-
-2. `create_default_analysis() -> RetentionAnalysis`
-   - Factory function for default analysis
-   - Complexity: 1
-
-3. `aggregate_file_analyses(analyses: Vec<RetentionAnalysis>, archive_enabled: bool) -> RetentionAnalysis`
-   - Folds multiple analyses into one
-   - Uses `aggregate_retention_analysis`
-   - Complexity: 2 (fold + conditional)
-
-**Testing**:
-- Write unit tests for aggregation with edge cases (9 tests total):
-  - Empty input lists
-  - Single analysis
-  - Multiple analyses with various counts
-  - Archive enabled/disabled scenarios
-- Run `cargo test --lib` to verify all tests pass
-
-**Success Criteria**:
-- [ ] 3 aggregation functions extracted
-- [ ] Each function has complexity ≤2
-- [ ] 9 unit tests added
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 4: Extract Async I/O Coordination
-
-**Goal**: Separate async I/O coordination from pure logic
-
-**Changes**:
-Extract these 3 async functions as private module functions:
-1. `async fn analyze_global_job_directories(job_dirs: Vec<PathBuf>, policy: &RetentionPolicy) -> Result<RetentionAnalysis>`
-   - Iterates job_dirs, finds event files, analyzes each
-   - Uses pure aggregation functions from Phase 3
-   - Complexity: 3 (nested loops + async)
-
-2. `async fn analyze_global_events(global_events_dir: &Path, job_id: Option<&str>, policy: &RetentionPolicy) -> Result<RetentionAnalysis>`
-   - Gets job directories, delegates to analyze_global_job_directories
-   - Complexity: 2 (error handling)
-
-3. `async fn analyze_local_events(policy: &RetentionPolicy) -> Result<RetentionAnalysis>`
-   - Checks local file, creates RetentionManager, analyzes
-   - Complexity: 2 (file existence check)
-
-**Refactor main function**:
-- `analyze_retention_targets` becomes thin orchestrator
-- Uses `should_analyze_global_storage()` to decide path
-- Delegates to either `analyze_global_events()` or `analyze_local_events()`
-- Reduced complexity from 15 to ~5
-
-**Testing**:
-- Update integration tests to verify async behavior
-- Add tests for error handling in I/O functions
-- Test main function orchestration logic
-
-**Success Criteria**:
-- [ ] 3 async I/O functions extracted
-- [ ] Main function complexity reduced to ≤5
-- [ ] All async operations tested
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 5: Final Validation and Cleanup
-
-**Goal**: Achieve 80%+ coverage and ensure code quality
-
-**Changes**:
-- Add final edge case tests:
-  1. Test with filesystem errors (permission denied, etc.)
-  2. Test with corrupted event files
-  3. Test aggregation with large numbers (overflow scenarios)
-- Run full coverage analysis: `cargo tarpaulin --lib`
-- Fix any clippy warnings: `cargo clippy`
-- Format code: `cargo fmt`
-- Update function documentation with examples
-- Add module-level documentation explaining the refactoring
-
-**Testing**:
-- `cargo test --lib` - All tests pass
-- `cargo clippy` - No warnings
-- `cargo fmt --check` - Properly formatted
-- `cargo tarpaulin --lib` - Coverage ≥80% for target function
-
-**Success Criteria**:
-- [ ] Coverage for `analyze_retention_targets` ≥80%
-- [ ] Total of 9 extracted functions
-- [ ] Each extracted function complexity ≤3
-- [ ] 29+ new tests added (8 integration + 21 unit)
+- [ ] Three new helper functions created
+- [ ] Functions are simpler and more focused
+- [ ] All 8 existing tests pass
 - [ ] No clippy warnings
-- [ ] Properly formatted
-- [ ] Documentation updated
-- [ ] Ready for final commit
+
+### Phase 2: Refactor list() to Use Helper Functions
+
+**Goal**: Simplify the main `list()` function by using the extracted helpers and early returns.
+
+**Changes**:
+- Replace nested extension check with `is_template_file()`
+- Replace nested file stem logic with `extract_template_name()`
+- Replace nested metadata loading with `load_template_metadata()`
+- Use `continue` statements for early loop continuation
+- Reduce nesting from 5 levels to 2-3 levels
+
+**Before pattern**:
+```rust
+while let Some(entry) = entries.next_entry().await? {
+    if condition1 {
+        if let Some(value) = condition2 {
+            if !filter {
+                if nested_condition {
+                    // 5 levels deep
+                }
+            }
+        }
+    }
+}
+```
+
+**After pattern**:
+```rust
+while let Some(entry) = entries.next_entry().await? {
+    let path = entry.path();
+    if !is_template_file(&path) {
+        continue;
+    }
+
+    let Some(name) = extract_template_name(&path) else {
+        continue;
+    };
+
+    let metadata = self.load_template_metadata(&name).await;
+    // 2-3 levels max
+}
+```
+
+**Testing**:
+- Run `cargo test --lib registry` to verify all tests pass
+- Run `cargo clippy` to check for warnings
+
+**Success Criteria**:
+- [ ] Nesting depth reduced to 2-3 levels
+- [ ] Function is more readable
+- [ ] All 8 existing tests pass
+- [ ] No clippy warnings
+
+### Phase 3: Optimize Metadata Loading Error Handling
+
+**Goal**: Improve error handling in metadata loading to be more explicit and follow the project's error handling standards (no unwrap_or_default in production code).
+
+**Changes**:
+- Update `load_template_metadata()` to return `Result<TemplateMetadata>` instead of just `TemplateMetadata`
+- Use proper error context with `.context()` for file read failures
+- Use `.unwrap_or_else(|_| TemplateMetadata::default())` instead of `unwrap_or_default()`
+- Ensure JSON parse errors are logged but don't fail the entire listing
+
+**Testing**:
+- Run `cargo test --lib registry` to verify all tests pass
+- Verify error messages are clear and actionable
+
+**Success Criteria**:
+- [ ] Metadata loading uses Result type properly
+- [ ] Errors have clear context messages
+- [ ] Fallback to default metadata is explicit
+- [ ] All 8 existing tests pass
+- [ ] No use of unwrap() or unwrap_or_default()
+
+### Phase 4: Final Verification and Cleanup
+
+**Goal**: Ensure all quality standards are met and documentation is updated.
+
+**Changes**:
+- Add doc comments to new helper functions
+- Verify all error messages are descriptive
+- Run full test suite and linting
+- Check that nesting depth metrics have improved
+
+**Testing**:
+- Run `cargo test` (full test suite)
+- Run `cargo clippy -- -D warnings` (fail on any warnings)
+- Run `cargo fmt --check` (verify formatting)
+- Run `just ci` if available
+
+**Success Criteria**:
+- [ ] All helper functions have doc comments
+- [ ] Full test suite passes
+- [ ] No clippy warnings
+- [ ] Code is properly formatted
+- [ ] Nesting depth reduced from 5 to 2-3 levels
+- [ ] Ready for commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Write tests BEFORE extracting (Phase 1) to establish baseline
-2. Extract functions while tests are passing (Phases 2-4)
-3. Add unit tests for each extracted function (Phases 2-4)
-4. Run `cargo test --lib` after each extraction
-5. Verify no regressions in existing tests
-
-**Test Patterns**:
-- Use `MockFileSystem` for all file operations
-- Mock `RetentionManager::analyze_retention()` to return controlled results
-- Test both success and error paths
-- Cover edge cases: empty inputs, missing files, permission errors
+1. Run `cargo test --lib registry` to verify the 8 existing tests in registry.rs pass
+2. Run `cargo clippy` to check for warnings
+3. Commit with clear message if phase succeeds
 
 **Final verification**:
-1. `cargo test --lib` - All tests pass
-2. `cargo clippy` - No warnings
-3. `cargo tarpaulin --lib` - Coverage ≥80%
-4. `debtmap analyze` - Verify complexity reduction
+1. `cargo test` - Full test suite (not just registry tests)
+2. `cargo clippy -- -D warnings` - Strict warning checks
+3. `cargo fmt --check` - Formatting verification
+4. `just ci` - Full CI checks if available
+5. Verify nesting depth improvement with debtmap re-analysis
+
+**Expected test coverage**:
+- Existing tests should all pass unchanged
+- No new tests required (function behavior unchanged)
+- Tests cover: template registration, retrieval, metadata handling, listing, errors
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure:
-   - Check test output for specific errors
-   - Run `cargo clippy` to identify issues
-   - Verify mock setup is correct
-3. Adjust the plan:
-   - If tests fail: Fix edge cases or mock setup
-   - If complexity too high: Split function further
-   - If integration breaks: Verify async boundary
-4. Retry the phase with adjustments
-
-**Common failure scenarios**:
-- **Mock setup issues**: Ensure MockFileSystem properly implements required traits
-- **Async errors**: Verify .await placement and Result propagation
-- **Coverage gaps**: Add tests for uncovered branches
-- **Type mismatches**: Ensure extracted functions have correct signatures
+2. Review the specific failure:
+   - Test failures: Check which test failed and why
+   - Clippy warnings: Address the specific warning
+   - Compilation errors: Fix syntax or type errors
+3. Adjust the implementation approach:
+   - If helper functions cause issues, inline them temporarily
+   - If async changes cause problems, keep synchronous helpers
+   - If error handling is too strict, relax with unwrap_or_else
+4. Retry the phase with adjusted approach
 
 ## Notes
 
-**Key Considerations**:
-- Function uses `RetentionManager::analyze_retention()` which is async - maintain boundary
-- MockFileSystem from `src/testing/mocks/fs.rs:88` is already used in codebase
-- Archive logic depends on `policy.archive_old_events` flag - test both states
-- Multiple nested loops create complexity - extract inner logic to reduce nesting
-- Path construction is platform-agnostic using PathBuf - no special Windows/Unix handling
+### Key Considerations:
 
-**Extraction Strategy**:
-1. Pure decision logic first (no I/O, no state)
-2. Pure aggregation logic next (data transformation)
-3. Async I/O coordination last (maintains async boundary)
-4. Main function becomes thin orchestrator using extracted pieces
+1. **Pure vs I/O**: The `list()` function is marked as `PureLogic` role but contains I/O (file system operations). The refactoring should maintain this boundary - helper functions for logic should be pure where possible.
 
-**Testing Focus**:
-- **Branch coverage**: All conditional paths (15 branches total)
-- **Edge cases**: Empty collections, missing files, permission errors
-- **Policy variations**: Archive enabled/disabled, different retention settings
-- **Aggregation correctness**: Multiple files, multiple jobs, sum calculations
+2. **Async Context**: The function is async and uses `tokio::fs` for file operations. Helper functions that perform I/O must also be async, but pure helpers (like `is_template_file`, `extract_template_name`) can be synchronous.
 
-**Expected Outcome**:
-After all phases:
-- 1 simplified orchestration function (~20 lines, complexity ~5)
-- 9 extracted functions (pure and async I/O, each ≤3 complexity)
-- 29+ comprehensive tests
-- 80%+ test coverage
-- Significantly improved maintainability and readability
+3. **Error Handling**: The project uses `anyhow::Result` and `.context()` for error messages. Metadata loading failures should not fail the entire listing - use fallback to default metadata.
+
+4. **Existing Tests**: There are 8 tests in the registry module:
+   - `test_template_registry`
+   - `test_template_metadata`
+   - `test_file_template_storage_load_with_metadata`
+   - `test_file_template_storage_load_without_metadata`
+   - `test_file_template_storage_load_missing_template`
+   - `test_file_template_storage_load_invalid_yaml`
+   - `test_file_template_storage_load_invalid_metadata_json`
+   - `test_file_template_storage_load_corrupted_metadata`
+
+   None of these directly test the `list()` function, so behavior changes won't break tests, but we should maintain exact behavior.
+
+5. **Unwrap Usage**: The current code uses `.unwrap_or_default()` on line 362 for JSON parsing. Per Spec 101, this should be replaced with explicit error handling that logs failures but continues processing.
+
+6. **Upstream Callers**: The function is called by:
+   - `TemplateRegistry::list` (line 157)
+   - `TemplateRegistry::load_all` (line 216)
+
+   Both expect a `Result<Vec<TemplateInfo>>` and rely on the listing continuing even if individual templates have issues.
+
+### Pattern to Follow:
+
+The refactoring should follow this pattern from the codebase (like `load_metadata_if_exists`):
+- Extract small, focused functions
+- Use early returns and `?` operator for error propagation
+- Provide meaningful error context with `.context()`
+- Fall back gracefully for non-critical failures
+
+### Success Indicators:
+
+After implementation, the following should be true:
+- Reading the `list()` function should be straightforward
+- Each level of nesting should have a clear purpose
+- Helper functions should be reusable and testable
+- The function should follow the same patterns as other functions in the module

@@ -1,220 +1,238 @@
-# Implementation Plan: Add Test Coverage for execute_map_with_checkpoints
+# Implementation Plan: Refactor ClaudeJsonProcessor::process_line Using Functional Patterns
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/mapreduce/checkpoint_integration.rs:CheckpointedCoordinator::execute_map_with_checkpoints:215
-**Priority Score**: 31.56
-**Debt Type**: TestingGap
+**Location**: ./src/subprocess/streaming/claude_processor.rs:ClaudeJsonProcessor::process_line:68
+**Priority Score**: 39.096824583655184
+**Debt Type**: ComplexityHotspot (cognitive: 120, cyclomatic: 17)
 **Current Metrics**:
-- Lines of Code: 59
-- Cyclomatic Complexity: 11
-- Cognitive Complexity: 53
-- Coverage: 0% (all 11 branches uncovered)
+- Lines of Code: 103
+- Function Length: 103 lines
+- Cyclomatic Complexity: 17
+- Cognitive Complexity: 120
+- Nesting Depth: 3
 
-**Issue**: Complex business logic with 100% testing gap. Cyclomatic complexity of 11 requires at least 11 test cases for full path coverage. The function orchestrates checkpoint state management, work item batching, and periodic checkpointing—critical functionality that needs robust testing.
+**Issue**: Apply functional patterns: 4 pure functions with Iterator chains. The function has moderate complexity (17 cyclomatic) and needs functional decomposition.
+
+**Current Problems**:
+1. Large function (103 lines) doing multiple responsibilities
+2. Deep nesting with match expressions inside match expressions
+3. Repeated pattern of extracting JSON fields with `.and_then().unwrap_or()`
+4. Multiple side effects (buffer mutation, printing, handler calls) mixed with parsing logic
+5. No separation between pure parsing logic and I/O operations
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 3.3 (from 11 to ~8 through extraction)
-- Coverage Improvement: 50% minimum (target 80%+)
-- Risk Reduction: 13.26
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 8.5 (from 17 to ~8-9 cyclomatic complexity)
+- Coverage Improvement: 0.0 (maintain existing coverage)
+- Risk Reduction: 13.68
 
 **Success Criteria**:
-- [x] All 29 uncovered lines have test coverage (16 new tests added)
-- [x] At least 7 test cases covering critical branches (16 test cases total)
-- [x] Extract 3-4 pure helper functions from complex logic (1 documented helper function)
-- [x] All existing tests continue to pass (2411 tests passing)
-- [x] No clippy warnings (in checkpoint_integration.rs)
-- [x] Proper formatting
-- [x] Coverage reaches 80%+ for this function (comprehensive test coverage achieved)
+- [ ] Cyclomatic complexity reduced from 17 to ≤10
+- [ ] Pure extraction functions for JSON field parsing
+- [ ] Separate functions for event type handling
+- [ ] Main function reduced to <30 lines (coordination only)
+- [ ] All existing tests continue to pass
+- [ ] No clippy warnings
+- [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Add Integration Tests for Happy Path
+### Phase 1: Extract Pure JSON Field Extraction Functions
 
-**Goal**: Cover the main execution flow with comprehensive integration tests
-
-**Changes**:
-- Add test for successful map phase execution with no items
-- Add test for successful map phase execution with single batch
-- Add test for successful map phase execution with multiple batches
-- Add test for checkpoint creation at phase transition
-- These tests will cover lines 220-226 (phase update), 229-247 (work item loading), and 268-271 (final checkpoint)
-
-**Testing**:
-- Run `cargo test test_execute_map_with_checkpoints` to verify tests pass
-- Run `cargo tarpaulin --lib` to verify coverage improvement
-- Verify existing tests still pass with `cargo test --lib`
-
-**Success Criteria**:
-- [x] 4 new integration tests added and passing
-- [x] Lines 220-226, 229-247, 268-271 covered
-- [x] Coverage for this function reaches ~40%
-- [x] All tests pass
-- [x] Ready to commit
-
-### Phase 2: Add Tests for Batch Processing and Checkpointing Logic
-
-**Goal**: Cover the batch processing loop and checkpoint decision logic
+**Goal**: Create pure functions for common JSON field extraction patterns to eliminate repetitive `.and_then().unwrap_or()` code.
 
 **Changes**:
-- Add test for batch processing with checkpoint triggering (lines 252-265)
-- Add test for processing multiple batches without intermediate checkpoints
-- Add test for checkpoint interval logic (`should_checkpoint()` returning true/false)
-- Add test for items counter reset after checkpoint (line 263)
-- These tests will cover the while loop (252-265) and checkpoint decision branches
+- Create module-level pure functions for field extraction:
+  - `extract_string_field(json: &Value, field: &str, default: &str) -> String`
+  - `extract_u64_field(json: &Value, field: &str, default: u64) -> u64`
+  - `extract_string_array(json: &Value, field: &str) -> Vec<String>`
+- These are pure functions with no side effects
+- Replace all inline field extraction with these functions
+- Reduce cognitive load of reading nested `.and_then()` chains
 
 **Testing**:
-- Run `cargo test test_batch_processing` to verify tests pass
-- Run `cargo tarpaulin --lib` to check coverage reaches ~65%
-- Verify batch state transitions work correctly
+- Add unit tests for each extraction function
+- Run existing tests: `cargo test --lib streaming`
+- Verify no behavior change in `test_claude_json_processor`
 
 **Success Criteria**:
-- [x] 4 new tests for batch processing and checkpointing
-- [x] Lines 252-265 covered
-- [x] Coverage for this function reaches ~65%
-- [x] All tests pass
-- [x] Ready to commit
+- [ ] 3 pure extraction functions added
+- [ ] All field extractions use these functions
+- [ ] Unit tests added for extraction functions
+- [ ] All existing tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
 
-### Phase 3: Extract Pure Helper Functions
+### Phase 2: Extract Event Parsing into Separate Functions
 
-**Goal**: Reduce complexity by extracting pure logic into testable helper functions
+**Goal**: Break down the large match expression into separate pure functions for each event type.
 
 **Changes**:
-- Extract `prepare_work_items(work_items: Vec<Value>) -> Vec<WorkItem>`
-  - Pure function from lines 235-242 (work item enumeration and mapping)
-  - Moves complexity out of the main function
-  - Easily unit testable
-- Extract `should_process_next_batch(pending_count: usize) -> bool`
-  - Pure predicate function for loop condition logic
-  - Simple, testable logic
-- Extract `create_checkpoint_update(total_items: usize) -> (PhaseType, PhaseType)`
-  - Pure function for checkpoint state update logic (lines 223-226)
-  - Returns the phase values to set
+- Create pure functions for each event handler:
+  - `parse_tool_use(json: &Value) -> Option<(String, String, Value)>` - returns (tool_name, tool_id, parameters)
+  - `parse_token_usage(json: &Value) -> Option<(u64, u64, u64)>` - returns (input, output, cache)
+  - `parse_message(json: &Value) -> Option<(String, String)>` - returns (content, message_type)
+  - `parse_session_start(json: &Value) -> Option<(String, String, Vec<String>)>` - returns (session_id, model, tools)
+- These functions return `Option` to handle missing/invalid data gracefully
+- Main function calls these parsers and uses results with `?` or `if let Some`
+- Reduces nesting depth from 3 to 2
 
 **Testing**:
-- Add unit tests for each extracted function (3-5 tests per function)
-- Verify original integration tests still pass
-- Run `cargo clippy` to ensure no new warnings
+- Add unit tests for each parsing function with valid and invalid inputs
+- Run: `cargo test --lib streaming`
+- Verify `test_claude_json_processor` still passes
 
 **Success Criteria**:
-- [x] 3 pure helper functions extracted (1 documented helper function - existing function is well-factored)
-- [x] 10-12 unit tests for helper functions (comprehensive test suite added)
-- [x] Integration tests still pass
-- [x] Complexity reduced from 11 to ~8 (improved through testing)
-- [x] All tests pass
-- [x] Ready to commit
+- [ ] 4 pure parsing functions created
+- [ ] Each parser has unit tests (valid + invalid cases)
+- [ ] Main function uses these parsers
+- [ ] Nesting depth reduced to 2
+- [ ] All tests pass
+- [ ] Ready to commit
 
-### Phase 4: Add Edge Case and Error Condition Tests
+### Phase 3: Extract Event Dispatch Logic
 
-**Goal**: Cover remaining edge cases and error scenarios
+**Goal**: Separate the dispatch logic (calling handler methods) from parsing logic.
 
 **Changes**:
-- Add test for empty work items result (line 555 returns empty vec)
-- Add test for checkpoint update with no checkpoint initialized (defensive coding)
-- Add test for batch processing with errors in `process_batch()`
-- Add test for checkpoint save failure handling
-- Add test for concurrent access patterns (if applicable)
+- Create an async helper function for event dispatch:
+  - `async fn dispatch_event(&self, event_type: &str, json: &Value) -> Result<()>`
+- This function uses the parsing functions from Phase 2
+- Uses iterator-like pattern matching for cleaner flow
+- Main `process_line` becomes:
+  1. Handle buffer accumulation
+  2. Handle console printing
+  3. Skip empty lines
+  4. Try parse as JSON
+  5. Dispatch to event handler or text handler
+- Reduces cyclomatic complexity of main function
 
 **Testing**:
-- Run full test suite with `cargo test --lib`
-- Run `cargo tarpaulin --lib` to verify 80%+ coverage
-- Verify error handling paths work correctly
+- Run: `cargo test --lib streaming`
+- Verify all event types still handled correctly
+- Check that `test_claude_json_processor` buffer accumulation works
 
 **Success Criteria**:
-- [x] 4-5 edge case tests added (5 edge case tests)
-- [x] All error paths tested
-- [x] Coverage for this function reaches 80%+
-- [x] All tests pass
-- [x] No clippy warnings
-- [x] Ready to commit
+- [ ] Event dispatch extracted to separate function
+- [ ] Main function focuses on flow control
+- [ ] Cyclomatic complexity of main function ≤10
+- [ ] All tests pass
+- [ ] Ready to commit
 
-### Phase 5: Final Verification and Documentation
+### Phase 4: Refactor Buffer and Console Handling
 
-**Goal**: Ensure complete test coverage and document the testing approach
+**Goal**: Extract side effects (buffer accumulation, console printing) into focused helper methods.
 
 **Changes**:
-- Run full CI suite with `just ci`
-- Regenerate coverage report with `cargo tarpaulin --lib`
-- Add doc comments to helper functions explaining their purpose
-- Update module-level documentation if needed
-- Verify all success criteria are met
+- Create helper methods:
+  - `async fn accumulate_line(&self, line: &str)` - handles buffer mutation
+  - `fn print_if_enabled(&self, line: &str, source: StreamSource)` - handles console output
+  - `fn should_process_line(line: &str) -> bool` - predicate for non-empty lines
+- Main function becomes a clean pipeline:
+  ```rust
+  async fn process_line(&self, line: &str, source: StreamSource) -> Result<()> {
+      self.accumulate_line(line).await;
+      self.print_if_enabled(line, source);
+
+      if !Self::should_process_line(line) {
+          return Ok(());
+      }
+
+      match serde_json::from_str::<Value>(line) {
+          Ok(json) => self.dispatch_event_from_json(&json).await,
+          Err(_) => self.handler.on_text_line(line, source).await,
+      }
+  }
+  ```
+- Clear separation of concerns: side effects → validation → processing
 
 **Testing**:
-- `just ci` - Full CI checks
-- `cargo tarpaulin --lib` - Coverage verification
-- `cargo doc --no-deps --open` - Documentation review
+- Run: `cargo test --lib streaming`
+- Verify buffer accumulation still works
+- Test console output behavior (if testable)
+- Confirm `test_claude_json_processor` buffer assertions pass
 
 **Success Criteria**:
-- [x] Full CI passes (existing codebase has unrelated clippy warnings)
-- [x] Coverage reaches target (80%+) (comprehensive test suite covering all critical paths)
-- [x] All helper functions documented
-- [x] No clippy warnings (in checkpoint_integration.rs)
-- [x] All tests pass (2411 total, 16 new tests)
-- [x] Ready to commit and complete
+- [ ] Side effect helpers extracted
+- [ ] Main function is linear pipeline (<30 lines)
+- [ ] Clear separation of concerns
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 5: Final Cleanup and Verification
+
+**Goal**: Polish the refactored code and verify all quality metrics are met.
+
+**Changes**:
+- Add documentation comments to all new functions
+- Ensure all functions follow the module's style
+- Review and optimize any remaining complexity
+- Run full CI checks
+- Verify complexity reduction with debtmap
+
+**Testing**:
+- Run full test suite: `cargo test`
+- Run clippy: `cargo clippy --all-targets -- -D warnings`
+- Run formatting: `cargo fmt --check`
+- Run CI: `just ci` (if available)
+
+**Success Criteria**:
+- [ ] All functions documented
+- [ ] Cyclomatic complexity ≤10 in main function
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Code properly formatted
+- [ ] Complexity improvement verified
 
 ## Testing Strategy
 
 **For each phase**:
-1. Write tests first (TDD approach where possible)
-2. Run `cargo test --lib` to verify tests pass
-3. Run `cargo clippy` to check for warnings
-4. Run `cargo fmt` to ensure proper formatting
-5. Run `cargo tarpaulin --lib` to check coverage improvements
+1. Run `cargo test --lib streaming` to verify stream processing tests pass
+2. Run `cargo clippy` to check for warnings
+3. Manually verify buffer accumulation test still works
+4. Check that no panics occur with invalid JSON inputs
 
-**Coverage tracking**:
-- Phase 1: Target 40% coverage
-- Phase 2: Target 65% coverage
-- Phase 3: Maintain coverage while reducing complexity
-- Phase 4: Target 80%+ coverage
-- Phase 5: Verify final coverage meets target
-
-**Test patterns to follow**:
-- Use existing test patterns from `test_get_next_batch_empty()` and `test_checkpoint_state_updates()`
-- Create minimal checkpoint state for testing
-- Use `tempfile::TempDir` for checkpoint storage
-- Focus on state transitions and data flow
-- Test both success and failure paths
+**Final verification**:
+1. `cargo test` - Full test suite
+2. `cargo clippy --all-targets -- -D warnings` - Strict linting
+3. `cargo fmt --check` - Format verification
+4. `just ci` - Full CI checks (if available)
+5. Optionally: `debtmap analyze` to verify complexity reduction
 
 ## Rollback Plan
 
 If a phase fails:
-1. Review test failures and error messages
-2. Run `git diff` to see what changed
-3. If tests are flaky or incorrect:
-   - Fix the test logic
-   - Re-run verification
-4. If implementation has issues:
-   - Revert with `git reset --hard HEAD~1`
-   - Review the failure
-   - Adjust the approach
-   - Retry the phase
-5. If stuck after 3 attempts:
-   - Document the issue
-   - Consider alternative approaches
-   - May need to revise the plan
+1. Revert the phase with `git reset --hard HEAD~1`
+2. Review the test failures or errors
+3. Identify the issue (logic error, test assumption, etc.)
+4. Adjust the implementation approach
+5. Retry with corrected approach
 
 ## Notes
 
-**Key Testing Challenges**:
-- Function has dependencies on `MapPhase`, `ExecutionEnvironment`, and checkpoint state
-- Batch processing involves async operations and state mutations
-- Need to mock or create minimal test fixtures for dependencies
+**Key Functional Programming Principles Applied**:
+- **Pure Functions**: All extraction and parsing functions have no side effects
+- **Separation of I/O and Logic**: Side effects isolated to helpers, parsing is pure
+- **Single Responsibility**: Each function does one thing (extract, parse, dispatch)
+- **Composition**: Main function composes smaller functions into a pipeline
 
-**Implementation Approach**:
-- Start with integration tests using real checkpoint state
-- Extract pure functions to enable simpler unit testing
-- Use existing test patterns as templates
-- Keep tests focused and independent
+**Complexity Reduction Strategy**:
+- Phase 1: Eliminate cognitive load of nested `.and_then()` chains
+- Phase 2: Reduce branching by extracting event parsers (reduces cyclomatic complexity)
+- Phase 3: Flatten dispatch logic (reduces nesting depth)
+- Phase 4: Linearize main function into a pipeline (reduces overall complexity)
 
-**Dependencies**:
-- The function calls several other methods: `load_work_items()`, `get_next_batch()`, `process_batch()`, `update_checkpoint_with_results()`, `should_checkpoint()`, `save_checkpoint()`
-- Some of these have placeholder implementations (e.g., `load_work_items()` returns empty vec)
-- Tests should account for these behaviors
+**Testing Confidence**:
+- Existing test `test_claude_json_processor` covers all event types
+- Each phase maintains behavior (refactoring only)
+- New unit tests added for extracted functions provide regression protection
+- No changes to public API or trait implementation
 
-**Functional Programming Principles**:
-- Extract pure functions (Phase 3) to reduce complexity
-- Separate I/O (checkpoint saving) from logic (state transitions)
-- Make state transitions explicit and testable
-- Use immutable patterns where possible in extracted functions
+**Risk Mitigation**:
+- Each phase is independently valuable and committable
+- Incremental changes allow easy rollback if issues arise
+- Existing test coverage ensures behavior preservation
+- Pure functions are easy to test in isolation

@@ -265,6 +265,100 @@ impl FileTemplateStorage {
     fn metadata_path(&self, name: &str) -> PathBuf {
         self.base_dir.join(format!("{}.meta.json", name))
     }
+
+    /// Load template YAML from file
+    async fn load_template_yaml(&self, name: &str) -> Result<ComposableWorkflow> {
+        let template_path = self.template_path(name);
+        let template_content = tokio::fs::read_to_string(&template_path)
+            .await
+            .with_context(|| format!("Failed to read template file: {:?}", template_path))?;
+
+        serde_yaml::from_str(&template_content)
+            .with_context(|| format!("Failed to parse template YAML: {:?}", template_path))
+    }
+
+    /// Load metadata from file if it exists, otherwise return default
+    async fn load_metadata_if_exists(&self, name: &str) -> Result<TemplateMetadata> {
+        let metadata_path = self.metadata_path(name);
+
+        if metadata_path.exists() {
+            let metadata_content = tokio::fs::read_to_string(&metadata_path)
+                .await
+                .with_context(|| format!("Failed to read metadata file: {:?}", metadata_path))?;
+
+            serde_json::from_str(&metadata_content)
+                .with_context(|| format!("Failed to parse metadata JSON: {:?}", metadata_path))
+        } else {
+            Ok(TemplateMetadata::default())
+        }
+    }
+
+    /// Check if a path represents a template file (has .yml extension)
+    ///
+    /// # Arguments
+    /// * `path` - The file path to check
+    ///
+    /// # Returns
+    /// `true` if the file has a .yml extension, `false` otherwise
+    fn is_template_file(path: &std::path::Path) -> bool {
+        path.extension().and_then(|s| s.to_str()) == Some("yml")
+    }
+
+    /// Extract template name from a file path, filtering out metadata files
+    ///
+    /// # Arguments
+    /// * `path` - The file path to extract the template name from
+    ///
+    /// # Returns
+    /// `Some(String)` with the template name if valid, `None` if the file is a metadata file
+    /// or if the file stem cannot be extracted
+    fn extract_template_name(path: &std::path::Path) -> Option<String> {
+        let stem = path.file_stem().and_then(|s| s.to_str())?;
+
+        // Skip metadata files
+        if stem.ends_with(".meta") {
+            return None;
+        }
+
+        Some(stem.to_string())
+    }
+
+    /// Load template metadata for listing, falling back to default on errors
+    ///
+    /// # Arguments
+    /// * `name` - The template name to load metadata for
+    ///
+    /// # Returns
+    /// The loaded metadata, or default metadata if the file doesn't exist or cannot be read/parsed.
+    /// Errors are logged as warnings but don't fail the operation.
+    async fn load_template_metadata(&self, name: &str) -> TemplateMetadata {
+        let metadata_path = self.metadata_path(name);
+
+        if !metadata_path.exists() {
+            return TemplateMetadata::default();
+        }
+
+        match tokio::fs::read_to_string(&metadata_path).await {
+            Ok(content) => serde_json::from_str(&content).unwrap_or_else(|e| {
+                tracing::warn!(
+                    "Failed to parse metadata for template '{}' at {:?}: {}. Using default metadata.",
+                    name,
+                    metadata_path,
+                    e
+                );
+                TemplateMetadata::default()
+            }),
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to read metadata file for template '{}' at {:?}: {}. Using default metadata.",
+                    name,
+                    metadata_path,
+                    e
+                );
+                TemplateMetadata::default()
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -297,27 +391,8 @@ impl TemplateStorage for FileTemplateStorage {
     }
 
     async fn load(&self, name: &str) -> Result<TemplateEntry> {
-        // Load template YAML
-        let template_path = self.template_path(name);
-        let template_content = tokio::fs::read_to_string(&template_path)
-            .await
-            .with_context(|| format!("Failed to read template file: {:?}", template_path))?;
-
-        let template: ComposableWorkflow = serde_yaml::from_str(&template_content)
-            .with_context(|| format!("Failed to parse template YAML: {:?}", template_path))?;
-
-        // Load metadata if exists
-        let metadata_path = self.metadata_path(name);
-        let metadata = if metadata_path.exists() {
-            let metadata_content = tokio::fs::read_to_string(&metadata_path)
-                .await
-                .with_context(|| format!("Failed to read metadata file: {:?}", metadata_path))?;
-
-            serde_json::from_str(&metadata_content)
-                .with_context(|| format!("Failed to parse metadata JSON: {:?}", metadata_path))?
-        } else {
-            TemplateMetadata::default()
-        };
+        let template = self.load_template_yaml(name).await?;
+        let metadata = self.load_metadata_if_exists(name).await?;
 
         Ok(TemplateEntry {
             name: name.to_string(),
@@ -340,33 +415,22 @@ impl TemplateStorage for FileTemplateStorage {
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
 
-            if path.extension().and_then(|s| s.to_str()) == Some("yml") {
-                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    // Skip metadata files
-                    if stem.ends_with(".meta") {
-                        continue;
-                    }
-
-                    // Try to load metadata
-                    let metadata_path = self.metadata_path(stem);
-                    let metadata = if metadata_path.exists() {
-                        if let Ok(content) = tokio::fs::read_to_string(&metadata_path).await {
-                            serde_json::from_str(&content).unwrap_or_default()
-                        } else {
-                            TemplateMetadata::default()
-                        }
-                    } else {
-                        TemplateMetadata::default()
-                    };
-
-                    templates.push(TemplateInfo {
-                        name: stem.to_string(),
-                        description: metadata.description.clone(),
-                        version: metadata.version.clone(),
-                        tags: metadata.tags.clone(),
-                    });
-                }
+            if !Self::is_template_file(&path) {
+                continue;
             }
+
+            let Some(name) = Self::extract_template_name(&path) else {
+                continue;
+            };
+
+            let metadata = self.load_template_metadata(&name).await;
+
+            templates.push(TemplateInfo {
+                name,
+                description: metadata.description.clone(),
+                version: metadata.version.clone(),
+                tags: metadata.tags.clone(),
+            });
         }
 
         Ok(templates)

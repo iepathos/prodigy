@@ -1,4 +1,4 @@
-# Implementation Plan: Verify and Improve Test Coverage for GitRunnerImpl::status
+# Implementation Plan: Reduce Nesting in GitRunnerImpl::status
 
 ## Problem Summary
 
@@ -7,231 +7,190 @@
 **Debt Type**: ComplexityHotspot (cognitive: 30, cyclomatic: 12)
 **Current Metrics**:
 - Lines of Code: 41
+- Functions: 1 (monolithic)
 - Cyclomatic Complexity: 12
-- Cognitive Complexity: 30
-- Coverage: 0% (according to debtmap analysis)
 - Nesting Depth: 4 levels
+- Coverage: Extensively tested (40 upstream callers, 35+ test cases)
 
-**Issue**: Coverage gap detected despite existing test suite. The debtmap analysis indicates 0% coverage, but manual inspection reveals 28+ comprehensive tests already exist for this function. The issue is likely:
-1. Coverage tool not detecting test execution
-2. Tests may need to be reorganized to be counted properly
-3. Coverage data may be stale or tests not being run during coverage collection
-
-**Recommendation**: Add 12 focused tests for uncovered branches. NO refactoring needed (complexity 12 is acceptable). Focus on test coverage, not refactoring.
+**Issue**: Function has 4 levels of nesting (for loop → if → if let → operations) which increases cognitive complexity. The debtmap analysis recommends reducing nesting from 4 levels using early returns and extracting deeply nested blocks into separate functions.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 6.0 (via improved testability)
-- Coverage Improvement: 0.0 (but should achieve 100% after verification)
+- Complexity Reduction: 6.0 points (from 12 to ~6)
+- Coverage Improvement: 0.0 (already well-tested)
 - Risk Reduction: 19.166875
 
 **Success Criteria**:
-- [x] Verify all 12 logical branches are tested
-- [x] Achieve 100% line coverage for `GitRunnerImpl::status` function
-- [x] Achieve 100% branch coverage for all conditional paths
-- [x] All existing tests continue to pass (2398 tests passing)
-- [x] No clippy warnings
-- [x] Proper formatting
-- [x] Coverage tool correctly detects and reports coverage
-
-**FINAL RESULT**: ✅ ALL SUCCESS CRITERIA MET
-- The `status()` function has 100% line and branch coverage
-- All 12 logical branches are thoroughly tested with 28+ test cases
-- All quality checks passing (tests, clippy, formatting)
-- The debtmap 0% coverage claim was incorrect - actual coverage is 100%
+- [ ] Nesting depth reduced from 4 to 2 or less
+- [ ] Cyclomatic complexity reduced by extracting pure functions
+- [ ] All 35+ existing tests continue to pass without modification
+- [ ] No clippy warnings
+- [ ] Proper formatting
+- [ ] Code is more readable and easier to understand
 
 ## Implementation Phases
 
-### Phase 1: Coverage Analysis and Verification
+### Phase 1: Extract Line Parsing Logic into Pure Functions
 
-**Goal**: Determine actual coverage state and identify any genuinely untested paths
-
-**Changes**:
-- Run `cargo tarpaulin --lib` to get current coverage baseline for git.rs
-- Analyze coverage report to identify specific uncovered lines/branches
-- Review existing 28+ tests to map them to code paths
-- Identify any genuinely missing test scenarios
-
-**Testing**:
-- Generate coverage report with line-level detail
-- Create a mapping of test → code path coverage
-- Verify tests are being executed during coverage runs
-
-**Success Criteria**:
-- [x] Coverage report generated successfully
-- [x] Actual coverage percentage documented
-- [x] Specific uncovered lines/branches identified (if any)
-- [x] Test execution confirmed during coverage collection
-
-**FINDINGS**:
-- **Actual Coverage**: 230/235 lines = **97.9% coverage** (NOT 0%!)
-- **Function Execution**: `status()` executed 28 times during tests
-- **Uncovered Lines**: Only 5 lines uncovered, ALL in OTHER functions:
-  - Line 94: `commit()` function start
-  - Line 121: `add()` function start
-  - Line 166: `remove_worktree()` function start
-  - Line 184: `current_branch()` function start
-  - Line 229: `run_command()` function start
-- **GitRunnerImpl::status Coverage**: **100%** - ALL lines in status() are covered!
-- **Test Suite**: 28+ comprehensive tests covering all branches, edge cases, and error paths
-
-**CONCLUSION**: The debtmap 0% coverage analysis was INCORRECT. The `status()` function has complete test coverage. The 5 uncovered lines belong to other functions in the same file (commit, add, remove_worktree, current_branch, run_command).
-
-### Phase 2: Add Missing Branch Coverage Tests (SKIPPED)
-
-**Goal**: Write targeted tests for any genuinely uncovered branches
-
-**Status**: SKIPPED - Phase 1 analysis revealed that the `status()` function already has 100% coverage. All 12 logical branches are already tested with 28+ comprehensive test cases. No additional tests needed.
+**Goal**: Extract the nested line parsing logic into separate, testable pure functions to reduce complexity and nesting.
 
 **Changes**:
-Based on the function's logic (lines 52-92), ensure these paths are tested:
-1. **Exit status paths**:
-   - Success path (status.success() == true) ✓ (already covered)
-   - Failure path (status.success() == false) ✓ (test_status_exit_code_error)
-
-2. **Output parsing paths**:
-   - Line starts with "## " → branch parsing ✓ (many tests)
-   - Line starts with "??" → untracked file ✓ (test_status_with_untracked_files)
-   - Line length > 2 → modified file ✓ (test_status_with_modified_files)
-   - Line length <= 2 → skip ✓ (test_status_line_length_one, test_status_line_length_exactly_two)
-
-3. **Branch info extraction**:
-   - branch_info contains "..." → split on separator ✓ (test_status_with_branch_information)
-   - branch_info without "..." → take whole string ✓ (test_status_branch_without_upstream)
-   - Empty branch_info → empty string ✓ (test_status_malformed_branch_line)
-   - No "## " line at all → None ✓ (test_status_detached_head)
-
-4. **Untracked file parsing**:
-   - Has "?? " prefix → extract filename ✓ (test_status_with_untracked_files)
-   - Multiple untracked files ✓ (test_status_with_untracked_files)
-
-5. **Clean status determination**:
-   - Both vectors empty → clean=true ✓ (test_status_clean_repository)
-   - Either vector non-empty → clean=false ✓ (test_status_with_mixed_status)
-
-**Additional edge cases to add if not covered**:
-- Untracked file line without proper "?? " prefix (malformed)
-- Modified file line with exactly 3 characters (boundary case)
-- Very long file paths (> 256 characters)
-- File paths with special characters or spaces
-- Mixed line endings (CRLF vs LF)
-- UTF-8 filenames with non-ASCII characters
+- Extract branch line parsing into `parse_branch_line(line: &str) -> Option<String>`
+  - Handles `"## "` prefix stripping and upstream split logic
+  - Pure function with no side effects
+- Extract untracked file parsing into `parse_untracked_line(line: &str) -> Option<String>`
+  - Handles `"?? "` prefix stripping
+  - Returns the filename if the line is an untracked file marker
+- Extract modified file parsing into `parse_modified_line(line: &str) -> Option<String>`
+  - Handles all other file status lines (modified, added, deleted, renamed, copied)
+  - Checks line length > 2 and extracts from position 3 onward
+- Add these as module-level pure functions with `#[inline]` for performance
 
 **Testing**:
-- Each new test should be <15 lines and test ONE specific path
-- Run `cargo test git_error_tests::` to verify all tests pass
-- Run coverage again to verify improvement
+- Run existing tests: `cargo test --lib subprocess::git`
+- All 35+ tests should pass without modification
+- Verify line parsing edge cases still work correctly
 
 **Success Criteria**:
-- [ ] All 12 logical branches have explicit test coverage
-- [ ] Each new test focuses on a single code path
-- [ ] All tests pass with `cargo test --lib`
-- [ ] Coverage percentage increases
+- [ ] Three new pure functions added
+- [ ] Functions are properly documented
+- [ ] All existing tests pass
+- [ ] Ready to commit
 
-### Phase 3: Refactor Tests for Better Organization (SKIPPED)
+### Phase 2: Refactor status() to Use Early Continue Pattern
 
-**Goal**: Organize tests by code path for clarity and maintainability
-
-**Status**: SKIPPED - Tests are already well-organized with clear naming and logical grouping. Test suite includes:
-- Basic functionality tests (clean, branch info, files)
-- Edge case tests (line length boundaries, empty output, malformed input)
-- Git-specific status codes (deleted, renamed, copied, dual-status)
-- Branch parsing edge cases (spaces, special chars, long names)
-No reorganization needed.
+**Goal**: Simplify the main loop by using the extracted functions and early continue pattern to eliminate nested if-else chains.
 
 **Changes**:
-- Group tests by what they're testing (branch parsing, file parsing, edge cases)
-- Add doc comments to test groups explaining coverage intent
-- Ensure test names clearly indicate what branch they cover
+- Restructure the for loop to use pattern matching with extracted functions:
+  ```rust
+  for line in output.stdout.lines() {
+      // Early continue for empty lines (implicitly handled by patterns not matching)
+
+      if let Some(branch_name) = parse_branch_line(line) {
+          branch = Some(branch_name);
+          continue;
+      }
+
+      if let Some(file) = parse_untracked_line(line) {
+          untracked_files.push(file);
+          continue;
+      }
+
+      if let Some(file) = parse_modified_line(line) {
+          modified_files.push(file);
+          continue;
+      }
+  }
+  ```
+- This pattern:
+  - Reduces nesting from 4 levels to 2 levels
+  - Makes each case independent and clear
+  - Uses early continue for control flow
+  - Leverages the extracted pure functions
 
 **Testing**:
-- All tests continue to pass
-- Test organization improves readability
-- Coverage remains at 100%
+- Run all git tests: `cargo test --lib subprocess::git`
+- Verify comprehensive test still passes: `test_status_comprehensive_all_scenarios`
+- Test edge cases: empty lines, whitespace, malformed input
 
 **Success Criteria**:
-- [ ] Tests logically grouped by functionality
-- [ ] Clear documentation of coverage intent
-- [ ] No reduction in coverage
+- [ ] Nesting reduced to 2 levels maximum
+- [ ] Control flow simplified with early continue
+- [ ] All existing tests pass
+- [ ] Code is more readable
+- [ ] Ready to commit
+
+### Phase 3: Add Inline Documentation and Verify Complexity Reduction
+
+**Goal**: Add clear documentation to the refactored code and verify that complexity metrics have improved.
+
+**Changes**:
+- Add doc comments to the three pure parsing functions explaining:
+  - What git porcelain format they parse
+  - Edge cases they handle
+  - Return value semantics
+- Add inline comment in `status()` explaining the porcelain format structure
+- Run clippy to ensure no new warnings: `cargo clippy --lib`
+- Run formatter: `cargo fmt`
+
+**Testing**:
+- Full test suite: `cargo test`
+- Clippy validation: `cargo clippy`
+- Format check: `cargo fmt -- --check`
+
+**Success Criteria**:
+- [ ] All functions have clear documentation
+- [ ] No clippy warnings
+- [ ] Code properly formatted
 - [ ] All tests pass
-
-### Phase 4: Final Verification and Documentation
-
-**Goal**: Confirm 100% coverage and document the test strategy
-
-**Changes**:
-- Run full test suite: `cargo test --lib`
-- Run coverage: `cargo tarpaulin --lib`
-- Verify coverage report shows 100% for `GitRunnerImpl::status`
-- Run clippy: `cargo clippy -- -D warnings`
-- Run formatter: `cargo fmt --check`
-
-**Testing**:
-- `cargo test --lib` - all tests pass
-- `cargo tarpaulin --lib` - 100% coverage for target function
-- `cargo clippy` - no warnings
-- `just ci` - full CI passes
-
-**Success Criteria**:
-- [x] Coverage report confirms 100% line and branch coverage
-- [x] All tests pass (2398 passed, 0 failed)
-- [x] No clippy warnings
-- [x] Code properly formatted
-- [x] CI checks pass
-
-**VERIFICATION RESULTS**:
-- **Coverage**: GitRunnerImpl::status has 100% coverage (230/235 lines in git.rs = 97.9%)
-- **Tests**: All 2398 tests passing, 0 failures
-- **Clippy**: No warnings with `-D warnings` flag
-- **Formatting**: All files properly formatted
-- **Status**: Implementation complete - target function fully covered
+- [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib -- git_error_tests` to verify git-specific tests
-2. Run `cargo test --lib` to verify all tests pass
-3. Run `cargo clippy` to check for warnings
-4. Run `cargo tarpaulin --lib -- git` for focused coverage analysis
+1. Run focused tests: `cargo test --lib subprocess::git` to verify git functionality
+2. Run `cargo clippy -- -D warnings` to check for any new warnings
+3. Verify the 35+ existing tests all pass (especially edge case tests added in previous phases)
+
+**Critical test coverage to preserve**:
+- Branch parsing with upstream info
+- Untracked files (`??` prefix)
+- Modified files (all status codes: M, A, D, R, C, MM, AM, etc.)
+- Edge cases: empty lines, whitespace-only lines, line length boundaries
+- Malformed input handling
 
 **Final verification**:
-1. `just ci` - Full CI checks
-2. `cargo tarpaulin --lib` - Generate complete coverage report
-3. Verify `src/subprocess/git.rs` shows 100% coverage for `status()` function
-4. Compare before/after coverage metrics
+1. `just ci` - Full CI checks (build, test, clippy, fmt)
+2. Manual verification that nesting depth is reduced
+3. Verify cyclomatic complexity reduction by inspecting the simplified control flow
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the coverage report to understand what's missing
-3. Adjust test strategy based on actual uncovered paths
-4. Retry with focused approach
+2. Review the test failures to understand what edge case was broken
+3. Adjust the implementation to handle the edge case
+4. Re-run tests and retry the phase
 
-If coverage tool issues persist:
-1. Verify cargo-tarpaulin is properly installed
-2. Try alternative coverage tools (e.g., llvm-cov)
-3. Check test execution is actually running during coverage collection
-4. Consider separating unit tests from integration tests
+Since this function is extensively tested (35+ tests covering edge cases), any regression will be immediately caught.
 
 ## Notes
 
-### Key Insight
-The debtmap analysis reports 0% coverage, but manual inspection reveals comprehensive test coverage already exists. This suggests either:
-1. Coverage tool not detecting test execution
-2. Tests not being run during coverage collection
-3. Coverage data is stale
-4. Tests need reorganization to be properly counted
+### Why This Refactoring is Low Risk:
 
-### Focus Areas
-- **Phase 1 is critical**: Must understand actual coverage state before adding tests
-- **Don't duplicate**: Many tests already exist - only add if genuinely missing
-- **Verify tool setup**: May be a tooling issue rather than missing tests
-- **Edge cases**: Focus on truly uncovered edge cases if they exist
+1. **Extensive test coverage**: 40 upstream callers and 35+ test cases covering:
+   - Clean repository
+   - Branch parsing (with/without upstream, special characters, spaces, very long names)
+   - File status codes (M, A, D, R, C, MM, AM, etc.)
+   - Edge cases (empty lines, whitespace, line length boundaries)
+   - Error conditions (exit codes, malformed input)
 
-### Complexity Note
-The cyclomatic complexity of 12 is manageable and acceptable. Per the debtmap recommendation, NO refactoring is needed - only test coverage improvement.
+2. **Pure function extraction**: The parsing logic being extracted has no side effects and is easy to reason about
 
-### Expected Outcome
-After Phase 1, we'll likely discover that coverage is actually much higher than 0%. The remaining phases will fill any genuine gaps and ensure the coverage tool properly detects all test execution.
+3. **Incremental approach**: Each phase builds on the previous one and maintains all existing behavior
+
+### Functional Programming Principles Applied:
+
+- **Pure functions**: All parsing logic extracted into side-effect-free functions
+- **Separation of I/O from logic**: Git command execution (I/O) remains separate from parsing (pure logic)
+- **Single responsibility**: Each parsing function handles one specific line type
+- **Composition**: The main loop composes the pure parsing functions
+
+### Expected Complexity Reduction:
+
+**Before**:
+- Nesting depth: 4 levels
+- Cyclomatic complexity: 12
+- Pattern: Nested if-else chains in a loop
+
+**After**:
+- Nesting depth: 2 levels (for loop + if let)
+- Cyclomatic complexity: ~6 (complexity moved to pure functions)
+- Pattern: Early continue with pure function calls
+
+The complexity isn't eliminated, but it's:
+- Distributed across focused, testable pure functions
+- Made more readable through clear patterns
+- Easier to extend with new file status types
