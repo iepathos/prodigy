@@ -867,9 +867,7 @@ impl DefaultJobStateManager {
         }
 
         // Extract job_id from directory name
-        path.file_name()
-            .and_then(|n| n.to_str())
-            .map(String::from)
+        path.file_name().and_then(|n| n.to_str()).map(String::from)
     }
 
     /// Build a ResumableJob from state and checkpoint list if incomplete
