@@ -172,6 +172,50 @@ impl GitHandler {
         }))
         .with_duration(duration)
     }
+
+    /// Executes a git command and processes the result
+    ///
+    /// This function handles the actual command execution, stdout/stderr processing,
+    /// and result transformation into a CommandResult.
+    async fn execute_git_command(
+        context: &ExecutionContext,
+        operation: String,
+        git_args: Vec<String>,
+        start: Instant,
+    ) -> CommandResult {
+        let result = context
+            .executor
+            .execute(
+                "git",
+                &git_args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                Some(&context.working_dir),
+                Some(context.full_env()),
+                None,
+            )
+            .await;
+
+        let duration = start.elapsed().as_millis() as u64;
+
+        match result {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+                if output.status.success() {
+                    CommandResult::success(json!({
+                        "output": stdout,
+                        "operation": operation,
+                    }))
+                    .with_duration(duration)
+                } else {
+                    CommandResult::error(format!("Git command failed: {stderr}"))
+                        .with_duration(duration)
+                }
+            }
+            Err(e) => CommandResult::error(format!("Failed to execute git command: {e}"))
+                .with_duration(duration),
+        }
+    }
 }
 
 #[async_trait]
@@ -235,38 +279,7 @@ impl CommandHandler for GitHandler {
         }
 
         // Execute git command
-        let result = context
-            .executor
-            .execute(
-                "git",
-                &git_args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
-                Some(&context.working_dir),
-                Some(context.full_env()),
-                None,
-            )
-            .await;
-
-        let duration = start.elapsed().as_millis() as u64;
-
-        match result {
-            Ok(output) => {
-                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-                if output.status.success() {
-                    CommandResult::success(json!({
-                        "output": stdout,
-                        "operation": operation,
-                    }))
-                    .with_duration(duration)
-                } else {
-                    CommandResult::error(format!("Git command failed: {stderr}"))
-                        .with_duration(duration)
-                }
-            }
-            Err(e) => CommandResult::error(format!("Failed to execute git command: {e}"))
-                .with_duration(duration),
-        }
+        Self::execute_git_command(context, operation, git_args, start).await
     }
 
     fn description(&self) -> &str {
