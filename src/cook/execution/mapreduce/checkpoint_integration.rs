@@ -590,6 +590,21 @@ fn update_checkpoint_to_map_phase(checkpoint: &mut Checkpoint) {
     checkpoint.execution_state.current_phase = PhaseType::Map;
 }
 
+/// Determine if a checkpoint should be saved based on items processed
+///
+/// This pure function encapsulates the checkpoint decision logic, making it easily testable
+/// and reducing complexity in the main execution flow.
+///
+/// # Arguments
+/// * `items_processed` - Number of items processed since last checkpoint
+/// * `config` - Checkpoint configuration containing interval thresholds
+///
+/// # Returns
+/// `true` if a checkpoint should be saved, `false` otherwise
+fn should_checkpoint_based_on_items(items_processed: usize, config: &CheckpointConfig) -> bool {
+    items_processed >= config.interval_items.unwrap_or(10)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -733,21 +748,6 @@ mod tests {
         // Should checkpoint if enough items processed
         let items_since_last = config.interval_items.unwrap_or(10);
         assert!(should_checkpoint_based_on_items(items_since_last, &config));
-    }
-
-    /// Helper function to determine if a checkpoint should be saved based on items processed
-    ///
-    /// This pure function encapsulates the checkpoint decision logic, making it easily testable
-    /// and reducing complexity in the main execution flow.
-    ///
-    /// # Arguments
-    /// * `items_processed` - Number of items processed since last checkpoint
-    /// * `config` - Checkpoint configuration containing interval thresholds
-    ///
-    /// # Returns
-    /// `true` if a checkpoint should be saved, `false` otherwise
-    fn should_checkpoint_based_on_items(items_processed: usize, config: &CheckpointConfig) -> bool {
-        items_processed >= config.interval_items.unwrap_or(10)
     }
 
     // Phase 2: Unit tests for create_work_items pure function
@@ -1005,6 +1005,116 @@ mod tests {
         assert_eq!(checkpoint.metadata.job_id, original_job_id);
         assert_eq!(checkpoint.metadata.total_work_items, original_total_items);
         assert_eq!(checkpoint.metadata.completed_items, 10);
+    }
+
+    // Phase 5: Unit tests for should_checkpoint_based_on_items pure function
+
+    #[test]
+    fn test_should_checkpoint_based_on_items_below_threshold() {
+        // Test with items below threshold
+        let config = CheckpointConfig {
+            interval_items: Some(10),
+            ..Default::default()
+        };
+        assert!(
+            !should_checkpoint_based_on_items(5, &config),
+            "Should not checkpoint with 5 items when threshold is 10"
+        );
+    }
+
+    #[test]
+    fn test_should_checkpoint_based_on_items_at_threshold() {
+        // Test exactly at threshold
+        let config = CheckpointConfig {
+            interval_items: Some(10),
+            ..Default::default()
+        };
+        assert!(
+            should_checkpoint_based_on_items(10, &config),
+            "Should checkpoint with 10 items when threshold is 10"
+        );
+    }
+
+    #[test]
+    fn test_should_checkpoint_based_on_items_above_threshold() {
+        // Test above threshold
+        let config = CheckpointConfig {
+            interval_items: Some(10),
+            ..Default::default()
+        };
+        assert!(
+            should_checkpoint_based_on_items(15, &config),
+            "Should checkpoint with 15 items when threshold is 10"
+        );
+    }
+
+    #[test]
+    fn test_should_checkpoint_based_on_items_zero_threshold() {
+        // Test with zero threshold (checkpoint immediately)
+        let config = CheckpointConfig {
+            interval_items: Some(0),
+            ..Default::default()
+        };
+        assert!(
+            should_checkpoint_based_on_items(0, &config),
+            "Should checkpoint immediately with 0 threshold"
+        );
+        assert!(
+            should_checkpoint_based_on_items(1, &config),
+            "Should checkpoint with any items when threshold is 0"
+        );
+    }
+
+    #[test]
+    fn test_should_checkpoint_based_on_items_none_config() {
+        // Test with None config (uses default of 10)
+        let config = CheckpointConfig {
+            interval_items: None,
+            ..Default::default()
+        };
+        assert!(
+            !should_checkpoint_based_on_items(5, &config),
+            "Should not checkpoint with 5 items when using default"
+        );
+        assert!(
+            should_checkpoint_based_on_items(10, &config),
+            "Should checkpoint with 10 items when using default"
+        );
+    }
+
+    #[test]
+    fn test_should_checkpoint_based_on_items_various_thresholds() {
+        // Test with different threshold values
+        let config1 = CheckpointConfig {
+            interval_items: Some(1),
+            ..Default::default()
+        };
+        assert!(
+            should_checkpoint_based_on_items(1, &config1),
+            "Should checkpoint after each item with threshold 1"
+        );
+
+        let config2 = CheckpointConfig {
+            interval_items: Some(50),
+            ..Default::default()
+        };
+        assert!(
+            !should_checkpoint_based_on_items(49, &config2),
+            "Should not checkpoint at 49 with threshold 50"
+        );
+        assert!(
+            should_checkpoint_based_on_items(50, &config2),
+            "Should checkpoint at 50 with threshold 50"
+        );
+
+        let config3 = CheckpointConfig {
+            interval_items: Some(100),
+            ..Default::default()
+        };
+        assert!(
+            should_checkpoint_based_on_items(150, &config3),
+            "Should checkpoint well above threshold"
+        );
     }
 
     // Phase 1 Integration Tests: Happy Path Coverage
