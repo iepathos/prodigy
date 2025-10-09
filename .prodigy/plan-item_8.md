@@ -1,276 +1,264 @@
-# Implementation Plan: Refactor execute_with_streaming Function
+# Implementation Plan: Add Test Coverage and Reduce Complexity in CheckpointedCoordinator::execute_map_with_checkpoints
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/claude.rs:ClaudeExecutorImpl::execute_with_streaming:210
-**Priority Score**: 31.075
-**Debt Type**: ComplexityHotspot (Cognitive: 41, Cyclomatic: 17)
-**Current Metrics**:
-- Lines of Code: 141
-- Cyclomatic Complexity: 17
-- Cognitive Complexity: 41
-- Nesting Depth: 4
-- Function Role: PureLogic (but contains I/O)
+**Location**: ./src/cook/execution/mapreduce/checkpoint_integration.rs:CheckpointedCoordinator::execute_map_with_checkpoints:215
+**Priority Score**: 31.56
+**Debt Type**: TestingGap
 
-**Issue**: This function has high complexity (cyclomatic: 17, cognitive: 41) and mixes multiple concerns. It needs functional decomposition through extracting pure functions and separating I/O from business logic.
+**Current Metrics**:
+- Lines of Code: 59
+- Cyclomatic Complexity: 11
+- Cognitive Complexity: 53
+- Coverage: 0%
+- Uncovered Lines: 29 critical lines (215, 220, 223-225, 229-230, 233-240, 242, 246-247, 250, 252-253, 256, 258, 261-263, 268-269, 271)
+
+**Issue**: Complex business logic with 100% test coverage gap. Cyclomatic complexity of 11 requires at least 11 test cases for full path coverage. After extracting pure functions, each will need only 3-5 tests. Testing before refactoring ensures no regressions.
+
+**Rationale**: The `execute_map_with_checkpoints` function orchestrates the entire map phase execution with checkpoint management. It has high complexity due to:
+1. Nested async state mutations (phase updates, work item transformations)
+2. Batch processing loop with conditional checkpoint logic
+3. Multiple responsibility: phase management, work item loading, batch coordination, checkpoint decisions
+4. Zero test coverage despite being critical business logic
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 8.5 points
-- Risk Reduction: 10.87625 points
-- Coverage Improvement: 0.0 (focus on refactoring)
+**Expected Impact**:
+- Complexity Reduction: 3.3 points (from 11 to ~7.7)
+- Coverage Improvement: 50% (from 0% to 50%+)
+- Risk Reduction: 13.26 points
 
 **Success Criteria**:
-- [ ] Extract at least 4 pure functions for configuration, decision logic, and formatting
-- [ ] Reduce cyclomatic complexity from 17 to ≤8
-- [ ] Reduce cognitive complexity from 41 to ≤20
-- [ ] Reduce nesting depth from 4 to ≤2
+- [ ] Achieve at least 50% test coverage for `execute_map_with_checkpoints`
+- [ ] Extract 3-4 pure helper functions with complexity ≤3 each
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting (cargo fmt)
+- [ ] Proper formatting with `cargo fmt`
+- [ ] Functions reduced to ≤20 lines where practical
 
 ## Implementation Phases
 
-### Phase 1: Extract Configuration Logic
+### Phase 1: Add Integration Tests for Happy Path
 
-**Goal**: Extract pure functions for parsing and validating configuration from environment variables
+**Goal**: Achieve initial test coverage for the main execution flow without requiring full coordinator setup.
 
 **Changes**:
-- Extract `parse_timeout_from_env(env_vars: &HashMap<String, String>) -> Option<u64>`
-  - Pure function that parses PRODIGY_COMMAND_TIMEOUT
-  - Returns None for invalid values
-  - Testable in isolation
-
-- Extract `should_print_to_console(env_vars: &HashMap<String, String>, verbosity: u8) -> bool`
-  - Pure predicate that determines console output setting
-  - Checks PRODIGY_CLAUDE_CONSOLE_OUTPUT env var first
-  - Falls back to verbosity >= 1
-  - Testable in isolation
+- Add integration test `test_execute_map_with_checkpoints_happy_path` covering:
+  - Phase state updates (lines 223-226)
+  - Work item loading and transformation (lines 229-242)
+  - Initial checkpoint save (lines 246-247)
+  - Batch processing loop execution (lines 252-265)
+- Add integration test `test_execute_map_with_checkpoints_empty_items` for edge case
+- Add integration test `test_execute_map_with_checkpoints_single_batch` for minimal case
+- Use existing test pattern: create minimal `CheckpointedCoordinator` with temp storage
 
 **Testing**:
-- Add unit tests for `parse_timeout_from_env`:
-  - Valid timeout string → Some(timeout)
-  - Invalid timeout string → None
-  - Missing timeout → None
-- Add unit tests for `should_print_to_console`:
-  - Env var "true" → true (regardless of verbosity)
-  - Env var "false" → false (regardless of verbosity)
-  - No env var, verbosity >= 1 → true
-  - No env var, verbosity < 1 → false
+- Run `cargo test test_execute_map_with_checkpoints` to verify new tests pass
+- Run `cargo test --lib` to ensure no regressions
+- Run `cargo tarpaulin --out Stdout` to verify coverage improvement
 
 **Success Criteria**:
-- [ ] Two new pure functions extracted and tested
-- [ ] All existing tests pass
-- [ ] cargo clippy passes
-- [ ] cargo fmt applied
+- [ ] 3 new integration tests added and passing
+- [ ] Coverage of `execute_map_with_checkpoints` increases from 0% to ~30-40%
+- [ ] All existing tests still pass
+- [ ] Tests follow existing patterns in the module (lines 568-1234)
 - [ ] Ready to commit
 
-### Phase 2: Extract Stream Processor Factory Logic
+### Phase 2: Extract Pure Function for Work Item Transformation
 
-**Goal**: Extract the complex handler creation logic into a pure factory function
+**Goal**: Reduce complexity by extracting the work item enumeration logic into a testable pure function.
 
 **Changes**:
-- Create new module `src/cook/execution/claude_stream_factory.rs`
-- Extract `create_stream_processor(event_logger: Option<Arc<EventLogger>>, agent_id: String, print_to_console: bool) -> Box<dyn StreamProcessor>`
-  - Encapsulates the handler creation logic (currently lines 263-276)
-  - Pure logic (takes inputs, returns processor)
-  - Separated from execution context
-
-- Update `execute_with_streaming` to use the factory:
+- Extract lines 235-242 into pure function:
   ```rust
-  let processor = create_stream_processor(
-      self.event_logger.clone(),
-      "agent-default".to_string(),
-      print_to_console,
-  );
-  ```
-
-**Testing**:
-- Add unit tests for `create_stream_processor`:
-  - With event logger → EventLoggingClaudeHandler processor
-  - Without event logger → ConsoleClaudeHandler processor
-  - Both with print_to_console true/false
-
-**Success Criteria**:
-- [ ] Stream processor factory extracted
-- [ ] New module created with tests
-- [ ] execute_with_streaming simplified
-- [ ] All existing tests pass
-- [ ] cargo clippy passes
-- [ ] Ready to commit
-
-### Phase 3: Extract Error Formatting Logic
-
-**Goal**: Extract the complex error message formatting into pure functions
-
-**Changes**:
-- Extract `format_execution_error_details(result: &ExecutionResult) -> String`
-  - Pure function that creates error detail string
-  - Uses iterator chain to prioritize stderr → stdout → exit code
-  - Currently implemented as nested if-else (lines 315-321)
-
-- Extract `format_error_with_log_location(command: &str, error_details: &str, log_location: Option<&Path>) -> String`
-  - Pure function that formats final error message
-  - Includes JSON log location if available
-  - Currently implemented as if-let-else (lines 326-334)
-
-**Testing**:
-- Add unit tests for `format_execution_error_details`:
-  - With stderr → returns stderr message
-  - With stdout only → returns stdout message
-  - With neither → returns exit code message
-
-- Add unit tests for `format_error_with_log_location`:
-  - With log location → includes log path
-  - Without log location → basic error message
-
-**Success Criteria**:
-- [ ] Two error formatting functions extracted and tested
-- [ ] Error handling logic simplified to use pure functions
-- [ ] All existing tests pass
-- [ ] cargo clippy passes
-- [ ] Ready to commit
-
-### Phase 4: Extract Command Args Builder
-
-**Goal**: Extract the command args construction into a pure function
-
-**Changes**:
-- Extract `build_streaming_claude_args(command: &str) -> Vec<String>`
-  - Pure function that constructs the args vector
-  - Currently hardcoded array (lines 238-244)
-  - Returns owned Vec for flexibility
-
-- Update `execute_with_streaming` to use the builder:
-  ```rust
-  let args = build_streaming_claude_args(command);
-  ```
-
-**Testing**:
-- Add unit tests for `build_streaming_claude_args`:
-  - Verify correct args order
-  - Verify all required flags present
-  - Test with different command strings
-
-**Success Criteria**:
-- [ ] Args builder function extracted and tested
-- [ ] Function clearly documents required flags
-- [ ] All existing tests pass
-- [ ] cargo clippy passes
-- [ ] Ready to commit
-
-### Phase 5: Simplify Main Function Flow
-
-**Goal**: Use the extracted pure functions to simplify execute_with_streaming
-
-**Changes**:
-- Refactor `execute_with_streaming` to use all extracted functions:
-  ```rust
-  async fn execute_with_streaming(...) -> Result<ExecutionResult> {
-      let execution_start = SystemTime::now();
-
-      // Use pure functions for configuration
-      let mut context = build_execution_context(project_path, env_vars.clone());
-      if let Some(timeout) = parse_timeout_from_env(&env_vars) {
-          context.timeout_seconds = Some(timeout);
-      }
-
-      let args = build_streaming_claude_args(command);
-      let print_to_console = should_print_to_console(&env_vars, self.verbosity);
-      let processor = create_stream_processor(
-          self.event_logger.clone(),
-          "agent-default".to_string(),
-          print_to_console,
-      );
-
-      // Execute (I/O boundary)
-      let result = self.runner.run_with_streaming("claude", &args, &context, processor).await;
-
-      // Process result using pure functions
-      handle_streaming_result(result, command, project_path, execution_start, self.verbosity).await
+  /// Transform raw JSON values into enumerated WorkItems
+  ///
+  /// This pure function takes a vector of JSON values and creates WorkItems
+  /// with sequential IDs, making it easily testable without async complexity.
+  fn create_work_items(items: Vec<Value>) -> Vec<WorkItem> {
+      items
+          .into_iter()
+          .enumerate()
+          .map(|(i, item)| WorkItem {
+              id: format!("item_{}", i),
+              data: item,
+          })
+          .collect()
   }
   ```
-
-- Extract `build_execution_context` helper for context setup
-- Extract `handle_streaming_result` for result processing
-- Reduce nesting and complexity
+- Update `execute_map_with_checkpoints` to call the new function
+- Add 3-4 unit tests for `create_work_items`:
+  - Normal case with multiple items
+  - Edge case: empty input
+  - Edge case: single item
+  - Verify ID formatting
 
 **Testing**:
-- Run existing integration tests
-- Verify all error paths still work
-- Test JSON log detection still functions
+- Run `cargo test create_work_items` to verify new function tests
+- Run `cargo test test_execute_map_with_checkpoints` to verify integration tests still pass
+- Run `cargo clippy` to check for warnings
 
 **Success Criteria**:
-- [ ] execute_with_streaming reduced to <50 lines
-- [ ] Cyclomatic complexity ≤8
-- [ ] Cognitive complexity ≤20
-- [ ] Nesting depth ≤2
-- [ ] All existing tests pass
-- [ ] cargo clippy passes
+- [ ] Pure function `create_work_items` extracted with complexity ≤2
+- [ ] 4 unit tests for new function added and passing
+- [ ] `execute_map_with_checkpoints` complexity reduced by 1-2 points
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 3: Extract Pure Function for Phase Update Logic
+
+**Goal**: Further reduce complexity by extracting checkpoint phase update logic.
+
+**Changes**:
+- Extract lines 223-226 into pure function:
+  ```rust
+  /// Update checkpoint to Map phase
+  ///
+  /// Pure function that takes a mutable checkpoint and updates its phase state.
+  fn update_checkpoint_to_map_phase(checkpoint: &mut Checkpoint) {
+      checkpoint.metadata.phase = PhaseType::Map;
+      checkpoint.execution_state.current_phase = PhaseType::Map;
+  }
+  ```
+- Update `execute_map_with_checkpoints` to call the new function
+- Add 2-3 unit tests for the function:
+  - Verify phase updates correctly
+  - Verify both metadata and execution_state are updated
+  - Test with different starting phases
+
+**Testing**:
+- Run `cargo test update_checkpoint_to_map_phase` for new tests
+- Run `cargo test --lib` to verify all tests pass
+- Check coverage improvement with `cargo tarpaulin`
+
+**Success Criteria**:
+- [ ] Pure function `update_checkpoint_to_map_phase` extracted with complexity ≤1
+- [ ] 3 unit tests for new function added and passing
+- [ ] `execute_map_with_checkpoints` complexity reduced by 1 point
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 4: Add Tests for Batch Processing Edge Cases
+
+**Goal**: Achieve 50%+ coverage by testing remaining branches and edge cases.
+
+**Changes**:
+- Add test `test_execute_map_with_checkpoints_multiple_batches`:
+  - Verify batch loop executes multiple times
+  - Verify checkpoint triggering at intervals
+- Add test `test_execute_map_with_checkpoints_checkpoint_on_interval`:
+  - Specifically test the conditional checkpoint logic (line 261)
+  - Verify counter reset (line 263)
+- Add test `test_execute_map_with_checkpoints_final_checkpoint`:
+  - Verify final checkpoint save (lines 268-269)
+- These tests cover critical uncovered branches
+
+**Testing**:
+- Run `cargo test test_execute_map_with_checkpoints` to verify all new tests
+- Run `cargo tarpaulin --out Stdout` to verify coverage ≥50%
+- Verify coverage report shows reduced uncovered lines
+
+**Success Criteria**:
+- [ ] 3 additional integration tests added and passing
+- [ ] Coverage of `execute_map_with_checkpoints` reaches 50%+
+- [ ] Uncovered lines reduced from 29 to ≤15
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 5: Extract Pure Function for Checkpoint Decision Enhancement
+
+**Goal**: Final complexity reduction by improving the checkpoint decision logic testability.
+
+**Changes**:
+- Enhance existing `should_checkpoint_based_on_items` helper (already extracted in tests)
+- Move it from test module to main implementation as a pure function
+- Update `should_checkpoint` method (lines 524-529) to use the pure function
+- Add comprehensive unit tests:
+  - Boundary conditions (at threshold, below, above)
+  - Edge cases (0 items, None config)
+  - Multiple threshold values
+
+**Testing**:
+- Run `cargo test should_checkpoint` to verify tests
+- Run `cargo test --lib` to ensure all tests pass
+- Run `cargo clippy` for final check
+
+**Success Criteria**:
+- [ ] `should_checkpoint_based_on_items` moved to implementation with proper documentation
+- [ ] `should_checkpoint` method refactored to use pure function
+- [ ] 5+ unit tests for checkpoint decision logic
+- [ ] Complexity of `execute_map_with_checkpoints` reduced to ≤7-8
+- [ ] All tests pass
+- [ ] No clippy warnings
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Write unit tests for extracted pure functions FIRST
-2. Run `cargo test --lib` to verify existing tests pass
-3. Run `cargo clippy -- -D warnings` to check for issues
-4. Run `cargo fmt` to format code
-5. Commit the phase with descriptive message
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run `cargo test <new_test_name>` to verify new tests in isolation
+3. Run `cargo clippy` to check for warnings
+4. Run `cargo fmt` to ensure formatting
+5. Run `cargo tarpaulin --out Stdout | grep checkpoint_integration` to check coverage progress
 
 **Final verification**:
-1. `cargo test --all` - All tests pass
-2. `cargo clippy -- -D warnings` - No warnings
-3. `cargo fmt --check` - Code properly formatted
-4. Verify complexity reduction with metrics:
-   - Use `cargo-complexity` or review manually
-   - Confirm cyclomatic complexity ≤8
-   - Confirm nesting depth ≤2
+1. `cargo test --lib` - All tests pass
+2. `cargo clippy` - No warnings
+3. `cargo fmt --check` - Properly formatted
+4. `cargo tarpaulin --out Stdout` - Verify ≥50% coverage improvement
+5. Review coverage report to confirm uncovered lines reduced
+
+**Coverage Tracking**:
+- Phase 1: ~30-40% coverage (basic integration tests)
+- Phase 2: ~35-45% coverage (work item transformation covered)
+- Phase 3: ~40-50% coverage (phase update covered)
+- Phase 4: ~50-60% coverage (edge cases covered)
+- Phase 5: ~55-65% coverage (checkpoint logic fully tested)
 
 ## Rollback Plan
 
 If a phase fails:
-1. Review test failures to understand the issue
-2. Check if the extraction broke any assumptions
-3. Revert with `git reset --hard HEAD~1`
-4. Adjust the approach:
-   - Smaller extraction scope
-   - Different function boundaries
-   - Additional helper functions
-5. Retry the phase
-
-If multiple phases fail:
-1. Return to last successful phase
-2. Re-evaluate the refactoring strategy
-3. Consider alternative approaches:
-   - Builder pattern for configuration
-   - Strategy pattern for handler selection
-   - Result type for error formatting
+1. Identify the specific test or extraction that failed
+2. Run `git diff` to review changes
+3. If the issue is a test problem:
+   - Review test assertions and setup
+   - Check for async/await issues
+   - Verify test data matches actual usage
+4. If the issue is an extraction problem:
+   - Revert the extraction: `git checkout -- <file>`
+   - Review the function signature and dependencies
+   - Consider a different extraction approach
+5. For any phase that can't be fixed after 2 attempts:
+   - Revert the phase: `git reset --hard HEAD~1`
+   - Document the blocker in this plan
+   - Move to next phase or seek help
 
 ## Notes
 
-**Key Principles**:
-- Extract pure functions first (no side effects)
-- Keep I/O at the boundaries (command execution)
-- Use function composition to build complex behavior
-- Each function should have a single, clear purpose
+**Key Insights from Code Analysis**:
+- The function is already well-structured with clear sections (phase update, work item loading, batch processing)
+- Existing tests (lines 568-1234) provide excellent patterns to follow for integration tests
+- The module already has helper functions demonstrating the extraction pattern
+- Most complexity comes from async state management, not logic complexity
+- Pure function extractions should focus on the synchronous transformations
 
-**Avoid**:
-- Moving code without reducing complexity
-- Creating helper functions that are just code extraction
-- Breaking legitimate patterns (e.g., Result handling)
-- Adding abstractions that don't clarify intent
+**Testing Approach**:
+- Follow the existing test pattern: minimal coordinator setup with temp storage
+- Focus on state transitions and data transformations
+- Use Arc<RwLock<>> pattern from existing tests for checkpoint state
+- Tests should be independent and not require full MapReduce setup
 
-**Dependencies**:
-- No external crate changes needed
-- All refactoring uses existing types and patterns
-- Maintains backward compatibility with existing tests
+**Refactoring Priorities**:
+1. Test coverage first (Phases 1, 4) - ensures safety net
+2. Pure function extraction second (Phases 2, 3, 5) - reduces complexity
+3. Each extraction targets a clear, self-contained responsibility
+4. Extracted functions should have ≤3 complexity each
 
-**Expected Outcome**:
-- 6-8 new pure functions
-- Main function reduced from 141 lines to ~40-50 lines
-- Cyclomatic complexity reduced from 17 to ~6-8
-- Cognitive complexity reduced from 41 to ~15-20
-- All logic testable in isolation
-- Clearer separation of concerns
+**Expected Outcomes**:
+- Coverage: 0% → 50-65%
+- Complexity: 11 → 7-8
+- Pure functions: 0 → 3-4
+- Test cases: 0 → 15+
+- Maintainability: Significantly improved
+- Risk: Reduced by ~40%
