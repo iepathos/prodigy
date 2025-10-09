@@ -224,12 +224,10 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
             context.capture_streaming = true; // Enable streaming capture
         }
 
-        // Check for timeout configuration
-        if let Some(timeout_str) = env_vars.get("PRODIGY_COMMAND_TIMEOUT") {
-            if let Ok(timeout_secs) = timeout_str.parse::<u64>() {
-                context.timeout_seconds = Some(timeout_secs);
-                tracing::debug!("Claude command timeout set to {} seconds", timeout_secs);
-            }
+        // Check for timeout configuration using pure helper
+        if let Some(timeout_secs) = parse_timeout_from_env(&env_vars) {
+            context.timeout_seconds = Some(timeout_secs);
+            tracing::debug!("Claude command timeout set to {} seconds", timeout_secs);
         }
 
         // Claude requires some input on stdin
@@ -252,12 +250,8 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         use crate::subprocess::streaming::{ClaudeJsonProcessor, StreamProcessor};
         use std::sync::Arc;
 
-        // Determine if we should print to console based on verbosity
-        // Show Claude streaming output only with -v (verbose) or higher
-        let print_to_console = env_vars
-            .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
-            .map(|v| v == "true")
-            .unwrap_or_else(|| self.verbosity >= 1); // Default to showing output only with -v or higher
+        // Determine if we should print to console using pure helper
+        let print_to_console = should_print_to_console(&env_vars, self.verbosity);
 
         // Create the appropriate handler based on whether we have an event logger
         let processor: Box<dyn StreamProcessor> = if let Some(ref event_logger) = self.event_logger
@@ -387,6 +381,26 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
     }
 }
 
+// Pure helper functions for configuration parsing
+
+/// Parse timeout value from environment variables
+/// Returns None if the environment variable is not set or contains an invalid value
+fn parse_timeout_from_env(env_vars: &HashMap<String, String>) -> Option<u64> {
+    env_vars
+        .get("PRODIGY_COMMAND_TIMEOUT")
+        .and_then(|timeout_str| timeout_str.parse::<u64>().ok())
+}
+
+/// Determine whether to print Claude output to console
+/// Checks PRODIGY_CLAUDE_CONSOLE_OUTPUT environment variable first,
+/// then falls back to verbosity level (>= 1)
+fn should_print_to_console(env_vars: &HashMap<String, String>, verbosity: u8) -> bool {
+    env_vars
+        .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
+        .map(|v| v == "true")
+        .unwrap_or(verbosity >= 1)
+}
+
 #[async_trait]
 impl<R: CommandRunner + 'static> CommandExecutor for ClaudeExecutorImpl<R> {
     async fn execute(
@@ -410,6 +424,77 @@ impl<R: CommandRunner + 'static> CommandExecutor for ClaudeExecutorImpl<R> {
 mod tests {
     use super::*;
     use crate::cook::execution::runner::tests::MockCommandRunner;
+
+    // Phase 1: Tests for pure configuration functions
+
+    #[test]
+    fn test_parse_timeout_from_env_valid() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert("PRODIGY_COMMAND_TIMEOUT".to_string(), "300".to_string());
+
+        let result = parse_timeout_from_env(&env_vars);
+        assert_eq!(result, Some(300));
+    }
+
+    #[test]
+    fn test_parse_timeout_from_env_invalid() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert("PRODIGY_COMMAND_TIMEOUT".to_string(), "invalid".to_string());
+
+        let result = parse_timeout_from_env(&env_vars);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_timeout_from_env_missing() {
+        let env_vars = HashMap::new();
+
+        let result = parse_timeout_from_env(&env_vars);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_should_print_to_console_env_var_true() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert(
+            "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+            "true".to_string(),
+        );
+
+        // Should be true regardless of verbosity
+        assert!(should_print_to_console(&env_vars, 0));
+        assert!(should_print_to_console(&env_vars, 1));
+    }
+
+    #[test]
+    fn test_should_print_to_console_env_var_false() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert(
+            "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+            "false".to_string(),
+        );
+
+        // Should be false regardless of verbosity
+        assert!(!should_print_to_console(&env_vars, 0));
+        assert!(!should_print_to_console(&env_vars, 1));
+    }
+
+    #[test]
+    fn test_should_print_to_console_verbosity_high() {
+        let env_vars = HashMap::new();
+
+        // Should be true when verbosity >= 1
+        assert!(should_print_to_console(&env_vars, 1));
+        assert!(should_print_to_console(&env_vars, 2));
+    }
+
+    #[test]
+    fn test_should_print_to_console_verbosity_low() {
+        let env_vars = HashMap::new();
+
+        // Should be false when verbosity < 1
+        assert!(!should_print_to_console(&env_vars, 0));
+    }
 
     #[tokio::test]
     async fn test_claude_verbosity_streaming() {
