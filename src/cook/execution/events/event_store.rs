@@ -2185,4 +2185,255 @@ mod tests {
             "Debug output should provide details"
         );
     }
+
+    // Phase 3: Performance and scale tests
+
+    #[tokio::test]
+    async fn test_index_with_large_number_of_events() {
+        // Test index with 1000+ events across multiple files (realistic MapReduce scale)
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "large-scale-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        let num_files = 10;
+        let events_per_file = 100;
+        let total_events = num_files * events_per_file;
+
+        // Create 10 files with 100 events each
+        for file_num in 0..num_files {
+            let mut content = String::new();
+            for event_num in 0..events_per_file {
+                let event = EventRecord {
+                    id: Uuid::new_v4(),
+                    timestamp: Utc::now(),
+                    correlation_id: format!("corr-{}-{}", file_num, event_num),
+                    event: MapReduceEvent::AgentStarted {
+                        job_id: job_id.to_string(),
+                        agent_id: format!("agent-{}-{}", file_num, event_num),
+                        item_id: format!("item-{}", event_num),
+                        worktree: format!("worktree-{}", event_num),
+                        attempt: 1,
+                    },
+                    metadata: HashMap::new(),
+                };
+                content.push_str(&serde_json::to_string(&event).unwrap());
+                content.push('\n');
+            }
+            fs::write(
+                events_dir.join(format!("events-{:03}.jsonl", file_num)),
+                content,
+            )
+            .await
+            .unwrap();
+        }
+
+        let result = store.index(job_id).await;
+
+        assert!(result.is_ok(), "Index should handle 1000+ events");
+        let index = result.unwrap();
+
+        assert_eq!(index.total_events, total_events);
+        assert_eq!(index.event_counts.get("agent_started"), Some(&total_events));
+        assert_eq!(index.file_offsets.len(), total_events);
+
+        // Verify index file was created and can be deserialized
+        let index_path = events_dir.join("index.json");
+        assert!(index_path.exists());
+        let index_content = fs::read_to_string(&index_path).await.unwrap();
+        let parsed: EventIndex = serde_json::from_str(&index_content).unwrap();
+        assert_eq!(parsed.total_events, total_events);
+    }
+
+    #[tokio::test]
+    async fn test_index_with_very_large_event_records() {
+        // Test index with events containing large metadata (>1MB per event)
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "large-records-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        // Create event with large metadata (simulating large log outputs, etc.)
+        let mut large_metadata = HashMap::new();
+        // Create ~1MB of metadata
+        let large_string = "x".repeat(10000); // 10KB string
+        for i in 0..100 {
+            large_metadata.insert(
+                format!("large_key_{}", i),
+                serde_json::Value::String(large_string.clone()),
+            );
+        }
+
+        let large_event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            correlation_id: "large-event".to_string(),
+            event: MapReduceEvent::AgentCompleted {
+                job_id: job_id.to_string(),
+                agent_id: "agent-large".to_string(),
+                duration: chrono::Duration::seconds(3600),
+                commits: vec!["commit".to_string(); 100],
+                json_log_location: Some("/path/to/large/log.json".to_string()),
+            },
+            metadata: large_metadata,
+        };
+
+        // Create multiple large events
+        let mut content = String::new();
+        for _ in 0..5 {
+            content.push_str(&serde_json::to_string(&large_event).unwrap());
+            content.push('\n');
+        }
+
+        fs::write(events_dir.join("events-001.jsonl"), content)
+            .await
+            .unwrap();
+
+        let result = store.index(job_id).await;
+
+        assert!(
+            result.is_ok(),
+            "Index should handle large event records (>1MB)"
+        );
+        let index = result.unwrap();
+
+        assert_eq!(index.total_events, 5);
+        assert_eq!(index.file_offsets.len(), 5);
+
+        // Verify byte offsets are tracked correctly for large records
+        for i in 1..index.file_offsets.len() {
+            assert!(
+                index.file_offsets[i].byte_offset > index.file_offsets[i - 1].byte_offset,
+                "Byte offsets should increase for large records"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_index_with_long_running_job_time_range() {
+        // Test index with events spanning >24 hours (long-running MapReduce job)
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "long-running-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        // Create events spanning 48 hours
+        let start_time = Utc::now() - chrono::Duration::hours(48);
+        let end_time = Utc::now();
+        let interval = chrono::Duration::hours(4);
+
+        let mut content = String::new();
+        let mut current_time = start_time;
+        let mut event_count = 0;
+
+        while current_time <= end_time {
+            let event = EventRecord {
+                id: Uuid::new_v4(),
+                timestamp: current_time,
+                correlation_id: format!("corr-{}", event_count),
+                event: MapReduceEvent::AgentStarted {
+                    job_id: job_id.to_string(),
+                    agent_id: format!("agent-{}", event_count),
+                    item_id: format!("item-{}", event_count),
+                    worktree: format!("worktree-{}", event_count),
+                    attempt: 1,
+                },
+                metadata: HashMap::new(),
+            };
+            content.push_str(&serde_json::to_string(&event).unwrap());
+            content.push('\n');
+            current_time = current_time + interval;
+            event_count += 1;
+        }
+
+        fs::write(events_dir.join("events-001.jsonl"), content)
+            .await
+            .unwrap();
+
+        let result = store.index(job_id).await;
+
+        assert!(
+            result.is_ok(),
+            "Index should handle long-running jobs (>24 hours)"
+        );
+        let index = result.unwrap();
+
+        assert!(index.total_events > 10, "Should have multiple events");
+        let (range_start, range_end) = index.time_range;
+
+        let duration = range_end - range_start;
+        assert!(
+            duration >= chrono::Duration::hours(24),
+            "Time range should span at least 24 hours"
+        );
+        assert!(
+            duration <= chrono::Duration::hours(49),
+            "Time range should be within expected bounds"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_index_performance_with_many_small_files() {
+        // Test index with many small files (common in high-frequency event logging)
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "many-files-job";
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        // Create 50 files with 10 events each
+        let num_files = 50;
+        let events_per_file = 10;
+
+        for file_num in 0..num_files {
+            let mut content = String::new();
+            for event_num in 0..events_per_file {
+                let event = EventRecord {
+                    id: Uuid::new_v4(),
+                    timestamp: Utc::now(),
+                    correlation_id: format!("corr-{}-{}", file_num, event_num),
+                    event: MapReduceEvent::AgentCompleted {
+                        job_id: job_id.to_string(),
+                        agent_id: format!("agent-{}", event_num),
+                        duration: chrono::Duration::seconds(30),
+                        commits: vec![format!("commit-{}", event_num)],
+                        json_log_location: None,
+                    },
+                    metadata: HashMap::new(),
+                };
+                content.push_str(&serde_json::to_string(&event).unwrap());
+                content.push('\n');
+            }
+            fs::write(
+                events_dir.join(format!("events-{:03}.jsonl", file_num)),
+                content,
+            )
+            .await
+            .unwrap();
+        }
+
+        let start = std::time::Instant::now();
+        let result = store.index(job_id).await;
+        let elapsed = start.elapsed();
+
+        assert!(
+            result.is_ok(),
+            "Index should handle many small files efficiently"
+        );
+        let index = result.unwrap();
+
+        assert_eq!(index.total_events, num_files * events_per_file);
+        assert_eq!(index.file_offsets.len(), num_files * events_per_file);
+
+        // Performance assertion: should complete in reasonable time
+        // Adjusted for test environment - allow up to 5 seconds
+        assert!(
+            elapsed.as_secs() < 5,
+            "Index should complete in <5s, took {:?}",
+            elapsed
+        );
+    }
 }
