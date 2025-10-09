@@ -335,6 +335,26 @@ impl EventStore for FileEventStore {
         Ok(())
     }
 
+    /// Get aggregated statistics for a job
+    ///
+    /// # Arguments
+    ///
+    /// * `job_id` - The job identifier to aggregate statistics for
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(EventStats)` containing aggregated statistics including:
+    /// - Total event count
+    /// - Event counts by type
+    /// - Success/failure counts
+    /// - Time range and duration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Job directory doesn't exist
+    /// - Event files cannot be read
+    /// - Event records are malformed (note: individual malformed records are skipped with a warning)
     async fn aggregate(&self, job_id: &str) -> Result<EventStats> {
         let files = self.find_event_files(job_id).await?;
         let mut stats = EventStats {
@@ -386,6 +406,102 @@ impl EventStore for FileEventStore {
         Ok(stats)
     }
 
+    /// Create or update an index for a job's events
+    ///
+    /// This method scans all event files for a job and builds an index containing:
+    /// - Event counts by type
+    /// - Time range (earliest to latest event)
+    /// - File offsets for each event (for efficient seeking)
+    /// - Total event count
+    ///
+    /// The index is persisted to disk as `index.json` in the job's events directory.
+    ///
+    /// # Arguments
+    ///
+    /// * `job_id` - The job identifier to create an index for
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(EventIndex)` containing:
+    /// - `job_id` - The job identifier
+    /// - `event_counts` - HashMap of event type names to counts
+    /// - `time_range` - Tuple of (earliest_timestamp, latest_timestamp)
+    /// - `file_offsets` - Vector of file offset records for event lookup
+    /// - `total_events` - Total number of valid events indexed
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The job directory doesn't exist (cannot save index.json)
+    /// - Event files cannot be read due to I/O errors
+    /// - The index file cannot be written to disk
+    ///
+    /// Note: Malformed event records within files are skipped with a warning and do not
+    /// cause the indexing operation to fail. Only valid JSON event records are indexed.
+    ///
+    /// # Behavior
+    ///
+    /// ## File Processing Order
+    /// Event files are processed in lexicographic order by filename. This ensures
+    /// deterministic ordering when files are named with timestamps (e.g., events-001.jsonl).
+    ///
+    /// ## Idempotency
+    /// This method is idempotent - calling it multiple times produces the same result
+    /// and overwrites the previous index.json file.
+    ///
+    /// ## Empty Directories
+    /// If the job directory exists but contains no event files, an empty index is created
+    /// with zero events and a time range set to the current time.
+    ///
+    /// ## Large Event Files
+    /// The method handles large event files efficiently by streaming lines rather than
+    /// loading entire files into memory.
+    ///
+    /// # Performance
+    ///
+    /// - **Typical workload**: 500 events across 5 files processes in <100ms
+    /// - **Large scale**: 1000+ events across 10+ files processes in <1s
+    /// - **Memory usage**: Constant memory overhead per event for file offsets
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Example showing the EventStore::index interface
+    /// // (FileEventStore is internal, not part of public API)
+    /// use prodigy::cook::execution::events::{EventStore, EventIndex};
+    /// use std::path::PathBuf;
+    ///
+    /// async fn example(store: impl EventStore) -> anyhow::Result<()> {
+    ///     // Create index for a job
+    ///     let index: EventIndex = store.index("job-123").await?;
+    ///
+    ///     println!("Indexed {} events", index.total_events);
+    ///     println!("Time range: {:?}", index.time_range);
+    ///
+    ///     // Access event counts by type
+    ///     if let Some(count) = index.event_counts.get("agent_completed") {
+    ///         println!("Found {} agent completions", count);
+    ///     }
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Related Functions
+    ///
+    /// This method delegates to several pure helper functions for maintainability:
+    /// - [`update_time_range`] - Updates time range with new event timestamps
+    /// - [`increment_event_count`] - Increments count for an event type
+    /// - [`create_file_offset`] - Creates file offset records
+    /// - [`process_event_line`] - Processes a single event line
+    /// - [`process_event_file`] - Processes all events in a file
+    /// - [`save_index`] - Persists the index to disk
+    ///
+    /// # Thread Safety
+    ///
+    /// This method is async and can be called concurrently for different jobs.
+    /// However, concurrent calls for the same job may result in race conditions
+    /// when writing index.json. The last write wins.
     async fn index(&self, job_id: &str) -> Result<EventIndex> {
         let files = self.find_event_files(job_id).await?;
         let mut index = EventIndex {
@@ -1786,9 +1902,7 @@ mod tests {
                 agent_id: "agent-with-long-identifier".to_string(),
                 duration: chrono::Duration::seconds(3600),
                 commits: vec!["commit1".to_string(); 50],
-                json_log_location: Some(
-                    "/very/long/path/to/logs/session-id-here.json".to_string(),
-                ),
+                json_log_location: Some("/very/long/path/to/logs/session-id-here.json".to_string()),
             },
             metadata: large_metadata,
         };
@@ -1861,7 +1975,11 @@ mod tests {
         assert_eq!(offset.timestamp, event_time);
         assert_eq!(offset.line_number, 1);
         assert_eq!(offset.byte_offset, 0);
-        assert!(offset.file_path.to_str().unwrap().contains("events-001.jsonl"));
+        assert!(offset
+            .file_path
+            .to_str()
+            .unwrap()
+            .contains("events-001.jsonl"));
     }
 
     #[tokio::test]
