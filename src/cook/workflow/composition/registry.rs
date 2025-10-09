@@ -547,7 +547,10 @@ mod tests {
         let loaded = storage.load("test-template").await.unwrap();
 
         assert_eq!(loaded.name, "test-template");
-        assert_eq!(loaded.metadata.description, Some("Test description".to_string()));
+        assert_eq!(
+            loaded.metadata.description,
+            Some("Test description".to_string())
+        );
         assert_eq!(loaded.metadata.version, "2.1.0");
     }
 
@@ -573,7 +576,9 @@ mod tests {
         // Write only the template YAML file (no metadata)
         let template_yaml = serde_yaml::to_string(&workflow).unwrap();
         let template_path = temp_dir.path().join("test-template.yml");
-        tokio::fs::write(&template_path, template_yaml).await.unwrap();
+        tokio::fs::write(&template_path, template_yaml)
+            .await
+            .unwrap();
 
         // Load it back - should use default metadata
         let loaded = storage.load("test-template").await.unwrap();
@@ -610,7 +615,9 @@ mod tests {
 
         // Write invalid YAML to template file
         let template_path = temp_dir.path().join("invalid-template.yml");
-        tokio::fs::write(&template_path, "{ invalid yaml: [ unclosed").await.unwrap();
+        tokio::fs::write(&template_path, "{ invalid yaml: [ unclosed")
+            .await
+            .unwrap();
 
         // Attempt to load - should fail with parse error
         let result = storage.load("invalid-template").await;
@@ -642,11 +649,15 @@ mod tests {
         // Write valid template YAML
         let template_yaml = serde_yaml::to_string(&workflow).unwrap();
         let template_path = temp_dir.path().join("test-template.yml");
-        tokio::fs::write(&template_path, template_yaml).await.unwrap();
+        tokio::fs::write(&template_path, template_yaml)
+            .await
+            .unwrap();
 
         // Write invalid JSON to metadata file
         let metadata_path = temp_dir.path().join("test-template.meta.json");
-        tokio::fs::write(&metadata_path, "{ invalid json: [ unclosed").await.unwrap();
+        tokio::fs::write(&metadata_path, "{ invalid json: [ unclosed")
+            .await
+            .unwrap();
 
         // Attempt to load - should fail with JSON parse error
         let result = storage.load("test-template").await;
@@ -678,11 +689,15 @@ mod tests {
         // Write valid template YAML
         let template_yaml = serde_yaml::to_string(&workflow).unwrap();
         let template_path = temp_dir.path().join("test-template.yml");
-        tokio::fs::write(&template_path, template_yaml).await.unwrap();
+        tokio::fs::write(&template_path, template_yaml)
+            .await
+            .unwrap();
 
         // Write valid JSON but invalid metadata structure (missing required fields)
         let metadata_path = temp_dir.path().join("test-template.meta.json");
-        tokio::fs::write(&metadata_path, r#"{"invalid": "structure"}"#).await.unwrap();
+        tokio::fs::write(&metadata_path, r#"{"invalid": "structure"}"#)
+            .await
+            .unwrap();
 
         // Attempt to load - should fail due to invalid metadata structure
         let result = storage.load("test-template").await;
