@@ -1,183 +1,155 @@
-# Implementation Plan: Add Tests and Refactor `execute_shell_with_retry`
+# Implementation Plan: Add Test Coverage for FileTemplateStorage::load
 
 ## Problem Summary
 
-**Location**: ./src/cook/workflow/executor/commands.rs:WorkflowExecutor::execute_shell_with_retry:601
-**Priority Score**: 31.78
-**Debt Type**: TestingGap (100% coverage gap)
+**Location**: ./src/cook/workflow/composition/registry.rs:FileTemplateStorage::load:299
+**Priority Score**: 30.99
+**Debt Type**: ComplexityHotspot (Cognitive: 21, Cyclomatic: 7)
 **Current Metrics**:
-- Lines of Code: 132
-- Cyclomatic Complexity: 17
-- Cognitive Complexity: 45
-- Coverage: 0.0% (direct), 22.2% (transitive)
+- Lines of Code: 29
+- Cyclomatic Complexity: 7
+- Coverage: 0%
+- Function Length: 29 lines
 
-**Issue**: Complex business logic with 100% coverage gap. Cyclomatic complexity of 17 requires at least 17 test cases for full path coverage. The function handles shell command execution with retry logic, failure handling, temp file management, and Claude debugging commands - all untested.
+**Issue**: Add 7 tests for 100% coverage gap. NO refactoring needed (complexity 7 is acceptable). The function has 0% test coverage despite being a critical path for loading workflow templates.
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 5.1
-- Coverage Improvement: 50.0%
-- Risk Reduction: 13.3%
+**Expected Impact**:
+- Complexity Reduction: 3.5
+- Coverage Improvement: 0% → 100%
+- Risk Reduction: 10.85
 
 **Success Criteria**:
-- [ ] 80%+ code coverage for `execute_shell_with_retry` and extracted functions
-- [ ] Cyclomatic complexity ≤10 for main function
-- [ ] 9+ pure helper functions with complexity ≤3 each
+- [ ] 7 focused tests covering all decision branches
+- [ ] Each test is <15 lines and tests ONE path
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
+- [ ] Code coverage reaches 100% for this function
 - [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Add Integration Tests for Core Paths
+### Phase 1: Add Happy Path Tests
 
-**Goal**: Achieve 40%+ coverage by testing the main execution paths without refactoring
+**Goal**: Establish baseline test coverage for successful load scenarios
 
 **Changes**:
-- Add test module `tests::workflow_executor_shell_retry`
-- Test successful execution on first attempt
-- Test successful execution after retry
-- Test max attempts exceeded with `fail_workflow=true`
-- Test max attempts exceeded with `fail_workflow=false`
-- Test execution without `on_failure` config
+- Add test for loading template with metadata file present
+- Add test for loading template without metadata file (uses default)
 
-**Testing**:
-```bash
-cargo test execute_shell_with_retry
-cargo tarpaulin --out Html --output-dir coverage
-```
+**Tests**:
+- `test_file_template_storage_load_with_metadata` - Creates temp dir, stores template+metadata, loads and verifies both
+- `test_file_template_storage_load_without_metadata` - Creates temp dir, stores only template YAML, loads and verifies default metadata
 
 **Success Criteria**:
-- [ ] 5+ integration tests passing
-- [ ] Coverage ≥40% for the function
-- [ ] All existing tests pass
+- [ ] Both happy path tests pass
+- [ ] Tests are independently runnable
+- [ ] All existing tests still pass
 - [ ] Ready to commit
 
-### Phase 2: Extract Pure Functions - Output Management
+### Phase 2: Add Error Path Tests - Template File Issues
 
-**Goal**: Extract temp file and output handling logic into testable pure functions
+**Goal**: Cover error scenarios related to template file reading and parsing
 
 **Changes**:
-- Extract `should_use_temp_file(stdout_len: usize, stderr_len: usize) -> bool`
-- Extract `format_shell_output(stdout: &str, stderr: &str) -> String`
-- Extract `create_output_temp_file(stdout: &str, stderr: &str) -> Result<NamedTempFile>`
-- Update main function to use extracted helpers
-- Add unit tests for each extracted function (3-5 tests per function)
+- Add test for missing template file
+- Add test for malformed YAML in template file
 
-**Testing**:
-```bash
-cargo test output_management
-cargo clippy
-```
+**Tests**:
+- `test_file_template_storage_load_missing_template` - Attempts to load non-existent template, expects error
+- `test_file_template_storage_load_invalid_yaml` - Creates template with invalid YAML, expects parse error
 
 **Success Criteria**:
-- [ ] 3 pure functions extracted
-- [ ] 10+ unit tests added
-- [ ] Complexity reduced by ~3
+- [ ] Error tests properly validate failure cases
+- [ ] Tests check for appropriate error messages
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 3: Extract Pure Functions - Context Management
+### Phase 3: Add Error Path Tests - Metadata File Issues
 
-**Goal**: Extract variable context setup into testable pure functions
+**Goal**: Cover error scenarios related to metadata file reading and parsing
 
 **Changes**:
-- Extract `build_shell_context_vars(attempt: u32, exit_code: Option<i32>, output: String) -> HashMap<String, String>`
-- Extract `prepare_debug_command(template: &str, ctx_vars: &HashMap<String, String>) -> String`
-- Update main function to use extracted helpers
-- Add unit tests for each extracted function (3-5 tests per function)
+- Add test for corrupted metadata file (exists but can't be read)
+- Add test for malformed JSON in metadata file
+- Add test for metadata file with invalid structure
 
-**Testing**:
-```bash
-cargo test context_management
-cargo clippy
-```
+**Tests**:
+- `test_file_template_storage_load_invalid_metadata_json` - Creates template with malformed JSON metadata, expects error
+- `test_file_template_storage_load_corrupted_metadata` - Creates template with invalid metadata structure, expects error or fallback
 
 **Success Criteria**:
-- [ ] 2 pure functions extracted
-- [ ] 8+ unit tests added
-- [ ] Complexity reduced by ~2
+- [ ] Metadata error paths are covered
+- [ ] Tests verify error handling behavior
 - [ ] All tests pass
+- [ ] Coverage reaches 100% for the function
 - [ ] Ready to commit
 
-### Phase 4: Extract Pure Functions - Retry Logic
+### Phase 4: Verification and Documentation
 
-**Goal**: Extract retry decision logic into testable pure functions
-
-**Changes**:
-- Extract `should_continue_retry(attempt: u32, max_attempts: u32) -> bool`
-- Extract `handle_max_attempts_exceeded(max_attempts: u32, fail_workflow: bool, last_result: StepResult) -> Result<StepResult>`
-- Extract `should_execute_debug_command(on_failure: Option<&TestDebugConfig>, attempt: u32) -> bool`
-- Update main function to use extracted helpers
-- Add unit tests for each extracted function (3-5 tests per function)
-
-**Testing**:
-```bash
-cargo test retry_logic
-cargo clippy
-```
-
-**Success Criteria**:
-- [ ] 3 pure functions extracted
-- [ ] 10+ unit tests added
-- [ ] Complexity reduced by ~3
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 5: Final Integration Tests and Coverage Verification
-
-**Goal**: Achieve 80%+ total coverage and verify complexity targets
+**Goal**: Ensure complete coverage and document testing approach
 
 **Changes**:
-- Add edge case tests (large output handling, temp file errors, etc.)
-- Add property-based tests for retry logic
-- Add tests for debug command failure paths
-- Verify all uncovered lines from debtmap are now covered
+- Run coverage analysis to confirm 100% coverage
+- Add module-level documentation for test strategy
+- Verify all tests follow project conventions
 
 **Testing**:
-```bash
-cargo test --lib
-cargo tarpaulin --out Html --output-dir coverage
-cargo clippy
-just ci
-```
+- Run `cargo test --lib -- registry` to verify all registry tests pass
+- Run `cargo tarpaulin --lib` to measure coverage
+- Verify coverage report shows 100% for `FileTemplateStorage::load`
 
 **Success Criteria**:
-- [ ] 80%+ coverage achieved
-- [ ] All 39 previously uncovered lines now covered
-- [ ] Cyclomatic complexity ≤10
-- [ ] All tests pass
+- [ ] Coverage report confirms 100% coverage
+- [ ] All 7+ tests are clear and focused
 - [ ] No clippy warnings
+- [ ] Tests follow existing patterns in the codebase
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Run `cargo fmt` to ensure formatting
-4. Run `cargo tarpaulin` to verify coverage improvements
+1. Write tests in the existing `#[cfg(test)] mod tests` section
+2. Use `tempfile::TempDir` for isolated test environments (existing pattern)
+3. Run `cargo test --lib -- registry::tests` to verify only these tests
+4. Run `cargo test --lib` to ensure no regressions
+5. Run `cargo clippy` to check for warnings
+
+**Test Structure**:
+- Each test should be async (`#[tokio::test]`)
+- Use descriptive names: `test_file_template_storage_load_<scenario>`
+- Keep tests focused: one scenario per test
+- Use existing test utilities (TempDir, ComposableWorkflow::from_config)
 
 **Final verification**:
-1. `just ci` - Full CI checks
-2. `cargo tarpaulin --out Html` - Generate coverage report
-3. Verify coverage ≥80% for target function
-4. Verify complexity ≤10 for main function
+1. `cargo test --lib` - All tests pass
+2. `cargo clippy` - No warnings
+3. `cargo tarpaulin --lib` - Verify coverage improvement
+4. `cargo fmt` - Ensure formatting
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure in test output
-3. Adjust the plan (may need smaller extraction steps)
-4. Retry with revised approach
+2. Review the test failure or error
+3. Adjust the test implementation
+4. Re-run tests before committing
 
 ## Notes
 
-- The function currently has 0% direct coverage but 22.2% transitive coverage from callers
-- 39 uncovered lines identified in debtmap analysis
-- Main complexity sources: nested conditionals, retry loop, temp file handling, context variable management
-- Follow existing test patterns in `tests::test_mocks` module
-- Use `MockUserInteraction` for interaction testing
-- Preserve all existing behavior - this is refactoring + testing, not feature changes
+- **No refactoring needed**: The recommendation explicitly states complexity 7 is acceptable
+- **Focus on coverage**: Priority is to test existing behavior, not change it
+- **Use existing patterns**: The codebase already has test patterns with TempDir and async tests
+- **Error context**: Tests should verify that error messages include helpful context
+- **Metadata handling**: Pay special attention to the metadata_path.exists() branch (line 139)
+- **Default behavior**: Verify that TemplateMetadata::default() is used when metadata file is missing
+
+**Key Decision Branches to Cover**:
+1. Template file read success vs failure
+2. Template YAML parse success vs failure
+3. Metadata file exists vs doesn't exist
+4. Metadata file read success vs failure (if exists)
+5. Metadata JSON parse success vs failure (if exists)
+6. Default metadata fallback path
+7. Final success path with TemplateEntry construction
