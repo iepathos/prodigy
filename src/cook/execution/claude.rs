@@ -216,22 +216,14 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         // Record start time for log file detection
         let execution_start = SystemTime::now();
 
-        let mut context = ExecutionContext::default();
-        #[allow(clippy::field_reassign_with_default)]
-        {
-            context.working_directory = project_path.to_path_buf();
-            context.env_vars = env_vars.clone();
-            context.capture_streaming = true; // Enable streaming capture
-        }
+        // Build execution context using pure helper
+        let mut context = build_execution_context(project_path, env_vars.clone());
 
         // Check for timeout configuration using pure helper
         if let Some(timeout_secs) = parse_timeout_from_env(&env_vars) {
             context.timeout_seconds = Some(timeout_secs);
             tracing::debug!("Claude command timeout set to {} seconds", timeout_secs);
         }
-
-        // Claude requires some input on stdin
-        context.stdin = Some("".to_string());
 
         // Build command args using pure helper function
         let args = build_streaming_claude_args(command);
@@ -436,6 +428,21 @@ fn build_streaming_claude_args(command: &str) -> Vec<String> {
         "--dangerously-skip-permissions".to_string(),
         command.to_string(),
     ]
+}
+
+/// Build execution context for streaming Claude command
+/// Pure function that constructs ExecutionContext with streaming enabled
+fn build_execution_context(
+    project_path: &Path,
+    env_vars: HashMap<String, String>,
+) -> ExecutionContext {
+    ExecutionContext {
+        working_directory: project_path.to_path_buf(),
+        env_vars,
+        capture_streaming: true,
+        stdin: Some(String::new()), // Claude requires empty stdin
+        ..ExecutionContext::default()
+    }
 }
 
 #[async_trait]
