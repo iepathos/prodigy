@@ -233,13 +233,8 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         // Claude requires some input on stdin
         context.stdin = Some("".to_string());
 
-        let args = vec![
-            "--output-format".to_string(),
-            "stream-json".to_string(),
-            "--verbose".to_string(),
-            "--dangerously-skip-permissions".to_string(),
-            command.to_string(),
-        ];
+        // Build command args using pure helper function
+        let args = build_streaming_claude_args(command);
 
         tracing::debug!(
             "Executing claude command in streaming mode with args: {:?}",
@@ -429,6 +424,18 @@ fn format_error_with_log_location(
     } else {
         format!("Claude command '{}' failed: {}", command, error_details)
     }
+}
+
+/// Build command arguments for streaming Claude execution
+/// Pure function that constructs the required args for --output-format stream-json mode
+fn build_streaming_claude_args(command: &str) -> Vec<String> {
+    vec![
+        "--output-format".to_string(),
+        "stream-json".to_string(),
+        "--verbose".to_string(),
+        "--dangerously-skip-permissions".to_string(),
+        command.to_string(),
+    ]
 }
 
 #[async_trait]
@@ -627,6 +634,40 @@ mod tests {
             "Claude command '/test-command' failed: stderr: some error"
         );
         assert!(!error_msg.contains("📝 Full log:"));
+    }
+
+    // Phase 4: Tests for command args builder
+
+    #[test]
+    fn test_build_streaming_claude_args() {
+        let args = build_streaming_claude_args("/test-command");
+
+        assert_eq!(args.len(), 5);
+        assert_eq!(args[0], "--output-format");
+        assert_eq!(args[1], "stream-json");
+        assert_eq!(args[2], "--verbose");
+        assert_eq!(args[3], "--dangerously-skip-permissions");
+        assert_eq!(args[4], "/test-command");
+    }
+
+    #[test]
+    fn test_build_streaming_claude_args_different_commands() {
+        let args1 = build_streaming_claude_args("/prodigy-lint");
+        assert_eq!(args1[4], "/prodigy-lint");
+
+        let args2 = build_streaming_claude_args("/fix-issue");
+        assert_eq!(args2[4], "/fix-issue");
+    }
+
+    #[test]
+    fn test_build_streaming_claude_args_required_flags() {
+        let args = build_streaming_claude_args("/any-command");
+
+        // Verify all required flags are present
+        assert!(args.contains(&"--output-format".to_string()));
+        assert!(args.contains(&"stream-json".to_string()));
+        assert!(args.contains(&"--verbose".to_string()));
+        assert!(args.contains(&"--dangerously-skip-permissions".to_string()));
     }
 
     #[tokio::test]
