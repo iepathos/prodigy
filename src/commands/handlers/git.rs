@@ -128,6 +128,39 @@ impl GitHandler {
             .cloned()
             .ok_or_else(|| "Missing required attribute: operation".to_string())
     }
+
+    /// Executes auto-staging for commit operations if required
+    ///
+    /// This function checks if auto-staging is enabled and performs the staging operation
+    /// by executing `git add` with the appropriate files.
+    async fn execute_auto_staging(
+        context: &ExecutionContext,
+        operation: &str,
+        attributes: &HashMap<String, AttributeValue>,
+    ) -> Result<(), String> {
+        if !Self::should_auto_stage(operation, attributes) {
+            return Ok(());
+        }
+
+        let files = Self::extract_files(attributes);
+        let add_args: Vec<&str> = std::iter::once("add")
+            .chain(files.iter().map(|s| s.as_str()))
+            .collect();
+
+        context
+            .executor
+            .execute(
+                "git",
+                &add_args,
+                Some(&context.working_dir),
+                Some(context.full_env()),
+                None,
+            )
+            .await
+            .map_err(|e| format!("Failed to stage files: {e}"))?;
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -178,24 +211,9 @@ impl CommandHandler for GitHandler {
         };
 
         // Handle auto-staging for commits
-        if Self::should_auto_stage(&operation, &attributes) && !context.dry_run {
-            let files = Self::extract_files(&attributes);
-            let add_args: Vec<&str> = std::iter::once("add")
-                .chain(files.iter().map(|s| s.as_str()))
-                .collect();
-
-            if let Err(e) = context
-                .executor
-                .execute(
-                    "git",
-                    &add_args,
-                    Some(&context.working_dir),
-                    Some(context.full_env()),
-                    None,
-                )
-                .await
-            {
-                return CommandResult::error(format!("Failed to stage files: {e}"));
+        if !context.dry_run {
+            if let Err(e) = Self::execute_auto_staging(context, &operation, &attributes).await {
+                return CommandResult::error(e);
             }
         }
 
