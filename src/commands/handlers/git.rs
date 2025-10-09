@@ -161,6 +161,17 @@ impl GitHandler {
 
         Ok(())
     }
+
+    /// Builds a dry-run response for git commands
+    ///
+    /// Returns a CommandResult indicating what would be executed without actually running it.
+    fn build_dry_run_response(git_args: &[String], duration: u64) -> CommandResult {
+        CommandResult::success(json!({
+            "dry_run": true,
+            "command": format!("git {}", git_args.join(" ")),
+        }))
+        .with_duration(duration)
+    }
 }
 
 #[async_trait]
@@ -220,11 +231,7 @@ impl CommandHandler for GitHandler {
         // Handle dry run
         if context.dry_run {
             let duration = start.elapsed().as_millis() as u64;
-            return CommandResult::success(json!({
-                "dry_run": true,
-                "command": format!("git {}", git_args.join(" ")),
-            }))
-            .with_duration(duration);
+            return Self::build_dry_run_response(&git_args, duration);
         }
 
         // Execute git command
