@@ -319,9 +319,24 @@ impl FileTemplateStorage {
         }
 
         match tokio::fs::read_to_string(&metadata_path).await {
-            Ok(content) => serde_json::from_str(&content)
-                .unwrap_or_else(|_| TemplateMetadata::default()),
-            Err(_) => TemplateMetadata::default(),
+            Ok(content) => serde_json::from_str(&content).unwrap_or_else(|e| {
+                tracing::warn!(
+                    "Failed to parse metadata for template '{}' at {:?}: {}. Using default metadata.",
+                    name,
+                    metadata_path,
+                    e
+                );
+                TemplateMetadata::default()
+            }),
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to read metadata file for template '{}' at {:?}: {}. Using default metadata.",
+                    name,
+                    metadata_path,
+                    e
+                );
+                TemplateMetadata::default()
+            }
         }
     }
 }
