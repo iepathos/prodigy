@@ -3406,5 +3406,400 @@ mod tests {
             // Should succeed and skip all validation
             assert!(result.is_ok());
         }
+
+        #[tokio::test]
+        async fn test_commit_required_with_actual_commit_created() {
+            let (orchestrator, claude_mock, session_mock, _ui, git_mock) =
+                create_test_orchestrator().await;
+
+            // Setup mock responses
+            claude_mock.add_response(ExecutionResult {
+                success: true,
+                stdout: "Command executed".to_string(),
+                stderr: String::new(),
+                exit_code: Some(0),
+                metadata: HashMap::new(),
+            });
+
+            git_mock.add_success_response("abc123").await; // HEAD before
+            git_mock.add_success_response("def456").await; // HEAD after (different commit)
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let config = CookConfig {
+                command: create_test_cook_command(false, false),
+                project_path: Arc::new(PathBuf::from("/test")),
+                workflow: Arc::new(crate::config::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                    merge: None,
+                }),
+                mapreduce_config: None,
+            };
+
+            let mut command = crate::config::command::Command::new("test-command");
+            command.metadata.commit_required = true;
+
+            let result = orchestrator
+                .execute_and_validate_command(
+                    &env,
+                    &config,
+                    &command,
+                    "/test-command",
+                    "test input",
+                    HashMap::new(),
+                )
+                .await;
+
+            assert!(result.is_ok());
+
+            // Verify session was updated with files changed
+            let updates = session_mock.get_updates();
+            assert!(updates
+                .iter()
+                .any(|u| matches!(u, SessionUpdate::AddFilesChanged(1))));
+        }
+
+        #[tokio::test]
+        async fn test_commit_required_with_no_commit_should_error() {
+            let (orchestrator, claude_mock, _session, _ui, git_mock) =
+                create_test_orchestrator().await;
+
+            // Setup mock responses
+            claude_mock.add_response(ExecutionResult {
+                success: true,
+                stdout: "Command executed".to_string(),
+                stderr: String::new(),
+                exit_code: Some(0),
+                metadata: HashMap::new(),
+            });
+
+            git_mock.add_success_response("abc123").await; // HEAD before
+            git_mock.add_success_response("abc123").await; // HEAD after (same commit - no changes)
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let config = CookConfig {
+                command: create_test_cook_command(false, false),
+                project_path: Arc::new(PathBuf::from("/test")),
+                workflow: Arc::new(crate::config::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                    merge: None,
+                }),
+                mapreduce_config: None,
+            };
+
+            let mut command = crate::config::command::Command::new("test-command");
+            command.metadata.commit_required = true;
+
+            let result = orchestrator
+                .execute_and_validate_command(
+                    &env,
+                    &config,
+                    &command,
+                    "/test-command",
+                    "test input",
+                    HashMap::new(),
+                )
+                .await;
+
+            assert!(result.is_err());
+            assert!(result
+                .unwrap_err()
+                .to_string()
+                .contains("No changes were committed"));
+        }
+
+        #[tokio::test]
+        async fn test_commit_required_in_dry_run_mode_should_skip_error() {
+            let (orchestrator, claude_mock, _session, ui_mock, git_mock) =
+                create_test_orchestrator().await;
+
+            // Setup mock responses
+            claude_mock.add_response(ExecutionResult {
+                success: true,
+                stdout: "Command executed".to_string(),
+                stderr: String::new(),
+                exit_code: Some(0),
+                metadata: HashMap::new(),
+            });
+
+            git_mock.add_success_response("abc123").await; // HEAD before
+            git_mock.add_success_response("abc123").await; // HEAD after (same - no commit)
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let config = CookConfig {
+                command: create_test_cook_command(false, true), // dry_run = true
+                project_path: Arc::new(PathBuf::from("/test")),
+                workflow: Arc::new(crate::config::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                    merge: None,
+                }),
+                mapreduce_config: None,
+            };
+
+            let mut command = crate::config::command::Command::new("test-command");
+            command.metadata.commit_required = true;
+
+            let result = orchestrator
+                .execute_and_validate_command(
+                    &env,
+                    &config,
+                    &command,
+                    "/test-command",
+                    "test input",
+                    HashMap::new(),
+                )
+                .await;
+
+            // Should succeed in dry-run mode
+            assert!(result.is_ok());
+
+            // Should display info message about assuming commit would be created
+            let messages = ui_mock.get_messages();
+            assert!(messages
+                .iter()
+                .any(|(t, m)| t == "info" && m.contains("DRY RUN")));
+        }
+
+        #[tokio::test]
+        async fn test_commit_required_false_skips_validation() {
+            let (orchestrator, claude_mock, _session, _ui, _git_mock) =
+                create_test_orchestrator().await;
+
+            // Setup mock responses
+            claude_mock.add_response(ExecutionResult {
+                success: true,
+                stdout: "Command executed".to_string(),
+                stderr: String::new(),
+                exit_code: Some(0),
+                metadata: HashMap::new(),
+            });
+
+            // No git mocks needed since commit_required is false
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let config = CookConfig {
+                command: create_test_cook_command(false, false),
+                project_path: Arc::new(PathBuf::from("/test")),
+                workflow: Arc::new(crate::config::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                    merge: None,
+                }),
+                mapreduce_config: None,
+            };
+
+            let command = crate::config::command::Command::new("test-command");
+            // commit_required defaults to false
+
+            let result = orchestrator
+                .execute_and_validate_command(
+                    &env,
+                    &config,
+                    &command,
+                    "/test-command",
+                    "test input",
+                    HashMap::new(),
+                )
+                .await;
+
+            // Should succeed without checking commits
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_test_mode_with_no_changes_commands() {
+            let temp_dir = TempDir::new().unwrap();
+
+            let claude_executor = Arc::new(MockClaudeExecutor::new());
+            let session_manager = Arc::new(MockSessionManager::new());
+            let user_interaction = Arc::new(MockUserInteraction::new());
+            let git_operations = Arc::new(MockGitOperations::new());
+            let subprocess = SubprocessManager::new(Arc::new(
+                crate::subprocess::runner::TokioProcessRunner,
+            ));
+            let session_ops = crate::cook::orchestrator::session_ops::SessionOperations::new(
+                session_manager.clone() as Arc<dyn SessionManager>,
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                git_operations.clone(),
+                subprocess.clone(),
+            );
+
+            // Create test config with no_changes_commands
+            let test_config = Some(Arc::new(TestConfiguration {
+                test_mode: true,
+                skip_commit_validation: false,
+                no_changes_commands: vec!["test-command".to_string()],
+                ..Default::default()
+            }));
+
+            let command_executor = Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
+
+            let orchestrator = DefaultCookOrchestrator {
+                session_manager: session_manager.clone() as Arc<dyn SessionManager>,
+                command_executor,
+                claude_executor: claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                user_interaction: user_interaction.clone() as Arc<dyn UserInteraction>,
+                git_operations: git_operations.clone(),
+                subprocess,
+                test_config,
+                session_ops,
+            };
+
+            // Setup mock response
+            claude_executor.add_response(ExecutionResult {
+                success: true,
+                stdout: "Command executed".to_string(),
+                stderr: String::new(),
+                exit_code: Some(0),
+                metadata: HashMap::new(),
+            });
+
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let config = CookConfig {
+                command: create_test_cook_command(false, false),
+                project_path: Arc::new(PathBuf::from("/test")),
+                workflow: Arc::new(crate::config::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                    merge: None,
+                }),
+                mapreduce_config: None,
+            };
+
+            let mut command = crate::config::command::Command::new("test-command");
+            command.metadata.commit_required = true;
+
+            let result = orchestrator
+                .execute_and_validate_command(
+                    &env,
+                    &config,
+                    &command,
+                    "/test-command",
+                    "test input",
+                    HashMap::new(),
+                )
+                .await;
+
+            // Should error because command is in no_changes_commands but requires commits
+            assert!(result.is_err());
+            assert!(result
+                .unwrap_err()
+                .to_string()
+                .contains("No changes were committed"));
+        }
+
+        #[tokio::test]
+        async fn test_session_update_after_successful_commit() {
+            let (orchestrator, claude_mock, session_mock, _ui, git_mock) =
+                create_test_orchestrator().await;
+
+            // Setup mock responses
+            claude_mock.add_response(ExecutionResult {
+                success: true,
+                stdout: "Command executed".to_string(),
+                stderr: String::new(),
+                exit_code: Some(0),
+                metadata: HashMap::new(),
+            });
+
+            git_mock.add_success_response("abc123").await; // HEAD before
+            git_mock.add_success_response("def456").await; // HEAD after (different - commit created)
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let config = CookConfig {
+                command: create_test_cook_command(false, false),
+                project_path: Arc::new(PathBuf::from("/test")),
+                workflow: Arc::new(crate::config::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                    merge: None,
+                }),
+                mapreduce_config: None,
+            };
+
+            let mut command = crate::config::command::Command::new("test-command");
+            command.metadata.commit_required = true;
+
+            let result = orchestrator
+                .execute_and_validate_command(
+                    &env,
+                    &config,
+                    &command,
+                    "/test-command",
+                    "test input",
+                    HashMap::new(),
+                )
+                .await;
+
+            assert!(result.is_ok());
+
+            // Verify AddFilesChanged was called
+            let updates = session_mock.get_updates();
+            assert!(updates
+                .iter()
+                .any(|u| matches!(u, SessionUpdate::AddFilesChanged(1))));
+        }
     }
 }
