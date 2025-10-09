@@ -221,8 +221,7 @@ impl CheckpointedCoordinator {
 
         // Update phase
         if let Some(ref mut checkpoint) = *self.current_checkpoint.write().await {
-            checkpoint.metadata.phase = PhaseType::Map;
-            checkpoint.execution_state.current_phase = PhaseType::Map;
+            update_checkpoint_to_map_phase(checkpoint);
         }
 
         // Load work items
@@ -579,6 +578,18 @@ fn create_work_items(items: Vec<Value>) -> Vec<WorkItem> {
         .collect()
 }
 
+/// Update checkpoint to Map phase
+///
+/// Pure function that takes a mutable checkpoint and updates its phase state.
+/// This separates the phase transition logic from async checkpoint management.
+///
+/// # Arguments
+/// * `checkpoint` - Mutable reference to the checkpoint to update
+fn update_checkpoint_to_map_phase(checkpoint: &mut Checkpoint) {
+    checkpoint.metadata.phase = PhaseType::Map;
+    checkpoint.execution_state.current_phase = PhaseType::Map;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -792,6 +803,208 @@ mod tests {
         assert_eq!(work_items[0].id, "item_0");
         assert_eq!(work_items[9].id, "item_9");
         assert_eq!(work_items[14].id, "item_14");
+    }
+
+    // Phase 3: Unit tests for update_checkpoint_to_map_phase pure function
+
+    #[test]
+    fn test_update_checkpoint_to_map_phase() {
+        // Create a checkpoint in Setup phase
+        let mut checkpoint = Checkpoint {
+            metadata: crate::cook::execution::mapreduce::checkpoint::CheckpointMetadata {
+                checkpoint_id: String::new(),
+                job_id: "test".to_string(),
+                version: 1,
+                created_at: Utc::now(),
+                phase: PhaseType::Setup,
+                total_work_items: 0,
+                completed_items: 0,
+                checkpoint_reason: CheckpointReason::Manual,
+                integrity_hash: String::new(),
+            },
+            execution_state: crate::cook::execution::mapreduce::checkpoint::ExecutionState {
+                current_phase: PhaseType::Setup,
+                phase_start_time: Utc::now(),
+                setup_results: None,
+                map_results: None,
+                reduce_results: None,
+                workflow_variables: std::collections::HashMap::new(),
+            },
+            work_item_state: WorkItemState {
+                pending_items: vec![],
+                in_progress_items: std::collections::HashMap::new(),
+                completed_items: vec![],
+                failed_items: vec![],
+                current_batch: None,
+            },
+            agent_state: crate::cook::execution::mapreduce::checkpoint::AgentState {
+                active_agents: std::collections::HashMap::new(),
+                agent_assignments: std::collections::HashMap::new(),
+                agent_results: std::collections::HashMap::new(),
+                resource_allocation: std::collections::HashMap::new(),
+            },
+            variable_state: crate::cook::execution::mapreduce::checkpoint::VariableState {
+                workflow_variables: std::collections::HashMap::new(),
+                captured_outputs: std::collections::HashMap::new(),
+                environment_variables: std::collections::HashMap::new(),
+                item_variables: std::collections::HashMap::new(),
+            },
+            resource_state: crate::cook::execution::mapreduce::checkpoint::ResourceState {
+                total_agents_allowed: 10,
+                current_agents_active: 0,
+                worktrees_created: vec![],
+                worktrees_cleaned: vec![],
+                disk_usage_bytes: None,
+            },
+            error_state: crate::cook::execution::mapreduce::checkpoint::ErrorState {
+                error_count: 0,
+                dlq_items: vec![],
+                error_threshold_reached: false,
+                last_error: None,
+            },
+        };
+
+        // Update to Map phase
+        update_checkpoint_to_map_phase(&mut checkpoint);
+
+        // Verify both metadata and execution_state are updated
+        assert_eq!(checkpoint.metadata.phase, PhaseType::Map);
+        assert_eq!(checkpoint.execution_state.current_phase, PhaseType::Map);
+    }
+
+    #[test]
+    fn test_update_checkpoint_to_map_phase_from_different_phases() {
+        // Test updating from Reduce phase
+        let mut checkpoint = Checkpoint {
+            metadata: crate::cook::execution::mapreduce::checkpoint::CheckpointMetadata {
+                checkpoint_id: String::new(),
+                job_id: "test".to_string(),
+                version: 1,
+                created_at: Utc::now(),
+                phase: PhaseType::Reduce,
+                total_work_items: 0,
+                completed_items: 0,
+                checkpoint_reason: CheckpointReason::Manual,
+                integrity_hash: String::new(),
+            },
+            execution_state: crate::cook::execution::mapreduce::checkpoint::ExecutionState {
+                current_phase: PhaseType::Reduce,
+                phase_start_time: Utc::now(),
+                setup_results: None,
+                map_results: None,
+                reduce_results: None,
+                workflow_variables: std::collections::HashMap::new(),
+            },
+            work_item_state: WorkItemState {
+                pending_items: vec![],
+                in_progress_items: std::collections::HashMap::new(),
+                completed_items: vec![],
+                failed_items: vec![],
+                current_batch: None,
+            },
+            agent_state: crate::cook::execution::mapreduce::checkpoint::AgentState {
+                active_agents: std::collections::HashMap::new(),
+                agent_assignments: std::collections::HashMap::new(),
+                agent_results: std::collections::HashMap::new(),
+                resource_allocation: std::collections::HashMap::new(),
+            },
+            variable_state: crate::cook::execution::mapreduce::checkpoint::VariableState {
+                workflow_variables: std::collections::HashMap::new(),
+                captured_outputs: std::collections::HashMap::new(),
+                environment_variables: std::collections::HashMap::new(),
+                item_variables: std::collections::HashMap::new(),
+            },
+            resource_state: crate::cook::execution::mapreduce::checkpoint::ResourceState {
+                total_agents_allowed: 10,
+                current_agents_active: 0,
+                worktrees_created: vec![],
+                worktrees_cleaned: vec![],
+                disk_usage_bytes: None,
+            },
+            error_state: crate::cook::execution::mapreduce::checkpoint::ErrorState {
+                error_count: 0,
+                dlq_items: vec![],
+                error_threshold_reached: false,
+                last_error: None,
+            },
+        };
+
+        update_checkpoint_to_map_phase(&mut checkpoint);
+
+        assert_eq!(checkpoint.metadata.phase, PhaseType::Map);
+        assert_eq!(checkpoint.execution_state.current_phase, PhaseType::Map);
+    }
+
+    #[test]
+    fn test_update_checkpoint_preserves_other_fields() {
+        // Test that update only changes phase fields
+        let original_job_id = "test-job-123".to_string();
+        let original_total_items = 42;
+
+        let mut checkpoint = Checkpoint {
+            metadata: crate::cook::execution::mapreduce::checkpoint::CheckpointMetadata {
+                checkpoint_id: String::new(),
+                job_id: original_job_id.clone(),
+                version: 1,
+                created_at: Utc::now(),
+                phase: PhaseType::Setup,
+                total_work_items: original_total_items,
+                completed_items: 10,
+                checkpoint_reason: CheckpointReason::Manual,
+                integrity_hash: String::new(),
+            },
+            execution_state: crate::cook::execution::mapreduce::checkpoint::ExecutionState {
+                current_phase: PhaseType::Setup,
+                phase_start_time: Utc::now(),
+                setup_results: None,
+                map_results: None,
+                reduce_results: None,
+                workflow_variables: std::collections::HashMap::new(),
+            },
+            work_item_state: WorkItemState {
+                pending_items: vec![],
+                in_progress_items: std::collections::HashMap::new(),
+                completed_items: vec![],
+                failed_items: vec![],
+                current_batch: None,
+            },
+            agent_state: crate::cook::execution::mapreduce::checkpoint::AgentState {
+                active_agents: std::collections::HashMap::new(),
+                agent_assignments: std::collections::HashMap::new(),
+                agent_results: std::collections::HashMap::new(),
+                resource_allocation: std::collections::HashMap::new(),
+            },
+            variable_state: crate::cook::execution::mapreduce::checkpoint::VariableState {
+                workflow_variables: std::collections::HashMap::new(),
+                captured_outputs: std::collections::HashMap::new(),
+                environment_variables: std::collections::HashMap::new(),
+                item_variables: std::collections::HashMap::new(),
+            },
+            resource_state: crate::cook::execution::mapreduce::checkpoint::ResourceState {
+                total_agents_allowed: 10,
+                current_agents_active: 0,
+                worktrees_created: vec![],
+                worktrees_cleaned: vec![],
+                disk_usage_bytes: None,
+            },
+            error_state: crate::cook::execution::mapreduce::checkpoint::ErrorState {
+                error_count: 0,
+                dlq_items: vec![],
+                error_threshold_reached: false,
+                last_error: None,
+            },
+        };
+
+        update_checkpoint_to_map_phase(&mut checkpoint);
+
+        // Verify phase changed
+        assert_eq!(checkpoint.metadata.phase, PhaseType::Map);
+        assert_eq!(checkpoint.execution_state.current_phase, PhaseType::Map);
+
+        // Verify other fields preserved
+        assert_eq!(checkpoint.metadata.job_id, original_job_id);
+        assert_eq!(checkpoint.metadata.total_work_items, original_total_items);
+        assert_eq!(checkpoint.metadata.completed_items, 10);
     }
 
     // Phase 1 Integration Tests: Happy Path Coverage
