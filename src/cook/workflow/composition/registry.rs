@@ -292,6 +292,38 @@ impl FileTemplateStorage {
             Ok(TemplateMetadata::default())
         }
     }
+
+    /// Check if a path represents a template file (has .yml extension)
+    fn is_template_file(path: &std::path::Path) -> bool {
+        path.extension().and_then(|s| s.to_str()) == Some("yml")
+    }
+
+    /// Extract template name from a file path, filtering out metadata files
+    fn extract_template_name(path: &std::path::Path) -> Option<String> {
+        let stem = path.file_stem().and_then(|s| s.to_str())?;
+
+        // Skip metadata files
+        if stem.ends_with(".meta") {
+            return None;
+        }
+
+        Some(stem.to_string())
+    }
+
+    /// Load template metadata for listing, falling back to default on errors
+    async fn load_template_metadata(&self, name: &str) -> TemplateMetadata {
+        let metadata_path = self.metadata_path(name);
+
+        if !metadata_path.exists() {
+            return TemplateMetadata::default();
+        }
+
+        match tokio::fs::read_to_string(&metadata_path).await {
+            Ok(content) => serde_json::from_str(&content)
+                .unwrap_or_else(|_| TemplateMetadata::default()),
+            Err(_) => TemplateMetadata::default(),
+        }
+    }
 }
 
 #[async_trait]
