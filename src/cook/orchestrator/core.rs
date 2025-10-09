@@ -2799,4 +2799,612 @@ mod tests {
     // TODO: Fix test after understanding MapReduceWorkflowConfig structure
     // #[test]
     // fn test_mapreduce_takes_precedence() {
+
+    /// Tests for execute_and_validate_command method
+    mod execute_and_validate_command_tests {
+        use super::*;
+        use crate::abstractions::git::MockGitOperations;
+        use crate::cook::execution::{ClaudeExecutor, ExecutionResult};
+        use crate::cook::interaction::UserInteraction;
+        use crate::cook::orchestrator::ExecutionEnvironment;
+        use crate::cook::session::{SessionManager, SessionUpdate};
+        use crate::subprocess::SubprocessManager;
+        use crate::testing::config::TestConfiguration;
+        use async_trait::async_trait;
+        use std::collections::HashMap;
+        use std::path::PathBuf;
+        use std::sync::{Arc, Mutex};
+        use tempfile::TempDir;
+
+        // Mock implementations for testing
+
+        struct MockClaudeExecutor {
+            responses: Arc<Mutex<Vec<ExecutionResult>>>,
+        }
+
+        impl MockClaudeExecutor {
+            fn new() -> Self {
+                Self {
+                    responses: Arc::new(Mutex::new(Vec::new())),
+                }
+            }
+
+            fn add_response(&self, response: ExecutionResult) {
+                self.responses.lock().unwrap().push(response);
+            }
+        }
+
+        #[async_trait]
+        impl ClaudeExecutor for MockClaudeExecutor {
+            async fn execute_claude_command(
+                &self,
+                _command: &str,
+                _working_dir: &std::path::Path,
+                _env_vars: HashMap<String, String>,
+            ) -> Result<ExecutionResult> {
+                self.responses
+                    .lock()
+                    .unwrap()
+                    .pop()
+                    .ok_or_else(|| anyhow::anyhow!("No mock response configured"))
+            }
+
+            async fn check_claude_cli(&self) -> Result<bool> {
+                Ok(true)
+            }
+
+            async fn get_claude_version(&self) -> Result<String> {
+                Ok("mock-version-1.0.0".to_string())
+            }
+        }
+
+        struct MockSessionManager {
+            updates: Arc<Mutex<Vec<SessionUpdate>>>,
+        }
+
+        impl MockSessionManager {
+            fn new() -> Self {
+                Self {
+                    updates: Arc::new(Mutex::new(Vec::new())),
+                }
+            }
+
+            fn get_updates(&self) -> Vec<SessionUpdate> {
+                self.updates.lock().unwrap().clone()
+            }
+        }
+
+        #[async_trait]
+        impl SessionManager for MockSessionManager {
+            async fn update_session(&self, update: SessionUpdate) -> Result<()> {
+                self.updates.lock().unwrap().push(update.clone());
+                Ok(())
+            }
+
+            async fn start_session(&self, _session_id: &str) -> Result<()> {
+                Ok(())
+            }
+
+            async fn complete_session(
+                &self,
+            ) -> Result<crate::cook::session::summary::SessionSummary> {
+                Ok(crate::cook::session::summary::SessionSummary {
+                    iterations: 1,
+                    files_changed: 0,
+                })
+            }
+
+            fn get_state(&self) -> Result<crate::cook::session::state::SessionState> {
+                Ok(crate::cook::session::state::SessionState::new(
+                    "test-session".to_string(),
+                    PathBuf::from("/tmp"),
+                ))
+            }
+
+            async fn save_state(&self, _path: &std::path::Path) -> Result<()> {
+                Ok(())
+            }
+
+            async fn load_state(&self, _path: &std::path::Path) -> Result<()> {
+                Ok(())
+            }
+
+            async fn load_session(
+                &self,
+                _session_id: &str,
+            ) -> Result<crate::cook::session::state::SessionState> {
+                Ok(crate::cook::session::state::SessionState::new(
+                    "test-session".to_string(),
+                    PathBuf::from("/tmp"),
+                ))
+            }
+
+            async fn save_checkpoint(
+                &self,
+                _state: &crate::cook::session::state::SessionState,
+            ) -> Result<()> {
+                Ok(())
+            }
+
+            async fn list_resumable(&self) -> Result<Vec<crate::cook::session::SessionInfo>> {
+                Ok(vec![])
+            }
+
+            async fn get_last_interrupted(&self) -> Result<Option<String>> {
+                Ok(None)
+            }
+        }
+
+        struct MockUserInteraction {
+            messages: Arc<Mutex<Vec<(String, String)>>>,
+        }
+
+        impl MockUserInteraction {
+            fn new() -> Self {
+                Self {
+                    messages: Arc::new(Mutex::new(Vec::new())),
+                }
+            }
+
+            fn get_messages(&self) -> Vec<(String, String)> {
+                self.messages.lock().unwrap().clone()
+            }
+        }
+
+        #[async_trait]
+        impl UserInteraction for MockUserInteraction {
+            fn display_info(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("info".to_string(), message.to_string()));
+            }
+
+            fn display_progress(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("progress".to_string(), message.to_string()));
+            }
+
+            fn display_success(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("success".to_string(), message.to_string()));
+            }
+
+            fn display_error(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("error".to_string(), message.to_string()));
+            }
+
+            fn display_warning(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("warning".to_string(), message.to_string()));
+            }
+
+            fn display_action(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("action".to_string(), message.to_string()));
+            }
+
+            fn display_metric(&self, label: &str, value: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("metric".to_string(), format!("{}: {}", label, value)));
+            }
+
+            fn display_status(&self, message: &str) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("status".to_string(), message.to_string()));
+            }
+
+            async fn prompt_yes_no(&self, _message: &str) -> Result<bool> {
+                Ok(true)
+            }
+
+            async fn prompt_text(
+                &self,
+                _message: &str,
+                _default: Option<&str>,
+            ) -> Result<String> {
+                Ok("test".to_string())
+            }
+
+            fn start_spinner(
+                &self,
+                _message: &str,
+            ) -> Box<dyn crate::cook::interaction::SpinnerHandle> {
+                struct MockSpinnerHandle;
+                impl crate::cook::interaction::SpinnerHandle for MockSpinnerHandle {
+                    fn update_message(&mut self, _message: &str) {}
+                    fn success(&mut self, _message: &str) {}
+                    fn fail(&mut self, _message: &str) {}
+                }
+                Box::new(MockSpinnerHandle)
+            }
+
+            fn iteration_start(&self, current: u32, total: u32) {
+                self.messages.lock().unwrap().push((
+                    "iteration_start".to_string(),
+                    format!("{}/{}", current, total),
+                ));
+            }
+
+            fn iteration_end(&self, current: u32, duration: std::time::Duration, success: bool) {
+                self.messages.lock().unwrap().push((
+                    "iteration_end".to_string(),
+                    format!("{} {:?} {}", current, duration, success),
+                ));
+            }
+
+            fn step_start(&self, step: u32, total: u32, description: &str) {
+                self.messages.lock().unwrap().push((
+                    "step_start".to_string(),
+                    format!("{}/{} {}", step, total, description),
+                ));
+            }
+
+            fn step_end(&self, step: u32, success: bool) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("step_end".to_string(), format!("{} {}", step, success)));
+            }
+
+            fn command_output(
+                &self,
+                output: &str,
+                _verbosity: crate::cook::interaction::VerbosityLevel,
+            ) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("command_output".to_string(), output.to_string()));
+            }
+
+            fn debug_output(
+                &self,
+                message: &str,
+                _min_verbosity: crate::cook::interaction::VerbosityLevel,
+            ) {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push(("debug".to_string(), message.to_string()));
+            }
+
+            fn verbosity(&self) -> crate::cook::interaction::VerbosityLevel {
+                crate::cook::interaction::VerbosityLevel::Normal
+            }
+        }
+
+        // Helper function to create test command
+        fn create_test_cook_command(fail_fast: bool, dry_run: bool) -> crate::cook::command::CookCommand {
+            crate::cook::command::CookCommand {
+                playbook: PathBuf::from("test.yaml"),
+                path: None,
+                max_iterations: 1,
+                map: vec![],
+                args: vec![],
+                fail_fast,
+                auto_accept: false,
+                metrics: false,
+                resume: None,
+                verbosity: 0,
+                quiet: false,
+                dry_run,
+            }
+        }
+
+        // Helper function to create test orchestrator
+        async fn create_test_orchestrator() -> (
+            DefaultCookOrchestrator,
+            Arc<MockClaudeExecutor>,
+            Arc<MockSessionManager>,
+            Arc<MockUserInteraction>,
+            Arc<MockGitOperations>,
+        ) {
+            let claude_executor = Arc::new(MockClaudeExecutor::new());
+            let session_manager = Arc::new(MockSessionManager::new());
+            let user_interaction = Arc::new(MockUserInteraction::new());
+            let git_operations = Arc::new(MockGitOperations::new());
+            let subprocess = SubprocessManager::new(Arc::new(
+                crate::subprocess::runner::TokioProcessRunner,
+            ));
+            let session_ops = crate::cook::orchestrator::session_ops::SessionOperations::new(
+                session_manager.clone() as Arc<dyn SessionManager>,
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                git_operations.clone(),
+                subprocess.clone(),
+            );
+
+            let command_executor = Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
+
+            let orchestrator = DefaultCookOrchestrator {
+                session_manager: session_manager.clone() as Arc<dyn SessionManager>,
+                command_executor,
+                claude_executor: claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                user_interaction: user_interaction.clone() as Arc<dyn UserInteraction>,
+                git_operations: git_operations.clone(),
+                subprocess,
+                test_config: None,
+                session_ops,
+            };
+
+            (
+                orchestrator,
+                claude_executor,
+                session_manager,
+                user_interaction,
+                git_operations,
+            )
+        }
+
+        #[tokio::test]
+        async fn test_successful_command_execution_happy_path() {
+            let (orchestrator, claude_mock, _session, _ui, git_mock) =
+                create_test_orchestrator().await;
+
+            // Setup mock responses
+            claude_mock.add_response(ExecutionResult {
+                success: true,
+                stdout: "Command executed successfully".to_string(),
+                stderr: String::new(),
+                exit_code: Some(0),
+                metadata: HashMap::new(),
+            });
+
+            git_mock.add_success_response("abc123").await; // HEAD before
+            git_mock.add_success_response("def456").await; // HEAD after
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let config = CookConfig {
+                command: create_test_cook_command(false, false),
+                project_path: Arc::new(PathBuf::from("/test")),
+                workflow: Arc::new(crate::config::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                    merge: None,
+                }),
+                mapreduce_config: None,
+            };
+
+            let mut command = crate::config::command::Command::new("test-command");
+            command.metadata.commit_required = true;
+
+            let result = orchestrator
+                .execute_and_validate_command(
+                    &env,
+                    &config,
+                    &command,
+                    "/test-command",
+                    "test input",
+                    HashMap::new(),
+                )
+                .await;
+
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_command_failure_with_fail_fast_true() {
+            let (orchestrator, claude_mock, _session, _ui, _git_mock) =
+                create_test_orchestrator().await;
+
+            // Setup mock response - command fails
+            claude_mock.add_response(ExecutionResult {
+                success: false,
+                stdout: String::new(),
+                stderr: "Command failed".to_string(),
+                exit_code: Some(1),
+                metadata: HashMap::new(),
+            });
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let config = CookConfig {
+                command: create_test_cook_command(true, false),
+                project_path: Arc::new(PathBuf::from("/test")),
+                workflow: Arc::new(crate::config::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                    merge: None,
+                }),
+                mapreduce_config: None,
+            };
+
+            let command = crate::config::command::Command::new("test-command");
+
+            let result = orchestrator
+                .execute_and_validate_command(
+                    &env,
+                    &config,
+                    &command,
+                    "/test-command",
+                    "test input",
+                    HashMap::new(),
+                )
+                .await;
+
+            assert!(result.is_err());
+            assert!(result.unwrap_err().to_string().contains("failed"));
+        }
+
+        #[tokio::test]
+        async fn test_command_failure_with_fail_fast_false() {
+            let (orchestrator, claude_mock, _session, ui_mock, _git_mock) =
+                create_test_orchestrator().await;
+
+            // Setup mock response - command fails
+            claude_mock.add_response(ExecutionResult {
+                success: false,
+                stdout: String::new(),
+                stderr: "Command failed".to_string(),
+                exit_code: Some(1),
+                metadata: HashMap::new(),
+            });
+
+            let temp_dir = TempDir::new().unwrap();
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let config = CookConfig {
+                command: create_test_cook_command(false, false),
+                project_path: Arc::new(PathBuf::from("/test")),
+                workflow: Arc::new(crate::config::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                    merge: None,
+                }),
+                mapreduce_config: None,
+            };
+
+            let command = crate::config::command::Command::new("test-command");
+
+            let result = orchestrator
+                .execute_and_validate_command(
+                    &env,
+                    &config,
+                    &command,
+                    "/test-command",
+                    "test input",
+                    HashMap::new(),
+                )
+                .await;
+
+            // Should succeed but display warning
+            assert!(result.is_ok());
+
+            // Check warning was displayed
+            let messages = ui_mock.get_messages();
+            assert!(messages
+                .iter()
+                .any(|(t, m)| t == "warning" && m.contains("failed")));
+        }
+
+        #[tokio::test]
+        async fn test_test_mode_with_skip_validation() {
+            let temp_dir = TempDir::new().unwrap();
+
+            let claude_executor = Arc::new(MockClaudeExecutor::new());
+            let session_manager = Arc::new(MockSessionManager::new());
+            let user_interaction = Arc::new(MockUserInteraction::new());
+            let git_operations = Arc::new(MockGitOperations::new());
+            let subprocess = SubprocessManager::new(Arc::new(
+                crate::subprocess::runner::TokioProcessRunner,
+            ));
+            let session_ops = crate::cook::orchestrator::session_ops::SessionOperations::new(
+                session_manager.clone() as Arc<dyn SessionManager>,
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                git_operations.clone(),
+                subprocess.clone(),
+            );
+
+            // Create test config with skip_commit_validation
+            let test_config = Some(Arc::new(TestConfiguration {
+                test_mode: true,
+                skip_commit_validation: true,
+                ..Default::default()
+            }));
+
+            let command_executor = Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
+
+            let orchestrator = DefaultCookOrchestrator {
+                session_manager: session_manager.clone() as Arc<dyn SessionManager>,
+                command_executor,
+                claude_executor: claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                user_interaction: user_interaction.clone() as Arc<dyn UserInteraction>,
+                git_operations: git_operations.clone(),
+                subprocess,
+                test_config,
+                session_ops,
+            };
+
+            // Setup mock response
+            claude_executor.add_response(ExecutionResult {
+                success: true,
+                stdout: "Command executed".to_string(),
+                stderr: String::new(),
+                exit_code: Some(0),
+                metadata: HashMap::new(),
+            });
+
+            let env = ExecutionEnvironment {
+                working_dir: Arc::new(temp_dir.path().to_path_buf()),
+                project_dir: Arc::new(temp_dir.path().to_path_buf()),
+                worktree_name: None,
+                session_id: Arc::from("test"),
+            };
+
+            let config = CookConfig {
+                command: create_test_cook_command(false, false),
+                project_path: Arc::new(PathBuf::from("/test")),
+                workflow: Arc::new(crate::config::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                    merge: None,
+                }),
+                mapreduce_config: None,
+            };
+
+            let mut command = crate::config::command::Command::new("test-command");
+            command.metadata.commit_required = true;
+
+            let result = orchestrator
+                .execute_and_validate_command(
+                    &env,
+                    &config,
+                    &command,
+                    "/test-command",
+                    "test input",
+                    HashMap::new(),
+                )
+                .await;
+
+            // Should succeed and skip all validation
+            assert!(result.is_ok());
+        }
+    }
 }
