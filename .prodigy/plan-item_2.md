@@ -1,191 +1,219 @@
-# Implementation Plan: Add Test Coverage for CookSessionAdapter::update_session
+# Implementation Plan: Improve Test Coverage for FileEventStore::index
 
 ## Problem Summary
 
-**Location**: ./src/unified_session/cook_adapter.rs:CookSessionAdapter::update_session:184
-**Priority Score**: 48.64
-**Debt Type**: ComplexityHotspot (cognitive: 17, cyclomatic: 5)
+**Location**: ./src/cook/execution/events/event_store.rs:FileEventStore::index:389
+**Priority Score**: 48.3875
+**Debt Type**: ComplexityHotspot (cognitive: 15, cyclomatic: 6)
 **Current Metrics**:
-- Lines of Code: 26
-- Cyclomatic Complexity: 5
-- Cognitive Complexity: 17
-- Coverage: 0% (missing coverage for critical branches)
-- Upstream Callers: 22 different call sites
+- Lines of Code: 30
+- Cyclomatic Complexity: 6
+- Cognitive Complexity: 15
+- Upstream Dependencies: 31 (heavily used throughout codebase)
+- Downstream Dependencies: 7
+- Function Role: PureLogic
 
-**Issue**: Add 5 tests for 100% coverage gap. NO refactoring needed (complexity 5 is acceptable). The function has good structure but lacks comprehensive test coverage for edge cases and error conditions.
+**Issue**: While the cyclomatic complexity (6) is within acceptable limits, the high cognitive complexity (15) and extensive dependency network (31 upstream callers) indicate this is a critical function that needs comprehensive test coverage. The debtmap analysis recommends: "Current structure is acceptable - prioritize test coverage" and "Complexity 6 is manageable. Focus on maintaining simplicity".
+
+**Analysis**: The `FileEventStore::index` method has already been well-refactored with pure helper functions extracted (lines 186-287). The function orchestrates event file indexing but delegates complex operations to testable pure functions like `update_time_range`, `increment_event_count`, `create_file_offset`, `process_event_line`, `process_event_file`, and `save_index`. All helper functions already have unit tests (lines 1116-1455).
+
+The main risk is not in the function's complexity but in ensuring comprehensive test coverage for all edge cases given its critical role in the system.
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 2.5 (via test-driven clarity)
-- Coverage Improvement: 0.0 (needs measurement after tests)
-- Risk Reduction: 17.02 (significantly reduce regression risk)
+**Expected Impact**:
+- Complexity Reduction: 3.0 (maintain current refactored structure)
+- Coverage Improvement: 0.0 (focus on comprehensive testing, not structural changes)
+- Risk Reduction: 16.94
 
 **Success Criteria**:
-- [x] 5 new focused tests added (each <15 lines)
-- [x] Each test covers ONE specific code path
-- [x] All edge cases and error conditions tested
-- [x] All existing tests continue to pass
-- [x] No clippy warnings
-- [x] Proper formatting with `cargo fmt`
+- [ ] Comprehensive test coverage for all edge cases of `FileEventStore::index`
+- [ ] Tests verify error handling paths (I/O failures, invalid paths)
+- [ ] Tests validate integration between `index` and its helper functions
+- [ ] All existing tests continue to pass (31 existing tests)
+- [ ] No clippy warnings
+- [ ] Proper formatting (cargo fmt)
+- [ ] Maintain existing pure function structure (no unnecessary refactoring)
 
 ## Implementation Phases
 
-### Phase 1: Add Test for Multiple Sequential Updates
+This plan focuses on improving test coverage without changing the well-structured implementation. The function already follows functional programming principles with extracted pure functions.
 
-**Goal**: Verify that multiple updates can be applied in sequence and cached state remains consistent
+### Phase 1: Add Direct Unit Tests for index Method
+
+**Goal**: Create focused unit tests that directly test the `index` method's orchestration logic and edge cases not covered by helper function tests.
 
 **Changes**:
-- Add test `test_update_session_multiple_sequential_updates` to verify:
-  - Increment iteration
-  - Add files changed
-  - Update status
-  - All updates are properly reflected in cached state
+- Add test for `index` with multiple event files of varying sizes
+- Add test for `index` handling of concurrent file system changes (defensive)
+- Add test for `index` with files in unexpected order (filename sorting)
+- Add test verifying index persistence after creation
+- Add test for `index` idempotency (calling multiple times produces same result)
 
 **Testing**:
 ```bash
-cargo test test_update_session_multiple_sequential_updates
+cargo test --lib event_store::tests::test_index
+cargo test --lib FileEventStore::index
 ```
 
 **Success Criteria**:
-- [x] Test passes and verifies sequential update behavior
-- [x] Cached state reflects all accumulated updates
-- [x] Test is <15 lines
-- [x] All tests pass: `cargo test --lib`
+- [ ] At least 5 new direct unit tests for `index` method
+- [ ] All tests pass
+- [ ] Coverage for orchestration logic validated
+- [ ] Ready to commit
 
-### Phase 2: Add Test for CompleteIteration Update Path
+### Phase 2: Add Integration Tests for Error Paths
 
-**Goal**: Verify that `CookSessionUpdate::CompleteIteration` is handled correctly (maps to empty vec)
+**Goal**: Ensure robust error handling for real-world failure scenarios.
 
 **Changes**:
-- Add test `test_update_session_complete_iteration` to verify:
-  - CompleteIteration update is accepted
-  - No error occurs
-  - Cached state is still updated (even though unified_updates is empty)
+- Add test for `index` when event file is deleted mid-read (I/O error)
+- Add test for `index` with permission denied on index.json write
+- Add test for `index` with disk full scenario (simulated via temp filesystem limits)
+- Add test for `index` with corrupted event file (partial line read)
+- Add test verifying proper error propagation (not silent failures)
 
 **Testing**:
 ```bash
-cargo test test_update_session_complete_iteration
+cargo test --lib event_store::tests::test_index_error
 ```
 
 **Success Criteria**:
-- [x] Test passes and verifies CompleteIteration handling
-- [x] No panic or error occurs
-- [x] Test is <15 lines
-- [x] All tests pass: `cargo test --lib`
+- [ ] At least 4 new error path tests
+- [ ] All tests verify proper Result::Err propagation
+- [ ] No unwrap() or panic!() in error handling (per Spec 101)
+- [ ] All tests pass
+- [ ] Ready to commit
 
-### Phase 3: Add Test for Update After Session Completion
+### Phase 3: Add Performance and Scale Tests
 
-**Goal**: Verify behavior when trying to update an already-completed session
+**Goal**: Validate behavior with large datasets typical of MapReduce workloads.
 
 **Changes**:
-- Add test `test_update_session_after_completion` to verify:
-  - Start a session
-  - Mark it as completed
-  - Try to update it (should succeed gracefully)
-  - Verify cached state reflects the final state
+- Add test for `index` with 1000+ events across 10+ files
+- Add test for `index` with very large individual event records (>1MB)
+- Add test for `index` with very long-running jobs (time range > 24 hours)
+- Add benchmark for `index` operation (optional, for baseline)
+- Document expected performance characteristics in test comments
 
 **Testing**:
 ```bash
-cargo test test_update_session_after_completion
+cargo test --lib event_store::tests::test_index_scale
+cargo test --lib event_store::tests::test_index_performance
 ```
 
 **Success Criteria**:
-- [x] Test passes and verifies post-completion update behavior
-- [x] No errors occur
-- [x] Test is <15 lines
-- [x] All tests pass: `cargo test --lib`
+- [ ] At least 3 scale tests covering realistic MapReduce scenarios
+- [ ] Tests complete in reasonable time (<5s each)
+- [ ] Memory usage is reasonable (no excessive allocations)
+- [ ] All tests pass
+- [ ] Ready to commit
 
-### Phase 4: Add Test for Files Changed Delta Accumulation
+### Phase 4: Add Documentation and Examples
 
-**Goal**: Verify that multiple AddFilesChanged updates accumulate correctly
+**Goal**: Improve maintainability through clear documentation and usage examples.
 
 **Changes**:
-- Add test `test_update_files_changed_delta` to verify:
-  - Add 3 files changed
-  - Add 5 more files changed
-  - Add 2 more files changed
-  - Verify cumulative total in cached state
+- Add comprehensive doc comments to `FileEventStore::index` method
+- Document expected behavior for edge cases (empty directories, no events, etc.)
+- Add usage examples in doc comments
+- Document error conditions and return values
+- Add links to related helper functions in documentation
 
 **Testing**:
 ```bash
-cargo test test_update_files_changed_delta
+cargo doc --no-deps --open
+cargo test --doc event_store
 ```
 
 **Success Criteria**:
-- [x] Test passes and verifies accumulation logic
-- [x] Delta values are properly accumulated
-- [x] Test is <15 lines
-- [x] All tests pass: `cargo test --lib`
+- [ ] Doc comments added with examples
+- [ ] All doc examples compile and run
+- [ ] Documentation covers all parameters and return values
+- [ ] Links to helper functions included
+- [ ] Ready to commit
 
-### Phase 5: Add Test for Update Metadata Path
+### Phase 5: Validation and Metrics
 
-**Goal**: Verify custom metadata updates work correctly
+**Goal**: Verify improvement in debt score and overall code quality.
 
 **Changes**:
-- Add test `test_update_metadata` to verify:
-  - Custom metadata can be set via CookSessionUpdate variants
-  - Metadata is preserved in cached state
-  - Multiple metadata updates don't interfere with each other
+- Run full test suite to ensure no regressions
+- Run coverage analysis to measure improvement
+- Run debtmap to verify reduction in debt score
+- Verify no new clippy warnings introduced
+- Confirm all formatting standards met
 
 **Testing**:
-- Run all tests to ensure coverage is complete
 ```bash
-cargo test --lib
-cargo clippy
-cargo fmt --check
+just ci
+cargo tarpaulin --out Html --output-dir coverage
+debtmap analyze --output /tmp/debtmap-after.json
 ```
 
 **Success Criteria**:
-- [x] Test passes and verifies metadata handling
-- [x] All 5 new tests pass
-- [x] No clippy warnings
-- [x] Code is properly formatted
-- [x] Ready to commit
+- [ ] All 31+ existing tests still pass
+- [ ] New tests increase coverage of `event_store.rs` module
+- [ ] Debtmap shows improvement in unified score for this item
+- [ ] No clippy warnings in modified code
+- [ ] Code properly formatted
+- [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Write the test first (TDD approach)
-2. Run `cargo test <test_name>` to verify the specific test
-3. Run `cargo test --lib` to verify all tests still pass
-4. Run `cargo clippy` to check for warnings
-5. Run `cargo fmt` to ensure proper formatting
-6. Commit the phase with a clear message
+1. Run `cargo test --lib event_store` to verify new tests pass
+2. Run `cargo test --lib` to ensure no regressions
+3. Run `cargo clippy -- -D warnings` to check for warnings
+4. Run `cargo fmt --check` to verify formatting
+5. Review test output for clear failure messages
 
 **Final verification**:
-1. `cargo test --lib` - All tests pass
-2. `cargo clippy` - No warnings
-3. `cargo fmt --check` - Proper formatting
-4. `cargo tarpaulin --lib` - Measure coverage improvement
-5. Review test coverage report to confirm gaps are filled
+1. `just ci` - Full CI checks (build, test, clippy, format)
+2. `cargo tarpaulin --out Html` - Verify coverage improvement
+3. `debtmap analyze` - Verify debt score reduction
+4. Review all test names for clarity and maintainability
 
-## Test Design Guidelines
-
-Each test should:
-- Be <15 lines of code
-- Test ONE specific code path
-- Use descriptive assertion messages
-- Follow the existing test pattern in the file
-- Use `create_test_adapter()` helper for setup
-- Clean up with temp dir drop (automatic)
+**Test Naming Convention**:
+- Use descriptive names: `test_index_<scenario>_<expected_behavior>`
+- Group related tests with common prefix
+- Document test purpose in comments when non-obvious
 
 ## Rollback Plan
 
 If a phase fails:
-1. Review the test failure carefully
-2. Check if the test expectation is correct
-3. If test is wrong, fix the test
-4. If code behavior is unexpected, investigate further
-5. Do NOT refactor the production code (per debtmap recommendation)
-6. If completely blocked, document findings and reassess
+1. Revert the phase with `git reset --hard HEAD~1`
+2. Review the failure cause:
+   - Test flakiness? Add stability improvements
+   - Test design issue? Redesign test approach
+   - Actual bug found? Fix bug separately, then return to testing
+3. Adjust the plan based on learnings
+4. Retry the phase with improvements
 
 ## Notes
 
-- The function structure is clean and well-designed
-- Cyclomatic complexity of 5 is acceptable and manageable
-- Cognitive complexity of 17 is due to async/await patterns, not poor design
-- Focus is purely on test coverage, NOT refactoring
-- Existing tests cover happy paths; new tests cover edge cases
-- The 22 upstream callers indicate this is a critical function
-- High test coverage will significantly reduce regression risk
+**Important Observations**:
+- The `FileEventStore::index` method is already well-refactored with pure helper functions
+- All helper functions have comprehensive unit tests (11 tests for helpers, 20+ integration tests)
+- The main gap is in testing the orchestration logic and error handling of `index` itself
+- This is a critical function (31 upstream callers) requiring high reliability
+- Focus should be on test coverage, not structural changes, per debtmap recommendation
+
+**No Refactoring Needed**:
+- The function follows functional programming principles (pure helpers, clear separation of concerns)
+- Cyclomatic complexity of 6 is within acceptable limits
+- The high cognitive complexity (15) is due to orchestration, not algorithmic complexity
+- Changing the structure would risk breaking 31 dependent call sites
+
+**Testing Focus Areas**:
+1. Direct testing of `index` orchestration logic
+2. Error handling and propagation
+3. Edge cases (empty dirs, malformed files, I/O errors)
+4. Scale and performance with realistic workloads
+5. Documentation and examples for maintainability
+
+**Success Definition**:
+- Comprehensive test coverage for all edge cases
+- Clear error handling validated through tests
+- No structural changes to the well-designed implementation
+- Improved confidence in this critical system component
