@@ -41,6 +41,33 @@ pub struct GitRunnerImpl {
     runner: Arc<dyn ProcessRunner>,
 }
 
+/// Parse a git status branch line (format: "## branch...upstream")
+/// Returns the local branch name if the line is a branch marker.
+#[inline]
+fn parse_branch_line(line: &str) -> Option<String> {
+    line.strip_prefix("## ")
+        .and_then(|branch_info| branch_info.split("...").next())
+        .map(|s| s.to_string())
+}
+
+/// Parse a git status untracked file line (format: "?? filename")
+/// Returns the filename if the line marks an untracked file.
+#[inline]
+fn parse_untracked_line(line: &str) -> Option<String> {
+    line.strip_prefix("?? ").map(|file| file.to_string())
+}
+
+/// Parse a git status modified file line (any status code except untracked)
+/// Returns the filename if the line is a valid file status line.
+#[inline]
+fn parse_modified_line(line: &str) -> Option<String> {
+    if line.len() > 2 {
+        Some(line[3..].to_string())
+    } else {
+        None
+    }
+}
+
 impl GitRunnerImpl {
     pub fn new(runner: Arc<dyn ProcessRunner>) -> Self {
         Self { runner }
@@ -68,17 +95,19 @@ impl GitRunner for GitRunnerImpl {
         let mut untracked_files = Vec::new();
         let mut modified_files = Vec::new();
 
+        // Parse git status --porcelain output line by line
         for line in output.stdout.lines() {
-            if line.starts_with("## ") {
-                if let Some(branch_info) = line.strip_prefix("## ") {
-                    branch = branch_info.split("...").next().map(|s| s.to_string());
-                }
-            } else if line.starts_with("??") {
-                if let Some(file) = line.strip_prefix("?? ") {
-                    untracked_files.push(file.to_string());
-                }
-            } else if line.len() > 2 {
-                let file = line[3..].to_string();
+            if let Some(branch_name) = parse_branch_line(line) {
+                branch = Some(branch_name);
+                continue;
+            }
+
+            if let Some(file) = parse_untracked_line(line) {
+                untracked_files.push(file);
+                continue;
+            }
+
+            if let Some(file) = parse_modified_line(line) {
                 modified_files.push(file);
             }
         }
