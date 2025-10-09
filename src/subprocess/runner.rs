@@ -399,21 +399,9 @@ impl ProcessRunner for TokioProcessRunner {
             source: e.into(),
         })?;
 
-        // Handle stdin if provided
+        // Write stdin if provided
         if let Some(stdin_data) = &command.stdin {
-            if let Some(mut stdin) = child.stdin.take() {
-                use tokio::io::AsyncWriteExt;
-                stdin.write_all(stdin_data.as_bytes()).await.map_err(|e| {
-                    ProcessError::IoError {
-                        command: format!("{} {}", command.program, command.args.join(" ")),
-                        source: e,
-                    }
-                })?;
-                stdin.flush().await.map_err(|e| ProcessError::IoError {
-                    command: format!("{} {}", command.program, command.args.join(" ")),
-                    source: e,
-                })?;
-            }
+            Self::write_stdin(&mut child, stdin_data).await?;
         }
 
         // Take ownership of output streams
