@@ -3013,11 +3013,7 @@ mod tests {
                 Ok(true)
             }
 
-            async fn prompt_text(
-                &self,
-                _message: &str,
-                _default: Option<&str>,
-            ) -> Result<String> {
+            async fn prompt_text(&self, _message: &str, _default: Option<&str>) -> Result<String> {
                 Ok("test".to_string())
             }
 
@@ -3090,7 +3086,10 @@ mod tests {
         }
 
         // Helper function to create test command
-        fn create_test_cook_command(fail_fast: bool, dry_run: bool) -> crate::cook::command::CookCommand {
+        fn create_test_cook_command(
+            fail_fast: bool,
+            dry_run: bool,
+        ) -> crate::cook::command::CookCommand {
             crate::cook::command::CookCommand {
                 playbook: PathBuf::from("test.yaml"),
                 path: None,
@@ -3119,9 +3118,8 @@ mod tests {
             let session_manager = Arc::new(MockSessionManager::new());
             let user_interaction = Arc::new(MockUserInteraction::new());
             let git_operations = Arc::new(MockGitOperations::new());
-            let subprocess = SubprocessManager::new(Arc::new(
-                crate::subprocess::runner::TokioProcessRunner,
-            ));
+            let subprocess =
+                SubprocessManager::new(Arc::new(crate::subprocess::runner::TokioProcessRunner));
             let session_ops = crate::cook::orchestrator::session_ops::SessionOperations::new(
                 session_manager.clone() as Arc<dyn SessionManager>,
                 claude_executor.clone() as Arc<dyn ClaudeExecutor>,
@@ -3130,7 +3128,8 @@ mod tests {
                 subprocess.clone(),
             );
 
-            let command_executor = Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
+            let command_executor =
+                Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
 
             let orchestrator = DefaultCookOrchestrator {
                 session_manager: session_manager.clone() as Arc<dyn SessionManager>,
@@ -3328,9 +3327,8 @@ mod tests {
             let session_manager = Arc::new(MockSessionManager::new());
             let user_interaction = Arc::new(MockUserInteraction::new());
             let git_operations = Arc::new(MockGitOperations::new());
-            let subprocess = SubprocessManager::new(Arc::new(
-                crate::subprocess::runner::TokioProcessRunner,
-            ));
+            let subprocess =
+                SubprocessManager::new(Arc::new(crate::subprocess::runner::TokioProcessRunner));
             let session_ops = crate::cook::orchestrator::session_ops::SessionOperations::new(
                 session_manager.clone() as Arc<dyn SessionManager>,
                 claude_executor.clone() as Arc<dyn ClaudeExecutor>,
@@ -3346,7 +3344,8 @@ mod tests {
                 ..Default::default()
             }));
 
-            let command_executor = Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
+            let command_executor =
+                Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
 
             let orchestrator = DefaultCookOrchestrator {
                 session_manager: session_manager.clone() as Arc<dyn SessionManager>,
@@ -3656,9 +3655,8 @@ mod tests {
             let session_manager = Arc::new(MockSessionManager::new());
             let user_interaction = Arc::new(MockUserInteraction::new());
             let git_operations = Arc::new(MockGitOperations::new());
-            let subprocess = SubprocessManager::new(Arc::new(
-                crate::subprocess::runner::TokioProcessRunner,
-            ));
+            let subprocess =
+                SubprocessManager::new(Arc::new(crate::subprocess::runner::TokioProcessRunner));
             let session_ops = crate::cook::orchestrator::session_ops::SessionOperations::new(
                 session_manager.clone() as Arc<dyn SessionManager>,
                 claude_executor.clone() as Arc<dyn ClaudeExecutor>,
@@ -3675,7 +3673,8 @@ mod tests {
                 ..Default::default()
             }));
 
-            let command_executor = Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
+            let command_executor =
+                Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
 
             let orchestrator = DefaultCookOrchestrator {
                 session_manager: session_manager.clone() as Arc<dyn SessionManager>,
