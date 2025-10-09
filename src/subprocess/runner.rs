@@ -81,6 +81,43 @@ pub trait ProcessRunner: Send + Sync {
 pub struct TokioProcessRunner;
 
 impl TokioProcessRunner {
+    /// Normalize a line by removing trailing newlines
+    fn normalize_line(mut line: String) -> String {
+        if line.ends_with('\n') {
+            line.pop();
+            if line.ends_with('\r') {
+                line.pop();
+            }
+        }
+        line
+    }
+
+    /// Create a line stream from a buffered reader
+    fn create_line_stream<R>(reader: tokio::io::BufReader<R>) -> ProcessStreamFut
+    where
+        R: tokio::io::AsyncRead + Send + Unpin + 'static,
+    {
+        use tokio::io::AsyncBufReadExt;
+
+        Box::pin(futures::stream::unfold(reader, |mut reader| async move {
+            let mut line = String::new();
+            match reader.read_line(&mut line).await {
+                Ok(0) => None, // EOF
+                Ok(_) => {
+                    let normalized = Self::normalize_line(line);
+                    Some((Ok(normalized), reader))
+                }
+                Err(e) => Some((
+                    Err(ProcessError::IoError {
+                        command: String::new(),
+                        source: e,
+                    }),
+                    reader,
+                )),
+            }
+        })) as ProcessStreamFut
+    }
+
     /// Log command execution details
     fn log_command_start(command: &ProcessCommand) {
         tracing::debug!(
@@ -307,7 +344,7 @@ impl ProcessRunner for TokioProcessRunner {
 
     async fn run_streaming(&self, command: ProcessCommand) -> Result<ProcessStream, ProcessError> {
         use std::process::Stdio;
-        use tokio::io::{AsyncBufReadExt, BufReader};
+        use tokio::io::BufReader;
         use tokio::process::Command;
 
         // Log command execution
@@ -375,60 +412,10 @@ impl ProcessRunner for TokioProcessRunner {
             })?;
 
         // Create stdout stream
-        let stdout_stream = Box::pin(futures::stream::unfold(
-            BufReader::new(stdout),
-            |mut reader| async move {
-                let mut line = String::new();
-                match reader.read_line(&mut line).await {
-                    Ok(0) => None, // EOF
-                    Ok(_) => {
-                        // Remove trailing newline
-                        if line.ends_with('\n') {
-                            line.pop();
-                            if line.ends_with('\r') {
-                                line.pop();
-                            }
-                        }
-                        Some((Ok(line.clone()), reader))
-                    }
-                    Err(e) => Some((
-                        Err(ProcessError::IoError {
-                            command: String::new(),
-                            source: e,
-                        }),
-                        reader,
-                    )),
-                }
-            },
-        )) as ProcessStreamFut;
+        let stdout_stream = Self::create_line_stream(BufReader::new(stdout));
 
         // Create stderr stream
-        let stderr_stream = Box::pin(futures::stream::unfold(
-            BufReader::new(stderr),
-            |mut reader| async move {
-                let mut line = String::new();
-                match reader.read_line(&mut line).await {
-                    Ok(0) => None, // EOF
-                    Ok(_) => {
-                        // Remove trailing newline
-                        if line.ends_with('\n') {
-                            line.pop();
-                            if line.ends_with('\r') {
-                                line.pop();
-                            }
-                        }
-                        Some((Ok(line.clone()), reader))
-                    }
-                    Err(e) => Some((
-                        Err(ProcessError::IoError {
-                            command: String::new(),
-                            source: e,
-                        }),
-                        reader,
-                    )),
-                }
-            },
-        )) as ProcessStreamFut;
+        let stderr_stream = Self::create_line_stream(BufReader::new(stderr));
 
         // Create status future
         let timeout = command.timeout;
