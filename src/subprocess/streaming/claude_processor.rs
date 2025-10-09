@@ -63,6 +63,30 @@ impl ClaudeJsonProcessor {
     }
 }
 
+// Pure helper functions for JSON field extraction
+
+/// Extract a string field from JSON, returning a default if missing or invalid
+fn extract_string_field<'a>(json: &'a Value, field: &str, default: &'a str) -> &'a str {
+    json.get(field).and_then(|v| v.as_str()).unwrap_or(default)
+}
+
+/// Extract a u64 field from JSON, returning a default if missing or invalid
+fn extract_u64_field(json: &Value, field: &str, default: u64) -> u64 {
+    json.get(field).and_then(|v| v.as_u64()).unwrap_or(default)
+}
+
+/// Extract an array of strings from JSON, returning an empty vector if missing or invalid
+fn extract_string_array(json: &Value, field: &str) -> Vec<String> {
+    json.get(field)
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[async_trait]
 impl StreamProcessor for ClaudeJsonProcessor {
     async fn process_line(&self, line: &str, source: StreamSource) -> Result<()> {
@@ -89,14 +113,8 @@ impl StreamProcessor for ClaudeJsonProcessor {
                 if let Some(event_type) = json.get("event").and_then(|v| v.as_str()) {
                     match event_type {
                         "tool_use" => {
-                            let tool_name = json
-                                .get("tool_name")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown");
-                            let tool_id = json
-                                .get("tool_id")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown");
+                            let tool_name = extract_string_field(&json, "tool_name", "unknown");
+                            let tool_id = extract_string_field(&json, "tool_id", "unknown");
                             let parameters = json.get("parameters").cloned().unwrap_or(Value::Null);
 
                             self.handler
@@ -104,47 +122,22 @@ impl StreamProcessor for ClaudeJsonProcessor {
                                 .await?;
                         }
                         "token_usage" => {
-                            let input = json
-                                .get("input_tokens")
-                                .and_then(|v| v.as_u64())
-                                .unwrap_or(0);
-                            let output = json
-                                .get("output_tokens")
-                                .and_then(|v| v.as_u64())
-                                .unwrap_or(0);
-                            let cache = json
-                                .get("cache_read_tokens")
-                                .and_then(|v| v.as_u64())
-                                .unwrap_or(0);
+                            let input = extract_u64_field(&json, "input_tokens", 0);
+                            let output = extract_u64_field(&json, "output_tokens", 0);
+                            let cache = extract_u64_field(&json, "cache_read_tokens", 0);
 
                             self.handler.on_token_usage(input, output, cache).await?;
                         }
                         "message" => {
-                            let content =
-                                json.get("content").and_then(|v| v.as_str()).unwrap_or("");
-                            let message_type =
-                                json.get("type").and_then(|v| v.as_str()).unwrap_or("text");
+                            let content = extract_string_field(&json, "content", "");
+                            let message_type = extract_string_field(&json, "type", "text");
 
                             self.handler.on_message(content, message_type).await?;
                         }
                         "session_started" => {
-                            let session_id = json
-                                .get("session_id")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown");
-                            let model = json
-                                .get("model")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown");
-                            let tools = json
-                                .get("tools")
-                                .and_then(|v| v.as_array())
-                                .map(|arr| {
-                                    arr.iter()
-                                        .filter_map(|v| v.as_str().map(String::from))
-                                        .collect()
-                                })
-                                .unwrap_or_default();
+                            let session_id = extract_string_field(&json, "session_id", "unknown");
+                            let model = extract_string_field(&json, "model", "unknown");
+                            let tools = extract_string_array(&json, "tools");
 
                             self.handler
                                 .on_session_start(session_id, model, tools)
@@ -252,6 +245,55 @@ impl ClaudeStreamHandler for LoggingClaudeHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_extract_string_field() {
+        let json = json!({"name": "test", "value": "hello"});
+
+        assert_eq!(extract_string_field(&json, "name", "default"), "test");
+        assert_eq!(extract_string_field(&json, "value", "default"), "hello");
+        assert_eq!(extract_string_field(&json, "missing", "default"), "default");
+
+        // Test with non-string value
+        let json = json!({"number": 42});
+        assert_eq!(extract_string_field(&json, "number", "default"), "default");
+    }
+
+    #[test]
+    fn test_extract_u64_field() {
+        let json = json!({"count": 42, "zero": 0});
+
+        assert_eq!(extract_u64_field(&json, "count", 99), 42);
+        assert_eq!(extract_u64_field(&json, "zero", 99), 0);
+        assert_eq!(extract_u64_field(&json, "missing", 99), 99);
+
+        // Test with non-number value
+        let json = json!({"string": "not a number"});
+        assert_eq!(extract_u64_field(&json, "string", 99), 99);
+    }
+
+    #[test]
+    fn test_extract_string_array() {
+        let json = json!({"tools": ["Read", "Write", "Edit"]});
+
+        let result = extract_string_array(&json, "tools");
+        assert_eq!(result, vec!["Read", "Write", "Edit"]);
+
+        // Test with missing field
+        let result = extract_string_array(&json, "missing");
+        assert_eq!(result, Vec::<String>::new());
+
+        // Test with mixed types in array
+        let json = json!({"mixed": ["a", 1, "b", null, "c"]});
+        let result = extract_string_array(&json, "mixed");
+        assert_eq!(result, vec!["a", "b", "c"]);
+
+        // Test with non-array value
+        let json = json!({"not_array": "string"});
+        let result = extract_string_array(&json, "not_array");
+        assert_eq!(result, Vec::<String>::new());
+    }
 
     #[tokio::test]
     async fn test_claude_json_processor() {
