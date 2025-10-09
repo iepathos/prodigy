@@ -87,6 +87,39 @@ fn extract_string_array(json: &Value, field: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+// Pure parsing functions for each event type
+
+/// Parse a tool_use event, returning (tool_name, tool_id, parameters)
+fn parse_tool_use(json: &Value) -> Option<(String, String, Value)> {
+    let tool_name = extract_string_field(json, "tool_name", "unknown").to_string();
+    let tool_id = extract_string_field(json, "tool_id", "unknown").to_string();
+    let parameters = json.get("parameters").cloned().unwrap_or(Value::Null);
+    Some((tool_name, tool_id, parameters))
+}
+
+/// Parse a token_usage event, returning (input_tokens, output_tokens, cache_read_tokens)
+fn parse_token_usage(json: &Value) -> Option<(u64, u64, u64)> {
+    let input = extract_u64_field(json, "input_tokens", 0);
+    let output = extract_u64_field(json, "output_tokens", 0);
+    let cache = extract_u64_field(json, "cache_read_tokens", 0);
+    Some((input, output, cache))
+}
+
+/// Parse a message event, returning (content, message_type)
+fn parse_message(json: &Value) -> Option<(String, String)> {
+    let content = extract_string_field(json, "content", "").to_string();
+    let message_type = extract_string_field(json, "type", "text").to_string();
+    Some((content, message_type))
+}
+
+/// Parse a session_started event, returning (session_id, model, tools)
+fn parse_session_start(json: &Value) -> Option<(String, String, Vec<String>)> {
+    let session_id = extract_string_field(json, "session_id", "unknown").to_string();
+    let model = extract_string_field(json, "model", "unknown").to_string();
+    let tools = extract_string_array(json, "tools");
+    Some((session_id, model, tools))
+}
+
 #[async_trait]
 impl StreamProcessor for ClaudeJsonProcessor {
     async fn process_line(&self, line: &str, source: StreamSource) -> Result<()> {
@@ -113,35 +146,28 @@ impl StreamProcessor for ClaudeJsonProcessor {
                 if let Some(event_type) = json.get("event").and_then(|v| v.as_str()) {
                     match event_type {
                         "tool_use" => {
-                            let tool_name = extract_string_field(&json, "tool_name", "unknown");
-                            let tool_id = extract_string_field(&json, "tool_id", "unknown");
-                            let parameters = json.get("parameters").cloned().unwrap_or(Value::Null);
-
-                            self.handler
-                                .on_tool_invocation(tool_name, tool_id, &parameters)
-                                .await?;
+                            if let Some((tool_name, tool_id, parameters)) = parse_tool_use(&json) {
+                                self.handler
+                                    .on_tool_invocation(&tool_name, &tool_id, &parameters)
+                                    .await?;
+                            }
                         }
                         "token_usage" => {
-                            let input = extract_u64_field(&json, "input_tokens", 0);
-                            let output = extract_u64_field(&json, "output_tokens", 0);
-                            let cache = extract_u64_field(&json, "cache_read_tokens", 0);
-
-                            self.handler.on_token_usage(input, output, cache).await?;
+                            if let Some((input, output, cache)) = parse_token_usage(&json) {
+                                self.handler.on_token_usage(input, output, cache).await?;
+                            }
                         }
                         "message" => {
-                            let content = extract_string_field(&json, "content", "");
-                            let message_type = extract_string_field(&json, "type", "text");
-
-                            self.handler.on_message(content, message_type).await?;
+                            if let Some((content, message_type)) = parse_message(&json) {
+                                self.handler.on_message(&content, &message_type).await?;
+                            }
                         }
                         "session_started" => {
-                            let session_id = extract_string_field(&json, "session_id", "unknown");
-                            let model = extract_string_field(&json, "model", "unknown");
-                            let tools = extract_string_array(&json, "tools");
-
-                            self.handler
-                                .on_session_start(session_id, model, tools)
-                                .await?;
+                            if let Some((session_id, model, tools)) = parse_session_start(&json) {
+                                self.handler
+                                    .on_session_start(&session_id, &model, tools)
+                                    .await?;
+                            }
                         }
                         _ => {
                             // Unknown event type, pass to raw handler
@@ -293,6 +319,103 @@ mod tests {
         let json = json!({"not_array": "string"});
         let result = extract_string_array(&json, "not_array");
         assert_eq!(result, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_parse_tool_use() {
+        let json = json!({
+            "tool_name": "Read",
+            "tool_id": "tool_123",
+            "parameters": {"file": "test.rs"}
+        });
+
+        let result = parse_tool_use(&json);
+        assert!(result.is_some());
+        let (name, id, params) = result.unwrap();
+        assert_eq!(name, "Read");
+        assert_eq!(id, "tool_123");
+        assert_eq!(params.get("file").and_then(|v| v.as_str()), Some("test.rs"));
+
+        // Test with missing fields (should use defaults)
+        let json = json!({});
+        let result = parse_tool_use(&json);
+        assert!(result.is_some());
+        let (name, id, params) = result.unwrap();
+        assert_eq!(name, "unknown");
+        assert_eq!(id, "unknown");
+        assert_eq!(params, Value::Null);
+    }
+
+    #[test]
+    fn test_parse_token_usage() {
+        let json = json!({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_tokens": 25
+        });
+
+        let result = parse_token_usage(&json);
+        assert!(result.is_some());
+        let (input, output, cache) = result.unwrap();
+        assert_eq!(input, 100);
+        assert_eq!(output, 50);
+        assert_eq!(cache, 25);
+
+        // Test with missing fields (should use defaults)
+        let json = json!({});
+        let result = parse_token_usage(&json);
+        assert!(result.is_some());
+        let (input, output, cache) = result.unwrap();
+        assert_eq!(input, 0);
+        assert_eq!(output, 0);
+        assert_eq!(cache, 0);
+    }
+
+    #[test]
+    fn test_parse_message() {
+        let json = json!({
+            "content": "Hello world",
+            "type": "text"
+        });
+
+        let result = parse_message(&json);
+        assert!(result.is_some());
+        let (content, msg_type) = result.unwrap();
+        assert_eq!(content, "Hello world");
+        assert_eq!(msg_type, "text");
+
+        // Test with missing fields (should use defaults)
+        let json = json!({});
+        let result = parse_message(&json);
+        assert!(result.is_some());
+        let (content, msg_type) = result.unwrap();
+        assert_eq!(content, "");
+        assert_eq!(msg_type, "text");
+    }
+
+    #[test]
+    fn test_parse_session_start() {
+        let json = json!({
+            "session_id": "sess_123",
+            "model": "claude-3",
+            "tools": ["Read", "Write", "Edit"]
+        });
+
+        let result = parse_session_start(&json);
+        assert!(result.is_some());
+        let (session_id, model, tools) = result.unwrap();
+        assert_eq!(session_id, "sess_123");
+        assert_eq!(model, "claude-3");
+        assert_eq!(tools, vec!["Read", "Write", "Edit"]);
+
+        // Test with missing fields (should use defaults)
+        let json = json!({});
+        let result = parse_session_start(&json);
+        assert!(result.is_some());
+        let (session_id, model, tools) = result.unwrap();
+        assert_eq!(session_id, "unknown");
+        assert_eq!(model, "unknown");
+        assert_eq!(tools, Vec::<String>::new());
     }
 
     #[tokio::test]
