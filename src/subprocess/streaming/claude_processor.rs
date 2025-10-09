@@ -61,6 +61,46 @@ impl ClaudeJsonProcessor {
     pub async fn get_buffer(&self) -> String {
         self.buffer.lock().await.clone()
     }
+
+    /// Dispatch a JSON event to the appropriate handler method
+    async fn dispatch_event(&self, json: &Value) -> Result<()> {
+        if let Some(event_type) = json.get("event").and_then(|v| v.as_str()) {
+            match event_type {
+                "tool_use" => {
+                    if let Some((tool_name, tool_id, parameters)) = parse_tool_use(json) {
+                        self.handler
+                            .on_tool_invocation(&tool_name, &tool_id, &parameters)
+                            .await?;
+                    }
+                }
+                "token_usage" => {
+                    if let Some((input, output, cache)) = parse_token_usage(json) {
+                        self.handler.on_token_usage(input, output, cache).await?;
+                    }
+                }
+                "message" => {
+                    if let Some((content, message_type)) = parse_message(json) {
+                        self.handler.on_message(&content, &message_type).await?;
+                    }
+                }
+                "session_started" => {
+                    if let Some((session_id, model, tools)) = parse_session_start(json) {
+                        self.handler
+                            .on_session_start(&session_id, &model, tools)
+                            .await?;
+                    }
+                }
+                _ => {
+                    // Unknown event type, pass to raw handler
+                    self.handler.on_raw_event(event_type, json).await?;
+                }
+            }
+        } else {
+            // JSON without event field
+            self.handler.on_raw_event("unknown", json).await?;
+        }
+        Ok(())
+    }
 }
 
 // Pure helper functions for JSON field extraction
@@ -139,53 +179,11 @@ impl StreamProcessor for ClaudeJsonProcessor {
             return Ok(());
         }
 
-        // Try to parse as JSON
+        // Try to parse as JSON and dispatch to appropriate handler
         match serde_json::from_str::<Value>(line) {
-            Ok(json) => {
-                // Parse Claude event types
-                if let Some(event_type) = json.get("event").and_then(|v| v.as_str()) {
-                    match event_type {
-                        "tool_use" => {
-                            if let Some((tool_name, tool_id, parameters)) = parse_tool_use(&json) {
-                                self.handler
-                                    .on_tool_invocation(&tool_name, &tool_id, &parameters)
-                                    .await?;
-                            }
-                        }
-                        "token_usage" => {
-                            if let Some((input, output, cache)) = parse_token_usage(&json) {
-                                self.handler.on_token_usage(input, output, cache).await?;
-                            }
-                        }
-                        "message" => {
-                            if let Some((content, message_type)) = parse_message(&json) {
-                                self.handler.on_message(&content, &message_type).await?;
-                            }
-                        }
-                        "session_started" => {
-                            if let Some((session_id, model, tools)) = parse_session_start(&json) {
-                                self.handler
-                                    .on_session_start(&session_id, &model, tools)
-                                    .await?;
-                            }
-                        }
-                        _ => {
-                            // Unknown event type, pass to raw handler
-                            self.handler.on_raw_event(event_type, &json).await?;
-                        }
-                    }
-                } else {
-                    // JSON without event field
-                    self.handler.on_raw_event("unknown", &json).await?;
-                }
-            }
-            Err(_) => {
-                // Not JSON, treat as text output
-                self.handler.on_text_line(line, source).await?;
-            }
+            Ok(json) => self.dispatch_event(&json).await,
+            Err(_) => self.handler.on_text_line(line, source).await,
         }
-
-        Ok(())
     }
 
     async fn on_complete(&self, exit_code: Option<i32>) -> Result<()> {
