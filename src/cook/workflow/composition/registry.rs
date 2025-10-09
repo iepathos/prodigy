@@ -266,6 +266,17 @@ impl FileTemplateStorage {
         self.base_dir.join(format!("{}.meta.json", name))
     }
 
+    /// Load template YAML from file
+    async fn load_template_yaml(&self, name: &str) -> Result<ComposableWorkflow> {
+        let template_path = self.template_path(name);
+        let template_content = tokio::fs::read_to_string(&template_path)
+            .await
+            .with_context(|| format!("Failed to read template file: {:?}", template_path))?;
+
+        serde_yaml::from_str(&template_content)
+            .with_context(|| format!("Failed to parse template YAML: {:?}", template_path))
+    }
+
     /// Load metadata from file if it exists, otherwise return default
     async fn load_metadata_if_exists(&self, name: &str) -> Result<TemplateMetadata> {
         let metadata_path = self.metadata_path(name);
@@ -313,16 +324,7 @@ impl TemplateStorage for FileTemplateStorage {
     }
 
     async fn load(&self, name: &str) -> Result<TemplateEntry> {
-        // Load template YAML
-        let template_path = self.template_path(name);
-        let template_content = tokio::fs::read_to_string(&template_path)
-            .await
-            .with_context(|| format!("Failed to read template file: {:?}", template_path))?;
-
-        let template: ComposableWorkflow = serde_yaml::from_str(&template_content)
-            .with_context(|| format!("Failed to parse template YAML: {:?}", template_path))?;
-
-        // Load metadata if exists
+        let template = self.load_template_yaml(name).await?;
         let metadata = self.load_metadata_if_exists(name).await?;
 
         Ok(TemplateEntry {
