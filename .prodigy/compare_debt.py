@@ -105,8 +105,8 @@ def analyze_improvements(before_data, after_data, map_results, successful, faile
     report_lines.append("Technical Debt Improvements:")
 
     if total_before > 0:
-        improvement_pct = ((total_before - total_after) / total_before) * 100
-        report_lines.append(f"- Total debt score: {total_before:.0f} → {total_after:.0f} ({improvement_pct:+.1f}%)")
+        change_pct = ((total_after - total_before) / total_before) * 100
+        report_lines.append(f"- Total debt score: {total_before:.0f} → {total_after:.0f} ({change_pct:+.1f}%)")
     else:
         report_lines.append(f"- Total debt score: {total_before:.0f} → {total_after:.0f}")
 
@@ -123,8 +123,8 @@ def analyze_improvements(before_data, after_data, map_results, successful, faile
             after = stats['after']
             items = stats['items']
             if before > 0:
-                pct = ((before - after) / before) * 100
-                report_lines.append(f"- {category}: {before:.0f} → {after:.0f} ({pct:+.1f}%, {items} items)")
+                change_pct = ((after - before) / before) * 100
+                report_lines.append(f"- {category}: {before:.0f} → {after:.0f} ({change_pct:+.1f}%, {items} items)")
         report_lines.append("")
 
     # Top improvements
@@ -141,8 +141,8 @@ def analyze_improvements(before_data, after_data, map_results, successful, faile
     for key, before_item, after_item, before_score, after_score in improved:
         desc = get_item_desc(before_item)
         reduction = before_score - after_score
-        pct = ((before_score - after_score) / before_score) * 100 if before_score > 0 else 0
-        top_improvements.append((reduction, f"{desc}: score {before_score:.0f} → {after_score:.0f} ({pct:+.1f}%)"))
+        pct = -((after_score - before_score) / before_score) * 100 if before_score > 0 else 0
+        top_improvements.append((reduction, f"{desc}: score {before_score:.0f} → {after_score:.0f} (-{pct:.1f}%)"))
 
     # Sort by score reduction and show top 10
     top_improvements.sort(reverse=True, key=lambda x: x[0])
