@@ -232,14 +232,7 @@ impl CheckpointedCoordinator {
         // Update checkpoint with work items
         if let Some(ref mut checkpoint) = *self.current_checkpoint.write().await {
             checkpoint.metadata.total_work_items = total_items;
-            checkpoint.work_item_state.pending_items = work_items
-                .into_iter()
-                .enumerate()
-                .map(|(i, item)| WorkItem {
-                    id: format!("item_{}", i),
-                    data: item,
-                })
-                .collect();
+            checkpoint.work_item_state.pending_items = create_work_items(work_items);
         }
 
         // Save initial checkpoint
@@ -565,6 +558,27 @@ pub fn create_checkpointed_coordinator(
     CheckpointedCoordinator::new(coordinator, checkpoint_path, job_id)
 }
 
+/// Transform raw JSON values into enumerated WorkItems
+///
+/// This pure function takes a vector of JSON values and creates WorkItems
+/// with sequential IDs, making it easily testable without async complexity.
+///
+/// # Arguments
+/// * `items` - Vector of JSON values representing work items
+///
+/// # Returns
+/// Vector of WorkItems with sequential IDs in the format "item_N"
+fn create_work_items(items: Vec<Value>) -> Vec<WorkItem> {
+    items
+        .into_iter()
+        .enumerate()
+        .map(|(i, item)| WorkItem {
+            id: format!("item_{}", i),
+            data: item,
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -723,6 +737,61 @@ mod tests {
     /// `true` if a checkpoint should be saved, `false` otherwise
     fn should_checkpoint_based_on_items(items_processed: usize, config: &CheckpointConfig) -> bool {
         items_processed >= config.interval_items.unwrap_or(10)
+    }
+
+    // Phase 2: Unit tests for create_work_items pure function
+
+    #[test]
+    fn test_create_work_items_normal_case() {
+        // Test with multiple items
+        let items = vec![
+            serde_json::json!({"id": 1, "data": "test1"}),
+            serde_json::json!({"id": 2, "data": "test2"}),
+            serde_json::json!({"id": 3, "data": "test3"}),
+        ];
+
+        let work_items = create_work_items(items);
+
+        assert_eq!(work_items.len(), 3);
+        assert_eq!(work_items[0].id, "item_0");
+        assert_eq!(work_items[1].id, "item_1");
+        assert_eq!(work_items[2].id, "item_2");
+        assert_eq!(work_items[0].data["id"], 1);
+        assert_eq!(work_items[1].data["data"], "test2");
+    }
+
+    #[test]
+    fn test_create_work_items_empty() {
+        // Test with empty input
+        let items: Vec<serde_json::Value> = vec![];
+        let work_items = create_work_items(items);
+        assert_eq!(work_items.len(), 0);
+    }
+
+    #[test]
+    fn test_create_work_items_single_item() {
+        // Test with single item
+        let items = vec![serde_json::json!({"test": "single"})];
+        let work_items = create_work_items(items);
+
+        assert_eq!(work_items.len(), 1);
+        assert_eq!(work_items[0].id, "item_0");
+        assert_eq!(work_items[0].data["test"], "single");
+    }
+
+    #[test]
+    fn test_create_work_items_id_formatting() {
+        // Test ID formatting with many items
+        let items: Vec<serde_json::Value> = (0..15)
+            .map(|i| serde_json::json!({"index": i}))
+            .collect();
+
+        let work_items = create_work_items(items);
+
+        assert_eq!(work_items.len(), 15);
+        assert_eq!(work_items[0].id, "item_0");
+        assert_eq!(work_items[9].id, "item_9");
+        assert_eq!(work_items[14].id, "item_14");
     }
 
     // Phase 1 Integration Tests: Happy Path Coverage
