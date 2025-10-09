@@ -966,25 +966,38 @@ async fn analyze_retention_targets(
 
         if global_events_dir.exists() {
             let job_dirs = get_job_directories(&global_events_dir, job_id)?;
-
-            for job_dir in job_dirs {
-                let event_files = find_event_files(&job_dir)?;
-                for event_file in event_files {
-                    let retention = RetentionManager::new(policy.clone(), event_file);
-                    let analysis = retention.analyze_retention().await?;
-                    analysis_total.events_to_remove += analysis.events_to_remove;
-                    analysis_total.space_to_save += analysis.space_to_save;
-                    if policy.archive_old_events {
-                        analysis_total.events_to_archive += analysis.events_to_archive;
-                    }
-                }
-            }
+            analysis_total = aggregate_job_retention(job_dirs, policy).await?;
         }
     } else {
         let local_file = PathBuf::from(".prodigy/events/mapreduce_events.jsonl");
         if local_file.exists() {
             let retention = RetentionManager::new(policy.clone(), local_file);
             analysis_total = retention.analyze_retention().await?;
+        }
+    }
+
+    Ok(analysis_total)
+}
+
+/// Aggregate retention analysis across job directories
+async fn aggregate_job_retention(
+    job_dirs: Vec<PathBuf>,
+    policy: &crate::cook::execution::events::retention::RetentionPolicy,
+) -> Result<crate::cook::execution::events::retention::RetentionAnalysis> {
+    use crate::cook::execution::events::retention::{RetentionAnalysis, RetentionManager};
+
+    let mut analysis_total = RetentionAnalysis::default();
+
+    for job_dir in job_dirs {
+        let event_files = find_event_files(&job_dir)?;
+        for event_file in event_files {
+            let retention = RetentionManager::new(policy.clone(), event_file);
+            let analysis = retention.analyze_retention().await?;
+            analysis_total.events_to_remove += analysis.events_to_remove;
+            analysis_total.space_to_save += analysis.space_to_save;
+            if policy.archive_old_events {
+                analysis_total.events_to_archive += analysis.events_to_archive;
+            }
         }
     }
 
