@@ -1,177 +1,190 @@
-# Implementation Plan: Complete Test Coverage for GitRunnerImpl::status
+# Implementation Plan: Reduce Nesting Depth in list_resumable_jobs_internal
 
 ## Problem Summary
 
-**Location**: ./src/subprocess/git.rs:GitRunnerImpl::status:52
-**Priority Score**: 54.7625
-**Debt Type**: ComplexityHotspot (Cognitive: 30, Cyclomatic: 12)
+**Location**: ./src/cook/execution/state.rs:DefaultJobStateManager::list_resumable_jobs_internal:884
+**Priority Score**: 60.102062072615965
+**Debt Type**: ComplexityHotspot (cognitive: 56, cyclomatic: 10)
 **Current Metrics**:
-- Lines of Code: 41
-- Cyclomatic Complexity: 12
-- Cognitive Complexity: 30
-- Nesting Depth: 4 levels
-- Coverage: 0% (based on debtmap analysis)
+- Lines of Code: 59
+- Cyclomatic Complexity: 10
+- Cognitive Complexity: 56
+- Nesting Depth: 6
 
-**Issue**: Add 12 tests for 100% coverage gap. NO refactoring needed (complexity 12 is acceptable)
-
-**Rationale**: Complexity 12 is manageable. Coverage at 0%. Focus on test coverage, not refactoring.
+**Issue**: The function has excessive nesting depth (6 levels) due to nested conditionals and loops. This high cognitive complexity (56) makes the code difficult to understand and maintain. The debtmap analysis recommends reducing nesting through guard clauses and early returns.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 6.0
+- Complexity Reduction: 5.0
 - Coverage Improvement: 0.0
-- Risk Reduction: 19.166875
+- Risk Reduction: 21.035721725415588
 
 **Success Criteria**:
-- [ ] 100% branch coverage for GitRunnerImpl::status function
-- [ ] All edge cases tested (short lines, malformed input, various git status codes)
-- [ ] All existing tests continue to pass
+- [ ] Reduce nesting depth from 6 to 3 or fewer levels
+- [ ] Reduce cognitive complexity from 56 to ~30 or below
+- [ ] Extract nested logic into helper functions with clear names
+- [ ] All existing 22 tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting with rustfmt
+- [ ] Proper formatting maintained
 
 ## Implementation Phases
 
-### Phase 1: Edge Case Coverage - Line Length Boundaries
+### Phase 1: Extract Job Entry Validation
 
-**Goal**: Test the `line.len() > 2` condition and boundary cases for line parsing
+**Goal**: Extract the outer validation logic into a helper function to reduce initial nesting
 
 **Changes**:
-- Add test for lines with length exactly 2 (boundary case)
-- Add test for lines with length 1 (should be ignored)
-- Add test for empty lines in status output
-- Add test for lines with only whitespace
+- Create a new helper function `is_valid_job_directory(&Path) -> Option<String>` that:
+  - Checks if path is a directory (async metadata check)
+  - Validates the job_id can be extracted from the directory name
+  - Returns `Option<String>` with job_id if valid, None otherwise
+- Replace the nested `if let Ok(metadata)... if metadata.is_dir()... if let Some(job_id)` chain with a single guard clause using the helper
 
 **Testing**:
-- Run `cargo test git_error_tests::test_status_line_length_*` for new tests
-- Run `cargo test git_error_tests` to ensure all existing tests pass
+- Run `cargo test --lib tests::test_list_resumable_file_not_dir` to verify file rejection
+- Run `cargo test --lib tests::test_list_resumable_invalid_filename` to verify invalid names are skipped
+- Run `cargo test --lib tests::test_list_resumable_special_chars_in_name` to verify valid names work
 
 **Success Criteria**:
-- [ ] 4 new tests added covering line length edge cases
-- [ ] Tests validate that short lines (<= 2 chars) are properly handled
+- [ ] Nesting depth reduced by 2 levels in the main loop
+- [ ] Helper function has clear, testable logic
+- [ ] All existing tests pass
+- [ ] Ready to commit
+
+### Phase 2: Extract Checkpoint Processing Logic
+
+**Goal**: Extract the checkpoint loading and validation into a pure helper function
+
+**Changes**:
+- Create a new helper function `build_resumable_job(job_id: &str, state: MapReduceJobState, checkpoints: Vec<CheckpointInfo>) -> Option<ResumableJob>` that:
+  - Takes a loaded state and checkpoint list
+  - Returns `None` if job is complete (is_complete check)
+  - Returns `Some(ResumableJob)` with calculated values if incomplete
+- Replace the nested `if !state.is_complete` block with a call to this helper
+- Use early continue in the match error arm instead of nested logic
+
+**Testing**:
+- Run `cargo test --lib tests::test_list_resumable_complete_job` to verify complete jobs are filtered
+- Run `cargo test --lib tests::test_list_resumable_invalid_checkpoint` to verify invalid checkpoints are skipped
+- Run `cargo test --lib tests::test_list_resumable_max_checkpoint_version` to verify version calculation
+
+**Success Criteria**:
+- [ ] Inner conditional nesting reduced by 1-2 levels
+- [ ] Checkpoint processing logic is pure and independently testable
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 2: Git Status Code Coverage - Deleted and Renamed Files
+### Phase 3: Extract Checkpoint Version Calculation
 
-**Goal**: Cover all git status codes, not just modified (M) and added (A)
+**Goal**: Simplify the checkpoint version extraction into a pure helper function
 
 **Changes**:
-- Add test for deleted files (status code 'D')
-- Add test for renamed files (status code 'R')
-- Add test for copied files (status code 'C')
-- Add test for files with both staged and unstaged changes (e.g., 'MM', 'AM')
+- Create a new pure helper function `get_latest_checkpoint_version(checkpoints: Vec<CheckpointInfo>) -> u32` that:
+  - Takes a list of checkpoints
+  - Returns the maximum version number or 0 if empty
+  - Handles the `unwrap_or_default()` and `unwrap_or(0)` logic
+- Update `build_resumable_job` to use this helper instead of inline chain
 
 **Testing**:
-- Run `cargo test git_error_tests::test_status_*_status_code` for new tests
-- Verify modified_files array correctly captures all status types
+- Run `cargo test --lib tests::test_list_resumable_empty_checkpoint_list` to verify empty list handling
+- Run `cargo test --lib tests::test_list_resumable_high_checkpoint_version` to verify high version numbers
+- Run `cargo test --lib tests::test_list_resumable_mixed_checkpoint_versions` to verify max calculation
 
 **Success Criteria**:
-- [ ] 4 new tests added for D, R, C, and dual-status files
-- [ ] All git status codes properly categorized as modified_files
+- [ ] Checkpoint version logic is pure and testable
+- [ ] Code is more readable with clear intent
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 3: Branch Parsing Edge Cases
+### Phase 4: Simplify Main Loop with Guard Clauses
 
-**Goal**: Ensure robust branch name parsing for unusual branch formats
-
-**Changes**:
-- Add test for branch line with no upstream but with spaces
-- Add test for branch name containing special characters (slashes, dashes, dots)
-- Add test for very long branch names (>100 chars)
-- Add test for branch line with multiple "..." separators (malformed)
-
-**Testing**:
-- Run `cargo test git_error_tests::test_status_branch_*` for new tests
-- Verify branch parsing handles edge cases gracefully
-
-**Success Criteria**:
-- [ ] 4 new tests added for branch parsing edge cases
-- [ ] Branch parser handles unusual formats without panicking
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 4: Final Coverage Verification
-
-**Goal**: Achieve 100% branch coverage and verify all paths are tested
+**Goal**: Use guard clauses to flatten the remaining nesting in the main loop
 
 **Changes**:
-- Run `cargo tarpaulin --out Html --output-dir coverage` to generate coverage report
-- Identify any remaining uncovered branches in GitRunnerImpl::status (lines 52-92)
-- Add focused tests for any remaining gaps
-- Document test coverage in commit message
+- Replace the nested `match` with early `continue` statements:
+  - `let job_id = match is_valid_job_directory(&path).await { Some(id) => id, None => continue };`
+  - `let state = match self.checkpoint_manager.load_checkpoint(&job_id).await { Ok(s) => s, Err(_) => continue };`
+  - `let checkpoints = self.checkpoint_manager.list_checkpoints(&job_id).await.unwrap_or_default();`
+  - `if let Some(job) = build_resumable_job(&job_id, state, checkpoints) { resumable_jobs.push(job); }`
 
 **Testing**:
-- Review HTML coverage report
-- Verify 100% line and branch coverage for GitRunnerImpl::status
-- Run full test suite: `cargo test`
+- Run full test suite: `cargo test --lib state::tests`
+- Verify all 22 upstream caller tests pass
 - Run `cargo clippy` to check for warnings
 
 **Success Criteria**:
-- [ ] 100% branch coverage achieved for GitRunnerImpl::status
-- [ ] Coverage report confirms all branches tested
-- [ ] All tests pass (`cargo test`)
+- [ ] Main loop has linear flow with guard clauses
+- [ ] Maximum nesting depth is 3 or fewer
+- [ ] All 22 tests pass
 - [ ] No clippy warnings
 - [ ] Ready to commit
+
+### Phase 5: Final Verification and Cleanup
+
+**Goal**: Verify all improvements and ensure code quality
+
+**Changes**:
+- Run full CI checks with `just ci` (or `cargo test && cargo clippy`)
+- Review helper functions for documentation
+- Add inline comments if any guard clauses need clarification
+- Verify cognitive complexity reduction with complexity metrics
+
+**Testing**:
+- Run `cargo test` for full test suite
+- Run `cargo clippy -- -D warnings` to ensure no warnings
+- Run `cargo fmt` to ensure formatting
+- Optionally: Run `debtmap analyze` to verify improvement in metrics
+
+**Success Criteria**:
+- [ ] All tests pass (22+ tests for this function)
+- [ ] No clippy warnings
+- [ ] Code is formatted correctly
+- [ ] Nesting depth <= 3
+- [ ] Cognitive complexity reduced by ~40%
+- [ ] Ready for final commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Write tests following existing patterns in `git_error_tests` module
-2. Use `MockProcessRunner` to simulate git command output
-3. Keep each test focused on ONE specific edge case
-4. Test name should clearly describe the scenario
-5. Run `cargo test --lib git_error_tests` after each test
-6. Commit after each phase with descriptive message
-
-**Test Pattern to Follow**:
-```rust
-#[tokio::test]
-async fn test_status_<specific_scenario>() {
-    let mut mock_runner = MockProcessRunner::new();
-    mock_runner
-        .expect_command("git")
-        .with_args(|args| args == ["status", "--porcelain", "--branch"])
-        .returns_stdout("<specific_test_output>")
-        .returns_success()
-        .finish();
-
-    let git = GitRunnerImpl::new(Arc::new(mock_runner));
-    let temp_dir = TempDir::new().unwrap();
-    let result = git.status(temp_dir.path()).await;
-
-    assert!(result.is_ok());
-    let status = result.unwrap();
-    // Specific assertions for this scenario
-}
-```
+1. Run targeted tests related to the specific change:
+   - `cargo test --lib state::tests::test_list_resumable_<specific_test>`
+2. Run all tests for the module after each phase:
+   - `cargo test --lib state::tests`
+3. Check for clippy warnings:
+   - `cargo clippy -- -D warnings`
 
 **Final verification**:
-1. `cargo test --lib` - All unit tests pass
+1. `cargo test` - All tests across the codebase
 2. `cargo clippy` - No warnings
-3. `cargo fmt --check` - Proper formatting
-4. `cargo tarpaulin --out Html` - Generate coverage report
-5. Review coverage/index.html - Verify 100% coverage for GitRunnerImpl::status
+3. `cargo fmt -- --check` - Formatting is correct
+4. Optionally: `debtmap analyze` - Verify debt score improvement
 
 ## Rollback Plan
 
 If a phase fails:
-1. Review test failure output carefully
-2. Check if MockProcessRunner expectations match actual function behavior
-3. If test design is flawed, fix the test (not the production code)
-4. If a genuine bug is found, document it separately (do not fix in this workflow)
-5. For build failures: `git reset --hard HEAD~1` and revise approach
-
-**Important**: This is a test-only workflow. Do NOT modify the `status` function itself. Only add tests.
+1. Revert the phase with `git reset --hard HEAD~1`
+2. Review the test failure output
+3. Identify what assumption was incorrect
+4. Adjust the implementation approach
+5. Retry the phase with corrections
 
 ## Notes
 
-- The existing test suite already has 18 comprehensive tests
-- The debtmap recommendation is to add 12 more tests for complete coverage
-- Focus on edge cases and boundary conditions not covered by existing tests
-- Each test should be < 15 lines and test ONE specific path
-- The complexity of 12 is acceptable per the debtmap analysis
-- DO NOT refactor the status function - only add tests
-- Use early returns pattern in tests for clarity
-- Follow existing test naming convention: `test_status_<scenario_description>`
+**Why This Approach Works**:
+- Each helper function extracts a clear responsibility
+- Pure functions are easier to test and reason about
+- Guard clauses eliminate nesting without changing behavior
+- Incremental refactoring allows verification at each step
+
+**Key Insights**:
+- The function is already covered by 22 comprehensive tests
+- No behavior changes are needed - only structural improvements
+- The async nature means we need to keep the checkpoint manager calls in the main function
+- Helper functions should be private to the module (not public API changes)
+
+**Potential Gotchas**:
+- Must preserve the exact error handling behavior (Err(_) => continue)
+- Must maintain the order of operations (metadata check before job_id extraction)
+- Must not introduce new unwrap() calls (violates Spec 101)
+- The `unwrap_or_default()` on line 910 is acceptable as it provides a safe fallback
