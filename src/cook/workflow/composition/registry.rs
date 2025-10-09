@@ -380,33 +380,22 @@ impl TemplateStorage for FileTemplateStorage {
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
 
-            if path.extension().and_then(|s| s.to_str()) == Some("yml") {
-                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    // Skip metadata files
-                    if stem.ends_with(".meta") {
-                        continue;
-                    }
-
-                    // Try to load metadata
-                    let metadata_path = self.metadata_path(stem);
-                    let metadata = if metadata_path.exists() {
-                        if let Ok(content) = tokio::fs::read_to_string(&metadata_path).await {
-                            serde_json::from_str(&content).unwrap_or_default()
-                        } else {
-                            TemplateMetadata::default()
-                        }
-                    } else {
-                        TemplateMetadata::default()
-                    };
-
-                    templates.push(TemplateInfo {
-                        name: stem.to_string(),
-                        description: metadata.description.clone(),
-                        version: metadata.version.clone(),
-                        tags: metadata.tags.clone(),
-                    });
-                }
+            if !Self::is_template_file(&path) {
+                continue;
             }
+
+            let Some(name) = Self::extract_template_name(&path) else {
+                continue;
+            };
+
+            let metadata = self.load_template_metadata(&name).await;
+
+            templates.push(TemplateInfo {
+                name,
+                description: metadata.description.clone(),
+                version: metadata.version.clone(),
+                tags: metadata.tags.clone(),
+            });
         }
 
         Ok(templates)
