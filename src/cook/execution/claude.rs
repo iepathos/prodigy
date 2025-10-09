@@ -216,64 +216,32 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         // Record start time for log file detection
         let execution_start = SystemTime::now();
 
-        let mut context = ExecutionContext::default();
-        #[allow(clippy::field_reassign_with_default)]
-        {
-            context.working_directory = project_path.to_path_buf();
-            context.env_vars = env_vars.clone();
-            context.capture_streaming = true; // Enable streaming capture
+        // Build execution context using pure helper
+        let mut context = build_execution_context(project_path, env_vars.clone());
+
+        // Check for timeout configuration using pure helper
+        if let Some(timeout_secs) = parse_timeout_from_env(&env_vars) {
+            context.timeout_seconds = Some(timeout_secs);
+            tracing::debug!("Claude command timeout set to {} seconds", timeout_secs);
         }
 
-        // Check for timeout configuration
-        if let Some(timeout_str) = env_vars.get("PRODIGY_COMMAND_TIMEOUT") {
-            if let Ok(timeout_secs) = timeout_str.parse::<u64>() {
-                context.timeout_seconds = Some(timeout_secs);
-                tracing::debug!("Claude command timeout set to {} seconds", timeout_secs);
-            }
-        }
-
-        // Claude requires some input on stdin
-        context.stdin = Some("".to_string());
-
-        let args = vec![
-            "--output-format".to_string(),
-            "stream-json".to_string(),
-            "--verbose".to_string(),
-            "--dangerously-skip-permissions".to_string(),
-            command.to_string(),
-        ];
+        // Build command args using pure helper function
+        let args = build_streaming_claude_args(command);
 
         tracing::debug!(
             "Executing claude command in streaming mode with args: {:?}",
             args
         );
 
-        // Check if we can use the streaming interface
-        use crate::subprocess::streaming::{ClaudeJsonProcessor, StreamProcessor};
-        use std::sync::Arc;
+        // Determine if we should print to console using pure helper
+        let print_to_console = should_print_to_console(&env_vars, self.verbosity);
 
-        // Determine if we should print to console based on verbosity
-        // Show Claude streaming output only with -v (verbose) or higher
-        let print_to_console = env_vars
-            .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
-            .map(|v| v == "true")
-            .unwrap_or_else(|| self.verbosity >= 1); // Default to showing output only with -v or higher
-
-        // Create the appropriate handler based on whether we have an event logger
-        let processor: Box<dyn StreamProcessor> = if let Some(ref event_logger) = self.event_logger
-        {
-            use crate::cook::execution::claude_stream_handler::EventLoggingClaudeHandler;
-            let handler = Arc::new(EventLoggingClaudeHandler::new(
-                event_logger.clone(),
-                "agent-default".to_string(),
-                print_to_console,
-            ));
-            Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
-        } else {
-            use crate::cook::execution::claude_stream_handler::ConsoleClaudeHandler;
-            let handler = Arc::new(ConsoleClaudeHandler::new("agent-default".to_string()));
-            Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
-        };
+        // Create stream processor using factory function
+        let processor = create_stream_processor(
+            self.event_logger.clone(),
+            "agent-default".to_string(),
+            print_to_console,
+        );
 
         // Use the streaming interface
         let result = self
@@ -311,27 +279,16 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
                 }
 
                 if !execution_result.success {
-                    // Claude command executed but failed
-                    let error_details = if !execution_result.stderr.is_empty() {
-                        format!("stderr: {}", execution_result.stderr)
-                    } else if !execution_result.stdout.is_empty() {
-                        format!("stdout: {}", execution_result.stdout)
-                    } else {
-                        format!("exit code: {:?}", execution_result.exit_code)
-                    };
-
+                    // Claude command executed but failed - use pure functions for error formatting
+                    let error_details = format_execution_error_details(&execution_result);
                     tracing::error!("Claude command '{}' failed - {}", command, error_details);
 
-                    // Include JSON log location in error message if available
-                    let error_msg = if let Some(log_location) = execution_result.json_log_location()
-                    {
-                        format!(
-                            "Claude command '{}' failed: {}\n📝 Full log: {}",
-                            command, error_details, log_location
-                        )
-                    } else {
-                        format!("Claude command '{}' failed: {}", command, error_details)
-                    };
+                    // Format error message with JSON log location if available
+                    let error_msg = format_error_with_log_location(
+                        command,
+                        &error_details,
+                        execution_result.json_log_location(),
+                    );
 
                     return Err(anyhow::anyhow!(error_msg));
                 }
@@ -387,6 +344,107 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
     }
 }
 
+// Pure helper functions for configuration parsing
+
+/// Parse timeout value from environment variables
+/// Returns None if the environment variable is not set or contains an invalid value
+fn parse_timeout_from_env(env_vars: &HashMap<String, String>) -> Option<u64> {
+    env_vars
+        .get("PRODIGY_COMMAND_TIMEOUT")
+        .and_then(|timeout_str| timeout_str.parse::<u64>().ok())
+}
+
+/// Determine whether to print Claude output to console
+/// Checks PRODIGY_CLAUDE_CONSOLE_OUTPUT environment variable first,
+/// then falls back to verbosity level (>= 1)
+fn should_print_to_console(env_vars: &HashMap<String, String>, verbosity: u8) -> bool {
+    env_vars
+        .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
+        .map(|v| v == "true")
+        .unwrap_or(verbosity >= 1)
+}
+
+/// Create a stream processor based on event logger availability
+/// Pure factory function that constructs the appropriate handler
+fn create_stream_processor(
+    event_logger: Option<Arc<EventLogger>>,
+    agent_id: String,
+    print_to_console: bool,
+) -> Box<dyn crate::subprocess::streaming::StreamProcessor> {
+    use crate::cook::execution::claude_stream_handler::{
+        ConsoleClaudeHandler, EventLoggingClaudeHandler,
+    };
+    use crate::subprocess::streaming::ClaudeJsonProcessor;
+
+    if let Some(logger) = event_logger {
+        let handler = Arc::new(EventLoggingClaudeHandler::new(
+            logger,
+            agent_id,
+            print_to_console,
+        ));
+        Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
+    } else {
+        let handler = Arc::new(ConsoleClaudeHandler::new(agent_id));
+        Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
+    }
+}
+
+/// Format execution error details from an ExecutionResult
+/// Pure function that prioritizes stderr → stdout → exit code
+fn format_execution_error_details(result: &ExecutionResult) -> String {
+    if !result.stderr.is_empty() {
+        format!("stderr: {}", result.stderr)
+    } else if !result.stdout.is_empty() {
+        format!("stdout: {}", result.stdout)
+    } else {
+        format!("exit code: {:?}", result.exit_code)
+    }
+}
+
+/// Format error message with optional JSON log location
+/// Pure function that constructs the final error message
+fn format_error_with_log_location(
+    command: &str,
+    error_details: &str,
+    log_location: Option<&str>,
+) -> String {
+    if let Some(log_path) = log_location {
+        format!(
+            "Claude command '{}' failed: {}\n📝 Full log: {}",
+            command, error_details, log_path
+        )
+    } else {
+        format!("Claude command '{}' failed: {}", command, error_details)
+    }
+}
+
+/// Build command arguments for streaming Claude execution
+/// Pure function that constructs the required args for --output-format stream-json mode
+fn build_streaming_claude_args(command: &str) -> Vec<String> {
+    vec![
+        "--output-format".to_string(),
+        "stream-json".to_string(),
+        "--verbose".to_string(),
+        "--dangerously-skip-permissions".to_string(),
+        command.to_string(),
+    ]
+}
+
+/// Build execution context for streaming Claude command
+/// Pure function that constructs ExecutionContext with streaming enabled
+fn build_execution_context(
+    project_path: &Path,
+    env_vars: HashMap<String, String>,
+) -> ExecutionContext {
+    ExecutionContext {
+        working_directory: project_path.to_path_buf(),
+        env_vars,
+        capture_streaming: true,
+        stdin: Some(String::new()), // Claude requires empty stdin
+        ..ExecutionContext::default()
+    }
+}
+
 #[async_trait]
 impl<R: CommandRunner + 'static> CommandExecutor for ClaudeExecutorImpl<R> {
     async fn execute(
@@ -410,6 +468,214 @@ impl<R: CommandRunner + 'static> CommandExecutor for ClaudeExecutorImpl<R> {
 mod tests {
     use super::*;
     use crate::cook::execution::runner::tests::MockCommandRunner;
+
+    // Phase 1: Tests for pure configuration functions
+
+    #[test]
+    fn test_parse_timeout_from_env_valid() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert("PRODIGY_COMMAND_TIMEOUT".to_string(), "300".to_string());
+
+        let result = parse_timeout_from_env(&env_vars);
+        assert_eq!(result, Some(300));
+    }
+
+    #[test]
+    fn test_parse_timeout_from_env_invalid() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert("PRODIGY_COMMAND_TIMEOUT".to_string(), "invalid".to_string());
+
+        let result = parse_timeout_from_env(&env_vars);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_timeout_from_env_missing() {
+        let env_vars = HashMap::new();
+
+        let result = parse_timeout_from_env(&env_vars);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_should_print_to_console_env_var_true() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert(
+            "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+            "true".to_string(),
+        );
+
+        // Should be true regardless of verbosity
+        assert!(should_print_to_console(&env_vars, 0));
+        assert!(should_print_to_console(&env_vars, 1));
+    }
+
+    #[test]
+    fn test_should_print_to_console_env_var_false() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert(
+            "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+            "false".to_string(),
+        );
+
+        // Should be false regardless of verbosity
+        assert!(!should_print_to_console(&env_vars, 0));
+        assert!(!should_print_to_console(&env_vars, 1));
+    }
+
+    #[test]
+    fn test_should_print_to_console_verbosity_high() {
+        let env_vars = HashMap::new();
+
+        // Should be true when verbosity >= 1
+        assert!(should_print_to_console(&env_vars, 1));
+        assert!(should_print_to_console(&env_vars, 2));
+    }
+
+    #[test]
+    fn test_should_print_to_console_verbosity_low() {
+        let env_vars = HashMap::new();
+
+        // Should be false when verbosity < 1
+        assert!(!should_print_to_console(&env_vars, 0));
+    }
+
+    // Phase 2: Tests for stream processor factory
+
+    #[test]
+    fn test_create_stream_processor_with_event_logger() {
+        use crate::cook::execution::events::EventLogger;
+        use std::sync::Arc;
+
+        let event_logger = Arc::new(EventLogger::new(vec![]));
+        let processor = create_stream_processor(Some(event_logger), "test-agent".to_string(), true);
+
+        // Just verify we got a processor - the fact that it compiles and runs is enough
+        // The actual behavior is tested in integration tests
+        drop(processor); // Explicitly drop to show we're just testing creation
+    }
+
+    #[test]
+    fn test_create_stream_processor_without_event_logger() {
+        let processor = create_stream_processor(None, "test-agent".to_string(), false);
+
+        // Just verify we got a processor
+        drop(processor);
+    }
+
+    #[test]
+    fn test_create_stream_processor_console_flags() {
+        // Test with print_to_console true
+        let processor_verbose = create_stream_processor(None, "test-agent".to_string(), true);
+        drop(processor_verbose);
+
+        // Test with print_to_console false
+        let processor_quiet = create_stream_processor(None, "test-agent".to_string(), false);
+        drop(processor_quiet);
+    }
+
+    // Phase 3: Tests for error formatting functions
+
+    #[test]
+    fn test_format_execution_error_details_with_stderr() {
+        let result = ExecutionResult {
+            success: false,
+            stdout: "some output".to_string(),
+            stderr: "error message".to_string(),
+            exit_code: Some(1),
+            metadata: HashMap::new(),
+        };
+
+        let details = format_execution_error_details(&result);
+        assert_eq!(details, "stderr: error message");
+    }
+
+    #[test]
+    fn test_format_execution_error_details_with_stdout_only() {
+        let result = ExecutionResult {
+            success: false,
+            stdout: "output message".to_string(),
+            stderr: String::new(),
+            exit_code: Some(1),
+            metadata: HashMap::new(),
+        };
+
+        let details = format_execution_error_details(&result);
+        assert_eq!(details, "stdout: output message");
+    }
+
+    #[test]
+    fn test_format_execution_error_details_with_neither() {
+        let result = ExecutionResult {
+            success: false,
+            stdout: String::new(),
+            stderr: String::new(),
+            exit_code: Some(127),
+            metadata: HashMap::new(),
+        };
+
+        let details = format_execution_error_details(&result);
+        assert_eq!(details, "exit code: Some(127)");
+    }
+
+    #[test]
+    fn test_format_error_with_log_location_present() {
+        let error_msg = format_error_with_log_location(
+            "/test-command",
+            "stderr: some error",
+            Some("/tmp/session-abc123.json"),
+        );
+
+        assert!(error_msg.contains("Claude command '/test-command' failed"));
+        assert!(error_msg.contains("stderr: some error"));
+        assert!(error_msg.contains("📝 Full log:"));
+        assert!(error_msg.contains("/tmp/session-abc123.json"));
+    }
+
+    #[test]
+    fn test_format_error_with_log_location_absent() {
+        let error_msg = format_error_with_log_location("/test-command", "stderr: some error", None);
+
+        assert_eq!(
+            error_msg,
+            "Claude command '/test-command' failed: stderr: some error"
+        );
+        assert!(!error_msg.contains("📝 Full log:"));
+    }
+
+    // Phase 4: Tests for command args builder
+
+    #[test]
+    fn test_build_streaming_claude_args() {
+        let args = build_streaming_claude_args("/test-command");
+
+        assert_eq!(args.len(), 5);
+        assert_eq!(args[0], "--output-format");
+        assert_eq!(args[1], "stream-json");
+        assert_eq!(args[2], "--verbose");
+        assert_eq!(args[3], "--dangerously-skip-permissions");
+        assert_eq!(args[4], "/test-command");
+    }
+
+    #[test]
+    fn test_build_streaming_claude_args_different_commands() {
+        let args1 = build_streaming_claude_args("/prodigy-lint");
+        assert_eq!(args1[4], "/prodigy-lint");
+
+        let args2 = build_streaming_claude_args("/fix-issue");
+        assert_eq!(args2[4], "/fix-issue");
+    }
+
+    #[test]
+    fn test_build_streaming_claude_args_required_flags() {
+        let args = build_streaming_claude_args("/any-command");
+
+        // Verify all required flags are present
+        assert!(args.contains(&"--output-format".to_string()));
+        assert!(args.contains(&"stream-json".to_string()));
+        assert!(args.contains(&"--verbose".to_string()));
+        assert!(args.contains(&"--dangerously-skip-permissions".to_string()));
+    }
 
     #[tokio::test]
     async fn test_claude_verbosity_streaming() {
