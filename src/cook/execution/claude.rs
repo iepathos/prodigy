@@ -292,27 +292,16 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
                 }
 
                 if !execution_result.success {
-                    // Claude command executed but failed
-                    let error_details = if !execution_result.stderr.is_empty() {
-                        format!("stderr: {}", execution_result.stderr)
-                    } else if !execution_result.stdout.is_empty() {
-                        format!("stdout: {}", execution_result.stdout)
-                    } else {
-                        format!("exit code: {:?}", execution_result.exit_code)
-                    };
-
+                    // Claude command executed but failed - use pure functions for error formatting
+                    let error_details = format_execution_error_details(&execution_result);
                     tracing::error!("Claude command '{}' failed - {}", command, error_details);
 
-                    // Include JSON log location in error message if available
-                    let error_msg = if let Some(log_location) = execution_result.json_log_location()
-                    {
-                        format!(
-                            "Claude command '{}' failed: {}\n📝 Full log: {}",
-                            command, error_details, log_location
-                        )
-                    } else {
-                        format!("Claude command '{}' failed: {}", command, error_details)
-                    };
+                    // Format error message with JSON log location if available
+                    let error_msg = format_error_with_log_location(
+                        command,
+                        &error_details,
+                        execution_result.json_log_location(),
+                    );
 
                     return Err(anyhow::anyhow!(error_msg));
                 }
@@ -410,6 +399,35 @@ fn create_stream_processor(
     } else {
         let handler = Arc::new(ConsoleClaudeHandler::new(agent_id));
         Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
+    }
+}
+
+/// Format execution error details from an ExecutionResult
+/// Pure function that prioritizes stderr → stdout → exit code
+fn format_execution_error_details(result: &ExecutionResult) -> String {
+    if !result.stderr.is_empty() {
+        format!("stderr: {}", result.stderr)
+    } else if !result.stdout.is_empty() {
+        format!("stdout: {}", result.stdout)
+    } else {
+        format!("exit code: {:?}", result.exit_code)
+    }
+}
+
+/// Format error message with optional JSON log location
+/// Pure function that constructs the final error message
+fn format_error_with_log_location(
+    command: &str,
+    error_details: &str,
+    log_location: Option<&str>,
+) -> String {
+    if let Some(log_path) = log_location {
+        format!(
+            "Claude command '{}' failed: {}\n📝 Full log: {}",
+            command, error_details, log_path
+        )
+    } else {
+        format!("Claude command '{}' failed: {}", command, error_details)
     }
 }
 
@@ -540,6 +558,75 @@ mod tests {
         // Test with print_to_console false
         let processor_quiet = create_stream_processor(None, "test-agent".to_string(), false);
         drop(processor_quiet);
+    }
+
+    // Phase 3: Tests for error formatting functions
+
+    #[test]
+    fn test_format_execution_error_details_with_stderr() {
+        let result = ExecutionResult {
+            success: false,
+            stdout: "some output".to_string(),
+            stderr: "error message".to_string(),
+            exit_code: Some(1),
+            metadata: HashMap::new(),
+        };
+
+        let details = format_execution_error_details(&result);
+        assert_eq!(details, "stderr: error message");
+    }
+
+    #[test]
+    fn test_format_execution_error_details_with_stdout_only() {
+        let result = ExecutionResult {
+            success: false,
+            stdout: "output message".to_string(),
+            stderr: String::new(),
+            exit_code: Some(1),
+            metadata: HashMap::new(),
+        };
+
+        let details = format_execution_error_details(&result);
+        assert_eq!(details, "stdout: output message");
+    }
+
+    #[test]
+    fn test_format_execution_error_details_with_neither() {
+        let result = ExecutionResult {
+            success: false,
+            stdout: String::new(),
+            stderr: String::new(),
+            exit_code: Some(127),
+            metadata: HashMap::new(),
+        };
+
+        let details = format_execution_error_details(&result);
+        assert_eq!(details, "exit code: Some(127)");
+    }
+
+    #[test]
+    fn test_format_error_with_log_location_present() {
+        let error_msg = format_error_with_log_location(
+            "/test-command",
+            "stderr: some error",
+            Some("/tmp/session-abc123.json"),
+        );
+
+        assert!(error_msg.contains("Claude command '/test-command' failed"));
+        assert!(error_msg.contains("stderr: some error"));
+        assert!(error_msg.contains("📝 Full log:"));
+        assert!(error_msg.contains("/tmp/session-abc123.json"));
+    }
+
+    #[test]
+    fn test_format_error_with_log_location_absent() {
+        let error_msg = format_error_with_log_location("/test-command", "stderr: some error", None);
+
+        assert_eq!(
+            error_msg,
+            "Claude command '/test-command' failed: stderr: some error"
+        );
+        assert!(!error_msg.contains("📝 Full log:"));
     }
 
     #[tokio::test]
