@@ -930,6 +930,25 @@ fn build_retention_policy(
     Ok(policy)
 }
 
+// ==============================================================================
+// Pure Decision Functions for Retention Analysis
+// ==============================================================================
+
+/// Pure function: Determine if global storage should be analyzed
+fn should_analyze_global_storage(all_jobs: bool, job_id: Option<&str>) -> bool {
+    all_jobs || job_id.is_some()
+}
+
+/// Pure function: Build global events path from repo name
+fn build_global_events_path(repo_name: &str) -> Result<PathBuf> {
+    let global_base = crate::storage::get_default_storage_dir()?;
+    Ok(global_base.join("events").join(repo_name))
+}
+
+// ==============================================================================
+// Retention Analysis
+// ==============================================================================
+
 /// Analyze retention targets and calculate what will be cleaned
 async fn analyze_retention_targets(
     all_jobs: bool,
@@ -940,11 +959,10 @@ async fn analyze_retention_targets(
 
     let mut analysis_total = RetentionAnalysis::default();
 
-    if all_jobs || job_id.is_some() {
+    if should_analyze_global_storage(all_jobs, job_id) {
         let current_dir = std::env::current_dir()?;
         let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-        let global_base = crate::storage::get_default_storage_dir()?;
-        let global_events_dir = global_base.join("events").join(&repo_name);
+        let global_events_dir = build_global_events_path(&repo_name)?;
 
         if global_events_dir.exists() {
             let job_dirs = get_job_directories(&global_events_dir, job_id)?;
@@ -1720,5 +1738,43 @@ mod tests {
         assert!(event_matches_type(&event, "JobStarted"));
         assert!(!event_matches_type(&event, "JobCompleted"));
         assert!(!event_matches_type(&event, "Unknown"));
+    }
+
+    // ===========================================================================
+    // Tests for Pure Decision Functions
+    // ===========================================================================
+
+    #[test]
+    fn test_should_analyze_global_storage_with_all_jobs() {
+        assert!(should_analyze_global_storage(true, None));
+        assert!(should_analyze_global_storage(true, Some("job-123")));
+    }
+
+    #[test]
+    fn test_should_analyze_global_storage_with_job_id() {
+        assert!(should_analyze_global_storage(false, Some("job-123")));
+        assert!(!should_analyze_global_storage(false, None));
+    }
+
+    #[test]
+    fn test_should_analyze_global_storage_neither_flag() {
+        assert!(!should_analyze_global_storage(false, None));
+    }
+
+    #[test]
+    fn test_build_global_events_path() {
+        let result = build_global_events_path("test-repo");
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.to_string_lossy().contains("events"));
+        assert!(path.to_string_lossy().contains("test-repo"));
+    }
+
+    #[test]
+    fn test_build_global_events_path_empty_repo() {
+        let result = build_global_events_path("");
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.to_string_lossy().contains("events"));
     }
 }
