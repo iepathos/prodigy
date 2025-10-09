@@ -81,6 +81,87 @@ pub trait ProcessRunner: Send + Sync {
 pub struct TokioProcessRunner;
 
 impl TokioProcessRunner {
+    /// Normalize a line by removing trailing newlines
+    fn normalize_line(mut line: String) -> String {
+        if line.ends_with('\n') {
+            line.pop();
+            if line.ends_with('\r') {
+                line.pop();
+            }
+        }
+        line
+    }
+
+    /// Create a line stream from a buffered reader
+    fn create_line_stream<R>(reader: tokio::io::BufReader<R>) -> ProcessStreamFut
+    where
+        R: tokio::io::AsyncRead + Send + Unpin + 'static,
+    {
+        use tokio::io::AsyncBufReadExt;
+
+        Box::pin(futures::stream::unfold(reader, |mut reader| async move {
+            let mut line = String::new();
+            match reader.read_line(&mut line).await {
+                Ok(0) => None, // EOF
+                Ok(_) => {
+                    let normalized = Self::normalize_line(line);
+                    Some((Ok(normalized), reader))
+                }
+                Err(e) => Some((
+                    Err(ProcessError::IoError {
+                        command: String::new(),
+                        source: e,
+                    }),
+                    reader,
+                )),
+            }
+        })) as ProcessStreamFut
+    }
+
+    /// Convert a std ExitStatus to our ExitStatus enum
+    fn convert_exit_status(status: std::process::ExitStatus) -> ExitStatus {
+        if status.success() {
+            ExitStatus::Success
+        } else {
+            ExitStatus::Error(status.code().unwrap_or(-1))
+        }
+    }
+
+    /// Create a status future with optional timeout
+    fn create_status_future(
+        mut child: tokio::process::Child,
+        timeout: Option<Duration>,
+        program: String,
+        args: Vec<String>,
+    ) -> Pin<Box<dyn futures::Future<Output = Result<ExitStatus, ProcessError>> + Send>> {
+        Box::pin(async move {
+            let status = if let Some(timeout_duration) = timeout {
+                match tokio::time::timeout(timeout_duration, child.wait()).await {
+                    Ok(Ok(status)) => Self::convert_exit_status(status),
+                    Ok(Err(e)) => {
+                        return Err(ProcessError::IoError {
+                            command: format!("{} {}", program, args.join(" ")),
+                            source: e,
+                        })
+                    }
+                    Err(_) => ExitStatus::Timeout,
+                }
+            } else {
+                match child.wait().await {
+                    Ok(status) => Self::convert_exit_status(status),
+                    Err(e) => {
+                        return Err(ProcessError::IoError {
+                            command: format!("{} {}", program, args.join(" ")),
+                            source: e,
+                        })
+                    }
+                }
+            };
+
+            Ok(status)
+        })
+    }
+
     /// Log command execution details
     fn log_command_start(command: &ProcessCommand) {
         tracing::debug!(
@@ -306,57 +387,21 @@ impl ProcessRunner for TokioProcessRunner {
     }
 
     async fn run_streaming(&self, command: ProcessCommand) -> Result<ProcessStream, ProcessError> {
-        use std::process::Stdio;
-        use tokio::io::{AsyncBufReadExt, BufReader};
-        use tokio::process::Command;
+        use tokio::io::BufReader;
 
         // Log command execution
         Self::log_command_start(&command);
 
-        // Build the tokio command
-        let mut cmd = Command::new(&command.program);
-        cmd.args(&command.args);
-
-        // Set environment variables
-        for (key, value) in &command.env {
-            cmd.env(key, value);
-        }
-
-        // Set working directory
-        if let Some(dir) = &command.working_dir {
-            cmd.current_dir(dir);
-        }
-
-        // Configure stdio for streaming
-        cmd.stdin(Stdio::piped());
-        cmd.stdout(Stdio::piped());
-        if command.suppress_stderr {
-            cmd.stderr(Stdio::null());
-        } else {
-            cmd.stderr(Stdio::piped());
-        }
-
-        // Spawn the process
+        // Configure and spawn the process
+        let mut cmd = Self::configure_command(&command);
         let mut child = cmd.spawn().map_err(|e| ProcessError::SpawnFailed {
             command: format!("{} {}", command.program, command.args.join(" ")),
             source: e.into(),
         })?;
 
-        // Handle stdin if provided
+        // Write stdin if provided
         if let Some(stdin_data) = &command.stdin {
-            if let Some(mut stdin) = child.stdin.take() {
-                use tokio::io::AsyncWriteExt;
-                stdin.write_all(stdin_data.as_bytes()).await.map_err(|e| {
-                    ProcessError::IoError {
-                        command: format!("{} {}", command.program, command.args.join(" ")),
-                        source: e,
-                    }
-                })?;
-                stdin.flush().await.map_err(|e| ProcessError::IoError {
-                    command: format!("{} {}", command.program, command.args.join(" ")),
-                    source: e,
-                })?;
-            }
+            Self::write_stdin(&mut child, stdin_data).await?;
         }
 
         // Take ownership of output streams
@@ -375,104 +420,18 @@ impl ProcessRunner for TokioProcessRunner {
             })?;
 
         // Create stdout stream
-        let stdout_stream = Box::pin(futures::stream::unfold(
-            BufReader::new(stdout),
-            |mut reader| async move {
-                let mut line = String::new();
-                match reader.read_line(&mut line).await {
-                    Ok(0) => None, // EOF
-                    Ok(_) => {
-                        // Remove trailing newline
-                        if line.ends_with('\n') {
-                            line.pop();
-                            if line.ends_with('\r') {
-                                line.pop();
-                            }
-                        }
-                        Some((Ok(line.clone()), reader))
-                    }
-                    Err(e) => Some((
-                        Err(ProcessError::IoError {
-                            command: String::new(),
-                            source: e,
-                        }),
-                        reader,
-                    )),
-                }
-            },
-        )) as ProcessStreamFut;
+        let stdout_stream = Self::create_line_stream(BufReader::new(stdout));
 
         // Create stderr stream
-        let stderr_stream = Box::pin(futures::stream::unfold(
-            BufReader::new(stderr),
-            |mut reader| async move {
-                let mut line = String::new();
-                match reader.read_line(&mut line).await {
-                    Ok(0) => None, // EOF
-                    Ok(_) => {
-                        // Remove trailing newline
-                        if line.ends_with('\n') {
-                            line.pop();
-                            if line.ends_with('\r') {
-                                line.pop();
-                            }
-                        }
-                        Some((Ok(line.clone()), reader))
-                    }
-                    Err(e) => Some((
-                        Err(ProcessError::IoError {
-                            command: String::new(),
-                            source: e,
-                        }),
-                        reader,
-                    )),
-                }
-            },
-        )) as ProcessStreamFut;
+        let stderr_stream = Self::create_line_stream(BufReader::new(stderr));
 
         // Create status future
-        let timeout = command.timeout;
-        let program = command.program.clone();
-        let args = command.args.clone();
-
-        let status_fut = Box::pin(async move {
-            let status = if let Some(timeout_duration) = timeout {
-                match tokio::time::timeout(timeout_duration, child.wait()).await {
-                    Ok(Ok(status)) => {
-                        if status.success() {
-                            ExitStatus::Success
-                        } else {
-                            ExitStatus::Error(status.code().unwrap_or(-1))
-                        }
-                    }
-                    Ok(Err(e)) => {
-                        return Err(ProcessError::IoError {
-                            command: format!("{} {}", program, args.join(" ")),
-                            source: e,
-                        })
-                    }
-                    Err(_) => ExitStatus::Timeout,
-                }
-            } else {
-                match child.wait().await {
-                    Ok(status) => {
-                        if status.success() {
-                            ExitStatus::Success
-                        } else {
-                            ExitStatus::Error(status.code().unwrap_or(-1))
-                        }
-                    }
-                    Err(e) => {
-                        return Err(ProcessError::IoError {
-                            command: format!("{} {}", program, args.join(" ")),
-                            source: e,
-                        })
-                    }
-                }
-            };
-
-            Ok(status)
-        });
+        let status_fut = Self::create_status_future(
+            child,
+            command.timeout,
+            command.program.clone(),
+            command.args.clone(),
+        );
 
         Ok(ProcessStream {
             stdout: stdout_stream,

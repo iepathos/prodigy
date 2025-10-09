@@ -1,211 +1,229 @@
-# Implementation Plan: Add Test Coverage for FileEventStore::index
+# Implementation Plan: Refactor run_streaming with Functional Patterns
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/events/event_store.rs:FileEventStore::index:389
-**Priority Score**: 48.3875
-**Debt Type**: ComplexityHotspot (Cognitive: 15, Cyclomatic: 6)
+**Location**: ./src/subprocess/runner.rs:TokioProcessRunner::run_streaming:308
+**Priority Score**: 45.13
+**Debt Type**: ComplexityHotspot (Cognitive: 84, Cyclomatic: 29)
 **Current Metrics**:
-- Lines of Code: 30
-- Cyclomatic Complexity: 6
-- Cognitive Complexity: 15
-- Coverage: 0% (according to debtmap)
-- Upstream Dependencies: 31 callers
-- Downstream Dependencies: 7 callees
+- Lines of Code: 175
+- Cyclomatic Complexity: 29
+- Cognitive Complexity: 84
+- Nesting Depth: 3
+- Function Role: PureLogic (but contains I/O mixing)
 
-**Issue**: Add 6 tests for 100% coverage gap. NO refactoring needed (complexity 6 is acceptable)
-
-**Rationale**: Complexity 6 is manageable. Coverage at 0%. Focus on test coverage, not refactoring. Current structure is acceptable - prioritize test coverage.
+**Issue**: Apply functional patterns: 6 pure functions with Iterator chains. Moderate complexity (29), needs functional decomposition to reduce cognitive load and improve maintainability.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 3.0
-- Coverage Improvement: 0.0
-- Risk Reduction: 16.94
+- Complexity Reduction: 14.5 (from 29 to ~14.5)
+- Risk Reduction: 15.8
+- Lines Reduction: ~50-70 lines through deduplication
 
 **Success Criteria**:
-- [ ] Verify existing tests are running and passing
-- [ ] Identify any uncovered code paths in the `index` method
-- [ ] Add targeted tests for any missing branches
-- [ ] Achieve 100% line and branch coverage for `FileEventStore::index`
+- [ ] Cyclomatic complexity reduced to ≤15
+- [ ] Cognitive complexity reduced to ≤40
+- [ ] Code duplication eliminated (stdout/stderr streams)
+- [ ] Pure functions extracted for stream creation and status handling
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Investigate Coverage Discrepancy
+### Phase 1: Extract Pure Stream Creation Functions
 
-**Goal**: Understand why debtmap reports 0% coverage when extensive tests already exist
-
-**Changes**:
-- Run existing tests to verify they pass
-- Run `cargo tarpaulin` to get actual coverage metrics for `event_store.rs`
-- Identify any genuinely uncovered lines or branches in the `index` method
-- Review test configuration to ensure async tests are being counted
-
-**Testing**:
-- Run: `cargo test --lib event_store::tests`
-- Run: `cargo tarpaulin --out Stdout --skip-clean -- event_store`
-- Review coverage report for `FileEventStore::index` specifically
-
-**Success Criteria**:
-- [ ] All existing tests pass
-- [ ] Actual coverage metrics obtained
-- [ ] Gap analysis completed
-- [ ] Root cause of 0% coverage identified
-
-### Phase 2: Add Missing Tests for Uncovered Paths
-
-**Goal**: Write focused tests for any genuinely uncovered code paths discovered in Phase 1
+**Goal**: Extract pure functions for creating stdout/stderr streams, eliminating duplication.
 
 **Changes**:
-Based on Phase 1 findings, add tests for any missing branches. The function has these potential paths:
-- Empty file list → already tested
-- Files with events → already tested
-- Error when `find_event_files` fails → may need test
-- Error when `process_event_file` fails → may need test
-- Time range tuple decomposition with no events → already tested
-- Error when `save_index` fails → may need test
-
-Each new test should:
-- Be < 15 lines
-- Test ONE specific path
-- Follow existing test patterns in the module
-- Use descriptive names like `test_index_handles_xxx_error`
+- Create `create_line_stream()` pure function that takes a `BufReader` and returns a configured stream
+- Replace duplicated stdout/stderr stream creation code (lines 378-431) with calls to the new function
+- Extract the line processing logic (removing newlines) into a pure `normalize_line()` function
 
 **Testing**:
-- Run each new test individually: `cargo test <test_name>`
-- Verify it covers the intended branch
-- Run full suite: `cargo test event_store::tests`
+- Run `cargo test --lib` to verify existing tests pass
+- Run `cargo clippy` to check for warnings
+- Verify the streaming tests still work correctly
 
 **Success Criteria**:
-- [ ] All new tests pass
-- [ ] Each test covers a specific branch
-- [ ] Tests follow existing patterns
-- [ ] No test is longer than 15 lines
-- [ ] Ready to commit
-
-### Phase 3: Verify Complete Coverage
-
-**Goal**: Confirm 100% coverage of the `index` method
-
-**Changes**:
-- Run full test suite
-- Generate updated coverage report
-- Verify all branches of `index` method are covered
-- Ensure logging statements are exercised
-
-**Testing**:
-- Run: `cargo test --lib`
-- Run: `cargo tarpaulin --out Html`
-- Review HTML report to verify coverage
-- Run: `cargo clippy`
-- Run: `cargo fmt --check`
-
-**Success Criteria**:
-- [ ] Coverage report shows 100% for `FileEventStore::index`
+- [ ] ~50 lines of duplicated code eliminated
+- [ ] `create_line_stream()` function exists and is reusable
+- [ ] `normalize_line()` function handles line endings correctly
 - [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] Code is properly formatted
 - [ ] Ready to commit
 
-### Phase 4: Final Validation
+### Phase 2: Extract Status Future Builder
 
-**Goal**: Run full CI checks and verify the debt item is resolved
+**Goal**: Extract pure function for building the status future, eliminating timeout handling duplication.
 
 **Changes**:
-- Run `just ci` to ensure all checks pass
-- Verify the debtmap score has improved
+- Create `create_status_future()` function that takes:
+  - `child: Child`
+  - `timeout: Option<Duration>`
+  - `program: String`
+  - `args: Vec<String>`
+- Returns: `Pin<Box<dyn Future<Output = Result<ExitStatus, ProcessError>> + Send>>`
+- Replace status future creation code (lines 438-475) with a call to the new function
+- Extract exit status conversion into `convert_exit_status()` pure function
 
 **Testing**:
-- Run `just ci` for full CI validation
-- Run `cargo tarpaulin` to regenerate coverage report
-- Run `debtmap analyze` to verify improvement in debt score
+- Run `cargo test --lib`
+- Run timeout-specific tests to verify timeout handling still works
+- Run `cargo clippy`
 
 **Success Criteria**:
-- [ ] All CI checks pass
-- [ ] Coverage report shows improvement
-- [ ] Debtmap analysis shows reduced debt score
-- [ ] Code is ready for final commit
+- [ ] ~40 lines of code reduced through consolidation
+- [ ] `create_status_future()` handles both timeout and non-timeout cases
+- [ ] `convert_exit_status()` is a pure function
+- [ ] Timeout behavior unchanged
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 3: Extract Command Configuration Builder
+
+**Goal**: Unify command configuration logic between `run()` and `run_streaming()`.
+
+**Changes**:
+- Refactor `configure_command()` to support streaming mode via a parameter
+- Create `configure_streaming_command()` that reuses common configuration
+- Replace command configuration code in `run_streaming()` (lines 317-337) with the new function
+- Ensure both `run()` and `run_streaming()` use consistent configuration logic
+
+**Testing**:
+- Run `cargo test --lib` to verify all tests pass
+- Test both streaming and non-streaming execution paths
+- Run `cargo clippy`
+
+**Success Criteria**:
+- [ ] Command configuration is consistent between `run()` and `run_streaming()`
+- [ ] ~20 lines of duplicated configuration code eliminated
+- [ ] Both execution modes work correctly
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 4: Extract Stdin Handling Function
+
+**Goal**: Consolidate stdin handling logic to reduce duplication.
+
+**Changes**:
+- Refactor the existing `write_stdin()` to handle both execution modes
+- Replace inline stdin handling in `run_streaming()` (lines 346-360) with call to the refactored function
+- Use the same error handling pattern as `run()`
+
+**Testing**:
+- Run stdin-specific tests
+- Verify both `run()` and `run_streaming()` handle stdin correctly
+- Run `cargo test --lib`
+- Run `cargo clippy`
+
+**Success Criteria**:
+- [ ] Stdin handling is unified and reusable
+- [ ] ~15 lines of duplicated code eliminated
+- [ ] Both execution modes handle stdin identically
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 5: Final Cleanup and Validation
+
+**Goal**: Ensure all improvements are complete and validate the refactoring.
+
+**Changes**:
+- Review `run_streaming()` function for any remaining complexity
+- Add inline documentation for the new pure functions
+- Ensure error types are consistent throughout
+- Final code formatting and style checks
+
+**Testing**:
+- Run `just ci` - Full CI checks including all tests
+- Run `cargo clippy -- -D warnings` to ensure no warnings
+- Run `cargo fmt --check` to verify formatting
+- Manually review complexity improvements
+
+**Success Criteria**:
+- [ ] `run_streaming()` is now ~100 lines instead of 175
+- [ ] Cyclomatic complexity reduced to ≤15
+- [ ] Cognitive complexity reduced to ≤40
+- [ ] All pure functions are documented
+- [ ] CI passes completely
+- [ ] No clippy warnings
+- [ ] Ready to commit final changes
 
 ## Testing Strategy
 
-**For Phase 1**:
-1. Run existing tests: `cargo test --lib event_store::tests`
-2. Generate coverage: `cargo tarpaulin --skip-clean --out Html`
-3. Analyze gaps in coverage report
+**For each phase**:
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run `cargo clippy` to check for warnings
+3. Run specific tests related to the changed functionality
+4. Ensure no behavioral changes (only refactoring)
 
-**For Phase 2**:
-1. Write one test at a time
-2. Run `cargo test <test_name>` after each
-3. Verify it covers the intended branch
-4. Move to next gap
-
-**For Phase 3**:
-1. Run full test suite: `cargo test --lib`
-2. Generate coverage report: `cargo tarpaulin --out Html`
-3. Run quality checks: `cargo clippy && cargo fmt --check`
-4. Verify metrics improved
+**Phase-specific testing**:
+- Phase 1: Focus on streaming output tests
+- Phase 2: Focus on timeout and exit status tests
+- Phase 3: Focus on command configuration tests
+- Phase 4: Focus on stdin handling tests
 
 **Final verification**:
 1. `just ci` - Full CI checks
-2. Review coverage report - Confirm 100% coverage for `index` method
-3. Run debtmap again to verify score improvement
-
-**Test Structure Pattern** (following existing async patterns in the module):
-```rust
-#[tokio::test]
-async fn test_index_<scenario>() {
-    // Setup: Create test directory and store
-    // Action: Call index() with specific scenario
-    // Assert: Verify expected behavior
-}
-```
+2. `cargo test --all` - All tests including integration tests
+3. Manual testing of streaming functionality
+4. Review git diff to ensure only refactoring changes
 
 ## Rollback Plan
 
 If a phase fails:
-1. Identify the failing test or check
-2. Review the error message carefully
-3. If test is flaky or incorrect, remove it
-4. If underlying code has issues, investigate further
-5. Can always revert with `git reset --hard HEAD~1`
+1. Revert the phase with `git reset --hard HEAD~1`
+2. Review the failure messages and test output
+3. Identify the root cause:
+   - Type mismatch? Review function signatures
+   - Test failure? Check behavioral change
+   - Clippy warning? Review suggested fix
+4. Adjust the implementation approach
+5. Retry with corrected approach
+
+If blocked after 3 attempts on a phase:
+1. Document what failed and why
+2. Consider breaking the phase into smaller sub-phases
+3. Research alternative approaches in the codebase
+4. Ask for guidance if fundamental design issue
 
 ## Notes
 
-**Important Context**:
-- The `index` method is part of the `EventStore` trait implementation
-- It's async and uses file I/O operations
-- There are already 15+ comprehensive tests for this method
-- The "0% coverage" may be a measurement artifact rather than actual lack of tests
-- Focus is on verifying coverage, not refactoring (complexity 6 is acceptable)
+### Key Insights from Analysis
 
-**Existing Test Coverage** (already present):
-- `test_index_creates_index_for_job_with_events` - Happy path
-- `test_index_with_no_event_files` - Empty directory
-- `test_index_with_nonexistent_job` - Error case
-- `test_index_aggregates_multiple_event_files` - Multiple files
-- `test_index_calculates_correct_time_range` - Time range logic
-- `test_index_handles_malformed_json` - Error handling
-- `test_index_persists_and_deserializes_correctly` - Serialization
-- `test_index_with_empty_directory_creates_empty_index` - Edge case
-- `test_index_fails_when_save_directory_missing` - Error case
-- `test_index_with_only_invalid_json_events` - Invalid data
-- `test_index_time_range_with_single_event` - Single event
-- `test_index_time_range_with_multiple_events` - Multiple events
-- `test_index_default_time_range_no_valid_events` - No valid events
+1. **Duplication Pattern**: The stdout/stderr stream creation code is nearly identical (lines 378-403 vs 406-431). This is the primary source of complexity.
 
-**Potential Gaps** (to investigate in Phase 1):
-- Async execution paths may not be traced by coverage tools
-- Error propagation via `?` operator
-- Logging statements (info! macro)
-- Early returns vs normal flow
+2. **Timeout Handling**: The status future has duplicated logic for timeout vs non-timeout cases (lines 439-472). This can be consolidated.
 
-**References**:
-- Function location: `src/cook/execution/events/event_store.rs:389`
-- Test module: `src/cook/execution/events/event_store.rs::tests`
-- Recommendation: Add 6 tests for 100% coverage gap
+3. **Command Configuration**: The command setup in `run_streaming()` duplicates logic from `configure_command()` but doesn't reuse it.
 
-**NO REFACTORING**: The function has complexity 6, which is acceptable. Focus ONLY on adding tests if needed.
+4. **Pure Function Candidates**:
+   - `normalize_line()`: String → String (removes newlines)
+   - `create_line_stream()`: BufReader → Stream (creates async stream)
+   - `convert_exit_status()`: ExitStatus → ExitStatus (converts types)
+   - `create_status_future()`: (Child, Option<Duration>) → Future (builds status future)
+
+5. **Functional Patterns to Apply**:
+   - Extract pure transformations (line normalization)
+   - Use function composition for stream creation
+   - Parameterize behavior instead of duplicating code
+   - Separate pure logic from I/O coordination
+
+### Complexity Reduction Strategy
+
+- **Phase 1**: Reduces ~50 lines through stream deduplication
+- **Phase 2**: Reduces ~40 lines through status future consolidation
+- **Phase 3**: Reduces ~20 lines through command config unification
+- **Phase 4**: Reduces ~15 lines through stdin handling unification
+- **Total Expected Reduction**: ~125 lines → Target: ~100 lines (from 175)
+
+This should bring cyclomatic complexity from 29 to ~14-15, achieving the 14.5 target from debtmap analysis.
+
+### Error Handling Note
+
+The function uses multiple `ProcessError` variants. Ensure consistency:
+- `ProcessError::SpawnFailed` for spawn errors
+- `ProcessError::IoError` for I/O errors
+- `ProcessError::InternalError` for logical errors
+
+All new functions should follow Spec 101 (no unwrap/panic in production code).
