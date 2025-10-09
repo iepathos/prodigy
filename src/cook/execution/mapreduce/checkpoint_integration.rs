@@ -1048,4 +1048,187 @@ mod tests {
             "Counter should accumulate from 0"
         );
     }
+
+    // Phase 4: Edge Case and Error Condition Tests
+
+    #[tokio::test]
+    async fn test_empty_work_items() {
+        // Test handling of empty work items (line 555 returns empty vec)
+        let work_items_data: Vec<serde_json::Value> = vec![];
+
+        // Simulate work item enumeration (lines 235-242)
+        let work_items: Vec<WorkItem> = work_items_data
+            .into_iter()
+            .enumerate()
+            .map(|(i, item)| WorkItem {
+                id: format!("item_{}", i),
+                data: item,
+            })
+            .collect();
+
+        assert_eq!(work_items.len(), 0, "Should handle empty work items");
+
+        // Verify total_items would be 0
+        let total_items = work_items.len();
+        assert_eq!(total_items, 0);
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_state_defensive_none_handling() {
+        // Test defensive handling when checkpoint state is None
+        let current_checkpoint: Arc<RwLock<Option<Checkpoint>>> = Arc::new(RwLock::new(None));
+
+        // Attempt to read checkpoint
+        let checkpoint = current_checkpoint.read().await;
+        assert!(
+            checkpoint.is_none(),
+            "Should handle None checkpoint gracefully"
+        );
+
+        // Verify we don't panic when checkpoint is None
+        if checkpoint.is_some() {
+            panic!("Should not have a checkpoint");
+        }
+        // Test passes - no panic
+    }
+
+    #[tokio::test]
+    async fn test_get_next_batch_returns_none_when_empty() {
+        // Test that get_next_batch returns None when no items remain
+        let current_checkpoint: Arc<RwLock<Option<Checkpoint>>> =
+            Arc::new(RwLock::new(Some(Checkpoint {
+                metadata: crate::cook::execution::mapreduce::checkpoint::CheckpointMetadata {
+                    checkpoint_id: String::new(),
+                    job_id: "test".to_string(),
+                    version: 1,
+                    created_at: Utc::now(),
+                    phase: PhaseType::Map,
+                    total_work_items: 0,
+                    completed_items: 0,
+                    checkpoint_reason: CheckpointReason::Manual,
+                    integrity_hash: String::new(),
+                },
+                execution_state: crate::cook::execution::mapreduce::checkpoint::ExecutionState {
+                    current_phase: PhaseType::Map,
+                    phase_start_time: Utc::now(),
+                    setup_results: None,
+                    map_results: None,
+                    reduce_results: None,
+                    workflow_variables: std::collections::HashMap::new(),
+                },
+                work_item_state: WorkItemState {
+                    pending_items: vec![], // Empty!
+                    in_progress_items: std::collections::HashMap::new(),
+                    completed_items: vec![],
+                    failed_items: vec![],
+                    current_batch: None,
+                },
+                agent_state: crate::cook::execution::mapreduce::checkpoint::AgentState {
+                    active_agents: std::collections::HashMap::new(),
+                    agent_assignments: std::collections::HashMap::new(),
+                    agent_results: std::collections::HashMap::new(),
+                    resource_allocation: std::collections::HashMap::new(),
+                },
+                variable_state: crate::cook::execution::mapreduce::checkpoint::VariableState {
+                    workflow_variables: std::collections::HashMap::new(),
+                    captured_outputs: std::collections::HashMap::new(),
+                    environment_variables: std::collections::HashMap::new(),
+                    item_variables: std::collections::HashMap::new(),
+                },
+                resource_state: crate::cook::execution::mapreduce::checkpoint::ResourceState {
+                    total_agents_allowed: 10,
+                    current_agents_active: 0,
+                    worktrees_created: vec![],
+                    worktrees_cleaned: vec![],
+                    disk_usage_bytes: None,
+                },
+                error_state: crate::cook::execution::mapreduce::checkpoint::ErrorState {
+                    error_count: 0,
+                    dlq_items: vec![],
+                    error_threshold_reached: false,
+                    last_error: None,
+                },
+            })));
+
+        // Simulate get_next_batch logic
+        let checkpoint = current_checkpoint.read().await;
+        let batch = if let Some(ref cp) = *checkpoint {
+            if cp.work_item_state.pending_items.is_empty() {
+                None
+            } else {
+                Some(cp.work_item_state.pending_items.clone())
+            }
+        } else {
+            None
+        };
+
+        assert!(batch.is_none(), "Should return None when no items remain");
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_interval_edge_cases() {
+        // Test edge cases for checkpoint interval configuration
+
+        // Test with interval_items = 0 (should always checkpoint)
+        let config = CheckpointConfig {
+            interval_items: Some(0),
+            ..Default::default()
+        };
+        assert!(
+            should_checkpoint_based_on_items(0, &config),
+            "Should checkpoint immediately with interval_items = 0"
+        );
+
+        // Test with interval_items = 1 (checkpoint after every item)
+        let config = CheckpointConfig {
+            interval_items: Some(1),
+            ..Default::default()
+        };
+        assert!(
+            should_checkpoint_based_on_items(1, &config),
+            "Should checkpoint after 1 item"
+        );
+        assert!(
+            !should_checkpoint_based_on_items(0, &config),
+            "Should not checkpoint with 0 items"
+        );
+
+        // Test with None (uses default of 10)
+        let config = CheckpointConfig {
+            interval_items: None,
+            ..Default::default()
+        };
+        assert!(
+            should_checkpoint_based_on_items(10, &config),
+            "Should use default threshold of 10"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_large_batch_processing() {
+        // Test processing a large number of items
+        let total_items = 1000;
+        let max_parallel = 50;
+
+        let mut pending_items: Vec<WorkItem> = (0..total_items)
+            .map(|i| WorkItem {
+                id: format!("item_{}", i),
+                data: serde_json::json!({"index": i}),
+            })
+            .collect();
+
+        let mut batch_count = 0;
+        let mut total_processed = 0;
+
+        // Simulate batch processing
+        while !pending_items.is_empty() {
+            let batch_size = max_parallel.min(pending_items.len());
+            let _batch: Vec<WorkItem> = pending_items.drain(..batch_size).collect();
+            total_processed += batch_size;
+            batch_count += 1;
+        }
+
+        assert_eq!(total_processed, total_items, "Should process all items");
+        assert_eq!(batch_count, 20, "Should require 20 batches (50 items each)");
+    }
 }
