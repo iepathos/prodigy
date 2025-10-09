@@ -508,4 +508,78 @@ mod tests {
         assert_eq!(metadata.version, "2.0.0");
         assert_eq!(metadata.tags.len(), 2);
     }
+
+    #[tokio::test]
+    async fn test_file_template_storage_load_with_metadata() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+
+        let workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
+            merge: None,
+        });
+
+        let metadata = TemplateMetadata {
+            description: Some("Test description".to_string()),
+            author: Some("Test Author".to_string()),
+            version: "2.1.0".to_string(),
+            tags: vec!["test".to_string()],
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+        let entry = TemplateEntry {
+            name: "test-template".to_string(),
+            template: workflow,
+            metadata: metadata.clone(),
+        };
+
+        // Store the template
+        storage.store("test-template", &entry).await.unwrap();
+
+        // Load it back
+        let loaded = storage.load("test-template").await.unwrap();
+
+        assert_eq!(loaded.name, "test-template");
+        assert_eq!(loaded.metadata.description, Some("Test description".to_string()));
+        assert_eq!(loaded.metadata.version, "2.1.0");
+    }
+
+    #[tokio::test]
+    async fn test_file_template_storage_load_without_metadata() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+
+        let workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
+            merge: None,
+        });
+
+        // Create directory
+        tokio::fs::create_dir_all(temp_dir.path()).await.unwrap();
+
+        // Write only the template YAML file (no metadata)
+        let template_yaml = serde_yaml::to_string(&workflow).unwrap();
+        let template_path = temp_dir.path().join("test-template.yml");
+        tokio::fs::write(&template_path, template_yaml).await.unwrap();
+
+        // Load it back - should use default metadata
+        let loaded = storage.load("test-template").await.unwrap();
+
+        assert_eq!(loaded.name, "test-template");
+        assert_eq!(loaded.metadata.version, "1.0.0"); // Default version
+        assert_eq!(loaded.metadata.description, None); // Default no description
+    }
 }
