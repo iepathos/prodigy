@@ -75,7 +75,7 @@ map:
   # Note: Items are wrapped in either File or Function enums
   # File items: item.File.score
   # Function items: item.Function.unified_score.final_score
-  filter: "File.score >= 30 OR Function.unified_score.final_score >= 30"
+  filter: "File.score >= 10 OR Function.unified_score.final_score >= 10"
   sort_by: "File.score DESC, Function.unified_score.final_score DESC"  # Process highest score items first
   max_items: 10  # Limit to 10 items per run
 
