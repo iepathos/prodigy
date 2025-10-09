@@ -5,7 +5,7 @@
 //! the implementation plan in .prodigy/plan-item_6.md
 
 #[cfg(test)]
-mod handle_commit_verification_tests {
+mod tests {
     use crate::abstractions::git::MockGitOperations;
     use crate::cook::execution::ClaudeExecutor;
     use crate::cook::execution::ExecutionResult;

@@ -311,19 +311,19 @@ mod tests {
     #[test]
     fn test_should_include_file_no_patterns() {
         let result = CommitTracker::should_include_file("file.rs", &[]);
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     #[test]
     fn test_should_include_file_single_match() {
         let result = CommitTracker::should_include_file("file.rs", &["*.rs".to_string()]);
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[test]
     fn test_should_include_file_single_no_match() {
         let result = CommitTracker::should_include_file("file.txt", &["*.rs".to_string()]);
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     #[test]
@@ -332,7 +332,7 @@ mod tests {
             "file.rs",
             &["*.rs".to_string(), "*.md".to_string()],
         );
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[test]
@@ -341,33 +341,33 @@ mod tests {
             "file.md",
             &["*.rs".to_string(), "*.md".to_string()],
         );
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[test]
     fn test_should_include_file_invalid_pattern() {
         // Invalid pattern should be skipped gracefully
         let result = CommitTracker::should_include_file("file.rs", &["[invalid".to_string()]);
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     // Tests for should_exclude_file
     #[test]
     fn test_should_exclude_file_no_patterns() {
         let result = CommitTracker::should_exclude_file("file.tmp", &[]);
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     #[test]
     fn test_should_exclude_file_single_match() {
         let result = CommitTracker::should_exclude_file("file.tmp", &["*.tmp".to_string()]);
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[test]
     fn test_should_exclude_file_single_no_match() {
         let result = CommitTracker::should_exclude_file("file.rs", &["*.tmp".to_string()]);
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     #[test]
@@ -376,21 +376,21 @@ mod tests {
             "file.log",
             &["*.tmp".to_string(), "*.log".to_string()],
         );
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[test]
     fn test_should_exclude_file_invalid_pattern() {
         // Invalid pattern should be skipped gracefully
         let result = CommitTracker::should_exclude_file("file.tmp", &["[invalid".to_string()]);
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     // Tests for should_stage_file
     #[test]
     fn test_should_stage_file_no_config() {
         let result = CommitTracker::should_stage_file("file.rs", None);
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[test]
@@ -405,7 +405,7 @@ mod tests {
             squash: false,
         };
         let result = CommitTracker::should_stage_file("file.rs", Some(&config));
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[test]
@@ -420,7 +420,7 @@ mod tests {
             squash: false,
         };
         let result = CommitTracker::should_stage_file("file.md", Some(&config));
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     #[test]
@@ -435,7 +435,7 @@ mod tests {
             squash: false,
         };
         let result = CommitTracker::should_stage_file("file.tmp", Some(&config));
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     #[test]
@@ -450,7 +450,7 @@ mod tests {
             squash: false,
         };
         let result = CommitTracker::should_stage_file("file.rs", Some(&config));
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[test]
@@ -465,7 +465,7 @@ mod tests {
             squash: false,
         };
         let result = CommitTracker::should_stage_file("main.rs", Some(&config));
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[test]
@@ -480,7 +480,7 @@ mod tests {
             squash: false,
         };
         let result = CommitTracker::should_stage_file("foo_test.rs", Some(&config));
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     // Tests for get_files_to_stage
