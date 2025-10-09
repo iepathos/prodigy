@@ -619,4 +619,76 @@ mod tests {
         let err = result.unwrap_err();
         assert!(err.to_string().contains("Failed to parse template YAML"));
     }
+
+    #[tokio::test]
+    async fn test_file_template_storage_load_invalid_metadata_json() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+
+        let workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
+            merge: None,
+        });
+
+        // Create directory
+        tokio::fs::create_dir_all(temp_dir.path()).await.unwrap();
+
+        // Write valid template YAML
+        let template_yaml = serde_yaml::to_string(&workflow).unwrap();
+        let template_path = temp_dir.path().join("test-template.yml");
+        tokio::fs::write(&template_path, template_yaml).await.unwrap();
+
+        // Write invalid JSON to metadata file
+        let metadata_path = temp_dir.path().join("test-template.meta.json");
+        tokio::fs::write(&metadata_path, "{ invalid json: [ unclosed").await.unwrap();
+
+        // Attempt to load - should fail with JSON parse error
+        let result = storage.load("test-template").await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Failed to parse metadata JSON"));
+    }
+
+    #[tokio::test]
+    async fn test_file_template_storage_load_corrupted_metadata() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
+
+        let workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
+            merge: None,
+        });
+
+        // Create directory
+        tokio::fs::create_dir_all(temp_dir.path()).await.unwrap();
+
+        // Write valid template YAML
+        let template_yaml = serde_yaml::to_string(&workflow).unwrap();
+        let template_path = temp_dir.path().join("test-template.yml");
+        tokio::fs::write(&template_path, template_yaml).await.unwrap();
+
+        // Write valid JSON but invalid metadata structure (missing required fields)
+        let metadata_path = temp_dir.path().join("test-template.meta.json");
+        tokio::fs::write(&metadata_path, r#"{"invalid": "structure"}"#).await.unwrap();
+
+        // Attempt to load - should fail due to invalid metadata structure
+        let result = storage.load("test-template").await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Failed to parse metadata JSON"));
+    }
 }
