@@ -246,28 +246,15 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
             args
         );
 
-        // Check if we can use the streaming interface
-        use crate::subprocess::streaming::{ClaudeJsonProcessor, StreamProcessor};
-        use std::sync::Arc;
-
         // Determine if we should print to console using pure helper
         let print_to_console = should_print_to_console(&env_vars, self.verbosity);
 
-        // Create the appropriate handler based on whether we have an event logger
-        let processor: Box<dyn StreamProcessor> = if let Some(ref event_logger) = self.event_logger
-        {
-            use crate::cook::execution::claude_stream_handler::EventLoggingClaudeHandler;
-            let handler = Arc::new(EventLoggingClaudeHandler::new(
-                event_logger.clone(),
-                "agent-default".to_string(),
-                print_to_console,
-            ));
-            Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
-        } else {
-            use crate::cook::execution::claude_stream_handler::ConsoleClaudeHandler;
-            let handler = Arc::new(ConsoleClaudeHandler::new("agent-default".to_string()));
-            Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
-        };
+        // Create stream processor using factory function
+        let processor = create_stream_processor(
+            self.event_logger.clone(),
+            "agent-default".to_string(),
+            print_to_console,
+        );
 
         // Use the streaming interface
         let result = self
@@ -401,6 +388,31 @@ fn should_print_to_console(env_vars: &HashMap<String, String>, verbosity: u8) ->
         .unwrap_or(verbosity >= 1)
 }
 
+/// Create a stream processor based on event logger availability
+/// Pure factory function that constructs the appropriate handler
+fn create_stream_processor(
+    event_logger: Option<Arc<EventLogger>>,
+    agent_id: String,
+    print_to_console: bool,
+) -> Box<dyn crate::subprocess::streaming::StreamProcessor> {
+    use crate::cook::execution::claude_stream_handler::{
+        ConsoleClaudeHandler, EventLoggingClaudeHandler,
+    };
+    use crate::subprocess::streaming::ClaudeJsonProcessor;
+
+    if let Some(logger) = event_logger {
+        let handler = Arc::new(EventLoggingClaudeHandler::new(
+            logger,
+            agent_id,
+            print_to_console,
+        ));
+        Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
+    } else {
+        let handler = Arc::new(ConsoleClaudeHandler::new(agent_id));
+        Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
+    }
+}
+
 #[async_trait]
 impl<R: CommandRunner + 'static> CommandExecutor for ClaudeExecutorImpl<R> {
     async fn execute(
@@ -494,6 +506,40 @@ mod tests {
 
         // Should be false when verbosity < 1
         assert!(!should_print_to_console(&env_vars, 0));
+    }
+
+    // Phase 2: Tests for stream processor factory
+
+    #[test]
+    fn test_create_stream_processor_with_event_logger() {
+        use crate::cook::execution::events::EventLogger;
+        use std::sync::Arc;
+
+        let event_logger = Arc::new(EventLogger::new(vec![]));
+        let processor = create_stream_processor(Some(event_logger), "test-agent".to_string(), true);
+
+        // Just verify we got a processor - the fact that it compiles and runs is enough
+        // The actual behavior is tested in integration tests
+        drop(processor); // Explicitly drop to show we're just testing creation
+    }
+
+    #[test]
+    fn test_create_stream_processor_without_event_logger() {
+        let processor = create_stream_processor(None, "test-agent".to_string(), false);
+
+        // Just verify we got a processor
+        drop(processor);
+    }
+
+    #[test]
+    fn test_create_stream_processor_console_flags() {
+        // Test with print_to_console true
+        let processor_verbose = create_stream_processor(None, "test-agent".to_string(), true);
+        drop(processor_verbose);
+
+        // Test with print_to_console false
+        let processor_quiet = create_stream_processor(None, "test-agent".to_string(), false);
+        drop(processor_quiet);
     }
 
     #[tokio::test]
