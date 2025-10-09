@@ -601,6 +601,7 @@ fn update_checkpoint_to_map_phase(checkpoint: &mut Checkpoint) {
 ///
 /// # Returns
 /// `true` if a checkpoint should be saved, `false` otherwise
+#[allow(dead_code)] // Used extensively in tests
 fn should_checkpoint_based_on_items(items_processed: usize, config: &CheckpointConfig) -> bool {
     items_processed >= config.interval_items.unwrap_or(10)
 }
@@ -793,9 +794,8 @@ mod tests {
     #[test]
     fn test_create_work_items_id_formatting() {
         // Test ID formatting with many items
-        let items: Vec<serde_json::Value> = (0..15)
-            .map(|i| serde_json::json!({"index": i}))
-            .collect();
+        let items: Vec<serde_json::Value> =
+            (0..15).map(|i| serde_json::json!({"index": i})).collect();
 
         let work_items = create_work_items(items);
 
