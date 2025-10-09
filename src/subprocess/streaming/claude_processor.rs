@@ -61,112 +61,138 @@ impl ClaudeJsonProcessor {
     pub async fn get_buffer(&self) -> String {
         self.buffer.lock().await.clone()
     }
+
+    /// Accumulate a line in the buffer
+    async fn accumulate_line(&self, line: &str) {
+        let mut buffer = self.buffer.lock().await;
+        buffer.push_str(line);
+        buffer.push('\n');
+    }
+
+    /// Print a line to console if enabled
+    fn print_if_enabled(&self, line: &str, source: StreamSource) {
+        if self.print_to_console && source == StreamSource::Stdout {
+            println!("{}", line);
+        }
+    }
+
+    /// Check if a line should be processed (non-empty after trimming)
+    fn should_process_line(line: &str) -> bool {
+        !line.trim().is_empty()
+    }
+
+    /// Dispatch a JSON event to the appropriate handler method
+    async fn dispatch_event(&self, json: &Value) -> Result<()> {
+        if let Some(event_type) = json.get("event").and_then(|v| v.as_str()) {
+            match event_type {
+                "tool_use" => {
+                    if let Some((tool_name, tool_id, parameters)) = parse_tool_use(json) {
+                        self.handler
+                            .on_tool_invocation(&tool_name, &tool_id, &parameters)
+                            .await?;
+                    }
+                }
+                "token_usage" => {
+                    if let Some((input, output, cache)) = parse_token_usage(json) {
+                        self.handler.on_token_usage(input, output, cache).await?;
+                    }
+                }
+                "message" => {
+                    if let Some((content, message_type)) = parse_message(json) {
+                        self.handler.on_message(&content, &message_type).await?;
+                    }
+                }
+                "session_started" => {
+                    if let Some((session_id, model, tools)) = parse_session_start(json) {
+                        self.handler
+                            .on_session_start(&session_id, &model, tools)
+                            .await?;
+                    }
+                }
+                _ => {
+                    // Unknown event type, pass to raw handler
+                    self.handler.on_raw_event(event_type, json).await?;
+                }
+            }
+        } else {
+            // JSON without event field
+            self.handler.on_raw_event("unknown", json).await?;
+        }
+        Ok(())
+    }
+}
+
+// Pure helper functions for JSON field extraction
+
+/// Extract a string field from JSON, returning a default if missing or invalid
+fn extract_string_field<'a>(json: &'a Value, field: &str, default: &'a str) -> &'a str {
+    json.get(field).and_then(|v| v.as_str()).unwrap_or(default)
+}
+
+/// Extract a u64 field from JSON, returning a default if missing or invalid
+fn extract_u64_field(json: &Value, field: &str, default: u64) -> u64 {
+    json.get(field).and_then(|v| v.as_u64()).unwrap_or(default)
+}
+
+/// Extract an array of strings from JSON, returning an empty vector if missing or invalid
+fn extract_string_array(json: &Value, field: &str) -> Vec<String> {
+    json.get(field)
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+// Pure parsing functions for each event type
+
+/// Parse a tool_use event, returning (tool_name, tool_id, parameters)
+fn parse_tool_use(json: &Value) -> Option<(String, String, Value)> {
+    let tool_name = extract_string_field(json, "tool_name", "unknown").to_string();
+    let tool_id = extract_string_field(json, "tool_id", "unknown").to_string();
+    let parameters = json.get("parameters").cloned().unwrap_or(Value::Null);
+    Some((tool_name, tool_id, parameters))
+}
+
+/// Parse a token_usage event, returning (input_tokens, output_tokens, cache_read_tokens)
+fn parse_token_usage(json: &Value) -> Option<(u64, u64, u64)> {
+    let input = extract_u64_field(json, "input_tokens", 0);
+    let output = extract_u64_field(json, "output_tokens", 0);
+    let cache = extract_u64_field(json, "cache_read_tokens", 0);
+    Some((input, output, cache))
+}
+
+/// Parse a message event, returning (content, message_type)
+fn parse_message(json: &Value) -> Option<(String, String)> {
+    let content = extract_string_field(json, "content", "").to_string();
+    let message_type = extract_string_field(json, "type", "text").to_string();
+    Some((content, message_type))
+}
+
+/// Parse a session_started event, returning (session_id, model, tools)
+fn parse_session_start(json: &Value) -> Option<(String, String, Vec<String>)> {
+    let session_id = extract_string_field(json, "session_id", "unknown").to_string();
+    let model = extract_string_field(json, "model", "unknown").to_string();
+    let tools = extract_string_array(json, "tools");
+    Some((session_id, model, tools))
 }
 
 #[async_trait]
 impl StreamProcessor for ClaudeJsonProcessor {
     async fn process_line(&self, line: &str, source: StreamSource) -> Result<()> {
-        // Accumulate lines for compatibility
-        let mut buffer = self.buffer.lock().await;
-        buffer.push_str(line);
-        buffer.push('\n');
-        drop(buffer);
+        self.accumulate_line(line).await;
+        self.print_if_enabled(line, source);
 
-        // Print to console if enabled for real-time feedback
-        if self.print_to_console && source == StreamSource::Stdout {
-            println!("{}", line);
-        }
-
-        // Skip empty lines
-        if line.trim().is_empty() {
+        if !Self::should_process_line(line) {
             return Ok(());
         }
 
-        // Try to parse as JSON
         match serde_json::from_str::<Value>(line) {
-            Ok(json) => {
-                // Parse Claude event types
-                if let Some(event_type) = json.get("event").and_then(|v| v.as_str()) {
-                    match event_type {
-                        "tool_use" => {
-                            let tool_name = json
-                                .get("tool_name")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown");
-                            let tool_id = json
-                                .get("tool_id")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown");
-                            let parameters = json.get("parameters").cloned().unwrap_or(Value::Null);
-
-                            self.handler
-                                .on_tool_invocation(tool_name, tool_id, &parameters)
-                                .await?;
-                        }
-                        "token_usage" => {
-                            let input = json
-                                .get("input_tokens")
-                                .and_then(|v| v.as_u64())
-                                .unwrap_or(0);
-                            let output = json
-                                .get("output_tokens")
-                                .and_then(|v| v.as_u64())
-                                .unwrap_or(0);
-                            let cache = json
-                                .get("cache_read_tokens")
-                                .and_then(|v| v.as_u64())
-                                .unwrap_or(0);
-
-                            self.handler.on_token_usage(input, output, cache).await?;
-                        }
-                        "message" => {
-                            let content =
-                                json.get("content").and_then(|v| v.as_str()).unwrap_or("");
-                            let message_type =
-                                json.get("type").and_then(|v| v.as_str()).unwrap_or("text");
-
-                            self.handler.on_message(content, message_type).await?;
-                        }
-                        "session_started" => {
-                            let session_id = json
-                                .get("session_id")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown");
-                            let model = json
-                                .get("model")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown");
-                            let tools = json
-                                .get("tools")
-                                .and_then(|v| v.as_array())
-                                .map(|arr| {
-                                    arr.iter()
-                                        .filter_map(|v| v.as_str().map(String::from))
-                                        .collect()
-                                })
-                                .unwrap_or_default();
-
-                            self.handler
-                                .on_session_start(session_id, model, tools)
-                                .await?;
-                        }
-                        _ => {
-                            // Unknown event type, pass to raw handler
-                            self.handler.on_raw_event(event_type, &json).await?;
-                        }
-                    }
-                } else {
-                    // JSON without event field
-                    self.handler.on_raw_event("unknown", &json).await?;
-                }
-            }
-            Err(_) => {
-                // Not JSON, treat as text output
-                self.handler.on_text_line(line, source).await?;
-            }
+            Ok(json) => self.dispatch_event(&json).await,
+            Err(_) => self.handler.on_text_line(line, source).await,
         }
-
-        Ok(())
     }
 
     async fn on_complete(&self, exit_code: Option<i32>) -> Result<()> {
@@ -252,6 +278,152 @@ impl ClaudeStreamHandler for LoggingClaudeHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_extract_string_field() {
+        let json = json!({"name": "test", "value": "hello"});
+
+        assert_eq!(extract_string_field(&json, "name", "default"), "test");
+        assert_eq!(extract_string_field(&json, "value", "default"), "hello");
+        assert_eq!(extract_string_field(&json, "missing", "default"), "default");
+
+        // Test with non-string value
+        let json = json!({"number": 42});
+        assert_eq!(extract_string_field(&json, "number", "default"), "default");
+    }
+
+    #[test]
+    fn test_extract_u64_field() {
+        let json = json!({"count": 42, "zero": 0});
+
+        assert_eq!(extract_u64_field(&json, "count", 99), 42);
+        assert_eq!(extract_u64_field(&json, "zero", 99), 0);
+        assert_eq!(extract_u64_field(&json, "missing", 99), 99);
+
+        // Test with non-number value
+        let json = json!({"string": "not a number"});
+        assert_eq!(extract_u64_field(&json, "string", 99), 99);
+    }
+
+    #[test]
+    fn test_extract_string_array() {
+        let json = json!({"tools": ["Read", "Write", "Edit"]});
+
+        let result = extract_string_array(&json, "tools");
+        assert_eq!(result, vec!["Read", "Write", "Edit"]);
+
+        // Test with missing field
+        let result = extract_string_array(&json, "missing");
+        assert_eq!(result, Vec::<String>::new());
+
+        // Test with mixed types in array
+        let json = json!({"mixed": ["a", 1, "b", null, "c"]});
+        let result = extract_string_array(&json, "mixed");
+        assert_eq!(result, vec!["a", "b", "c"]);
+
+        // Test with non-array value
+        let json = json!({"not_array": "string"});
+        let result = extract_string_array(&json, "not_array");
+        assert_eq!(result, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_parse_tool_use() {
+        let json = json!({
+            "tool_name": "Read",
+            "tool_id": "tool_123",
+            "parameters": {"file": "test.rs"}
+        });
+
+        let result = parse_tool_use(&json);
+        assert!(result.is_some());
+        let (name, id, params) = result.unwrap();
+        assert_eq!(name, "Read");
+        assert_eq!(id, "tool_123");
+        assert_eq!(params.get("file").and_then(|v| v.as_str()), Some("test.rs"));
+
+        // Test with missing fields (should use defaults)
+        let json = json!({});
+        let result = parse_tool_use(&json);
+        assert!(result.is_some());
+        let (name, id, params) = result.unwrap();
+        assert_eq!(name, "unknown");
+        assert_eq!(id, "unknown");
+        assert_eq!(params, Value::Null);
+    }
+
+    #[test]
+    fn test_parse_token_usage() {
+        let json = json!({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_tokens": 25
+        });
+
+        let result = parse_token_usage(&json);
+        assert!(result.is_some());
+        let (input, output, cache) = result.unwrap();
+        assert_eq!(input, 100);
+        assert_eq!(output, 50);
+        assert_eq!(cache, 25);
+
+        // Test with missing fields (should use defaults)
+        let json = json!({});
+        let result = parse_token_usage(&json);
+        assert!(result.is_some());
+        let (input, output, cache) = result.unwrap();
+        assert_eq!(input, 0);
+        assert_eq!(output, 0);
+        assert_eq!(cache, 0);
+    }
+
+    #[test]
+    fn test_parse_message() {
+        let json = json!({
+            "content": "Hello world",
+            "type": "text"
+        });
+
+        let result = parse_message(&json);
+        assert!(result.is_some());
+        let (content, msg_type) = result.unwrap();
+        assert_eq!(content, "Hello world");
+        assert_eq!(msg_type, "text");
+
+        // Test with missing fields (should use defaults)
+        let json = json!({});
+        let result = parse_message(&json);
+        assert!(result.is_some());
+        let (content, msg_type) = result.unwrap();
+        assert_eq!(content, "");
+        assert_eq!(msg_type, "text");
+    }
+
+    #[test]
+    fn test_parse_session_start() {
+        let json = json!({
+            "session_id": "sess_123",
+            "model": "claude-3",
+            "tools": ["Read", "Write", "Edit"]
+        });
+
+        let result = parse_session_start(&json);
+        assert!(result.is_some());
+        let (session_id, model, tools) = result.unwrap();
+        assert_eq!(session_id, "sess_123");
+        assert_eq!(model, "claude-3");
+        assert_eq!(tools, vec!["Read", "Write", "Edit"]);
+
+        // Test with missing fields (should use defaults)
+        let json = json!({});
+        let result = parse_session_start(&json);
+        assert!(result.is_some());
+        let (session_id, model, tools) = result.unwrap();
+        assert_eq!(session_id, "unknown");
+        assert_eq!(model, "unknown");
+        assert_eq!(tools, Vec::<String>::new());
+    }
 
     #[tokio::test]
     async fn test_claude_json_processor() {
