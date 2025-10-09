@@ -710,7 +710,17 @@ mod tests {
         assert!(should_checkpoint_based_on_items(items_since_last, &config));
     }
 
-    // Helper function for checkpoint decision (will be extracted in Phase 3)
+    /// Helper function to determine if a checkpoint should be saved based on items processed
+    ///
+    /// This pure function encapsulates the checkpoint decision logic, making it easily testable
+    /// and reducing complexity in the main execution flow.
+    ///
+    /// # Arguments
+    /// * `items_processed` - Number of items processed since last checkpoint
+    /// * `config` - Checkpoint configuration containing interval thresholds
+    ///
+    /// # Returns
+    /// `true` if a checkpoint should be saved, `false` otherwise
     fn should_checkpoint_based_on_items(items_processed: usize, config: &CheckpointConfig) -> bool {
         items_processed >= config.interval_items.unwrap_or(10)
     }
