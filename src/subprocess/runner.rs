@@ -387,37 +387,13 @@ impl ProcessRunner for TokioProcessRunner {
     }
 
     async fn run_streaming(&self, command: ProcessCommand) -> Result<ProcessStream, ProcessError> {
-        use std::process::Stdio;
         use tokio::io::BufReader;
-        use tokio::process::Command;
 
         // Log command execution
         Self::log_command_start(&command);
 
-        // Build the tokio command
-        let mut cmd = Command::new(&command.program);
-        cmd.args(&command.args);
-
-        // Set environment variables
-        for (key, value) in &command.env {
-            cmd.env(key, value);
-        }
-
-        // Set working directory
-        if let Some(dir) = &command.working_dir {
-            cmd.current_dir(dir);
-        }
-
-        // Configure stdio for streaming
-        cmd.stdin(Stdio::piped());
-        cmd.stdout(Stdio::piped());
-        if command.suppress_stderr {
-            cmd.stderr(Stdio::null());
-        } else {
-            cmd.stderr(Stdio::piped());
-        }
-
-        // Spawn the process
+        // Configure and spawn the process
+        let mut cmd = Self::configure_command(&command);
         let mut child = cmd.spawn().map_err(|e| ProcessError::SpawnFailed {
             command: format!("{} {}", command.program, command.args.join(" ")),
             source: e.into(),
