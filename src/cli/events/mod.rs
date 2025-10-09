@@ -939,15 +939,6 @@ fn should_analyze_global_storage(all_jobs: bool, job_id: Option<&str>) -> bool {
     all_jobs || job_id.is_some()
 }
 
-/// Pure function: Calculate archive count based on policy
-fn calculate_archive_count(events_to_archive: usize, archive_enabled: bool) -> usize {
-    if archive_enabled {
-        events_to_archive
-    } else {
-        0
-    }
-}
-
 /// Pure function: Build global events path from repo name
 fn build_global_events_path(repo_name: &str) -> Result<PathBuf> {
     let global_base = crate::storage::get_default_storage_dir()?;
@@ -1768,20 +1759,6 @@ mod tests {
     #[test]
     fn test_should_analyze_global_storage_neither_flag() {
         assert!(!should_analyze_global_storage(false, None));
-    }
-
-    #[test]
-    fn test_calculate_archive_count_enabled() {
-        assert_eq!(calculate_archive_count(100, true), 100);
-        assert_eq!(calculate_archive_count(0, true), 0);
-        assert_eq!(calculate_archive_count(50, true), 50);
-    }
-
-    #[test]
-    fn test_calculate_archive_count_disabled() {
-        assert_eq!(calculate_archive_count(100, false), 0);
-        assert_eq!(calculate_archive_count(50, false), 0);
-        assert_eq!(calculate_archive_count(0, false), 0);
     }
 
     #[test]
