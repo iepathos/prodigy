@@ -62,6 +62,25 @@ impl ClaudeJsonProcessor {
         self.buffer.lock().await.clone()
     }
 
+    /// Accumulate a line in the buffer
+    async fn accumulate_line(&self, line: &str) {
+        let mut buffer = self.buffer.lock().await;
+        buffer.push_str(line);
+        buffer.push('\n');
+    }
+
+    /// Print a line to console if enabled
+    fn print_if_enabled(&self, line: &str, source: StreamSource) {
+        if self.print_to_console && source == StreamSource::Stdout {
+            println!("{}", line);
+        }
+    }
+
+    /// Check if a line should be processed (non-empty after trimming)
+    fn should_process_line(line: &str) -> bool {
+        !line.trim().is_empty()
+    }
+
     /// Dispatch a JSON event to the appropriate handler method
     async fn dispatch_event(&self, json: &Value) -> Result<()> {
         if let Some(event_type) = json.get("event").and_then(|v| v.as_str()) {
@@ -163,23 +182,13 @@ fn parse_session_start(json: &Value) -> Option<(String, String, Vec<String>)> {
 #[async_trait]
 impl StreamProcessor for ClaudeJsonProcessor {
     async fn process_line(&self, line: &str, source: StreamSource) -> Result<()> {
-        // Accumulate lines for compatibility
-        let mut buffer = self.buffer.lock().await;
-        buffer.push_str(line);
-        buffer.push('\n');
-        drop(buffer);
+        self.accumulate_line(line).await;
+        self.print_if_enabled(line, source);
 
-        // Print to console if enabled for real-time feedback
-        if self.print_to_console && source == StreamSource::Stdout {
-            println!("{}", line);
-        }
-
-        // Skip empty lines
-        if line.trim().is_empty() {
+        if !Self::should_process_line(line) {
             return Ok(());
         }
 
-        // Try to parse as JSON and dispatch to appropriate handler
         match serde_json::from_str::<Value>(line) {
             Ok(json) => self.dispatch_event(&json).await,
             Err(_) => self.handler.on_text_line(line, source).await,
