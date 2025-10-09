@@ -1,311 +1,216 @@
-# Implementation Plan: Test and Refactor handle_incomplete_validation
+# Implementation Plan: Reduce Cognitive Complexity in FileTemplateStorage::load
 
 ## Problem Summary
 
-**Location**: ./src/cook/workflow/executor/validation.rs:WorkflowExecutor::handle_incomplete_validation:224
-**Priority Score**: 31.59
-**Debt Type**: TestingGap (0% coverage, cyclomatic complexity 20)
+**Location**: ./src/cook/workflow/composition/registry.rs:FileTemplateStorage::load:299
+**Priority Score**: 39.99
+**Debt Type**: ComplexityHotspot (Cognitive: 21, Cyclomatic: 7)
 
 **Current Metrics**:
-- Lines of Code: 112
-- Cyclomatic Complexity: 20
-- Cognitive Complexity: 56
-- Coverage: 0% (direct), 18.2% (transitive)
-- Nesting Depth: 4
-- Downstream Dependencies: 11
+- Lines of Code: 29
+- Cyclomatic Complexity: 7
+- Cognitive Complexity: 21
+- Function Length: 29 lines
+- Function Role: PureLogic (80% purity confidence)
+- Coverage: Strong test coverage (5 test cases covering various error scenarios)
 
-**Issue**: Complex business logic with 100% coverage gap. Cyclomatic complexity of 20 requires at least 20 test cases for full path coverage. After extracting 11 functions, each will need only 3-5 tests. Testing before refactoring ensures no regressions.
+**Issue**: The function has high cognitive complexity (21) due to nested async I/O operations, complex error context wrapping, and conditional metadata loading. While cyclomatic complexity (7) is manageable, the cognitive load makes the function harder to understand and maintain. The recommendation suggests maintaining simplicity and prioritizing test coverage, but we can reduce complexity while preserving all existing tests.
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 6.0
-- Coverage Improvement: 50%
-- Risk Reduction: 13.27
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 3.5
+- Coverage Improvement: 0.0 (maintain existing coverage)
+- Risk Reduction: 13.996304951684996
 
 **Success Criteria**:
-- [ ] 80%+ test coverage for handle_incomplete_validation
-- [ ] Cyclomatic complexity reduced from 20 to ≤14
-- [ ] All 35 uncovered lines have test coverage
-- [ ] All existing tests continue to pass
+- [ ] Reduce cognitive complexity from 21 to ~10-15
+- [ ] Reduce cyclomatic complexity from 7 to ~5
+- [ ] Extract at least 2 pure helper functions
+- [ ] All 5 existing test cases continue to pass without modification
 - [ ] No clippy warnings
-- [ ] Proper formatting
+- [ ] Proper formatting with `cargo fmt`
+- [ ] Function length reduced to ~15-20 lines
 
 ## Implementation Phases
 
-### Phase 1: Add Integration Tests for Core Paths
+### Phase 1: Extract Metadata Loading Logic
 
-**Goal**: Achieve 50%+ coverage by testing the main execution paths through handle_incomplete_validation without modifying the implementation.
-
-**Changes**:
-- Add test for retry loop with commands array execution
-- Add test for retry loop with single claude command
-- Add test for retry loop with single shell command
-- Add test for validation passing after retry
-- Add test for validation failing with fail_workflow=true
-- Add test for prompt handling after max attempts
-
-**Testing**:
-```bash
-cargo test --lib handle_incomplete_validation
-cargo tarpaulin --out Stdout --include-tests --exclude-tests -- handle_incomplete_validation
-```
-
-**Success Criteria**:
-- [ ] 6 new integration tests added and passing
-- [ ] Coverage for lines 224-334 increases to 50%+
-- [ ] All branch points have at least one test
-- [ ] Tests cover: commands array, claude/shell handlers, retry logic, fail_workflow
-
-### Phase 2: Extract Retry Loop Logic
-
-**Goal**: Extract the retry loop condition and state management into testable pure functions to reduce complexity by ~3 points.
+**Goal**: Separate metadata loading into a dedicated helper function to reduce nesting and improve readability.
 
 **Changes**:
-- Extract `determine_retry_continuation(attempts, max_attempts, is_complete) -> bool`
-  - Replaces inline condition at line 235-236
-  - Cyclomatic complexity: 2
-- Extract `create_retry_status_message(attempt, max, percentage, threshold) -> String`
-  - Replaces formatting at lines 240-243, 302-305
-  - Cyclomatic complexity: 1
-- Add unit tests for both new functions (6 tests total)
+1. Create new private function `load_metadata_if_exists` that:
+   - Takes `&self` and `name: &str` as parameters
+   - Returns `Result<TemplateMetadata>`
+   - Handles the conditional metadata file reading
+   - Provides clear error context for metadata parsing failures
+
+2. Update `load` function to call the new helper:
+   - Replace lines 310-320 with a single call to `load_metadata_if_exists`
+   - Simplifies the main function's control flow
+   - Reduces nesting depth from 2 to 1
 
 **Testing**:
-```bash
-# Test the extracted functions
-cargo test --lib test_determine_retry_continuation
-cargo test --lib test_create_retry_status_message
-
-# Verify integration still works
-cargo test --lib handle_incomplete_validation
-
-# Check coverage improvement
-cargo tarpaulin --out Stdout --include-tests --exclude-tests -- validation
-```
+- Run `cargo test registry::tests::test_file_template_storage_load_with_metadata` - should pass
+- Run `cargo test registry::tests::test_file_template_storage_load_without_metadata` - should pass
+- Run `cargo test registry::tests::test_file_template_storage_load_invalid_metadata_json` - should pass
+- Run `cargo test registry::tests::test_file_template_storage_load_corrupted_metadata` - should pass
 
 **Success Criteria**:
-- [ ] 2 new pure functions extracted
-- [ ] 6 new unit tests added and passing
-- [ ] Cyclomatic complexity of handle_incomplete_validation reduced to ≤17
-- [ ] All existing tests still pass
+- [ ] `load_metadata_if_exists` function created and working
+- [ ] Main `load` function simplified
+- [ ] All 5 existing tests pass
+- [ ] Cognitive complexity reduced by ~5-7 points
+- [ ] Code compiles without warnings
+- [ ] Ready to commit
+
+### Phase 2: Extract Template Loading Logic
+
+**Goal**: Separate template YAML loading into a dedicated helper function to further reduce complexity.
+
+**Changes**:
+1. Create new private function `load_template_yaml` that:
+   - Takes `&self` and `name: &str` as parameters
+   - Returns `Result<ComposableWorkflow>`
+   - Handles reading and parsing the template YAML file
+   - Provides clear error context for file and parsing failures
+
+2. Update `load` function to call the new helper:
+   - Replace lines 301-307 with a single call to `load_template_yaml`
+   - Further simplifies the main function
+   - Creates clear separation between template and metadata loading
+
+**Testing**:
+- Run full test suite: `cargo test registry::tests` - all 5 storage tests should pass
+- Verify error messages are preserved:
+  - `test_file_template_storage_load_missing_template` - should still show "Failed to read template file"
+  - `test_file_template_storage_load_invalid_yaml` - should still show "Failed to parse template YAML"
+
+**Success Criteria**:
+- [ ] `load_template_yaml` function created and working
+- [ ] Main `load` function now consists of 3 clear steps: load template, load metadata, construct entry
+- [ ] All 5 existing tests pass
+- [ ] Error messages preserved for debugging
+- [ ] Cognitive complexity reduced by another ~3-5 points
+- [ ] Code compiles without warnings
+- [ ] Ready to commit
+
+### Phase 3: Simplify Main Function and Final Validation
+
+**Goal**: Ensure the refactored `load` function is clear, concise, and maintainable.
+
+**Changes**:
+1. Review the refactored `load` function structure:
+   - Should now be ~12-15 lines
+   - Three main steps: load template, load metadata, construct result
+   - Minimal nesting (0-1 levels)
+   - Clear error propagation with `?` operator
+
+2. Add inline documentation if needed:
+   - Brief doc comment for `load_metadata_if_exists` explaining conditional loading
+   - Brief doc comment for `load_template_yaml` explaining template parsing
+
+3. Run full validation suite:
+   - `cargo fmt` - ensure consistent formatting
+   - `cargo clippy` - check for any warnings
+   - `cargo test --lib` - verify all tests pass
+   - Review diff to ensure changes are minimal and focused
+
+**Testing**:
+- Full test suite: `cargo test registry::tests`
+- Clippy check: `cargo clippy --tests`
+- Format check: `cargo fmt --check`
+- Manual review of test output to ensure all assertions pass
+
+**Success Criteria**:
+- [ ] Main `load` function is ~12-15 lines
+- [ ] Nesting depth reduced to 0-1 levels
+- [ ] All 5 existing tests pass
 - [ ] No clippy warnings
-
-### Phase 3: Extract Command Execution Logic
-
-**Goal**: Extract the command execution logic into separate testable functions to reduce complexity by ~4 points.
-
-**Changes**:
-- Extract `execute_recovery_commands_array(commands, idx_context) -> Result<bool>`
-  - Handles lines 246-271 (commands array execution)
-  - Cyclomatic complexity: 3
-- Extract `execute_single_recovery_command(handler_step) -> Result<bool>`
-  - Handles lines 272-279 (single command execution)
-  - Cyclomatic complexity: 2
-- Extract `determine_recovery_strategy(on_incomplete) -> RecoveryStrategy`
-  - Determines which execution path to take (lines 246, 272, 280)
-  - Cyclomatic complexity: 2
-  - Returns enum: MultiCommand | SingleCommand | NoHandler
-- Add unit tests for all new functions (9 tests total)
-
-**Testing**:
-```bash
-# Test the extracted functions
-cargo test --lib execute_recovery_commands
-cargo test --lib determine_recovery_strategy
-
-# Verify integration
-cargo test --lib handle_incomplete_validation
-
-# Check coverage and complexity
-cargo tarpaulin --out Stdout --include-tests --exclude-tests -- validation
-```
-
-**Success Criteria**:
-- [ ] 3 new functions extracted with clear responsibilities
-- [ ] 9 new unit tests added and passing
-- [ ] Cyclomatic complexity of handle_incomplete_validation reduced to ≤13
-- [ ] Recovery logic is now testable in isolation
-- [ ] All existing tests still pass
-
-### Phase 4: Extract Validation Re-execution Logic
-
-**Goal**: Extract validation re-execution and result interpretation logic to reduce final complexity points.
-
-**Changes**:
-- Extract `interpret_validation_result(result, config, is_complete) -> ValidationInterpretation`
-  - Handles lines 294-306 (validation result interpretation)
-  - Returns struct with: message, should_continue, display_level
-  - Cyclomatic complexity: 2
-- Extract `should_fail_after_validation(result, config, attempts) -> (bool, String)`
-  - Handles lines 324-331 (final failure check)
-  - Returns: (should_fail, error_message)
-  - Cyclomatic complexity: 2
-- Add unit tests for both functions (8 tests total)
-
-**Testing**:
-```bash
-# Test the extracted functions
-cargo test --lib interpret_validation_result
-cargo test --lib should_fail_after_validation
-
-# Full validation test suite
-cargo test --lib validation
-
-# Final coverage check
-cargo tarpaulin --out Stdout --include-tests --exclude-tests -- validation
-```
-
-**Success Criteria**:
-- [ ] 2 new pure functions extracted
-- [ ] 8 new unit tests added and passing
-- [ ] Cyclomatic complexity of handle_incomplete_validation reduced to ≤11
-- [ ] 80%+ test coverage achieved
-- [ ] All uncovered lines from debtmap are now covered
-
-### Phase 5: Refactor Main Function and Final Cleanup
-
-**Goal**: Simplify the main function to orchestrate the extracted pure functions and achieve target metrics.
-
-**Changes**:
-- Refactor handle_incomplete_validation to use extracted functions
-  - Replace inline logic with calls to pure functions
-  - Improve readability and reduce nesting
-- Add final integration tests for edge cases
-  - Test interaction between all components
-  - Test error propagation
-- Update documentation and add rustdoc examples
-
-**Testing**:
-```bash
-# Full test suite
-cargo test --lib
-
-# Coverage verification
-cargo tarpaulin --out Stdout --include-tests --exclude-tests
-
-# Complexity check
-cargo clippy -- -D warnings
-
-# Format check
-cargo fmt --check
-```
-
-**Success Criteria**:
-- [ ] handle_incomplete_validation orchestrates pure functions clearly
-- [ ] Nesting depth reduced from 4 to ≤2
-- [ ] Final cyclomatic complexity ≤11 (target: 14, achieved better)
-- [ ] 80%+ test coverage achieved
-- [ ] All 31 tests passing (existing + new)
-- [ ] No clippy warnings
-- [ ] Code formatted correctly
-- [ ] Risk score reduced by 13.27 points
+- [ ] Code properly formatted
+- [ ] Cognitive complexity target achieved (~10-15)
+- [ ] Cyclomatic complexity target achieved (~5)
+- [ ] Ready for final commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Run `cargo tarpaulin --out Stdout --include-tests --exclude-tests` to measure coverage
-4. Commit working code with descriptive message
-
-**Coverage Targets by Phase**:
-- Phase 1: 50%+ (baseline integration tests)
-- Phase 2: 60%+ (retry logic tested)
-- Phase 3: 70%+ (command execution tested)
-- Phase 4: 80%+ (validation interpretation tested)
-- Phase 5: 80%+ (final integration)
+1. Run targeted tests first:
+   ```bash
+   cargo test registry::tests::test_file_template_storage_load
+   ```
+2. Run clippy to check for warnings:
+   ```bash
+   cargo clippy --tests -- -D warnings
+   ```
+3. Format code:
+   ```bash
+   cargo fmt
+   ```
 
 **Final verification**:
-1. `cargo test --lib` - All tests pass
-2. `cargo tarpaulin --out Stdout --include-tests --exclude-tests` - 80%+ coverage
-3. `cargo clippy -- -D warnings` - No warnings
-4. Verify complexity reduction with metrics tool
+1. Full test suite:
+   ```bash
+   cargo test --lib
+   ```
+2. Full clippy check:
+   ```bash
+   cargo clippy -- -D warnings
+   ```
+3. Verify all 5 template storage tests pass:
+   - `test_file_template_storage_load_with_metadata`
+   - `test_file_template_storage_load_without_metadata`
+   - `test_file_template_storage_load_missing_template`
+   - `test_file_template_storage_load_invalid_yaml`
+   - `test_file_template_storage_load_invalid_metadata_json`
+   - `test_file_template_storage_load_corrupted_metadata`
 
 ## Rollback Plan
 
 If a phase fails:
-1. Identify the failing test or check
-2. Review the error message and stack trace
-3. Revert the phase with `git reset --hard HEAD~1`
-4. Analyze what went wrong
-5. Adjust approach:
-   - For test failures: Fix the logic or test expectations
-   - For complexity issues: Extract smaller functions
-   - For coverage gaps: Add more targeted tests
-6. Retry the phase with adjusted approach
+1. Revert the phase with `git reset --hard HEAD~1`
+2. Review the test failure output
+3. Check if error messages need adjustment
+4. Verify helper function signatures match usage
+5. Retry with corrections
 
 ## Notes
 
-### Key Insights from Code Analysis
+**Key Considerations**:
+1. **Preserve Error Messages**: The existing tests check for specific error message patterns (e.g., "Failed to read template file", "Failed to parse template YAML"). The helper functions must use identical error context strings.
 
-1. **Function Structure**: The function has 3 main sections:
-   - Retry loop (lines 235-311): Executes recovery commands and re-validates
-   - Interactive prompt (lines 314-322): Prompts user if validation incomplete
-   - Failure check (lines 324-331): Decides whether to fail workflow
+2. **Async Operations**: All file I/O operations are async. The helper functions must be `async fn` and properly awaited.
 
-2. **Complexity Sources**:
-   - Nested conditionals for command type detection (lines 246, 272, 280)
-   - Loop with multiple exit conditions
-   - Validation result interpretation (lines 296-306)
-   - Multiple error paths
+3. **Test Coverage**: The function already has excellent test coverage (5 test cases covering happy path and 4 error scenarios). Our goal is to reduce complexity WITHOUT changing test behavior.
 
-3. **Extraction Opportunities**:
-   - Retry loop logic is pure and can be extracted
-   - Command execution strategy is pure decision logic
-   - Validation result interpretation is pure formatting
-   - Failure determination is pure logic
+4. **Functional Programming**: The helper functions will be pure transformations (file path → Result<T>), making them easier to test and reason about.
 
-4. **Testing Challenges**:
-   - Function is async and uses mutable state
-   - Integration tests needed for full execution paths
-   - Mock objects required for WorkflowExecutor dependencies
-   - Pure function extraction enables easier unit testing
+5. **Incremental Approach**: Each phase reduces complexity incrementally while maintaining a working, testable state. This aligns with the "incremental progress over big bangs" philosophy.
 
-5. **Existing Test Infrastructure**:
-   - File already has comprehensive tests for pure functions
-   - MockUserInteraction available for testing
-   - Test helpers (create_test_env) already present
-   - Good foundation to build upon
+**Root Causes of High Cognitive Complexity**:
+1. Mixed I/O operations and error handling in a single function
+2. Nested error context wrapping creates deep nesting
+3. Conditional metadata loading adds branching complexity
+4. No separation between file reading logic and business logic
 
-### Function Dependencies
+**Expected Outcome**:
+After all phases, the `load` function will be a clear, high-level orchestrator:
+```rust
+async fn load(&self, name: &str) -> Result<TemplateEntry> {
+    let template = self.load_template_yaml(name).await?;
+    let metadata = self.load_metadata_if_exists(name).await?;
 
-**Calls made by handle_incomplete_validation**:
-- `self.user_interaction.display_info()` - Display progress
-- `self.user_interaction.display_progress()` - Display command execution
-- `self.user_interaction.display_error()` - Display errors
-- `self.user_interaction.display_success()` - Display success
-- `self.user_interaction.prompt_confirmation()` - Interactive prompts
-- `self.convert_workflow_command_to_step()` - Convert command to step
-- `self.get_step_display_name()` - Get display name
-- `self.execute_step()` - Execute workflow step
-- `self.create_validation_handler()` - Create handler step
-- `self.execute_validation()` - Execute validation
-- `ValidationConfig::is_complete()` - Check completion
+    Ok(TemplateEntry {
+        name: name.to_string(),
+        template,
+        metadata,
+    })
+}
+```
 
-**Required for testing**:
-- Mock WorkflowExecutor with these methods
-- Mock ExecutionEnvironment
-- Mock WorkflowContext
-- Mock ValidationConfig with is_complete implementation
-
-### Refactoring Patterns
-
-Follow functional programming principles:
-- Pure functions for decision logic
-- Separate I/O (execute_step) from pure logic (determine strategy)
-- Immutable data flow (return new states, don't mutate)
-- Small functions with single responsibility (≤20 lines)
-- Clear function names that describe intent
-
-### Expected Final Structure
-
-After refactoring, handle_incomplete_validation will:
-1. Initialize state
-2. Loop while `determine_retry_continuation()` returns true
-3. Use `determine_recovery_strategy()` to pick execution path
-4. Execute commands via extracted execution functions
-5. Re-validate and interpret result via `interpret_validation_result()`
-6. Handle interactive prompt if needed
-7. Check failure via `should_fail_after_validation()`
-
-This structure is easier to understand, test, and maintain.
+This structure has:
+- Cognitive complexity: ~10 (down from 21)
+- Cyclomatic complexity: ~3 (down from 7)
+- Clear separation of concerns
+- Easy to understand and maintain
+- All tests passing

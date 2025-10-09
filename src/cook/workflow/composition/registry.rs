@@ -265,6 +265,22 @@ impl FileTemplateStorage {
     fn metadata_path(&self, name: &str) -> PathBuf {
         self.base_dir.join(format!("{}.meta.json", name))
     }
+
+    /// Load metadata from file if it exists, otherwise return default
+    async fn load_metadata_if_exists(&self, name: &str) -> Result<TemplateMetadata> {
+        let metadata_path = self.metadata_path(name);
+
+        if metadata_path.exists() {
+            let metadata_content = tokio::fs::read_to_string(&metadata_path)
+                .await
+                .with_context(|| format!("Failed to read metadata file: {:?}", metadata_path))?;
+
+            serde_json::from_str(&metadata_content)
+                .with_context(|| format!("Failed to parse metadata JSON: {:?}", metadata_path))
+        } else {
+            Ok(TemplateMetadata::default())
+        }
+    }
 }
 
 #[async_trait]
@@ -307,17 +323,7 @@ impl TemplateStorage for FileTemplateStorage {
             .with_context(|| format!("Failed to parse template YAML: {:?}", template_path))?;
 
         // Load metadata if exists
-        let metadata_path = self.metadata_path(name);
-        let metadata = if metadata_path.exists() {
-            let metadata_content = tokio::fs::read_to_string(&metadata_path)
-                .await
-                .with_context(|| format!("Failed to read metadata file: {:?}", metadata_path))?;
-
-            serde_json::from_str(&metadata_content)
-                .with_context(|| format!("Failed to parse metadata JSON: {:?}", metadata_path))?
-        } else {
-            TemplateMetadata::default()
-        };
+        let metadata = self.load_metadata_if_exists(name).await?;
 
         Ok(TemplateEntry {
             name: name.to_string(),
