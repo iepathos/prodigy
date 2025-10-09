@@ -117,6 +117,17 @@ impl GitHandler {
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
     }
+
+    /// Validates and extracts the operation attribute
+    ///
+    /// Returns the operation string if present, or an error message if missing.
+    fn validate_operation(attributes: &HashMap<String, AttributeValue>) -> Result<String, String> {
+        attributes
+            .get("operation")
+            .and_then(|v| v.as_string())
+            .cloned()
+            .ok_or_else(|| "Missing required attribute: operation".to_string())
+    }
 }
 
 #[async_trait]
@@ -152,12 +163,10 @@ impl CommandHandler for GitHandler {
         // Apply defaults
         self.schema().apply_defaults(&mut attributes);
 
-        // Extract operation
-        let operation = match attributes.get("operation").and_then(|v| v.as_string()) {
-            Some(op) => op.clone(),
-            None => {
-                return CommandResult::error("Missing required attribute: operation".to_string())
-            }
+        // Validate operation
+        let operation = match Self::validate_operation(&attributes) {
+            Ok(op) => op,
+            Err(e) => return CommandResult::error(e),
         };
 
         let start = Instant::now();
