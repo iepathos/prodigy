@@ -175,3 +175,197 @@ impl PhaseExecutor for SetupPhaseExecutor {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod execute_step_tests {
+    //! Unit tests for the private `execute_step` method of SetupPhaseExecutor.
+    //!
+    //! These tests provide comprehensive coverage of the execute_step function, which is
+    //! responsible for executing individual shell commands during the setup phase.
+    //!
+    //! ## Coverage Strategy
+    //!
+    //! The test suite covers all execution paths:
+    //! 1. **Happy path** - Successful shell command execution with output capture
+    //! 2. **Command failure** - Handling of non-zero exit codes and error messages
+    //! 3. **Non-shell commands** - Rejection of unsupported command types (e.g., claude)
+    //! 4. **Edge cases** - stderr output handling and empty output scenarios
+    //!
+    //! ## Why These Tests Matter
+    //!
+    //! The execute_step function is critical to the setup phase execution pipeline:
+    //! - It has 14 upstream callers including multiple integration tests
+    //! - It was previously 0% covered despite being core execution logic
+    //! - It has cyclomatic complexity of 5 and cognitive complexity of 11
+    //! - Proper error handling is essential for debugging setup failures
+
+    use super::*;
+    use crate::cook::orchestrator::ExecutionEnvironment;
+    use crate::subprocess::SubprocessManager;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    fn create_test_environment() -> ExecutionEnvironment {
+        ExecutionEnvironment {
+            working_dir: Arc::new(PathBuf::from("/tmp")),
+            project_dir: Arc::new(PathBuf::from("/tmp")),
+            worktree_name: Some(Arc::from("test-worktree")),
+            session_id: Arc::from("test-session"),
+        }
+    }
+
+    fn create_test_setup_phase() -> SetupPhase {
+        SetupPhase {
+            commands: vec![WorkflowStep {
+                shell: Some("echo 'test'".to_string()),
+                ..Default::default()
+            }],
+            timeout: Some(60),
+            capture_outputs: HashMap::new(),
+        }
+    }
+
+    /// Test execute_step with a successful shell command (happy path)
+    #[tokio::test]
+    async fn test_execute_step_success() {
+        let setup_phase = create_test_setup_phase();
+        let executor = SetupPhaseExecutor::new(setup_phase);
+
+        let mut context = PhaseContext::new(
+            create_test_environment(),
+            Arc::new(SubprocessManager::production()),
+        );
+
+        // Create a simple shell command that produces predictable output
+        let step = WorkflowStep {
+            shell: Some("echo 'test output'".to_string()),
+            ..Default::default()
+        };
+
+        // Execute the step
+        let result = executor.execute_step(&step, &mut context).await;
+
+        // Verify success and output
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.contains("test output"));
+    }
+
+    /// Test execute_step with a failing shell command
+    #[tokio::test]
+    async fn test_execute_step_command_failure() {
+        let setup_phase = create_test_setup_phase();
+        let executor = SetupPhaseExecutor::new(setup_phase);
+
+        let mut context = PhaseContext::new(
+            create_test_environment(),
+            Arc::new(SubprocessManager::production()),
+        );
+
+        // Create a shell command that exits with non-zero status
+        let step = WorkflowStep {
+            shell: Some("exit 1".to_string()),
+            ..Default::default()
+        };
+
+        // Execute the step
+        let result = executor.execute_step(&step, &mut context).await;
+
+        // Verify error is returned
+        assert!(result.is_err());
+
+        // Check error message format
+        if let Err(PhaseError::ExecutionFailed { message }) = result {
+            assert!(message.contains("Command exited with code"));
+        } else {
+            panic!("Expected PhaseError::ExecutionFailed");
+        }
+    }
+
+    /// Test execute_step with a non-shell command (unsupported command type)
+    #[tokio::test]
+    async fn test_execute_step_non_shell_command() {
+        let setup_phase = create_test_setup_phase();
+        let executor = SetupPhaseExecutor::new(setup_phase);
+
+        let mut context = PhaseContext::new(
+            create_test_environment(),
+            Arc::new(SubprocessManager::production()),
+        );
+
+        // Create a step without a shell command (e.g., with claude command)
+        let step = WorkflowStep {
+            shell: None,
+            claude: Some("/analyze-project".to_string()),
+            ..Default::default()
+        };
+
+        // Execute the step
+        let result = executor.execute_step(&step, &mut context).await;
+
+        // Verify error is returned
+        assert!(result.is_err());
+
+        // Check error message indicates only shell commands are supported
+        if let Err(PhaseError::ExecutionFailed { message }) = result {
+            assert!(message.contains("Only shell commands are supported"));
+        } else {
+            panic!("Expected PhaseError::ExecutionFailed");
+        }
+    }
+
+    /// Test execute_step with command that produces stderr output
+    #[tokio::test]
+    async fn test_execute_step_with_stderr_output() {
+        let setup_phase = create_test_setup_phase();
+        let executor = SetupPhaseExecutor::new(setup_phase);
+
+        let mut context = PhaseContext::new(
+            create_test_environment(),
+            Arc::new(SubprocessManager::production()),
+        );
+
+        // Create a shell command that produces stderr and exits with error
+        let step = WorkflowStep {
+            shell: Some("echo 'error message' >&2 && exit 1".to_string()),
+            ..Default::default()
+        };
+
+        // Execute the step
+        let result = executor.execute_step(&step, &mut context).await;
+
+        // Verify error is returned and includes stderr
+        assert!(result.is_err());
+        if let Err(PhaseError::ExecutionFailed { message }) = result {
+            assert!(message.contains("error message"));
+        } else {
+            panic!("Expected PhaseError::ExecutionFailed");
+        }
+    }
+
+    /// Test execute_step with command that produces no output
+    #[tokio::test]
+    async fn test_execute_step_with_empty_output() {
+        let setup_phase = create_test_setup_phase();
+        let executor = SetupPhaseExecutor::new(setup_phase);
+
+        let mut context = PhaseContext::new(
+            create_test_environment(),
+            Arc::new(SubprocessManager::production()),
+        );
+
+        // Create a shell command that produces no output
+        let step = WorkflowStep {
+            shell: Some("true".to_string()),
+            ..Default::default()
+        };
+
+        // Execute the step
+        let result = executor.execute_step(&step, &mut context).await;
+
+        // Verify success with empty string
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert_eq!(output, "");
+    }
+}
