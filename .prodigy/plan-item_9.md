@@ -1,193 +1,397 @@
-# Implementation Plan: Reduce Complexity in FilePatternInputProvider::generate_inputs
+# Implementation Plan: Test and Refactor GitOperations::merge_agent_to_parent
 
 ## Problem Summary
 
-**Location**: ./src/cook/input/file_pattern.rs:FilePatternInputProvider::generate_inputs:51
-**Priority Score**: 28.827423093799048
-**Debt Type**: ComplexityHotspot (Cognitive: 42, Cyclomatic: 13)
-**Current Metrics**:
-- Lines of Code: 134
-- Nesting Depth: 5 levels
-- Cyclomatic Complexity: 13
-- Cognitive Complexity: 42
-- Coverage: Not specified
+**Location**: ./src/cook/execution/mapreduce/resources/git.rs:GitOperations::merge_agent_to_parent:58
+**Priority Score**: 27.76
+**Debt Type**: TestingGap (0% coverage, complexity 12)
 
-**Issue**: The `generate_inputs` function has excessive nesting (5 levels) and high cognitive complexity (42). The function mixes multiple responsibilities: pattern expansion, file discovery, variable creation, and metadata construction. The recommendation is to reduce nesting using early returns and extract deeply nested blocks into separate pure functions.
+**Current Metrics**:
+- Lines of Code: 91
+- Functions: 1 (merge_agent_to_parent)
+- Cyclomatic Complexity: 12
+- Coverage: 0.0%
+- Cognitive Complexity: 40
+- Nesting Depth: 4
+
+**Issue**: Add 8 tests for 100% coverage gap, then refactor complexity 12 into 8 functions
+
+**Rationale**: Complex business logic with 100% gap. Cyclomatic complexity of 12 requires at least 12 test cases for full path coverage. After extracting 8 functions, each will need only 3-5 tests. Testing before refactoring ensures no regressions.
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 6.5
-- Coverage Improvement: 0.0
-- Risk Reduction: 10.089598082829664
+**Expected Impact**:
+- Complexity Reduction: 3.6 (from 12 to ~8.4)
+- Coverage Improvement: 50.0% (from 0% to 50%+)
+- Risk Reduction: 11.66
 
 **Success Criteria**:
-- [ ] Nesting depth reduced from 5 to 2-3 levels maximum
-- [ ] Cyclomatic complexity reduced from 13 to ~6-7
-- [ ] Cognitive complexity reduced from 42 to ~20-25
-- [ ] Function broken into smaller, testable pure functions
+- [ ] Cyclomatic complexity reduced from 12 to ≤8
+- [ ] Test coverage increased from 0% to ≥50%
+- [ ] Function extracted into 8 smaller functions (complexity ≤3 each)
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting with `cargo fmt`
+- [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Extract File Variable Creation
+### Phase 1: Add Comprehensive Tests for Current Implementation
 
-**Goal**: Extract the deeply nested variable creation logic (lines 115-157) into a pure function that takes a PathBuf and returns a Vec of (String, VariableValue) tuples.
-
-**Changes**:
-- Create a new pure function `create_file_variables(file_path: &Path) -> Vec<(String, VariableValue)>`
-- Move lines 115-157 into this function
-- Replace the nested variable creation calls with a single call to the new function and iteration over results
-- This reduces nesting from 5 to 4 levels and extracts 43 lines into a testable unit
-
-**Testing**:
-- Run `cargo test --lib` to verify existing tests pass
-- Run `cargo clippy` to check for warnings
-- Function should compile and maintain existing behavior
-
-**Success Criteria**:
-- [ ] New `create_file_variables` function exists and is pure
-- [ ] Function is under 50 lines
-- [ ] No nested if/match statements in the extracted function
-- [ ] All existing tests pass
-- [ ] No clippy warnings
-
-### Phase 2: Extract Metadata Creation
-
-**Goal**: Extract metadata creation logic (lines 166-177) into a pure function that takes a PathBuf and metadata and returns InputMetadata.
+**Goal**: Achieve ≥50% test coverage on the existing `merge_agent_to_parent` function before any refactoring.
 
 **Changes**:
-- Create a new pure function `create_input_metadata(file_path: &Path, metadata: &fs::Metadata) -> InputMetadata`
-- Move lines 166-177 into this function
-- Replace the inline metadata creation with a call to the new function
-- This further reduces complexity and isolates metadata construction
+- Create test module `tests/git_operations_tests.rs` or add to existing test file
+- Write 8-12 test cases covering all branches:
+  1. Success case: merge with valid agent branch in worktree context
+  2. Error case: not in worktree context (env.worktree_name is None)
+  3. Clean merge: no existing MERGE_HEAD
+  4. Merge recovery: MERGE_HEAD exists with staged changes → commit succeeds
+  5. Merge recovery: MERGE_HEAD exists with staged changes → commit fails → abort
+  6. Merge recovery: MERGE_HEAD exists with no staged changes → abort
+  7. Merge failure: git merge command fails
+  8. Git status failure during merge recovery
+- Use test fixtures for git repository setup
+- Mock or use temporary git repositories for testing
 
 **Testing**:
-- Run `cargo test --lib` to verify existing tests pass
-- Run `cargo clippy` to check for warnings
-- Verify metadata fields are correctly populated
+```bash
+cargo test git_operations::merge_agent_to_parent
+cargo tarpaulin --lib -- git_operations::merge_agent_to_parent
+```
 
 **Success Criteria**:
-- [ ] New `create_input_metadata` function exists and is pure
-- [ ] Function is under 20 lines
-- [ ] All existing tests pass
-- [ ] No clippy warnings
+- [ ] 8+ test cases written and passing
+- [ ] Coverage reaches ≥50% on merge_agent_to_parent
+- [ ] Tests are deterministic and don't flake
+- [ ] Tests follow existing project patterns
+- [ ] All tests pass: `cargo test`
+- [ ] Ready to commit
 
-### Phase 3: Extract Pattern Expansion Logic
+### Phase 2: Extract Pure Decision Logic Functions
 
-**Goal**: Extract the pattern expansion logic (lines 63-67) into a pure function that takes a pattern string and recursive flag and returns the expanded pattern.
+**Goal**: Extract pure functions for decision-making logic (no I/O), reducing cognitive complexity.
 
 **Changes**:
-- Create a new pure function `expand_pattern(pattern: &str, recursive: bool) -> String`
-- Move the pattern expansion logic into this function
-- Replace inline pattern expansion with a call to the new function
-- This isolates decision logic and makes it testable
+- Extract validation logic:
+  ```rust
+  fn validate_worktree_context(env: &ExecutionEnvironment) -> Result<(), String>
+  ```
+  - Checks if `env.worktree_name.is_some()`
+  - Returns error message if not in worktree context
+  - Complexity: ≤2
+
+- Extract merge state detection:
+  ```rust
+  fn has_incomplete_merge(parent_path: &Path) -> bool
+  ```
+  - Checks if `.git/MERGE_HEAD` exists
+  - Pure file existence check
+  - Complexity: 1
+
+- Extract status analysis:
+  ```rust
+  fn parse_git_status(status_output: &str) -> MergeRecoveryAction
+  ```
+  - Analyzes porcelain status output
+  - Returns enum: `CommitStagedChanges | AbortMerge | NoAction`
+  - Complexity: ≤2
 
 **Testing**:
-- Run `cargo test --lib` to verify existing tests pass
-- Consider adding unit tests for pattern expansion edge cases
-- Verify recursive and non-recursive patterns work correctly
+- Write 3-4 unit tests per extracted function
+- Test edge cases (empty strings, special characters, etc.)
+- Verify all original tests still pass
 
 **Success Criteria**:
-- [ ] New `expand_pattern` function exists and is pure
-- [ ] Function is under 10 lines
-- [ ] All existing tests pass
-- [ ] No clippy warnings
+- [ ] 3 pure functions extracted with ≤2 complexity each
+- [ ] 10+ unit tests for extracted functions
+- [ ] Original merge_agent_to_parent tests still pass
+- [ ] No regression in coverage
+- [ ] All tests pass: `cargo test`
+- [ ] Ready to commit
 
-### Phase 4: Extract File Discovery Logic
+### Phase 3: Extract I/O Operations into Focused Functions
 
-**Goal**: Extract the file discovery logic (lines 57-87) into a separate function that takes patterns and recursive flag and returns a HashSet of PathBufs.
+**Goal**: Separate I/O operations from business logic, reducing complexity and improving testability.
 
 **Changes**:
-- Create a new function `discover_files(patterns: &[serde_json::Value], recursive: bool) -> Result<HashSet<PathBuf>>`
-- Move the pattern iteration and glob logic into this function
-- Use the `expand_pattern` function from Phase 3
-- Replace lines 57-87 with a single call to `discover_files`
-- This reduces main function nesting from 4 to 2 levels
+- Extract merge recovery operations:
+  ```rust
+  async fn recover_incomplete_merge(
+      parent_path: &Path,
+      agent_branch: &str
+  ) -> MapReduceResult<()>
+  ```
+  - Handles the entire merge recovery flow (lines 73-121)
+  - Uses extracted `has_incomplete_merge` and `parse_git_status`
+  - Complexity: ≤4
+
+- Extract merge execution:
+  ```rust
+  async fn execute_merge(
+      parent_path: &Path,
+      agent_branch: &str
+  ) -> MapReduceResult<()>
+  ```
+  - Performs the actual git merge command (lines 124-140)
+  - Single responsibility: execute merge
+  - Complexity: ≤2
+
+- Extract git status check:
+  ```rust
+  async fn check_git_status(parent_path: &Path) -> MapReduceResult<String>
+  ```
+  - Runs `git status --porcelain`
+  - Returns status output string
+  - Complexity: ≤2
+
+- Extract git commit operation:
+  ```rust
+  async fn commit_staged_changes(parent_path: &Path) -> MapReduceResult<()>
+  ```
+  - Commits staged changes with `--no-edit`
+  - Returns result
+  - Complexity: ≤2
+
+- Extract merge abort operation:
+  ```rust
+  async fn abort_merge(parent_path: &Path) -> MapReduceResult<()>
+  ```
+  - Aborts incomplete merge
+  - Best-effort operation (ignores errors)
+  - Complexity: ≤1
 
 **Testing**:
-- Run `cargo test --lib` to verify existing tests pass
-- Run `cargo clippy` to check for warnings
-- Verify glob errors are handled correctly
-- Verify inaccessible files are skipped silently
+- Write integration tests for each I/O function
+- Use temporary git repos for testing
+- Mock filesystem operations where appropriate
+- Verify `merge_agent_to_parent` becomes a thin orchestrator
 
 **Success Criteria**:
-- [ ] New `discover_files` function exists
-- [ ] Function is under 40 lines
-- [ ] Uses `expand_pattern` helper
-- [ ] Error handling preserved
-- [ ] All existing tests pass
-- [ ] No clippy warnings
+- [ ] 5 I/O functions extracted with ≤4 complexity each
+- [ ] 15+ tests for extracted I/O functions
+- [ ] `merge_agent_to_parent` reduced to orchestration logic (complexity ≤4)
+- [ ] Coverage maintained or improved
+- [ ] All tests pass: `cargo test`
+- [ ] Ready to commit
 
-### Phase 5: Simplify Main Function with Early Returns
+### Phase 4: Refactor Main Function to Composition
 
-**Goal**: Simplify the remaining logic in `generate_inputs` by using early returns and the extracted helper functions.
+**Goal**: Refactor `merge_agent_to_parent` to be a thin orchestrator composing extracted functions.
 
 **Changes**:
-- Refactor lines 91-181 to use the extracted helpers
-- Use early returns for error cases to reduce nesting
-- Result should be a clear, linear flow:
-  1. Get configuration
-  2. Discover files (call `discover_files`)
-  3. For each file, build ExecutionInput using helpers
-  4. Return inputs
-- Main function should now be under 50 lines with nesting depth of 2
+- Rewrite `merge_agent_to_parent` to:
+  ```rust
+  pub async fn merge_agent_to_parent(
+      &self,
+      agent_branch: &str,
+      env: &ExecutionEnvironment,
+  ) -> MapReduceResult<()> {
+      // Validate context (extracted function)
+      validate_worktree_context(env)
+          .map_err(|msg| self.create_git_error("merge_to_parent", &msg))?;
+
+      let parent_path = &env.working_dir;
+
+      // Recover from incomplete merge if needed (extracted function)
+      if has_incomplete_merge(parent_path) {
+          self.recover_incomplete_merge(parent_path, agent_branch).await?;
+      }
+
+      // Execute the merge (extracted function)
+      self.execute_merge(parent_path, agent_branch).await?;
+
+      info!("Successfully merged agent branch {} to parent", agent_branch);
+      Ok(())
+  }
+  ```
+- Target complexity: ≤3
+- Clear separation: validation → recovery → execution
+- Each step is independently testable
 
 **Testing**:
-- Run `cargo test --lib` to verify all existing tests pass
-- Run `cargo clippy` to ensure no warnings
-- Run `cargo fmt` to ensure proper formatting
-- Verify the function behavior is identical to the original
+- Verify all original integration tests pass
+- Add end-to-end tests covering full workflow
+- Verify extracted functions are properly composed
 
 **Success Criteria**:
-- [ ] Main function is under 50 lines
-- [ ] Nesting depth is 2 levels maximum
-- [ ] All helper functions are called correctly
-- [ ] Error handling is preserved
-- [ ] All existing tests pass
+- [ ] `merge_agent_to_parent` complexity reduced to ≤3
+- [ ] Function reads as high-level workflow
+- [ ] No business logic remains in main function
+- [ ] All 8+ extracted functions have ≤3 complexity
+- [ ] All tests pass: `cargo test`
+- [ ] Coverage ≥80% on entire module
+- [ ] Ready to commit
+
+### Phase 5: Final Verification and Cleanup
+
+**Goal**: Verify all improvements, run full test suite, and ensure quality standards.
+
+**Changes**:
+- Run full CI pipeline
+- Generate coverage report
+- Run clippy with all lints
+- Format code
+- Review all extracted functions for:
+  - Clear naming
+  - Proper documentation
+  - Consistent error handling
+  - No code duplication
+
+**Testing**:
+```bash
+# Full CI checks
+just ci
+
+# Coverage verification
+cargo tarpaulin --lib --out Html --output-dir coverage
+
+# Specific module coverage
+cargo tarpaulin --lib -- git_operations
+
+# Debtmap re-analysis
+debtmap analyze
+```
+
+**Success Criteria**:
+- [ ] All CI checks pass (build, test, clippy, fmt)
+- [ ] Coverage ≥50% on merge_agent_to_parent and extracted functions
+- [ ] Debtmap score reduced by ≥50%
 - [ ] No clippy warnings
-- [ ] Code is properly formatted
+- [ ] Code properly formatted
+- [ ] All documentation updated
+- [ ] Ready for final commit and PR
 
 ## Testing Strategy
 
-**For each phase**:
-1. Run `cargo test --lib` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Run `cargo fmt` to format code
-4. Review the diff to ensure changes are minimal and focused
+### For Each Phase:
 
-**Final verification**:
-1. `just ci` - Full CI checks
-2. Compare complexity metrics before/after using a complexity analyzer
-3. Verify nesting depth is reduced to 2-3 levels
-4. Verify all existing tests pass without modification
+1. **Write tests first** (or alongside implementation)
+2. **Run targeted tests**:
+   ```bash
+   cargo test git_operations::merge_agent_to_parent
+   ```
+3. **Verify no regressions**:
+   ```bash
+   cargo test --lib
+   ```
+4. **Check for warnings**:
+   ```bash
+   cargo clippy
+   ```
+5. **Measure coverage**:
+   ```bash
+   cargo tarpaulin --lib -- git_operations
+   ```
+
+### Final Verification:
+
+1. **Full CI pipeline**:
+   ```bash
+   just ci
+   ```
+2. **Coverage report**:
+   ```bash
+   cargo tarpaulin --lib --out Html
+   ```
+3. **Debtmap re-analysis**:
+   ```bash
+   debtmap analyze
+   ```
+4. **Compare metrics**:
+   - Before: complexity=12, coverage=0%
+   - After: complexity≤8, coverage≥50%
+
+## Test Fixtures and Utilities
+
+### Git Test Helpers Needed:
+
+```rust
+// Helper to create temporary git repository
+fn create_temp_git_repo() -> TempDir
+
+// Helper to setup worktree context
+fn create_test_worktree(parent: &Path) -> (PathBuf, String)
+
+// Helper to create merge conflict state
+fn setup_merge_conflict(repo: &Path, branch: &str)
+
+// Helper to stage changes
+fn stage_test_changes(repo: &Path, files: &[&str])
+
+// Mock ExecutionEnvironment
+fn mock_execution_env(worktree_name: Option<String>) -> ExecutionEnvironment
+```
 
 ## Rollback Plan
 
 If a phase fails:
-1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure and error messages
-3. Adjust the approach (e.g., keep function signatures simpler, preserve more of the original structure)
-4. Retry the phase with the adjusted approach
+
+1. **Revert the phase**:
+   ```bash
+   git reset --hard HEAD~1
+   ```
+
+2. **Review the failure**:
+   - Check test output for specific failures
+   - Review compiler errors or warnings
+   - Verify test fixture setup
+
+3. **Adjust the plan**:
+   - Break phase into smaller steps if needed
+   - Reconsider extraction boundaries
+   - Simplify test cases
+
+4. **Retry with adjustments**:
+   - Implement smaller increment
+   - Add more logging/tracing
+   - Verify tests pass before refactoring
 
 ## Notes
 
-**Key Insights**:
-- The function is marked as `PureLogic` role but contains I/O operations (fs::metadata, glob). The pure functions we extract should truly be pure (no I/O).
-- The pattern repetition score (0.77) suggests there's repeated logic that can be factored out.
-- We're not changing behavior, only structure - all tests should pass without modification.
-- Focus on reducing cognitive load: fewer nested blocks, clearer separation of concerns.
+### Key Insights from Code Analysis:
 
-**Gotchas**:
-- The function checks file accessibility twice (once during glob, once during iteration) - preserve this defensive approach.
-- Error handling uses `eprintln!` for non-fatal errors - maintain this pattern.
-- The `HashSet` is used to deduplicate files across patterns - preserve this behavior.
-- The `unwrap_or_default()` calls are safe for path components - keep them.
+1. **Merge Recovery Logic** (lines 73-121):
+   - Most complex part of the function
+   - Handles edge case of incomplete merge state
+   - Multiple nested conditionals
+   - Perfect candidate for extraction
 
-**Success Markers**:
-- When complete, the main function should read like a recipe: get config, find files, build inputs, return.
-- Each extracted function should have a single, clear purpose.
-- Nesting should feel natural, not forced or deeply nested.
-- The code should be boring and obvious, not clever.
+2. **Error Handling Pattern**:
+   - Uses `create_git_error` helper consistently
+   - Should maintain this pattern in extracted functions
+   - Consider using `anyhow::Context` for better error messages
+
+3. **Async I/O**:
+   - All git operations are async via `tokio::process::Command`
+   - Extracted functions must preserve async nature
+   - Test helpers need async support
+
+4. **Logging**:
+   - Uses `tracing::info` and `tracing::warn`
+   - Maintain logging in extracted functions
+   - Consider adding debug logging for test troubleshooting
+
+5. **Path Handling**:
+   - Uses `&**parent_path` pattern for AsRef<Path> conversions
+   - Keep consistent in extracted functions
+
+### Testing Challenges:
+
+1. **Git Operations**: Require actual git repository or extensive mocking
+   - **Solution**: Use temporary directories and real git commands in integration tests
+
+2. **Async Tests**: Need tokio runtime
+   - **Solution**: Use `#[tokio::test]` macro
+
+3. **File System State**: Tests may interfere with each other
+   - **Solution**: Each test gets isolated temp directory
+
+4. **Merge States**: Complex to reproduce
+   - **Solution**: Create helper functions to setup specific states
+
+### Important Patterns to Preserve:
+
+1. **Deref Pattern**: `&**parent_path` for Path conversions
+2. **Error Context**: Always include operation name in errors
+3. **Logging**: Info for success, warn for recoverable issues
+4. **Best-Effort Cleanup**: Some operations (like merge abort) ignore errors intentionally

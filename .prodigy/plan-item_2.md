@@ -1,231 +1,136 @@
-# Implementation Plan: Improve Test Coverage for FileEventStore::index
+# Implementation Plan: Refactor TokioProcessRunner::run_streaming for Better Testability
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/events/event_store.rs:FileEventStore::index:505
-**Priority Score**: 48.63
-**Debt Type**: ComplexityHotspot (cognitive: 15, cyclomatic: 6)
-
+**Location**: ./src/subprocess/runner.rs:TokioProcessRunner::run_streaming:435
+**Priority Score**: 45.73
+**Debt Type**: ComplexityHotspot (cognitive: 16, cyclomatic: 6)
 **Current Metrics**:
-- Lines of Code: 126 (entire function context including helpers and tests)
-- Function Length: 29 lines (actual function body, lines 505-534)
+- Lines of Code: 53
+- Function Length: 53 lines
 - Cyclomatic Complexity: 6
-- Cognitive Complexity: 15
-- Upstream Callers: 45 (critical infrastructure component)
-- Downstream Callees: 7
+- Cognitive Complexity: 16
+- Coverage: Not directly covered (only through integration tests)
 
-**Issue**: The debtmap analysis identifies this as a complexity hotspot, but the recommendation states "Complexity 6 is manageable. Consider refactoring if complexity increases" and "Current structure is acceptable - prioritize test coverage".
-
-The function has **45 upstream callers** across the codebase (including 37 tests and 8 production callers), making it critical infrastructure. While the code structure is already well-factored with appropriate delegation to helper functions (`process_event_file`, `save_index`), the high usage and complexity indicate that comprehensive test coverage is essential to prevent regressions.
-
-**Analysis**: The `FileEventStore::index` method has already been well-refactored with pure helper functions extracted. The function orchestrates event file indexing but delegates complex operations to testable pure functions like `update_time_range`, `increment_event_count`, `create_file_offset`, `process_event_line`, `process_event_file`, and `save_index`.
-
-The main risk is not in the function's complexity but in ensuring comprehensive test coverage for all edge cases given its critical role in the system.
+**Issue**: Function has moderate complexity and mixes I/O orchestration with logic. While complexity 6 is manageable, the cognitive complexity of 16 suggests the function could benefit from extraction of pure logic and better separation of concerns for improved testability.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 3.0 (maintain current refactored structure)
-- Coverage Improvement: 0.0 (we will exceed this by adding tests)
-- Risk Reduction: 17.02
+- Complexity Reduction: 3.0
+- Coverage Improvement: 0.0 (but we'll improve testability)
+- Risk Reduction: 16.01
 
 **Success Criteria**:
-- [x] Comprehensive test coverage for `FileEventStore::index` edge cases
-- [x] All error paths tested and documented
-- [x] Concurrent access scenarios tested
-- [x] Performance characteristics validated
-- [x] All existing tests continue to pass
-- [x] No clippy warnings
-- [x] Proper formatting
+- [ ] Extract stream creation logic into pure, testable functions
+- [ ] Reduce cognitive complexity below 10
+- [ ] Maintain cyclomatic complexity at 6 or below
+- [ ] All existing tests continue to pass
+- [ ] No clippy warnings
+- [ ] Proper formatting
 
 ## Implementation Phases
 
-This plan focuses on improving test coverage without changing the existing, well-structured implementation. The function already delegates appropriately to helper functions and maintains good separation of concerns.
+### Phase 1: Extract Stream Creation Logic
 
-### Phase 1: Add Direct Unit Tests for index Method
-
-**Goal**: Create focused unit tests that directly test the `index` method's orchestration logic and edge cases not covered by helper function tests.
+**Goal**: Extract the stdout/stderr stream creation into a separate, reusable function
 
 **Changes**:
-- Add test for `index` with multiple event files of varying sizes
-- Add test for `index` handling of files in unexpected order (filename sorting)
-- Add test verifying index persistence and deserialization
-- Add test for `index` idempotency (calling multiple times produces same result)
-- Add test for `index` with nonexistent job_id
+- Extract lines 468-472 into a helper method `create_output_streams`
+- This consolidates the repeated pattern of taking and creating streams
+- Reduces duplication and cognitive load
 
 **Testing**:
-```bash
-cargo test --lib event_store::tests::test_index
-```
+- Run `cargo test --lib subprocess` to verify existing tests pass
+- Run `cargo clippy` to check for warnings
 
 **Success Criteria**:
-- [x] At least 5 new direct unit tests for `index` method
-- [x] All tests pass
-- [x] Coverage for orchestration logic validated
-- [x] Ready to commit
-
-### Phase 2: Add Integration Tests for Error Paths
-
-**Goal**: Ensure robust error handling for real-world failure scenarios.
-
-**Changes**:
-- Add test for `index` when event directory doesn't exist
-- Add test for `index` with permission denied on index.json write
-- Add test for `index` with corrupted event file (invalid JSON)
-- Add test for `index` with malformed JSON that's not valid EventRecord
-- Add test verifying proper error propagation (not silent failures)
-
-**Testing**:
-```bash
-cargo test --lib event_store::tests::test_index_error
-```
-
-**Success Criteria**:
-- [x] At least 4 new error path tests
-- [x] All tests verify proper Result::Err propagation
-- [x] No unwrap() or panic!() in error handling (per Spec 101)
+- [x] Stream creation logic extracted
+- [x] No code duplication for stdout/stderr handling
 - [x] All tests pass
 - [x] Ready to commit
 
-### Phase 3: Add Performance and Scale Tests
+### Phase 2: Extract Process Setup Logic
 
-**Goal**: Validate behavior with large datasets typical of MapReduce workloads.
+**Goal**: Separate the process spawn and configuration from stream handling
 
 **Changes**:
-- Add test for `index` with 1000+ events across multiple files
-- Add test for `index` with very large individual event records
-- Add test for `index` with very long-running jobs (time range calculation)
-- Add test for `index` with many small files (file handle management)
-- Document expected performance characteristics in test comments
+- Extract lines 442-451 into a `spawn_configured_process` method
+- This includes command configuration, spawning, and stdin writing
+- Returns a configured child process ready for stream extraction
 
 **Testing**:
-```bash
-cargo test --lib event_store::tests::test_index_performance
-cargo test --lib event_store::tests::test_index_scale
-```
+- Run `cargo test --lib subprocess` to verify existing tests
+- Test with streaming examples in the test suite
 
 **Success Criteria**:
-- [x] At least 3 scale tests covering realistic MapReduce scenarios
-- [x] Tests complete in reasonable time (<5s each)
-- [x] Memory usage is reasonable (no excessive allocations)
+- [x] Process setup logic separated
+- [x] Clear separation between spawn and stream handling
 - [x] All tests pass
 - [x] Ready to commit
 
-### Phase 4: Add Edge Case and Data Quality Tests
+### Phase 3: Simplify Error Handling Patterns
 
-**Goal**: Cover unusual but valid scenarios and data quality issues.
+**Goal**: Reduce cognitive complexity by improving error handling clarity
 
 **Changes**:
-- Add test for `index` with empty directory (no event files)
-- Add test for `index` with empty event files (zero events)
-- Add test for `index` with events that have empty/whitespace lines
-- Add test for `index` calculating correct time ranges (min/max timestamps)
-- Add test for `index` preserving file offset metadata correctly
+- Replace the `.ok_or_else` patterns with a helper function for stream extraction
+- Create `extract_stream` helper that handles the Option -> Result conversion
+- Consolidate error message construction
 
 **Testing**:
-```bash
-cargo test --lib event_store::tests::test_index_edge
-```
+- Run full test suite: `cargo test`
+- Verify error cases are properly handled
 
 **Success Criteria**:
-- [x] At least 5 edge case tests
-- [x] Tests cover boundary conditions
-- [x] Time range calculation validated
+- [x] Error handling patterns simplified
+- [x] Cognitive complexity reduced
 - [x] All tests pass
 - [x] Ready to commit
 
-### Phase 5: Validation and Documentation
+### Phase 4: Add Unit Tests for Extracted Components
 
-**Goal**: Verify improvement in debt score and ensure maintainability.
+**Goal**: Improve test coverage by testing the extracted pure functions
 
 **Changes**:
-- Run full test suite to ensure no regressions
-- Run coverage analysis to measure improvement
-- Update function documentation with discovered edge cases
-- Add examples to documentation showing correct usage patterns
-- Verify no new clippy warnings introduced
+- Add unit tests for the new helper functions
+- Test edge cases and error conditions
+- Focus on testing the logic, not the I/O
 
 **Testing**:
-```bash
-just ci
-cargo tarpaulin --out Html --output-dir coverage
-cargo doc --no-deps --open
-```
+- Run `cargo test --lib subprocess` with new tests
+- Check coverage improvement with `cargo tarpaulin`
 
 **Success Criteria**:
-- [x] All existing tests still pass
-- [x] New tests increase coverage of `event_store.rs` module
-- [x] Documentation updated with edge cases
-- [x] No clippy warnings in modified code
-- [x] Code properly formatted
-- [x] Ready to commit
+- [ ] New unit tests added
+- [ ] Edge cases covered
+- [ ] Coverage metrics improved
+- [ ] All tests pass
+- [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib event_store::tests` to verify existing tests pass
-2. Add new test cases following existing test patterns in the module
-3. Run `cargo clippy` to check for warnings
-4. Commit after each phase with descriptive message
+1. Run `cargo test --lib subprocess` to verify existing tests pass
+2. Run `cargo clippy -- -W clippy::all` to check for warnings
+3. Run `cargo fmt --check` to verify formatting
 
 **Final verification**:
-1. `cargo test --all` - All tests pass
-2. `cargo clippy --all-targets` - No warnings
-3. `cargo tarpaulin` - Verify coverage improvement
-4. Review test output for any flaky tests
-
-**Test Naming Convention**:
-- Use descriptive names: `test_index_<scenario>_<expected_behavior>`
-- Group related tests with common prefix
-- Document test purpose in comments when non-obvious
+1. `just ci` - Full CI checks
+2. `cargo tarpaulin --lib --out Html` - Regenerate coverage report
+3. Re-run debtmap to verify improvement in metrics
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failure to understand the issue
-3. Check if it reveals a bug in the implementation (would need separate fix)
-4. Adjust the test to match actual behavior or fix the implementation
-5. Retry the phase
-
-**Important**: If tests reveal bugs in the existing implementation:
-- Document the bug in a separate issue
-- Mark the test as `#[should_panic]` or `#[ignore]` with a TODO
-- Fix the bug in a separate commit/PR
-- Do not mix bug fixes with test additions in this workflow
+2. Review the failure - check if it's a test issue or logic issue
+3. Adjust the plan based on findings
+4. Retry with modified approach
 
 ## Notes
 
-### Why Focus on Tests Rather Than Refactoring?
-
-1. **Code is Already Well-Structured**: The function is only 29 lines and appropriately delegates to helper functions
-2. **High Caller Count**: 45 upstream callers means refactoring carries high risk of breaking changes
-3. **Debtmap Recommendation**: Explicitly states "Current structure is acceptable - prioritize test coverage"
-4. **Complexity is Manageable**: Cyclomatic complexity of 6 is within acceptable bounds
-5. **Pure Helper Functions**: Already extracted (`update_time_range`, `increment_event_count`, `create_file_offset`)
-
-### Thread Safety Considerations
-
-The function documentation notes: "concurrent calls for the same job may result in race conditions when writing index.json. The last write wins."
-
-This is an important behavior to test and document, but may be acceptable given the use case. Tests should verify this behavior is consistent.
-
-### Performance Expectations
-
-With 45 callers and usage in critical paths (SetupPhaseExecutor, DlqReprocessor), performance is important. Phase 3 establishes baseline performance metrics to prevent regressions.
-
-### Integration with EventIndex
-
-The function creates and populates an `EventIndex` structure. Tests should verify:
-- Correct aggregation across multiple event files
-- Accurate time range calculation
-- Proper file offset tracking
-- Event count accuracy
-
-### Existing Test Coverage
-
-The file already has extensive tests. Our additions should:
-- Fill gaps in edge case coverage
-- Add error path validation
-- Provide performance baselines
-- Document expected behavior for unusual scenarios
+- The function's complexity of 6 is already at a reasonable level, but the cognitive complexity of 16 indicates nested conditions and error handling that could be simplified
+- The function orchestrates I/O operations, so we'll focus on extracting the pure logic portions while keeping the I/O coordination intact
+- Many callers are test functions, which provides good integration test coverage already
+- The main improvement will be in code clarity and maintainability rather than dramatic complexity reduction

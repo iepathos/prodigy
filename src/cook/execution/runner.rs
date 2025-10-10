@@ -2,10 +2,83 @@
 
 use super::{CommandExecutor, ExecutionContext, ExecutionResult};
 use crate::abstractions::exit_status::ExitStatusExt;
-use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
+use crate::subprocess::runner::ProcessOutput;
+use crate::subprocess::streaming::StreamingOutput;
+use crate::subprocess::{ProcessCommand, ProcessCommandBuilder, SubprocessManager};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
+
+/// Build a ProcessCommand from execution context
+///
+/// This is a pure function that constructs a command with all configuration
+/// from the execution context (working directory, env vars, timeout, stdin).
+fn build_command_from_context(
+    cmd: &str,
+    args: &[String],
+    context: &ExecutionContext,
+) -> ProcessCommand {
+    let mut builder = ProcessCommandBuilder::new(cmd)
+        .args(args)
+        .current_dir(&context.working_directory);
+
+    // Set environment variables
+    for (key, value) in &context.env_vars {
+        builder = builder.env(key, value);
+    }
+
+    // Set timeout if specified
+    if let Some(timeout) = context.timeout_seconds {
+        builder = builder.timeout(std::time::Duration::from_secs(timeout));
+    }
+
+    // Set stdin if specified
+    if let Some(stdin) = &context.stdin {
+        builder = builder.stdin(stdin.clone());
+    }
+
+    builder.build()
+}
+
+/// Transform streaming output to ExecutionResult
+///
+/// This is a pure function that converts StreamingOutput (with stdout/stderr as Vec<String>)
+/// into ExecutionResult (with stdout/stderr as joined strings).
+fn streaming_output_to_result(output: StreamingOutput) -> ExecutionResult {
+    ExecutionResult {
+        success: output.status.success(),
+        stdout: output.stdout.join("\n"),
+        stderr: output.stderr.join("\n"),
+        exit_code: output.status.code(),
+        metadata: HashMap::new(),
+    }
+}
+
+/// Transform batch output to ExecutionResult
+///
+/// This is a pure function that converts ProcessOutput (with stdout/stderr as String)
+/// into ExecutionResult with the same string format.
+fn batch_output_to_result(output: ProcessOutput) -> ExecutionResult {
+    ExecutionResult {
+        success: output.status.success(),
+        stdout: output.stdout,
+        stderr: output.stderr,
+        exit_code: output.status.code(),
+        metadata: HashMap::new(),
+    }
+}
+
+/// Determine if streaming mode should be used
+///
+/// This is a pure function that checks the execution context to determine
+/// whether to use streaming or batch mode for command execution.
+fn should_use_streaming(context: &ExecutionContext) -> bool {
+    context
+        .streaming_config
+        .as_ref()
+        .map(|config| config.enabled)
+        .unwrap_or(false)
+}
 
 /// Trait for running system commands
 #[async_trait]
@@ -140,30 +213,11 @@ impl CommandRunner for RealCommandRunner {
         args: &[String],
         context: &ExecutionContext,
     ) -> Result<ExecutionResult> {
-        let mut builder = ProcessCommandBuilder::new(cmd)
-            .args(args)
-            .current_dir(&context.working_directory);
-
-        // Set environment variables
-        for (key, value) in &context.env_vars {
-            builder = builder.env(key, value);
-        }
-
-        // Set timeout if specified
-        if let Some(timeout) = context.timeout_seconds {
-            builder = builder.timeout(std::time::Duration::from_secs(timeout));
-        }
-
-        // Set stdin if specified
-        if let Some(stdin) = &context.stdin {
-            builder = builder.stdin(stdin.clone());
-        }
-
-        let command = builder.build();
+        let command = build_command_from_context(cmd, args, context);
 
         // Check if streaming is enabled
-        if let Some(streaming_config) = &context.streaming_config {
-            if streaming_config.enabled {
+        if should_use_streaming(context) {
+            if let Some(streaming_config) = &context.streaming_config {
                 // Use streaming runner with the subprocess manager's runner
                 let processors = self.create_processors(streaming_config)?;
 
@@ -177,13 +231,7 @@ impl CommandRunner for RealCommandRunner {
                     .await
                     .context(format!("Failed to execute command with streaming: {cmd}"))?;
 
-                return Ok(ExecutionResult {
-                    success: output.status.success(),
-                    stdout: output.stdout.join("\n"),
-                    stderr: output.stderr.join("\n"),
-                    exit_code: output.status.code(),
-                    metadata: HashMap::new(),
-                });
+                return Ok(streaming_output_to_result(output));
             }
         }
 
@@ -195,13 +243,7 @@ impl CommandRunner for RealCommandRunner {
             .await
             .context(format!("Failed to execute command: {cmd}"))?;
 
-        Ok(ExecutionResult {
-            success: output.status.success(),
-            stdout: output.stdout,
-            stderr: output.stderr,
-            exit_code: output.status.code(),
-            metadata: HashMap::new(),
-        })
+        Ok(batch_output_to_result(output))
     }
 
     async fn run_with_streaming(
@@ -211,27 +253,7 @@ impl CommandRunner for RealCommandRunner {
         context: &ExecutionContext,
         output_handler: Box<dyn crate::subprocess::streaming::StreamProcessor>,
     ) -> Result<ExecutionResult> {
-        // Build command with context
-        let mut builder = ProcessCommandBuilder::new(cmd)
-            .args(args)
-            .current_dir(&context.working_directory);
-
-        // Set environment variables
-        for (key, value) in &context.env_vars {
-            builder = builder.env(key, value);
-        }
-
-        // Set timeout if specified
-        if let Some(timeout) = context.timeout_seconds {
-            builder = builder.timeout(std::time::Duration::from_secs(timeout));
-        }
-
-        // Set stdin if specified
-        if let Some(stdin) = &context.stdin {
-            builder = builder.stdin(stdin.clone());
-        }
-
-        let command = builder.build();
+        let command = build_command_from_context(cmd, args, context);
 
         // Create streaming runner
         let streaming_runner = crate::subprocess::streaming::StreamingCommandRunner::new(Box::new(
@@ -244,13 +266,7 @@ impl CommandRunner for RealCommandRunner {
             .await
             .context(format!("Failed to execute command with streaming: {cmd}"))?;
 
-        Ok(ExecutionResult {
-            success: output.status.success(),
-            stdout: output.stdout.join("\n"),
-            stderr: output.stderr.join("\n"),
-            exit_code: output.status.code(),
-            metadata: HashMap::new(),
-        })
+        Ok(streaming_output_to_result(output))
     }
 }
 
@@ -269,6 +285,201 @@ impl CommandExecutor for RealCommandRunner {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_build_command_basic() {
+        let context = ExecutionContext::default();
+        let command = build_command_from_context("echo", &["hello".to_string()], &context);
+
+        assert_eq!(command.program, "echo");
+        assert_eq!(command.args, vec!["hello"]);
+    }
+
+    #[test]
+    fn test_build_command_with_env_vars() {
+        let mut context = ExecutionContext::default();
+        context
+            .env_vars
+            .insert("TEST_VAR".to_string(), "test_value".to_string());
+        context
+            .env_vars
+            .insert("ANOTHER_VAR".to_string(), "another_value".to_string());
+
+        let command = build_command_from_context("test", &[], &context);
+
+        assert_eq!(command.env.get("TEST_VAR"), Some(&"test_value".to_string()));
+        assert_eq!(
+            command.env.get("ANOTHER_VAR"),
+            Some(&"another_value".to_string())
+        );
+    }
+
+    #[test]
+    fn test_build_command_with_timeout() {
+        let context = ExecutionContext {
+            timeout_seconds: Some(60),
+            ..Default::default()
+        };
+
+        let command = build_command_from_context("sleep", &["10".to_string()], &context);
+
+        assert_eq!(command.timeout, Some(Duration::from_secs(60)));
+    }
+
+    #[test]
+    fn test_build_command_with_stdin() {
+        let context = ExecutionContext {
+            stdin: Some("input data".to_string()),
+            ..Default::default()
+        };
+
+        let command = build_command_from_context("cat", &[], &context);
+
+        assert_eq!(command.stdin, Some("input data".to_string()));
+    }
+
+    #[test]
+    fn test_streaming_output_to_result_success() {
+        use crate::subprocess::streaming::StreamingOutput;
+        use std::time::Duration;
+
+        let output = StreamingOutput {
+            status: std::process::ExitStatus::from_raw(0),
+            stdout: vec!["line1".to_string(), "line2".to_string()],
+            stderr: vec!["error1".to_string()],
+            duration: Duration::from_secs(1),
+        };
+
+        let result = streaming_output_to_result(output);
+
+        assert!(result.success);
+        assert_eq!(result.stdout, "line1\nline2");
+        assert_eq!(result.stderr, "error1");
+        assert_eq!(result.exit_code, Some(0));
+    }
+
+    #[test]
+    fn test_streaming_output_to_result_failure() {
+        use crate::subprocess::streaming::StreamingOutput;
+        use std::time::Duration;
+
+        let output = StreamingOutput {
+            status: std::process::ExitStatus::from_raw(256), // Exit code 1 is encoded as 256 on Unix
+            stdout: vec![],
+            stderr: vec!["error message".to_string()],
+            duration: Duration::from_secs(1),
+        };
+
+        let result = streaming_output_to_result(output);
+
+        assert!(!result.success);
+        assert_eq!(result.stdout, "");
+        assert_eq!(result.stderr, "error message");
+        assert_eq!(result.exit_code, Some(1));
+    }
+
+    #[test]
+    fn test_batch_output_to_result_success() {
+        use crate::subprocess::runner::{ExitStatus, ProcessOutput};
+        use std::time::Duration;
+
+        let output = ProcessOutput {
+            status: ExitStatus::Success,
+            stdout: "output text".to_string(),
+            stderr: String::new(),
+            duration: Duration::from_secs(1),
+        };
+
+        let result = batch_output_to_result(output);
+
+        assert!(result.success);
+        assert_eq!(result.stdout, "output text");
+        assert_eq!(result.stderr, "");
+        assert_eq!(result.exit_code, Some(0));
+    }
+
+    #[test]
+    fn test_batch_output_to_result_failure() {
+        use crate::subprocess::runner::{ExitStatus, ProcessOutput};
+        use std::time::Duration;
+
+        let output = ProcessOutput {
+            status: ExitStatus::Error(42),
+            stdout: String::new(),
+            stderr: "error output".to_string(),
+            duration: Duration::from_secs(1),
+        };
+
+        let result = batch_output_to_result(output);
+
+        assert!(!result.success);
+        assert_eq!(result.stdout, "");
+        assert_eq!(result.stderr, "error output");
+        assert_eq!(result.exit_code, Some(42));
+    }
+
+    #[test]
+    fn test_should_use_streaming_no_config() {
+        let context = ExecutionContext::default();
+        assert!(!should_use_streaming(&context));
+    }
+
+    #[test]
+    fn test_should_use_streaming_disabled() {
+        use crate::subprocess::streaming::{BufferConfig, StreamingConfig, StreamingMode};
+
+        let context = ExecutionContext {
+            streaming_config: Some(StreamingConfig {
+                enabled: false,
+                mode: StreamingMode::Streaming,
+                processors: vec![],
+                buffer_config: BufferConfig::default(),
+            }),
+            ..Default::default()
+        };
+
+        assert!(!should_use_streaming(&context));
+    }
+
+    #[test]
+    fn test_should_use_streaming_enabled() {
+        use crate::subprocess::streaming::{BufferConfig, StreamingConfig, StreamingMode};
+
+        let context = ExecutionContext {
+            streaming_config: Some(StreamingConfig {
+                enabled: true,
+                mode: StreamingMode::Streaming,
+                processors: vec![],
+                buffer_config: BufferConfig::default(),
+            }),
+            ..Default::default()
+        };
+
+        assert!(should_use_streaming(&context));
+    }
+
+    #[test]
+    fn test_build_command_with_all_options() {
+        let mut context = ExecutionContext::default();
+        context
+            .env_vars
+            .insert("VAR1".to_string(), "value1".to_string());
+        context.timeout_seconds = Some(30);
+        context.stdin = Some("test input".to_string());
+
+        let command = build_command_from_context(
+            "sh",
+            &["-c".to_string(), "echo $VAR1".to_string()],
+            &context,
+        );
+
+        assert_eq!(command.program, "sh");
+        assert_eq!(command.args, vec!["-c", "echo $VAR1"]);
+        assert_eq!(command.env.get("VAR1"), Some(&"value1".to_string()));
+        assert_eq!(command.timeout, Some(Duration::from_secs(30)));
+        assert_eq!(command.stdin, Some("test input".to_string()));
+    }
 
     #[tokio::test]
     async fn test_real_command_runner() {

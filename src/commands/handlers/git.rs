@@ -131,13 +131,15 @@ impl GitHandler {
 
     /// Executes auto-staging for commit operations if required
     ///
-    /// This function checks if auto-staging is enabled and performs the staging operation
-    /// by executing `git add` with the appropriate files.
+    /// This function uses an early return pattern for non-commit operations or when
+    /// auto-staging is disabled, reducing cognitive complexity in the main execute flow.
+    /// When auto-staging is enabled, it executes `git add` with the appropriate files.
     async fn execute_auto_staging(
         context: &ExecutionContext,
         operation: &str,
         attributes: &HashMap<String, AttributeValue>,
     ) -> Result<(), String> {
+        // Early return for non-commit operations or when auto-staging is disabled
         if !Self::should_auto_stage(operation, attributes) {
             return Ok(());
         }
@@ -216,6 +218,18 @@ impl GitHandler {
                 .with_duration(duration),
         }
     }
+
+    /// Validates preconditions and prepares git command arguments
+    ///
+    /// This pure function performs all validation and argument building without side effects.
+    /// It returns the validated operation and prepared git arguments, or an error if validation fails.
+    fn validate_and_prepare(
+        attributes: &HashMap<String, AttributeValue>,
+    ) -> Result<(String, Vec<String>), String> {
+        let operation = Self::validate_operation(attributes)?;
+        let git_args = Self::build_git_args(&operation, attributes)?;
+        Ok((operation, git_args))
+    }
 }
 
 #[async_trait]
@@ -243,6 +257,14 @@ impl CommandHandler for GitHandler {
         schema
     }
 
+    /// Executes a git command with optimized control flow
+    ///
+    /// This function uses early returns and pure function extraction to minimize
+    /// cognitive complexity and improve readability:
+    /// 1. Validates preconditions and builds arguments (pure function)
+    /// 2. Returns early for dry-run mode (avoids nested conditionals)
+    /// 3. Executes auto-staging if needed (early return pattern)
+    /// 4. Executes the git command and returns the result
     async fn execute(
         &self,
         context: &ExecutionContext,
@@ -251,31 +273,23 @@ impl CommandHandler for GitHandler {
         // Apply defaults
         self.schema().apply_defaults(&mut attributes);
 
-        // Validate operation
-        let operation = match Self::validate_operation(&attributes) {
-            Ok(op) => op,
+        // Validate preconditions and prepare git arguments
+        let (operation, git_args) = match Self::validate_and_prepare(&attributes) {
+            Ok(result) => result,
             Err(e) => return CommandResult::error(e),
         };
 
         let start = Instant::now();
 
-        // Build git command arguments using pure functions
-        let git_args = match Self::build_git_args(&operation, &attributes) {
-            Ok(args) => args,
-            Err(e) => return CommandResult::error(e),
-        };
-
-        // Handle auto-staging for commits
-        if !context.dry_run {
-            if let Err(e) = Self::execute_auto_staging(context, &operation, &attributes).await {
-                return CommandResult::error(e);
-            }
-        }
-
-        // Handle dry run
+        // Early return for dry run mode
         if context.dry_run {
             let duration = start.elapsed().as_millis() as u64;
             return Self::build_dry_run_response(&git_args, duration);
+        }
+
+        // Handle auto-staging for commits
+        if let Err(e) = Self::execute_auto_staging(context, &operation, &attributes).await {
+            return CommandResult::error(e);
         }
 
         // Execute git command

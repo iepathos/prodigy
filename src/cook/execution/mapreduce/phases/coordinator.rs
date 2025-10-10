@@ -170,10 +170,11 @@ impl PhaseCoordinator {
                         .on_phase_complete(PhaseType::Setup, &result);
                 }
                 Err(error) => {
-                    warn!("Setup phase failed: {}", error);
-                    let transition = self
-                        .transition_handler
-                        .on_phase_error(PhaseType::Setup, &error);
+                    let transition = Self::handle_phase_error(
+                        self.transition_handler.as_ref(),
+                        PhaseType::Setup,
+                        &error,
+                    );
                     if matches!(transition, PhaseTransition::Error(_)) {
                         return Err(error.into());
                     }
@@ -196,43 +197,41 @@ impl PhaseCoordinator {
                 workflow_result = Some(result);
             }
             Err(error) => {
-                warn!("Map phase failed: {}", error);
-                let transition = self
-                    .transition_handler
-                    .on_phase_error(PhaseType::Map, &error);
-                return match transition {
-                    PhaseTransition::Error(msg) => Err(MapReduceError::General {
-                        message: msg,
-                        source: None,
-                    }),
-                    _ => Err(error.into()),
-                };
+                let transition = Self::handle_phase_error(
+                    self.transition_handler.as_ref(),
+                    PhaseType::Map,
+                    &error,
+                );
+                return Err(Self::convert_transition_to_error(transition, error));
             }
         }
 
         // Execute reduce phase if present and if map phase succeeded
-        if let Some(reduce) = &self.reduce_executor {
-            if context.map_results.is_some() {
-                match self.execute_phase(reduce.as_ref(), &mut context).await {
-                    Ok(result) => {
-                        info!("Reduce phase completed successfully");
-                        self.transition_handler
-                            .on_phase_complete(PhaseType::Reduce, &result);
-                        workflow_result = Some(result);
-                    }
-                    Err(error) => {
-                        warn!("Reduce phase failed: {}", error);
-                        let transition = self
-                            .transition_handler
-                            .on_phase_error(PhaseType::Reduce, &error);
-                        if matches!(transition, PhaseTransition::Error(_)) {
-                            return Err(error.into());
-                        }
+        if Self::should_execute_reduce(
+            self.reduce_executor.as_ref().map(|b| b.as_ref()),
+            context.map_results.as_ref(),
+        ) {
+            let reduce = self.reduce_executor.as_ref().unwrap();
+            match self.execute_phase(reduce.as_ref(), &mut context).await {
+                Ok(result) => {
+                    info!("Reduce phase completed successfully");
+                    self.transition_handler
+                        .on_phase_complete(PhaseType::Reduce, &result);
+                    workflow_result = Some(result);
+                }
+                Err(error) => {
+                    let transition = Self::handle_phase_error(
+                        self.transition_handler.as_ref(),
+                        PhaseType::Reduce,
+                        &error,
+                    );
+                    if matches!(transition, PhaseTransition::Error(_)) {
+                        return Err(error.into());
                     }
                 }
-            } else {
-                debug!("Skipping reduce phase - no map results available");
             }
+        } else if self.reduce_executor.is_some() {
+            debug!("Skipping reduce phase - no map results available");
         }
 
         workflow_result.ok_or_else(|| MapReduceError::General {
@@ -249,28 +248,10 @@ impl PhaseCoordinator {
     ) -> Result<PhaseResult, PhaseError> {
         let phase_type = executor.phase_type();
 
-        // Check if phase should be executed
-        if !self.transition_handler.should_execute(phase_type, context) {
-            debug!("Skipping phase {} based on transition handler", phase_type);
-            return Ok(PhaseResult {
-                phase_type,
-                success: true,
-                data: None,
-                error_message: Some(format!("Phase {} was skipped", phase_type)),
-                metrics: Default::default(),
-            });
-        }
-
-        // Check if phase can be skipped
-        if executor.can_skip(context) {
-            debug!("Skipping phase {} - can_skip returned true", phase_type);
-            return Ok(PhaseResult {
-                phase_type,
-                success: true,
-                data: None,
-                error_message: Some(format!("Phase {} was skipped", phase_type)),
-                metrics: Default::default(),
-            });
+        // Check if phase should be skipped
+        if Self::should_skip_phase(self.transition_handler.as_ref(), executor, context) {
+            debug!("Skipping phase {}", phase_type);
+            return Ok(Self::create_skipped_result(phase_type));
         }
 
         // Validate context
@@ -290,6 +271,129 @@ impl PhaseCoordinator {
         );
 
         Ok(result)
+    }
+
+    // ===== Extracted Pure Functions for Testability =====
+
+    /// Check if a phase should be skipped based on transition handler and executor logic
+    ///
+    /// This is a pure function that encapsulates the skip decision logic.
+    #[cfg(test)]
+    pub(crate) fn should_skip_phase(
+        transition_handler: &dyn PhaseTransitionHandler,
+        executor: &dyn PhaseExecutor,
+        context: &PhaseContext,
+    ) -> bool {
+        !transition_handler.should_execute(executor.phase_type(), context)
+            || executor.can_skip(context)
+    }
+
+    #[cfg(not(test))]
+    fn should_skip_phase(
+        transition_handler: &dyn PhaseTransitionHandler,
+        executor: &dyn PhaseExecutor,
+        context: &PhaseContext,
+    ) -> bool {
+        !transition_handler.should_execute(executor.phase_type(), context)
+            || executor.can_skip(context)
+    }
+
+    /// Check if reduce phase should execute based on executor presence and map results
+    ///
+    /// This is a pure function that encapsulates the reduce execution decision.
+    #[cfg(test)]
+    pub(crate) fn should_execute_reduce<T>(
+        reduce_executor: Option<&dyn PhaseExecutor>,
+        map_results: Option<&Vec<T>>,
+    ) -> bool {
+        reduce_executor.is_some() && map_results.is_some()
+    }
+
+    #[cfg(not(test))]
+    fn should_execute_reduce<T>(
+        reduce_executor: Option<&dyn PhaseExecutor>,
+        map_results: Option<&Vec<T>>,
+    ) -> bool {
+        reduce_executor.is_some() && map_results.is_some()
+    }
+
+    /// Create a PhaseResult for a skipped phase
+    ///
+    /// This is a pure function that creates a standardized result for skipped phases.
+    #[cfg(test)]
+    pub(crate) fn create_skipped_result(phase_type: PhaseType) -> PhaseResult {
+        PhaseResult {
+            phase_type,
+            success: true,
+            data: None,
+            error_message: Some(format!("Phase {} was skipped", phase_type)),
+            metrics: Default::default(),
+        }
+    }
+
+    #[cfg(not(test))]
+    fn create_skipped_result(phase_type: PhaseType) -> PhaseResult {
+        PhaseResult {
+            phase_type,
+            success: true,
+            data: None,
+            error_message: Some(format!("Phase {} was skipped", phase_type)),
+            metrics: Default::default(),
+        }
+    }
+
+    /// Handle phase error by logging and calling transition handler
+    ///
+    /// This is a pure function that processes phase errors consistently.
+    #[cfg(test)]
+    pub(crate) fn handle_phase_error(
+        transition_handler: &dyn PhaseTransitionHandler,
+        phase_type: PhaseType,
+        error: &PhaseError,
+    ) -> PhaseTransition {
+        warn!("{} phase failed: {}", phase_type, error);
+        transition_handler.on_phase_error(phase_type, error)
+    }
+
+    #[cfg(not(test))]
+    fn handle_phase_error(
+        transition_handler: &dyn PhaseTransitionHandler,
+        phase_type: PhaseType,
+        error: &PhaseError,
+    ) -> PhaseTransition {
+        warn!("{} phase failed: {}", phase_type, error);
+        transition_handler.on_phase_error(phase_type, error)
+    }
+
+    /// Convert a PhaseTransition to a MapReduceError
+    ///
+    /// This is a pure function that handles the transition-to-error conversion.
+    #[cfg(test)]
+    pub(crate) fn convert_transition_to_error(
+        transition: PhaseTransition,
+        fallback_error: PhaseError,
+    ) -> MapReduceError {
+        match transition {
+            PhaseTransition::Error(msg) => MapReduceError::General {
+                message: msg,
+                source: None,
+            },
+            _ => fallback_error.into(),
+        }
+    }
+
+    #[cfg(not(test))]
+    fn convert_transition_to_error(
+        transition: PhaseTransition,
+        fallback_error: PhaseError,
+    ) -> MapReduceError {
+        match transition {
+            PhaseTransition::Error(msg) => MapReduceError::General {
+                message: msg,
+                source: None,
+            },
+            _ => fallback_error.into(),
+        }
     }
 
     /// Resume execution from a checkpoint
