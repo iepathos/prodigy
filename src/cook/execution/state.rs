@@ -871,6 +871,9 @@ impl DefaultJobStateManager {
     }
 
     /// Load a checkpoint for a job, returning None if the checkpoint is invalid
+    ///
+    /// This helper converts Result to Option for cleaner error handling with the ? operator.
+    /// Invalid checkpoints (corrupted files, missing metadata) are silently skipped.
     async fn load_job_checkpoint(
         checkpoint_manager: &CheckpointManager,
         job_id: &str,
@@ -879,7 +882,13 @@ impl DefaultJobStateManager {
     }
 
     /// Try to build a ResumableJob from a job directory
-    /// Returns None if the job is complete, has no valid checkpoint, or cannot be loaded
+    ///
+    /// This is the main orchestration function that coordinates:
+    /// 1. Loading the checkpoint state
+    /// 2. Listing checkpoint versions
+    /// 3. Building the ResumableJob if the job is incomplete
+    ///
+    /// Returns None if the job is complete, has no valid checkpoint, or cannot be loaded.
     async fn try_build_resumable_job(
         checkpoint_manager: &CheckpointManager,
         job_id: &str,
@@ -971,7 +980,9 @@ impl DefaultJobStateManager {
             };
 
             // Try to build resumable job from this directory
-            if let Some(job) = Self::try_build_resumable_job(&self.checkpoint_manager, &job_id).await {
+            if let Some(job) =
+                Self::try_build_resumable_job(&self.checkpoint_manager, &job_id).await
+            {
                 resumable_jobs.push(job);
             }
         }
