@@ -26,6 +26,45 @@ fn filter_env_vars(prefix: Option<&str>, filter_empty: bool) -> Vec<(String, Str
         .collect()
 }
 
+/// Attempts to parse a string value as a number.
+fn try_parse_as_number(value: &str) -> Option<i64> {
+    value.parse::<i64>().ok()
+}
+
+/// Attempts to parse a string value as a boolean.
+fn try_parse_as_boolean(value: &str) -> Option<bool> {
+    value.to_lowercase().parse::<bool>().ok()
+}
+
+/// Checks if a key represents a path-like variable.
+fn is_path_like_key(key: &str) -> bool {
+    key.contains("PATH") || key.contains("DIR") || key.contains("HOME")
+}
+
+/// Enriches an input with typed values based on the environment variable's value.
+fn enrich_input_with_types(input: &mut ExecutionInput, key: &str, value: &str) {
+    // Try to parse as number
+    if let Some(num) = try_parse_as_number(value) {
+        input.add_variable("env_value_number".to_string(), VariableValue::Number(num));
+    }
+
+    // Try to parse as boolean
+    if let Some(bool_val) = try_parse_as_boolean(value) {
+        input.add_variable(
+            "env_value_bool".to_string(),
+            VariableValue::Boolean(bool_val),
+        );
+    }
+
+    // Check if it's a path-like variable
+    if is_path_like_key(key) {
+        input.add_variable(
+            "env_value_path".to_string(),
+            VariableValue::Path(value.into()),
+        );
+    }
+}
+
 #[async_trait]
 impl InputProvider for EnvironmentInputProvider {
     fn input_type(&self) -> InputType {
@@ -102,25 +141,8 @@ impl InputProvider for EnvironmentInputProvider {
                     );
                 }
 
-                // Try to parse common types
-                if let Ok(num) = value.parse::<i64>() {
-                    input.add_variable("env_value_number".to_string(), VariableValue::Number(num));
-                }
-
-                if let Ok(bool_val) = value.to_lowercase().parse::<bool>() {
-                    input.add_variable(
-                        "env_value_bool".to_string(),
-                        VariableValue::Boolean(bool_val),
-                    );
-                }
-
-                // Parse path-like variables
-                if key.contains("PATH") || key.contains("DIR") || key.contains("HOME") {
-                    input.add_variable(
-                        "env_value_path".to_string(),
-                        VariableValue::Path(value.into()),
-                    );
-                }
+                // Enrich with typed values
+                enrich_input_with_types(&mut input, &key, &value);
 
                 inputs.push(input);
             }
