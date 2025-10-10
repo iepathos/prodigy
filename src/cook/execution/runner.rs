@@ -2,6 +2,8 @@
 
 use super::{CommandExecutor, ExecutionContext, ExecutionResult};
 use crate::abstractions::exit_status::ExitStatusExt;
+use crate::subprocess::runner::ProcessOutput;
+use crate::subprocess::streaming::StreamingOutput;
 use crate::subprocess::{ProcessCommand, ProcessCommandBuilder, SubprocessManager};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -36,6 +38,34 @@ fn build_command_from_context(
     }
 
     builder.build()
+}
+
+/// Transform streaming output to ExecutionResult
+///
+/// This is a pure function that converts StreamingOutput (with stdout/stderr as Vec<String>)
+/// into ExecutionResult (with stdout/stderr as joined strings).
+fn streaming_output_to_result(output: StreamingOutput) -> ExecutionResult {
+    ExecutionResult {
+        success: output.status.success(),
+        stdout: output.stdout.join("\n"),
+        stderr: output.stderr.join("\n"),
+        exit_code: output.status.code(),
+        metadata: HashMap::new(),
+    }
+}
+
+/// Transform batch output to ExecutionResult
+///
+/// This is a pure function that converts ProcessOutput (with stdout/stderr as String)
+/// into ExecutionResult with the same string format.
+fn batch_output_to_result(output: ProcessOutput) -> ExecutionResult {
+    ExecutionResult {
+        success: output.status.success(),
+        stdout: output.stdout,
+        stderr: output.stderr,
+        exit_code: output.status.code(),
+        metadata: HashMap::new(),
+    }
 }
 
 /// Trait for running system commands
@@ -189,13 +219,7 @@ impl CommandRunner for RealCommandRunner {
                     .await
                     .context(format!("Failed to execute command with streaming: {cmd}"))?;
 
-                return Ok(ExecutionResult {
-                    success: output.status.success(),
-                    stdout: output.stdout.join("\n"),
-                    stderr: output.stderr.join("\n"),
-                    exit_code: output.status.code(),
-                    metadata: HashMap::new(),
-                });
+                return Ok(streaming_output_to_result(output));
             }
         }
 
@@ -207,13 +231,7 @@ impl CommandRunner for RealCommandRunner {
             .await
             .context(format!("Failed to execute command: {cmd}"))?;
 
-        Ok(ExecutionResult {
-            success: output.status.success(),
-            stdout: output.stdout,
-            stderr: output.stderr,
-            exit_code: output.status.code(),
-            metadata: HashMap::new(),
-        })
+        Ok(batch_output_to_result(output))
     }
 
     async fn run_with_streaming(
@@ -236,13 +254,7 @@ impl CommandRunner for RealCommandRunner {
             .await
             .context(format!("Failed to execute command with streaming: {cmd}"))?;
 
-        Ok(ExecutionResult {
-            success: output.status.success(),
-            stdout: output.stdout.join("\n"),
-            stderr: output.stderr.join("\n"),
-            exit_code: output.status.code(),
-            metadata: HashMap::new(),
-        })
+        Ok(streaming_output_to_result(output))
     }
 }
 
@@ -309,6 +321,86 @@ pub mod tests {
         let command = build_command_from_context("cat", &[], &context);
 
         assert_eq!(command.stdin, Some("input data".to_string()));
+    }
+
+    #[test]
+    fn test_streaming_output_to_result_success() {
+        use crate::subprocess::streaming::StreamingOutput;
+        use std::time::Duration;
+
+        let output = StreamingOutput {
+            status: std::process::ExitStatus::from_raw(0),
+            stdout: vec!["line1".to_string(), "line2".to_string()],
+            stderr: vec!["error1".to_string()],
+            duration: Duration::from_secs(1),
+        };
+
+        let result = streaming_output_to_result(output);
+
+        assert!(result.success);
+        assert_eq!(result.stdout, "line1\nline2");
+        assert_eq!(result.stderr, "error1");
+        assert_eq!(result.exit_code, Some(0));
+    }
+
+    #[test]
+    fn test_streaming_output_to_result_failure() {
+        use crate::subprocess::streaming::StreamingOutput;
+        use std::time::Duration;
+
+        let output = StreamingOutput {
+            status: std::process::ExitStatus::from_raw(256), // Exit code 1 is encoded as 256 on Unix
+            stdout: vec![],
+            stderr: vec!["error message".to_string()],
+            duration: Duration::from_secs(1),
+        };
+
+        let result = streaming_output_to_result(output);
+
+        assert!(!result.success);
+        assert_eq!(result.stdout, "");
+        assert_eq!(result.stderr, "error message");
+        assert_eq!(result.exit_code, Some(1));
+    }
+
+    #[test]
+    fn test_batch_output_to_result_success() {
+        use crate::subprocess::runner::{ExitStatus, ProcessOutput};
+        use std::time::Duration;
+
+        let output = ProcessOutput {
+            status: ExitStatus::Success,
+            stdout: "output text".to_string(),
+            stderr: String::new(),
+            duration: Duration::from_secs(1),
+        };
+
+        let result = batch_output_to_result(output);
+
+        assert!(result.success);
+        assert_eq!(result.stdout, "output text");
+        assert_eq!(result.stderr, "");
+        assert_eq!(result.exit_code, Some(0));
+    }
+
+    #[test]
+    fn test_batch_output_to_result_failure() {
+        use crate::subprocess::runner::{ExitStatus, ProcessOutput};
+        use std::time::Duration;
+
+        let output = ProcessOutput {
+            status: ExitStatus::Error(42),
+            stdout: String::new(),
+            stderr: "error output".to_string(),
+            duration: Duration::from_secs(1),
+        };
+
+        let result = batch_output_to_result(output);
+
+        assert!(!result.success);
+        assert_eq!(result.stdout, "");
+        assert_eq!(result.stderr, "error output");
+        assert_eq!(result.exit_code, Some(42));
     }
 
     #[test]
