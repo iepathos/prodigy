@@ -14,7 +14,6 @@ use async_trait::async_trait;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::debug;
 
 /// Adapter that implements Cook's SessionManager trait using unified session management
 pub struct CookSessionAdapter {
@@ -160,6 +159,19 @@ impl CookSessionAdapter {
             _ => vec![],
         }
     }
+
+    /// Apply unified updates to a session and refresh cached state
+    async fn apply_unified_updates(
+        &self,
+        id: &SessionId,
+        updates: Vec<UnifiedSessionUpdate>,
+    ) -> Result<()> {
+        for update in updates {
+            self.unified_manager.update_session(id, update).await?;
+        }
+        self.update_cached_state_for_id(id).await?;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -181,31 +193,14 @@ impl CookSessionManager for CookSessionAdapter {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, update))]
     async fn update_session(&self, update: CookSessionUpdate) -> Result<()> {
-        debug!("CookSessionAdapter::update_session called");
-        debug!("Acquiring current_session lock");
-        if let Some(id) = &*self.current_session.lock().await {
-            debug!("Lock acquired, converting update");
-            let unified_updates = Self::cook_update_to_unified(update);
-            debug!(
-                "Calling unified_manager.update_session for {} updates",
-                unified_updates.len()
-            );
-            for unified_update in unified_updates {
-                debug!("About to call unified update");
-                self.unified_manager
-                    .update_session(id, unified_update)
-                    .await?;
-                debug!("Unified update complete");
-            }
+        let Some(id) = &*self.current_session.lock().await else {
+            return Ok(());
+        };
 
-            // Update cached state after updates
-            debug!("Updating cached state");
-            self.update_cached_state_for_id(id).await?;
-            debug!("Cached state updated");
-        }
-        debug!("CookSessionAdapter::update_session complete");
-        Ok(())
+        let unified_updates = Self::cook_update_to_unified(update);
+        self.apply_unified_updates(id, unified_updates).await
     }
 
     async fn complete_session(&self) -> Result<CookSessionSummary> {

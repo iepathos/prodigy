@@ -303,6 +303,59 @@ async fn clean_specific_checkpoint(
     Ok(())
 }
 
+// ============================================================================
+// Pure Functions: Checkpoint Filtering Logic
+// ============================================================================
+
+/// Pure predicate: Check if file path is a checkpoint JSON file
+///
+/// Checks that the file has a .json extension. This is a pure function
+/// with no side effects.
+///
+/// # Arguments
+/// * `path` - The file path to check
+///
+/// # Returns
+/// * `true` if the path has a .json extension, `false` otherwise
+fn is_checkpoint_json_file(path: &Path) -> bool {
+    path.is_file() && path.extension().is_some_and(|ext| ext == "json")
+}
+
+/// Pure function: Extract workflow ID from checkpoint file path
+///
+/// Extracts the workflow ID from a .checkpoint.json file path.
+/// Returns None if the file doesn't follow the expected naming convention.
+///
+/// # Arguments
+/// * `path` - The checkpoint file path
+///
+/// # Returns
+/// * `Some(workflow_id)` if the path follows .checkpoint.json naming
+/// * `None` if the path doesn't match the expected pattern
+fn extract_workflow_id(path: &Path) -> Option<String> {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_suffix(".checkpoint.json"))
+        .map(|id| id.to_string())
+}
+
+/// Pure predicate: Check if checkpoint has completed status
+///
+/// Checks the execution state status of a checkpoint.
+/// This is a pure function with no side effects.
+///
+/// # Arguments
+/// * `checkpoint` - The checkpoint to check
+///
+/// # Returns
+/// * `true` if the checkpoint status is Completed, `false` otherwise
+fn is_completed_checkpoint(
+    checkpoint: &crate::cook::workflow::checkpoint::WorkflowCheckpoint,
+) -> bool {
+    use crate::cook::workflow::checkpoint::WorkflowStatus;
+    checkpoint.execution_state.status == WorkflowStatus::Completed
+}
+
 /// Clean all completed checkpoints
 async fn clean_all_checkpoints(checkpoint_dir: &PathBuf, force: bool) -> Result<()> {
     use crate::cook::workflow::checkpoint_path::CheckpointStorage;
@@ -316,12 +369,14 @@ async fn clean_all_checkpoints(checkpoint_dir: &PathBuf, force: bool) -> Result<
 
     while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
-        if path.is_file() && path.extension().is_some_and(|ext| ext == "json") {
-            if let Some(name) = path.file_stem() {
-                let workflow_id = name.to_string_lossy().to_string();
+
+        // Use pure predicate to check if this is a checkpoint JSON file
+        if is_checkpoint_json_file(&path) {
+            // Use pure function to extract workflow ID
+            if let Some(workflow_id) = extract_workflow_id(&path) {
                 if let Ok(checkpoint) = checkpoint_manager.load_checkpoint(&workflow_id).await {
-                    use crate::cook::workflow::checkpoint::WorkflowStatus;
-                    if checkpoint.execution_state.status == WorkflowStatus::Completed {
+                    // Use pure predicate to check if checkpoint is completed
+                    if is_completed_checkpoint(&checkpoint) {
                         if !force {
                             println!("Delete completed checkpoint for {}?", workflow_id);
                         }
@@ -622,4 +677,352 @@ async fn delete_checkpoint(working_dir: &Path, checkpoint_id: &str, force: bool)
     println!("✓ Deleted checkpoint {}", checkpoint_id);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cook::workflow::checkpoint::{ExecutionState, WorkflowCheckpoint, WorkflowStatus};
+    use chrono::Utc;
+    use std::collections::HashMap;
+    use tempfile::TempDir;
+    use tokio::fs;
+
+    /// Helper function to create a test checkpoint
+    fn create_test_checkpoint(status: WorkflowStatus) -> WorkflowCheckpoint {
+        WorkflowCheckpoint {
+            workflow_id: "test-workflow".to_string(),
+            version: 1,
+            workflow_hash: "test-hash".to_string(),
+            timestamp: Utc::now(),
+            execution_state: ExecutionState {
+                status,
+                current_step_index: 0,
+                total_steps: 1,
+                start_time: Utc::now(),
+                last_checkpoint: Utc::now(),
+                current_iteration: None,
+                total_iterations: None,
+            },
+            completed_steps: vec![],
+            variable_state: HashMap::new(),
+            mapreduce_state: None,
+            total_steps: 1,
+            workflow_name: Some("test-workflow".to_string()),
+            workflow_path: None,
+            error_recovery_state: None,
+            retry_checkpoint_state: None,
+            variable_checkpoint_state: None,
+        }
+    }
+
+    /// Helper function to save a checkpoint to disk
+    async fn save_checkpoint_to_file(
+        checkpoint_dir: &Path,
+        workflow_id: &str,
+        checkpoint: &WorkflowCheckpoint,
+    ) -> Result<()> {
+        // Save with .checkpoint.json extension to match CheckpointManager expectations
+        let path = checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
+        let json = serde_json::to_string_pretty(checkpoint)?;
+        fs::write(path, json).await?;
+        Ok(())
+    }
+
+    // ========================================================================
+    // Unit Tests for Pure Functions
+    // ========================================================================
+
+    #[test]
+    fn test_is_checkpoint_json_file_valid() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let json_file = temp_dir.path().join("test.checkpoint.json");
+        std::fs::write(&json_file, "{}").expect("Failed to write file");
+
+        assert!(is_checkpoint_json_file(&json_file));
+    }
+
+    #[test]
+    fn test_is_checkpoint_json_file_not_json() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let txt_file = temp_dir.path().join("test.txt");
+        std::fs::write(&txt_file, "test").expect("Failed to write file");
+
+        assert!(!is_checkpoint_json_file(&txt_file));
+    }
+
+    #[test]
+    fn test_is_checkpoint_json_file_directory() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        assert!(!is_checkpoint_json_file(temp_dir.path()));
+    }
+
+    #[test]
+    fn test_extract_workflow_id_valid() {
+        let path = PathBuf::from("/tmp/workflow-123.checkpoint.json");
+        assert_eq!(extract_workflow_id(&path), Some("workflow-123".to_string()));
+    }
+
+    #[test]
+    fn test_extract_workflow_id_no_checkpoint_extension() {
+        let path = PathBuf::from("/tmp/workflow-123.json");
+        assert_eq!(extract_workflow_id(&path), None);
+    }
+
+    #[test]
+    fn test_extract_workflow_id_invalid_path() {
+        let path = PathBuf::from("/tmp/");
+        assert_eq!(extract_workflow_id(&path), None);
+    }
+
+    #[test]
+    fn test_extract_workflow_id_with_hyphens() {
+        let path = PathBuf::from("/tmp/my-workflow-id-123.checkpoint.json");
+        assert_eq!(
+            extract_workflow_id(&path),
+            Some("my-workflow-id-123".to_string())
+        );
+    }
+
+    #[test]
+    fn test_is_completed_checkpoint_true() {
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Completed);
+        assert!(is_completed_checkpoint(&checkpoint));
+    }
+
+    #[test]
+    fn test_is_completed_checkpoint_running() {
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Running);
+        assert!(!is_completed_checkpoint(&checkpoint));
+    }
+
+    #[test]
+    fn test_is_completed_checkpoint_failed() {
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Failed);
+        assert!(!is_completed_checkpoint(&checkpoint));
+    }
+
+    #[test]
+    fn test_is_completed_checkpoint_paused() {
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Paused);
+        assert!(!is_completed_checkpoint(&checkpoint));
+    }
+
+    #[test]
+    fn test_is_completed_checkpoint_interrupted() {
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Interrupted);
+        assert!(!is_completed_checkpoint(&checkpoint));
+    }
+
+    // ========================================================================
+    // Integration Tests for clean_all_checkpoints
+    // ========================================================================
+
+    #[tokio::test]
+    async fn test_clean_all_checkpoints_empty_directory() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Call clean_all_checkpoints on empty directory
+        let result = clean_all_checkpoints(&checkpoint_dir, true).await;
+
+        // Should succeed with no deletions
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_clean_all_checkpoints_no_completed() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Create running checkpoint
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Running);
+        save_checkpoint_to_file(&checkpoint_dir, "workflow-1", &checkpoint)
+            .await
+            .expect("Failed to save checkpoint");
+
+        // Call clean_all_checkpoints
+        let result = clean_all_checkpoints(&checkpoint_dir, true).await;
+
+        // Should succeed, no files deleted
+        assert!(result.is_ok());
+        assert!(checkpoint_dir.join("workflow-1.checkpoint.json").exists());
+    }
+
+    #[tokio::test]
+    async fn test_clean_all_checkpoints_only_in_progress() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Create multiple running checkpoints
+        for i in 1..=3 {
+            let checkpoint = create_test_checkpoint(WorkflowStatus::Running);
+            save_checkpoint_to_file(&checkpoint_dir, &format!("workflow-{}", i), &checkpoint)
+                .await
+                .expect("Failed to save checkpoint");
+        }
+
+        // Call clean_all_checkpoints
+        let result = clean_all_checkpoints(&checkpoint_dir, true).await;
+
+        // Should succeed, no files deleted
+        assert!(result.is_ok());
+        for i in 1..=3 {
+            assert!(checkpoint_dir
+                .join(format!("workflow-{}.checkpoint.json", i))
+                .exists());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_clean_all_checkpoints_mixed_status() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Create completed checkpoints
+        for i in 1..=2 {
+            let checkpoint = create_test_checkpoint(WorkflowStatus::Completed);
+            save_checkpoint_to_file(&checkpoint_dir, &format!("completed-{}", i), &checkpoint)
+                .await
+                .expect("Failed to save checkpoint");
+        }
+
+        // Create running checkpoint
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Running);
+        save_checkpoint_to_file(&checkpoint_dir, "running-1", &checkpoint)
+            .await
+            .expect("Failed to save checkpoint");
+
+        // Call clean_all_checkpoints with force flag
+        let result = clean_all_checkpoints(&checkpoint_dir, true).await;
+
+        // Should succeed, only completed checkpoints deleted
+        assert!(result.is_ok());
+        assert!(!checkpoint_dir.join("completed-1.checkpoint.json").exists());
+        assert!(!checkpoint_dir.join("completed-2.checkpoint.json").exists());
+        assert!(checkpoint_dir.join("running-1.checkpoint.json").exists());
+    }
+
+    #[tokio::test]
+    async fn test_clean_all_checkpoints_with_force_flag() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Create completed checkpoint
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Completed);
+        save_checkpoint_to_file(&checkpoint_dir, "workflow-1", &checkpoint)
+            .await
+            .expect("Failed to save checkpoint");
+
+        // Call clean_all_checkpoints with force=true
+        let result = clean_all_checkpoints(&checkpoint_dir, true).await;
+
+        // Should succeed and delete without prompting
+        assert!(result.is_ok());
+        assert!(!checkpoint_dir.join("workflow-1.checkpoint.json").exists());
+    }
+
+    #[tokio::test]
+    async fn test_clean_all_checkpoints_with_non_json_files() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Create non-JSON file
+        fs::write(checkpoint_dir.join("readme.txt"), "test content")
+            .await
+            .expect("Failed to write file");
+
+        // Create completed checkpoint
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Completed);
+        save_checkpoint_to_file(&checkpoint_dir, "workflow-1", &checkpoint)
+            .await
+            .expect("Failed to save checkpoint");
+
+        // Call clean_all_checkpoints
+        let result = clean_all_checkpoints(&checkpoint_dir, true).await;
+
+        // Should succeed, only JSON checkpoint deleted
+        assert!(result.is_ok());
+        assert!(!checkpoint_dir.join("workflow-1.checkpoint.json").exists());
+        assert!(checkpoint_dir.join("readme.txt").exists());
+    }
+
+    #[tokio::test]
+    async fn test_clean_all_checkpoints_with_corrupted_json() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Create corrupted JSON file (using .checkpoint.json extension)
+        fs::write(
+            checkpoint_dir.join("corrupted.checkpoint.json"),
+            "{ invalid json content",
+        )
+        .await
+        .expect("Failed to write file");
+
+        // Create valid completed checkpoint
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Completed);
+        save_checkpoint_to_file(&checkpoint_dir, "workflow-1", &checkpoint)
+            .await
+            .expect("Failed to save checkpoint");
+
+        // Call clean_all_checkpoints
+        let result = clean_all_checkpoints(&checkpoint_dir, true).await;
+
+        // Should succeed, skip corrupted file and delete valid completed checkpoint
+        assert!(result.is_ok());
+        assert!(!checkpoint_dir.join("workflow-1.checkpoint.json").exists());
+        assert!(checkpoint_dir.join("corrupted.checkpoint.json").exists());
+    }
+
+    #[tokio::test]
+    async fn test_clean_all_checkpoints_all_completed() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Create multiple completed checkpoints
+        for i in 1..=5 {
+            let checkpoint = create_test_checkpoint(WorkflowStatus::Completed);
+            save_checkpoint_to_file(&checkpoint_dir, &format!("workflow-{}", i), &checkpoint)
+                .await
+                .expect("Failed to save checkpoint");
+        }
+
+        // Call clean_all_checkpoints
+        let result = clean_all_checkpoints(&checkpoint_dir, true).await;
+
+        // Should succeed and delete all completed checkpoints
+        assert!(result.is_ok());
+        for i in 1..=5 {
+            assert!(!checkpoint_dir
+                .join(format!("workflow-{}.checkpoint.json", i))
+                .exists());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_clean_all_checkpoints_failed_status() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Create failed checkpoint
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Failed);
+        save_checkpoint_to_file(&checkpoint_dir, "failed-1", &checkpoint)
+            .await
+            .expect("Failed to save checkpoint");
+
+        // Create completed checkpoint
+        let checkpoint = create_test_checkpoint(WorkflowStatus::Completed);
+        save_checkpoint_to_file(&checkpoint_dir, "completed-1", &checkpoint)
+            .await
+            .expect("Failed to save checkpoint");
+
+        // Call clean_all_checkpoints
+        let result = clean_all_checkpoints(&checkpoint_dir, true).await;
+
+        // Should succeed, only completed deleted, not failed
+        assert!(result.is_ok());
+        assert!(checkpoint_dir.join("failed-1.checkpoint.json").exists());
+        assert!(!checkpoint_dir.join("completed-1.checkpoint.json").exists());
+    }
 }

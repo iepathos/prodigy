@@ -1,228 +1,207 @@
-# Implementation Plan: Reduce Nesting Complexity in FileTemplateStorage::list
+# Implementation Plan: Add Test Coverage for SetupPhaseExecutor::execute_step
 
 ## Problem Summary
 
-**Location**: ./src/cook/workflow/composition/registry.rs:FileTemplateStorage::list:337
-**Priority Score**: 31.89
-**Debt Type**: ComplexityHotspot (Cognitive: 44, Cyclomatic: 12)
+**Location**: ./src/cook/execution/mapreduce/phases/setup.rs:SetupPhaseExecutor::execute_step:60
+**Priority Score**: 29.6
+**Debt Type**: TestingGap (0% coverage)
 **Current Metrics**:
-- Lines of Code: 45
-- Cyclomatic Complexity: 12
-- Cognitive Complexity: 44
-- Nesting Depth: 5 levels
+- Lines of Code: 42
+- Function Length: 42 lines
+- Cyclomatic Complexity: 5
+- Cognitive Complexity: 11
+- Coverage: 0.0%
+- Uncovered Lines: 60, 67, 75, 80-81, 85-89, 94, 96-97
 
-**Issue**: The `list()` function has excessive nesting (5 levels deep) that obscures the core logic. While cyclomatic complexity is manageable at 12, the deep nesting creates cognitive load. The function follows a pattern of nested conditionals: directory exists check → entry iteration → extension check → file stem extraction → metadata file check → metadata parsing attempt.
+**Issue**: Business logic with 100% coverage gap, currently 0% covered. Needs 5 test cases to cover all 5 execution paths. The function has 14 upstream callers (including multiple tests) but is itself untested, creating a significant testing gap in the execution pipeline.
+
+**Function Role**: PureLogic (purity confidence: 0.95)
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 6.0
-- Coverage Improvement: 0.0
-- Risk Reduction: 11.16
+**Expected Impact**:
+- Complexity Reduction: 0.0 (function is already reasonably simple)
+- Coverage Improvement: 100.0% (from 0% to 100%)
+- Risk Reduction: 12.432
 
 **Success Criteria**:
-- [ ] Nesting depth reduced from 5 to 2-3 levels
-- [ ] Cognitive complexity reduced by ~6 points
-- [ ] All existing tests continue to pass (8 tests in registry.rs)
+- [ ] All 13 uncovered lines have test coverage (lines 60, 67, 75, 80-81, 85-89, 94, 96-97)
+- [ ] All 5 execution paths tested (happy path, success, error, non-shell command, failure status)
+- [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
-- [ ] Function remains pure and testable
+- [ ] Test coverage reaches 100% for execute_step function
 
 ## Implementation Phases
 
-### Phase 1: Extract Template Entry Processing
+### Phase 1: Add Happy Path Test
 
-**Goal**: Extract the nested logic for processing a single directory entry into a separate pure function.
+**Goal**: Test the successful execution of a shell command through execute_step
 
 **Changes**:
-- Create new function `fn is_template_file(path: &Path) -> bool` that checks for .yml extension
-- Create new function `fn extract_template_name(path: &Path) -> Option<String>` that extracts stem and filters out .meta files
-- Create new async function `async fn load_template_metadata(&self, name: &str) -> TemplateMetadata` that handles metadata loading with fallback to default
-- Use early returns in these helper functions to eliminate nesting
+- Add `test_execute_step_success` that tests:
+  - Creating a simple shell command (e.g., "echo 'test output'")
+  - Calling execute_step with the command
+  - Verifying the output is captured correctly
+  - Covering lines 60, 67, 75, 80-81, 94
 
 **Testing**:
-- Run `cargo test --lib registry` to verify existing tests pass
-- Verify function behavior unchanged
+- Run `cargo test --lib test_execute_step_success`
+- Verify test passes and covers happy path
+- Check coverage with `cargo tarpaulin --out Stdout` for the function
 
 **Success Criteria**:
-- [ ] Three new helper functions created
-- [ ] Functions are simpler and more focused
-- [ ] All 8 existing tests pass
+- [ ] Test passes consistently
+- [ ] Happy path (lines 67, 75, 80-81, 94) covered
+- [ ] All existing tests still pass
+- [ ] Ready to commit
+
+### Phase 2: Add Command Failure Test
+
+**Goal**: Test handling of shell commands that exit with non-zero status
+
+**Changes**:
+- Add `test_execute_step_command_failure` that tests:
+  - Creating a shell command that fails (e.g., "exit 1" or "false")
+  - Calling execute_step with the failing command
+  - Verifying proper error handling and error message format
+  - Covering lines 85-89 (error handling path)
+
+**Testing**:
+- Run `cargo test --lib test_execute_step_command_failure`
+- Verify error is properly caught and formatted
+- Check that PhaseError::ExecutionFailed is returned with correct message
+
+**Success Criteria**:
+- [ ] Test passes and properly captures error
+- [ ] Error handling path (lines 85-89) covered
+- [ ] All existing tests still pass
+- [ ] Ready to commit
+
+### Phase 3: Add Non-Shell Command Test
+
+**Goal**: Test error handling for unsupported command types
+
+**Changes**:
+- Add `test_execute_step_non_shell_command` that tests:
+  - Creating a WorkflowStep without a shell command (e.g., with claude or other command types)
+  - Calling execute_step with the non-shell step
+  - Verifying appropriate error is returned
+  - Covering lines 96-97 (else branch for non-shell commands)
+
+**Testing**:
+- Run `cargo test --lib test_execute_step_non_shell_command`
+- Verify error message indicates only shell commands are supported
+- Confirm PhaseError::ExecutionFailed with appropriate message
+
+**Success Criteria**:
+- [ ] Test passes and validates error handling
+- [ ] Non-shell command path (lines 96-97) covered
+- [ ] All existing tests still pass
+- [ ] Ready to commit
+
+### Phase 4: Add Edge Case Tests
+
+**Goal**: Cover remaining edge cases and ensure 100% line coverage
+
+**Changes**:
+- Add `test_execute_step_with_stderr_output` that tests:
+  - Shell command that produces stderr output
+  - Verifying stderr is included in error messages
+- Add `test_execute_step_with_empty_output` that tests:
+  - Shell command that produces no output (e.g., "true")
+  - Verifying empty string is returned successfully
+- Ensure all previously uncovered lines are now tested
+
+**Testing**:
+- Run `cargo test --lib` to verify all tests pass
+- Run `cargo tarpaulin --out Stdout` to verify 100% coverage for execute_step
+- Verify lines 60, 67, 75, 80-81, 85-89, 94, 96-97 are all covered
+
+**Success Criteria**:
+- [ ] All edge case tests pass
+- [ ] 100% line coverage achieved for execute_step
+- [ ] All existing tests still pass
+- [ ] Ready to commit
+
+### Phase 5: Final Validation and Documentation
+
+**Goal**: Verify complete coverage and add test documentation
+
+**Changes**:
+- Run full test suite with `cargo test`
+- Run clippy with `cargo clippy`
+- Run formatting with `cargo fmt`
+- Verify coverage improvement with `cargo tarpaulin`
+- Add module-level documentation comments to test file explaining coverage strategy
+
+**Testing**:
+- `cargo test --lib` - All tests pass
+- `cargo clippy` - No warnings
+- `cargo fmt --check` - Properly formatted
+- `cargo tarpaulin` - Verify coverage improvement from 0% to 100% for execute_step
+
+**Success Criteria**:
+- [ ] All tests pass
 - [ ] No clippy warnings
-
-### Phase 2: Refactor list() to Use Helper Functions
-
-**Goal**: Simplify the main `list()` function by using the extracted helpers and early returns.
-
-**Changes**:
-- Replace nested extension check with `is_template_file()`
-- Replace nested file stem logic with `extract_template_name()`
-- Replace nested metadata loading with `load_template_metadata()`
-- Use `continue` statements for early loop continuation
-- Reduce nesting from 5 levels to 2-3 levels
-
-**Before pattern**:
-```rust
-while let Some(entry) = entries.next_entry().await? {
-    if condition1 {
-        if let Some(value) = condition2 {
-            if !filter {
-                if nested_condition {
-                    // 5 levels deep
-                }
-            }
-        }
-    }
-}
-```
-
-**After pattern**:
-```rust
-while let Some(entry) = entries.next_entry().await? {
-    let path = entry.path();
-    if !is_template_file(&path) {
-        continue;
-    }
-
-    let Some(name) = extract_template_name(&path) else {
-        continue;
-    };
-
-    let metadata = self.load_template_metadata(&name).await;
-    // 2-3 levels max
-}
-```
-
-**Testing**:
-- Run `cargo test --lib registry` to verify all tests pass
-- Run `cargo clippy` to check for warnings
-
-**Success Criteria**:
-- [ ] Nesting depth reduced to 2-3 levels
-- [ ] Function is more readable
-- [ ] All 8 existing tests pass
-- [ ] No clippy warnings
-
-### Phase 3: Optimize Metadata Loading Error Handling
-
-**Goal**: Improve error handling in metadata loading to be more explicit and follow the project's error handling standards (no unwrap_or_default in production code).
-
-**Changes**:
-- Update `load_template_metadata()` to return `Result<TemplateMetadata>` instead of just `TemplateMetadata`
-- Use proper error context with `.context()` for file read failures
-- Use `.unwrap_or_else(|_| TemplateMetadata::default())` instead of `unwrap_or_default()`
-- Ensure JSON parse errors are logged but don't fail the entire listing
-
-**Testing**:
-- Run `cargo test --lib registry` to verify all tests pass
-- Verify error messages are clear and actionable
-
-**Success Criteria**:
-- [ ] Metadata loading uses Result type properly
-- [ ] Errors have clear context messages
-- [ ] Fallback to default metadata is explicit
-- [ ] All 8 existing tests pass
-- [ ] No use of unwrap() or unwrap_or_default()
-
-### Phase 4: Final Verification and Cleanup
-
-**Goal**: Ensure all quality standards are met and documentation is updated.
-
-**Changes**:
-- Add doc comments to new helper functions
-- Verify all error messages are descriptive
-- Run full test suite and linting
-- Check that nesting depth metrics have improved
-
-**Testing**:
-- Run `cargo test` (full test suite)
-- Run `cargo clippy -- -D warnings` (fail on any warnings)
-- Run `cargo fmt --check` (verify formatting)
-- Run `just ci` if available
-
-**Success Criteria**:
-- [ ] All helper functions have doc comments
-- [ ] Full test suite passes
-- [ ] No clippy warnings
-- [ ] Code is properly formatted
-- [ ] Nesting depth reduced from 5 to 2-3 levels
-- [ ] Ready for commit
+- [ ] Code properly formatted
+- [ ] Coverage for execute_step is 100%
+- [ ] Test documentation added
+- [ ] Ready for final commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib registry` to verify the 8 existing tests in registry.rs pass
-2. Run `cargo clippy` to check for warnings
-3. Commit with clear message if phase succeeds
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run specific new test with `cargo test --lib test_name`
+3. Check coverage with `cargo tarpaulin --out Stdout | grep execute_step`
+4. Verify no clippy warnings with `cargo clippy`
 
 **Final verification**:
-1. `cargo test` - Full test suite (not just registry tests)
-2. `cargo clippy -- -D warnings` - Strict warning checks
-3. `cargo fmt --check` - Formatting verification
-4. `just ci` - Full CI checks if available
-5. Verify nesting depth improvement with debtmap re-analysis
+1. `cargo test` - Full test suite passes
+2. `cargo clippy` - No warnings
+3. `cargo fmt --check` - Formatting correct
+4. `cargo tarpaulin --out Stdout` - Verify 100% coverage for execute_step
+5. Review coverage report to confirm all 13 previously uncovered lines are now covered
 
-**Expected test coverage**:
-- Existing tests should all pass unchanged
-- No new tests required (function behavior unchanged)
-- Tests cover: template registration, retrieval, metadata handling, listing, errors
+**Coverage Validation**:
+- Baseline: 0% coverage, 13 uncovered lines
+- Target: 100% coverage, 0 uncovered lines
+- Verify improvement with side-by-side comparison
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the specific failure:
-   - Test failures: Check which test failed and why
-   - Clippy warnings: Address the specific warning
-   - Compilation errors: Fix syntax or type errors
-3. Adjust the implementation approach:
-   - If helper functions cause issues, inline them temporarily
-   - If async changes cause problems, keep synchronous helpers
-   - If error handling is too strict, relax with unwrap_or_else
-4. Retry the phase with adjusted approach
+2. Review the test failure or error message
+3. Adjust the test implementation:
+   - Check subprocess manager mock configuration
+   - Verify test environment setup
+   - Review error message assertions
+4. Retry the phase
+
+**Common Issues**:
+- **Subprocess execution fails**: Ensure SubprocessManager is properly configured in test context
+- **Error message mismatch**: Check exact error message format in assertions
+- **Coverage not improving**: Verify tests are actually calling execute_step, not just public methods
 
 ## Notes
 
-### Key Considerations:
+**Key Implementation Details**:
+- The function delegates to subprocess manager for actual execution
+- Tests need to use a real SubprocessManager (production mode) since there's no mock needed for simple shell commands
+- Focus on testing the error handling paths and edge cases
+- The function is private, so tests will be in the existing setup_test.rs file
+- Current tests only test public API (execute, can_skip, validate_context) but not the private execute_step method
 
-1. **Pure vs I/O**: The `list()` function is marked as `PureLogic` role but contains I/O (file system operations). The refactoring should maintain this boundary - helper functions for logic should be pure where possible.
+**Testing Approach**:
+- Direct unit tests of execute_step function (it's private but accessible from test module)
+- Use real subprocess execution for simple commands (echo, true, false)
+- Mock environment setup with PhaseContext for isolation
+- Focus on the 5 execution paths identified in the debt analysis
 
-2. **Async Context**: The function is async and uses `tokio::fs` for file operations. Helper functions that perform I/O must also be async, but pure helpers (like `is_template_file`, `extract_template_name`) can be synchronous.
-
-3. **Error Handling**: The project uses `anyhow::Result` and `.context()` for error messages. Metadata loading failures should not fail the entire listing - use fallback to default metadata.
-
-4. **Existing Tests**: There are 8 tests in the registry module:
-   - `test_template_registry`
-   - `test_template_metadata`
-   - `test_file_template_storage_load_with_metadata`
-   - `test_file_template_storage_load_without_metadata`
-   - `test_file_template_storage_load_missing_template`
-   - `test_file_template_storage_load_invalid_yaml`
-   - `test_file_template_storage_load_invalid_metadata_json`
-   - `test_file_template_storage_load_corrupted_metadata`
-
-   None of these directly test the `list()` function, so behavior changes won't break tests, but we should maintain exact behavior.
-
-5. **Unwrap Usage**: The current code uses `.unwrap_or_default()` on line 362 for JSON parsing. Per Spec 101, this should be replaced with explicit error handling that logs failures but continues processing.
-
-6. **Upstream Callers**: The function is called by:
-   - `TemplateRegistry::list` (line 157)
-   - `TemplateRegistry::load_all` (line 216)
-
-   Both expect a `Result<Vec<TemplateInfo>>` and rely on the listing continuing even if individual templates have issues.
-
-### Pattern to Follow:
-
-The refactoring should follow this pattern from the codebase (like `load_metadata_if_exists`):
-- Extract small, focused functions
-- Use early returns and `?` operator for error propagation
-- Provide meaningful error context with `.context()`
-- Fall back gracefully for non-critical failures
-
-### Success Indicators:
-
-After implementation, the following should be true:
-- Reading the `list()` function should be straightforward
-- Each level of nesting should have a clear purpose
-- Helper functions should be reusable and testable
-- The function should follow the same patterns as other functions in the module
+**Why This Matters**:
+- execute_step is core execution logic with 14 upstream callers
+- 0% coverage creates significant risk in the execution pipeline
+- High cognitive complexity (11) and cyclomatic complexity (5) increase bug risk
+- Testing gap despite having many callers suggests integration testing only, no unit tests

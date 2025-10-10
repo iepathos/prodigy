@@ -1,196 +1,146 @@
-# Implementation Plan: Reduce Nesting in GitRunnerImpl::status
+# Implementation Plan: Reduce Cognitive Complexity in CookSessionAdapter::update_session
 
 ## Problem Summary
 
-**Location**: ./src/subprocess/git.rs:GitRunnerImpl::status:52
-**Priority Score**: 54.7625
-**Debt Type**: ComplexityHotspot (cognitive: 30, cyclomatic: 12)
+**Location**: ./src/unified_session/cook_adapter.rs:CookSessionAdapter::update_session:184
+**Priority Score**: 48.64
+**Debt Type**: ComplexityHotspot (cognitive: 17, cyclomatic: 5)
 **Current Metrics**:
-- Lines of Code: 41
-- Functions: 1 (monolithic)
-- Cyclomatic Complexity: 12
-- Nesting Depth: 4 levels
-- Coverage: Extensively tested (40 upstream callers, 35+ test cases)
+- Lines of Code: 26
+- Function Length: 26
+- Cognitive Complexity: 17
+- Cyclomatic Complexity: 5
+- Coverage: Heavily tested (27 upstream callers)
 
-**Issue**: Function has 4 levels of nesting (for loop → if → if let → operations) which increases cognitive complexity. The debtmap analysis recommends reducing nesting from 4 levels using early returns and extracting deeply nested blocks into separate functions.
+**Issue**: While cyclomatic complexity of 5 is manageable, the cognitive complexity of 17 indicates nested logic and debug logging that makes the function harder to understand. The function has excessive debug logging statements (7 debug calls) interspersed with business logic, creating mental overhead when reading the code.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 6.0 points (from 12 to ~6)
+- Complexity Reduction: 2.5
 - Coverage Improvement: 0.0 (already well-tested)
-- Risk Reduction: 19.166875
+- Risk Reduction: 17.02
 
 **Success Criteria**:
-- [ ] Nesting depth reduced from 4 to 2 or less
-- [ ] Cyclomatic complexity reduced by extracting pure functions
-- [ ] All 35+ existing tests continue to pass without modification
+- [ ] Cognitive complexity reduced from 17 to ≤10
+- [ ] Cyclomatic complexity maintained at ≤5
+- [ ] All 27 existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
-- [ ] Code is more readable and easier to understand
+- [ ] Debug logging separated from business logic
 
 ## Implementation Phases
 
-### Phase 1: Extract Line Parsing Logic into Pure Functions
+### Phase 1: Extract Debug Logging to a Tracing Span
 
-**Goal**: Extract the nested line parsing logic into separate, testable pure functions to reduce complexity and nesting.
-
-**Changes**:
-- Extract branch line parsing into `parse_branch_line(line: &str) -> Option<String>`
-  - Handles `"## "` prefix stripping and upstream split logic
-  - Pure function with no side effects
-- Extract untracked file parsing into `parse_untracked_line(line: &str) -> Option<String>`
-  - Handles `"?? "` prefix stripping
-  - Returns the filename if the line is an untracked file marker
-- Extract modified file parsing into `parse_modified_line(line: &str) -> Option<String>`
-  - Handles all other file status lines (modified, added, deleted, renamed, copied)
-  - Checks line length > 2 and extracts from position 3 onward
-- Add these as module-level pure functions with `#[inline]` for performance
-
-**Testing**:
-- Run existing tests: `cargo test --lib subprocess::git`
-- All 35+ tests should pass without modification
-- Verify line parsing edge cases still work correctly
-
-**Success Criteria**:
-- [ ] Three new pure functions added
-- [ ] Functions are properly documented
-- [ ] All existing tests pass
-- [ ] Ready to commit
-
-### Phase 2: Refactor status() to Use Early Continue Pattern
-
-**Goal**: Simplify the main loop by using the extracted functions and early continue pattern to eliminate nested if-else chains.
+**Goal**: Replace inline debug! calls with a structured tracing span that automatically logs function entry/exit and key operations.
 
 **Changes**:
-- Restructure the for loop to use pattern matching with extracted functions:
-  ```rust
-  for line in output.stdout.lines() {
-      // Early continue for empty lines (implicitly handled by patterns not matching)
-
-      if let Some(branch_name) = parse_branch_line(line) {
-          branch = Some(branch_name);
-          continue;
-      }
-
-      if let Some(file) = parse_untracked_line(line) {
-          untracked_files.push(file);
-          continue;
-      }
-
-      if let Some(file) = parse_modified_line(line) {
-          modified_files.push(file);
-          continue;
-      }
-  }
-  ```
-- This pattern:
-  - Reduces nesting from 4 levels to 2 levels
-  - Makes each case independent and clear
-  - Uses early continue for control flow
-  - Leverages the extracted pure functions
+- Add `#[tracing::instrument(skip(self))]` attribute to the function
+- Remove the 7 inline `debug!()` calls
+- Add strategic span events for the update loop only
 
 **Testing**:
-- Run all git tests: `cargo test --lib subprocess::git`
-- Verify comprehensive test still passes: `test_status_comprehensive_all_scenarios`
-- Test edge cases: empty lines, whitespace, malformed input
+- Run `cargo test --lib -- cook_adapter` to verify all adapter tests pass
+- Run `cargo clippy` to check for warnings
+- Verify logging behavior with `RUST_LOG=debug cargo test test_update_session_with_timing -- --nocapture`
 
 **Success Criteria**:
-- [ ] Nesting reduced to 2 levels maximum
-- [ ] Control flow simplified with early continue
-- [ ] All existing tests pass
-- [ ] Code is more readable
-- [ ] Ready to commit
-
-### Phase 3: Add Inline Documentation and Verify Complexity Reduction
-
-**Goal**: Add clear documentation to the refactored code and verify that complexity metrics have improved.
-
-**Changes**:
-- Add doc comments to the three pure parsing functions explaining:
-  - What git porcelain format they parse
-  - Edge cases they handle
-  - Return value semantics
-- Add inline comment in `status()` explaining the porcelain format structure
-- Run clippy to ensure no new warnings: `cargo clippy --lib`
-- Run formatter: `cargo fmt`
-
-**Testing**:
-- Full test suite: `cargo test`
-- Clippy validation: `cargo clippy`
-- Format check: `cargo fmt -- --check`
-
-**Success Criteria**:
-- [ ] All functions have clear documentation
-- [ ] No clippy warnings
-- [ ] Code properly formatted
+- [ ] Function has instrument attribute
+- [ ] Inline debug calls removed (except for critical state transitions)
 - [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 2: Extract Pure Function for Update Conversion and Application
+
+**Goal**: Separate the pure logic of converting and applying updates from the I/O operations (locking, async calls).
+
+**Changes**:
+- Extract a pure function: `fn apply_unified_updates(manager: &UnifiedSessionManager, id: &SessionId, updates: Vec<UnifiedSessionUpdate>) -> impl Future<Output = Result<()>>`
+- Move the update loop into this new function
+- Keep only the essential I/O operations in `update_session`: lock acquisition, conversion, delegating to pure function, cache update
+
+**Testing**:
+- Run `cargo test --lib -- cook_adapter` to verify all adapter tests pass
+- Unit test the new pure function with mock scenarios
+- Run `cargo clippy` to check for warnings
+
+**Success Criteria**:
+- [ ] New pure function extracted and tested
+- [ ] `update_session` is simplified to: lock → convert → apply → update cache
+- [ ] All existing tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 3: Simplify Early Return Pattern
+
+**Goal**: Use early return to reduce nesting and improve readability.
+
+**Changes**:
+- Replace `if let Some(id) = ...` with early return guard clause:
+  ```rust
+  let Some(id) = &*self.current_session.lock().await else {
+      return Ok(());
+  };
+  ```
+- This eliminates one level of nesting and makes the happy path clearer
+
+**Testing**:
+- Run `cargo test --lib -- cook_adapter::test_update_session_no_active_session` specifically
+- Run full test suite: `cargo test --lib -- cook_adapter`
+- Run `cargo clippy` to check for warnings
+
+**Success Criteria**:
+- [ ] Early return pattern implemented
+- [ ] Nesting depth reduced by 1 level
+- [ ] All tests pass (especially no-active-session case)
+- [ ] No clippy warnings
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run focused tests: `cargo test --lib subprocess::git` to verify git functionality
-2. Run `cargo clippy -- -D warnings` to check for any new warnings
-3. Verify the 35+ existing tests all pass (especially edge case tests added in previous phases)
-
-**Critical test coverage to preserve**:
-- Branch parsing with upstream info
-- Untracked files (`??` prefix)
-- Modified files (all status codes: M, A, D, R, C, MM, AM, etc.)
-- Edge cases: empty lines, whitespace-only lines, line length boundaries
-- Malformed input handling
+1. Run `cargo test --lib -- cook_adapter` to verify all 12+ adapter tests pass
+2. Run `cargo clippy -- -D warnings` to catch any issues
+3. Run `cargo fmt` to ensure proper formatting
+4. Review the specific test cases affected:
+   - Phase 1: `test_update_session_with_timing` (checks logging)
+   - Phase 2: All sequential update tests
+   - Phase 3: `test_update_session_no_active_session`
 
 **Final verification**:
-1. `just ci` - Full CI checks (build, test, clippy, fmt)
-2. Manual verification that nesting depth is reduced
-3. Verify cyclomatic complexity reduction by inspecting the simplified control flow
+1. `just ci` - Full CI checks
+2. Review cognitive complexity improvement (target: 17 → ≤10)
+3. Verify all 27 upstream callers still work correctly
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failures to understand what edge case was broken
-3. Adjust the implementation to handle the edge case
-4. Re-run tests and retry the phase
-
-Since this function is extensively tested (35+ tests covering edge cases), any regression will be immediately caught.
+2. Review the test failure details
+3. Adjust the implementation approach:
+   - Phase 1: Consider keeping minimal debug logging if tracing span isn't sufficient
+   - Phase 2: Ensure async boundaries are correct (await placement)
+   - Phase 3: Verify early return doesn't skip cache updates
+4. Retry with adjustments
 
 ## Notes
 
-### Why This Refactoring is Low Risk:
+**Why this function?**
+- High cognitive complexity (17) despite moderate cyclomatic complexity (5)
+- The mismatch suggests readability issues from logging noise
+- Already has excellent test coverage (27 callers)
+- Pure logic can be extracted without breaking the adapter pattern
 
-1. **Extensive test coverage**: 40 upstream callers and 35+ test cases covering:
-   - Clean repository
-   - Branch parsing (with/without upstream, special characters, spaces, very long names)
-   - File status codes (M, A, D, R, C, MM, AM, etc.)
-   - Edge cases (empty lines, whitespace, line length boundaries)
-   - Error conditions (exit codes, malformed input)
+**Key insights from code analysis**:
+- The 7 debug! calls create cognitive load without adding complexity
+- The nested `if let` can be simplified with early return
+- The update loop is pure logic that can be extracted
+- The function is essentially: lock → convert → apply → cache update
 
-2. **Pure function extraction**: The parsing logic being extracted has no side effects and is easy to reason about
-
-3. **Incremental approach**: Each phase builds on the previous one and maintains all existing behavior
-
-### Functional Programming Principles Applied:
-
-- **Pure functions**: All parsing logic extracted into side-effect-free functions
-- **Separation of I/O from logic**: Git command execution (I/O) remains separate from parsing (pure logic)
-- **Single responsibility**: Each parsing function handles one specific line type
-- **Composition**: The main loop composes the pure parsing functions
-
-### Expected Complexity Reduction:
-
-**Before**:
-- Nesting depth: 4 levels
-- Cyclomatic complexity: 12
-- Pattern: Nested if-else chains in a loop
-
-**After**:
-- Nesting depth: 2 levels (for loop + if let)
-- Cyclomatic complexity: ~6 (complexity moved to pure functions)
-- Pattern: Early continue with pure function calls
-
-The complexity isn't eliminated, but it's:
-- Distributed across focused, testable pure functions
-- Made more readable through clear patterns
-- Easier to extend with new file status types
+**Refactoring approach**:
+- Use tracing spans instead of inline debug calls (reduces cognitive load)
+- Extract the update application loop (pure function)
+- Simplify control flow with early returns (reduces nesting)
+- Keep the adapter pattern intact (no architectural changes)
