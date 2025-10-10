@@ -1,261 +1,233 @@
-# Implementation Plan: Add Tests and Refactor WorkflowExecutor::handle_step_validation
+# Implementation Plan: Refactor GenericResourcePool::acquire for Clarity
 
 ## Problem Summary
 
-**Location**: ./src/cook/workflow/executor/validation.rs:WorkflowExecutor::handle_step_validation:346
-**Priority Score**: 30.04
-**Debt Type**: TestingGap (cognitive: 35, coverage: 0.0%, cyclomatic: 15)
+**Location**: ./src/cook/execution/mapreduce/resources/pool.rs:GenericResourcePool::acquire:121
+**Priority Score**: 28.5
+**Debt Type**: ComplexityHotspot (Cognitive: 32, Cyclomatic: 8)
 **Current Metrics**:
-- Lines of Code: 113
-- Cyclomatic Complexity: 15
-- Cognitive Complexity: 35
-- Coverage: 0.0%
-- Uncovered Lines: 33 ranges (lines 346, 354, 356-357, 360-362, 366-368, 373, 376-380, 411, 414, 416-418, 422-423, 429, 433, 435-436, 438, 447-451)
+- Lines of Code: 78 (function spans lines 121-198)
+- Cyclomatic Complexity: 8
+- Cognitive Complexity: 32
+- Test Coverage: Unknown (transitive_coverage: null)
+- Function Role: PureLogic (purity: 80%)
 
-**Issue**: Complex business logic with 100% coverage gap. Cyclomatic complexity of 15 requires at least 15 test cases for full path coverage. The function handles step validation with multiple branches for dry-run mode, different validation spec types (Single/Multiple/Detailed), timeout handling, and result formatting. Testing before refactoring ensures no regressions during complexity reduction.
+**Issue**: Complexity 8 is manageable but at the threshold. The function has cognitive complexity of 32, suggesting it's doing too much. The function handles:
+1. Resource reuse from pool (lines 124-155)
+2. Semaphore acquisition (lines 157-165)
+3. New resource creation (lines 167-168)
+4. Metrics tracking (appears in both branches)
+5. ResourceGuard creation with cleanup closure (duplicated logic)
+
+**Recommendation**: Current structure is acceptable - prioritize test coverage. Consider extracting guard clauses for precondition checks.
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 4.5 (from 15 to ~10.5)
-- Coverage Improvement: 50.0% (from 0% to 50%)
-- Risk Reduction: 12.61
+**Expected Impact**:
+- Complexity Reduction: 4.0 points (from 8 to ~4)
+- Coverage Improvement: 0.0% (no coverage data available)
+- Risk Reduction: 9.975 points
 
 **Success Criteria**:
-- [ ] At least 15 test cases covering all branches (100% branch coverage)
-- [ ] Extract 7 pure functions with complexity ≤3 each
-- [ ] Coverage reaches 80%+ for the validation module
+- [ ] Cyclomatic complexity reduced from 8 to ≤4
+- [ ] Cognitive complexity reduced from 32 to ≤16
+- [ ] Duplicated logic (ResourceGuard creation) extracted to pure function
+- [ ] Metrics tracking logic extracted to pure function
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Add Core Path Tests (Dry-Run and Basic Execution)
+### Phase 1: Extract Metrics Update Logic
 
-**Goal**: Cover the primary execution paths through handle_step_validation, focusing on dry-run mode and basic validation execution.
-
-**Changes**:
-- Add test for dry-run mode with Single validation spec
-- Add test for dry-run mode with Multiple validation specs
-- Add test for dry-run mode with Detailed validation config
-- Add test for successful validation execution (non-dry-run, Single spec)
-- Add test for successful validation execution (Multiple specs)
-
-**Testing**:
-```bash
-cargo test --lib validation::tests::test_handle_step_validation_dry_run_single
-cargo test --lib validation::tests::test_handle_step_validation_dry_run_multiple
-cargo test --lib validation::tests::test_handle_step_validation_dry_run_detailed
-cargo test --lib validation::tests::test_handle_step_validation_success_single
-cargo test --lib validation::tests::test_handle_step_validation_success_multiple
-```
-
-**Success Criteria**:
-- [ ] 5 new tests pass
-- [ ] Coverage for lines 354-382 achieved
-- [ ] Dry-run branches fully covered
-- [ ] All existing tests pass
-- [ ] Ready to commit
-
-### Phase 2: Add Timeout and Failure Path Tests
-
-**Goal**: Cover timeout handling and validation failure scenarios.
+**Goal**: Remove duplicated metrics tracking logic by extracting it to a pure function
 
 **Changes**:
-- Add test for validation with timeout (successful before timeout)
-- Add test for validation timeout expiration
-- Add test for validation failure with Single spec
-- Add test for validation failure with Multiple specs
-- Add test for validation failure with Detailed config
+- Create `update_acquisition_metrics()` helper function that takes metrics, start time, and whether it's a reuse
+- Replace duplicated metrics update code in both branches (lines 126-136 and 170-179)
+- This reduces cognitive load and eliminates code duplication
 
 **Testing**:
-```bash
-cargo test --lib validation::tests::test_handle_step_validation_timeout_success
-cargo test --lib validation::tests::test_handle_step_validation_timeout_expired
-cargo test --lib validation::tests::test_handle_step_validation_failure_single
-cargo test --lib validation::tests::test_handle_step_validation_failure_multiple
-cargo test --lib validation::tests::test_handle_step_validation_failure_detailed
-```
+- Run `cargo test --lib` to ensure existing tests pass
+- Run `cargo clippy` to verify no warnings
+- Verify metrics are still tracked correctly (if tests exist)
 
 **Success Criteria**:
-- [ ] 5 new tests pass (total: 10)
-- [ ] Coverage for lines 411-430 achieved
-- [ ] Timeout logic fully covered
-- [ ] All existing tests pass
+- [ ] Metrics update logic extracted to single function
+- [ ] Both code paths use the extracted function
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 3: Add Result Formatting and Edge Case Tests
+### Phase 2: Extract ResourceGuard Creation Logic
 
-**Goal**: Cover result display formatting and edge cases like missing timeout, different step types.
+**Goal**: Remove duplicated ResourceGuard creation by extracting cleanup closure logic
 
 **Changes**:
-- Add test for validation result formatting (passed validation)
-- Add test for validation result formatting (failed validation with details)
-- Add test for validation without timeout specified
-- Add test for step with explicit name vs. derived name
-- Add test for validation with empty results list
+- Create `create_resource_guard()` helper function that takes resource, weak pool reference, and cleanup function
+- Replace duplicated guard creation code in both branches (lines 140-154 and 183-197)
+- This eliminates the largest block of duplicated code
 
 **Testing**:
-```bash
-cargo test --lib validation::tests::test_handle_step_validation_format_passed
-cargo test --lib validation::tests::test_handle_step_validation_format_failed_with_details
-cargo test --lib validation::tests::test_handle_step_validation_no_timeout
-cargo test --lib validation::tests::test_handle_step_validation_step_naming
-cargo test --lib validation::tests::test_handle_step_validation_empty_results
-```
+- Run `cargo test --lib` to ensure resource guards work correctly
+- Verify resources are properly returned to pool on drop
+- Check cleanup is called when pool is gone
 
 **Success Criteria**:
-- [ ] 5 new tests pass (total: 15)
-- [ ] Coverage for lines 433-456 achieved
-- [ ] All branches covered (100% branch coverage)
-- [ ] All existing tests pass
+- [ ] ResourceGuard creation extracted to single function
+- [ ] Both code paths use the extracted function
+- [ ] Resource lifecycle works correctly (return to pool or cleanup)
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 4: Extract Pure Functions for Validation Executor Creation
+### Phase 3: Simplify Main Function Flow
 
-**Goal**: Extract the complex validation executor creation logic into pure, testable functions.
+**Goal**: Reduce cognitive complexity by improving control flow clarity
 
 **Changes**:
-- Extract `create_step_validation_executor()` - builds StepValidationExecutor
-- Extract `create_validation_execution_context()` - builds ExecutionContext for validation
-- Add 6 unit tests (3 per extracted function)
-- Refactor `handle_step_validation` to use extracted functions
+- Add early guard clause comment to clarify "try reuse first" intent
+- Consider extracting "create new resource" path to separate method if complexity is still high
+- Ensure function reads top-to-bottom: try reuse → acquire permit → create new
 
 **Testing**:
-```bash
-cargo test --lib validation::tests::test_create_step_validation_executor_*
-cargo test --lib validation::tests::test_create_validation_execution_context_*
-cargo test --lib validation::tests::test_handle_step_validation_* # Regression
-```
+- Run `cargo test --lib` for functional correctness
+- Review code for improved readability
+- Verify control flow is clear and linear
 
 **Success Criteria**:
-- [ ] 2 pure functions extracted with complexity ≤3
-- [ ] 6 new unit tests pass
-- [ ] All 15 integration tests still pass (regression check)
-- [ ] Function length reduced by ~20 lines
-- [ ] No clippy warnings
+- [ ] Main function flow is clear and easy to follow
+- [ ] Cognitive complexity reduced significantly
+- [ ] No nested closures or complex logic in main function
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 5: Extract Pure Functions for Validation Result Handling
+### Phase 4: Add Test Coverage (if needed)
 
-**Goal**: Extract validation result processing and display logic into pure functions.
+**Goal**: Improve test coverage for resource pool acquisition logic
 
 **Changes**:
-- Extract `process_validation_result()` - determines success/failure and formats messages
-- Extract `format_validation_failure_details()` - formats failure detail list
-- Extract `determine_validation_display_message()` - creates appropriate success/warning message
-- Add 9 unit tests (3 per extracted function)
-- Refactor `handle_step_validation` to use extracted functions
+- Add unit tests for extracted helper functions
+- Add integration tests for:
+  - Resource reuse from pool
+  - New resource creation when pool is empty
+  - Semaphore limiting concurrent acquisitions
+  - Metrics tracking accuracy
+  - ResourceGuard cleanup behavior
 
 **Testing**:
-```bash
-cargo test --lib validation::tests::test_process_validation_result_*
-cargo test --lib validation::tests::test_format_validation_failure_details_*
-cargo test --lib validation::tests::test_determine_validation_display_message_*
-cargo test --lib validation::tests::test_handle_step_validation_* # Regression
-```
+- Run `cargo test` to verify all new tests pass
+- Run `cargo tarpaulin` to measure coverage improvement
+- Ensure edge cases are covered
 
 **Success Criteria**:
-- [ ] 3 pure functions extracted with complexity ≤3
-- [ ] 9 new unit tests pass
-- [ ] All previous tests still pass (regression check)
-- [ ] Function length reduced by ~30 more lines
-- [ ] Cyclomatic complexity reduced to ~10
-- [ ] No clippy warnings
+- [ ] Helper functions have unit tests
+- [ ] Main acquisition paths have integration tests
+- [ ] Edge cases (pool empty, semaphore exhausted, cleanup) tested
+- [ ] Coverage improved for this function
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 6: Extract Pure Functions for Timeout Logic
+## Implementation Approach
 
-**Goal**: Extract timeout handling logic into pure, testable functions.
+### Extracting Pure Functions
 
-**Changes**:
-- Extract `should_apply_timeout()` - determines if timeout should be applied
-- Extract `create_timeout_result()` - creates timeout failure result
-- Add 6 unit tests (3 per extracted function)
-- Refactor `handle_step_validation` timeout handling to use extracted functions
+For Phase 1 (Metrics Update):
+```rust
+fn update_acquisition_metrics(
+    metrics: &mut PoolMetrics,
+    start: Instant,
+    is_reuse: bool,
+) {
+    metrics.in_use += 1;
+    metrics.total_acquisitions += 1;
 
-**Testing**:
-```bash
-cargo test --lib validation::tests::test_should_apply_timeout_*
-cargo test --lib validation::tests::test_create_timeout_result_*
-cargo test --lib validation::tests::test_handle_step_validation_* # Regression
+    if is_reuse {
+        metrics.reuse_count += 1;
+        metrics.available = metrics.available.saturating_sub(1);
+    } else {
+        metrics.total_created += 1;
+    }
+
+    let wait_time = start.elapsed();
+    metrics.avg_wait_time_ms = ((metrics.avg_wait_time_ms
+        * (metrics.total_acquisitions - 1) as u64)
+        + wait_time.as_millis() as u64)
+        / metrics.total_acquisitions as u64;
+}
 ```
 
-**Success Criteria**:
-- [ ] 2 pure functions extracted with complexity ≤3
-- [ ] 6 new unit tests pass (total: ~36 new tests)
-- [ ] All previous tests still pass
-- [ ] Final function length: ~50-60 lines (down from 113)
-- [ ] Final cyclomatic complexity: ≤10 (down from 15)
-- [ ] Final coverage: 80%+ for handle_step_validation
-- [ ] No clippy warnings
-- [ ] Ready to commit
+For Phase 2 (ResourceGuard Creation):
+```rust
+fn create_resource_guard<T>(
+    resource: T,
+    pool: Arc<Mutex<VecDeque<T>>>,
+    cleanup: Arc<dyn Fn(T) + Send + Sync>,
+) -> super::ResourceGuard<T>
+where
+    T: Send + 'static,
+{
+    let pool_weak = Arc::downgrade(&pool);
+    super::ResourceGuard::new(resource, move |r| {
+        if let Some(pool) = pool_weak.upgrade() {
+            tokio::spawn(async move {
+                let mut available = pool.lock().await;
+                available.push_back(r);
+            });
+        } else {
+            cleanup(r);
+        }
+    })
+}
+```
+
+### Key Principles
+
+1. **Extract Pure Logic**: Metrics calculation is pure (given inputs → deterministic output)
+2. **Eliminate Duplication**: Both helper functions remove exact duplicates
+3. **Maintain Behavior**: No functional changes, only structural refactoring
+4. **Incremental Progress**: Each phase is independently testable and committable
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib validation::tests` to verify new tests pass
-2. Run `cargo test --lib` to ensure no regressions in other modules
-3. Run `cargo clippy` to check for warnings
-4. Visually inspect coverage with `cargo tarpaulin --lib` (if available)
-
-**Test organization**:
-- Integration tests (Phase 1-3): Test full `handle_step_validation` function behavior
-- Unit tests (Phase 4-6): Test extracted pure functions in isolation
-- Use existing test infrastructure: `create_test_env()`, `MockUserInteraction`
-- Follow existing test naming patterns in the module
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run `cargo clippy` to check for warnings
+3. Run `cargo fmt` to ensure formatting
+4. Manual review of changes for correctness
 
 **Final verification**:
-1. `cargo test --lib` - All tests pass
-2. `cargo clippy` - No warnings
-3. `cargo fmt --check` - Proper formatting
-4. `cargo tarpaulin --lib` - Verify coverage improvement
-5. Review final metrics: complexity ≤10, coverage ≥80%
+1. `just ci` - Full CI checks
+2. `cargo tarpaulin` - Regenerate coverage (if Phase 4 executed)
+3. `debtmap analyze` - Verify complexity reduction
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failure or compilation error
-3. Check if mock setup needs adjustment
-4. Check if async/await handling is correct (this is an async function)
-5. Verify ExecutionEnvironment and WorkflowContext are properly initialized
-6. Adjust the approach and retry
-
-Common gotchas:
-- `handle_step_validation` is async, tests must use `#[tokio::test]`
-- Uses `Box::pin()` for async execution - may need special handling in tests
-- StepValidationCommandExecutor uses raw pointer - may need unsafe blocks or alternative approach
-- MockUserInteraction must be Arc-wrapped
-- ExecutionEnvironment requires Arc-wrapped paths
+2. Review the failure - likely cause:
+   - Incorrect function signature
+   - Missed parameter in extraction
+   - Lifetime or ownership issues
+3. Adjust the plan:
+   - May need to pass additional parameters
+   - May need different ownership model (Arc vs clone)
+4. Retry with fixes
 
 ## Notes
 
-### Key Observations:
-1. Function already has some extracted pure functions at module level (format_validation_passed_message, etc.)
-2. Main complexity comes from branching on StepValidationSpec enum variants (Single/Multiple/Detailed)
-3. Timeout logic adds significant branching (Option<u64> handling)
-4. Dry-run mode creates early return with simulated result
-5. Validation executor creation involves complex Arc/pointer setup
+**Why this approach works:**
+- The function has clear duplication (metrics update, guard creation) that can be extracted
+- Extractions are mechanical and low-risk
+- Each phase reduces both cyclomatic and cognitive complexity
+- No behavioral changes needed - pure refactoring
 
-### Related Code:
-- Pure formatting functions already exist (lines 83-125) and are well-tested
-- `StepValidationExecutor` is used but defined in another module
-- `determine_step_name()` helper already exists and is tested
-- Integration with `user_interaction` for display output
+**Potential gotchas:**
+- Helper functions need proper lifetime annotations for generic T
+- Arc/weak reference patterns must be preserved in extracted guard creation
+- Metrics locking order must be maintained to avoid deadlocks
 
-### Extraction Targets:
-1. **Validation executor creation** (lines 385-391): Complex Arc/pointer setup
-2. **Execution context creation** (lines 394-402): HashMap and struct building
-3. **Timeout application logic** (lines 411-427): Nested conditional with tokio::timeout
-4. **Result processing** (lines 433-453): Iterating failed results and formatting
-5. **Display message determination** (lines 433-444): Choosing success vs. warning
-6. **Dry-run result creation** (lines 376-381): Struct construction
-
-### Coverage Strategy:
-- **Phase 1-3**: Achieve 100% branch coverage through integration tests
-- **Phase 4-6**: Maintain coverage while refactoring via unit tests on extracted functions
-- Target: 15+ branches × 1 test/branch = 15+ integration tests minimum
-- Additional unit tests for extracted functions = 21 unit tests
-- Total: ~36 new tests
+**After this refactor:**
+- Main `acquire()` function will be ~30-40 lines instead of 78
+- Complexity should drop from 8 to ~4 (meeting target)
+- Code will be more testable and maintainable
+- Future changes to metrics or guard creation will be centralized

@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod large_env_tests {
     use super::super::*;
-    use std::time::Duration;
 
     #[tokio::test]
     async fn test_shell_command_with_extremely_large_env_vars() {
