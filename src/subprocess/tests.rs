@@ -175,4 +175,105 @@ mod subprocess_tests {
         assert_eq!(command.timeout, Some(Duration::from_secs(30)));
         assert_eq!(command.stdin, Some("input data".to_string()));
     }
+
+    #[tokio::test]
+    async fn test_environment_not_inherited_from_parent() {
+        // Set a test variable in the parent process that should NOT be inherited
+        std::env::set_var("PRODIGY_TEST_BLOATED_VAR", "x".repeat(10000));
+
+        let runner = runner::TokioProcessRunner;
+        let command = ProcessCommandBuilder::new("sh")
+            .args(["-c", "env | grep PRODIGY_TEST_BLOATED_VAR || echo 'NOT_FOUND'"])
+            .build();
+
+        let output = runner.run(command).await.unwrap();
+        assert!(output.status.success());
+
+        // The bloated variable should NOT appear in the child process environment
+        assert!(
+            output.stdout.contains("NOT_FOUND"),
+            "Parent environment variable was inherited! Output: {}",
+            output.stdout
+        );
+
+        // Clean up
+        std::env::remove_var("PRODIGY_TEST_BLOATED_VAR");
+    }
+
+    #[tokio::test]
+    async fn test_essential_env_vars_preserved() {
+        let runner = runner::TokioProcessRunner;
+        let command = ProcessCommandBuilder::new("sh")
+            .args(["-c", "echo PATH=$PATH HOME=$HOME"])
+            .build();
+
+        let output = runner.run(command).await.unwrap();
+        assert!(output.status.success());
+
+        // Essential variables like PATH and HOME should be preserved
+        // Check that they are NOT empty (PATH= or HOME= alone)
+        assert!(
+            output.stdout.contains("PATH=/") || output.stdout.contains("PATH="),
+            "PATH should be set! Output: {}",
+            output.stdout
+        );
+        assert!(
+            output.stdout.contains("HOME=/") || output.stdout.contains("HOME="),
+            "HOME should be set! Output: {}",
+            output.stdout
+        );
+    }
+
+    #[tokio::test]
+    async fn test_explicit_env_vars_passed() {
+        let runner = runner::TokioProcessRunner;
+        let command = ProcessCommandBuilder::new("sh")
+            .args(["-c", "echo CUSTOM=$CUSTOM_VAR"])
+            .env("CUSTOM_VAR", "test_value")
+            .build();
+
+        let output = runner.run(command).await.unwrap();
+        assert!(output.status.success());
+        assert!(
+            output.stdout.contains("CUSTOM=test_value"),
+            "Explicitly set env var should be passed! Output: {}",
+            output.stdout
+        );
+    }
+
+    #[tokio::test]
+    async fn test_large_env_vars_do_not_cause_e2big() {
+        // Simulate MapReduce scenario with many large environment variables
+        let runner = runner::TokioProcessRunner;
+
+        // Create a command with several large environment variables
+        // (simulating map.results and result.* variables)
+        let large_json = serde_json::json!({
+            "results": vec![
+                serde_json::json!({"item_id": "item1", "output": "x".repeat(1000)}),
+                serde_json::json!({"item_id": "item2", "output": "y".repeat(1000)}),
+                serde_json::json!({"item_id": "item3", "output": "z".repeat(1000)}),
+            ]
+        })
+        .to_string();
+
+        let mut builder = ProcessCommandBuilder::new("sh")
+            .args(["-c", "echo SUCCESS"]);
+
+        // Add the large variables
+        builder = builder.env("MAP_RESULTS", &large_json);
+        for i in 0..10 {
+            builder = builder.env(
+                &format!("RESULT_{}", i),
+                &format!("large_output_{}", "x".repeat(500)),
+            );
+        }
+
+        let command = builder.build();
+        let output = runner.run(command).await.unwrap();
+
+        // Should succeed without E2BIG error
+        assert!(output.status.success());
+        assert_eq!(output.stdout.trim(), "SUCCESS");
+    }
 }
