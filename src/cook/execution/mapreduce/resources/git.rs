@@ -137,7 +137,11 @@ impl GitOperations {
     ///
     /// Handles the merge recovery logic by either committing staged changes
     /// or aborting the incomplete merge.
-    async fn recover_incomplete_merge(&self, parent_path: &Path, agent_branch: &str) -> MapReduceResult<()> {
+    async fn recover_incomplete_merge(
+        &self,
+        parent_path: &Path,
+        agent_branch: &str,
+    ) -> MapReduceResult<()> {
         warn!(
             "Detected incomplete merge state (MERGE_HEAD exists), cleaning up before merging {}",
             agent_branch
@@ -201,7 +205,8 @@ impl GitOperations {
 
         // Recover from incomplete merge if needed (extracted function)
         if Self::has_incomplete_merge(parent_path) {
-            self.recover_incomplete_merge(parent_path, agent_branch).await?;
+            self.recover_incomplete_merge(parent_path, agent_branch)
+                .await?;
         }
 
         // Execute the merge (extracted function)
@@ -349,10 +354,7 @@ mod tests {
     }
 
     /// Helper to create a worktree from the parent repo
-    async fn create_test_worktree(
-        parent_path: &Path,
-        worktree_name: &str,
-    ) -> std::path::PathBuf {
+    async fn create_test_worktree(parent_path: &Path, worktree_name: &str) -> std::path::PathBuf {
         // Create worktree inside the parent directory to avoid conflicts between concurrent tests
         let worktree_path = parent_path.join(worktree_name);
 
@@ -481,9 +483,7 @@ mod tests {
     #[test]
     fn test_should_commit_staged_changes_without_changes() {
         let status_empty = "";
-        assert!(!GitOperations::should_commit_staged_changes(
-            status_empty
-        ));
+        assert!(!GitOperations::should_commit_staged_changes(status_empty));
 
         let status_whitespace = "   \n  \n";
         assert!(!GitOperations::should_commit_staged_changes(
@@ -504,9 +504,7 @@ mod tests {
         };
 
         // Should fail because we're not in a worktree context
-        let result = git_ops
-            .merge_agent_to_parent("agent-branch", &env)
-            .await;
+        let result = git_ops.merge_agent_to_parent("agent-branch", &env).await;
 
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -537,9 +535,7 @@ mod tests {
         let git_ops = GitOperations::new();
 
         // Perform the merge
-        let result = git_ops
-            .merge_agent_to_parent("agent-worktree", &env)
-            .await;
+        let result = git_ops.merge_agent_to_parent("agent-worktree", &env).await;
 
         assert!(result.is_ok());
 
@@ -583,9 +579,7 @@ mod tests {
         let git_ops = GitOperations::new();
 
         // Should recover from incomplete merge and then perform new merge
-        let result = git_ops
-            .merge_agent_to_parent("agent-worktree", &env)
-            .await;
+        let result = git_ops.merge_agent_to_parent("agent-worktree", &env).await;
 
         assert!(result.is_ok());
     }
@@ -614,9 +608,7 @@ mod tests {
         let git_ops = GitOperations::new();
 
         // Should abort incomplete merge and proceed with new merge
-        let result = git_ops
-            .merge_agent_to_parent("agent-worktree", &env)
-            .await;
+        let result = git_ops.merge_agent_to_parent("agent-worktree", &env).await;
 
         assert!(result.is_ok());
 
