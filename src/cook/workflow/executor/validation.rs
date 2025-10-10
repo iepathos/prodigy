@@ -124,6 +124,42 @@ fn determine_step_name(step: &WorkflowStep) -> &str {
     })
 }
 
+// ============================================================================
+// Pure helper functions for validation executor setup
+// ============================================================================
+
+/// Create execution context for step validation
+///
+/// Pure function that builds ExecutionContext with validation-specific settings
+fn create_validation_execution_context(
+    working_directory: std::path::PathBuf,
+    timeout_seconds: Option<u64>,
+) -> ExecutionContext {
+    ExecutionContext {
+        working_directory,
+        env_vars: std::collections::HashMap::new(),
+        capture_output: true,
+        timeout_seconds,
+        stdin: None,
+        capture_streaming: false,
+        streaming_config: None,
+    }
+}
+
+/// Create a timeout failure result for step validation
+///
+/// Pure function that builds StepValidationResult representing a timeout
+fn create_validation_timeout_result(
+    timeout_secs: u64,
+) -> super::super::step_validation::StepValidationResult {
+    super::super::step_validation::StepValidationResult {
+        passed: false,
+        results: vec![],
+        duration: std::time::Duration::from_secs(timeout_secs),
+        attempts: 1,
+    }
+}
+
 impl WorkflowExecutor {
     // ============================================================================
     // Validation functions
@@ -391,15 +427,10 @@ impl WorkflowExecutor {
         );
 
         // Create execution context for validation
-        let exec_context = ExecutionContext {
-            working_directory: env.working_dir.to_path_buf(),
-            env_vars: std::collections::HashMap::new(),
-            capture_output: true,
-            timeout_seconds: step.validation_timeout,
-            stdin: None,
-            capture_streaming: false,
-            streaming_config: None,
-        };
+        let exec_context = create_validation_execution_context(
+            env.working_dir.to_path_buf(),
+            step.validation_timeout,
+        );
 
         // Get step name for logging
         let step_name = determine_step_name(step);
@@ -417,12 +448,7 @@ impl WorkflowExecutor {
                         "Step validation timed out after {} seconds",
                         timeout_secs
                     ));
-                    super::super::step_validation::StepValidationResult {
-                        passed: false,
-                        results: vec![],
-                        duration: std::time::Duration::from_secs(timeout_secs),
-                        attempts: 1,
-                    }
+                    create_validation_timeout_result(timeout_secs)
                 }
             }
         } else {
@@ -814,6 +840,10 @@ impl WorkflowExecutor {
 mod tests {
     use super::*;
     use crate::cook::interaction::{MockUserInteraction, UserInteraction};
+    use crate::cook::workflow::step_validation::{
+        StepValidationConfig, StepValidationSpec, SuccessCriteria, ValidationCommand,
+        ValidationCommandType,
+    };
     use crate::cook::workflow::validation::{
         OnIncompleteConfig, ValidationResult, ValidationStatus,
     };
@@ -1269,5 +1299,191 @@ mod tests {
         };
 
         assert_eq!(determine_step_name(&step), "claude command");
+    }
+
+    // ============================================================================
+    // Phase 1: Core Path Tests for handle_step_validation (Dry-Run Mode)
+    // ============================================================================
+
+    /// Create a minimal WorkflowExecutor for testing
+    fn create_test_executor_for_validation() -> WorkflowExecutor {
+        use crate::cook::workflow::executor::tests::test_mocks::{
+            MockClaudeExecutor, MockSessionManager, MockUserInteraction,
+        };
+
+        WorkflowExecutor::new(
+            Arc::new(MockClaudeExecutor::new()),
+            Arc::new(MockSessionManager::new()),
+            Arc::new(MockUserInteraction::new()),
+        )
+    }
+
+    #[tokio::test]
+    async fn test_handle_step_validation_dry_run_single() {
+        // Test dry-run mode with Single validation spec
+        let (env, mut ctx, _temp_dir) = create_test_env();
+
+        let mut executor = create_test_executor_for_validation();
+        executor.dry_run = true;
+
+        let validation_spec = StepValidationSpec::Single("cargo test".to_string());
+
+        let step = WorkflowStep {
+            name: Some("test-step".to_string()),
+            ..Default::default()
+        };
+
+        let result = executor
+            .handle_step_validation(&validation_spec, &env, &mut ctx, &step)
+            .await;
+
+        assert!(result.is_ok());
+        let validation_result = result.unwrap();
+        assert!(validation_result.passed);
+        assert_eq!(validation_result.results.len(), 0);
+        assert_eq!(validation_result.attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn test_handle_step_validation_dry_run_multiple() {
+        // Test dry-run mode with Multiple validation specs
+        let (env, mut ctx, _temp_dir) = create_test_env();
+
+        let mut executor = create_test_executor_for_validation();
+        executor.dry_run = true;
+
+        let validation_spec = StepValidationSpec::Multiple(vec![
+            "cargo test".to_string(),
+            "cargo clippy".to_string(),
+        ]);
+
+        let step = WorkflowStep {
+            name: Some("test-step".to_string()),
+            ..Default::default()
+        };
+
+        let result = executor
+            .handle_step_validation(&validation_spec, &env, &mut ctx, &step)
+            .await;
+
+        assert!(result.is_ok());
+        let validation_result = result.unwrap();
+        assert!(validation_result.passed);
+        assert_eq!(validation_result.results.len(), 0);
+        assert_eq!(validation_result.attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn test_handle_step_validation_dry_run_detailed() {
+        // Test dry-run mode with Detailed validation config
+        let (env, mut ctx, _temp_dir) = create_test_env();
+
+        let mut executor = create_test_executor_for_validation();
+        executor.dry_run = true;
+
+        let validation_config = StepValidationConfig {
+            commands: vec![ValidationCommand {
+                command: "test.sh".to_string(),
+                expect_output: Some("SUCCESS".to_string()),
+                expect_exit_code: 0,
+                command_type: Some(ValidationCommandType::Shell),
+            }],
+            success_criteria: SuccessCriteria::All,
+            max_attempts: 3,
+            retry_delay: 10,
+        };
+
+        let validation_spec = StepValidationSpec::Detailed(validation_config);
+
+        let step = WorkflowStep {
+            name: Some("test-step".to_string()),
+            ..Default::default()
+        };
+
+        let result = executor
+            .handle_step_validation(&validation_spec, &env, &mut ctx, &step)
+            .await;
+
+        assert!(result.is_ok());
+        let validation_result = result.unwrap();
+        assert!(validation_result.passed);
+        assert_eq!(validation_result.results.len(), 0);
+        assert_eq!(validation_result.attempts, 0);
+    }
+
+    // ============================================================================
+    // Phase 4: Tests for Pure Validation Setup Functions
+    // ============================================================================
+
+    #[test]
+    fn test_create_validation_execution_context_with_timeout() {
+        let working_dir = std::path::PathBuf::from("/tmp/test");
+        let timeout = Some(30);
+
+        let context = create_validation_execution_context(working_dir.clone(), timeout);
+
+        assert_eq!(context.working_directory, working_dir);
+        assert!(context.env_vars.is_empty());
+        assert!(context.capture_output);
+        assert_eq!(context.timeout_seconds, Some(30));
+        assert!(context.stdin.is_none());
+        assert!(!context.capture_streaming);
+        assert!(context.streaming_config.is_none());
+    }
+
+    #[test]
+    fn test_create_validation_execution_context_without_timeout() {
+        let working_dir = std::path::PathBuf::from("/tmp/test");
+
+        let context = create_validation_execution_context(working_dir.clone(), None);
+
+        assert_eq!(context.working_directory, working_dir);
+        assert!(context.timeout_seconds.is_none());
+        assert!(context.capture_output);
+    }
+
+    #[test]
+    fn test_create_validation_execution_context_zero_timeout() {
+        let working_dir = std::path::PathBuf::from("/tmp/test");
+        let timeout = Some(0);
+
+        let context = create_validation_execution_context(working_dir.clone(), timeout);
+
+        assert_eq!(context.timeout_seconds, Some(0));
+    }
+
+    // ============================================================================
+    // Phase 6: Tests for Timeout Result Creation
+    // ============================================================================
+
+    #[test]
+    fn test_create_validation_timeout_result_basic() {
+        let timeout_secs = 30;
+
+        let result = create_validation_timeout_result(timeout_secs);
+
+        assert!(!result.passed);
+        assert_eq!(result.results.len(), 0);
+        assert_eq!(result.duration, std::time::Duration::from_secs(30));
+        assert_eq!(result.attempts, 1);
+    }
+
+    #[test]
+    fn test_create_validation_timeout_result_zero_timeout() {
+        let result = create_validation_timeout_result(0);
+
+        assert!(!result.passed);
+        assert_eq!(result.duration, std::time::Duration::from_secs(0));
+    }
+
+    #[test]
+    fn test_create_validation_timeout_result_long_timeout() {
+        let timeout_secs = 3600; // 1 hour
+
+        let result = create_validation_timeout_result(timeout_secs);
+
+        assert!(!result.passed);
+        assert_eq!(result.duration, std::time::Duration::from_secs(3600));
+        assert_eq!(result.attempts, 1);
     }
 }
