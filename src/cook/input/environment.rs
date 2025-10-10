@@ -93,6 +93,45 @@ fn build_single_input(env_vars: Vec<(String, String)>, prefix: Option<String>) -
     input
 }
 
+/// Builds multiple inputs, one per environment variable.
+fn build_multi_inputs(
+    env_vars: Vec<(String, String)>,
+    prefix: Option<String>,
+) -> Vec<ExecutionInput> {
+    env_vars
+        .into_iter()
+        .map(|(key, value)| {
+            let mut input = ExecutionInput::new(
+                format!("env_{}", key.to_lowercase()),
+                InputType::Environment {
+                    prefix: prefix.clone(),
+                },
+            );
+
+            // Add the environment variable
+            input.add_variable("env_key".to_string(), VariableValue::String(key.clone()));
+            input.add_variable(
+                "env_value".to_string(),
+                VariableValue::String(value.clone()),
+            );
+
+            // Strip prefix from key if specified
+            if let Some(ref p) = prefix {
+                let stripped_key = key.strip_prefix(p).unwrap_or(&key);
+                input.add_variable(
+                    "env_key_stripped".to_string(),
+                    VariableValue::String(stripped_key.to_string()),
+                );
+            }
+
+            // Enrich with typed values
+            enrich_input_with_types(&mut input, &key, &value);
+
+            input
+        })
+        .collect()
+}
+
 #[async_trait]
 impl InputProvider for EnvironmentInputProvider {
     fn input_type(&self) -> InputType {
@@ -118,38 +157,8 @@ impl InputProvider for EnvironmentInputProvider {
             let input = build_single_input(env_vars, prefix.clone());
             inputs.push(input);
         } else {
-            // Create one input per environment variable
-            let env_vars: Vec<(String, String)> = filter_env_vars(prefix.as_deref(), filter_empty);
-
-            for (key, value) in env_vars {
-                let mut input = ExecutionInput::new(
-                    format!("env_{}", key.to_lowercase()),
-                    InputType::Environment {
-                        prefix: prefix.clone(),
-                    },
-                );
-
-                // Add the environment variable
-                input.add_variable("env_key".to_string(), VariableValue::String(key.clone()));
-                input.add_variable(
-                    "env_value".to_string(),
-                    VariableValue::String(value.clone()),
-                );
-
-                // Strip prefix from key if specified
-                if let Some(ref p) = prefix {
-                    let stripped_key = key.strip_prefix(p).unwrap_or(&key);
-                    input.add_variable(
-                        "env_key_stripped".to_string(),
-                        VariableValue::String(stripped_key.to_string()),
-                    );
-                }
-
-                // Enrich with typed values
-                enrich_input_with_types(&mut input, &key, &value);
-
-                inputs.push(input);
-            }
+            let env_vars = filter_env_vars(prefix.as_deref(), filter_empty);
+            inputs = build_multi_inputs(env_vars, prefix.clone());
         }
 
         Ok(inputs)
