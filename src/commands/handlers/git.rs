@@ -216,6 +216,18 @@ impl GitHandler {
                 .with_duration(duration),
         }
     }
+
+    /// Validates preconditions and prepares git command arguments
+    ///
+    /// This pure function performs all validation and argument building without side effects.
+    /// It returns the validated operation and prepared git arguments, or an error if validation fails.
+    fn validate_and_prepare(
+        attributes: &HashMap<String, AttributeValue>,
+    ) -> Result<(String, Vec<String>), String> {
+        let operation = Self::validate_operation(attributes)?;
+        let git_args = Self::build_git_args(&operation, attributes)?;
+        Ok((operation, git_args))
+    }
 }
 
 #[async_trait]
@@ -251,19 +263,13 @@ impl CommandHandler for GitHandler {
         // Apply defaults
         self.schema().apply_defaults(&mut attributes);
 
-        // Validate operation
-        let operation = match Self::validate_operation(&attributes) {
-            Ok(op) => op,
+        // Validate preconditions and prepare git arguments
+        let (operation, git_args) = match Self::validate_and_prepare(&attributes) {
+            Ok(result) => result,
             Err(e) => return CommandResult::error(e),
         };
 
         let start = Instant::now();
-
-        // Build git command arguments using pure functions
-        let git_args = match Self::build_git_args(&operation, &attributes) {
-            Ok(args) => args,
-            Err(e) => return CommandResult::error(e),
-        };
 
         // Handle auto-staging for commits
         if !context.dry_run {
