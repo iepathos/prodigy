@@ -294,3 +294,256 @@ where
         self.inner.clear().await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// Simple counter resource for testing
+    #[derive(Debug, Clone)]
+    struct CounterResource {
+        id: usize,
+    }
+
+    /// Create a simple factory that generates incrementing IDs
+    fn create_counter_factory(
+        counter: Arc<AtomicUsize>,
+    ) -> impl Fn() -> futures::future::BoxFuture<'static, MapReduceResult<CounterResource>> {
+        move || {
+            let counter = counter.clone();
+            Box::pin(async move {
+                let id = counter.fetch_add(1, Ordering::Relaxed);
+                Ok(CounterResource { id })
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn test_pool_creates_new_resource() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let factory = create_counter_factory(counter.clone());
+        let pool = GenericResourcePool::new(5, factory);
+
+        let guard = pool.acquire().await.expect("Failed to acquire resource");
+        let resource = guard.get().expect("Resource should be present");
+
+        assert_eq!(resource.id, 0);
+        assert_eq!(counter.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn test_pool_reuses_resource() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let factory = create_counter_factory(counter.clone());
+        let pool = Arc::new(GenericResourcePool::new(5, factory));
+
+        // Acquire and drop a resource
+        {
+            let _guard = pool.acquire().await.expect("Failed to acquire");
+            // Guard dropped here, resource should be returned to pool
+        }
+
+        // Give async cleanup time to complete
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // Acquire again - should reuse the resource
+        let guard = pool.acquire().await.expect("Failed to reacquire");
+        let resource = guard.get().expect("Resource should be present");
+
+        // Should still be the first resource (id=0)
+        assert_eq!(resource.id, 0);
+        // Counter should still be 1 (no new resource created)
+        assert_eq!(counter.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn test_pool_respects_max_size() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let factory = create_counter_factory(counter.clone());
+        let pool = Arc::new(GenericResourcePool::new(2, factory));
+
+        // Acquire 2 resources (max size)
+        let guard1 = pool.acquire().await.expect("Failed to acquire 1");
+        let guard2 = pool.acquire().await.expect("Failed to acquire 2");
+
+        assert_eq!(counter.load(Ordering::Relaxed), 2);
+
+        // Drop one guard to return it to the pool
+        drop(guard1);
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // Acquire a 3rd - should reuse the returned resource
+        let guard3 = pool.acquire().await.expect("Failed to acquire 3");
+
+        // Should still be 2 total resources created (reused first one)
+        assert_eq!(counter.load(Ordering::Relaxed), 2);
+
+        drop(guard2);
+        drop(guard3);
+    }
+
+    #[tokio::test]
+    async fn test_update_acquisition_metrics_reuse() {
+        let mut metrics = PoolMetrics::default();
+        let start = Instant::now();
+
+        // Create a concrete type for testing
+        type TestPool = GenericResourcePool<
+            CounterResource,
+            fn() -> futures::future::BoxFuture<'static, MapReduceResult<CounterResource>>,
+        >;
+
+        TestPool::update_acquisition_metrics(&mut metrics, start, true);
+
+        assert_eq!(metrics.in_use, 1);
+        assert_eq!(metrics.total_acquisitions, 1);
+        assert_eq!(metrics.reuse_count, 1);
+        assert_eq!(metrics.total_created, 0);
+    }
+
+    #[tokio::test]
+    async fn test_update_acquisition_metrics_new() {
+        let mut metrics = PoolMetrics::default();
+        let start = Instant::now();
+
+        type TestPool = GenericResourcePool<
+            CounterResource,
+            fn() -> futures::future::BoxFuture<'static, MapReduceResult<CounterResource>>,
+        >;
+
+        TestPool::update_acquisition_metrics(&mut metrics, start, false);
+
+        assert_eq!(metrics.in_use, 1);
+        assert_eq!(metrics.total_acquisitions, 1);
+        assert_eq!(metrics.reuse_count, 0);
+        assert_eq!(metrics.total_created, 1);
+    }
+
+    #[tokio::test]
+    async fn test_update_acquisition_metrics_multiple() {
+        let mut metrics = PoolMetrics::default();
+        let start = Instant::now();
+
+        type TestPool = GenericResourcePool<
+            CounterResource,
+            fn() -> futures::future::BoxFuture<'static, MapReduceResult<CounterResource>>,
+        >;
+
+        // First acquisition (new)
+        TestPool::update_acquisition_metrics(&mut metrics, start, false);
+
+        // Second acquisition (reuse)
+        TestPool::update_acquisition_metrics(&mut metrics, start, true);
+
+        assert_eq!(metrics.in_use, 2);
+        assert_eq!(metrics.total_acquisitions, 2);
+        assert_eq!(metrics.reuse_count, 1);
+        assert_eq!(metrics.total_created, 1);
+    }
+
+    #[tokio::test]
+    async fn test_resource_guard_returns_to_pool() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let factory = create_counter_factory(counter.clone());
+        let pool = Arc::new(GenericResourcePool::new(5, factory));
+
+        // Acquire a resource
+        let guard = pool.acquire().await.expect("Failed to acquire");
+        let initial_id = guard.get().expect("Resource should be present").id;
+
+        // Drop the guard
+        drop(guard);
+
+        // Give async cleanup time to complete
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // Acquire again - should get the same resource back
+        let guard2 = pool.acquire().await.expect("Failed to reacquire");
+        let reused_id = guard2.get().expect("Resource should be present").id;
+
+        assert_eq!(initial_id, reused_id);
+    }
+
+    #[tokio::test]
+    async fn test_resource_cleanup_called() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let cleanup_counter = Arc::new(AtomicUsize::new(0));
+        let cleanup_counter_clone = cleanup_counter.clone();
+
+        let factory = create_counter_factory(counter.clone());
+        let pool = GenericResourcePool::with_cleanup(5, factory, move |_resource| {
+            cleanup_counter_clone.fetch_add(1, Ordering::Relaxed);
+        });
+
+        // Acquire and drop multiple resources to populate the pool
+        for _ in 0..3 {
+            let guard = pool.acquire().await.expect("Failed to acquire");
+            drop(guard);
+        }
+
+        // Give async cleanup time to complete
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // Clear the pool - cleanup should be called for all resources
+        pool.clear().await;
+
+        // Cleanup should have been called for all 3 resources
+        assert_eq!(cleanup_counter.load(Ordering::Relaxed), 3);
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_acquisitions() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let factory = create_counter_factory(counter.clone());
+        let pool = Arc::new(GenericResourcePool::new(10, factory));
+
+        let mut handles = vec![];
+
+        // Spawn multiple rounds of acquisitions
+        // First round: Create initial resources
+        for _ in 0..5 {
+            let pool_clone = pool.clone();
+            let handle = tokio::spawn(async move {
+                let guard = pool_clone.acquire().await.expect("Failed to acquire");
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                drop(guard);
+            });
+            handles.push(handle);
+        }
+
+        // Wait for first round
+        for handle in handles.drain(..) {
+            handle.await.expect("Task panicked");
+        }
+
+        // Give time for resources to return to pool
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        let created_after_first_round = counter.load(Ordering::Relaxed);
+
+        // Second round: Should reuse existing resources
+        for _ in 0..5 {
+            let pool_clone = pool.clone();
+            let handle = tokio::spawn(async move {
+                let guard = pool_clone.acquire().await.expect("Failed to acquire");
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                drop(guard);
+            });
+            handles.push(handle);
+        }
+
+        // Wait for second round
+        for handle in handles {
+            handle.await.expect("Task panicked");
+        }
+
+        let created_after_second_round = counter.load(Ordering::Relaxed);
+
+        // Second round should have reused resources (same count)
+        assert_eq!(
+            created_after_first_round, created_after_second_round,
+            "Resources should have been reused in second round"
+        );
+    }
+}
