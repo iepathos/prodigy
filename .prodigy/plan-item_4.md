@@ -1,244 +1,176 @@
-# Implementation Plan: Add Test Coverage for CheckpointedCoordinator::execute_map_with_checkpoints
+# Implementation Plan: Extract Pure Functions from EnvironmentInputProvider::generate_inputs
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/mapreduce/checkpoint_integration.rs:CheckpointedCoordinator::execute_map_with_checkpoints:215
-**Priority Score**: 31.26
-**Debt Type**: TestingGap (100% coverage gap)
-
+**Location**: ./src/cook/input/environment.rs:EnvironmentInputProvider::generate_inputs:20
+**Priority Score**: 30.024090608043835
+**Debt Type**: ComplexityHotspot (cognitive: 43, cyclomatic: 16)
 **Current Metrics**:
-- Lines of Code: 51
-- Cyclomatic Complexity: 11
-- Cognitive Complexity: 48
-- Direct Coverage: 0.0%
-- Transitive Coverage: 25% (from downstream helpers)
+- Lines of Code: 119
+- Cyclomatic Complexity: 16
+- Cognitive Complexity: 43
+- Coverage: Not specified (likely low based on score)
+- Function Role: PureLogic (but currently not pure)
 
-**Uncovered Lines**: 215, 220, 223-224, 228-229, 232-234, 238-239, 242, 244-245, 248, 250, 253-255, 260-261, 263
-
-**Issue**: Complex business logic with complete testing gap. Function orchestrates map phase execution with checkpoint management, batch processing, and result aggregation. Cyclomatic complexity of 11 requires at least 11 test cases for full path coverage.
-
-**Rationale**: Testing before refactoring ensures no regressions. Function currently has 0% direct coverage despite being critical coordination logic. After achieving coverage, the function should be refactored into smaller, testable pure functions.
+**Issue**: Apply functional patterns: 4 pure functions with Iterator chains - Moderate complexity (16), needs functional decomposition
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 3.3 (from extracting pure functions)
-- Coverage Improvement: 50.0% (to reach ~50% coverage)
-- Risk Reduction: 13.13
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 8.0
+- Coverage Improvement: 0.0
+- Risk Reduction: 10.50843171281534
 
 **Success Criteria**:
-- [ ] All 22 uncovered lines have test coverage
-- [ ] All 11 execution paths are tested
+- [ ] Cyclomatic complexity reduced from 16 to ~8
+- [ ] Function decomposed into 4+ pure functions
+- [ ] Duplicated filtering logic eliminated
+- [ ] Iterator chains replace procedural loops
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting (cargo fmt)
-- [ ] Integration tests cover end-to-end map phase execution
-- [ ] Edge cases (empty items, checkpoint triggers, errors) are tested
+- [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Integration Tests for Happy Path
+### Phase 1: Extract Environment Variable Filtering Logic
 
-**Goal**: Add integration tests that cover the main execution flow of `execute_map_with_checkpoints`, focusing on the orchestration logic that ties together checkpoint updates, batch processing, and result aggregation.
+**Goal**: Create a pure function for filtering environment variables based on prefix and empty value criteria
 
 **Changes**:
-- Add test `test_execute_map_with_checkpoints_happy_path` covering:
-  - Phase transition from Setup to Map (lines 223-224)
-  - Work items loading and checkpoint update (lines 228-234)
-  - Initial checkpoint save (lines 238-239)
-  - Batch processing loop (lines 244-256)
-  - Final checkpoint save (lines 260-261)
-  - Return of results (line 263)
-- Add test `test_execute_map_with_checkpoints_empty_items` covering:
-  - Handling when work items list is empty
-  - Ensures graceful handling of zero-item execution
-- Add test `test_execute_map_with_checkpoints_single_batch` covering:
-  - Processing when all items fit in one batch
-  - Verifies checkpoint logic with single batch
+- Extract `filter_env_vars` pure function that encapsulates the filtering logic
+- Parameters: prefix (Option<&str>), filter_empty (bool)
+- Returns: impl Iterator<Item=(String, String)>
+- Eliminates duplicated filter code (lines 39-51 and 74-86)
 
 **Testing**:
-```bash
-cargo test --lib test_execute_map_with_checkpoints
-cargo test --lib checkpoint_integration::tests
-```
+- Unit test the filter function with various prefixes
+- Test empty value filtering behavior
+- Verify both single_input and multi-input modes still work
 
 **Success Criteria**:
-- [ ] Tests pass and cover lines 215-263
-- [ ] Happy path execution is verified end-to-end
-- [ ] Edge cases (empty, single batch) are handled
-- [ ] All existing tests pass
+- [ ] No duplicated filtering code
+- [ ] New pure function is testable
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 2: Tests for Checkpoint Triggering Logic
+### Phase 2: Extract Variable Enrichment Logic
 
-**Goal**: Add tests specifically for the checkpoint decision and triggering logic within the batch processing loop.
+**Goal**: Create pure functions for adding typed variables to inputs
 
 **Changes**:
-- Add test `test_checkpoint_triggered_during_batch_processing` covering:
-  - Checkpoint condition check (line 253)
-  - Checkpoint save when triggered (line 254)
-  - Counter reset (line 255)
-- Add test `test_no_checkpoint_when_threshold_not_reached` covering:
-  - Batch processing without hitting checkpoint threshold
-  - Verifies counter accumulation without reset
-- Add test `test_multiple_checkpoint_triggers` covering:
-  - Processing enough batches to trigger multiple checkpoints
-  - Verifies checkpoint save happens at correct intervals
+- Extract `try_parse_as_number` function for numeric parsing
+- Extract `try_parse_as_boolean` function for boolean parsing
+- Extract `is_path_like_key` predicate function
+- Extract `enrich_input_with_types` function that uses the above
+- Move logic from lines 113-131 into these pure functions
 
 **Testing**:
-```bash
-cargo test --lib test_checkpoint_triggered
-cargo test --lib checkpoint_integration::tests
-```
+- Unit test each parsing function
+- Test path detection logic
+- Test enrichment with various input types
 
 **Success Criteria**:
-- [ ] Checkpoint logic paths (lines 253-255) are fully covered
-- [ ] Decision logic is tested with various thresholds
-- [ ] Counter reset behavior is verified
-- [ ] All existing tests pass
+- [ ] Type parsing logic extracted into pure functions
+- [ ] Functions are composable and testable
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 3: Tests for Batch Processing Loop Edge Cases
+### Phase 3: Extract Single Input Builder
 
-**Goal**: Add tests for edge cases and boundary conditions in the batch processing loop.
+**Goal**: Create a pure function for building the single consolidated input
 
 **Changes**:
-- Add test `test_batch_loop_with_variable_batch_sizes` covering:
-  - Processing items when total doesn't divide evenly by max_parallel
-  - Last batch being smaller than max_parallel
-- Add test `test_batch_processing_result_aggregation` covering:
-  - Extending results from each batch (line 250)
-  - Verifying all results are collected correctly
-- Add test `test_checkpoint_update_with_results` covering:
-  - Checkpoint update after each batch (line 248)
-  - Verifying work item state changes (pending → in-progress → completed)
+- Extract `build_single_input` function that:
+  - Takes filtered environment variables
+  - Creates the ExecutionInput with all vars as an object
+  - Adds metadata (count, prefix)
+- Move logic from lines 29-70 into this function
+- Use functional patterns (fold/collect for building the HashMap)
 
 **Testing**:
-```bash
-cargo test --lib test_batch_loop
-cargo test --lib checkpoint_integration::tests
-```
+- Unit test single input creation
+- Test with various environment variable sets
+- Verify metadata is correctly added
 
 **Success Criteria**:
-- [ ] Batch loop edge cases are covered (lines 244-256)
-- [ ] Result aggregation is verified (line 250)
-- [ ] Checkpoint updates are tested (line 248)
-- [ ] All existing tests pass
+- [ ] Single input logic is a pure function
+- [ ] Uses functional patterns instead of imperative loops
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 4: Tests for Phase Transitions and State Management
+### Phase 4: Extract Multi Input Builder
 
-**Goal**: Add tests for checkpoint state management during phase transitions.
+**Goal**: Create a pure function for building individual inputs per variable
 
 **Changes**:
-- Add test `test_phase_transition_to_map` covering:
-  - Update checkpoint to Map phase (lines 223-224)
-  - Verifying both metadata and execution_state are updated
-- Add test `test_work_items_checkpoint_update` covering:
-  - Checkpoint update with work items (lines 232-234)
-  - Verifying total_work_items and pending_items are set correctly
-- Add test `test_initial_and_final_checkpoint_saves` covering:
-  - Initial checkpoint save with PhaseTransition reason (lines 238-239)
-  - Final checkpoint save after processing (lines 260-261)
-  - Verifying checkpoint metadata is correct
+- Extract `build_multi_inputs` function that:
+  - Takes filtered environment variables
+  - Maps each to an ExecutionInput
+  - Enriches with typed values using Phase 2 functions
+- Move logic from lines 72-134 into this function
+- Use iterator chains (map) instead of for loops
 
 **Testing**:
-```bash
-cargo test --lib test_phase_transition
-cargo test --lib checkpoint_integration::tests
-```
+- Unit test multi input creation
+- Test prefix stripping behavior
+- Test type enrichment integration
 
 **Success Criteria**:
-- [ ] Phase transition logic is covered (lines 223-224)
-- [ ] Checkpoint state updates are verified (lines 232-234)
-- [ ] Initial and final saves are tested (lines 238-239, 260-261)
-- [ ] All existing tests pass
+- [ ] Multi input logic is a pure function
+- [ ] Uses iterator chains instead of loops
+- [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 5: Final Verification and Coverage Analysis
+### Phase 5: Refactor Main Function to Orchestrate
 
-**Goal**: Verify that all uncovered lines are now tested and analyze the coverage improvement.
+**Goal**: Simplify generate_inputs to just orchestrate the pure functions
 
 **Changes**:
-- Run `cargo tarpaulin` to generate coverage report
-- Verify all 22 previously uncovered lines are now covered
-- Add any missing tests for gaps identified by coverage analysis
-- Run full CI suite to ensure no regressions
-- Document test coverage improvements in commit message
+- Refactor `generate_inputs` to:
+  - Extract config parameters
+  - Call filter function
+  - Branch to either single or multi builder
+  - Return results
+- Function should be <20 lines
+- All business logic in pure functions
 
 **Testing**:
-```bash
-cargo tarpaulin --lib --out Html --output-dir coverage
-just ci
-cargo test --lib
-cargo clippy --all-targets --all-features
-```
+- Integration tests for full workflow
+- Verify both modes still work correctly
+- Performance should be same or better
 
 **Success Criteria**:
-- [ ] Coverage for `execute_map_with_checkpoints` reaches ≥90%
-- [ ] All 22 previously uncovered lines are now tested
-- [ ] All tests pass (unit + integration)
-- [ ] No clippy warnings
-- [ ] CI checks pass
+- [ ] Main function is simple orchestration
+- [ ] All logic is in testable pure functions
+- [ ] Complexity reduced to target (~8)
+- [ ] All tests pass
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib checkpoint_integration::tests` to verify new tests pass
-2. Run `cargo test --lib` to ensure no regressions in other tests
-3. Run `cargo clippy` to check for warnings
-4. Run `cargo fmt` to ensure proper formatting
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run `cargo clippy` to check for warnings
+3. Add unit tests for each new pure function
+4. Run `cargo fmt` to ensure formatting
 
 **Final verification**:
 1. `just ci` - Full CI checks
-2. `cargo tarpaulin --lib` - Regenerate coverage report
-3. Verify coverage improvement from 0% to ≥50%
-4. Review uncovered lines to confirm they're either unreachable or tested
+2. `cargo tarpaulin --lib` - Check coverage improvement
+3. Re-run debtmap to verify complexity reduction
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failures and error messages
-3. Adjust the test approach (e.g., use different mocking strategy)
-4. Retry the phase with corrections
+2. Review the failure and error messages
+3. Adjust the extraction strategy if needed
+4. Retry with smaller incremental changes
 
 ## Notes
 
-### Testing Approach
-
-This function is complex async orchestration code that coordinates multiple subsystems:
-- Checkpoint state management (lines 223-234, 238-239, 260-261)
-- Work item processing (lines 228-229)
-- Batch processing loop (lines 244-256)
-- Checkpoint decision logic (lines 253-255)
-
-**Strategy**:
-1. **Integration tests first**: Test the full execution flow to verify orchestration
-2. **Focused tests second**: Test specific branches and edge cases
-3. **Use existing test patterns**: The codebase already has tests for `get_next_batch`, `process_batch`, etc.
-4. **Mock minimally**: Leverage the fact that helper methods (`load_work_items`, `process_batch`) are already testable stubs
-
-### Key Testing Challenges
-
-1. **Async complexity**: Function uses async/await and RwLock guards
-   - Solution: Use tokio::test for async test execution
-   - Solution: Carefully manage lock acquisition/release in tests
-
-2. **Checkpoint state management**: Function mutates shared checkpoint state
-   - Solution: Create test fixtures with pre-initialized checkpoint state
-   - Solution: Verify state changes through read locks
-
-3. **Batch processing loop**: While loop with conditional checkpointing
-   - Solution: Test with various item counts to trigger different loop iterations
-   - Solution: Verify checkpoint saves happen at correct intervals
-
-### Next Steps After This Plan
-
-After achieving test coverage, the next debt item should address the high cognitive complexity (48) by:
-1. Extracting pure functions from the coordination logic
-2. Separating I/O from business logic
-3. Reducing function to simple orchestration of smaller, well-tested functions
-
-This two-phase approach (test first, refactor second) ensures we don't introduce regressions during refactoring.
+- The duplicated filtering logic (lines 39-51 and 74-86) is the primary source of complexity
+- The function mixes I/O (env::vars()) with business logic, but since env::vars() is essentially a read operation, we'll treat the filtered results as the input to our pure functions
+- Focus on making each extracted function independently testable
+- Use Iterator trait methods to enable lazy evaluation and better composition
+- Consider using the newtype pattern for environment variable keys/values if type safety becomes an issue
