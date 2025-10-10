@@ -45,10 +45,10 @@
 - Run `cargo clippy` to check for warnings
 
 **Success Criteria**:
-- [ ] Stream creation logic extracted
-- [ ] No code duplication for stdout/stderr handling
-- [ ] All tests pass
-- [ ] Ready to commit
+- [x] Stream creation logic extracted
+- [x] No code duplication for stdout/stderr handling
+- [x] All tests pass
+- [x] Ready to commit
 
 ### Phase 2: Extract Process Setup Logic
 

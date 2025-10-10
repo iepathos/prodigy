@@ -399,6 +399,25 @@ impl TokioProcessRunner {
         }
     }
 
+    /// Spawn and configure a process with optional stdin
+    async fn spawn_configured_process(
+        command: &ProcessCommand,
+    ) -> Result<tokio::process::Child, ProcessError> {
+        // Configure and spawn the process
+        let mut cmd = Self::configure_command(command);
+        let mut child = cmd.spawn().map_err(|e| ProcessError::SpawnFailed {
+            command: format!("{} {}", command.program, command.args.join(" ")),
+            source: e.into(),
+        })?;
+
+        // Write stdin if provided
+        if let Some(stdin_data) = &command.stdin {
+            Self::write_stdin(&mut child, stdin_data).await?;
+        }
+
+        Ok(child)
+    }
+
     /// Extract and create output streams from a child process
     fn create_output_streams(
         child: &mut tokio::process::Child,
@@ -464,17 +483,8 @@ impl ProcessRunner for TokioProcessRunner {
         // Log command execution
         Self::log_command_start(&command);
 
-        // Configure and spawn the process
-        let mut cmd = Self::configure_command(&command);
-        let mut child = cmd.spawn().map_err(|e| ProcessError::SpawnFailed {
-            command: format!("{} {}", command.program, command.args.join(" ")),
-            source: e.into(),
-        })?;
-
-        // Write stdin if provided
-        if let Some(stdin_data) = &command.stdin {
-            Self::write_stdin(&mut child, stdin_data).await?;
-        }
+        // Spawn and configure process with stdin
+        let mut child = Self::spawn_configured_process(&command).await?;
 
         // Extract and create output streams
         let (stdout_stream, stderr_stream) = Self::create_output_streams(&mut child)?;
