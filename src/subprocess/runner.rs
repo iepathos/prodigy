@@ -171,7 +171,7 @@ impl TokioProcessRunner {
         );
 
         if !command.env.is_empty() {
-            tracing::warn!(
+            tracing::debug!(
                 "Environment variables count: {}, total size: {} bytes",
                 command.env.len(),
                 command
