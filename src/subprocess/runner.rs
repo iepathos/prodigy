@@ -174,7 +174,9 @@ impl TokioProcessRunner {
             tracing::warn!(
                 "Environment variables count: {}, total size: {} bytes",
                 command.env.len(),
-                command.env.iter()
+                command
+                    .env
+                    .iter()
                     .map(|(k, v)| k.len() + v.len() + 2)
                     .sum::<usize>()
             );
@@ -242,15 +244,7 @@ impl TokioProcessRunner {
     fn preserve_essential_env(cmd: &mut tokio::process::Command) {
         // Essential variables that most commands need to function
         let essential_vars = [
-            "PATH",
-            "HOME",
-            "USER",
-            "SHELL",
-            "LANG",
-            "LC_ALL",
-            "LC_CTYPE",
-            "TMPDIR",
-            "TERM",
+            "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "TERM",
         ];
 
         for var in &essential_vars {

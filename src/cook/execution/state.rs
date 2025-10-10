@@ -870,6 +870,42 @@ impl DefaultJobStateManager {
         path.file_name().and_then(|n| n.to_str()).map(String::from)
     }
 
+    /// Load a checkpoint for a job, returning None if the checkpoint is invalid
+    ///
+    /// This helper converts Result to Option for cleaner error handling with the ? operator.
+    /// Invalid checkpoints (corrupted files, missing metadata) are silently skipped.
+    async fn load_job_checkpoint(
+        checkpoint_manager: &CheckpointManager,
+        job_id: &str,
+    ) -> Option<MapReduceJobState> {
+        checkpoint_manager.load_checkpoint(job_id).await.ok()
+    }
+
+    /// Try to build a ResumableJob from a job directory
+    ///
+    /// This is the main orchestration function that coordinates:
+    /// 1. Loading the checkpoint state
+    /// 2. Listing checkpoint versions
+    /// 3. Building the ResumableJob if the job is incomplete
+    ///
+    /// Returns None if the job is complete, has no valid checkpoint, or cannot be loaded.
+    async fn try_build_resumable_job(
+        checkpoint_manager: &CheckpointManager,
+        job_id: &str,
+    ) -> Option<ResumableJob> {
+        // Load checkpoint state
+        let state = Self::load_job_checkpoint(checkpoint_manager, job_id).await?;
+
+        // Get checkpoint list for version calculation
+        let checkpoints = checkpoint_manager
+            .list_checkpoints(job_id)
+            .await
+            .unwrap_or_default();
+
+        // Build resumable job from state
+        Self::build_resumable_job(job_id, state, checkpoints)
+    }
+
     /// Build a ResumableJob from state and checkpoint list if incomplete
     fn build_resumable_job(
         job_id: &str,
@@ -943,21 +979,10 @@ impl DefaultJobStateManager {
                 None => continue,
             };
 
-            // Try to load the latest checkpoint for this job
-            let state = match self.checkpoint_manager.load_checkpoint(&job_id).await {
-                Ok(s) => s,
-                Err(_) => continue, // Skip jobs without valid checkpoints
-            };
-
-            // Get checkpoint list for version calculation
-            let checkpoints = self
-                .checkpoint_manager
-                .list_checkpoints(&job_id)
-                .await
-                .unwrap_or_default();
-
-            // Build resumable job if incomplete
-            if let Some(job) = Self::build_resumable_job(&job_id, state, checkpoints) {
+            // Try to build resumable job from this directory
+            if let Some(job) =
+                Self::try_build_resumable_job(&self.checkpoint_manager, &job_id).await
+            {
                 resumable_jobs.push(job);
             }
         }

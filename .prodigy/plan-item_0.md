@@ -1,190 +1,183 @@
-# Implementation Plan: Reduce Nesting Depth in list_resumable_jobs_internal
+# Implementation Plan: Reduce Cognitive Complexity in list_resumable_jobs_internal
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/state.rs:DefaultJobStateManager::list_resumable_jobs_internal:884
-**Priority Score**: 60.102062072615965
-**Debt Type**: ComplexityHotspot (cognitive: 56, cyclomatic: 10)
+**Location**: ./src/cook/execution/state.rs:DefaultJobStateManager::list_resumable_jobs_internal:926
+**Priority Score**: 54.34330127018922
+**Debt Type**: ComplexityHotspot
 **Current Metrics**:
-- Lines of Code: 59
-- Cyclomatic Complexity: 10
-- Cognitive Complexity: 56
-- Nesting Depth: 6
+- Lines of Code: 42
+- Cognitive Complexity: 33
+- Cyclomatic Complexity: 8
+- Coverage: Well tested (22 test cases)
 
-**Issue**: The function has excessive nesting depth (6 levels) due to nested conditionals and loops. This high cognitive complexity (56) makes the code difficult to understand and maintain. The debtmap analysis recommends reducing nesting through guard clauses and early returns.
+**Issue**: The function has high cognitive complexity (33) despite moderate cyclomatic complexity (8). This is due to nested async operations, error handling with continue statements, and inline logic that obscures the function's intent. The recommendation is to extract guard clauses and maintain simplicity while reducing cognitive load.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 5.0
+- Complexity Reduction: 4.0
 - Coverage Improvement: 0.0
-- Risk Reduction: 21.035721725415588
+- Risk Reduction: 19.020155444566228
 
 **Success Criteria**:
-- [ ] Reduce nesting depth from 6 to 3 or fewer levels
-- [ ] Reduce cognitive complexity from 56 to ~30 or below
-- [ ] Extract nested logic into helper functions with clear names
-- [ ] All existing 22 tests continue to pass
+- [ ] Cognitive complexity reduced from 33 to ~29 or below
+- [ ] Cyclomatic complexity maintained at 8 or reduced
+- [ ] All 22 existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting maintained
+- [ ] Proper formatting with `cargo fmt`
+- [ ] Function length kept under 42 lines (ideally reduced)
 
 ## Implementation Phases
 
-### Phase 1: Extract Job Entry Validation
+### Phase 1: Extract Pure Validation Helper
 
-**Goal**: Extract the outer validation logic into a helper function to reduce initial nesting
+**Goal**: Extract the job directory validation logic into a pure helper function to reduce nesting and clarify intent.
 
 **Changes**:
-- Create a new helper function `is_valid_job_directory(&Path) -> Option<String>` that:
-  - Checks if path is a directory (async metadata check)
-  - Validates the job_id can be extracted from the directory name
-  - Returns `Option<String>` with job_id if valid, None otherwise
-- Replace the nested `if let Ok(metadata)... if metadata.is_dir()... if let Some(job_id)` chain with a single guard clause using the helper
+- Move `is_valid_job_directory` implementation to top-level or make it more explicit
+- Already exists, but ensure it's doing single responsibility
 
 **Testing**:
-- Run `cargo test --lib tests::test_list_resumable_file_not_dir` to verify file rejection
-- Run `cargo test --lib tests::test_list_resumable_invalid_filename` to verify invalid names are skipped
-- Run `cargo test --lib tests::test_list_resumable_special_chars_in_name` to verify valid names work
+- Run existing tests: `cargo test list_resumable`
+- Verify all 22 test cases pass
 
 **Success Criteria**:
-- [ ] Nesting depth reduced by 2 levels in the main loop
-- [ ] Helper function has clear, testable logic
-- [ ] All existing tests pass
+- [ ] Validation logic is clear and testable
+- [ ] All tests pass
 - [ ] Ready to commit
 
 ### Phase 2: Extract Checkpoint Processing Logic
 
-**Goal**: Extract the checkpoint loading and validation into a pure helper function
+**Goal**: Extract the checkpoint loading and validation into a separate pure function to reduce cognitive nesting.
 
 **Changes**:
-- Create a new helper function `build_resumable_job(job_id: &str, state: MapReduceJobState, checkpoints: Vec<CheckpointInfo>) -> Option<ResumableJob>` that:
-  - Takes a loaded state and checkpoint list
-  - Returns `None` if job is complete (is_complete check)
-  - Returns `Some(ResumableJob)` with calculated values if incomplete
-- Replace the nested `if !state.is_complete` block with a call to this helper
-- Use early continue in the match error arm instead of nested logic
+- Create new helper function: `load_job_checkpoint(checkpoint_manager, job_id) -> Option<MapReduceJobState>`
+- This function encapsulates the try-load-skip-on-error pattern
+- Move the checkpoint manager interaction out of the main loop
 
 **Testing**:
-- Run `cargo test --lib tests::test_list_resumable_complete_job` to verify complete jobs are filtered
-- Run `cargo test --lib tests::test_list_resumable_invalid_checkpoint` to verify invalid checkpoints are skipped
-- Run `cargo test --lib tests::test_list_resumable_max_checkpoint_version` to verify version calculation
+- Run `cargo test list_resumable_invalid_checkpoint`
+- Run `cargo test list_resumable_metadata_missing`
+- Verify error cases still skip correctly
 
 **Success Criteria**:
-- [ ] Inner conditional nesting reduced by 1-2 levels
-- [ ] Checkpoint processing logic is pure and independently testable
+- [ ] Checkpoint loading is in separate function
+- [ ] Error handling is clear (returns Option)
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 3: Extract Checkpoint Version Calculation
+### Phase 3: Extract ResumableJob Building Logic
 
-**Goal**: Simplify the checkpoint version extraction into a pure helper function
+**Goal**: Simplify the main loop by delegating the entire "try to build a resumable job" logic to a single helper.
 
 **Changes**:
-- Create a new pure helper function `get_latest_checkpoint_version(checkpoints: Vec<CheckpointInfo>) -> u32` that:
-  - Takes a list of checkpoints
-  - Returns the maximum version number or 0 if empty
-  - Handles the `unwrap_or_default()` and `unwrap_or(0)` logic
-- Update `build_resumable_job` to use this helper instead of inline chain
+- Create helper: `try_build_resumable_job(checkpoint_manager, job_id, path) -> Option<ResumableJob>`
+- This function orchestrates: validation, checkpoint loading, checkpoint listing, and building
+- Main loop becomes: `while let Some(entry) => if let Some(job) = try_build... => jobs.push(job)`
 
 **Testing**:
-- Run `cargo test --lib tests::test_list_resumable_empty_checkpoint_list` to verify empty list handling
-- Run `cargo test --lib tests::test_list_resumable_high_checkpoint_version` to verify high version numbers
-- Run `cargo test --lib tests::test_list_resumable_mixed_checkpoint_versions` to verify max calculation
+- Run full test suite: `cargo test list_resumable`
+- Verify all 22 test cases pass
+- Check edge cases: empty dirs, invalid files, complete jobs
 
 **Success Criteria**:
-- [ ] Checkpoint version logic is pure and testable
-- [ ] Code is more readable with clear intent
+- [ ] Main loop is simplified to just iteration and collection
+- [ ] Building logic is extracted and testable
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 4: Simplify Main Loop with Guard Clauses
+### Phase 4: Simplify Main Function Flow
 
-**Goal**: Use guard clauses to flatten the remaining nesting in the main loop
+**Goal**: Refactor the main function to use the extracted helpers, reducing cognitive complexity.
 
 **Changes**:
-- Replace the nested `match` with early `continue` statements:
-  - `let job_id = match is_valid_job_directory(&path).await { Some(id) => id, None => continue };`
-  - `let state = match self.checkpoint_manager.load_checkpoint(&job_id).await { Ok(s) => s, Err(_) => continue };`
-  - `let checkpoints = self.checkpoint_manager.list_checkpoints(&job_id).await.unwrap_or_default();`
-  - `if let Some(job) = build_resumable_job(&job_id, state, checkpoints) { resumable_jobs.push(job); }`
+- Refactor `list_resumable_jobs_internal` to:
+  1. Early return if jobs_dir doesn't exist
+  2. Create result vector
+  3. Iterate entries and collect results from helper
+  4. Return results
+- Main function should be ~15-20 lines max
+- All complexity pushed into well-named helper functions
 
 **Testing**:
-- Run full test suite: `cargo test --lib state::tests`
-- Verify all 22 upstream caller tests pass
-- Run `cargo clippy` to check for warnings
+- Run full test suite: `cargo test list_resumable`
+- Run clippy: `cargo clippy`
+- Run formatting: `cargo fmt --check`
 
 **Success Criteria**:
-- [ ] Main loop has linear flow with guard clauses
-- [ ] Maximum nesting depth is 3 or fewer
-- [ ] All 22 tests pass
+- [ ] Main function is clear and linear
+- [ ] Cognitive complexity reduced to target (~29 or below)
+- [ ] All tests pass
 - [ ] No clippy warnings
 - [ ] Ready to commit
 
-### Phase 5: Final Verification and Cleanup
+### Phase 5: Final Verification and Documentation
 
-**Goal**: Verify all improvements and ensure code quality
+**Goal**: Verify the refactoring achieved the target improvements and add documentation.
 
 **Changes**:
-- Run full CI checks with `just ci` (or `cargo test && cargo clippy`)
-- Review helper functions for documentation
-- Add inline comments if any guard clauses need clarification
-- Verify cognitive complexity reduction with complexity metrics
+- Add doc comments to new helper functions
+- Verify cognitive complexity improvement
+- Run full CI: `just ci` (if available)
+- Regenerate coverage: `cargo tarpaulin` (if needed)
 
 **Testing**:
-- Run `cargo test` for full test suite
-- Run `cargo clippy -- -D warnings` to ensure no warnings
-- Run `cargo fmt` to ensure formatting
-- Optionally: Run `debtmap analyze` to verify improvement in metrics
+- Full test suite: `cargo test`
+- Full CI checks
+- Manual review of code clarity
 
 **Success Criteria**:
-- [ ] All tests pass (22+ tests for this function)
-- [ ] No clippy warnings
-- [ ] Code is formatted correctly
-- [ ] Nesting depth <= 3
-- [ ] Cognitive complexity reduced by ~40%
+- [ ] All success criteria from Problem Summary met
+- [ ] Documentation is clear
+- [ ] Code is more maintainable
 - [ ] Ready for final commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run targeted tests related to the specific change:
-   - `cargo test --lib state::tests::test_list_resumable_<specific_test>`
-2. Run all tests for the module after each phase:
-   - `cargo test --lib state::tests`
-3. Check for clippy warnings:
-   - `cargo clippy -- -D warnings`
+1. Run targeted tests: `cargo test list_resumable` to verify existing behavior
+2. Run `cargo clippy` to check for warnings
+3. Run `cargo fmt` to ensure formatting
 
 **Final verification**:
-1. `cargo test` - All tests across the codebase
+1. `cargo test` - Full test suite
 2. `cargo clippy` - No warnings
-3. `cargo fmt -- --check` - Formatting is correct
-4. Optionally: `debtmap analyze` - Verify debt score improvement
+3. `cargo fmt --check` - Proper formatting
+4. `just ci` - Full CI checks (if available)
+5. Manual code review for clarity and maintainability
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failure output
-3. Identify what assumption was incorrect
-4. Adjust the implementation approach
-5. Retry the phase with corrections
+2. Review the test failures or clippy warnings
+3. Analyze what went wrong:
+   - Did we break error handling behavior?
+   - Did we change the function signature incorrectly?
+   - Did we introduce new complexity?
+4. Adjust the approach:
+   - Consider smaller extraction steps
+   - Review helper function signatures
+   - Ensure we're not adding complexity
+5. Retry with adjusted approach
 
 ## Notes
 
-**Why This Approach Works**:
-- Each helper function extracts a clear responsibility
-- Pure functions are easier to test and reason about
-- Guard clauses eliminate nesting without changing behavior
-- Incremental refactoring allows verification at each step
-
 **Key Insights**:
-- The function is already covered by 22 comprehensive tests
-- No behavior changes are needed - only structural improvements
-- The async nature means we need to keep the checkpoint manager calls in the main function
-- Helper functions should be private to the module (not public API changes)
+- The function has 22 test cases covering edge cases - these are our safety net
+- The cognitive complexity comes from nested async/await, error handling with continue, and inline logic
+- The function is already well-structured with helper functions (`is_valid_job_directory`, `build_resumable_job`)
+- Goal is to reduce nesting depth and make the main loop more linear
+
+**Functional Programming Approach**:
+- Extract pure functions that transform data without side effects
+- Separate I/O (checkpoint loading) from logic (validation, building)
+- Use Option types for clean error handling (no continue statements)
+- Make the main loop a simple iterator-map-filter pattern
 
 **Potential Gotchas**:
-- Must preserve the exact error handling behavior (Err(_) => continue)
-- Must maintain the order of operations (metadata check before job_id extraction)
-- Must not introduce new unwrap() calls (violates Spec 101)
-- The `unwrap_or_default()` on line 910 is acceptable as it provides a safe fallback
+- Must preserve exact error handling behavior (skip invalid entries silently)
+- Must maintain async behavior correctly
+- Cannot change function signatures used by tests
+- Need to be careful with async/await in helper functions
