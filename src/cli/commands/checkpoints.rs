@@ -349,7 +349,9 @@ fn extract_workflow_id(path: &Path) -> Option<String> {
 ///
 /// # Returns
 /// * `true` if the checkpoint status is Completed, `false` otherwise
-fn is_completed_checkpoint(checkpoint: &crate::cook::workflow::checkpoint::WorkflowCheckpoint) -> bool {
+fn is_completed_checkpoint(
+    checkpoint: &crate::cook::workflow::checkpoint::WorkflowCheckpoint,
+) -> bool {
     use crate::cook::workflow::checkpoint::WorkflowStatus;
     checkpoint.execution_state.status == WorkflowStatus::Completed
 }
@@ -680,9 +682,7 @@ async fn delete_checkpoint(working_dir: &Path, checkpoint_id: &str, force: bool)
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cook::workflow::checkpoint::{
-        ExecutionState, WorkflowCheckpoint, WorkflowStatus,
-    };
+    use crate::cook::workflow::checkpoint::{ExecutionState, WorkflowCheckpoint, WorkflowStatus};
     use chrono::Utc;
     use std::collections::HashMap;
     use tempfile::TempDir;
@@ -760,10 +760,7 @@ mod tests {
     #[test]
     fn test_extract_workflow_id_valid() {
         let path = PathBuf::from("/tmp/workflow-123.checkpoint.json");
-        assert_eq!(
-            extract_workflow_id(&path),
-            Some("workflow-123".to_string())
-        );
+        assert_eq!(extract_workflow_id(&path), Some("workflow-123".to_string()));
     }
 
     #[test]
@@ -849,9 +846,7 @@ mod tests {
 
         // Should succeed, no files deleted
         assert!(result.is_ok());
-        assert!(checkpoint_dir
-            .join("workflow-1.checkpoint.json")
-            .exists());
+        assert!(checkpoint_dir.join("workflow-1.checkpoint.json").exists());
     }
 
     #[tokio::test]
@@ -903,12 +898,8 @@ mod tests {
 
         // Should succeed, only completed checkpoints deleted
         assert!(result.is_ok());
-        assert!(!checkpoint_dir
-            .join("completed-1.checkpoint.json")
-            .exists());
-        assert!(!checkpoint_dir
-            .join("completed-2.checkpoint.json")
-            .exists());
+        assert!(!checkpoint_dir.join("completed-1.checkpoint.json").exists());
+        assert!(!checkpoint_dir.join("completed-2.checkpoint.json").exists());
         assert!(checkpoint_dir.join("running-1.checkpoint.json").exists());
     }
 
@@ -928,9 +919,7 @@ mod tests {
 
         // Should succeed and delete without prompting
         assert!(result.is_ok());
-        assert!(!checkpoint_dir
-            .join("workflow-1.checkpoint.json")
-            .exists());
+        assert!(!checkpoint_dir.join("workflow-1.checkpoint.json").exists());
     }
 
     #[tokio::test]
@@ -954,9 +943,7 @@ mod tests {
 
         // Should succeed, only JSON checkpoint deleted
         assert!(result.is_ok());
-        assert!(!checkpoint_dir
-            .join("workflow-1.checkpoint.json")
-            .exists());
+        assert!(!checkpoint_dir.join("workflow-1.checkpoint.json").exists());
         assert!(checkpoint_dir.join("readme.txt").exists());
     }
 
@@ -984,9 +971,7 @@ mod tests {
 
         // Should succeed, skip corrupted file and delete valid completed checkpoint
         assert!(result.is_ok());
-        assert!(!checkpoint_dir
-            .join("workflow-1.checkpoint.json")
-            .exists());
+        assert!(!checkpoint_dir.join("workflow-1.checkpoint.json").exists());
         assert!(checkpoint_dir.join("corrupted.checkpoint.json").exists());
     }
 
@@ -1038,8 +1023,6 @@ mod tests {
         // Should succeed, only completed deleted, not failed
         assert!(result.is_ok());
         assert!(checkpoint_dir.join("failed-1.checkpoint.json").exists());
-        assert!(!checkpoint_dir
-            .join("completed-1.checkpoint.json")
-            .exists());
+        assert!(!checkpoint_dir.join("completed-1.checkpoint.json").exists());
     }
 }
