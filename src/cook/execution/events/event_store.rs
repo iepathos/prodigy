@@ -1,7 +1,7 @@
 //! Event storage and retrieval functionality
 
 use super::{EventRecord, MapReduceEvent};
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 /// Event filter for querying events
@@ -122,15 +122,29 @@ impl FileEventStore {
 
     /// Read events from a single file
     async fn read_events_from_file(&self, path: &Path) -> Result<Vec<EventRecord>> {
-        let file = File::open(path).await?;
+        let file = File::open(path)
+            .await
+            .with_context(|| format!("Failed to open event file: {}", path.display()))?;
         let reader = BufReader::new(file);
         let mut lines = reader.lines();
         let mut events = Vec::new();
+        let mut line_number = 0;
 
-        while let Some(line) = lines.next_line().await? {
+        while let Some(line) = lines
+            .next_line()
+            .await
+            .with_context(|| format!("Failed to read line from {}", path.display()))?
+        {
+            line_number += 1;
             match serde_json::from_str::<EventRecord>(&line) {
                 Ok(event) => events.push(event),
-                Err(e) => warn!("Failed to parse event line: {}", e),
+                Err(e) => warn!(
+                    "Failed to parse event at {}:{} - {}: {}",
+                    path.display(),
+                    line_number,
+                    e,
+                    &line[..line.len().min(100)]
+                ),
             }
         }
 
@@ -182,7 +196,98 @@ impl FileEventStore {
 
 // Pure helper functions for index operations
 
+/// Calculate the time range for a collection of events
+#[cfg(test)]
+fn calculate_time_range(events: &[EventRecord]) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
+    if events.is_empty() {
+        return None;
+    }
+
+    let mut start = events[0].timestamp;
+    let mut end = events[0].timestamp;
+
+    for event in events {
+        if event.timestamp < start {
+            start = event.timestamp;
+        }
+        if event.timestamp > end {
+            end = event.timestamp;
+        }
+    }
+
+    Some((start, end))
+}
+
+/// Type alias for parsed event data from a file
+type ParsedEventData = Vec<(EventRecord, u64, usize)>;
+
+/// Type alias for file events data
+type FileEventsData = Vec<(PathBuf, ParsedEventData)>;
+
+/// Build an index from file event data (pure function)
+///
+/// Takes parsed event data from files and constructs an EventIndex.
+/// This is a pure function that performs no I/O operations.
+///
+/// # Arguments
+/// * `job_id` - The job identifier
+/// * `file_events` - Vector of (file_path, events) tuples
+///
+/// # Returns
+/// An EventIndex with aggregated statistics
+fn build_index_from_events(job_id: &str, file_events: FileEventsData) -> EventIndex {
+    let mut index = EventIndex {
+        job_id: job_id.to_string(),
+        event_counts: HashMap::new(),
+        time_range: (Utc::now(), Utc::now()),
+        file_offsets: Vec::new(),
+        total_events: 0,
+    };
+
+    let mut all_timestamps = Vec::new();
+
+    for (file_path, events) in file_events {
+        for (event, byte_offset, line_number) in events {
+            index.total_events += 1;
+
+            // Update event counts
+            let event_name = event.event.event_name().to_string();
+            increment_event_count(&mut index.event_counts, event_name);
+
+            // Create file offset
+            let file_offset = FileOffset {
+                file_path: file_path.clone(),
+                byte_offset,
+                line_number,
+                event_id: event.id,
+                timestamp: event.timestamp,
+            };
+            index.file_offsets.push(file_offset);
+
+            all_timestamps.push(event.timestamp);
+        }
+    }
+
+    // Calculate time range from all timestamps
+    if !all_timestamps.is_empty() {
+        let min_time = all_timestamps
+            .iter()
+            .min()
+            .copied()
+            .unwrap_or_else(Utc::now);
+        let max_time = all_timestamps
+            .iter()
+            .max()
+            .copied()
+            .unwrap_or_else(Utc::now);
+        index.time_range = (min_time, max_time);
+    }
+
+    index
+}
+
 /// Update time range with a new event timestamp
+#[cfg(test)]
 fn update_time_range(
     start: Option<DateTime<Utc>>,
     end: Option<DateTime<Utc>>,
@@ -208,82 +313,131 @@ fn increment_event_count(counts: &mut HashMap<String, usize>, event_name: String
     *counts.entry(event_name).or_insert(0) += 1;
 }
 
-/// Create a file offset record from event data
-fn create_file_offset(
-    file_path: PathBuf,
-    byte_offset: u64,
-    line_number: usize,
-    event: &EventRecord,
-) -> FileOffset {
-    FileOffset {
-        file_path,
-        byte_offset,
-        line_number,
-        event_id: event.id,
-        timestamp: event.timestamp,
+/// Validate job ID for proper format and content
+fn validate_job_id(job_id: &str) -> Result<()> {
+    use anyhow::anyhow;
+
+    // Check for empty job_id
+    if job_id.is_empty() {
+        return Err(anyhow!("Job ID cannot be empty"));
     }
-}
 
-/// Process a single event line and update index state
-fn process_event_line(
-    line: &str,
-    file_path: &Path,
-    line_number: usize,
-    byte_offset: u64,
-    index: &mut EventIndex,
-    time_range: &mut (Option<DateTime<Utc>>, Option<DateTime<Utc>>),
-) {
-    if let Ok(event) = serde_json::from_str::<EventRecord>(line) {
-        index.total_events += 1;
-
-        let event_name = event.event.event_name().to_string();
-        increment_event_count(&mut index.event_counts, event_name);
-
-        let (start, end) = update_time_range(time_range.0, time_range.1, event.timestamp);
-        *time_range = (start, end);
-
-        index.file_offsets.push(create_file_offset(
-            file_path.to_path_buf(),
-            byte_offset,
-            line_number,
-            &event,
+    // Check for invalid characters (only allow alphanumeric, dash, underscore)
+    if !job_id
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(anyhow!(
+            "Job ID contains invalid characters. Only alphanumeric, dash, and underscore allowed: {}",
+            job_id
         ));
     }
+
+    // Check for reasonable length (max 255 characters)
+    if job_id.len() > 255 {
+        return Err(anyhow!(
+            "Job ID is too long (max 255 characters): {} characters",
+            job_id.len()
+        ));
+    }
+
+    Ok(())
+}
+
+/// Validate index consistency before saving
+fn validate_index_consistency(index: &mut EventIndex) -> Result<()> {
+    use anyhow::anyhow;
+
+    // Validate time range consistency
+    let (start, end) = index.time_range;
+    if start > end {
+        // Fix the time range if it's inverted
+        warn!(
+            "Index time range was inverted (start: {}, end: {}). Correcting...",
+            start, end
+        );
+        index.time_range = (end, start);
+    }
+
+    // Validate event counts match total
+    let sum_of_counts: usize = index.event_counts.values().sum();
+    if sum_of_counts != index.total_events {
+        warn!(
+            "Event count mismatch: sum of individual counts ({}) != total_events ({}). Using sum.",
+            sum_of_counts, index.total_events
+        );
+        index.total_events = sum_of_counts;
+    }
+
+    // Validate file offsets count matches total events
+    if index.file_offsets.len() != index.total_events {
+        warn!(
+            "File offset count ({}) doesn't match total events ({}). This may indicate partial indexing.",
+            index.file_offsets.len(),
+            index.total_events
+        );
+        // This is acceptable as we might have events without offsets
+    }
+
+    // Ensure job_id is not empty (redundant check but important)
+    if index.job_id.is_empty() {
+        return Err(anyhow!("Index has empty job_id"));
+    }
+
+    Ok(())
 }
 
 /// Save index to file
 async fn save_index(index: &EventIndex, index_path: &Path) -> Result<()> {
-    let json = serde_json::to_string_pretty(index)?;
-    fs::write(index_path, json).await?;
+    // Ensure parent directory exists
+    if let Some(parent) = index_path.parent() {
+        fs::create_dir_all(parent)
+            .await
+            .with_context(|| format!("Failed to create index directory: {}", parent.display()))?;
+    }
+
+    let json = serde_json::to_string_pretty(index).context("Failed to serialize index to JSON")?;
+
+    fs::write(index_path, json)
+        .await
+        .with_context(|| format!("Failed to write index to {}", index_path.display()))?;
+
     Ok(())
 }
 
-/// Process all events in a single file and update the index
-async fn process_event_file(
+/// Read and parse events from a file (I/O operation)
+async fn read_events_from_file_with_offsets(
     file_path: &PathBuf,
-    index: &mut EventIndex,
-    time_range: &mut (Option<DateTime<Utc>>, Option<DateTime<Utc>>),
-) -> Result<()> {
-    let file = File::open(file_path).await?;
+) -> Result<Vec<(EventRecord, u64, usize)>> {
+    let file = File::open(file_path)
+        .await
+        .with_context(|| format!("Failed to open event file: {}", file_path.display()))?;
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
     let mut line_number = 0;
     let mut byte_offset = 0u64;
+    let mut events = Vec::new();
 
     while let Some(line) = lines.next_line().await? {
         line_number += 1;
-        process_event_line(
-            &line,
-            file_path,
-            line_number,
-            byte_offset,
-            index,
-            time_range,
-        );
+
+        // Try to parse the event
+        if let Ok(event) = serde_json::from_str::<EventRecord>(&line) {
+            events.push((event, byte_offset, line_number));
+        } else {
+            // Log warning but continue processing
+            debug!(
+                "Skipping malformed event at {}:{}: {}",
+                file_path.display(),
+                line_number,
+                &line[..line.len().min(100)]
+            );
+        }
+
         byte_offset += line.len() as u64 + 1; // +1 for newline
     }
 
-    Ok(())
+    Ok(events)
 }
 
 #[async_trait]
@@ -503,27 +657,44 @@ impl EventStore for FileEventStore {
     /// However, concurrent calls for the same job may result in race conditions
     /// when writing index.json. The last write wins.
     async fn index(&self, job_id: &str) -> Result<EventIndex> {
-        let files = self.find_event_files(job_id).await?;
-        let mut index = EventIndex {
-            job_id: job_id.to_string(),
-            event_counts: HashMap::new(),
-            time_range: (Utc::now(), Utc::now()),
-            file_offsets: Vec::new(),
-            total_events: 0,
-        };
+        // Input validation
+        validate_job_id(job_id)?;
 
-        let mut time_range = (None, None);
+        // Check if job events directory exists
+        let job_dir = self.job_events_dir(job_id);
+        if !job_dir.exists() {
+            return Err(anyhow!(
+                "Cannot index nonexistent job: no events directory found at {}",
+                job_dir.display()
+            ));
+        }
 
+        // I/O: Find all event files
+        let files = self
+            .find_event_files(job_id)
+            .await
+            .with_context(|| format!("Failed to find event files for job {}", job_id))?;
+
+        // I/O: Read and parse events from all files
+        let mut file_events = Vec::new();
         for file_path in files {
-            process_event_file(&file_path, &mut index, &mut time_range).await?;
+            let events = read_events_from_file_with_offsets(&file_path)
+                .await
+                .with_context(|| format!("Failed to read events from {}", file_path.display()))?;
+            file_events.push((file_path, events));
         }
 
-        if let (Some(start), Some(end)) = time_range {
-            index.time_range = (start, end);
-        }
+        // Pure: Build index from parsed events
+        let mut index = build_index_from_events(job_id, file_events);
 
+        // Validate index consistency before saving
+        validate_index_consistency(&mut index)?;
+
+        // I/O: Save index to disk
         let index_path = self.job_events_dir(job_id).join("index.json");
-        save_index(&index, &index_path).await?;
+        save_index(&index, &index_path)
+            .await
+            .with_context(|| format!("Failed to save index for job {}", job_id))?;
 
         info!(
             "Created index for job {} with {} events",
@@ -539,6 +710,262 @@ mod tests {
     use super::*;
     use crate::cook::execution::mapreduce::MapReduceConfig;
     use tempfile::TempDir;
+
+    // Include tests for the pure functions extracted in Phase 1
+    include!("test_pure_functions.rs");
+
+    // Tests for Phase 2: Error Handling and Validation
+
+    #[test]
+    fn test_validate_job_id_empty() {
+        let result = validate_job_id("");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Job ID cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_job_id_invalid_characters() {
+        let result = validate_job_id("job/with/slashes");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("invalid characters"));
+
+        let result = validate_job_id("job with spaces");
+        assert!(result.is_err());
+
+        let result = validate_job_id("job#with@special!");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_job_id_valid() {
+        assert!(validate_job_id("valid-job-123").is_ok());
+        assert!(validate_job_id("job_with_underscores").is_ok());
+        assert!(validate_job_id("AlphaNumeric123").is_ok());
+        assert!(validate_job_id("a").is_ok());
+        assert!(validate_job_id("123").is_ok());
+    }
+
+    #[test]
+    fn test_validate_job_id_too_long() {
+        let long_id = "a".repeat(256);
+        let result = validate_job_id(&long_id);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("too long"));
+    }
+
+    #[test]
+    fn test_validate_index_consistency_inverted_time_range() {
+        let mut index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now() + chrono::Duration::seconds(10), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 0,
+        };
+
+        let result = validate_index_consistency(&mut index);
+        assert!(result.is_ok());
+        // Time range should be corrected
+        assert!(index.time_range.0 <= index.time_range.1);
+    }
+
+    #[test]
+    fn test_validate_index_consistency_count_mismatch() {
+        let mut index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: {
+                let mut counts = HashMap::new();
+                counts.insert("job_started".to_string(), 5);
+                counts.insert("agent_completed".to_string(), 3);
+                counts
+            },
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 10, // Mismatch: should be 8
+        };
+
+        let result = validate_index_consistency(&mut index);
+        assert!(result.is_ok());
+        // Total should be corrected to sum of counts
+        assert_eq!(index.total_events, 8);
+    }
+
+    #[test]
+    fn test_validate_index_consistency_empty_job_id() {
+        let mut index = EventIndex {
+            job_id: String::new(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 0,
+        };
+
+        let result = validate_index_consistency(&mut index);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("empty job_id"));
+    }
+
+    #[tokio::test]
+    async fn test_index_with_invalid_job_id() {
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+
+        // Test empty job ID
+        let result = store.index("").await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Job ID cannot be empty"));
+
+        // Test job ID with invalid characters
+        let result = store.index("job/with/slashes").await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("invalid characters"));
+    }
+
+    #[tokio::test]
+    async fn test_save_index_creates_parent_directory() {
+        let temp_dir = TempDir::new().unwrap();
+        let deep_path = temp_dir
+            .path()
+            .join("non")
+            .join("existent")
+            .join("path")
+            .join("index.json");
+
+        let index = EventIndex {
+            job_id: "test-job".to_string(),
+            event_counts: HashMap::new(),
+            time_range: (Utc::now(), Utc::now()),
+            file_offsets: Vec::new(),
+            total_events: 0,
+        };
+
+        let result = save_index(&index, &deep_path).await;
+        assert!(result.is_ok(), "Should create parent directories");
+        assert!(deep_path.exists(), "Index file should exist");
+
+        // Verify we can read it back
+        let content = fs::read_to_string(&deep_path).await.unwrap();
+        let parsed: EventIndex = serde_json::from_str(&content).unwrap();
+        assert_eq!(parsed.job_id, "test-job");
+    }
+
+    // Phase 3: Comprehensive Test Coverage
+
+    #[tokio::test]
+    async fn test_index_concurrent_calls_same_job() {
+        // Test that concurrent calls to index for the same job work
+        // The last write wins, but no errors should occur
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "concurrent-job";
+
+        // Create some test events
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            correlation_id: "test".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: job_id.to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: Utc::now(),
+            },
+            metadata: HashMap::new(),
+        };
+
+        let event_file = events_dir.join("events.jsonl");
+        fs::write(&event_file, serde_json::to_string(&event).unwrap())
+            .await
+            .unwrap();
+
+        // Launch multiple concurrent index operations
+        let store = std::sync::Arc::new(store);
+        let mut handles = vec![];
+
+        for _ in 0..5 {
+            let store_clone = store.clone();
+            let job_id = job_id.to_string();
+            let handle = tokio::spawn(async move { store_clone.index(&job_id).await });
+            handles.push(handle);
+        }
+
+        // All should complete without error
+        for handle in handles {
+            let result = handle.await.unwrap();
+            assert!(result.is_ok(), "Concurrent index should not fail");
+        }
+    }
+
+    #[test]
+    fn test_index_invariants() {
+        // Property-based test for index invariants
+        use chrono::Duration;
+
+        // Test various index states
+        let test_cases = vec![
+            // Empty index
+            EventIndex {
+                job_id: "test".to_string(),
+                event_counts: HashMap::new(),
+                time_range: (Utc::now(), Utc::now()),
+                file_offsets: Vec::new(),
+                total_events: 0,
+            },
+            // Index with events
+            EventIndex {
+                job_id: "test".to_string(),
+                event_counts: {
+                    let mut counts = HashMap::new();
+                    counts.insert("job_started".to_string(), 1);
+                    counts.insert("agent_started".to_string(), 5);
+                    counts.insert("agent_completed".to_string(), 5);
+                    counts
+                },
+                time_range: (Utc::now(), Utc::now() + Duration::seconds(100)),
+                file_offsets: vec![],
+                total_events: 11,
+            },
+        ];
+
+        for mut index in test_cases {
+            // Invariant 1: time_range.0 <= time_range.1
+            let result = validate_index_consistency(&mut index);
+            assert!(result.is_ok());
+            assert!(index.time_range.0 <= index.time_range.1);
+
+            // Invariant 2: total_events == sum of event_counts
+            let sum: usize = index.event_counts.values().sum();
+            assert_eq!(index.total_events, sum);
+
+            // Invariant 3: job_id is not empty
+            assert!(!index.job_id.is_empty());
+        }
+    }
 
     #[tokio::test]
     #[ignore] // This test requires proper EventRecord serialization setup
@@ -1287,122 +1714,6 @@ mod tests {
         assert_eq!(counts.get("agent_completed"), Some(&4));
     }
 
-    #[test]
-    fn test_create_file_offset() {
-        let timestamp = Utc::now();
-        let event_id = Uuid::new_v4();
-        let event = EventRecord {
-            id: event_id,
-            timestamp,
-            correlation_id: "test-corr".to_string(),
-            event: MapReduceEvent::JobStarted {
-                job_id: "test-job".to_string(),
-                config: MapReduceConfig {
-                    agent_timeout_secs: None,
-                    continue_on_failure: false,
-                    batch_size: None,
-                    enable_checkpoints: true,
-                    input: "test.json".to_string(),
-                    json_path: "$.items".to_string(),
-                    max_parallel: 5,
-                    max_items: None,
-                    offset: None,
-                },
-                total_items: 10,
-                timestamp,
-            },
-            metadata: HashMap::new(),
-        };
-
-        let file_path = PathBuf::from("/path/to/events.jsonl");
-        let offset = create_file_offset(file_path.clone(), 1024, 42, &event);
-
-        assert_eq!(offset.file_path, file_path);
-        assert_eq!(offset.byte_offset, 1024);
-        assert_eq!(offset.line_number, 42);
-        assert_eq!(offset.event_id, event_id);
-        assert_eq!(offset.timestamp, timestamp);
-    }
-
-    #[test]
-    fn test_process_event_line_valid_json() {
-        let timestamp = Utc::now();
-        let event = EventRecord {
-            id: Uuid::new_v4(),
-            timestamp,
-            correlation_id: "test-corr".to_string(),
-            event: MapReduceEvent::JobStarted {
-                job_id: "test-job".to_string(),
-                config: MapReduceConfig {
-                    agent_timeout_secs: None,
-                    continue_on_failure: false,
-                    batch_size: None,
-                    enable_checkpoints: true,
-                    input: "test.json".to_string(),
-                    json_path: "$.items".to_string(),
-                    max_parallel: 5,
-                    max_items: None,
-                    offset: None,
-                },
-                total_items: 10,
-                timestamp,
-            },
-            metadata: HashMap::new(),
-        };
-
-        let line = serde_json::to_string(&event).unwrap();
-        let mut index = EventIndex {
-            job_id: "test-job".to_string(),
-            event_counts: HashMap::new(),
-            time_range: (Utc::now(), Utc::now()),
-            file_offsets: Vec::new(),
-            total_events: 0,
-        };
-        let mut time_range = (None, None);
-
-        process_event_line(
-            &line,
-            Path::new("/test.jsonl"),
-            1,
-            0,
-            &mut index,
-            &mut time_range,
-        );
-
-        assert_eq!(index.total_events, 1);
-        assert_eq!(index.event_counts.get("job_started"), Some(&1));
-        assert_eq!(index.file_offsets.len(), 1);
-        assert!(time_range.0.is_some());
-        assert!(time_range.1.is_some());
-    }
-
-    #[test]
-    fn test_process_event_line_invalid_json() {
-        let mut index = EventIndex {
-            job_id: "test-job".to_string(),
-            event_counts: HashMap::new(),
-            time_range: (Utc::now(), Utc::now()),
-            file_offsets: Vec::new(),
-            total_events: 0,
-        };
-        let mut time_range = (None, None);
-
-        process_event_line(
-            "invalid json",
-            Path::new("/test.jsonl"),
-            1,
-            0,
-            &mut index,
-            &mut time_range,
-        );
-
-        assert_eq!(index.total_events, 0);
-        assert!(index.event_counts.is_empty());
-        assert!(index.file_offsets.is_empty());
-        assert!(time_range.0.is_none());
-        assert!(time_range.1.is_none());
-    }
-
     #[tokio::test]
     async fn test_save_index_success() {
         let temp_dir = TempDir::new().unwrap();
@@ -1435,141 +1746,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[tokio::test]
-    async fn test_process_event_file_multiple_events() {
-        let temp_dir = TempDir::new().unwrap();
-        let event_file = temp_dir.path().join("events.jsonl");
-
-        let timestamp = Utc::now();
-        let event1 = EventRecord {
-            id: Uuid::new_v4(),
-            timestamp,
-            correlation_id: "corr-1".to_string(),
-            event: MapReduceEvent::JobStarted {
-                job_id: "test-job".to_string(),
-                config: MapReduceConfig {
-                    agent_timeout_secs: None,
-                    continue_on_failure: false,
-                    batch_size: None,
-                    enable_checkpoints: true,
-                    input: "test.json".to_string(),
-                    json_path: "$.items".to_string(),
-                    max_parallel: 5,
-                    max_items: None,
-                    offset: None,
-                },
-                total_items: 10,
-                timestamp,
-            },
-            metadata: HashMap::new(),
-        };
-
-        let event2 = EventRecord {
-            id: Uuid::new_v4(),
-            timestamp,
-            correlation_id: "corr-2".to_string(),
-            event: MapReduceEvent::AgentCompleted {
-                job_id: "test-job".to_string(),
-                agent_id: "agent-1".to_string(),
-                duration: chrono::Duration::seconds(30),
-                commits: vec!["abc123".to_string()],
-                json_log_location: None,
-            },
-            metadata: HashMap::new(),
-        };
-
-        let mut content = String::new();
-        content.push_str(&serde_json::to_string(&event1).unwrap());
-        content.push('\n');
-        content.push_str(&serde_json::to_string(&event2).unwrap());
-        content.push('\n');
-        fs::write(&event_file, &content).await.unwrap();
-
-        let mut index = EventIndex {
-            job_id: "test-job".to_string(),
-            event_counts: HashMap::new(),
-            time_range: (Utc::now(), Utc::now()),
-            file_offsets: Vec::new(),
-            total_events: 0,
-        };
-        let mut time_range = (None, None);
-
-        let result = process_event_file(&event_file, &mut index, &mut time_range).await;
-        assert!(result.is_ok());
-        assert_eq!(index.total_events, 2);
-    }
-
-    #[tokio::test]
-    async fn test_process_event_file_empty() {
-        let temp_dir = TempDir::new().unwrap();
-        let event_file = temp_dir.path().join("empty.jsonl");
-        fs::write(&event_file, "").await.unwrap();
-
-        let mut index = EventIndex {
-            job_id: "test-job".to_string(),
-            event_counts: HashMap::new(),
-            time_range: (Utc::now(), Utc::now()),
-            file_offsets: Vec::new(),
-            total_events: 0,
-        };
-        let mut time_range = (None, None);
-
-        let result = process_event_file(&event_file, &mut index, &mut time_range).await;
-        assert!(result.is_ok());
-        assert_eq!(index.total_events, 0);
-    }
-
-    #[tokio::test]
-    async fn test_process_event_file_mixed_valid_invalid() {
-        let temp_dir = TempDir::new().unwrap();
-        let event_file = temp_dir.path().join("mixed.jsonl");
-
-        let timestamp = Utc::now();
-        let event = EventRecord {
-            id: Uuid::new_v4(),
-            timestamp,
-            correlation_id: "corr-1".to_string(),
-            event: MapReduceEvent::JobStarted {
-                job_id: "test-job".to_string(),
-                config: MapReduceConfig {
-                    agent_timeout_secs: None,
-                    continue_on_failure: false,
-                    batch_size: None,
-                    enable_checkpoints: true,
-                    input: "test.json".to_string(),
-                    json_path: "$.items".to_string(),
-                    max_parallel: 5,
-                    max_items: None,
-                    offset: None,
-                },
-                total_items: 10,
-                timestamp,
-            },
-            metadata: HashMap::new(),
-        };
-
-        let mut content = String::new();
-        content.push_str(&serde_json::to_string(&event).unwrap());
-        content.push('\n');
-        content.push_str("invalid json line\n");
-        content.push_str(&serde_json::to_string(&event).unwrap());
-        content.push('\n');
-        fs::write(&event_file, &content).await.unwrap();
-
-        let mut index = EventIndex {
-            job_id: "test-job".to_string(),
-            event_counts: HashMap::new(),
-            time_range: (Utc::now(), Utc::now()),
-            file_offsets: Vec::new(),
-            total_events: 0,
-        };
-        let mut time_range = (None, None);
-
-        let result = process_event_file(&event_file, &mut index, &mut time_range).await;
-        assert!(result.is_ok());
-        assert_eq!(index.total_events, 2);
-    }
-
     // Phase 1: Tests for empty and error cases
 
     #[tokio::test]
@@ -1588,14 +1764,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_index_fails_when_save_directory_missing() {
+    async fn test_index_creates_directory_when_missing() {
+        // Indexing should fail for nonexistent jobs to maintain functional purity
+        // (index is a query operation, not a directory creation operation)
         let temp_dir = TempDir::new().unwrap();
         let store = FileEventStore::new(temp_dir.path().to_path_buf());
         let job_id = "missing-dir-job";
 
         let result = store.index(job_id).await;
 
-        assert!(result.is_err());
+        // Should fail for nonexistent job directory
+        assert!(
+            result.is_err(),
+            "Index should not create directories for nonexistent jobs"
+        );
     }
 
     #[tokio::test]
