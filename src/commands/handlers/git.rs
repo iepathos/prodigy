@@ -271,17 +271,15 @@ impl CommandHandler for GitHandler {
 
         let start = Instant::now();
 
-        // Handle auto-staging for commits
-        if !context.dry_run {
-            if let Err(e) = Self::execute_auto_staging(context, &operation, &attributes).await {
-                return CommandResult::error(e);
-            }
-        }
-
-        // Handle dry run
+        // Early return for dry run mode
         if context.dry_run {
             let duration = start.elapsed().as_millis() as u64;
             return Self::build_dry_run_response(&git_args, duration);
+        }
+
+        // Handle auto-staging for commits
+        if let Err(e) = Self::execute_auto_staging(context, &operation, &attributes).await {
+            return CommandResult::error(e);
         }
 
         // Execute git command
