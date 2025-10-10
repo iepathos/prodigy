@@ -124,6 +124,28 @@ fn determine_step_name(step: &WorkflowStep) -> &str {
     })
 }
 
+// ============================================================================
+// Pure helper functions for validation executor setup
+// ============================================================================
+
+/// Create execution context for step validation
+///
+/// Pure function that builds ExecutionContext with validation-specific settings
+fn create_validation_execution_context(
+    working_directory: std::path::PathBuf,
+    timeout_seconds: Option<u64>,
+) -> ExecutionContext {
+    ExecutionContext {
+        working_directory,
+        env_vars: std::collections::HashMap::new(),
+        capture_output: true,
+        timeout_seconds,
+        stdin: None,
+        capture_streaming: false,
+        streaming_config: None,
+    }
+}
+
 impl WorkflowExecutor {
     // ============================================================================
     // Validation functions
@@ -391,15 +413,10 @@ impl WorkflowExecutor {
         );
 
         // Create execution context for validation
-        let exec_context = ExecutionContext {
-            working_directory: env.working_dir.to_path_buf(),
-            env_vars: std::collections::HashMap::new(),
-            capture_output: true,
-            timeout_seconds: step.validation_timeout,
-            stdin: None,
-            capture_streaming: false,
-            streaming_config: None,
-        };
+        let exec_context = create_validation_execution_context(
+            env.working_dir.to_path_buf(),
+            step.validation_timeout,
+        );
 
         // Get step name for logging
         let step_name = determine_step_name(step);
@@ -1383,5 +1400,46 @@ mod tests {
         assert!(validation_result.passed);
         assert_eq!(validation_result.results.len(), 0);
         assert_eq!(validation_result.attempts, 0);
+    }
+
+    // ============================================================================
+    // Phase 4: Tests for Pure Validation Setup Functions
+    // ============================================================================
+
+    #[test]
+    fn test_create_validation_execution_context_with_timeout() {
+        let working_dir = std::path::PathBuf::from("/tmp/test");
+        let timeout = Some(30);
+
+        let context = create_validation_execution_context(working_dir.clone(), timeout);
+
+        assert_eq!(context.working_directory, working_dir);
+        assert!(context.env_vars.is_empty());
+        assert!(context.capture_output);
+        assert_eq!(context.timeout_seconds, Some(30));
+        assert!(context.stdin.is_none());
+        assert!(!context.capture_streaming);
+        assert!(context.streaming_config.is_none());
+    }
+
+    #[test]
+    fn test_create_validation_execution_context_without_timeout() {
+        let working_dir = std::path::PathBuf::from("/tmp/test");
+
+        let context = create_validation_execution_context(working_dir.clone(), None);
+
+        assert_eq!(context.working_directory, working_dir);
+        assert!(context.timeout_seconds.is_none());
+        assert!(context.capture_output);
+    }
+
+    #[test]
+    fn test_create_validation_execution_context_zero_timeout() {
+        let working_dir = std::path::PathBuf::from("/tmp/test");
+        let timeout = Some(0);
+
+        let context = create_validation_execution_context(working_dir.clone(), timeout);
+
+        assert_eq!(context.timeout_seconds, Some(0));
     }
 }
