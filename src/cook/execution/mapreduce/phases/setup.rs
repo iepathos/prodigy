@@ -178,6 +178,27 @@ impl PhaseExecutor for SetupPhaseExecutor {
 
 #[cfg(test)]
 mod execute_step_tests {
+    //! Unit tests for the private `execute_step` method of SetupPhaseExecutor.
+    //!
+    //! These tests provide comprehensive coverage of the execute_step function, which is
+    //! responsible for executing individual shell commands during the setup phase.
+    //!
+    //! ## Coverage Strategy
+    //!
+    //! The test suite covers all execution paths:
+    //! 1. **Happy path** - Successful shell command execution with output capture
+    //! 2. **Command failure** - Handling of non-zero exit codes and error messages
+    //! 3. **Non-shell commands** - Rejection of unsupported command types (e.g., claude)
+    //! 4. **Edge cases** - stderr output handling and empty output scenarios
+    //!
+    //! ## Why These Tests Matter
+    //!
+    //! The execute_step function is critical to the setup phase execution pipeline:
+    //! - It has 14 upstream callers including multiple integration tests
+    //! - It was previously 0% covered despite being core execution logic
+    //! - It has cyclomatic complexity of 5 and cognitive complexity of 11
+    //! - Proper error handling is essential for debugging setup failures
+
     use super::*;
     use crate::cook::orchestrator::ExecutionEnvironment;
     use crate::subprocess::SubprocessManager;
