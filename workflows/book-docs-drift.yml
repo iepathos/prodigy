@@ -46,7 +46,7 @@ map:
 # Reduce phase: Validate and handle any merge conflicts
 reduce:
   # Rebuild the book to ensure all chapters compile together
-  - shell: "cd $BOOK_DIR && mdbook build"
+  - shell: "(cd book && mdbook build)"
     on_failure:
       # Only needed if there are build errors (broken links, etc)
       claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
@@ -67,7 +67,7 @@ merge:
     - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
 
     # Step 2: Validate book builds successfully
-    - shell: "cd ${BOOK_DIR} && mdbook build"
+    - shell: "(cd book && mdbook build)"
 
     # Step 3: Fetch latest changes and merge master into worktree
     - shell: "git fetch origin"
