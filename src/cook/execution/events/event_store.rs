@@ -852,6 +852,112 @@ mod tests {
         assert_eq!(parsed.job_id, "test-job");
     }
 
+    // Phase 3: Comprehensive Test Coverage
+
+    #[tokio::test]
+    async fn test_index_concurrent_calls_same_job() {
+        // Test that concurrent calls to index for the same job work
+        // The last write wins, but no errors should occur
+        let temp_dir = TempDir::new().unwrap();
+        let store = FileEventStore::new(temp_dir.path().to_path_buf());
+        let job_id = "concurrent-job";
+
+        // Create some test events
+        let events_dir = store.job_events_dir(job_id);
+        fs::create_dir_all(&events_dir).await.unwrap();
+
+        let event = EventRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            correlation_id: "test".to_string(),
+            event: MapReduceEvent::JobStarted {
+                job_id: job_id.to_string(),
+                config: MapReduceConfig {
+                    agent_timeout_secs: None,
+                    continue_on_failure: false,
+                    batch_size: None,
+                    enable_checkpoints: true,
+                    input: "test.json".to_string(),
+                    json_path: "$.items".to_string(),
+                    max_parallel: 5,
+                    max_items: None,
+                    offset: None,
+                },
+                total_items: 10,
+                timestamp: Utc::now(),
+            },
+            metadata: HashMap::new(),
+        };
+
+        let event_file = events_dir.join("events.jsonl");
+        fs::write(&event_file, serde_json::to_string(&event).unwrap())
+            .await
+            .unwrap();
+
+        // Launch multiple concurrent index operations
+        let store = std::sync::Arc::new(store);
+        let mut handles = vec![];
+
+        for _ in 0..5 {
+            let store_clone = store.clone();
+            let job_id = job_id.to_string();
+            let handle = tokio::spawn(async move { store_clone.index(&job_id).await });
+            handles.push(handle);
+        }
+
+        // All should complete without error
+        for handle in handles {
+            let result = handle.await.unwrap();
+            assert!(result.is_ok(), "Concurrent index should not fail");
+        }
+    }
+
+    #[test]
+    fn test_index_invariants() {
+        // Property-based test for index invariants
+        use chrono::Duration;
+
+        // Test various index states
+        let test_cases = vec![
+            // Empty index
+            EventIndex {
+                job_id: "test".to_string(),
+                event_counts: HashMap::new(),
+                time_range: (Utc::now(), Utc::now()),
+                file_offsets: Vec::new(),
+                total_events: 0,
+            },
+            // Index with events
+            EventIndex {
+                job_id: "test".to_string(),
+                event_counts: {
+                    let mut counts = HashMap::new();
+                    counts.insert("job_started".to_string(), 1);
+                    counts.insert("agent_started".to_string(), 5);
+                    counts.insert("agent_completed".to_string(), 5);
+                    counts
+                },
+                time_range: (Utc::now(), Utc::now() + Duration::seconds(100)),
+                file_offsets: vec![],
+                total_events: 11,
+            },
+        ];
+
+        for mut index in test_cases {
+            // Invariant 1: time_range.0 <= time_range.1
+            let result = validate_index_consistency(&mut index);
+            assert!(result.is_ok());
+            assert!(index.time_range.0 <= index.time_range.1);
+
+            // Invariant 2: total_events == sum of event_counts
+            let sum: usize = index.event_counts.values().sum();
+            assert_eq!(index.total_events, sum);
+
+            // Invariant 3: job_id is not empty
+            assert!(!index.job_id.is_empty());
+        }
+    }
+
     #[tokio::test]
     #[ignore] // This test requires proper EventRecord serialization setup
     async fn test_event_store_query() {
