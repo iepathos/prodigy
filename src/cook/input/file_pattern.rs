@@ -8,9 +8,153 @@ use async_trait::async_trait;
 use glob::glob;
 use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct FilePatternInputProvider;
+
+/// Create file-related variables from a path
+fn create_file_variables(file_path: &Path) -> Vec<(String, VariableValue)> {
+    vec![
+        (
+            "file_path".to_string(),
+            VariableValue::Path(file_path.to_path_buf()),
+        ),
+        (
+            "file_name".to_string(),
+            VariableValue::String(
+                file_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+            ),
+        ),
+        (
+            "file_dir".to_string(),
+            VariableValue::Path(
+                file_path
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."))
+                    .to_path_buf(),
+            ),
+        ),
+        (
+            "file_stem".to_string(),
+            VariableValue::String(
+                file_path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+            ),
+        ),
+        (
+            "file_extension".to_string(),
+            VariableValue::String(
+                file_path
+                    .extension()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+            ),
+        ),
+    ]
+}
+
+/// Create input metadata from a file path and metadata
+fn create_input_metadata(file_path: &Path, metadata: &fs::Metadata) -> InputMetadata {
+    InputMetadata {
+        source: file_path.to_string_lossy().to_string(),
+        created_at: chrono::Utc::now(),
+        size_bytes: Some(metadata.len()),
+        checksum: None,
+        content_type: Some(
+            mime_guess::from_path(file_path)
+                .first_or_octet_stream()
+                .to_string(),
+        ),
+        custom_fields: std::collections::HashMap::new(),
+    }
+}
+
+/// Expand a pattern string based on recursive flag
+fn expand_pattern(pattern: &str, recursive: bool) -> String {
+    if recursive && !pattern.contains("**") {
+        format!("**/{}", pattern)
+    } else {
+        pattern.to_string()
+    }
+}
+
+/// Discover files matching the given patterns
+fn discover_files(patterns: &[serde_json::Value], recursive: bool) -> Result<HashSet<PathBuf>> {
+    let mut all_files = HashSet::new();
+
+    for pattern in patterns {
+        let pattern_str = pattern
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Pattern must be a string"))?;
+
+        let pattern_to_use = expand_pattern(pattern_str, recursive);
+
+        for entry in glob(&pattern_to_use)? {
+            match entry {
+                Ok(path) => {
+                    // Check file accessibility once during glob iteration
+                    // This avoids race conditions between glob and later metadata checks
+                    if let Ok(metadata) = fs::metadata(&path) {
+                        if metadata.is_file() {
+                            all_files.insert(path);
+                        }
+                    }
+                    // Skip inaccessible files silently (broken symlinks, permission issues)
+                }
+                Err(e) => {
+                    // Log but don't fail on individual glob errors
+                    eprintln!("Glob error: {}", e);
+                }
+            }
+        }
+    }
+
+    Ok(all_files)
+}
+
+/// Build an ExecutionInput from a file path and patterns
+fn build_execution_input(
+    file_path: &Path,
+    index: usize,
+    patterns: &[serde_json::Value],
+    recursive: bool,
+    metadata: &fs::Metadata,
+) -> ExecutionInput {
+    let mut input = ExecutionInput::new(
+        format!("file_{}", index),
+        InputType::FilePattern {
+            patterns: patterns
+                .iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
+            recursive,
+        },
+    );
+
+    // Add file path variables
+    for (name, value) in create_file_variables(file_path) {
+        input.add_variable(name, value);
+    }
+
+    // Add file metadata variables
+    input.add_variable(
+        "file_size".to_string(),
+        VariableValue::Number(metadata.len() as i64),
+    );
+
+    // Add metadata
+    input.with_metadata(create_input_metadata(file_path, metadata));
+
+    input
+}
 
 impl Default for FilePatternInputProvider {
     fn default() -> Self {
@@ -52,133 +196,24 @@ impl InputProvider for FilePatternInputProvider {
         let patterns = config.get_array("patterns")?;
         let recursive = config.get_bool("recursive").unwrap_or(false);
 
-        let mut all_files = HashSet::new();
+        let all_files = discover_files(&patterns, recursive)?;
 
-        for pattern in &patterns {
-            let pattern_str = pattern
-                .as_str()
-                .ok_or_else(|| anyhow::anyhow!("Pattern must be a string"))?;
-
-            // Use glob to find matching files
-            let pattern_to_use = if recursive && !pattern_str.contains("**") {
-                format!("**/{}", pattern_str)
-            } else {
-                pattern_str.to_string()
-            };
-
-            for entry in glob(&pattern_to_use)? {
-                match entry {
-                    Ok(path) => {
-                        // Check file accessibility once during glob iteration
-                        // This avoids race conditions between glob and later metadata checks
-                        if let Ok(metadata) = fs::metadata(&path) {
-                            if metadata.is_file() {
-                                all_files.insert(path);
-                            }
-                        }
-                        // Skip inaccessible files silently (broken symlinks, permission issues)
-                    }
+        let inputs = all_files
+            .iter()
+            .enumerate()
+            .filter_map(|(index, file_path)| {
+                // Double-check file accessibility in case filesystem changed
+                match fs::metadata(file_path) {
+                    Ok(metadata) => Some(build_execution_input(
+                        file_path, index, &patterns, recursive, &metadata,
+                    )),
                     Err(e) => {
-                        // Log but don't fail on individual glob errors
-                        eprintln!("Glob error: {}", e);
+                        eprintln!("Skipping inaccessible file {:?}: {}", file_path, e);
+                        None
                     }
                 }
-            }
-        }
-
-        let mut inputs = Vec::new();
-
-        for (index, file_path) in all_files.iter().enumerate() {
-            // We already verified file accessibility during glob iteration
-            // But double-check here in case filesystem changed between glob and now
-            let metadata = match fs::metadata(file_path) {
-                Ok(m) => m,
-                Err(e) => {
-                    // This shouldn't happen often since we checked during glob
-                    eprintln!("Skipping inaccessible file {:?}: {}", file_path, e);
-                    continue;
-                }
-            };
-
-            let mut input = ExecutionInput::new(
-                format!("file_{}", index),
-                InputType::FilePattern {
-                    patterns: patterns
-                        .iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect(),
-                    recursive,
-                },
-            );
-
-            // File path variables
-            input.add_variable(
-                "file_path".to_string(),
-                VariableValue::Path(file_path.clone()),
-            );
-            input.add_variable(
-                "file_name".to_string(),
-                VariableValue::String(
-                    file_path
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string(),
-                ),
-            );
-            input.add_variable(
-                "file_dir".to_string(),
-                VariableValue::Path(
-                    file_path
-                        .parent()
-                        .unwrap_or_else(|| Path::new("."))
-                        .to_path_buf(),
-                ),
-            );
-            input.add_variable(
-                "file_stem".to_string(),
-                VariableValue::String(
-                    file_path
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string(),
-                ),
-            );
-            input.add_variable(
-                "file_extension".to_string(),
-                VariableValue::String(
-                    file_path
-                        .extension()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string(),
-                ),
-            );
-
-            // File metadata variables
-            input.add_variable(
-                "file_size".to_string(),
-                VariableValue::Number(metadata.len() as i64),
-            );
-
-            // Add metadata
-            let input_metadata = InputMetadata {
-                source: file_path.to_string_lossy().to_string(),
-                created_at: chrono::Utc::now(),
-                size_bytes: Some(metadata.len()),
-                checksum: None,
-                content_type: Some(
-                    mime_guess::from_path(file_path)
-                        .first_or_octet_stream()
-                        .to_string(),
-                ),
-                custom_fields: std::collections::HashMap::new(),
-            };
-
-            input.with_metadata(input_metadata);
-            inputs.push(input);
-        }
+            })
+            .collect();
 
         Ok(inputs)
     }
