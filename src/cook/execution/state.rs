@@ -878,6 +878,25 @@ impl DefaultJobStateManager {
         checkpoint_manager.load_checkpoint(job_id).await.ok()
     }
 
+    /// Try to build a ResumableJob from a job directory
+    /// Returns None if the job is complete, has no valid checkpoint, or cannot be loaded
+    async fn try_build_resumable_job(
+        checkpoint_manager: &CheckpointManager,
+        job_id: &str,
+    ) -> Option<ResumableJob> {
+        // Load checkpoint state
+        let state = Self::load_job_checkpoint(checkpoint_manager, job_id).await?;
+
+        // Get checkpoint list for version calculation
+        let checkpoints = checkpoint_manager
+            .list_checkpoints(job_id)
+            .await
+            .unwrap_or_default();
+
+        // Build resumable job from state
+        Self::build_resumable_job(job_id, state, checkpoints)
+    }
+
     /// Build a ResumableJob from state and checkpoint list if incomplete
     fn build_resumable_job(
         job_id: &str,
@@ -951,21 +970,8 @@ impl DefaultJobStateManager {
                 None => continue,
             };
 
-            // Try to load the latest checkpoint for this job
-            let state = match Self::load_job_checkpoint(&self.checkpoint_manager, &job_id).await {
-                Some(s) => s,
-                None => continue, // Skip jobs without valid checkpoints
-            };
-
-            // Get checkpoint list for version calculation
-            let checkpoints = self
-                .checkpoint_manager
-                .list_checkpoints(&job_id)
-                .await
-                .unwrap_or_default();
-
-            // Build resumable job if incomplete
-            if let Some(job) = Self::build_resumable_job(&job_id, state, checkpoints) {
+            // Try to build resumable job from this directory
+            if let Some(job) = Self::try_build_resumable_job(&self.checkpoint_manager, &job_id).await {
                 resumable_jobs.push(job);
             }
         }
