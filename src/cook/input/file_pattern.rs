@@ -61,6 +61,22 @@ fn create_file_variables(file_path: &Path) -> Vec<(String, VariableValue)> {
     ]
 }
 
+/// Create input metadata from a file path and metadata
+fn create_input_metadata(file_path: &Path, metadata: &fs::Metadata) -> InputMetadata {
+    InputMetadata {
+        source: file_path.to_string_lossy().to_string(),
+        created_at: chrono::Utc::now(),
+        size_bytes: Some(metadata.len()),
+        checksum: None,
+        content_type: Some(
+            mime_guess::from_path(file_path)
+                .first_or_octet_stream()
+                .to_string(),
+        ),
+        custom_fields: std::collections::HashMap::new(),
+    }
+}
+
 impl Default for FilePatternInputProvider {
     fn default() -> Self {
         Self::new()
@@ -172,20 +188,7 @@ impl InputProvider for FilePatternInputProvider {
             );
 
             // Add metadata
-            let input_metadata = InputMetadata {
-                source: file_path.to_string_lossy().to_string(),
-                created_at: chrono::Utc::now(),
-                size_bytes: Some(metadata.len()),
-                checksum: None,
-                content_type: Some(
-                    mime_guess::from_path(file_path)
-                        .first_or_octet_stream()
-                        .to_string(),
-                ),
-                custom_fields: std::collections::HashMap::new(),
-            };
-
-            input.with_metadata(input_metadata);
+            input.with_metadata(create_input_metadata(file_path, &metadata));
             inputs.push(input);
         }
 
