@@ -418,26 +418,22 @@ impl TokioProcessRunner {
         Ok(child)
     }
 
+    /// Extract a stream from a child process, converting None to error
+    fn extract_stream<T>(stream: Option<T>, stream_name: &str) -> Result<T, ProcessError> {
+        stream.ok_or_else(|| ProcessError::InternalError {
+            message: format!("Failed to capture {}", stream_name),
+        })
+    }
+
     /// Extract and create output streams from a child process
     fn create_output_streams(
         child: &mut tokio::process::Child,
     ) -> Result<(ProcessStreamFut, ProcessStreamFut), ProcessError> {
         use tokio::io::BufReader;
 
-        // Take ownership of output streams
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| ProcessError::InternalError {
-                message: "Failed to capture stdout".to_string(),
-            })?;
-
-        let stderr = child
-            .stderr
-            .take()
-            .ok_or_else(|| ProcessError::InternalError {
-                message: "Failed to capture stderr".to_string(),
-            })?;
+        // Take ownership of output streams with simplified error handling
+        let stdout = Self::extract_stream(child.stdout.take(), "stdout")?;
+        let stderr = Self::extract_stream(child.stderr.take(), "stderr")?;
 
         // Create stdout and stderr streams
         let stdout_stream = Self::create_line_stream(BufReader::new(stdout));
