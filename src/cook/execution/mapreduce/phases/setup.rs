@@ -229,4 +229,35 @@ mod execute_step_tests {
         let output = result.unwrap();
         assert!(output.contains("test output"));
     }
+
+    /// Test execute_step with a failing shell command
+    #[tokio::test]
+    async fn test_execute_step_command_failure() {
+        let setup_phase = create_test_setup_phase();
+        let executor = SetupPhaseExecutor::new(setup_phase);
+
+        let mut context = PhaseContext::new(
+            create_test_environment(),
+            Arc::new(SubprocessManager::production()),
+        );
+
+        // Create a shell command that exits with non-zero status
+        let step = WorkflowStep {
+            shell: Some("exit 1".to_string()),
+            ..Default::default()
+        };
+
+        // Execute the step
+        let result = executor.execute_step(&step, &mut context).await;
+
+        // Verify error is returned
+        assert!(result.is_err());
+
+        // Check error message format
+        if let Err(PhaseError::ExecutionFailed { message }) = result {
+            assert!(message.contains("Command exited with code"));
+        } else {
+            panic!("Expected PhaseError::ExecutionFailed");
+        }
+    }
 }
