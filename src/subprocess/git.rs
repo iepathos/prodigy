@@ -68,6 +68,33 @@ fn parse_modified_line(line: &str) -> Option<String> {
     }
 }
 
+/// Parse git status --porcelain output into structured data.
+/// Returns a tuple of (branch_name, untracked_files, modified_files).
+/// This is a pure function that performs no I/O.
+fn parse_git_status_output(output: &str) -> (Option<String>, Vec<String>, Vec<String>) {
+    let mut branch = None;
+    let mut untracked_files = Vec::new();
+    let mut modified_files = Vec::new();
+
+    for line in output.lines() {
+        if let Some(branch_name) = parse_branch_line(line) {
+            branch = Some(branch_name);
+            continue;
+        }
+
+        if let Some(file) = parse_untracked_line(line) {
+            untracked_files.push(file);
+            continue;
+        }
+
+        if let Some(file) = parse_modified_line(line) {
+            modified_files.push(file);
+        }
+    }
+
+    (branch, untracked_files, modified_files)
+}
+
 impl GitRunnerImpl {
     pub fn new(runner: Arc<dyn ProcessRunner>) -> Self {
         Self { runner }
@@ -91,26 +118,7 @@ impl GitRunner for GitRunnerImpl {
             return Err(ProcessError::ExitCode(output.status.code().unwrap_or(1)));
         }
 
-        let mut branch = None;
-        let mut untracked_files = Vec::new();
-        let mut modified_files = Vec::new();
-
-        // Parse git status --porcelain output line by line
-        for line in output.stdout.lines() {
-            if let Some(branch_name) = parse_branch_line(line) {
-                branch = Some(branch_name);
-                continue;
-            }
-
-            if let Some(file) = parse_untracked_line(line) {
-                untracked_files.push(file);
-                continue;
-            }
-
-            if let Some(file) = parse_modified_line(line) {
-                modified_files.push(file);
-            }
-        }
+        let (branch, untracked_files, modified_files) = parse_git_status_output(&output.stdout);
 
         Ok(GitStatus {
             branch,
