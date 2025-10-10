@@ -500,3 +500,154 @@ impl ProcessRunner for TokioProcessRunner {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::process::Stdio;
+
+    /// Test helper to create a basic ProcessCommand for testing
+    fn test_command() -> ProcessCommand {
+        ProcessCommand {
+            program: "echo".to_string(),
+            args: vec!["test".to_string()],
+            env: HashMap::new(),
+            working_dir: None,
+            timeout: None,
+            stdin: None,
+            suppress_stderr: false,
+        }
+    }
+
+    #[test]
+    fn test_extract_stream_with_some() {
+        let value = Some(42);
+        let result = TokioProcessRunner::extract_stream(value, "test");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 42);
+    }
+
+    #[test]
+    fn test_extract_stream_with_none() {
+        let value: Option<i32> = None;
+        let result = TokioProcessRunner::extract_stream(value, "test_stream");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ProcessError::InternalError { message } => {
+                assert_eq!(message, "Failed to capture test_stream");
+            }
+            _ => panic!("Expected InternalError"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_spawn_configured_process() {
+        let mut command = test_command();
+        command.program = "sh".to_string();
+        command.args = vec!["-c".to_string(), "echo hello".to_string()];
+
+        let child = TokioProcessRunner::spawn_configured_process(&command).await;
+        assert!(child.is_ok());
+
+        let mut child = child.unwrap();
+        let status = child.wait().await;
+        assert!(status.is_ok());
+        assert!(status.unwrap().success());
+    }
+
+    #[tokio::test]
+    async fn test_spawn_configured_process_with_stdin() {
+        let mut command = test_command();
+        command.program = "sh".to_string();
+        command.args = vec!["-c".to_string(), "cat".to_string()];
+        command.stdin = Some("test input".to_string());
+
+        let child = TokioProcessRunner::spawn_configured_process(&command).await;
+        assert!(child.is_ok());
+
+        let child = child.unwrap();
+        let output = child.wait_with_output().await;
+        assert!(output.is_ok());
+
+        let output = output.unwrap();
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(stdout, "test input");
+    }
+
+    #[tokio::test]
+    async fn test_spawn_configured_process_nonexistent() {
+        let mut command = test_command();
+        command.program = "nonexistent_command_12345".to_string();
+
+        let result = TokioProcessRunner::spawn_configured_process(&command).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ProcessError::SpawnFailed { command, .. } => {
+                assert!(command.contains("nonexistent_command_12345"));
+            }
+            _ => panic!("Expected SpawnFailed error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_output_streams() {
+        use tokio::process::Command;
+
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg("echo test");
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+
+        let mut child = cmd.spawn().unwrap();
+
+        let result = TokioProcessRunner::create_output_streams(&mut child);
+        assert!(result.is_ok());
+
+        let (_stdout_stream, _stderr_stream) = result.unwrap();
+        // Streams were successfully created
+
+        // Clean up
+        let _ = child.wait().await;
+    }
+
+    #[test]
+    fn test_normalize_line() {
+        assert_eq!(
+            TokioProcessRunner::normalize_line("test\n".to_string()),
+            "test"
+        );
+        assert_eq!(
+            TokioProcessRunner::normalize_line("test\r\n".to_string()),
+            "test"
+        );
+        assert_eq!(
+            TokioProcessRunner::normalize_line("test".to_string()),
+            "test"
+        );
+        assert_eq!(TokioProcessRunner::normalize_line("".to_string()), "");
+        assert_eq!(
+            TokioProcessRunner::normalize_line("test\nmulti".to_string()),
+            "test\nmulti"
+        );
+    }
+
+    #[test]
+    fn test_convert_exit_status() {
+        use std::os::unix::process::ExitStatusExt;
+
+        // Test success
+        let status = std::process::ExitStatus::from_raw(0);
+        assert_eq!(
+            TokioProcessRunner::convert_exit_status(status),
+            super::ExitStatus::Success
+        );
+
+        // Test error code
+        let status = std::process::ExitStatus::from_raw(256); // Exit code 1
+        match TokioProcessRunner::convert_exit_status(status) {
+            super::ExitStatus::Error(code) => assert_eq!(code, 1),
+            _ => panic!("Expected Error status"),
+        }
+    }
+}
