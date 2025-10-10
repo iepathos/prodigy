@@ -110,6 +110,29 @@ where
             metrics.in_use = metrics.in_use.saturating_sub(1);
         }
     }
+
+    /// Update acquisition metrics with wait time tracking
+    fn update_acquisition_metrics(
+        metrics: &mut PoolMetrics,
+        start: Instant,
+        is_reuse: bool,
+    ) {
+        metrics.in_use += 1;
+        metrics.total_acquisitions += 1;
+
+        if is_reuse {
+            metrics.reuse_count += 1;
+            metrics.available = metrics.available.saturating_sub(1);
+        } else {
+            metrics.total_created += 1;
+        }
+
+        let wait_time = start.elapsed();
+        metrics.avg_wait_time_ms = ((metrics.avg_wait_time_ms
+            * (metrics.total_acquisitions - 1) as u64)
+            + wait_time.as_millis() as u64)
+            / metrics.total_acquisitions as u64;
+    }
 }
 
 #[async_trait]
@@ -124,16 +147,7 @@ where
         // Try to get an available resource first
         if let Some(resource) = self.try_get_available().await {
             let mut metrics = self.metrics.lock().await;
-            metrics.in_use += 1;
-            metrics.available = metrics.available.saturating_sub(1);
-            metrics.total_acquisitions += 1;
-            metrics.reuse_count += 1;
-
-            let wait_time = start.elapsed();
-            metrics.avg_wait_time_ms = ((metrics.avg_wait_time_ms
-                * (metrics.total_acquisitions - 1) as u64)
-                + wait_time.as_millis() as u64)
-                / metrics.total_acquisitions as u64;
+            Self::update_acquisition_metrics(&mut metrics, start, true);
 
             debug!("Reused resource from pool");
 
@@ -168,15 +182,7 @@ where
         let resource = (self.factory)().await?;
 
         let mut metrics = self.metrics.lock().await;
-        metrics.total_created += 1;
-        metrics.in_use += 1;
-        metrics.total_acquisitions += 1;
-
-        let wait_time = start.elapsed();
-        metrics.avg_wait_time_ms = ((metrics.avg_wait_time_ms
-            * (metrics.total_acquisitions - 1) as u64)
-            + wait_time.as_millis() as u64)
-            / metrics.total_acquisitions as u64;
+        Self::update_acquisition_metrics(&mut metrics, start, false);
 
         info!("Created new resource (total: {})", metrics.total_created);
 
