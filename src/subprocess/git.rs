@@ -897,3 +897,175 @@ mod git_error_tests {
         assert!(!status.clean);
     }
 }
+
+#[cfg(test)]
+mod parse_git_status_output_tests {
+    use super::parse_git_status_output;
+
+    #[test]
+    fn test_empty_output() {
+        let (branch, untracked, modified) = parse_git_status_output("");
+        assert_eq!(branch, None);
+        assert!(untracked.is_empty());
+        assert!(modified.is_empty());
+    }
+
+    #[test]
+    fn test_branch_only() {
+        let (branch, untracked, modified) = parse_git_status_output("## main\n");
+        assert_eq!(branch, Some("main".to_string()));
+        assert!(untracked.is_empty());
+        assert!(modified.is_empty());
+    }
+
+    #[test]
+    fn test_branch_with_upstream() {
+        let (branch, untracked, modified) =
+            parse_git_status_output("## feature/test...origin/feature/test\n");
+        assert_eq!(branch, Some("feature/test".to_string()));
+        assert!(untracked.is_empty());
+        assert!(modified.is_empty());
+    }
+
+    #[test]
+    fn test_untracked_files_only() {
+        let (branch, untracked, modified) =
+            parse_git_status_output("?? file1.rs\n?? file2.txt\n?? dir/file3.rs\n");
+        assert_eq!(branch, None);
+        assert_eq!(untracked.len(), 3);
+        assert_eq!(untracked[0], "file1.rs");
+        assert_eq!(untracked[1], "file2.txt");
+        assert_eq!(untracked[2], "dir/file3.rs");
+        assert!(modified.is_empty());
+    }
+
+    #[test]
+    fn test_modified_files_only() {
+        let (branch, untracked, modified) =
+            parse_git_status_output(" M modified.rs\n A added.rs\n D deleted.rs\n");
+        assert_eq!(branch, None);
+        assert!(untracked.is_empty());
+        assert_eq!(modified.len(), 3);
+        assert_eq!(modified[0], "modified.rs");
+        assert_eq!(modified[1], "added.rs");
+        assert_eq!(modified[2], "deleted.rs");
+    }
+
+    #[test]
+    fn test_mixed_status() {
+        let output = "## main\n?? untracked.rs\n M modified.rs\n A added.rs\n";
+        let (branch, untracked, modified) = parse_git_status_output(output);
+        assert_eq!(branch, Some("main".to_string()));
+        assert_eq!(untracked.len(), 1);
+        assert_eq!(untracked[0], "untracked.rs");
+        assert_eq!(modified.len(), 2);
+        assert_eq!(modified[0], "modified.rs");
+        assert_eq!(modified[1], "added.rs");
+    }
+
+    #[test]
+    fn test_comprehensive_all_scenarios() {
+        let output = concat!(
+            "## feature/test...origin/feature/test [ahead 1, behind 2]\n",
+            "?? new1.rs\n",
+            "?? new2.rs\n",
+            " M modified1.rs\n",
+            "AM modified2.rs\n"
+        );
+        let (branch, untracked, modified) = parse_git_status_output(output);
+        assert_eq!(branch, Some("feature/test".to_string()));
+        assert_eq!(untracked.len(), 2);
+        assert_eq!(untracked[0], "new1.rs");
+        assert_eq!(untracked[1], "new2.rs");
+        assert_eq!(modified.len(), 2);
+        assert_eq!(modified[0], "modified1.rs");
+        assert_eq!(modified[1], "modified2.rs");
+    }
+
+    #[test]
+    fn test_empty_lines() {
+        let output = "## main\n\n\n M file.rs\n";
+        let (branch, _untracked, modified) = parse_git_status_output(output);
+        assert_eq!(branch, Some("main".to_string()));
+        assert_eq!(modified.len(), 1);
+        assert_eq!(modified[0], "file.rs");
+    }
+
+    #[test]
+    fn test_whitespace_only_lines() {
+        let output = "## main\n   \n\t\n M file.rs\n";
+        let (branch, _untracked, modified) = parse_git_status_output(output);
+        assert_eq!(branch, Some("main".to_string()));
+        // Whitespace lines > 2 chars get parsed as modified files
+        assert_eq!(modified.len(), 2);
+        assert_eq!(modified[0], "");
+        assert_eq!(modified[1], "file.rs");
+    }
+
+    #[test]
+    fn test_line_length_boundaries() {
+        // Lines with length exactly 2 should not be parsed as modified
+        let output = "## main\nM \n M file.rs\n";
+        let (branch, _untracked, modified) = parse_git_status_output(output);
+        assert_eq!(branch, Some("main".to_string()));
+        assert_eq!(modified.len(), 1);
+        assert_eq!(modified[0], "file.rs");
+    }
+
+    #[test]
+    fn test_line_length_one() {
+        // Lines with length 1 should not be parsed as modified
+        let output = "## main\nM\n M file.rs\n";
+        let (branch, _untracked, modified) = parse_git_status_output(output);
+        assert_eq!(branch, Some("main".to_string()));
+        assert_eq!(modified.len(), 1);
+        assert_eq!(modified[0], "file.rs");
+    }
+
+    #[test]
+    fn test_renamed_files() {
+        let output = "## main\n R old.rs -> new.rs\nR  another_old.rs -> another_new.rs\n";
+        let (branch, _untracked, modified) = parse_git_status_output(output);
+        assert_eq!(branch, Some("main".to_string()));
+        assert_eq!(modified.len(), 2);
+        assert_eq!(modified[0], "old.rs -> new.rs");
+        assert_eq!(modified[1], "another_old.rs -> another_new.rs");
+    }
+
+    #[test]
+    fn test_dual_status_files() {
+        let output = "## main\nMM staged_and_modified.rs\nAM added_and_modified.rs\n";
+        let (branch, _untracked, modified) = parse_git_status_output(output);
+        assert_eq!(branch, Some("main".to_string()));
+        assert_eq!(modified.len(), 2);
+        assert_eq!(modified[0], "staged_and_modified.rs");
+        assert_eq!(modified[1], "added_and_modified.rs");
+    }
+
+    #[test]
+    fn test_branch_with_spaces() {
+        let output = "## feature/branch with spaces\n M file.rs\n";
+        let (branch, _untracked, modified) = parse_git_status_output(output);
+        assert_eq!(branch, Some("feature/branch with spaces".to_string()));
+        assert_eq!(modified.len(), 1);
+    }
+
+    #[test]
+    fn test_malformed_branch_line() {
+        let output = "## \n?? file.txt\n";
+        let (branch, untracked, _modified) = parse_git_status_output(output);
+        assert_eq!(branch, Some("".to_string()));
+        assert_eq!(untracked.len(), 1);
+    }
+
+    #[test]
+    fn test_no_branch_with_files() {
+        let output = "?? untracked.rs\n M modified.rs\n";
+        let (branch, untracked, modified) = parse_git_status_output(output);
+        assert_eq!(branch, None);
+        assert_eq!(untracked.len(), 1);
+        assert_eq!(untracked[0], "untracked.rs");
+        assert_eq!(modified.len(), 1);
+        assert_eq!(modified[0], "modified.rs");
+    }
+}
