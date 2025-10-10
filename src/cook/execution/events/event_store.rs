@@ -1,7 +1,7 @@
 //! Event storage and retrieval functionality
 
 use super::{EventRecord, MapReduceEvent};
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -659,6 +659,15 @@ impl EventStore for FileEventStore {
     async fn index(&self, job_id: &str) -> Result<EventIndex> {
         // Input validation
         validate_job_id(job_id)?;
+
+        // Check if job events directory exists
+        let job_dir = self.job_events_dir(job_id);
+        if !job_dir.exists() {
+            return Err(anyhow!(
+                "Cannot index nonexistent job: no events directory found at {}",
+                job_dir.display()
+            ));
+        }
 
         // I/O: Find all event files
         let files = self
@@ -1756,18 +1765,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_index_creates_directory_when_missing() {
-        // Phase 2 improvement: index now creates directories if needed
+        // Indexing should fail for nonexistent jobs to maintain functional purity
+        // (index is a query operation, not a directory creation operation)
         let temp_dir = TempDir::new().unwrap();
         let store = FileEventStore::new(temp_dir.path().to_path_buf());
         let job_id = "missing-dir-job";
 
         let result = store.index(job_id).await;
 
-        // Now this should succeed and create an empty index
-        assert!(result.is_ok(), "Should create directory and empty index");
-        let index = result.unwrap();
-        assert_eq!(index.total_events, 0);
-        assert!(index.event_counts.is_empty());
+        // Should fail for nonexistent job directory
+        assert!(result.is_err(), "Index should not create directories for nonexistent jobs");
     }
 
     #[tokio::test]
