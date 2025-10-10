@@ -260,4 +260,36 @@ mod execute_step_tests {
             panic!("Expected PhaseError::ExecutionFailed");
         }
     }
+
+    /// Test execute_step with a non-shell command (unsupported command type)
+    #[tokio::test]
+    async fn test_execute_step_non_shell_command() {
+        let setup_phase = create_test_setup_phase();
+        let executor = SetupPhaseExecutor::new(setup_phase);
+
+        let mut context = PhaseContext::new(
+            create_test_environment(),
+            Arc::new(SubprocessManager::production()),
+        );
+
+        // Create a step without a shell command (e.g., with claude command)
+        let step = WorkflowStep {
+            shell: None,
+            claude: Some("/analyze-project".to_string()),
+            ..Default::default()
+        };
+
+        // Execute the step
+        let result = executor.execute_step(&step, &mut context).await;
+
+        // Verify error is returned
+        assert!(result.is_err());
+
+        // Check error message indicates only shell commands are supported
+        if let Err(PhaseError::ExecutionFailed { message }) = result {
+            assert!(message.contains("Only shell commands are supported"));
+        } else {
+            panic!("Expected PhaseError::ExecutionFailed");
+        }
+    }
 }
