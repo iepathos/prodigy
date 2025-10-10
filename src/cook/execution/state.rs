@@ -909,6 +909,28 @@ impl DefaultJobStateManager {
         Self::try_build_resumable_job(checkpoint_manager, &job_id).await
     }
 
+    /// Collect all resumable jobs from a directory
+    ///
+    /// This helper encapsulates the directory scanning logic,
+    /// processing each entry and collecting valid resumable jobs.
+    async fn collect_resumable_jobs_from_dir(
+        jobs_dir: &std::path::Path,
+        checkpoint_manager: &CheckpointManager,
+    ) -> Result<Vec<ResumableJob>> {
+        let mut resumable_jobs = Vec::new();
+        let mut entries = tokio::fs::read_dir(jobs_dir).await?;
+
+        // Process each directory entry
+        while let Some(entry) = entries.next_entry().await? {
+            // Process and collect valid resumable jobs
+            if let Some(job) = Self::process_job_directory(entry.path(), checkpoint_manager).await {
+                resumable_jobs.push(job);
+            }
+        }
+
+        Ok(resumable_jobs)
+    }
+
     /// Try to build a ResumableJob from a job directory
     ///
     /// This is the main orchestration function that coordinates:
@@ -995,19 +1017,8 @@ impl DefaultJobStateManager {
             return Ok(Vec::new());
         }
 
-        let mut resumable_jobs = Vec::new();
-        let mut entries = tokio::fs::read_dir(&jobs_dir).await?;
-
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-
-            // Process this job directory
-            if let Some(job) = Self::process_job_directory(path, &self.checkpoint_manager).await {
-                resumable_jobs.push(job);
-            }
-        }
-
-        Ok(resumable_jobs)
+        // Delegate to helper function for collecting jobs
+        Self::collect_resumable_jobs_from_dir(&jobs_dir, &self.checkpoint_manager).await
     }
 }
 
