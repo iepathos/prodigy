@@ -54,31 +54,54 @@ impl GitOperations {
         Ok(())
     }
 
+    /// Validate that we're in a worktree context
+    ///
+    /// Pure function that checks if the execution environment has a worktree name.
+    /// Returns the working directory path if valid, error message otherwise.
+    fn validate_worktree_context<'a>(
+        env: &'a ExecutionEnvironment,
+    ) -> Result<&'a std::sync::Arc<std::path::PathBuf>, &'static str> {
+        if env.worktree_name.is_some() {
+            Ok(&env.working_dir)
+        } else {
+            Err("Cannot merge: not running in a worktree context")
+        }
+    }
+
+    /// Check if there's an incomplete merge in progress
+    ///
+    /// Pure function that checks for the existence of .git/MERGE_HEAD file.
+    /// Returns true if an incomplete merge exists.
+    fn has_incomplete_merge(parent_path: &Path) -> bool {
+        parent_path.join(".git/MERGE_HEAD").exists()
+    }
+
+    /// Determine action based on git status output
+    ///
+    /// Pure function that parses git status --porcelain output
+    /// to decide whether to commit staged changes or abort.
+    fn should_commit_staged_changes(status_output: &str) -> bool {
+        !status_output.trim().is_empty()
+    }
+
     /// Merge an agent's branch back to the parent
     pub async fn merge_agent_to_parent(
         &self,
         agent_branch: &str,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<()> {
-        // Get parent worktree path (use working_dir if we're in a parent worktree)
-        let parent_path = if env.worktree_name.is_some() {
-            &env.working_dir
-        } else {
-            return Err(self.create_git_error(
-                "merge_to_parent",
-                "Cannot merge: not running in a worktree context",
-            ));
-        };
+        // Validate worktree context (pure function)
+        let parent_path = Self::validate_worktree_context(env)
+            .map_err(|msg| self.create_git_error("merge_to_parent", msg))?;
 
-        // Check if there's an existing merge in progress and clean it up
-        let merge_head_path = parent_path.join(".git/MERGE_HEAD");
-        if merge_head_path.exists() {
+        // Check for incomplete merge and clean it up (pure function for check)
+        if Self::has_incomplete_merge(parent_path) {
             warn!(
                 "Detected incomplete merge state (MERGE_HEAD exists), cleaning up before merging {}",
                 agent_branch
             );
 
-            // First, try to complete the merge by committing staged changes
+            // Get git status to decide action
             let status_output = Command::new("git")
                 .args(["status", "--porcelain"])
                 .current_dir(&**parent_path)
@@ -89,8 +112,8 @@ impl GitOperations {
             if status_output.status.success() {
                 let status = String::from_utf8_lossy(&status_output.stdout);
 
-                // If there are staged changes, commit them
-                if !status.trim().is_empty() {
+                // Decide action based on status (pure function)
+                if Self::should_commit_staged_changes(&status) {
                     warn!("Committing staged changes from incomplete merge");
                     let commit_output = Command::new("git")
                         .args(["commit", "--no-edit"])
@@ -352,6 +375,75 @@ mod tests {
             .expect("Failed to get commit SHA");
 
         String::from_utf8_lossy(&output.stdout).trim().to_string()
+    }
+
+    // Tests for pure decision logic functions
+    #[test]
+    fn test_validate_worktree_context_with_worktree() {
+        let env = ExecutionEnvironment {
+            working_dir: Arc::new(std::path::PathBuf::from("/tmp/test")),
+            project_dir: Arc::new(std::path::PathBuf::from("/tmp/project")),
+            worktree_name: Some(Arc::from("test-worktree")),
+            session_id: Arc::from("test-session"),
+        };
+
+        let result = GitOperations::validate_worktree_context(&env);
+        assert!(result.is_ok());
+        assert_eq!(**result.unwrap(), std::path::PathBuf::from("/tmp/test"));
+    }
+
+    #[test]
+    fn test_validate_worktree_context_without_worktree() {
+        let env = ExecutionEnvironment {
+            working_dir: Arc::new(std::path::PathBuf::from("/tmp/test")),
+            project_dir: Arc::new(std::path::PathBuf::from("/tmp/project")),
+            worktree_name: None,
+            session_id: Arc::from("test-session"),
+        };
+
+        let result = GitOperations::validate_worktree_context(&env);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Cannot merge: not running in a worktree context"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_has_incomplete_merge_when_merge_head_exists() {
+        let (_temp_dir, repo_path) = create_test_repo().await;
+        let commit_sha = get_current_commit_sha(&repo_path).await;
+        create_merge_head(&repo_path, &commit_sha).await;
+
+        assert!(GitOperations::has_incomplete_merge(&repo_path));
+    }
+
+    #[tokio::test]
+    async fn test_has_incomplete_merge_when_merge_head_absent() {
+        let (_temp_dir, repo_path) = create_test_repo().await;
+
+        assert!(!GitOperations::has_incomplete_merge(&repo_path));
+    }
+
+    #[test]
+    fn test_should_commit_staged_changes_with_changes() {
+        let status_with_changes = "M  some_file.txt\nA  new_file.txt\n";
+        assert!(GitOperations::should_commit_staged_changes(
+            status_with_changes
+        ));
+    }
+
+    #[test]
+    fn test_should_commit_staged_changes_without_changes() {
+        let status_empty = "";
+        assert!(!GitOperations::should_commit_staged_changes(
+            status_empty
+        ));
+
+        let status_whitespace = "   \n  \n";
+        assert!(!GitOperations::should_commit_staged_changes(
+            status_whitespace
+        ));
     }
 
     #[tokio::test]
