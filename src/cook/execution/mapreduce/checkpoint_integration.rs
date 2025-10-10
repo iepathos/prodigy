@@ -1120,8 +1120,7 @@ mod tests {
     // Phase 1 Integration Tests: Happy Path Coverage
 
     // Phase 1: Integration tests for happy path coverage
-    // These tests verify the state transitions and batch processing logic
-    // without requiring complex mocking setup
+    // These tests focus on the key logic paths without requiring full coordinator setup
 
     #[tokio::test]
     async fn test_execute_map_phase_state_updates() {
