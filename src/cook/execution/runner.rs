@@ -317,8 +317,10 @@ pub mod tests {
 
     #[test]
     fn test_build_command_with_timeout() {
-        let mut context = ExecutionContext::default();
-        context.timeout_seconds = Some(60);
+        let context = ExecutionContext {
+            timeout_seconds: Some(60),
+            ..Default::default()
+        };
 
         let command = build_command_from_context("sleep", &["10".to_string()], &context);
 
@@ -327,8 +329,10 @@ pub mod tests {
 
     #[test]
     fn test_build_command_with_stdin() {
-        let mut context = ExecutionContext::default();
-        context.stdin = Some("input data".to_string());
+        let context = ExecutionContext {
+            stdin: Some("input data".to_string()),
+            ..Default::default()
+        };
 
         let command = build_command_from_context("cat", &[], &context);
 
@@ -425,13 +429,15 @@ pub mod tests {
     fn test_should_use_streaming_disabled() {
         use crate::subprocess::streaming::{BufferConfig, StreamingConfig, StreamingMode};
 
-        let mut context = ExecutionContext::default();
-        context.streaming_config = Some(StreamingConfig {
-            enabled: false,
-            mode: StreamingMode::Streaming,
-            processors: vec![],
-            buffer_config: BufferConfig::default(),
-        });
+        let context = ExecutionContext {
+            streaming_config: Some(StreamingConfig {
+                enabled: false,
+                mode: StreamingMode::Streaming,
+                processors: vec![],
+                buffer_config: BufferConfig::default(),
+            }),
+            ..Default::default()
+        };
 
         assert!(!should_use_streaming(&context));
     }
@@ -440,13 +446,15 @@ pub mod tests {
     fn test_should_use_streaming_enabled() {
         use crate::subprocess::streaming::{BufferConfig, StreamingConfig, StreamingMode};
 
-        let mut context = ExecutionContext::default();
-        context.streaming_config = Some(StreamingConfig {
-            enabled: true,
-            mode: StreamingMode::Streaming,
-            processors: vec![],
-            buffer_config: BufferConfig::default(),
-        });
+        let context = ExecutionContext {
+            streaming_config: Some(StreamingConfig {
+                enabled: true,
+                mode: StreamingMode::Streaming,
+                processors: vec![],
+                buffer_config: BufferConfig::default(),
+            }),
+            ..Default::default()
+        };
 
         assert!(should_use_streaming(&context));
     }
