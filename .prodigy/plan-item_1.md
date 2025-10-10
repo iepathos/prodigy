@@ -1,146 +1,139 @@
-# Implementation Plan: Reduce Cognitive Complexity in CookSessionAdapter::update_session
+# Implementation Plan: Improve Test Coverage and Purity for FileEventStore::index
 
 ## Problem Summary
 
-**Location**: ./src/unified_session/cook_adapter.rs:CookSessionAdapter::update_session:184
-**Priority Score**: 48.64
-**Debt Type**: ComplexityHotspot (cognitive: 17, cyclomatic: 5)
+**Location**: ./src/cook/execution/events/event_store.rs:FileEventStore::index:505
+**Priority Score**: 48.63
+**Debt Type**: ComplexityHotspot (cognitive: 15, cyclomatic: 6)
 **Current Metrics**:
-- Lines of Code: 26
-- Function Length: 26
-- Cognitive Complexity: 17
-- Cyclomatic Complexity: 5
-- Coverage: Heavily tested (27 upstream callers)
+- Lines of Code: 126
+- Function Length: 126
+- Cyclomatic Complexity: 6
+- Cognitive Complexity: 15
+- Coverage: No transitive coverage data available
+- Upstream Dependencies: 45 callers
 
-**Issue**: While cyclomatic complexity of 5 is manageable, the cognitive complexity of 17 indicates nested logic and debug logging that makes the function harder to understand. The function has excessive debug logging statements (7 debug calls) interspersed with business logic, creating mental overhead when reading the code.
+**Issue**: While complexity is manageable (6), this function has 45 upstream callers and lacks comprehensive test coverage. The function is marked as "PureLogic" role but is not actually pure (confidence 0.8) due to I/O operations. The primary action is to "Consider refactoring if complexity increases" with rationale "Complexity 6 is manageable. Focus on maintaining simplicity".
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 2.5
-- Coverage Improvement: 0.0 (already well-tested)
+- Complexity Reduction: 3.0
+- Coverage Improvement: 0.0 (but we'll aim higher)
 - Risk Reduction: 17.02
 
 **Success Criteria**:
-- [ ] Cognitive complexity reduced from 17 to ≤10
-- [ ] Cyclomatic complexity maintained at ≤5
-- [ ] All 27 existing tests continue to pass
+- [ ] Separate pure logic from I/O operations
+- [ ] Achieve >90% test coverage for the pure logic
+- [ ] Maintain or reduce cyclomatic complexity (keep ≤ 6)
+- [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
-- [ ] Debug logging separated from business logic
 
 ## Implementation Phases
 
-### Phase 1: Extract Debug Logging to a Tracing Span
+### Phase 1: Extract Pure Index Building Logic
 
-**Goal**: Replace inline debug! calls with a structured tracing span that automatically logs function entry/exit and key operations.
-
-**Changes**:
-- Add `#[tracing::instrument(skip(self))]` attribute to the function
-- Remove the 7 inline `debug!()` calls
-- Add strategic span events for the update loop only
-
-**Testing**:
-- Run `cargo test --lib -- cook_adapter` to verify all adapter tests pass
-- Run `cargo clippy` to check for warnings
-- Verify logging behavior with `RUST_LOG=debug cargo test test_update_session_with_timing -- --nocapture`
-
-**Success Criteria**:
-- [ ] Function has instrument attribute
-- [ ] Inline debug calls removed (except for critical state transitions)
-- [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] Ready to commit
-
-### Phase 2: Extract Pure Function for Update Conversion and Application
-
-**Goal**: Separate the pure logic of converting and applying updates from the I/O operations (locking, async calls).
+**Goal**: Separate the pure index construction logic from file I/O operations
 
 **Changes**:
-- Extract a pure function: `fn apply_unified_updates(manager: &UnifiedSessionManager, id: &SessionId, updates: Vec<UnifiedSessionUpdate>) -> impl Future<Output = Result<()>>`
-- Move the update loop into this new function
-- Keep only the essential I/O operations in `update_session`: lock acquisition, conversion, delegating to pure function, cache update
+- Extract a pure function `build_index` that takes event files and constructs an EventIndex
+- Move time range calculation into a pure helper `calculate_time_range`
+- Keep I/O operations (file reading and index saving) in the main `index` method
+- The pure function will take parsed events as input rather than file paths
 
 **Testing**:
-- Run `cargo test --lib -- cook_adapter` to verify all adapter tests pass
-- Unit test the new pure function with mock scenarios
-- Run `cargo clippy` to check for warnings
+- Write unit tests for the pure `build_index` function
+- Test edge cases: empty event list, single event, multiple events
+- Test time range calculation with various event timestamps
+- Test event count aggregation
 
 **Success Criteria**:
-- [ ] New pure function extracted and tested
-- [ ] `update_session` is simplified to: lock → convert → apply → update cache
+- [ ] Pure function extracted with no I/O dependencies
+- [ ] New unit tests pass (at least 5 new tests)
 - [ ] All existing tests pass
-- [ ] No clippy warnings
 - [ ] Ready to commit
 
-### Phase 3: Simplify Early Return Pattern
+### Phase 2: Improve Error Handling and Validation
 
-**Goal**: Use early return to reduce nesting and improve readability.
+**Goal**: Add comprehensive error handling and input validation to improve robustness
 
 **Changes**:
-- Replace `if let Some(id) = ...` with early return guard clause:
-  ```rust
-  let Some(id) = &*self.current_session.lock().await else {
-      return Ok(());
-  };
-  ```
-- This eliminates one level of nesting and makes the happy path clearer
+- Add input validation for job_id (non-empty, valid characters)
+- Improve error context using `.context()` for all I/O operations
+- Add validation for index consistency before saving (e.g., time_range.0 <= time_range.1)
+- Handle edge cases like empty directories or missing event files more gracefully
 
 **Testing**:
-- Run `cargo test --lib -- cook_adapter::test_update_session_no_active_session` specifically
-- Run full test suite: `cargo test --lib -- cook_adapter`
-- Run `cargo clippy` to check for warnings
+- Test with empty job_id
+- Test with job_id containing invalid characters
+- Test error propagation from file operations
+- Test index validation logic with invalid time ranges
 
 **Success Criteria**:
-- [ ] Early return pattern implemented
-- [ ] Nesting depth reduced by 1 level
-- [ ] All tests pass (especially no-active-session case)
-- [ ] No clippy warnings
+- [ ] Error handling is comprehensive with good context
+- [ ] Input validation prevents invalid states
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 3: Add Comprehensive Test Coverage
+
+**Goal**: Achieve >90% test coverage for all code paths
+
+**Changes**:
+- Add tests for concurrent index creation (document race condition behavior)
+- Add property-based tests for index invariants using quickcheck/proptest
+- Add tests for all error paths
+- Add tests for large-scale scenarios (1000+ events)
+
+**Testing**:
+- Run `cargo tarpaulin --lib --line` to verify coverage improvement
+- Run concurrent test scenarios
+- Verify all error paths are tested
+
+**Success Criteria**:
+- [ ] Test coverage > 90% for the index method and helpers
+- [ ] All race conditions documented and tested
+- [ ] Property-based tests added
+- [ ] All tests pass
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib -- cook_adapter` to verify all 12+ adapter tests pass
-2. Run `cargo clippy -- -D warnings` to catch any issues
-3. Run `cargo fmt` to ensure proper formatting
-4. Review the specific test cases affected:
-   - Phase 1: `test_update_session_with_timing` (checks logging)
-   - Phase 2: All sequential update tests
-   - Phase 3: `test_update_session_no_active_session`
+1. Run `cargo test --lib event_store::tests::test_index` to verify index-related tests pass
+2. Run `cargo clippy -- -D warnings` to check for warnings
+3. Run `cargo fmt --check` to verify formatting
 
 **Final verification**:
 1. `just ci` - Full CI checks
-2. Review cognitive complexity improvement (target: 17 → ≤10)
-3. Verify all 27 upstream callers still work correctly
+2. `cargo tarpaulin --lib --line` - Regenerate coverage report
+3. `debtmap analyze` - Verify improvement in metrics
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failure details
-3. Adjust the implementation approach:
-   - Phase 1: Consider keeping minimal debug logging if tracing span isn't sufficient
-   - Phase 2: Ensure async boundaries are correct (await placement)
-   - Phase 3: Verify early return doesn't skip cache updates
-4. Retry with adjustments
+2. Review the failure in test output
+3. Adjust the plan based on findings
+4. Retry the phase
 
 ## Notes
 
-**Why this function?**
-- High cognitive complexity (17) despite moderate cyclomatic complexity (5)
-- The mismatch suggests readability issues from logging noise
-- Already has excellent test coverage (27 callers)
-- Pure logic can be extracted without breaking the adapter pattern
+### Key Insights from Analysis:
+1. The function already uses several pure helper functions (`update_time_range`, `increment_event_count`, `create_file_offset`, `process_event_line`)
+2. The main complexity comes from orchestrating these helpers with I/O operations
+3. There are already 30+ tests for the index functionality, but coverage data is missing
+4. The function has 45 upstream callers, making it critical for system stability
 
-**Key insights from code analysis**:
-- The 7 debug! calls create cognitive load without adding complexity
-- The nested `if let` can be simplified with early return
-- The update loop is pure logic that can be extracted
-- The function is essentially: lock → convert → apply → cache update
+### Implementation Considerations:
+- The existing helper functions are already well-factored
+- Focus should be on separating the remaining I/O from logic
+- The high number of callers means we must be very careful about interface changes
+- Consider adding performance tests given the function's critical role
 
-**Refactoring approach**:
-- Use tracing spans instead of inline debug calls (reduces cognitive load)
-- Extract the update application loop (pure function)
-- Simplify control flow with early returns (reduces nesting)
-- Keep the adapter pattern intact (no architectural changes)
+### Risk Mitigation:
+- No public API changes - internal refactoring only
+- Extensive test coverage before any structural changes
+- Incremental approach to minimize disruption
+- Each phase independently valuable and testable

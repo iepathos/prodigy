@@ -1,7 +1,7 @@
 //! Event storage and retrieval functionality
 
 use super::{EventRecord, MapReduceEvent};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 /// Event filter for querying events
@@ -182,7 +182,98 @@ impl FileEventStore {
 
 // Pure helper functions for index operations
 
+/// Calculate the time range for a collection of events
+#[cfg(test)]
+fn calculate_time_range(events: &[EventRecord]) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
+    if events.is_empty() {
+        return None;
+    }
+
+    let mut start = events[0].timestamp;
+    let mut end = events[0].timestamp;
+
+    for event in events {
+        if event.timestamp < start {
+            start = event.timestamp;
+        }
+        if event.timestamp > end {
+            end = event.timestamp;
+        }
+    }
+
+    Some((start, end))
+}
+
+/// Type alias for parsed event data from a file
+type ParsedEventData = Vec<(EventRecord, u64, usize)>;
+
+/// Type alias for file events data
+type FileEventsData = Vec<(PathBuf, ParsedEventData)>;
+
+/// Build an index from file event data (pure function)
+///
+/// Takes parsed event data from files and constructs an EventIndex.
+/// This is a pure function that performs no I/O operations.
+///
+/// # Arguments
+/// * `job_id` - The job identifier
+/// * `file_events` - Vector of (file_path, events) tuples
+///
+/// # Returns
+/// An EventIndex with aggregated statistics
+fn build_index_from_events(job_id: &str, file_events: FileEventsData) -> EventIndex {
+    let mut index = EventIndex {
+        job_id: job_id.to_string(),
+        event_counts: HashMap::new(),
+        time_range: (Utc::now(), Utc::now()),
+        file_offsets: Vec::new(),
+        total_events: 0,
+    };
+
+    let mut all_timestamps = Vec::new();
+
+    for (file_path, events) in file_events {
+        for (event, byte_offset, line_number) in events {
+            index.total_events += 1;
+
+            // Update event counts
+            let event_name = event.event.event_name().to_string();
+            increment_event_count(&mut index.event_counts, event_name);
+
+            // Create file offset
+            let file_offset = FileOffset {
+                file_path: file_path.clone(),
+                byte_offset,
+                line_number,
+                event_id: event.id,
+                timestamp: event.timestamp,
+            };
+            index.file_offsets.push(file_offset);
+
+            all_timestamps.push(event.timestamp);
+        }
+    }
+
+    // Calculate time range from all timestamps
+    if !all_timestamps.is_empty() {
+        let min_time = all_timestamps
+            .iter()
+            .min()
+            .copied()
+            .unwrap_or_else(Utc::now);
+        let max_time = all_timestamps
+            .iter()
+            .max()
+            .copied()
+            .unwrap_or_else(Utc::now);
+        index.time_range = (min_time, max_time);
+    }
+
+    index
+}
+
 /// Update time range with a new event timestamp
+#[cfg(test)]
 fn update_time_range(
     start: Option<DateTime<Utc>>,
     end: Option<DateTime<Utc>>,
@@ -208,49 +299,6 @@ fn increment_event_count(counts: &mut HashMap<String, usize>, event_name: String
     *counts.entry(event_name).or_insert(0) += 1;
 }
 
-/// Create a file offset record from event data
-fn create_file_offset(
-    file_path: PathBuf,
-    byte_offset: u64,
-    line_number: usize,
-    event: &EventRecord,
-) -> FileOffset {
-    FileOffset {
-        file_path,
-        byte_offset,
-        line_number,
-        event_id: event.id,
-        timestamp: event.timestamp,
-    }
-}
-
-/// Process a single event line and update index state
-fn process_event_line(
-    line: &str,
-    file_path: &Path,
-    line_number: usize,
-    byte_offset: u64,
-    index: &mut EventIndex,
-    time_range: &mut (Option<DateTime<Utc>>, Option<DateTime<Utc>>),
-) {
-    if let Ok(event) = serde_json::from_str::<EventRecord>(line) {
-        index.total_events += 1;
-
-        let event_name = event.event.event_name().to_string();
-        increment_event_count(&mut index.event_counts, event_name);
-
-        let (start, end) = update_time_range(time_range.0, time_range.1, event.timestamp);
-        *time_range = (start, end);
-
-        index.file_offsets.push(create_file_offset(
-            file_path.to_path_buf(),
-            byte_offset,
-            line_number,
-            &event,
-        ));
-    }
-}
-
 /// Save index to file
 async fn save_index(index: &EventIndex, index_path: &Path) -> Result<()> {
     let json = serde_json::to_string_pretty(index)?;
@@ -258,32 +306,39 @@ async fn save_index(index: &EventIndex, index_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Process all events in a single file and update the index
-async fn process_event_file(
+/// Read and parse events from a file (I/O operation)
+async fn read_events_from_file_with_offsets(
     file_path: &PathBuf,
-    index: &mut EventIndex,
-    time_range: &mut (Option<DateTime<Utc>>, Option<DateTime<Utc>>),
-) -> Result<()> {
-    let file = File::open(file_path).await?;
+) -> Result<Vec<(EventRecord, u64, usize)>> {
+    let file = File::open(file_path)
+        .await
+        .with_context(|| format!("Failed to open event file: {}", file_path.display()))?;
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
     let mut line_number = 0;
     let mut byte_offset = 0u64;
+    let mut events = Vec::new();
 
     while let Some(line) = lines.next_line().await? {
         line_number += 1;
-        process_event_line(
-            &line,
-            file_path,
-            line_number,
-            byte_offset,
-            index,
-            time_range,
-        );
+
+        // Try to parse the event
+        if let Ok(event) = serde_json::from_str::<EventRecord>(&line) {
+            events.push((event, byte_offset, line_number));
+        } else {
+            // Log warning but continue processing
+            debug!(
+                "Skipping malformed event at {}:{}: {}",
+                file_path.display(),
+                line_number,
+                &line[..line.len().min(100)]
+            );
+        }
+
         byte_offset += line.len() as u64 + 1; // +1 for newline
     }
 
-    Ok(())
+    Ok(events)
 }
 
 #[async_trait]
@@ -503,27 +558,26 @@ impl EventStore for FileEventStore {
     /// However, concurrent calls for the same job may result in race conditions
     /// when writing index.json. The last write wins.
     async fn index(&self, job_id: &str) -> Result<EventIndex> {
+        // I/O: Find all event files
         let files = self.find_event_files(job_id).await?;
-        let mut index = EventIndex {
-            job_id: job_id.to_string(),
-            event_counts: HashMap::new(),
-            time_range: (Utc::now(), Utc::now()),
-            file_offsets: Vec::new(),
-            total_events: 0,
-        };
 
-        let mut time_range = (None, None);
-
+        // I/O: Read and parse events from all files
+        let mut file_events = Vec::new();
         for file_path in files {
-            process_event_file(&file_path, &mut index, &mut time_range).await?;
+            let events = read_events_from_file_with_offsets(&file_path)
+                .await
+                .with_context(|| format!("Failed to read events from {}", file_path.display()))?;
+            file_events.push((file_path, events));
         }
 
-        if let (Some(start), Some(end)) = time_range {
-            index.time_range = (start, end);
-        }
+        // Pure: Build index from parsed events
+        let index = build_index_from_events(job_id, file_events);
 
+        // I/O: Save index to disk
         let index_path = self.job_events_dir(job_id).join("index.json");
-        save_index(&index, &index_path).await?;
+        save_index(&index, &index_path)
+            .await
+            .with_context(|| format!("Failed to save index for job {}", job_id))?;
 
         info!(
             "Created index for job {} with {} events",
@@ -539,6 +593,9 @@ mod tests {
     use super::*;
     use crate::cook::execution::mapreduce::MapReduceConfig;
     use tempfile::TempDir;
+
+    // Include tests for the pure functions extracted in Phase 1
+    include!("test_pure_functions.rs");
 
     #[tokio::test]
     #[ignore] // This test requires proper EventRecord serialization setup
