@@ -68,6 +68,18 @@ fn batch_output_to_result(output: ProcessOutput) -> ExecutionResult {
     }
 }
 
+/// Determine if streaming mode should be used
+///
+/// This is a pure function that checks the execution context to determine
+/// whether to use streaming or batch mode for command execution.
+fn should_use_streaming(context: &ExecutionContext) -> bool {
+    context
+        .streaming_config
+        .as_ref()
+        .map(|config| config.enabled)
+        .unwrap_or(false)
+}
+
 /// Trait for running system commands
 #[async_trait]
 pub trait CommandRunner: Send + Sync {
@@ -204,8 +216,8 @@ impl CommandRunner for RealCommandRunner {
         let command = build_command_from_context(cmd, args, context);
 
         // Check if streaming is enabled
-        if let Some(streaming_config) = &context.streaming_config {
-            if streaming_config.enabled {
+        if should_use_streaming(context) {
+            if let Some(streaming_config) = &context.streaming_config {
                 // Use streaming runner with the subprocess manager's runner
                 let processors = self.create_processors(streaming_config)?;
 
@@ -401,6 +413,42 @@ pub mod tests {
         assert_eq!(result.stdout, "");
         assert_eq!(result.stderr, "error output");
         assert_eq!(result.exit_code, Some(42));
+    }
+
+    #[test]
+    fn test_should_use_streaming_no_config() {
+        let context = ExecutionContext::default();
+        assert!(!should_use_streaming(&context));
+    }
+
+    #[test]
+    fn test_should_use_streaming_disabled() {
+        use crate::subprocess::streaming::{BufferConfig, StreamingConfig, StreamingMode};
+
+        let mut context = ExecutionContext::default();
+        context.streaming_config = Some(StreamingConfig {
+            enabled: false,
+            mode: StreamingMode::Streaming,
+            processors: vec![],
+            buffer_config: BufferConfig::default(),
+        });
+
+        assert!(!should_use_streaming(&context));
+    }
+
+    #[test]
+    fn test_should_use_streaming_enabled() {
+        use crate::subprocess::streaming::{BufferConfig, StreamingConfig, StreamingMode};
+
+        let mut context = ExecutionContext::default();
+        context.streaming_config = Some(StreamingConfig {
+            enabled: true,
+            mode: StreamingMode::Streaming,
+            processors: vec![],
+            buffer_config: BufferConfig::default(),
+        });
+
+        assert!(should_use_streaming(&context));
     }
 
     #[test]
