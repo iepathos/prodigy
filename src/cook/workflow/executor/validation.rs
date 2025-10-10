@@ -817,6 +817,10 @@ mod tests {
     use crate::cook::workflow::validation::{
         OnIncompleteConfig, ValidationResult, ValidationStatus,
     };
+    use crate::cook::workflow::step_validation::{
+        StepValidationSpec, StepValidationConfig, ValidationCommand,
+        ValidationCommandType, SuccessCriteria,
+    };
     use std::collections::HashMap;
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -1269,5 +1273,115 @@ mod tests {
         };
 
         assert_eq!(determine_step_name(&step), "claude command");
+    }
+
+    // ============================================================================
+    // Phase 1: Core Path Tests for handle_step_validation (Dry-Run Mode)
+    // ============================================================================
+
+    /// Create a minimal WorkflowExecutor for testing
+    fn create_test_executor_for_validation() -> WorkflowExecutor {
+        use crate::cook::workflow::executor::tests::test_mocks::{
+            MockClaudeExecutor, MockSessionManager, MockUserInteraction,
+        };
+
+        WorkflowExecutor::new(
+            Arc::new(MockClaudeExecutor::new()),
+            Arc::new(MockSessionManager::new()),
+            Arc::new(MockUserInteraction::new()),
+        )
+    }
+
+    #[tokio::test]
+    async fn test_handle_step_validation_dry_run_single() {
+        // Test dry-run mode with Single validation spec
+        let (env, mut ctx, _temp_dir) = create_test_env();
+
+        let mut executor = create_test_executor_for_validation();
+        executor.dry_run = true;
+
+        let validation_spec = StepValidationSpec::Single("cargo test".to_string());
+
+        let step = WorkflowStep {
+            name: Some("test-step".to_string()),
+            ..Default::default()
+        };
+
+        let result = executor
+            .handle_step_validation(&validation_spec, &env, &mut ctx, &step)
+            .await;
+
+        assert!(result.is_ok());
+        let validation_result = result.unwrap();
+        assert!(validation_result.passed);
+        assert_eq!(validation_result.results.len(), 0);
+        assert_eq!(validation_result.attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn test_handle_step_validation_dry_run_multiple() {
+        // Test dry-run mode with Multiple validation specs
+        let (env, mut ctx, _temp_dir) = create_test_env();
+
+        let mut executor = create_test_executor_for_validation();
+        executor.dry_run = true;
+
+        let validation_spec = StepValidationSpec::Multiple(vec![
+            "cargo test".to_string(),
+            "cargo clippy".to_string(),
+        ]);
+
+        let step = WorkflowStep {
+            name: Some("test-step".to_string()),
+            ..Default::default()
+        };
+
+        let result = executor
+            .handle_step_validation(&validation_spec, &env, &mut ctx, &step)
+            .await;
+
+        assert!(result.is_ok());
+        let validation_result = result.unwrap();
+        assert!(validation_result.passed);
+        assert_eq!(validation_result.results.len(), 0);
+        assert_eq!(validation_result.attempts, 0);
+    }
+
+    #[tokio::test]
+    async fn test_handle_step_validation_dry_run_detailed() {
+        // Test dry-run mode with Detailed validation config
+        let (env, mut ctx, _temp_dir) = create_test_env();
+
+        let mut executor = create_test_executor_for_validation();
+        executor.dry_run = true;
+
+        let validation_config = StepValidationConfig {
+            commands: vec![ValidationCommand {
+                command: "test.sh".to_string(),
+                expect_output: Some("SUCCESS".to_string()),
+                expect_exit_code: 0,
+                command_type: Some(ValidationCommandType::Shell),
+            }],
+            success_criteria: SuccessCriteria::All,
+            max_attempts: 3,
+            retry_delay: 10,
+        };
+
+        let validation_spec = StepValidationSpec::Detailed(validation_config);
+
+        let step = WorkflowStep {
+            name: Some("test-step".to_string()),
+            ..Default::default()
+        };
+
+        let result = executor
+            .handle_step_validation(&validation_spec, &env, &mut ctx, &step)
+            .await;
+
+        assert!(result.is_ok());
+        let validation_result = result.unwrap();
+        assert!(validation_result.passed);
+        assert_eq!(validation_result.results.len(), 0);
+        assert_eq!(validation_result.attempts, 0);
     }
 }
