@@ -159,6 +159,19 @@ impl CookSessionAdapter {
             _ => vec![],
         }
     }
+
+    /// Apply unified updates to a session and refresh cached state
+    async fn apply_unified_updates(
+        &self,
+        id: &SessionId,
+        updates: Vec<UnifiedSessionUpdate>,
+    ) -> Result<()> {
+        for update in updates {
+            self.unified_manager.update_session(id, update).await?;
+        }
+        self.update_cached_state_for_id(id).await?;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -184,14 +197,7 @@ impl CookSessionManager for CookSessionAdapter {
     async fn update_session(&self, update: CookSessionUpdate) -> Result<()> {
         if let Some(id) = &*self.current_session.lock().await {
             let unified_updates = Self::cook_update_to_unified(update);
-            for unified_update in unified_updates {
-                self.unified_manager
-                    .update_session(id, unified_update)
-                    .await?;
-            }
-
-            // Update cached state after updates
-            self.update_cached_state_for_id(id).await?;
+            self.apply_unified_updates(id, unified_updates).await?;
         }
         Ok(())
     }
