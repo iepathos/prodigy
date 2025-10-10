@@ -133,6 +133,27 @@ where
             + wait_time.as_millis() as u64)
             / metrics.total_acquisitions as u64;
     }
+
+    /// Create a resource guard that returns resources to pool on drop
+    fn create_resource_guard(
+        resource: T,
+        pool: Arc<Mutex<VecDeque<T>>>,
+        cleanup: Arc<dyn Fn(T) + Send + Sync>,
+    ) -> super::ResourceGuard<T> {
+        let pool_weak = Arc::downgrade(&pool);
+        super::ResourceGuard::new(resource, move |r| {
+            if let Some(pool) = pool_weak.upgrade() {
+                // Return to pool asynchronously
+                tokio::spawn(async move {
+                    let mut available = pool.lock().await;
+                    available.push_back(r);
+                });
+            } else {
+                // Pool is gone, cleanup the resource
+                cleanup(r);
+            }
+        })
+    }
 }
 
 #[async_trait]
@@ -151,21 +172,11 @@ where
 
             debug!("Reused resource from pool");
 
-            let pool = Arc::downgrade(&self.available);
-            let cleanup = self.cleanup.clone();
-
-            return Ok(super::ResourceGuard::new(resource, move |r| {
-                if let Some(pool) = pool.upgrade() {
-                    // Return to pool asynchronously
-                    tokio::spawn(async move {
-                        let mut available = pool.lock().await;
-                        available.push_back(r);
-                    });
-                } else {
-                    // Pool is gone, cleanup the resource
-                    cleanup(r);
-                }
-            }));
+            return Ok(Self::create_resource_guard(
+                resource,
+                self.available.clone(),
+                self.cleanup.clone(),
+            ));
         }
 
         // Acquire semaphore permit
@@ -186,21 +197,11 @@ where
 
         info!("Created new resource (total: {})", metrics.total_created);
 
-        let pool = Arc::downgrade(&self.available);
-        let cleanup = self.cleanup.clone();
-
-        Ok(super::ResourceGuard::new(resource, move |r| {
-            if let Some(pool) = pool.upgrade() {
-                // Return to pool asynchronously
-                tokio::spawn(async move {
-                    let mut available = pool.lock().await;
-                    available.push_back(r);
-                });
-            } else {
-                // Pool is gone, cleanup the resource
-                cleanup(r);
-            }
-        }))
+        Ok(Self::create_resource_guard(
+            resource,
+            self.available.clone(),
+            self.cleanup.clone(),
+        ))
     }
 
     fn release(&self, resource: T) {
