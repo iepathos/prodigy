@@ -12,6 +12,55 @@ use std::path::Path;
 
 pub struct FilePatternInputProvider;
 
+/// Create file-related variables from a path
+fn create_file_variables(file_path: &Path) -> Vec<(String, VariableValue)> {
+    vec![
+        (
+            "file_path".to_string(),
+            VariableValue::Path(file_path.to_path_buf()),
+        ),
+        (
+            "file_name".to_string(),
+            VariableValue::String(
+                file_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+            ),
+        ),
+        (
+            "file_dir".to_string(),
+            VariableValue::Path(
+                file_path
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."))
+                    .to_path_buf(),
+            ),
+        ),
+        (
+            "file_stem".to_string(),
+            VariableValue::String(
+                file_path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+            ),
+        ),
+        (
+            "file_extension".to_string(),
+            VariableValue::String(
+                file_path
+                    .extension()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+            ),
+        ),
+    ]
+}
+
 impl Default for FilePatternInputProvider {
     fn default() -> Self {
         Self::new()
@@ -112,49 +161,9 @@ impl InputProvider for FilePatternInputProvider {
             );
 
             // File path variables
-            input.add_variable(
-                "file_path".to_string(),
-                VariableValue::Path(file_path.clone()),
-            );
-            input.add_variable(
-                "file_name".to_string(),
-                VariableValue::String(
-                    file_path
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string(),
-                ),
-            );
-            input.add_variable(
-                "file_dir".to_string(),
-                VariableValue::Path(
-                    file_path
-                        .parent()
-                        .unwrap_or_else(|| Path::new("."))
-                        .to_path_buf(),
-                ),
-            );
-            input.add_variable(
-                "file_stem".to_string(),
-                VariableValue::String(
-                    file_path
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string(),
-                ),
-            );
-            input.add_variable(
-                "file_extension".to_string(),
-                VariableValue::String(
-                    file_path
-                        .extension()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string(),
-                ),
-            );
+            for (name, value) in create_file_variables(file_path) {
+                input.add_variable(name, value);
+            }
 
             // File metadata variables
             input.add_variable(
