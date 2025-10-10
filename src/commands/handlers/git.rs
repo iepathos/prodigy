@@ -257,6 +257,14 @@ impl CommandHandler for GitHandler {
         schema
     }
 
+    /// Executes a git command with optimized control flow
+    ///
+    /// This function uses early returns and pure function extraction to minimize
+    /// cognitive complexity and improve readability:
+    /// 1. Validates preconditions and builds arguments (pure function)
+    /// 2. Returns early for dry-run mode (avoids nested conditionals)
+    /// 3. Executes auto-staging if needed (early return pattern)
+    /// 4. Executes the git command and returns the result
     async fn execute(
         &self,
         context: &ExecutionContext,
