@@ -1774,7 +1774,10 @@ mod tests {
         let result = store.index(job_id).await;
 
         // Should fail for nonexistent job directory
-        assert!(result.is_err(), "Index should not create directories for nonexistent jobs");
+        assert!(
+            result.is_err(),
+            "Index should not create directories for nonexistent jobs"
+        );
     }
 
     #[tokio::test]
