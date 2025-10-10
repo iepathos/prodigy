@@ -2463,7 +2463,7 @@ mod tests {
             };
             content.push_str(&serde_json::to_string(&event).unwrap());
             content.push('\n');
-            current_time = current_time + interval;
+            current_time += interval;
             event_count += 1;
         }
 
