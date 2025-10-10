@@ -28,7 +28,10 @@ impl ShellCommandExecutor {
     }
 
     /// Build a command with environment and working directory
-    fn build_command(command_text: &str, context: &ExecutionContext) -> crate::subprocess::ProcessCommand {
+    fn build_command(
+        command_text: &str,
+        context: &ExecutionContext,
+    ) -> crate::subprocess::ProcessCommand {
         let mut builder = ProcessCommandBuilder::new("sh")
             .args(["-c", command_text])
             .current_dir(&context.worktree_path);

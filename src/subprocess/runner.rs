@@ -398,6 +398,34 @@ impl TokioProcessRunner {
             ProcessError::Io(error)
         }
     }
+
+    /// Extract and create output streams from a child process
+    fn create_output_streams(
+        child: &mut tokio::process::Child,
+    ) -> Result<(ProcessStreamFut, ProcessStreamFut), ProcessError> {
+        use tokio::io::BufReader;
+
+        // Take ownership of output streams
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| ProcessError::InternalError {
+                message: "Failed to capture stdout".to_string(),
+            })?;
+
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| ProcessError::InternalError {
+                message: "Failed to capture stderr".to_string(),
+            })?;
+
+        // Create stdout and stderr streams
+        let stdout_stream = Self::create_line_stream(BufReader::new(stdout));
+        let stderr_stream = Self::create_line_stream(BufReader::new(stderr));
+
+        Ok((stdout_stream, stderr_stream))
+    }
 }
 
 #[async_trait]
@@ -433,8 +461,6 @@ impl ProcessRunner for TokioProcessRunner {
     }
 
     async fn run_streaming(&self, command: ProcessCommand) -> Result<ProcessStream, ProcessError> {
-        use tokio::io::BufReader;
-
         // Log command execution
         Self::log_command_start(&command);
 
@@ -450,26 +476,8 @@ impl ProcessRunner for TokioProcessRunner {
             Self::write_stdin(&mut child, stdin_data).await?;
         }
 
-        // Take ownership of output streams
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| ProcessError::InternalError {
-                message: "Failed to capture stdout".to_string(),
-            })?;
-
-        let stderr = child
-            .stderr
-            .take()
-            .ok_or_else(|| ProcessError::InternalError {
-                message: "Failed to capture stderr".to_string(),
-            })?;
-
-        // Create stdout stream
-        let stdout_stream = Self::create_line_stream(BufReader::new(stdout));
-
-        // Create stderr stream
-        let stderr_stream = Self::create_line_stream(BufReader::new(stderr));
+        // Extract and create output streams
+        let (stdout_stream, stderr_stream) = Self::create_output_streams(&mut child)?;
 
         // Create status future
         let status_fut = Self::create_status_future(
