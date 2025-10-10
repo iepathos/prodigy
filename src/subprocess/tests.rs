@@ -183,7 +183,10 @@ mod subprocess_tests {
 
         let runner = runner::TokioProcessRunner;
         let command = ProcessCommandBuilder::new("sh")
-            .args(["-c", "env | grep PRODIGY_TEST_BLOATED_VAR || echo 'NOT_FOUND'"])
+            .args([
+                "-c",
+                "env | grep PRODIGY_TEST_BLOATED_VAR || echo 'NOT_FOUND'",
+            ])
             .build();
 
         let output = runner.run(command).await.unwrap();
@@ -257,8 +260,7 @@ mod subprocess_tests {
         })
         .to_string();
 
-        let mut builder = ProcessCommandBuilder::new("sh")
-            .args(["-c", "echo SUCCESS"]);
+        let mut builder = ProcessCommandBuilder::new("sh").args(["-c", "echo SUCCESS"]);
 
         // Add the large variables
         builder = builder.env("MAP_RESULTS", &large_json);

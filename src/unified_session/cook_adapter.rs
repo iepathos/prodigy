@@ -14,7 +14,6 @@ use async_trait::async_trait;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::debug;
 
 /// Adapter that implements Cook's SessionManager trait using unified session management
 pub struct CookSessionAdapter {
@@ -181,30 +180,19 @@ impl CookSessionManager for CookSessionAdapter {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, update))]
     async fn update_session(&self, update: CookSessionUpdate) -> Result<()> {
-        debug!("CookSessionAdapter::update_session called");
-        debug!("Acquiring current_session lock");
         if let Some(id) = &*self.current_session.lock().await {
-            debug!("Lock acquired, converting update");
             let unified_updates = Self::cook_update_to_unified(update);
-            debug!(
-                "Calling unified_manager.update_session for {} updates",
-                unified_updates.len()
-            );
             for unified_update in unified_updates {
-                debug!("About to call unified update");
                 self.unified_manager
                     .update_session(id, unified_update)
                     .await?;
-                debug!("Unified update complete");
             }
 
             // Update cached state after updates
-            debug!("Updating cached state");
             self.update_cached_state_for_id(id).await?;
-            debug!("Cached state updated");
         }
-        debug!("CookSessionAdapter::update_session complete");
         Ok(())
     }
 
