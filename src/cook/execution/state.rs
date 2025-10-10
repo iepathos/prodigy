@@ -858,6 +858,13 @@ impl Resumable for DefaultJobStateManager {
 }
 
 impl DefaultJobStateManager {
+    /// Check if jobs directory exists and is accessible
+    async fn ensure_jobs_dir_exists(jobs_dir: &std::path::Path) -> bool {
+        // Attempt to get metadata for the jobs directory
+        // Returns false if the directory doesn't exist or can't be accessed
+        tokio::fs::metadata(jobs_dir).await.is_ok()
+    }
+
     /// Validate a job directory and extract the job ID if valid
     async fn is_valid_job_directory(path: &std::path::Path) -> Option<String> {
         // Check if path is a directory
@@ -879,6 +886,49 @@ impl DefaultJobStateManager {
         job_id: &str,
     ) -> Option<MapReduceJobState> {
         checkpoint_manager.load_checkpoint(job_id).await.ok()
+    }
+
+    /// Process a single job directory entry
+    ///
+    /// This helper validates the directory entry and attempts to build
+    /// a ResumableJob if the directory contains a valid, incomplete job.
+    ///
+    /// Returns None if:
+    /// - The entry is not a directory
+    /// - The job ID cannot be extracted
+    /// - The checkpoint cannot be loaded
+    /// - The job is complete
+    async fn process_job_directory(
+        path: std::path::PathBuf,
+        checkpoint_manager: &CheckpointManager,
+    ) -> Option<ResumableJob> {
+        // Validate directory and extract job_id
+        let job_id = Self::is_valid_job_directory(&path).await?;
+
+        // Try to build resumable job from this directory
+        Self::try_build_resumable_job(checkpoint_manager, &job_id).await
+    }
+
+    /// Collect all resumable jobs from a directory
+    ///
+    /// This helper encapsulates the directory scanning logic,
+    /// processing each entry and collecting valid resumable jobs.
+    async fn collect_resumable_jobs_from_dir(
+        jobs_dir: &std::path::Path,
+        checkpoint_manager: &CheckpointManager,
+    ) -> Result<Vec<ResumableJob>> {
+        let mut resumable_jobs = Vec::new();
+        let mut entries = tokio::fs::read_dir(jobs_dir).await?;
+
+        // Process each directory entry
+        while let Some(entry) = entries.next_entry().await? {
+            // Process and collect valid resumable jobs
+            if let Some(job) = Self::process_job_directory(entry.path(), checkpoint_manager).await {
+                resumable_jobs.push(job);
+            }
+        }
+
+        Ok(resumable_jobs)
     }
 
     /// Try to build a ResumableJob from a job directory
@@ -962,32 +1012,13 @@ impl DefaultJobStateManager {
     pub async fn list_resumable_jobs_internal(&self) -> Result<Vec<ResumableJob>> {
         let jobs_dir = self.checkpoint_manager.jobs_dir();
 
-        // Use async metadata check instead of sync exists()
-        if tokio::fs::metadata(&jobs_dir).await.is_err() {
+        // Early return if jobs directory doesn't exist
+        if !Self::ensure_jobs_dir_exists(&jobs_dir).await {
             return Ok(Vec::new());
         }
 
-        let mut resumable_jobs = Vec::new();
-        let mut entries = tokio::fs::read_dir(&jobs_dir).await?;
-
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-
-            // Validate directory and extract job_id using helper
-            let job_id = match Self::is_valid_job_directory(&path).await {
-                Some(id) => id,
-                None => continue,
-            };
-
-            // Try to build resumable job from this directory
-            if let Some(job) =
-                Self::try_build_resumable_job(&self.checkpoint_manager, &job_id).await
-            {
-                resumable_jobs.push(job);
-            }
-        }
-
-        Ok(resumable_jobs)
+        // Delegate to helper function for collecting jobs
+        Self::collect_resumable_jobs_from_dir(&jobs_dir, &self.checkpoint_manager).await
     }
 }
 
