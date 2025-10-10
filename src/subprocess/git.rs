@@ -68,6 +68,17 @@ fn parse_modified_line(line: &str) -> Option<String> {
     }
 }
 
+/// Check if a command completed successfully, returning an error for non-zero exit codes.
+/// This is a pure function that translates exit status into a Result.
+#[inline]
+fn check_command_success(status: &super::runner::ExitStatus) -> Result<(), ProcessError> {
+    if status.success() {
+        Ok(())
+    } else {
+        Err(ProcessError::ExitCode(status.code().unwrap_or(1)))
+    }
+}
+
 /// Parse git status --porcelain output into structured data.
 /// Returns a tuple of (branch_name, untracked_files, modified_files).
 /// This is a pure function that performs no I/O.
@@ -114,9 +125,7 @@ impl GitRunner for GitRunnerImpl {
             )
             .await?;
 
-        if !output.status.success() {
-            return Err(ProcessError::ExitCode(output.status.code().unwrap_or(1)));
-        }
+        check_command_success(&output.status)?;
 
         let (branch, untracked_files, modified_files) = parse_git_status_output(&output.stdout);
 
@@ -139,9 +148,7 @@ impl GitRunner for GitRunnerImpl {
             )
             .await?;
 
-        if !output.status.success() {
-            return Err(ProcessError::ExitCode(output.status.code().unwrap_or(1)));
-        }
+        check_command_success(&output.status)?;
 
         // Extract commit hash from output
         for line in output.stdout.lines() {
@@ -169,9 +176,7 @@ impl GitRunner for GitRunnerImpl {
             )
             .await?;
 
-        if !output.status.success() {
-            return Err(ProcessError::ExitCode(output.status.code().unwrap_or(1)));
-        }
+        check_command_success(&output.status)?;
 
         Ok(())
     }
@@ -193,9 +198,7 @@ impl GitRunner for GitRunnerImpl {
             )
             .await?;
 
-        if !output.status.success() {
-            return Err(ProcessError::ExitCode(output.status.code().unwrap_or(1)));
-        }
+        check_command_success(&output.status)?;
 
         Ok(())
     }
@@ -211,9 +214,7 @@ impl GitRunner for GitRunnerImpl {
             )
             .await?;
 
-        if !output.status.success() {
-            return Err(ProcessError::ExitCode(output.status.code().unwrap_or(1)));
-        }
+        check_command_success(&output.status)?;
 
         Ok(())
     }
@@ -229,9 +230,7 @@ impl GitRunner for GitRunnerImpl {
             )
             .await?;
 
-        if !output.status.success() {
-            return Err(ProcessError::ExitCode(output.status.code().unwrap_or(1)));
-        }
+        check_command_success(&output.status)?;
 
         Ok(output.stdout.trim().to_string())
     }
@@ -256,9 +255,7 @@ impl GitRunner for GitRunnerImpl {
             )
             .await?;
 
-        if !output.status.success() {
-            return Err(ProcessError::ExitCode(output.status.code().unwrap_or(1)));
-        }
+        check_command_success(&output.status)?;
 
         Ok(output.stdout)
     }
