@@ -6,6 +6,26 @@ use std::env;
 
 pub struct EnvironmentInputProvider;
 
+/// Filters environment variables based on prefix and empty value criteria.
+/// This is a pure function that takes filtering parameters and returns a vector of filtered vars.
+fn filter_env_vars(prefix: Option<&str>, filter_empty: bool) -> Vec<(String, String)> {
+    env::vars()
+        .filter(|(key, value)| {
+            // Apply prefix filter if specified
+            if let Some(p) = prefix {
+                if !key.starts_with(p) {
+                    return false;
+                }
+            }
+            // Filter empty values if requested
+            if filter_empty && value.is_empty() {
+                return false;
+            }
+            true
+        })
+        .collect()
+}
+
 #[async_trait]
 impl InputProvider for EnvironmentInputProvider {
     fn input_type(&self) -> InputType {
@@ -35,21 +55,7 @@ impl InputProvider for EnvironmentInputProvider {
                 },
             );
 
-            let env_vars: Vec<(String, String)> = env::vars()
-                .filter(|(key, value)| {
-                    // Apply prefix filter if specified
-                    if let Some(ref p) = prefix {
-                        if !key.starts_with(p) {
-                            return false;
-                        }
-                    }
-                    // Filter empty values if requested
-                    if filter_empty && value.is_empty() {
-                        return false;
-                    }
-                    true
-                })
-                .collect();
+            let env_vars: Vec<(String, String)> = filter_env_vars(prefix.as_deref(), filter_empty);
 
             // Add all environment variables as a single object
             let mut env_object = std::collections::HashMap::new();
@@ -70,21 +76,7 @@ impl InputProvider for EnvironmentInputProvider {
             inputs.push(input);
         } else {
             // Create one input per environment variable
-            let env_vars: Vec<(String, String)> = env::vars()
-                .filter(|(key, value)| {
-                    // Apply prefix filter if specified
-                    if let Some(ref p) = prefix {
-                        if !key.starts_with(p) {
-                            return false;
-                        }
-                    }
-                    // Filter empty values if requested
-                    if filter_empty && value.is_empty() {
-                        return false;
-                    }
-                    true
-                })
-                .collect();
+            let env_vars: Vec<(String, String)> = filter_env_vars(prefix.as_deref(), filter_empty);
 
             for (key, value) in env_vars {
                 let mut input = ExecutionInput::new(
