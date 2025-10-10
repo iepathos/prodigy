@@ -292,4 +292,59 @@ mod execute_step_tests {
             panic!("Expected PhaseError::ExecutionFailed");
         }
     }
+
+    /// Test execute_step with command that produces stderr output
+    #[tokio::test]
+    async fn test_execute_step_with_stderr_output() {
+        let setup_phase = create_test_setup_phase();
+        let executor = SetupPhaseExecutor::new(setup_phase);
+
+        let mut context = PhaseContext::new(
+            create_test_environment(),
+            Arc::new(SubprocessManager::production()),
+        );
+
+        // Create a shell command that produces stderr and exits with error
+        let step = WorkflowStep {
+            shell: Some("echo 'error message' >&2 && exit 1".to_string()),
+            ..Default::default()
+        };
+
+        // Execute the step
+        let result = executor.execute_step(&step, &mut context).await;
+
+        // Verify error is returned and includes stderr
+        assert!(result.is_err());
+        if let Err(PhaseError::ExecutionFailed { message }) = result {
+            assert!(message.contains("error message"));
+        } else {
+            panic!("Expected PhaseError::ExecutionFailed");
+        }
+    }
+
+    /// Test execute_step with command that produces no output
+    #[tokio::test]
+    async fn test_execute_step_with_empty_output() {
+        let setup_phase = create_test_setup_phase();
+        let executor = SetupPhaseExecutor::new(setup_phase);
+
+        let mut context = PhaseContext::new(
+            create_test_environment(),
+            Arc::new(SubprocessManager::production()),
+        );
+
+        // Create a shell command that produces no output
+        let step = WorkflowStep {
+            shell: Some("true".to_string()),
+            ..Default::default()
+        };
+
+        // Execute the step
+        let result = executor.execute_step(&step, &mut context).await;
+
+        // Verify success with empty string
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert_eq!(output, "");
+    }
 }
