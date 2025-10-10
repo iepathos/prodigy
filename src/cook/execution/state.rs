@@ -870,6 +870,14 @@ impl DefaultJobStateManager {
         path.file_name().and_then(|n| n.to_str()).map(String::from)
     }
 
+    /// Load a checkpoint for a job, returning None if the checkpoint is invalid
+    async fn load_job_checkpoint(
+        checkpoint_manager: &CheckpointManager,
+        job_id: &str,
+    ) -> Option<MapReduceJobState> {
+        checkpoint_manager.load_checkpoint(job_id).await.ok()
+    }
+
     /// Build a ResumableJob from state and checkpoint list if incomplete
     fn build_resumable_job(
         job_id: &str,
@@ -944,9 +952,9 @@ impl DefaultJobStateManager {
             };
 
             // Try to load the latest checkpoint for this job
-            let state = match self.checkpoint_manager.load_checkpoint(&job_id).await {
-                Ok(s) => s,
-                Err(_) => continue, // Skip jobs without valid checkpoints
+            let state = match Self::load_job_checkpoint(&self.checkpoint_manager, &job_id).await {
+                Some(s) => s,
+                None => continue, // Skip jobs without valid checkpoints
             };
 
             // Get checkpoint list for version calculation
