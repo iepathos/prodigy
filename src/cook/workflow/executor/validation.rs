@@ -146,6 +146,20 @@ fn create_validation_execution_context(
     }
 }
 
+/// Create a timeout failure result for step validation
+///
+/// Pure function that builds StepValidationResult representing a timeout
+fn create_validation_timeout_result(
+    timeout_secs: u64,
+) -> super::super::step_validation::StepValidationResult {
+    super::super::step_validation::StepValidationResult {
+        passed: false,
+        results: vec![],
+        duration: std::time::Duration::from_secs(timeout_secs),
+        attempts: 1,
+    }
+}
+
 impl WorkflowExecutor {
     // ============================================================================
     // Validation functions
@@ -434,12 +448,7 @@ impl WorkflowExecutor {
                         "Step validation timed out after {} seconds",
                         timeout_secs
                     ));
-                    super::super::step_validation::StepValidationResult {
-                        passed: false,
-                        results: vec![],
-                        duration: std::time::Duration::from_secs(timeout_secs),
-                        attempts: 1,
-                    }
+                    create_validation_timeout_result(timeout_secs)
                 }
             }
         } else {
@@ -831,12 +840,12 @@ impl WorkflowExecutor {
 mod tests {
     use super::*;
     use crate::cook::interaction::{MockUserInteraction, UserInteraction};
+    use crate::cook::workflow::step_validation::{
+        StepValidationConfig, StepValidationSpec, SuccessCriteria, ValidationCommand,
+        ValidationCommandType,
+    };
     use crate::cook::workflow::validation::{
         OnIncompleteConfig, ValidationResult, ValidationStatus,
-    };
-    use crate::cook::workflow::step_validation::{
-        StepValidationSpec, StepValidationConfig, ValidationCommand,
-        ValidationCommandType, SuccessCriteria,
     };
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -1441,5 +1450,40 @@ mod tests {
         let context = create_validation_execution_context(working_dir.clone(), timeout);
 
         assert_eq!(context.timeout_seconds, Some(0));
+    }
+
+    // ============================================================================
+    // Phase 6: Tests for Timeout Result Creation
+    // ============================================================================
+
+    #[test]
+    fn test_create_validation_timeout_result_basic() {
+        let timeout_secs = 30;
+
+        let result = create_validation_timeout_result(timeout_secs);
+
+        assert!(!result.passed);
+        assert_eq!(result.results.len(), 0);
+        assert_eq!(result.duration, std::time::Duration::from_secs(30));
+        assert_eq!(result.attempts, 1);
+    }
+
+    #[test]
+    fn test_create_validation_timeout_result_zero_timeout() {
+        let result = create_validation_timeout_result(0);
+
+        assert!(!result.passed);
+        assert_eq!(result.duration, std::time::Duration::from_secs(0));
+    }
+
+    #[test]
+    fn test_create_validation_timeout_result_long_timeout() {
+        let timeout_secs = 3600; // 1 hour
+
+        let result = create_validation_timeout_result(timeout_secs);
+
+        assert!(!result.passed);
+        assert_eq!(result.duration, std::time::Duration::from_secs(3600));
+        assert_eq!(result.attempts, 1);
     }
 }
