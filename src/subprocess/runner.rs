@@ -171,7 +171,29 @@ impl TokioProcessRunner {
         );
 
         if !command.env.is_empty() {
+            tracing::warn!(
+                "Environment variables count: {}, total size: {} bytes",
+                command.env.len(),
+                command.env.iter()
+                    .map(|(k, v)| k.len() + v.len() + 2)
+                    .sum::<usize>()
+            );
             tracing::trace!("Environment variables: {:?}", command.env);
+        }
+
+        // Log argument sizes to help debug E2BIG errors
+        let args_size: usize = command.args.iter().map(|s| s.len()).sum();
+        if args_size > 10000 {
+            tracing::warn!(
+                "Large arguments detected: {} args, {} total bytes",
+                command.args.len(),
+                args_size
+            );
+            for (i, arg) in command.args.iter().enumerate() {
+                if arg.len() > 1000 {
+                    tracing::warn!("  arg[{}]: {} bytes", i, arg.len());
+                }
+            }
         }
 
         if let Some(ref dir) = command.working_dir {
@@ -196,6 +218,14 @@ impl TokioProcessRunner {
 
         cmd.args(&command.args);
 
+        // Clear inherited environment to prevent "Argument list too long" errors
+        // when parent process has accumulated many environment variables from MapReduce
+        cmd.env_clear();
+
+        // Preserve essential system environment variables that commands depend on
+        Self::preserve_essential_env(&mut cmd);
+
+        // Add explicitly specified environment variables (these take precedence)
         for (key, value) in &command.env {
             cmd.env(key, value);
         }
@@ -206,6 +236,28 @@ impl TokioProcessRunner {
 
         Self::configure_stdio(&mut cmd, command);
         cmd
+    }
+
+    /// Preserve essential system environment variables
+    fn preserve_essential_env(cmd: &mut tokio::process::Command) {
+        // Essential variables that most commands need to function
+        let essential_vars = [
+            "PATH",
+            "HOME",
+            "USER",
+            "SHELL",
+            "LANG",
+            "LC_ALL",
+            "LC_CTYPE",
+            "TMPDIR",
+            "TERM",
+        ];
+
+        for var in &essential_vars {
+            if let Ok(value) = std::env::var(var) {
+                cmd.env(var, value);
+            }
+        }
     }
 
     /// Configure stdio pipes for the process
