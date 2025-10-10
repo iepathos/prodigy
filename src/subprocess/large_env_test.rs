@@ -22,7 +22,8 @@ mod large_env_tests {
 
         let huge_json = serde_json::json!({
             "results": results
-        }).to_string();
+        })
+        .to_string();
 
         // This is over 1MB of JSON data
         assert!(huge_json.len() > 1_000_000);
@@ -72,6 +73,8 @@ mod large_env_tests {
 
         let output = runner.run(command).await.unwrap();
         assert!(output.status.success());
-        assert!(output.stdout.contains("Reduce phase completed successfully"));
+        assert!(output
+            .stdout
+            .contains("Reduce phase completed successfully"));
     }
 }

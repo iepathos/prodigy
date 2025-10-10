@@ -858,6 +858,13 @@ impl Resumable for DefaultJobStateManager {
 }
 
 impl DefaultJobStateManager {
+    /// Check if jobs directory exists and is accessible
+    async fn ensure_jobs_dir_exists(jobs_dir: &std::path::Path) -> bool {
+        // Attempt to get metadata for the jobs directory
+        // Returns false if the directory doesn't exist or can't be accessed
+        tokio::fs::metadata(jobs_dir).await.is_ok()
+    }
+
     /// Validate a job directory and extract the job ID if valid
     async fn is_valid_job_directory(path: &std::path::Path) -> Option<String> {
         // Check if path is a directory
@@ -962,8 +969,8 @@ impl DefaultJobStateManager {
     pub async fn list_resumable_jobs_internal(&self) -> Result<Vec<ResumableJob>> {
         let jobs_dir = self.checkpoint_manager.jobs_dir();
 
-        // Use async metadata check instead of sync exists()
-        if tokio::fs::metadata(&jobs_dir).await.is_err() {
+        // Early return if jobs directory doesn't exist
+        if !Self::ensure_jobs_dir_exists(&jobs_dir).await {
             return Ok(Vec::new());
         }
 
