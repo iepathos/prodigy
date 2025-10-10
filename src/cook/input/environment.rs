@@ -144,22 +144,20 @@ impl InputProvider for EnvironmentInputProvider {
     }
 
     async fn generate_inputs(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
+        // Extract configuration parameters
         let prefix = config.get_string("prefix").ok();
         let filter_empty = config.get_bool("filter_empty").unwrap_or(true);
-
-        let mut inputs = Vec::new();
-
-        // Check if we should create a single input with all vars, or one per var
         let single_input = config.get_bool("single_input").unwrap_or(false);
 
-        if single_input {
-            let env_vars = filter_env_vars(prefix.as_deref(), filter_empty);
-            let input = build_single_input(env_vars, prefix.clone());
-            inputs.push(input);
+        // Filter environment variables
+        let env_vars = filter_env_vars(prefix.as_deref(), filter_empty);
+
+        // Build inputs based on mode
+        let inputs = if single_input {
+            vec![build_single_input(env_vars, prefix)]
         } else {
-            let env_vars = filter_env_vars(prefix.as_deref(), filter_empty);
-            inputs = build_multi_inputs(env_vars, prefix.clone());
-        }
+            build_multi_inputs(env_vars, prefix)
+        };
 
         Ok(inputs)
     }
