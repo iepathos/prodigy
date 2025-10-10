@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use glob::glob;
 use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct FilePatternInputProvider;
 
@@ -86,6 +86,40 @@ fn expand_pattern(pattern: &str, recursive: bool) -> String {
     }
 }
 
+/// Discover files matching the given patterns
+fn discover_files(patterns: &[serde_json::Value], recursive: bool) -> Result<HashSet<PathBuf>> {
+    let mut all_files = HashSet::new();
+
+    for pattern in patterns {
+        let pattern_str = pattern
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Pattern must be a string"))?;
+
+        let pattern_to_use = expand_pattern(pattern_str, recursive);
+
+        for entry in glob(&pattern_to_use)? {
+            match entry {
+                Ok(path) => {
+                    // Check file accessibility once during glob iteration
+                    // This avoids race conditions between glob and later metadata checks
+                    if let Ok(metadata) = fs::metadata(&path) {
+                        if metadata.is_file() {
+                            all_files.insert(path);
+                        }
+                    }
+                    // Skip inaccessible files silently (broken symlinks, permission issues)
+                }
+                Err(e) => {
+                    // Log but don't fail on individual glob errors
+                    eprintln!("Glob error: {}", e);
+                }
+            }
+        }
+    }
+
+    Ok(all_files)
+}
+
 impl Default for FilePatternInputProvider {
     fn default() -> Self {
         Self::new()
@@ -126,35 +160,7 @@ impl InputProvider for FilePatternInputProvider {
         let patterns = config.get_array("patterns")?;
         let recursive = config.get_bool("recursive").unwrap_or(false);
 
-        let mut all_files = HashSet::new();
-
-        for pattern in &patterns {
-            let pattern_str = pattern
-                .as_str()
-                .ok_or_else(|| anyhow::anyhow!("Pattern must be a string"))?;
-
-            // Use glob to find matching files
-            let pattern_to_use = expand_pattern(pattern_str, recursive);
-
-            for entry in glob(&pattern_to_use)? {
-                match entry {
-                    Ok(path) => {
-                        // Check file accessibility once during glob iteration
-                        // This avoids race conditions between glob and later metadata checks
-                        if let Ok(metadata) = fs::metadata(&path) {
-                            if metadata.is_file() {
-                                all_files.insert(path);
-                            }
-                        }
-                        // Skip inaccessible files silently (broken symlinks, permission issues)
-                    }
-                    Err(e) => {
-                        // Log but don't fail on individual glob errors
-                        eprintln!("Glob error: {}", e);
-                    }
-                }
-            }
-        }
+        let all_files = discover_files(&patterns, recursive)?;
 
         let mut inputs = Vec::new();
 
