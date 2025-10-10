@@ -195,11 +195,12 @@ impl CookSessionManager for CookSessionAdapter {
 
     #[tracing::instrument(skip(self, update))]
     async fn update_session(&self, update: CookSessionUpdate) -> Result<()> {
-        if let Some(id) = &*self.current_session.lock().await {
-            let unified_updates = Self::cook_update_to_unified(update);
-            self.apply_unified_updates(id, unified_updates).await?;
-        }
-        Ok(())
+        let Some(id) = &*self.current_session.lock().await else {
+            return Ok(());
+        };
+
+        let unified_updates = Self::cook_update_to_unified(update);
+        self.apply_unified_updates(id, unified_updates).await
     }
 
     async fn complete_session(&self) -> Result<CookSessionSummary> {
