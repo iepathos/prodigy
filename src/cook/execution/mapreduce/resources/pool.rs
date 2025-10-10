@@ -112,11 +112,7 @@ where
     }
 
     /// Update acquisition metrics with wait time tracking
-    fn update_acquisition_metrics(
-        metrics: &mut PoolMetrics,
-        start: Instant,
-        is_reuse: bool,
-    ) {
+    fn update_acquisition_metrics(metrics: &mut PoolMetrics, start: Instant, is_reuse: bool) {
         metrics.in_use += 1;
         metrics.total_acquisitions += 1;
 
