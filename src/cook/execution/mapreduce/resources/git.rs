@@ -58,9 +58,9 @@ impl GitOperations {
     ///
     /// Pure function that checks if the execution environment has a worktree name.
     /// Returns the working directory path if valid, error message otherwise.
-    fn validate_worktree_context<'a>(
-        env: &'a ExecutionEnvironment,
-    ) -> Result<&'a std::sync::Arc<std::path::PathBuf>, &'static str> {
+    fn validate_worktree_context(
+        env: &ExecutionEnvironment,
+    ) -> Result<&std::sync::Arc<std::path::PathBuf>, &'static str> {
         if env.worktree_name.is_some() {
             Ok(&env.working_dir)
         } else {
@@ -84,6 +84,111 @@ impl GitOperations {
         !status_output.trim().is_empty()
     }
 
+    /// Check git status in a repository
+    ///
+    /// Runs `git status --porcelain` and returns the output.
+    async fn check_git_status(&self, repo_path: &Path) -> MapReduceResult<String> {
+        let output = Command::new("git")
+            .args(["status", "--porcelain"])
+            .current_dir(repo_path)
+            .output()
+            .await
+            .map_err(|e| self.create_git_error("git_status", &e.to_string()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(self.create_git_error("git_status", &stderr));
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+
+    /// Commit staged changes without prompting for a message
+    ///
+    /// Uses --no-edit to commit with the existing merge message.
+    async fn commit_staged_changes(&self, repo_path: &Path) -> MapReduceResult<()> {
+        let output = Command::new("git")
+            .args(["commit", "--no-edit"])
+            .current_dir(repo_path)
+            .output()
+            .await
+            .map_err(|e| self.create_git_error("git_commit", &e.to_string()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(self.create_git_error("git_commit", &stderr));
+        }
+
+        Ok(())
+    }
+
+    /// Abort an in-progress merge
+    ///
+    /// Best-effort operation that ignores errors.
+    async fn abort_merge(&self, repo_path: &Path) {
+        let _ = Command::new("git")
+            .args(["merge", "--abort"])
+            .current_dir(repo_path)
+            .output()
+            .await;
+    }
+
+    /// Recover from an incomplete merge
+    ///
+    /// Handles the merge recovery logic by either committing staged changes
+    /// or aborting the incomplete merge.
+    async fn recover_incomplete_merge(&self, parent_path: &Path, agent_branch: &str) -> MapReduceResult<()> {
+        warn!(
+            "Detected incomplete merge state (MERGE_HEAD exists), cleaning up before merging {}",
+            agent_branch
+        );
+
+        // Get git status to decide action
+        let status = self.check_git_status(parent_path).await?;
+
+        // Decide action based on status (pure function)
+        if Self::should_commit_staged_changes(&status) {
+            warn!("Committing staged changes from incomplete merge");
+
+            // Try to commit, abort on failure
+            if self.commit_staged_changes(parent_path).await.is_err() {
+                warn!("Failed to commit staged changes, aborting merge");
+                self.abort_merge(parent_path).await;
+            }
+        } else {
+            // No staged changes, just abort
+            warn!("No staged changes, aborting incomplete merge");
+            self.abort_merge(parent_path).await;
+        }
+
+        Ok(())
+    }
+
+    /// Execute a git merge
+    ///
+    /// Performs the actual merge with --no-ff to always create a merge commit.
+    async fn execute_merge(&self, parent_path: &Path, agent_branch: &str) -> MapReduceResult<()> {
+        let output = Command::new("git")
+            .args([
+                "merge",
+                "--no-ff",
+                "-m",
+                &format!("Merge agent {}", agent_branch),
+                agent_branch,
+            ])
+            .current_dir(parent_path)
+            .output()
+            .await
+            .map_err(|e| self.create_git_error("merge_agent_branch", &e.to_string()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(self.create_git_error("merge_agent_branch", &stderr));
+        }
+
+        Ok(())
+    }
+
     /// Merge an agent's branch back to the parent
     pub async fn merge_agent_to_parent(
         &self,
@@ -94,73 +199,13 @@ impl GitOperations {
         let parent_path = Self::validate_worktree_context(env)
             .map_err(|msg| self.create_git_error("merge_to_parent", msg))?;
 
-        // Check for incomplete merge and clean it up (pure function for check)
+        // Recover from incomplete merge if needed (extracted function)
         if Self::has_incomplete_merge(parent_path) {
-            warn!(
-                "Detected incomplete merge state (MERGE_HEAD exists), cleaning up before merging {}",
-                agent_branch
-            );
-
-            // Get git status to decide action
-            let status_output = Command::new("git")
-                .args(["status", "--porcelain"])
-                .current_dir(&**parent_path)
-                .output()
-                .await
-                .map_err(|e| self.create_git_error("git_status", &e.to_string()))?;
-
-            if status_output.status.success() {
-                let status = String::from_utf8_lossy(&status_output.stdout);
-
-                // Decide action based on status (pure function)
-                if Self::should_commit_staged_changes(&status) {
-                    warn!("Committing staged changes from incomplete merge");
-                    let commit_output = Command::new("git")
-                        .args(["commit", "--no-edit"])
-                        .current_dir(&**parent_path)
-                        .output()
-                        .await
-                        .map_err(|e| self.create_git_error("git_commit", &e.to_string()))?;
-
-                    if !commit_output.status.success() {
-                        // If commit fails, abort the merge
-                        warn!("Failed to commit staged changes, aborting merge");
-                        let _ = Command::new("git")
-                            .args(["merge", "--abort"])
-                            .current_dir(&**parent_path)
-                            .output()
-                            .await;
-                    }
-                } else {
-                    // No staged changes, just abort
-                    warn!("No staged changes, aborting incomplete merge");
-                    let _ = Command::new("git")
-                        .args(["merge", "--abort"])
-                        .current_dir(&**parent_path)
-                        .output()
-                        .await;
-                }
-            }
+            self.recover_incomplete_merge(parent_path, agent_branch).await?;
         }
 
-        // Merge directly - no fetch needed since worktrees share the same object database
-        let output = Command::new("git")
-            .args([
-                "merge",
-                "--no-ff",
-                "-m",
-                &format!("Merge agent {}", agent_branch),
-                agent_branch,
-            ])
-            .current_dir(&**parent_path)
-            .output()
-            .await
-            .map_err(|e| self.create_git_error("merge_agent_branch", &e.to_string()))?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(self.create_git_error("merge_agent_branch", &stderr));
-        }
+        // Execute the merge (extracted function)
+        self.execute_merge(parent_path, agent_branch).await?;
 
         info!(
             "Successfully merged agent branch {} to parent",
