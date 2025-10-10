@@ -617,6 +617,7 @@ fn should_checkpoint_based_on_items(items_processed: usize, config: &CheckpointC
 ///
 /// # Returns
 /// `true` if checkpoint is valid for the expected phase
+#[allow(dead_code)]
 fn validate_checkpoint_state(checkpoint: &Checkpoint, expected_phase: PhaseType) -> bool {
     checkpoint.metadata.phase == expected_phase
         && checkpoint.execution_state.current_phase == expected_phase
@@ -634,6 +635,7 @@ fn validate_checkpoint_state(checkpoint: &Checkpoint, expected_phase: PhaseType)
 ///
 /// # Returns
 /// Optimal batch size for the next batch
+#[allow(dead_code)]
 fn calculate_batch_size(
     max_parallel: usize,
     remaining_items: usize,
@@ -654,6 +656,7 @@ fn calculate_batch_size(
 ///
 /// # Returns
 /// Tuple of (WorkItems, total_count) ready for processing
+#[allow(dead_code)]
 fn prepare_work_items(items: Vec<Value>, offset: usize) -> (Vec<WorkItem>, usize) {
     let total = items.len();
     let work_items = items
@@ -676,7 +679,12 @@ fn prepare_work_items(items: Vec<Value>, offset: usize) -> (Vec<WorkItem>, usize
 /// * `checkpoint` - Checkpoint to update
 /// * `phase` - New phase to transition to
 /// * `total_items` - Total work items (for Map phase)
-fn update_phase_metadata(checkpoint: &mut Checkpoint, phase: PhaseType, total_items: Option<usize>) {
+#[allow(dead_code)]
+fn update_phase_metadata(
+    checkpoint: &mut Checkpoint,
+    phase: PhaseType,
+    total_items: Option<usize>,
+) {
     checkpoint.metadata.phase = phase;
     checkpoint.execution_state.current_phase = phase;
     checkpoint.execution_state.phase_start_time = Utc::now();
@@ -697,6 +705,7 @@ fn update_phase_metadata(checkpoint: &mut Checkpoint, phase: PhaseType, total_it
 ///
 /// # Returns
 /// Vector of AgentResults for the processed batch
+#[allow(dead_code)]
 fn process_work_batch(batch: Vec<WorkItem>, base_duration_secs: u64) -> Vec<AgentResult> {
     batch
         .into_iter()
@@ -726,21 +735,29 @@ fn process_work_batch(batch: Vec<WorkItem>, base_duration_secs: u64) -> Vec<Agen
 ///
 /// # Returns
 /// Tuple of (successful_count, failed_count, total_duration_secs)
+#[allow(dead_code)]
 fn aggregate_batch_results(all_results: &[AgentResult]) -> (usize, usize, u64) {
     let successful = all_results
         .iter()
-        .filter(|r| matches!(r.status, crate::cook::execution::mapreduce::agent::AgentStatus::Success))
+        .filter(|r| {
+            matches!(
+                r.status,
+                crate::cook::execution::mapreduce::agent::AgentStatus::Success
+            )
+        })
         .count();
 
     let failed = all_results
         .iter()
-        .filter(|r| !matches!(r.status, crate::cook::execution::mapreduce::agent::AgentStatus::Success))
+        .filter(|r| {
+            !matches!(
+                r.status,
+                crate::cook::execution::mapreduce::agent::AgentStatus::Success
+            )
+        })
         .count();
 
-    let total_duration = all_results
-        .iter()
-        .map(|r| r.duration.as_secs())
-        .sum();
+    let total_duration = all_results.iter().map(|r| r.duration.as_secs()).sum();
 
     (successful, failed, total_duration)
 }
@@ -756,10 +773,16 @@ fn aggregate_batch_results(all_results: &[AgentResult]) -> (usize, usize, u64) {
 ///
 /// # Returns
 /// Updated completed items count
+#[allow(dead_code)]
 fn update_checkpoint_progress(current_completed: usize, batch_results: &[AgentResult]) -> usize {
     let successful_in_batch = batch_results
         .iter()
-        .filter(|r| matches!(r.status, crate::cook::execution::mapreduce::agent::AgentStatus::Success))
+        .filter(|r| {
+            matches!(
+                r.status,
+                crate::cook::execution::mapreduce::agent::AgentStatus::Success
+            )
+        })
         .count();
 
     current_completed + successful_in_batch
@@ -777,6 +800,7 @@ fn update_checkpoint_progress(current_completed: usize, batch_results: &[AgentRe
 ///
 /// # Returns
 /// Tuple of (should_checkpoint, new_items_since_checkpoint)
+#[allow(dead_code)]
 fn handle_batch_completion(
     items_since_checkpoint: usize,
     batch_size: usize,
@@ -1354,7 +1378,9 @@ mod tests {
             },
             execution_state: crate::cook::execution::mapreduce::checkpoint::ExecutionState {
                 current_phase: PhaseType::Setup,
-                phase_start_time: Utc::now().checked_sub_signed(chrono::Duration::seconds(100)).unwrap(),
+                phase_start_time: Utc::now()
+                    .checked_sub_signed(chrono::Duration::seconds(100))
+                    .unwrap(),
                 setup_results: None,
                 map_results: None,
                 reduce_results: None,
@@ -1462,7 +1488,9 @@ mod tests {
             },
             AgentResult {
                 item_id: "item_2".to_string(),
-                status: crate::cook::execution::mapreduce::agent::AgentStatus::Failed("error".to_string()),
+                status: crate::cook::execution::mapreduce::agent::AgentStatus::Failed(
+                    "error".to_string(),
+                ),
                 output: None,
                 commits: vec![],
                 duration: Duration::from_secs(3),
@@ -1518,7 +1546,9 @@ mod tests {
             },
             AgentResult {
                 item_id: "item_2".to_string(),
-                status: crate::cook::execution::mapreduce::agent::AgentStatus::Failed("error".to_string()),
+                status: crate::cook::execution::mapreduce::agent::AgentStatus::Failed(
+                    "error".to_string(),
+                ),
                 output: None,
                 commits: vec![],
                 duration: Duration::from_secs(1),
@@ -1551,7 +1581,9 @@ mod tests {
         // Test with no successful results
         let failed_results = vec![AgentResult {
             item_id: "item_f".to_string(),
-            status: crate::cook::execution::mapreduce::agent::AgentStatus::Failed("error".to_string()),
+            status: crate::cook::execution::mapreduce::agent::AgentStatus::Failed(
+                "error".to_string(),
+            ),
             output: None,
             commits: vec![],
             duration: Duration::from_secs(1),
