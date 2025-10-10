@@ -165,7 +165,10 @@ where
     async fn acquire(&self) -> MapReduceResult<super::ResourceGuard<T>> {
         let start = Instant::now();
 
-        // Try to get an available resource first
+        // Strategy: Try reuse → acquire permit → create new
+        // This ensures existing resources are utilized before creating new ones
+
+        // Try to get an available resource first (fast path)
         if let Some(resource) = self.try_get_available().await {
             let mut metrics = self.metrics.lock().await;
             Self::update_acquisition_metrics(&mut metrics, start, true);
@@ -179,7 +182,8 @@ where
             ));
         }
 
-        // Acquire semaphore permit
+        // No available resources - create new one (slow path)
+        // Acquire semaphore permit to limit concurrent resources
         let _permit = self
             .semaphore
             .acquire()
