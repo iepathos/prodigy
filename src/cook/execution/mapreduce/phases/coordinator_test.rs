@@ -276,18 +276,8 @@ impl MockPhaseExecutor {
         }
     }
 
-    fn with_success(mut self, should_succeed: bool) -> Self {
-        self.should_succeed = should_succeed;
-        self
-    }
-
     fn with_skip(mut self, should_skip: bool) -> Self {
         self.should_skip = should_skip;
-        self
-    }
-
-    fn with_data(mut self, data: serde_json::Value) -> Self {
-        self.result_data = Some(data);
         self
     }
 }
@@ -356,7 +346,7 @@ async fn test_execute_workflow_full_pipeline() {
         subprocess_mgr.clone(),
     );
 
-    let environment = create_test_environment();
+    let _environment = create_test_environment();
 
     // Note: This test will fail because we can't easily mock the internal executors
     // without refactoring PhaseCoordinator to accept Box<dyn PhaseExecutor> directly.
