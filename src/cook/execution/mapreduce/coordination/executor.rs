@@ -1804,8 +1804,12 @@ mod execute_setup_phase_tests {
         claude_succeeds: bool,
         shell_succeeds: bool,
     ) -> MapReduceCoordinator {
-        use crate::cook::execution::mapreduce::agent::{AgentLifecycleManager, lifecycle::LifecycleError};
-        use crate::cook::execution::mapreduce::state::{StateManager, StateStore, StateError, JobState, JobSummary};
+        use crate::cook::execution::mapreduce::agent::{
+            lifecycle::LifecycleError, AgentLifecycleManager,
+        };
+        use crate::cook::execution::mapreduce::state::{
+            JobState, JobSummary, StateError, StateManager, StateStore,
+        };
         use crate::cook::interaction::MockUserInteraction;
         use crate::subprocess::runner::{ExitStatus, ProcessCommand, ProcessOutput, ProcessRunner};
         use std::sync::Arc;
@@ -1818,7 +1822,10 @@ mod execute_setup_phase_tests {
 
         #[async_trait::async_trait]
         impl ProcessRunner for TestProcessRunner {
-            async fn run(&self, _command: ProcessCommand) -> Result<ProcessOutput, crate::subprocess::error::ProcessError> {
+            async fn run(
+                &self,
+                _command: ProcessCommand,
+            ) -> Result<ProcessOutput, crate::subprocess::error::ProcessError> {
                 Ok(ProcessOutput {
                     status: if self.should_succeed {
                         ExitStatus::Success
@@ -1826,7 +1833,11 @@ mod execute_setup_phase_tests {
                         ExitStatus::Error(1)
                     },
                     stdout: "test stdout".to_string(),
-                    stderr: if self.should_succeed { String::new() } else { "test stderr".to_string() },
+                    stderr: if self.should_succeed {
+                        String::new()
+                    } else {
+                        "test stderr".to_string()
+                    },
                     duration: std::time::Duration::from_secs(0),
                 })
             }
@@ -1834,7 +1845,10 @@ mod execute_setup_phase_tests {
             async fn run_streaming(
                 &self,
                 _command: ProcessCommand,
-            ) -> Result<crate::subprocess::runner::ProcessStream, crate::subprocess::error::ProcessError> {
+            ) -> Result<
+                crate::subprocess::runner::ProcessStream,
+                crate::subprocess::error::ProcessError,
+            > {
                 unimplemented!("Not used in these tests")
             }
         }
@@ -1856,7 +1870,11 @@ mod execute_setup_phase_tests {
                 Ok(crate::cook::execution::ExecutionResult {
                     success: self.should_succeed,
                     stdout: "claude stdout".to_string(),
-                    stderr: if self.should_succeed { String::new() } else { "claude stderr".to_string() },
+                    stderr: if self.should_succeed {
+                        String::new()
+                    } else {
+                        "claude stderr".to_string()
+                    },
                     exit_code: Some(if self.should_succeed { 0 } else { 1 }),
                     metadata: HashMap::new(),
                 })
@@ -1880,7 +1898,8 @@ mod execute_setup_phase_tests {
                 &self,
                 _config: crate::cook::execution::mapreduce::agent::AgentConfig,
                 _commands: Vec<WorkflowStep>,
-            ) -> Result<crate::cook::execution::mapreduce::agent::AgentHandle, LifecycleError> {
+            ) -> Result<crate::cook::execution::mapreduce::agent::AgentHandle, LifecycleError>
+            {
                 unimplemented!("Not used in these tests")
             }
 
@@ -1913,15 +1932,24 @@ mod execute_setup_phase_tests {
                 unimplemented!("Not used in these tests")
             }
 
-            async fn cleanup_agent(&self, _handle: crate::cook::execution::mapreduce::agent::AgentHandle) -> Result<(), LifecycleError> {
+            async fn cleanup_agent(
+                &self,
+                _handle: crate::cook::execution::mapreduce::agent::AgentHandle,
+            ) -> Result<(), LifecycleError> {
                 unimplemented!("Not used in these tests")
             }
 
-            async fn get_worktree_commits(&self, _worktree_path: &Path) -> Result<Vec<String>, LifecycleError> {
+            async fn get_worktree_commits(
+                &self,
+                _worktree_path: &Path,
+            ) -> Result<Vec<String>, LifecycleError> {
                 unimplemented!("Not used in these tests")
             }
 
-            async fn get_modified_files(&self, _worktree_path: &Path) -> Result<Vec<String>, LifecycleError> {
+            async fn get_modified_files(
+                &self,
+                _worktree_path: &Path,
+            ) -> Result<Vec<String>, LifecycleError> {
                 unimplemented!("Not used in these tests")
             }
         }
@@ -2002,7 +2030,10 @@ mod execute_setup_phase_tests {
         };
 
         let result = coordinator.execute_setup_phase(setup, &env).await;
-        assert!(result.is_ok(), "Setup phase should succeed with all passing steps");
+        assert!(
+            result.is_ok(),
+            "Setup phase should succeed with all passing steps"
+        );
     }
 
     #[tokio::test]
@@ -2020,11 +2051,20 @@ mod execute_setup_phase_tests {
         };
 
         let result = coordinator.execute_setup_phase(setup, &env).await;
-        assert!(result.is_err(), "Setup phase should fail when shell command fails");
+        assert!(
+            result.is_err(),
+            "Setup phase should fail when shell command fails"
+        );
 
         let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("Setup step 1 failed"), "Error should mention step number");
-        assert!(err_msg.contains("exit code:"), "Error should include exit code");
+        assert!(
+            err_msg.contains("Setup step 1 failed"),
+            "Error should mention step number"
+        );
+        assert!(
+            err_msg.contains("exit code:"),
+            "Error should include exit code"
+        );
     }
 
     #[tokio::test]
@@ -2042,11 +2082,16 @@ mod execute_setup_phase_tests {
         };
 
         let result = coordinator.execute_setup_phase(setup, &env).await;
-        assert!(result.is_err(), "Setup phase should fail when command produces stderr");
+        assert!(
+            result.is_err(),
+            "Setup phase should fail when command produces stderr"
+        );
 
         let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("stderr:") || err_msg.contains("test stderr"),
-                "Error should include stderr output");
+        assert!(
+            err_msg.contains("stderr:") || err_msg.contains("test stderr"),
+            "Error should include stderr output"
+        );
     }
 
     #[tokio::test]
@@ -2068,8 +2113,10 @@ mod execute_setup_phase_tests {
 
         let err_msg = result.unwrap_err().to_string();
         // Should include stdout when stderr is empty or not provided
-        assert!(err_msg.contains("stdout:") || err_msg.contains("stderr:"),
-                "Error should include output");
+        assert!(
+            err_msg.contains("stdout:") || err_msg.contains("stderr:"),
+            "Error should include output"
+        );
     }
 
     #[tokio::test]
@@ -2087,10 +2134,16 @@ mod execute_setup_phase_tests {
         };
 
         let result = coordinator.execute_setup_phase(setup, &env).await;
-        assert!(result.is_err(), "Setup phase should fail when Claude command fails");
+        assert!(
+            result.is_err(),
+            "Setup phase should fail when Claude command fails"
+        );
 
         let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("Setup step 1 failed"), "Error should mention step number");
+        assert!(
+            err_msg.contains("Setup step 1 failed"),
+            "Error should mention step number"
+        );
         // Note: log hint only appears if extract_repo_name succeeds, which it won't in this test
     }
 
@@ -2119,11 +2172,17 @@ mod execute_setup_phase_tests {
         };
 
         let result = coordinator.execute_setup_phase(setup, &env).await;
-        assert!(result.is_err(), "Setup phase should fail on first failing step");
+        assert!(
+            result.is_err(),
+            "Setup phase should fail on first failing step"
+        );
 
         let err_msg = result.unwrap_err().to_string();
         // Should fail on step 2 (index 1)
-        assert!(err_msg.contains("Setup step"), "Error should mention which step failed");
+        assert!(
+            err_msg.contains("Setup step"),
+            "Error should mention which step failed"
+        );
     }
 
     #[tokio::test]
@@ -2163,6 +2222,9 @@ mod execute_setup_phase_tests {
         // This test verifies the function runs without panicking
         // Debug logs are checked via tracing (would need tracing subscriber in real test)
         let result = coordinator.execute_setup_phase(setup, &env).await;
-        assert!(result.is_ok(), "Setup phase should succeed and log debug context");
+        assert!(
+            result.is_ok(),
+            "Setup phase should succeed and log debug context"
+        );
     }
 }
