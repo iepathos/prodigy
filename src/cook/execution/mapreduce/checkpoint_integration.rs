@@ -686,6 +686,109 @@ fn update_phase_metadata(checkpoint: &mut Checkpoint, phase: PhaseType, total_it
     }
 }
 
+/// Process a work batch and aggregate results
+///
+/// Pure function that simulates processing a batch of work items and
+/// generates results. This isolates batch processing logic for testing.
+///
+/// # Arguments
+/// * `batch` - Work items to process
+/// * `base_duration_secs` - Base duration for each item
+///
+/// # Returns
+/// Vector of AgentResults for the processed batch
+fn process_work_batch(batch: Vec<WorkItem>, base_duration_secs: u64) -> Vec<AgentResult> {
+    batch
+        .into_iter()
+        .map(|item| AgentResult {
+            item_id: item.id.clone(),
+            status: crate::cook::execution::mapreduce::agent::AgentStatus::Success,
+            output: Some(format!("Processed {}", item.id)),
+            commits: vec![],
+            duration: Duration::from_secs(base_duration_secs),
+            error: None,
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            files_modified: vec![],
+            json_log_location: None,
+        })
+        .collect()
+}
+
+/// Aggregate batch results into totals
+///
+/// Pure function that aggregates results from multiple batches into
+/// summary statistics. Useful for reduce phase and reporting.
+///
+/// # Arguments
+/// * `all_results` - All results to aggregate
+///
+/// # Returns
+/// Tuple of (successful_count, failed_count, total_duration_secs)
+fn aggregate_batch_results(all_results: &[AgentResult]) -> (usize, usize, u64) {
+    let successful = all_results
+        .iter()
+        .filter(|r| matches!(r.status, crate::cook::execution::mapreduce::agent::AgentStatus::Success))
+        .count();
+
+    let failed = all_results
+        .iter()
+        .filter(|r| !matches!(r.status, crate::cook::execution::mapreduce::agent::AgentStatus::Success))
+        .count();
+
+    let total_duration = all_results
+        .iter()
+        .map(|r| r.duration.as_secs())
+        .sum();
+
+    (successful, failed, total_duration)
+}
+
+/// Update checkpoint progress after batch completion
+///
+/// Pure function that calculates updated checkpoint metrics after
+/// processing a batch. Returns the new completed count.
+///
+/// # Arguments
+/// * `current_completed` - Current completed items count
+/// * `batch_results` - Results from the batch
+///
+/// # Returns
+/// Updated completed items count
+fn update_checkpoint_progress(current_completed: usize, batch_results: &[AgentResult]) -> usize {
+    let successful_in_batch = batch_results
+        .iter()
+        .filter(|r| matches!(r.status, crate::cook::execution::mapreduce::agent::AgentStatus::Success))
+        .count();
+
+    current_completed + successful_in_batch
+}
+
+/// Handle batch completion and determine if checkpoint is needed
+///
+/// Pure function that manages post-batch checkpoint logic, determining
+/// whether a checkpoint should be saved based on items processed.
+///
+/// # Arguments
+/// * `items_since_checkpoint` - Items processed since last checkpoint
+/// * `batch_size` - Size of the batch just processed
+/// * `checkpoint_interval` - Interval for checkpointing
+///
+/// # Returns
+/// Tuple of (should_checkpoint, new_items_since_checkpoint)
+fn handle_batch_completion(
+    items_since_checkpoint: usize,
+    batch_size: usize,
+    checkpoint_interval: usize,
+) -> (bool, usize) {
+    let new_count = items_since_checkpoint + batch_size;
+    let should_checkpoint = new_count >= checkpoint_interval;
+    let reset_count = if should_checkpoint { 0 } else { new_count };
+
+    (should_checkpoint, reset_count)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1305,6 +1408,195 @@ mod tests {
         assert_eq!(checkpoint.metadata.phase, PhaseType::Reduce);
         assert_eq!(checkpoint.execution_state.current_phase, PhaseType::Reduce);
         assert_eq!(checkpoint.metadata.total_work_items, 42); // Unchanged
+    }
+
+    // Phase 4: Unit tests for batch processing pure functions
+
+    #[test]
+    fn test_process_work_batch() {
+        let batch = vec![
+            WorkItem {
+                id: "item_1".to_string(),
+                data: serde_json::json!({"test": "data1"}),
+            },
+            WorkItem {
+                id: "item_2".to_string(),
+                data: serde_json::json!({"test": "data2"}),
+            },
+        ];
+
+        let results = process_work_batch(batch, 2);
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].item_id, "item_1");
+        assert_eq!(results[1].item_id, "item_2");
+
+        for result in &results {
+            assert!(matches!(
+                result.status,
+                crate::cook::execution::mapreduce::agent::AgentStatus::Success
+            ));
+            assert_eq!(result.duration.as_secs(), 2);
+            assert!(result.output.is_some());
+        }
+
+        // Test empty batch
+        let empty_results = process_work_batch(vec![], 1);
+        assert_eq!(empty_results.len(), 0);
+    }
+
+    #[test]
+    fn test_aggregate_batch_results() {
+        let results = vec![
+            AgentResult {
+                item_id: "item_1".to_string(),
+                status: crate::cook::execution::mapreduce::agent::AgentStatus::Success,
+                output: Some("test".to_string()),
+                commits: vec![],
+                duration: Duration::from_secs(5),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+                json_log_location: None,
+            },
+            AgentResult {
+                item_id: "item_2".to_string(),
+                status: crate::cook::execution::mapreduce::agent::AgentStatus::Failed("error".to_string()),
+                output: None,
+                commits: vec![],
+                duration: Duration::from_secs(3),
+                error: Some("error".to_string()),
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+                json_log_location: None,
+            },
+            AgentResult {
+                item_id: "item_3".to_string(),
+                status: crate::cook::execution::mapreduce::agent::AgentStatus::Success,
+                output: Some("test".to_string()),
+                commits: vec![],
+                duration: Duration::from_secs(4),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+                json_log_location: None,
+            },
+        ];
+
+        let (successful, failed, total_duration) = aggregate_batch_results(&results);
+        assert_eq!(successful, 2);
+        assert_eq!(failed, 1);
+        assert_eq!(total_duration, 12); // 5 + 3 + 4
+
+        // Test empty results
+        let (s, f, d) = aggregate_batch_results(&[]);
+        assert_eq!(s, 0);
+        assert_eq!(f, 0);
+        assert_eq!(d, 0);
+    }
+
+    #[test]
+    fn test_update_checkpoint_progress() {
+        let results = vec![
+            AgentResult {
+                item_id: "item_1".to_string(),
+                status: crate::cook::execution::mapreduce::agent::AgentStatus::Success,
+                output: Some("test".to_string()),
+                commits: vec![],
+                duration: Duration::from_secs(1),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+                json_log_location: None,
+            },
+            AgentResult {
+                item_id: "item_2".to_string(),
+                status: crate::cook::execution::mapreduce::agent::AgentStatus::Failed("error".to_string()),
+                output: None,
+                commits: vec![],
+                duration: Duration::from_secs(1),
+                error: Some("error".to_string()),
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+                json_log_location: None,
+            },
+            AgentResult {
+                item_id: "item_3".to_string(),
+                status: crate::cook::execution::mapreduce::agent::AgentStatus::Success,
+                output: Some("test".to_string()),
+                commits: vec![],
+                duration: Duration::from_secs(1),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+                json_log_location: None,
+            },
+        ];
+
+        // Starting from 10 completed items
+        let new_completed = update_checkpoint_progress(10, &results);
+        assert_eq!(new_completed, 12); // 10 + 2 successful
+
+        // Test with no successful results
+        let failed_results = vec![AgentResult {
+            item_id: "item_f".to_string(),
+            status: crate::cook::execution::mapreduce::agent::AgentStatus::Failed("error".to_string()),
+            output: None,
+            commits: vec![],
+            duration: Duration::from_secs(1),
+            error: Some("error".to_string()),
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            files_modified: vec![],
+            json_log_location: None,
+        }];
+
+        let no_change = update_checkpoint_progress(10, &failed_results);
+        assert_eq!(no_change, 10); // No successful items
+
+        // Test empty batch
+        let empty_update = update_checkpoint_progress(5, &[]);
+        assert_eq!(empty_update, 5);
+    }
+
+    #[test]
+    fn test_handle_batch_completion() {
+        // Test below threshold
+        let (should_checkpoint, new_count) = handle_batch_completion(5, 3, 10);
+        assert!(!should_checkpoint);
+        assert_eq!(new_count, 8);
+
+        // Test exactly at threshold
+        let (should_checkpoint, new_count) = handle_batch_completion(7, 3, 10);
+        assert!(should_checkpoint);
+        assert_eq!(new_count, 0); // Reset after checkpoint
+
+        // Test above threshold
+        let (should_checkpoint, new_count) = handle_batch_completion(8, 5, 10);
+        assert!(should_checkpoint);
+        assert_eq!(new_count, 0);
+
+        // Test with zero batch size
+        let (should_checkpoint, new_count) = handle_batch_completion(5, 0, 10);
+        assert!(!should_checkpoint);
+        assert_eq!(new_count, 5);
+
+        // Test with checkpoint interval of 1
+        let (should_checkpoint, new_count) = handle_batch_completion(0, 1, 1);
+        assert!(should_checkpoint);
+        assert_eq!(new_count, 0);
     }
 
     // Phase 5: Unit tests for should_checkpoint_based_on_items pure function
