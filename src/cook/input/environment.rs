@@ -65,6 +65,34 @@ fn enrich_input_with_types(input: &mut ExecutionInput, key: &str, value: &str) {
     }
 }
 
+/// Builds a single consolidated input containing all environment variables.
+fn build_single_input(env_vars: Vec<(String, String)>, prefix: Option<String>) -> ExecutionInput {
+    let mut input = ExecutionInput::new(
+        "env_all".to_string(),
+        InputType::Environment {
+            prefix: prefix.clone(),
+        },
+    );
+
+    // Build environment object using functional patterns
+    let env_object = env_vars
+        .iter()
+        .map(|(key, value)| (key.clone(), VariableValue::String(value.clone())))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    input.add_variable("env".to_string(), VariableValue::Object(env_object));
+    input.add_variable(
+        "env_count".to_string(),
+        VariableValue::Number(env_vars.len() as i64),
+    );
+
+    if let Some(p) = prefix {
+        input.add_variable("env_prefix".to_string(), VariableValue::String(p));
+    }
+
+    input
+}
+
 #[async_trait]
 impl InputProvider for EnvironmentInputProvider {
     fn input_type(&self) -> InputType {
@@ -86,32 +114,8 @@ impl InputProvider for EnvironmentInputProvider {
         let single_input = config.get_bool("single_input").unwrap_or(false);
 
         if single_input {
-            // Create a single input with all environment variables
-            let mut input = ExecutionInput::new(
-                "env_all".to_string(),
-                InputType::Environment {
-                    prefix: prefix.clone(),
-                },
-            );
-
-            let env_vars: Vec<(String, String)> = filter_env_vars(prefix.as_deref(), filter_empty);
-
-            // Add all environment variables as a single object
-            let mut env_object = std::collections::HashMap::new();
-            for (key, value) in &env_vars {
-                env_object.insert(key.clone(), VariableValue::String(value.clone()));
-            }
-
-            input.add_variable("env".to_string(), VariableValue::Object(env_object));
-            input.add_variable(
-                "env_count".to_string(),
-                VariableValue::Number(env_vars.len() as i64),
-            );
-
-            if let Some(ref p) = prefix {
-                input.add_variable("env_prefix".to_string(), VariableValue::String(p.clone()));
-            }
-
+            let env_vars = filter_env_vars(prefix.as_deref(), filter_empty);
+            let input = build_single_input(env_vars, prefix.clone());
             inputs.push(input);
         } else {
             // Create one input per environment variable
