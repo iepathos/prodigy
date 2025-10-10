@@ -888,6 +888,27 @@ impl DefaultJobStateManager {
         checkpoint_manager.load_checkpoint(job_id).await.ok()
     }
 
+    /// Process a single job directory entry
+    ///
+    /// This helper validates the directory entry and attempts to build
+    /// a ResumableJob if the directory contains a valid, incomplete job.
+    ///
+    /// Returns None if:
+    /// - The entry is not a directory
+    /// - The job ID cannot be extracted
+    /// - The checkpoint cannot be loaded
+    /// - The job is complete
+    async fn process_job_directory(
+        path: std::path::PathBuf,
+        checkpoint_manager: &CheckpointManager,
+    ) -> Option<ResumableJob> {
+        // Validate directory and extract job_id
+        let job_id = Self::is_valid_job_directory(&path).await?;
+
+        // Try to build resumable job from this directory
+        Self::try_build_resumable_job(checkpoint_manager, &job_id).await
+    }
+
     /// Try to build a ResumableJob from a job directory
     ///
     /// This is the main orchestration function that coordinates:
@@ -980,16 +1001,8 @@ impl DefaultJobStateManager {
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
 
-            // Validate directory and extract job_id using helper
-            let job_id = match Self::is_valid_job_directory(&path).await {
-                Some(id) => id,
-                None => continue,
-            };
-
-            // Try to build resumable job from this directory
-            if let Some(job) =
-                Self::try_build_resumable_job(&self.checkpoint_manager, &job_id).await
-            {
+            // Process this job directory
+            if let Some(job) = Self::process_job_directory(path, &self.checkpoint_manager).await {
                 resumable_jobs.push(job);
             }
         }
