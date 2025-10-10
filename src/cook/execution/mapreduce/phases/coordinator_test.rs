@@ -453,7 +453,10 @@ fn test_should_skip_phase_when_transition_handler_says_no() {
     );
 
     let should_skip = PhaseCoordinator::should_skip_phase(&handler, &executor, &context);
-    assert!(should_skip, "Phase should be skipped when transition handler returns false");
+    assert!(
+        should_skip,
+        "Phase should be skipped when transition handler returns false"
+    );
 }
 
 #[test]
@@ -467,7 +470,10 @@ fn test_should_skip_phase_when_executor_can_skip() {
     );
 
     let should_skip = PhaseCoordinator::should_skip_phase(&handler, &executor, &context);
-    assert!(should_skip, "Phase should be skipped when executor.can_skip() returns true");
+    assert!(
+        should_skip,
+        "Phase should be skipped when executor.can_skip() returns true"
+    );
 }
 
 #[test]
@@ -481,7 +487,10 @@ fn test_should_not_skip_phase_when_both_allow_execution() {
     );
 
     let should_skip = PhaseCoordinator::should_skip_phase(&handler, &executor, &context);
-    assert!(!should_skip, "Phase should not be skipped when both allow execution");
+    assert!(
+        !should_skip,
+        "Phase should not be skipped when both allow execution"
+    );
 }
 
 #[test]
@@ -495,7 +504,10 @@ fn test_should_execute_reduce_with_both_present() {
     ]);
 
     let should_execute = PhaseCoordinator::should_execute_reduce(reduce_executor, map_results);
-    assert!(should_execute, "Reduce should execute when both executor and results exist");
+    assert!(
+        should_execute,
+        "Reduce should execute when both executor and results exist"
+    );
 }
 
 #[test]
@@ -505,7 +517,10 @@ fn test_should_not_execute_reduce_without_executor() {
     let map_results = Some(&vec![serde_json::json!({"item": 1})]);
 
     let should_execute = PhaseCoordinator::should_execute_reduce(reduce_executor, map_results);
-    assert!(!should_execute, "Reduce should not execute without executor");
+    assert!(
+        !should_execute,
+        "Reduce should not execute without executor"
+    );
 }
 
 #[test]
@@ -516,7 +531,10 @@ fn test_should_not_execute_reduce_without_map_results() {
     let map_results: Option<&Vec<serde_json::Value>> = None;
 
     let should_execute = PhaseCoordinator::should_execute_reduce(reduce_executor, map_results);
-    assert!(!should_execute, "Reduce should not execute without map results");
+    assert!(
+        !should_execute,
+        "Reduce should not execute without map results"
+    );
 }
 
 #[test]
@@ -529,7 +547,10 @@ fn test_should_not_execute_reduce_with_empty_map_results() {
     let map_results = Some(&empty_results);
 
     let should_execute = PhaseCoordinator::should_execute_reduce(reduce_executor, map_results);
-    assert!(should_execute, "should_execute_reduce only checks presence, not emptiness");
+    assert!(
+        should_execute,
+        "should_execute_reduce only checks presence, not emptiness"
+    );
 }
 
 #[test]
@@ -556,7 +577,10 @@ fn test_create_skipped_result_for_map() {
     assert_eq!(result.phase_type, PhaseType::Map);
     assert!(result.success);
     assert!(result.data.is_none());
-    assert!(result.error_message.unwrap().contains("Phase Map was skipped"));
+    assert!(result
+        .error_message
+        .unwrap()
+        .contains("Phase Map was skipped"));
 }
 
 #[test]
@@ -614,7 +638,10 @@ fn test_handle_phase_error_with_custom_handler() {
     let transition = PhaseCoordinator::handle_phase_error(&handler, PhaseType::Map, &error);
 
     // Custom handler should allow continuation
-    assert!(matches!(transition, PhaseTransition::Continue(PhaseType::Reduce)));
+    assert!(matches!(
+        transition,
+        PhaseTransition::Continue(PhaseType::Reduce)
+    ));
 }
 
 #[test]

@@ -170,8 +170,11 @@ impl PhaseCoordinator {
                         .on_phase_complete(PhaseType::Setup, &result);
                 }
                 Err(error) => {
-                    let transition =
-                        Self::handle_phase_error(self.transition_handler.as_ref(), PhaseType::Setup, &error);
+                    let transition = Self::handle_phase_error(
+                        self.transition_handler.as_ref(),
+                        PhaseType::Setup,
+                        &error,
+                    );
                     if matches!(transition, PhaseTransition::Error(_)) {
                         return Err(error.into());
                     }
@@ -194,8 +197,11 @@ impl PhaseCoordinator {
                 workflow_result = Some(result);
             }
             Err(error) => {
-                let transition =
-                    Self::handle_phase_error(self.transition_handler.as_ref(), PhaseType::Map, &error);
+                let transition = Self::handle_phase_error(
+                    self.transition_handler.as_ref(),
+                    PhaseType::Map,
+                    &error,
+                );
                 return Err(Self::convert_transition_to_error(transition, error));
             }
         }
@@ -214,8 +220,11 @@ impl PhaseCoordinator {
                     workflow_result = Some(result);
                 }
                 Err(error) => {
-                    let transition =
-                        Self::handle_phase_error(self.transition_handler.as_ref(), PhaseType::Reduce, &error);
+                    let transition = Self::handle_phase_error(
+                        self.transition_handler.as_ref(),
+                        PhaseType::Reduce,
+                        &error,
+                    );
                     if matches!(transition, PhaseTransition::Error(_)) {
                         return Err(error.into());
                     }
