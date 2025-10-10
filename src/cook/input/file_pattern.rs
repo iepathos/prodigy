@@ -77,6 +77,15 @@ fn create_input_metadata(file_path: &Path, metadata: &fs::Metadata) -> InputMeta
     }
 }
 
+/// Expand a pattern string based on recursive flag
+fn expand_pattern(pattern: &str, recursive: bool) -> String {
+    if recursive && !pattern.contains("**") {
+        format!("**/{}", pattern)
+    } else {
+        pattern.to_string()
+    }
+}
+
 impl Default for FilePatternInputProvider {
     fn default() -> Self {
         Self::new()
@@ -125,11 +134,7 @@ impl InputProvider for FilePatternInputProvider {
                 .ok_or_else(|| anyhow::anyhow!("Pattern must be a string"))?;
 
             // Use glob to find matching files
-            let pattern_to_use = if recursive && !pattern_str.contains("**") {
-                format!("**/{}", pattern_str)
-            } else {
-                pattern_str.to_string()
-            };
+            let pattern_to_use = expand_pattern(pattern_str, recursive);
 
             for entry in glob(&pattern_to_use)? {
                 match entry {
