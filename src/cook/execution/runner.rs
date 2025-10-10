@@ -2,10 +2,41 @@
 
 use super::{CommandExecutor, ExecutionContext, ExecutionResult};
 use crate::abstractions::exit_status::ExitStatusExt;
-use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
+use crate::subprocess::{ProcessCommand, ProcessCommandBuilder, SubprocessManager};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
+
+/// Build a ProcessCommand from execution context
+///
+/// This is a pure function that constructs a command with all configuration
+/// from the execution context (working directory, env vars, timeout, stdin).
+fn build_command_from_context(
+    cmd: &str,
+    args: &[String],
+    context: &ExecutionContext,
+) -> ProcessCommand {
+    let mut builder = ProcessCommandBuilder::new(cmd)
+        .args(args)
+        .current_dir(&context.working_directory);
+
+    // Set environment variables
+    for (key, value) in &context.env_vars {
+        builder = builder.env(key, value);
+    }
+
+    // Set timeout if specified
+    if let Some(timeout) = context.timeout_seconds {
+        builder = builder.timeout(std::time::Duration::from_secs(timeout));
+    }
+
+    // Set stdin if specified
+    if let Some(stdin) = &context.stdin {
+        builder = builder.stdin(stdin.clone());
+    }
+
+    builder.build()
+}
 
 /// Trait for running system commands
 #[async_trait]
@@ -140,26 +171,7 @@ impl CommandRunner for RealCommandRunner {
         args: &[String],
         context: &ExecutionContext,
     ) -> Result<ExecutionResult> {
-        let mut builder = ProcessCommandBuilder::new(cmd)
-            .args(args)
-            .current_dir(&context.working_directory);
-
-        // Set environment variables
-        for (key, value) in &context.env_vars {
-            builder = builder.env(key, value);
-        }
-
-        // Set timeout if specified
-        if let Some(timeout) = context.timeout_seconds {
-            builder = builder.timeout(std::time::Duration::from_secs(timeout));
-        }
-
-        // Set stdin if specified
-        if let Some(stdin) = &context.stdin {
-            builder = builder.stdin(stdin.clone());
-        }
-
-        let command = builder.build();
+        let command = build_command_from_context(cmd, args, context);
 
         // Check if streaming is enabled
         if let Some(streaming_config) = &context.streaming_config {
@@ -211,27 +223,7 @@ impl CommandRunner for RealCommandRunner {
         context: &ExecutionContext,
         output_handler: Box<dyn crate::subprocess::streaming::StreamProcessor>,
     ) -> Result<ExecutionResult> {
-        // Build command with context
-        let mut builder = ProcessCommandBuilder::new(cmd)
-            .args(args)
-            .current_dir(&context.working_directory);
-
-        // Set environment variables
-        for (key, value) in &context.env_vars {
-            builder = builder.env(key, value);
-        }
-
-        // Set timeout if specified
-        if let Some(timeout) = context.timeout_seconds {
-            builder = builder.timeout(std::time::Duration::from_secs(timeout));
-        }
-
-        // Set stdin if specified
-        if let Some(stdin) = &context.stdin {
-            builder = builder.stdin(stdin.clone());
-        }
-
-        let command = builder.build();
+        let command = build_command_from_context(cmd, args, context);
 
         // Create streaming runner
         let streaming_runner = crate::subprocess::streaming::StreamingCommandRunner::new(Box::new(
@@ -269,6 +261,77 @@ impl CommandExecutor for RealCommandRunner {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_build_command_basic() {
+        let context = ExecutionContext::default();
+        let command = build_command_from_context("echo", &["hello".to_string()], &context);
+
+        assert_eq!(command.program, "echo");
+        assert_eq!(command.args, vec!["hello"]);
+    }
+
+    #[test]
+    fn test_build_command_with_env_vars() {
+        let mut context = ExecutionContext::default();
+        context
+            .env_vars
+            .insert("TEST_VAR".to_string(), "test_value".to_string());
+        context
+            .env_vars
+            .insert("ANOTHER_VAR".to_string(), "another_value".to_string());
+
+        let command = build_command_from_context("test", &[], &context);
+
+        assert_eq!(command.env.get("TEST_VAR"), Some(&"test_value".to_string()));
+        assert_eq!(
+            command.env.get("ANOTHER_VAR"),
+            Some(&"another_value".to_string())
+        );
+    }
+
+    #[test]
+    fn test_build_command_with_timeout() {
+        let mut context = ExecutionContext::default();
+        context.timeout_seconds = Some(60);
+
+        let command = build_command_from_context("sleep", &["10".to_string()], &context);
+
+        assert_eq!(command.timeout, Some(Duration::from_secs(60)));
+    }
+
+    #[test]
+    fn test_build_command_with_stdin() {
+        let mut context = ExecutionContext::default();
+        context.stdin = Some("input data".to_string());
+
+        let command = build_command_from_context("cat", &[], &context);
+
+        assert_eq!(command.stdin, Some("input data".to_string()));
+    }
+
+    #[test]
+    fn test_build_command_with_all_options() {
+        let mut context = ExecutionContext::default();
+        context
+            .env_vars
+            .insert("VAR1".to_string(), "value1".to_string());
+        context.timeout_seconds = Some(30);
+        context.stdin = Some("test input".to_string());
+
+        let command = build_command_from_context(
+            "sh",
+            &["-c".to_string(), "echo $VAR1".to_string()],
+            &context,
+        );
+
+        assert_eq!(command.program, "sh");
+        assert_eq!(command.args, vec!["-c", "echo $VAR1"]);
+        assert_eq!(command.env.get("VAR1"), Some(&"value1".to_string()));
+        assert_eq!(command.timeout, Some(Duration::from_secs(30)));
+        assert_eq!(command.stdin, Some("test input".to_string()));
+    }
 
     #[tokio::test]
     async fn test_real_command_runner() {

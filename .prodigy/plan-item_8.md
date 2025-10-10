@@ -1,229 +1,217 @@
-# Implementation Plan: Add Tests and Refactor clean_all_checkpoints
+# Implementation Plan: Extract Pure Functions from run_with_context
 
 ## Problem Summary
 
-**Location**: ./src/cli/commands/checkpoints.rs:clean_all_checkpoints:307
-**Priority Score**: 29.21
-**Debt Type**: TestingGap (cognitive: 43, cyclomatic: 9, coverage: 0%)
+**Location**: ./src/cook/execution/runner.rs:RealCommandRunner::run_with_context:137
+**Priority Score**: 27.925
+**Debt Type**: ComplexityHotspot (cognitive: 19, cyclomatic: 9)
 **Current Metrics**:
-- Lines of Code: 33
-- Functions: 1
+- Lines of Code: 69
 - Cyclomatic Complexity: 9
-- Coverage: 0%
-- Nesting Depth: 6
+- Cognitive Complexity: 19
+- Coverage: Not specified
+- Upstream Callers: 5
 
-**Issue**: Add 7 tests for 100% coverage gap, then refactor complexity 9 into 8 functions
+**Issue**: The function has manageable cyclomatic complexity (9) but high cognitive complexity (19). The function mixes command building logic, configuration logic, execution path selection, and result transformation. This makes it harder to test individual pieces and understand the control flow.
 
-**Rationale**: Complex business logic with 100% gap. Cyclomatic complexity of 9 requires at least 9 test cases for full path coverage. After extracting 8 functions, each will need only 3-5 tests. Testing before refactoring ensures no regressions.
+The function handles:
+1. Building a ProcessCommand from ExecutionContext
+2. Applying environment variables, timeout, and stdin
+3. Deciding between streaming and batch execution modes
+4. Creating processors for streaming mode
+5. Executing the command via different runners
+6. Transforming output into ExecutionResult
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 2.7
-- Coverage Improvement: 50.0%
-- Risk Reduction: 12.27
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 4.5
+- Coverage Improvement: 0.0
+- Risk Reduction: 9.77
 
 **Success Criteria**:
-- [ ] 9+ tests covering all branches (100% coverage)
-- [ ] Extract 8 pure functions (complexity ≤3 each)
+- [ ] Cognitive complexity reduced to ≤14 (target: 19 - 4.5 ≈ 14-15)
+- [ ] Pure functions extracted for command building and result transformation
+- [ ] Clear separation between decision logic and execution logic
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Add Comprehensive Test Coverage
+### Phase 1: Extract Command Building Logic
 
-**Goal**: Achieve 100% test coverage for `clean_all_checkpoints` before refactoring
-
-**Changes**:
-- Create test module for checkpoint cleaning functionality
-- Add test fixtures and helper functions for checkpoint creation
-- Write 9 test cases covering all branches:
-  1. Test cleaning with empty checkpoint directory
-  2. Test cleaning with no completed checkpoints
-  3. Test cleaning with only in-progress checkpoints
-  4. Test cleaning with mix of completed and in-progress checkpoints
-  5. Test cleaning with force flag (no confirmation)
-  6. Test cleaning with non-JSON files in directory
-  7. Test cleaning with corrupted checkpoint files
-  8. Test error handling when file removal fails
-  9. Test concurrent checkpoint access scenarios
-
-**Testing**:
-- Run `cargo test --lib commands::checkpoints::tests` to verify all tests pass
-- Run `cargo tarpaulin --out Html --output-dir coverage` to verify 100% coverage
-- Verify all 9 branches are covered
-
-**Success Criteria**:
-- [x] 9+ tests written covering all code paths
-- [x] All tests pass
-- [x] Coverage for `clean_all_checkpoints` reaches 100%
-- [x] Ready to commit
-
-### Phase 2: Extract Pure Functions - Checkpoint Filtering Logic
-
-**Goal**: Extract filtering and validation logic into testable pure functions
+**Goal**: Extract the ProcessCommand building logic into a pure function that can be independently tested.
 
 **Changes**:
-- Extract `is_json_checkpoint_file(entry: &DirEntry) -> bool`
-  - Pure predicate checking if entry is a JSON checkpoint file
-  - Complexity: 2 (checks is_file and extension)
-
-- Extract `extract_workflow_id(path: &Path) -> Option<String>`
-  - Pure function extracting workflow ID from path
-  - Complexity: 2 (file_stem and string conversion)
-
-- Extract `is_completed_checkpoint(checkpoint: &WorkflowCheckpoint) -> bool`
-  - Pure predicate checking if checkpoint is completed
-  - Complexity: 1 (status comparison)
+- Create a new pure function `build_command_from_context` that takes `cmd`, `args`, and `ExecutionContext` and returns a `ProcessCommand`
+- This function should handle:
+  - Base command and args
+  - Working directory
+  - Environment variables
+  - Timeout
+  - Stdin
+- Move lines 143-162 into this new function
+- Update `run_with_context` to call this new function
 
 **Testing**:
-- Write 3-5 unit tests per extracted function
-- Test edge cases (no extension, invalid UTF-8, etc.)
-- Run `cargo test --lib` to ensure all tests pass
-
-**Success Criteria**:
-- [ ] 3 pure functions extracted
-- [ ] Each function has ≤3 complexity
-- [ ] 9-15 new unit tests for extracted functions
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 3: Extract Pure Functions - Checkpoint Loading and Deletion
-
-**Goal**: Extract checkpoint management operations into focused functions
-
-**Changes**:
-- Extract `collect_checkpoint_entries(checkpoint_dir: &PathBuf) -> Result<Vec<PathBuf>>`
-  - Returns list of valid checkpoint file paths
-  - Complexity: 3 (iteration, filtering, collection)
-
-- Extract `load_checkpoint_safely(manager: &CheckpointManager, workflow_id: &str) -> Option<WorkflowCheckpoint>`
-  - Safe wrapper around checkpoint loading with error handling
-  - Complexity: 2 (load and error conversion)
-
-- Extract `delete_checkpoint_file(path: &Path) -> Result<()>`
-  - Simple wrapper for file deletion with context
-  - Complexity: 1 (single operation)
-
-**Testing**:
-- Write 3-5 unit tests per extracted function
-- Test error conditions (missing files, permission errors)
-- Run `cargo test --lib` to ensure all tests pass
-
-**Success Criteria**:
-- [ ] 3 pure functions extracted
-- [ ] Each function has ≤3 complexity
-- [ ] 9-15 new unit tests for extracted functions
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 4: Extract Pure Functions - Orchestration and Confirmation
-
-**Goal**: Separate orchestration logic and user interaction
-
-**Changes**:
-- Extract `filter_completed_checkpoints(entries: Vec<PathBuf>, manager: &CheckpointManager) -> Result<Vec<(PathBuf, String)>>`
-  - Filters paths to only completed checkpoints with workflow IDs
-  - Complexity: 3 (iteration, filtering, mapping)
-
-- Extract `confirm_deletion(workflow_id: &str, force: bool) -> Result<bool>`
-  - Handles user confirmation logic (separated for testability)
-  - Complexity: 3 (force check, I/O, input validation)
-
-**Testing**:
-- Write 3-5 unit tests per extracted function
-- Mock user input for confirmation tests
-- Run `cargo test --lib` to ensure all tests pass
-
-**Success Criteria**:
-- [ ] 2 pure functions extracted
-- [ ] Each function has ≤3 complexity
-- [ ] 6-10 new unit tests for extracted functions
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 5: Refactor Main Function - Compose Pure Functions
-
-**Goal**: Refactor `clean_all_checkpoints` to compose the extracted pure functions
-
-**Changes**:
-- Rewrite `clean_all_checkpoints` as a simple composition:
-  1. Call `collect_checkpoint_entries` to get checkpoint paths
-  2. Call `filter_completed_checkpoints` to identify completed ones
-  3. For each completed checkpoint:
-     - Call `confirm_deletion` (if not force)
-     - Call `delete_checkpoint_file`
-  4. Print summary
-- Target complexity: ≤4 (down from 9)
-- Reduce nesting depth to ≤3 (down from 6)
-
-**Testing**:
-- All existing tests should continue to pass
-- Run integration tests to verify end-to-end behavior
+- Add unit tests for `build_command_from_context` covering:
+  - Basic command with args
+  - Command with environment variables
+  - Command with timeout
+  - Command with stdin
+  - Command with all options combined
+- Run `cargo test --lib` to verify existing tests pass
 - Run `cargo clippy` to check for warnings
-- Run `cargo tarpaulin` to verify final coverage ≥50%
 
 **Success Criteria**:
-- [ ] `clean_all_checkpoints` complexity ≤4
-- [ ] Nesting depth ≤3
-- [ ] All original tests pass
-- [ ] All new unit tests pass
-- [ ] Coverage ≥50%
+- [ ] `build_command_from_context` is a pure, testable function
+- [ ] All new tests pass
+- [ ] Existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Ready to commit
+
+### Phase 2: Extract Result Transformation Logic
+
+**Goal**: Extract the ExecutionResult transformation logic into pure functions.
+
+**Changes**:
+- Create two pure functions:
+  - `streaming_output_to_result(output: StreamingOutput) -> ExecutionResult` for lines 180-186
+  - `batch_output_to_result(output: ProcessOutput) -> ExecutionResult` for lines 198-204
+- These functions should be pure transformations with no side effects
+- Update both execution paths to use these new functions
+
+**Testing**:
+- Add unit tests for both transformation functions:
+  - Test with successful output
+  - Test with failed output (non-zero exit code)
+  - Test with stdout/stderr content
+- Run `cargo test --lib` to verify all tests pass
+- Run `cargo clippy`
+
+**Success Criteria**:
+- [ ] Result transformation logic is extracted into pure functions
+- [ ] All new tests pass
+- [ ] Existing tests continue to pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 3: Extract Execution Path Selection Logic
+
+**Goal**: Clarify the streaming vs batch mode decision logic.
+
+**Changes**:
+- Create a pure function `should_use_streaming(context: &ExecutionContext) -> bool` that encapsulates the logic from lines 165-167
+- This makes the decision logic explicit and testable
+- Update `run_with_context` to use this function
+- Consider extracting the streaming execution path into a separate method `execute_streaming` if it simplifies the main function
+
+**Testing**:
+- Add unit tests for `should_use_streaming`:
+  - No streaming config -> false
+  - Streaming config with enabled=false -> false
+  - Streaming config with enabled=true -> true
+- Run `cargo test --lib`
+- Run `cargo clippy`
+
+**Success Criteria**:
+- [ ] Decision logic is extracted and clear
+- [ ] All new tests pass
+- [ ] Existing tests continue to pass
+- [ ] Cognitive complexity measurably reduced
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 4: Add Test Coverage for Edge Cases
+
+**Goal**: Improve test coverage for the refactored function, especially error paths and edge cases.
+
+**Changes**:
+- Add integration tests for `run_with_context` that cover:
+  - Streaming mode with valid config
+  - Batch mode fallback
+  - Environment variable propagation
+  - Timeout handling
+  - Stdin handling
+  - Error cases (command not found, etc.)
+- Ensure the refactored code is thoroughly exercised
+
+**Testing**:
+- Run `cargo test` to verify all tests pass
+- Run `cargo tarpaulin` to check coverage improvement
+- Target: >80% coverage on the refactored functions
+
+**Success Criteria**:
+- [ ] Comprehensive test coverage added
+- [ ] All tests pass
+- [ ] Coverage improved for the module
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 5: Final Validation and Documentation
+
+**Goal**: Verify the complexity reduction and ensure the code is well-documented.
+
+**Changes**:
+- Run `debtmap analyze` to verify complexity reduction
+- Add doc comments to the new pure functions explaining their purpose
+- Update any relevant module-level documentation
+- Ensure code follows project conventions
+
+**Testing**:
+- Run `just ci` for full CI checks
+- Verify debtmap shows improvement in complexity scores
+- Check that cognitive complexity is reduced
+
+**Success Criteria**:
+- [ ] Debtmap shows complexity reduction of ~4.5 points
+- [ ] All documentation is clear and accurate
+- [ ] Full CI passes
+- [ ] Code follows project conventions
+- [ ] Ready for final commit and merge
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib commands::checkpoints` to verify tests pass
-2. Run `cargo clippy -- -D warnings` to check for issues
-3. Run `cargo fmt --check` to verify formatting
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run `cargo clippy` to check for warnings
+3. Run `cargo fmt` to ensure consistent formatting
+4. Commit with a clear message describing the phase
 
 **Final verification**:
 1. `just ci` - Full CI checks
-2. `cargo tarpaulin --out Html --output-dir coverage` - Verify coverage improvement
-3. Verify metrics improvement:
-   - Cyclomatic complexity: 9 → ≤6 (target: 6.3)
-   - Coverage: 0% → ≥50%
-   - Number of functions: 1 → 9 (main + 8 extracted)
+2. `cargo tarpaulin` - Regenerate coverage report
+3. `debtmap analyze` - Verify complexity improvement (target: -4.5 complexity points)
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure logs and test output
-3. Adjust the plan or implementation approach
-4. Retry with fixes
+2. Review the failure in detail
+3. Adjust the implementation approach
+4. Retry with smaller increments if needed
 
-If tests are failing:
-- Do NOT disable tests
-- Investigate root cause
-- Fix implementation or test expectations
-- Ensure all tests pass before proceeding
+If tests fail after refactoring:
+1. Check if the behavior changed unintentionally
+2. Fix the implementation to preserve existing behavior
+3. Add tests to prevent regression
 
 ## Notes
 
-**Key Insights from Code Analysis**:
-- Function has 6 levels of nesting (while loop → if file → if json → if extract → if load → if completed)
-- The function mixes I/O (file operations, user prompts) with business logic (filtering completed checkpoints)
-- No error handling for user input confirmation
-- Force flag bypasses confirmation but still prints individual messages
+**Key Insights**:
+- The function is already reasonably structured, but extracting pure functions will make it more testable
+- The complexity comes from conditional logic (streaming vs batch) and sequential configuration steps
+- Extracting pure functions allows unit testing without async/subprocess complexity
+- The main function will become a thin orchestrator after refactoring
 
-**Extraction Strategy**:
-- Phase 1 adds tests to lock in current behavior before refactoring
-- Phases 2-4 extract pure functions progressively (filtering → loading → orchestration)
-- Phase 5 composes the pure functions into a simpler main function
-- Each extracted function should be independently testable with minimal mocking
+**Gotchas**:
+- Preserve exact behavior during refactoring - the function is used by 5 upstream callers
+- Ensure error context is preserved when extracting functions
+- The streaming path creates processors, which should remain in the main function (side effects)
+- Don't over-abstract - keep the code readable and maintainable
 
-**Testing Priorities**:
-1. Cover all 9 branches in Phase 1 to establish baseline
-2. Test edge cases for each extracted function (Phases 2-4)
-3. Integration tests to ensure composition works correctly (Phase 5)
-
-**Potential Challenges**:
-- User input testing may require stdin mocking
-- Async testing with tokio runtime
-- File system operations may need temp directories
-- CheckpointManager is a complex dependency (consider mock/trait)
+**Dependencies**:
+- No external dependencies needed
+- All refactoring can be done within the existing module structure
+- Tests can use existing test utilities (MockCommandRunner, etc.)
