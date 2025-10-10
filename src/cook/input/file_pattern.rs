@@ -120,6 +120,42 @@ fn discover_files(patterns: &[serde_json::Value], recursive: bool) -> Result<Has
     Ok(all_files)
 }
 
+/// Build an ExecutionInput from a file path and patterns
+fn build_execution_input(
+    file_path: &Path,
+    index: usize,
+    patterns: &[serde_json::Value],
+    recursive: bool,
+    metadata: &fs::Metadata,
+) -> ExecutionInput {
+    let mut input = ExecutionInput::new(
+        format!("file_{}", index),
+        InputType::FilePattern {
+            patterns: patterns
+                .iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
+            recursive,
+        },
+    );
+
+    // Add file path variables
+    for (name, value) in create_file_variables(file_path) {
+        input.add_variable(name, value);
+    }
+
+    // Add file metadata variables
+    input.add_variable(
+        "file_size".to_string(),
+        VariableValue::Number(metadata.len() as i64),
+    );
+
+    // Add metadata
+    input.with_metadata(create_input_metadata(file_path, metadata));
+
+    input
+}
+
 impl Default for FilePatternInputProvider {
     fn default() -> Self {
         Self::new()
@@ -162,46 +198,22 @@ impl InputProvider for FilePatternInputProvider {
 
         let all_files = discover_files(&patterns, recursive)?;
 
-        let mut inputs = Vec::new();
-
-        for (index, file_path) in all_files.iter().enumerate() {
-            // We already verified file accessibility during glob iteration
-            // But double-check here in case filesystem changed between glob and now
-            let metadata = match fs::metadata(file_path) {
-                Ok(m) => m,
-                Err(e) => {
-                    // This shouldn't happen often since we checked during glob
-                    eprintln!("Skipping inaccessible file {:?}: {}", file_path, e);
-                    continue;
+        let inputs = all_files
+            .iter()
+            .enumerate()
+            .filter_map(|(index, file_path)| {
+                // Double-check file accessibility in case filesystem changed
+                match fs::metadata(file_path) {
+                    Ok(metadata) => Some(build_execution_input(
+                        file_path, index, &patterns, recursive, &metadata,
+                    )),
+                    Err(e) => {
+                        eprintln!("Skipping inaccessible file {:?}: {}", file_path, e);
+                        None
+                    }
                 }
-            };
-
-            let mut input = ExecutionInput::new(
-                format!("file_{}", index),
-                InputType::FilePattern {
-                    patterns: patterns
-                        .iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect(),
-                    recursive,
-                },
-            );
-
-            // File path variables
-            for (name, value) in create_file_variables(file_path) {
-                input.add_variable(name, value);
-            }
-
-            // File metadata variables
-            input.add_variable(
-                "file_size".to_string(),
-                VariableValue::Number(metadata.len() as i64),
-            );
-
-            // Add metadata
-            input.with_metadata(create_input_metadata(file_path, &metadata));
-            inputs.push(input);
-        }
+            })
+            .collect();
 
         Ok(inputs)
     }
