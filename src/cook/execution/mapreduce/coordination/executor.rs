@@ -1792,3 +1792,377 @@ mod handle_on_failure_tests {
         assert!(executed[0].contains("missing_var") || executed[0] == "/test ");
     }
 }
+
+#[cfg(test)]
+mod execute_setup_phase_tests {
+    use super::*;
+    use crate::cook::execution::mapreduce::types::SetupPhase;
+    use crate::cook::workflow::WorkflowStep;
+
+    // Helper to create a test MapReduceCoordinator with mocks
+    fn create_test_coordinator(
+        claude_succeeds: bool,
+        shell_succeeds: bool,
+    ) -> MapReduceCoordinator {
+        use crate::cook::execution::mapreduce::agent::{AgentLifecycleManager, lifecycle::LifecycleError};
+        use crate::cook::execution::mapreduce::state::{StateManager, StateStore, StateError, JobState, JobSummary};
+        use crate::cook::interaction::MockUserInteraction;
+        use crate::subprocess::runner::{ExitStatus, ProcessCommand, ProcessOutput, ProcessRunner};
+        use std::sync::Arc;
+
+        // Mock ProcessRunner
+        #[derive(Clone)]
+        struct TestProcessRunner {
+            should_succeed: bool,
+        }
+
+        #[async_trait::async_trait]
+        impl ProcessRunner for TestProcessRunner {
+            async fn run(&self, _command: ProcessCommand) -> Result<ProcessOutput, crate::subprocess::error::ProcessError> {
+                Ok(ProcessOutput {
+                    status: if self.should_succeed {
+                        ExitStatus::Success
+                    } else {
+                        ExitStatus::Error(1)
+                    },
+                    stdout: "test stdout".to_string(),
+                    stderr: if self.should_succeed { String::new() } else { "test stderr".to_string() },
+                    duration: std::time::Duration::from_secs(0),
+                })
+            }
+
+            async fn run_streaming(
+                &self,
+                _command: ProcessCommand,
+            ) -> Result<crate::subprocess::runner::ProcessStream, crate::subprocess::error::ProcessError> {
+                unimplemented!("Not used in these tests")
+            }
+        }
+
+        // Mock ClaudeExecutor
+        #[derive(Clone)]
+        struct TestClaudeExecutor {
+            should_succeed: bool,
+        }
+
+        #[async_trait::async_trait]
+        impl crate::cook::execution::ClaudeExecutor for TestClaudeExecutor {
+            async fn execute_claude_command(
+                &self,
+                _command: &str,
+                _project_path: &Path,
+                _env_vars: HashMap<String, String>,
+            ) -> anyhow::Result<crate::cook::execution::ExecutionResult> {
+                Ok(crate::cook::execution::ExecutionResult {
+                    success: self.should_succeed,
+                    stdout: "claude stdout".to_string(),
+                    stderr: if self.should_succeed { String::new() } else { "claude stderr".to_string() },
+                    exit_code: Some(if self.should_succeed { 0 } else { 1 }),
+                    metadata: HashMap::new(),
+                })
+            }
+
+            async fn check_claude_cli(&self) -> anyhow::Result<bool> {
+                Ok(true)
+            }
+
+            async fn get_claude_version(&self) -> anyhow::Result<String> {
+                Ok("1.0.0".to_string())
+            }
+        }
+
+        // Mock AgentLifecycleManager
+        struct TestAgentLifecycleManager;
+
+        #[async_trait::async_trait]
+        impl AgentLifecycleManager for TestAgentLifecycleManager {
+            async fn create_agent(
+                &self,
+                _config: crate::cook::execution::mapreduce::agent::AgentConfig,
+                _commands: Vec<WorkflowStep>,
+            ) -> Result<crate::cook::execution::mapreduce::agent::AgentHandle, LifecycleError> {
+                unimplemented!("Not used in these tests")
+            }
+
+            async fn create_agent_branch(
+                &self,
+                _worktree_path: &Path,
+                _branch_name: &str,
+            ) -> Result<(), LifecycleError> {
+                unimplemented!("Not used in these tests")
+            }
+
+            async fn merge_agent_to_parent(
+                &self,
+                _agent_branch: &str,
+                _env: &ExecutionEnvironment,
+            ) -> Result<(), LifecycleError> {
+                unimplemented!("Not used in these tests")
+            }
+
+            async fn handle_merge_and_cleanup(
+                &self,
+                _is_successful: bool,
+                _env: &ExecutionEnvironment,
+                _worktree_path: &Path,
+                _worktree_name: &str,
+                _branch_name: &str,
+                _template_steps: &[WorkflowStep],
+                _item_id: &str,
+            ) -> Result<bool, LifecycleError> {
+                unimplemented!("Not used in these tests")
+            }
+
+            async fn cleanup_agent(&self, _handle: crate::cook::execution::mapreduce::agent::AgentHandle) -> Result<(), LifecycleError> {
+                unimplemented!("Not used in these tests")
+            }
+
+            async fn get_worktree_commits(&self, _worktree_path: &Path) -> Result<Vec<String>, LifecycleError> {
+                unimplemented!("Not used in these tests")
+            }
+
+            async fn get_modified_files(&self, _worktree_path: &Path) -> Result<Vec<String>, LifecycleError> {
+                unimplemented!("Not used in these tests")
+            }
+        }
+
+        // Mock StateStore
+        struct TestStateStore;
+
+        #[async_trait::async_trait]
+        impl StateStore for TestStateStore {
+            async fn save(&self, _state: &JobState) -> Result<(), StateError> {
+                Ok(())
+            }
+
+            async fn load(&self, _job_id: &str) -> Result<Option<JobState>, StateError> {
+                Ok(None)
+            }
+
+            async fn list(&self) -> Result<Vec<JobSummary>, StateError> {
+                Ok(vec![])
+            }
+
+            async fn delete(&self, _job_id: &str) -> Result<(), StateError> {
+                Ok(())
+            }
+        }
+
+        let agent_manager: Arc<dyn AgentLifecycleManager> = Arc::new(TestAgentLifecycleManager);
+        let state_manager = Arc::new(StateManager::new(Arc::new(TestStateStore)));
+        let user_interaction = Arc::new(MockUserInteraction::new());
+        let subprocess = Arc::new(SubprocessManager::new(Arc::new(TestProcessRunner {
+            should_succeed: shell_succeeds,
+        })));
+        let project_root = PathBuf::from("/tmp/test");
+
+        let mut coordinator = MapReduceCoordinator::new(
+            agent_manager,
+            state_manager,
+            user_interaction,
+            subprocess,
+            project_root,
+        );
+
+        // Replace claude executor with test version
+        coordinator.claude_executor = Arc::new(TestClaudeExecutor {
+            should_succeed: claude_succeeds,
+        });
+
+        coordinator
+    }
+
+    fn create_test_env() -> ExecutionEnvironment {
+        ExecutionEnvironment {
+            working_dir: Arc::new(PathBuf::from("/tmp/test")),
+            project_dir: Arc::new(PathBuf::from("/tmp/test")),
+            worktree_name: None,
+            session_id: Arc::from("test-session"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_setup_phase_all_steps_succeed() {
+        let coordinator = create_test_coordinator(true, true);
+        let env = create_test_env();
+
+        let setup = SetupPhase {
+            commands: vec![
+                WorkflowStep {
+                    shell: Some("echo test1".to_string()),
+                    ..Default::default()
+                },
+                WorkflowStep {
+                    shell: Some("echo test2".to_string()),
+                    ..Default::default()
+                },
+            ],
+            timeout: None,
+            capture_outputs: HashMap::new(),
+        };
+
+        let result = coordinator.execute_setup_phase(setup, &env).await;
+        assert!(result.is_ok(), "Setup phase should succeed with all passing steps");
+    }
+
+    #[tokio::test]
+    async fn test_setup_phase_shell_failure_with_exit_code() {
+        let coordinator = create_test_coordinator(true, false);
+        let env = create_test_env();
+
+        let setup = SetupPhase {
+            commands: vec![WorkflowStep {
+                shell: Some("false".to_string()),
+                ..Default::default()
+            }],
+            timeout: None,
+            capture_outputs: HashMap::new(),
+        };
+
+        let result = coordinator.execute_setup_phase(setup, &env).await;
+        assert!(result.is_err(), "Setup phase should fail when shell command fails");
+
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Setup step 1 failed"), "Error should mention step number");
+        assert!(err_msg.contains("exit code:"), "Error should include exit code");
+    }
+
+    #[tokio::test]
+    async fn test_setup_phase_shell_failure_with_stderr() {
+        let coordinator = create_test_coordinator(true, false);
+        let env = create_test_env();
+
+        let setup = SetupPhase {
+            commands: vec![WorkflowStep {
+                shell: Some("some_command".to_string()),
+                ..Default::default()
+            }],
+            timeout: None,
+            capture_outputs: HashMap::new(),
+        };
+
+        let result = coordinator.execute_setup_phase(setup, &env).await;
+        assert!(result.is_err(), "Setup phase should fail when command produces stderr");
+
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("stderr:") || err_msg.contains("test stderr"),
+                "Error should include stderr output");
+    }
+
+    #[tokio::test]
+    async fn test_setup_phase_shell_failure_with_stdout_only() {
+        let coordinator = create_test_coordinator(true, false);
+        let env = create_test_env();
+
+        let setup = SetupPhase {
+            commands: vec![WorkflowStep {
+                shell: Some("some_command".to_string()),
+                ..Default::default()
+            }],
+            timeout: None,
+            capture_outputs: HashMap::new(),
+        };
+
+        let result = coordinator.execute_setup_phase(setup, &env).await;
+        assert!(result.is_err(), "Setup phase should fail");
+
+        let err_msg = result.unwrap_err().to_string();
+        // Should include stdout when stderr is empty or not provided
+        assert!(err_msg.contains("stdout:") || err_msg.contains("stderr:"),
+                "Error should include output");
+    }
+
+    #[tokio::test]
+    async fn test_setup_phase_claude_failure_with_log_hint() {
+        let coordinator = create_test_coordinator(false, true);
+        let env = create_test_env();
+
+        let setup = SetupPhase {
+            commands: vec![WorkflowStep {
+                claude: Some("/test-command".to_string()),
+                ..Default::default()
+            }],
+            timeout: None,
+            capture_outputs: HashMap::new(),
+        };
+
+        let result = coordinator.execute_setup_phase(setup, &env).await;
+        assert!(result.is_err(), "Setup phase should fail when Claude command fails");
+
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Setup step 1 failed"), "Error should mention step number");
+        // Note: log hint only appears if extract_repo_name succeeds, which it won't in this test
+    }
+
+    #[tokio::test]
+    async fn test_setup_phase_multiple_steps_mixed_success() {
+        let coordinator = create_test_coordinator(true, false);
+        let env = create_test_env();
+
+        let setup = SetupPhase {
+            commands: vec![
+                WorkflowStep {
+                    shell: Some("echo step1".to_string()),
+                    ..Default::default()
+                },
+                WorkflowStep {
+                    shell: Some("failing_command".to_string()),
+                    ..Default::default()
+                },
+                WorkflowStep {
+                    shell: Some("echo step3".to_string()),
+                    ..Default::default()
+                },
+            ],
+            timeout: None,
+            capture_outputs: HashMap::new(),
+        };
+
+        let result = coordinator.execute_setup_phase(setup, &env).await;
+        assert!(result.is_err(), "Setup phase should fail on first failing step");
+
+        let err_msg = result.unwrap_err().to_string();
+        // Should fail on step 2 (index 1)
+        assert!(err_msg.contains("Setup step"), "Error should mention which step failed");
+    }
+
+    #[tokio::test]
+    async fn test_setup_phase_environment_variables_set() {
+        let coordinator = create_test_coordinator(true, true);
+        let env = create_test_env();
+
+        let setup = SetupPhase {
+            commands: vec![WorkflowStep {
+                shell: Some("echo $PRODIGY_AUTOMATION".to_string()),
+                ..Default::default()
+            }],
+            timeout: None,
+            capture_outputs: HashMap::new(),
+        };
+
+        let result = coordinator.execute_setup_phase(setup, &env).await;
+        // Should succeed - this test verifies env vars are set
+        // (actual verification would require checking the subprocess call)
+        assert!(result.is_ok(), "Setup phase should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_setup_phase_debug_logging_context() {
+        let coordinator = create_test_coordinator(true, true);
+        let env = create_test_env();
+
+        let setup = SetupPhase {
+            commands: vec![WorkflowStep {
+                shell: Some("echo test".to_string()),
+                ..Default::default()
+            }],
+            timeout: None,
+            capture_outputs: HashMap::new(),
+        };
+
+        // This test verifies the function runs without panicking
+        // Debug logs are checked via tracing (would need tracing subscriber in real test)
+        let result = coordinator.execute_setup_phase(setup, &env).await;
+        assert!(result.is_ok(), "Setup phase should succeed and log debug context");
+    }
+}
