@@ -175,3 +175,58 @@ impl PhaseExecutor for SetupPhaseExecutor {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod execute_step_tests {
+    use super::*;
+    use crate::cook::orchestrator::ExecutionEnvironment;
+    use crate::subprocess::SubprocessManager;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    fn create_test_environment() -> ExecutionEnvironment {
+        ExecutionEnvironment {
+            working_dir: Arc::new(PathBuf::from("/tmp")),
+            project_dir: Arc::new(PathBuf::from("/tmp")),
+            worktree_name: Some(Arc::from("test-worktree")),
+            session_id: Arc::from("test-session"),
+        }
+    }
+
+    fn create_test_setup_phase() -> SetupPhase {
+        SetupPhase {
+            commands: vec![WorkflowStep {
+                shell: Some("echo 'test'".to_string()),
+                ..Default::default()
+            }],
+            timeout: Some(60),
+            capture_outputs: HashMap::new(),
+        }
+    }
+
+    /// Test execute_step with a successful shell command (happy path)
+    #[tokio::test]
+    async fn test_execute_step_success() {
+        let setup_phase = create_test_setup_phase();
+        let executor = SetupPhaseExecutor::new(setup_phase);
+
+        let mut context = PhaseContext::new(
+            create_test_environment(),
+            Arc::new(SubprocessManager::production()),
+        );
+
+        // Create a simple shell command that produces predictable output
+        let step = WorkflowStep {
+            shell: Some("echo 'test output'".to_string()),
+            ..Default::default()
+        };
+
+        // Execute the step
+        let result = executor.execute_step(&step, &mut context).await;
+
+        // Verify success and output
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.contains("test output"));
+    }
+}
