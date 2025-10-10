@@ -131,13 +131,15 @@ impl GitHandler {
 
     /// Executes auto-staging for commit operations if required
     ///
-    /// This function checks if auto-staging is enabled and performs the staging operation
-    /// by executing `git add` with the appropriate files.
+    /// This function uses an early return pattern for non-commit operations or when
+    /// auto-staging is disabled, reducing cognitive complexity in the main execute flow.
+    /// When auto-staging is enabled, it executes `git add` with the appropriate files.
     async fn execute_auto_staging(
         context: &ExecutionContext,
         operation: &str,
         attributes: &HashMap<String, AttributeValue>,
     ) -> Result<(), String> {
+        // Early return for non-commit operations or when auto-staging is disabled
         if !Self::should_auto_stage(operation, attributes) {
             return Ok(());
         }
