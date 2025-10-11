@@ -52,7 +52,10 @@ fn create_mock_features(temp_dir: &Path, features: &[MockFeature]) -> Result<Pat
         "features": features_map,
     });
 
-    fs::write(&features_path, serde_json::to_string_pretty(&features_json)?)?;
+    fs::write(
+        &features_path,
+        serde_json::to_string_pretty(&features_json)?,
+    )?;
     Ok(features_path)
 }
 
@@ -72,7 +75,10 @@ fn create_mock_chapters(temp_dir: &Path, chapters: &[MockChapter]) -> Result<Pat
         })
         .collect();
 
-    fs::write(&chapters_path, serde_json::to_string_pretty(&chapters_array)?)?;
+    fs::write(
+        &chapters_path,
+        serde_json::to_string_pretty(&chapters_array)?,
+    )?;
     Ok(chapters_path)
 }
 
