@@ -3,81 +3,91 @@
   "chapter_title": "Command Types",
   "chapter_file": "book/src/commands.md",
   "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "Chapter is mostly accurate but has some inconsistencies with implementation. The documentation correctly covers most command types and their fields, but the capture_streams field implementation differs from the documented structure.",
+  "severity": "high",
+  "quality_assessment": "Chapter covers all major command types with good examples but has missing fields, a critical missing command type (write_file), and some type mismatches with the implementation. The documentation is largely accurate but needs updates to reflect recent additions.",
   "issues": [
     {
-      "type": "incorrect_example",
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Command Types",
+      "description": "write_file command type is missing from documentation but exists in WorkflowStepCommand",
+      "should_add": "Document write_file command type with path, content, format (text/json/yaml), mode, and create_dirs fields",
+      "fix_suggestion": "Add a new section '6. Write File Commands' explaining the write_file command for creating files with variable interpolation support. Include examples for text, JSON, and YAML formats.",
+      "source_reference": "src/config/command.rs:277-316 (WriteFileConfig struct), src/config/command.rs:346 (WorkflowStepCommand.write_file)"
+    },
+    {
+      "type": "missing_content",
       "severity": "medium",
-      "section": "CaptureStreams Configuration",
-      "description": "Chapter documents capture_streams as an object type, but implementation shows it as a struct with specific boolean fields, not a string",
-      "current_content": "capture_streams: Option<String>",
-      "should_be": "capture_streams: Option<CaptureStreams> where CaptureStreams is a struct with stdout, stderr, exit_code, success, duration boolean fields",
-      "fix_suggestion": "Update WorkflowStepCommand struct to use CaptureStreams type instead of String, and update documentation examples to reflect the actual struct fields",
-      "source_reference": "src/config/command.rs:350-351, src/cook/workflow/variables.rs:268-292"
+      "section": "Command Reference - Command Fields",
+      "description": "on_exit_code field is not documented in the Command Fields table",
+      "should_add": "Document on_exit_code field that maps exit codes to full WorkflowStep objects (e.g., 101: {claude: '/fix'})",
+      "fix_suggestion": "Add row to Command Fields table:\n| `on_exit_code` | map | Maps exit codes to full WorkflowStep objects (e.g., `101: {claude: \"/fix\"}`) |",
+      "source_reference": "src/config/command.rs:392 (on_exit_code field), book/src/commands.md:192 (mentioned in table)"
     },
     {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Deprecated Fields",
-      "description": "Chapter doesn't mention capture_output field is deprecated in favor of capture",
-      "should_add": "Document that capture_output (boolean) is deprecated in favor of capture (string variable name)",
-      "fix_suggestion": "Add to deprecated fields section: capture_output: true/false is deprecated, use capture: 'variable_name' instead",
-      "source_reference": "src/config/command.rs:321-323, src/config/command.rs:358-366"
+      "type": "incorrect_information",
+      "severity": "high",
+      "section": "capture_streams Configuration",
+      "description": "Documentation shows capture_streams as an object with boolean fields (stdout, stderr, etc.), but WorkflowStepCommand defines it as Option<String>",
+      "current_content": "capture_streams:\n  stdout: true\n  stderr: false\n  exit_code: true",
+      "should_be": "Need to clarify: CaptureStreams struct exists in variables.rs but WorkflowStepCommand has Option<String>. Likely needs deserialization logic or type correction.",
+      "fix_suggestion": "Verify implementation: check if capture_streams should deserialize from object format to String, or if WorkflowStepCommand field type needs to be Option<CaptureStreams>. Update documentation to match actual behavior.",
+      "source_reference": "src/config/command.rs:395 (Option<String>), src/cook/workflow/variables.rs:268-292 (CaptureStreams struct)"
     },
     {
-      "type": "inconsistent_naming",
-      "severity": "low",
-      "section": "ValidationConfig command field",
-      "description": "Documentation correctly notes that 'command' is deprecated in favor of 'shell', which matches implementation",
-      "current_content": "command: Option<String> (deprecated)",
-      "should_be": "shell: Option<String> or claude: Option<String>",
-      "fix_suggestion": "Chapter correctly documents this - no change needed. Implementation matches documentation.",
-      "source_reference": "src/cook/workflow/validation.rs:13-23"
+      "type": "incorrect_information",
+      "severity": "medium",
+      "section": "ValidationConfig - OnIncompleteConfig Fields",
+      "description": "Chapter documents retry_original and strategy fields in OnIncompleteConfig, but these don't exist in the implementation",
+      "current_content": "- `retry_original` - Whether to retry the original command (default: false)\n- `strategy` - Retry strategy configuration (similar to OnFailureConfig strategy)",
+      "should_be": "Remove retry_original and strategy from OnIncompleteConfig documentation. OnIncompleteConfig only has: claude, shell, commands, prompt, max_attempts, fail_workflow, commit_required",
+      "fix_suggestion": "Remove lines 128-129 that mention retry_original and strategy. Also remove the example at lines 159-171 showing retry_original usage, or note it as planned/future feature.",
+      "source_reference": "src/cook/workflow/validation.rs:122-151 (OnIncompleteConfig struct definition)"
     },
     {
-      "type": "missing_content",
+      "type": "outdated_information",
       "severity": "low",
-      "section": "OnIncompleteConfig",
-      "description": "Chapter doesn't mention retry_original and strategy fields available in OnIncompleteConfig",
-      "should_add": "Document retry_original field (boolean, default false) and strategy field (retry strategy config) in OnIncompleteConfig",
-      "fix_suggestion": "Add documentation for retry_original and strategy fields mentioned in chapter lines 128-129 but not detailed in the examples",
-      "source_reference": "book/src/commands.md:128-129"
+      "section": "Command Reference - Note",
+      "description": "The 'Note' section lists fields that don't exist in WorkflowStepCommand, which is good, but could be clearer about internal vs user-facing distinction",
+      "current_content": "Note: The following fields exist in internal structs but are NOT exposed in WorkflowStepCommand YAML",
+      "should_be": "Add clarification that these are internal execution fields, not YAML configuration fields",
+      "fix_suggestion": "Enhance the note to explain that these fields are used internally during execution but are not part of the YAML workflow configuration syntax.",
+      "source_reference": "src/config/command.rs:196-207 (Note about unexposed fields)"
     },
     {
-      "type": "incomplete_explanation",
+      "type": "unclear_content",
       "severity": "low",
-      "section": "Common Command Fields",
-      "description": "Several advanced fields are listed but examples don't show their usage",
-      "current_content": "Fields listed: handler, retry, on_exit_code, auto_commit, commit_config, step_validate, skip_validation, validation_timeout, ignore_validation_failure",
-      "should_be": "Provide examples showing how to use these advanced fields",
-      "fix_suggestion": "Add examples section showing usage of handler, retry, on_exit_code, auto_commit, and step_validate fields",
-      "source_reference": "book/src/commands.md:194-204"
+      "section": "Command Reference - capture field",
+      "description": "The migration note shows capture_output: true (deprecated) but doesn't explain what happens to the captured output variable name",
+      "current_content": "Old syntax (deprecated):\n- shell: \"ls -la | wc -l\"\n  capture_output: true",
+      "should_be": "Explain that with capture_output: true, output was captured to a default variable name, whereas capture: \"var_name\" allows explicit naming",
+      "fix_suggestion": "Add explanation: 'The old capture_output: true syntax captured output to a default variable, while the new capture syntax allows you to specify the variable name explicitly, making references clearer.'",
+      "source_reference": "src/config/command.rs:366-367 (capture_output field), book/src/commands.md:287-301"
     }
   ],
   "positive_aspects": [
-    "Clear structure with numbered sections for each command type",
-    "Good examples for basic command types (shell, claude, goal_seek, foreach)",
-    "Comprehensive command reference table with all fields",
-    "Properly documents capture_format enum values and examples",
-    "Correctly identifies deprecated fields (test:, command: in ValidationConfig)",
-    "Good migration examples for deprecated syntax",
-    "Validation section is thorough with multiple alternative formats",
-    "CaptureStreams documentation accurately describes the fields even though implementation type differs"
+    "Comprehensive coverage of all major command types (shell, claude, goal_seek, foreach, validation)",
+    "Excellent examples for each command type with clear YAML syntax",
+    "Good documentation of capture_format with all variants (string, number, json, lines, boolean)",
+    "Clear migration guidance from capture_output to capture",
+    "Proper documentation of deprecated fields (test:, command: in ValidationConfig)",
+    "Detailed explanation of ValidationConfig with on_incomplete retry logic",
+    "CaptureStreams configuration examples are clear and practical",
+    "Command Fields reference table provides good overview of common fields"
   ],
   "improvement_suggestions": [
-    "Add examples for advanced fields like handler, retry, on_exit_code",
-    "Expand on auto_commit and commit_config usage",
-    "Show working_dir examples for command execution in different directories",
-    "Add troubleshooting section for common command configuration errors",
-    "Include real-world workflow examples combining multiple command types",
-    "Document the relationship between on_failure in WorkflowStepCommand vs TestDebugConfig",
-    "Clarify when to use capture vs capture_output",
-    "Add section on environment variable usage at command level"
+    "Add write_file command type section with examples for text, JSON, and YAML formats",
+    "Verify and correct capture_streams type documentation (object vs string)",
+    "Remove or mark as future: retry_original and strategy fields in OnIncompleteConfig",
+    "Add on_exit_code field to Command Fields table",
+    "Include examples of on_exit_code usage for custom exit code handling",
+    "Add cross-references to the Variables chapter for capture and interpolation details",
+    "Consider adding a troubleshooting section for common command configuration mistakes",
+    "Add examples showing combination of multiple fields (e.g., timeout + on_failure + validate)"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-05",
-    "feature_inventory": "Manual source code analysis (features.json not available)",
+    "analyzed_at": "2025-10-10",
+    "feature_inventory": "Analyzed directly from codebase (features.json not available)",
     "topics_covered": [
       "Shell commands",
       "Claude commands",
@@ -85,6 +95,12 @@
       "Foreach",
       "Validation"
     ],
-    "validation_focus": "Check all command types and their fields are documented"
+    "validation_focus": "Check all command types and their fields are documented",
+    "implementation_files_reviewed": [
+      "src/config/command.rs (WorkflowStepCommand)",
+      "src/cook/workflow/validation.rs (ValidationConfig, OnIncompleteConfig)",
+      "src/cook/goal_seek/mod.rs (GoalSeekConfig)",
+      "src/cook/workflow/variables.rs (CaptureStreams, CaptureFormat)"
+    ]
   }
 }
