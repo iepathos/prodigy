@@ -118,6 +118,7 @@ impl crate::cook::workflow::StepExecutor for MockWorkflowExecutor {
             exit_code: Some(0),
             stdout: self.outputs.get("stdout").cloned().unwrap_or_default(),
             stderr: String::new(),
+            json_log_location: None,
         })
     }
 }

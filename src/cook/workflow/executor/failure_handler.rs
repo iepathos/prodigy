@@ -376,6 +376,7 @@ mod tests {
             exit_code: Some(1),
             stdout: "output".to_string(),
             stderr: "error".to_string(),
+            json_log_location: None,
         };
 
         let recovered = mark_step_recovered(failed_result);
@@ -393,6 +394,7 @@ mod tests {
             exit_code: Some(1),
             stdout: "original".to_string(),
             stderr: "error".to_string(),
+            json_log_location: None,
         };
 
         let outputs = vec!["handler1".to_string(), "handler2".to_string()];

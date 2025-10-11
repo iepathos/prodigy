@@ -298,6 +298,7 @@ impl StandardExecutor {
                 stdout: result.stdout.unwrap_or_default(),
                 stderr: result.stderr.unwrap_or_default(),
                 exit_code: result.exit_code,
+                json_log_location: None,
             },
             json_log_location,
         ))

@@ -33,6 +33,7 @@ impl From<CommandResult> for StepResult {
             exit_code: Some(result.exit_code),
             stdout: result.output.unwrap_or_default(),
             stderr: result.stderr,
+            json_log_location: result.json_log_location,
         }
     }
 }

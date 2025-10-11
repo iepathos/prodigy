@@ -161,6 +161,7 @@ impl WorkflowExecutor {
                     exit_code: Some(0),
                     stdout: "Skipped due to when condition".to_string(),
                     stderr: String::new(),
+                    json_log_location: None,
                 });
             }
         }
@@ -220,7 +221,14 @@ impl WorkflowExecutor {
 
         // Validate commit requirements
         let after_head = commit_tracker.get_current_head().await?;
-        self.validate_and_display_commit_info(step, &tracked_commits, &before_head, &after_head)?;
+        let json_log_location = result.json_log_location.as_deref();
+        self.validate_and_display_commit_info(
+            step,
+            &tracked_commits,
+            &before_head,
+            &after_head,
+            json_log_location,
+        )?;
 
         // Capture output to variables and files
         self.capture_step_output(step, &result, ctx).await?;

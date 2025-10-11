@@ -62,11 +62,13 @@ pub async fn execute_claude_command(
 
 /// Convert ExecutionResult to StepResult
 fn convert_execution_result(result: ExecutionResult) -> StepResult {
+    let json_log_location = result.json_log_location().map(|s| s.to_string());
     StepResult {
         success: result.success,
         exit_code: result.exit_code,
         stdout: result.stdout,
         stderr: result.stderr,
+        json_log_location,
     }
 }
 
@@ -117,6 +119,7 @@ pub async fn execute_shell_command(
                     exit_code: Some(-1),
                     stdout: String::new(),
                     stderr: format!("Command timed out after {timeout_secs} seconds"),
+                    json_log_location: None,
                 });
             }
         }
@@ -129,6 +132,7 @@ pub async fn execute_shell_command(
         exit_code: output.status.code(),
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
         stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        json_log_location: None,
     })
 }
 
@@ -169,6 +173,7 @@ pub async fn execute_goal_seek_command(
             ),
             stderr: String::new(),
             exit_code: Some(0),
+            json_log_location: None,
         }),
         crate::cook::goal_seek::GoalSeekResult::MaxAttemptsReached {
             attempts,
@@ -191,6 +196,7 @@ pub async fn execute_goal_seek_command(
                     ),
                     stderr: String::new(),
                     exit_code: Some(1),
+                    json_log_location: None,
                 })
             }
         }
@@ -230,6 +236,7 @@ pub async fn execute_goal_seek_command(
                     } else {
                         1
                     }),
+                    json_log_location: None,
                 })
             }
         }
@@ -271,6 +278,7 @@ pub async fn execute_foreach_command(
             String::new()
         },
         exit_code: Some(if result.failed_items == 0 { 0 } else { 1 }),
+        json_log_location: None,
     })
 }
 
@@ -363,6 +371,7 @@ pub async fn execute_write_file_command(
             content_size, config.path, format_str
         ),
         stderr: String::new(),
+        json_log_location: None,
     })
 }
 
@@ -475,6 +484,7 @@ impl WorkflowExecutor {
                 stdout: format!("[dry-run] {}", command_desc),
                 stderr: String::new(),
                 exit_code: Some(0),
+                json_log_location: None,
             });
         }
 
@@ -1039,6 +1049,7 @@ impl WorkflowExecutor {
             stderr: result
                 .stderr
                 .unwrap_or_else(|| result.error.unwrap_or_default()),
+            json_log_location: None,
         })
     }
 
@@ -1097,6 +1108,7 @@ impl WorkflowExecutor {
                 exit_code: Some(0),
                 stdout: "[TEST MODE] No changes made".to_string(),
                 stderr: String::new(),
+                json_log_location: None,
             });
         }
 
@@ -1105,6 +1117,7 @@ impl WorkflowExecutor {
             exit_code: Some(0),
             stdout: "[TEST MODE] Command executed successfully".to_string(),
             stderr: String::new(),
+            json_log_location: None,
         })
     }
 

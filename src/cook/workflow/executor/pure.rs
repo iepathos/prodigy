@@ -244,6 +244,7 @@ pub fn validate_commit_requirement(
     dry_run: bool,
     step_name: &str,
     assumed_commits: &[String],
+    json_log_location: Option<&str>,
 ) -> Result<()> {
     if !step.commit_required {
         return Ok(());
@@ -270,10 +271,17 @@ pub fn validate_commit_requirement(
         }
     }
 
-    Err(anyhow::anyhow!(
+    // Build error message with optional log location
+    let mut error_msg = format!(
         "Step '{}' has commit_required=true but no commits were created",
         step_name
-    ))
+    );
+
+    if let Some(log_path) = json_log_location {
+        error_msg.push_str(&format!("\n📝 Claude log: {}", log_path));
+    }
+
+    Err(anyhow::anyhow!(error_msg))
 }
 
 /// Build step commit variables from tracked commits
@@ -596,7 +604,8 @@ mod tests {
             ..Default::default()
         };
 
-        let result = validate_commit_requirement(&step, true, "abc", "abc", false, "test", &[]);
+        let result =
+            validate_commit_requirement(&step, true, "abc", "abc", false, "test", &[], None);
         assert!(result.is_ok());
     }
 
@@ -608,11 +617,13 @@ mod tests {
         };
 
         // Commits were tracked
-        let result = validate_commit_requirement(&step, false, "abc", "abc", false, "test", &[]);
+        let result =
+            validate_commit_requirement(&step, false, "abc", "abc", false, "test", &[], None);
         assert!(result.is_ok());
 
         // HEAD changed
-        let result = validate_commit_requirement(&step, true, "abc", "def", false, "test", &[]);
+        let result =
+            validate_commit_requirement(&step, true, "abc", "def", false, "test", &[], None);
         assert!(result.is_ok());
     }
 
@@ -625,7 +636,7 @@ mod tests {
         };
 
         let result =
-            validate_commit_requirement(&step, true, "abc", "abc", false, "test step", &[]);
+            validate_commit_requirement(&step, true, "abc", "abc", false, "test step", &[], None);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("no commits"));
     }
