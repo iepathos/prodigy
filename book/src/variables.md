@@ -20,6 +20,8 @@ Both systems use the same `${variable.name}` interpolation syntax and can be fre
 | Merge Variables | ✗ | ✗ | ✗ | ✓ |
 | Custom Captured Variables | ✓ | ✓ | ✓ | ✓ |
 
+**Note**: Using phase-specific variables outside their designated phase (e.g., `${item}` in reduce phase, `${map.results}` in map phase) will result in interpolation errors or empty values. Always verify variable availability matches your workflow phase.
+
 ## Available Variables
 
 ### Standard Variables
@@ -31,6 +33,22 @@ Both systems use the same `${variable.name}` interpolation syntax and can be fre
 - `${step.files_changed}` - Files changed in current step
 - `${workflow.files_changed}` - All files changed in workflow
 
+### System Variables
+
+These variables are automatically available in all workflow contexts:
+
+- `${PROJECT_ROOT}` - Absolute path to the working directory (repository root)
+- `${WORKTREE}` - Name of the current worktree (if running in a Prodigy worktree session)
+- `${git.branch}` - Current git branch name
+- `${git.commit}` - Current git commit hash (short SHA)
+
+**Example Usage:**
+```yaml
+- shell: "cd ${PROJECT_ROOT} && cargo build"
+- shell: "echo 'Running on branch: ${git.branch}'"
+- shell: "echo 'Commit: ${git.commit}'"
+```
+
 ### Output Variables
 
 **Primary Output Variables:**
@@ -41,12 +59,24 @@ Both systems use the same `${variable.name}` interpolation syntax and can be fre
 
 **Note**: `${shell.output}` is the correct variable name for shell command output. The code uses `shell.output`, not `shell.stdout`.
 
-**Legacy/Specialized Output Variables:**
+**Legacy/Specialized Output Variables (Deprecated):**
+
+These variables are still supported but **deprecated** in favor of custom capture:
 - `${handler.output}` - Output from handler command (used in error handling)
 - `${test.output}` - Output from test command (used in validation)
 - `${goal_seek.output}` - Output from goal-seeking command
 
-**Best Practice**: For most workflows, use custom capture variables (via `capture:` field) instead of relying on these automatic output variables. This provides explicit naming and better readability.
+**Migration Note**: These variables are automatically set by specific command types but are deprecated. Use custom capture variables (via `capture:` field) instead for explicit naming and better readability.
+
+```yaml
+# OLD (deprecated):
+- shell: "echo 'Result: ${shell.output}'"
+
+# NEW (preferred):
+- shell: "make build"
+  capture: "build_result"
+- shell: "echo 'Result: ${build_result}'"
+```
 
 ### MapReduce Variables
 
@@ -84,10 +114,39 @@ Both systems use the same `${variable.name}` interpolation syntax and can be fre
 - `${validation.status}` - Status (complete/incomplete/failed)
 
 ### Git Context Variables
-- `${step.commits}` - Commits in current step (array of commit objects)
-- `${workflow.commits}` - All workflow commits (array of commit objects)
 
-**Note**: These are arrays of commit data. Use in foreach loops or access individual commits with array indexing. Each commit object contains fields like hash, message, timestamp, etc.
+**Commit Tracking:**
+- `${step.commits}` - Space-separated commit hashes from current step
+- `${workflow.commits}` - Space-separated commit hashes from entire workflow
+
+**Note**: These are space-separated strings of commit hashes (e.g., "abc123 def456 ghi789"), not arrays. Use in shell commands that accept commit lists.
+
+**File Change Tracking:**
+- `${step.files_added}` - Number of files added in current step
+- `${step.files_modified}` - Number of files modified in current step
+- `${step.files_deleted}` - Number of files deleted in current step
+- `${step.commit_count}` - Number of commits in current step
+- `${step.insertions}` - Lines added in current step
+- `${step.deletions}` - Lines removed in current step
+
+**Workflow Change Tracking:**
+- `${workflow.files_added}` - Total files added in entire workflow
+- `${workflow.files_modified}` - Total files modified in entire workflow
+- `${workflow.files_deleted}` - Total files deleted in entire workflow
+- `${workflow.commit_count}` - Total commits in entire workflow
+- `${workflow.insertions}` - Total lines added in entire workflow
+- `${workflow.deletions}` - Total lines removed in entire workflow
+
+**Example Usage:**
+```yaml
+# Check if step made changes
+- shell: "echo 'Step made ${step.commit_count} commits'"
+- shell: "echo 'Modified ${step.files_modified} files (+${step.insertions}/-${step.deletions} lines)'"
+
+# Use commit hashes
+- shell: "git show ${step.commits}"
+- shell: "echo 'All commits: ${workflow.commits}'"
+```
 
 ### Legacy Variable Aliases
 
@@ -192,6 +251,8 @@ For JSON-formatted captures, use dot notation to access nested fields:
 - shell: "echo 'City: ${user.address.city}'"
 ```
 
+**Error Handling**: Accessing non-existent fields (e.g., `${user.missing.field}`) will return an error. Ensure your JSON structure matches your field access patterns, or use validation to handle missing fields gracefully.
+
 ### Variable Scope and Precedence
 
 Variables follow a parent/child scope hierarchy:
@@ -201,6 +262,8 @@ Variables follow a parent/child scope hierarchy:
 3. **Built-in Variables**: Standard workflow context variables
 
 **Precedence**: Local variables override parent scope variables, which override built-in variables.
+
+**Scope Lifetime**: Child scopes are temporary. When a child block (foreach loop, map phase agent) completes, its local variables are discarded and the parent scope is automatically restored.
 
 ```yaml
 # Parent scope
@@ -217,5 +280,49 @@ Variables follow a parent/child scope hierarchy:
       - shell: "echo ${message}"  # Uses local 'message'
 
 # After foreach, parent 'message' is still accessible
+# The local 'message' from foreach is discarded
 - shell: "echo ${message}"  # Uses parent 'message' → "outer"
 ```
+
+---
+
+## Troubleshooting Variable Interpolation
+
+### Common Errors and Solutions
+
+**Error: "Variable not found: item"**
+- **Cause**: Using `${item}` or `${item.*}` outside the map phase
+- **Solution**: Item variables are only available in `agent_template:` commands within MapReduce workflows. Move your code to the map phase or use a different variable.
+
+**Error: "Variable not found: map.results"**
+- **Cause**: Using `${map.results}` outside the reduce phase
+- **Solution**: Map aggregation variables are only available in `reduce:` commands. See the phase availability table above.
+
+**Error: "Failed to parse JSON field"**
+- **Cause**: Accessing a non-existent nested field in a JSON capture
+- **Solution**: Verify your JSON structure matches your field access. Use `jq` or similar tools to inspect the JSON first.
+
+**Error: "Invalid variable interpolation syntax"**
+- **Cause**: Missing `${}` braces or incorrect syntax
+- **Solution**: Always use `${variable.name}` format. Shell-style `$VAR` is not supported for Prodigy variables (only for environment variables).
+
+**Empty/Undefined Variable Value**
+- **Cause**: Variable hasn't been set yet, or phase mismatch
+- **Solution**: Check command order and ensure the variable is captured before use. Review the phase availability table.
+
+### Best Practices
+
+1. **Use custom capture for clarity**: Prefer `capture: "my_var"` over automatic `${shell.output}`
+2. **Name variables descriptively**: Use `${test_results}` not `${x}`
+3. **Validate JSON captures**: Test JSON structure before accessing nested fields
+4. **Check phase availability**: Ensure variables match your workflow phase
+5. **Use appropriate capture formats**: `number`, `json`, `boolean` provide type safety
+
+---
+
+## See Also
+
+- **[Command Types](./commands.md)** - Learn about command types and their capture behavior
+- **[MapReduce Workflows](./mapreduce.md)** - Deep dive into MapReduce variables and phases
+- **[Environment Variables](./environment.md)** - Using environment variables in workflows
+- **[Workflow Examples](./examples.md)** - Practical examples using variables in real workflows
