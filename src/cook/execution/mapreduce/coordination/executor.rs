@@ -22,7 +22,7 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{OnFailureConfig, WorkflowStep, StepResult};
+use crate::cook::workflow::{OnFailureConfig, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -353,10 +353,8 @@ impl MapReduceCoordinator {
                 }
 
                 // Add stdout if available and stderr is empty
-                if result.stderr.trim().is_empty() {
-                    if !result.stdout.trim().is_empty() {
-                        error_msg.push_str(&format!("\nstdout: {}", result.stdout.trim()));
-                    }
+                if result.stderr.trim().is_empty() && !result.stdout.trim().is_empty() {
+                    error_msg.push_str(&format!("\nstdout: {}", result.stdout.trim()));
                 }
 
                 // If it's a Claude command, add log location hint
@@ -426,7 +424,6 @@ impl MapReduceCoordinator {
                     MapReduceError::ProcessingError(format!("Claude command failed: {}", e))
                 })?;
 
-            // Capture json_log_location before moving other fields
             let json_log_location = result.json_log_location().map(|s| s.to_string());
 
             Ok(StepResult {
@@ -1024,7 +1021,6 @@ impl MapReduceCoordinator {
                     ))
                 })?;
 
-            // Capture json_log_location before moving other fields
             let json_log_location = result.json_log_location().map(|s| s.to_string());
 
             Ok(StepResult {
