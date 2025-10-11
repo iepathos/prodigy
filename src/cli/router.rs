@@ -169,6 +169,12 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
             format,
             web,
         }) => run_progress_command(job_id, export, format, web).await,
+        Some(Commands::Logs {
+            session_id,
+            latest,
+            tail,
+            summary,
+        }) => run_logs_command(session_id, latest, tail, summary).await,
         None => {
             // No command provided, show help
             use crate::cli::help::generate_help;

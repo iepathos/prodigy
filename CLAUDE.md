@@ -721,6 +721,7 @@ Prodigy CLI commands:
 - `prodigy dlq` - Manage and retry failed work items
 - `prodigy checkpoints` - Manage workflow checkpoints
 - `prodigy sessions` - View and manage session state
+- `prodigy logs` - View and manage Claude JSON logs
 
 ## Best Practices
 
@@ -762,3 +763,77 @@ Prodigy CLI commands:
 - List worktrees with `prodigy worktree ls`
 - Clean stuck worktrees with `prodigy worktree clean -f`
 - Check `~/.prodigy/worktrees/` for orphaned directories
+
+### Viewing Claude Execution Logs (Spec 126)
+
+**Every Claude command creates a streaming JSONL log file** at `~/.claude/projects/{worktree-path}/{uuid}.jsonl`. These logs are automatically displayed after each command execution:
+
+```
+✅ Completed | Log: ~/.claude/projects/.../6ded63ac.jsonl
+```
+
+Or for failed commands:
+```
+❌ Failed | Log: ~/.claude/projects/.../6ded63ac.jsonl
+```
+
+#### Watching Logs Live
+
+For long-running Claude commands, watch the log in real-time:
+
+```bash
+# Watch live as Claude executes
+tail -f ~/.claude/projects/.../6ded63ac.jsonl
+
+# Pretty-print each line as it's added
+tail -f ~/.claude/projects/.../6ded63ac.jsonl | jq -c '.'
+```
+
+#### Analyzing Completed Logs
+
+After a command completes, analyze the full conversation:
+
+```bash
+# View all events (one JSON object per line)
+cat ~/.claude/projects/.../6ded63ac.jsonl
+
+# Count messages by type
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -r '.type' | sort | uniq -c
+
+# View only user messages
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.type == "user")'
+
+# View only assistant responses
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.type == "assistant")'
+
+# Extract all tool uses
+cat ~/.claude/projects/.../6ded63ac.jsonl | \
+  jq -c 'select(.type == "assistant") | .content[]? | select(.type == "tool_use")'
+
+# View token usage (usually at end of file)
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.usage)'
+```
+
+#### Using the `prodigy logs` Command
+
+```bash
+# View most recent Claude log
+prodigy logs --latest
+
+# View most recent log with summary
+prodigy logs --latest --summary
+
+# Tail the latest log (follow mode)
+prodigy logs --latest --tail
+
+# List recent logs
+prodigy logs
+```
+
+#### When Workflows Fail
+
+When a Claude command fails, the log path is displayed prominently in the error output, making it easy to debug the issue without requiring verbose mode.
+
+#### Debugging Failed MapReduce Agents
+
+Failed MapReduce agents include log paths in their DLQ entries for easy debugging.

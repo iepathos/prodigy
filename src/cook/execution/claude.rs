@@ -251,31 +251,32 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
 
         match result {
             Ok(mut execution_result) => {
-                // Detect JSON log location after successful execution
-                if execution_result.success {
-                    use crate::cook::execution::claude_log_detection::detect_json_log_location;
+                // Detect JSON log location after execution (success or failure)
+                use crate::cook::execution::claude_log_detection::detect_json_log_location;
 
-                    if let Some(log_location) = detect_json_log_location(
-                        project_path,
-                        &execution_result.stdout,
-                        execution_start,
-                    )
-                    .await
-                    {
-                        // Store in metadata
-                        execution_result =
-                            execution_result.with_json_log_location(log_location.clone());
+                if let Some(log_location) = detect_json_log_location(
+                    project_path,
+                    &execution_result.stdout,
+                    execution_start,
+                )
+                .await
+                {
+                    // Store in metadata
+                    execution_result =
+                        execution_result.with_json_log_location(log_location.clone());
 
-                        // Log to console if verbose
-                        if self.verbosity >= 1 {
-                            println!("📝 Claude JSON log: {}", log_location.display());
-                        }
-
-                        // Log to tracing for debugging
-                        tracing::info!("Claude JSON log saved to: {}", log_location.display());
+                    // Display log path to console - ALWAYS, regardless of verbosity
+                    // This is critical for debugging failed commands
+                    if execution_result.success {
+                        println!("✅ Completed | Log: {}", log_location.display());
                     } else {
-                        tracing::debug!("Could not detect Claude JSON log location");
+                        println!("❌ Failed | Log: {}", log_location.display());
                     }
+
+                    // Log to tracing for debugging
+                    tracing::info!("Claude JSON log saved to: {}", log_location.display());
+                } else {
+                    tracing::debug!("Could not detect Claude JSON log location");
                 }
 
                 if !execution_result.success {
