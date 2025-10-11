@@ -270,6 +270,13 @@ impl MapReduceCoordinator {
         );
 
         for (index, step) in setup_phase.commands.iter().enumerate() {
+            // Display user-facing progress
+            self.user_interaction.display_progress(&format!(
+                "Setup: Executing step {}/{}",
+                index + 1,
+                setup_phase.commands.len()
+            ));
+
             info!(
                 "Executing setup step {}/{}",
                 index + 1,
@@ -299,8 +306,49 @@ impl MapReduceCoordinator {
             // Execute the step
             let result = self.execute_setup_step(step, env, env_vars).await?;
 
+            // Display completion
+            if result.success {
+                self.user_interaction.display_success(&format!(
+                    "✓ Setup step {}/{} completed",
+                    index + 1,
+                    setup_phase.commands.len()
+                ));
+            }
+
             if !result.success {
-                // Build a more helpful error message
+                // Handle on_failure if configured
+                if let Some(on_failure) = &step.on_failure {
+                    self.user_interaction.display_warning(&format!(
+                        "Setup step {} failed, executing on_failure handler",
+                        index + 1
+                    ));
+
+                    // Create empty variables for on_failure (setup phase has no item context)
+                    let variables = HashMap::new();
+
+                    let handler_result = Self::handle_on_failure(
+                        on_failure,
+                        &env.working_dir,
+                        &variables,
+                        env,
+                        &self.claude_executor,
+                        &self.subprocess,
+                        &self.user_interaction,
+                    )
+                    .await?;
+
+                    if !handler_result {
+                        return Err(MapReduceError::ProcessingError(format!(
+                            "Setup step {} failed and on_failure handler failed",
+                            index + 1
+                        )));
+                    }
+
+                    // on_failure handler succeeded, continue to next step
+                    continue;
+                }
+
+                // No on_failure handler, build error message and fail
                 let mut error_msg = format!("Setup step {} failed", index + 1);
 
                 // Add exit code if available
@@ -787,6 +835,7 @@ impl MapReduceCoordinator {
                             env,
                             claude_executor,
                             subprocess,
+                            user_interaction,
                         )
                         .await?;
 
@@ -1095,6 +1144,7 @@ impl MapReduceCoordinator {
         _env: &ExecutionEnvironment,
         claude_executor: &Arc<dyn ClaudeExecutor>,
         subprocess: &Arc<SubprocessManager>,
+        user_interaction: &Arc<dyn UserInteraction>,
     ) -> MapReduceResult<bool> {
         use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 
@@ -1125,6 +1175,10 @@ impl MapReduceCoordinator {
                 MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
             })?;
 
+            user_interaction.display_progress(&format!(
+                "on_failure: Executing Claude command: {}",
+                interpolated_cmd
+            ));
             info!("Executing on_failure Claude command: {}", interpolated_cmd);
 
             let mut env_vars = HashMap::new();
@@ -1157,6 +1211,10 @@ impl MapReduceCoordinator {
                 MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
             })?;
 
+            user_interaction.display_progress(&format!(
+                "on_failure: Executing shell command: {}",
+                interpolated_cmd
+            ));
             info!("Executing on_failure shell command: {}", interpolated_cmd);
 
             let command = ProcessCommandBuilder::new("sh")
@@ -1287,6 +1345,7 @@ impl MapReduceCoordinator {
                         env,
                         &self.claude_executor,
                         &self.subprocess,
+                        &self.user_interaction,
                     )
                     .await?;
 
@@ -1554,6 +1613,8 @@ mod handle_on_failure_tests {
         let variables = HashMap::new();
         let env = create_test_env();
 
+        let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
+            Arc::new(crate::cook::interaction::MockUserInteraction::new());
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
@@ -1561,6 +1622,7 @@ mod handle_on_failure_tests {
             &env,
             &claude_executor,
             &subprocess,
+            &user_interaction,
         )
         .await;
 
@@ -1584,6 +1646,8 @@ mod handle_on_failure_tests {
         let variables = HashMap::new();
         let env = create_test_env();
 
+        let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
+            Arc::new(crate::cook::interaction::MockUserInteraction::new());
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
@@ -1591,6 +1655,7 @@ mod handle_on_failure_tests {
             &env,
             &claude_executor,
             &subprocess,
+            &user_interaction,
         )
         .await;
 
@@ -1614,6 +1679,8 @@ mod handle_on_failure_tests {
         let variables = HashMap::new();
         let env = create_test_env();
 
+        let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
+            Arc::new(crate::cook::interaction::MockUserInteraction::new());
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
@@ -1621,6 +1688,7 @@ mod handle_on_failure_tests {
             &env,
             &claude_executor,
             &subprocess,
+            &user_interaction,
         )
         .await;
 
@@ -1644,6 +1712,8 @@ mod handle_on_failure_tests {
         let variables = HashMap::new();
         let env = create_test_env();
 
+        let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
+            Arc::new(crate::cook::interaction::MockUserInteraction::new());
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
@@ -1651,6 +1721,7 @@ mod handle_on_failure_tests {
             &env,
             &claude_executor,
             &subprocess,
+            &user_interaction,
         )
         .await;
 
@@ -1668,6 +1739,8 @@ mod handle_on_failure_tests {
         let variables = HashMap::new();
         let env = create_test_env();
 
+        let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
+            Arc::new(crate::cook::interaction::MockUserInteraction::new());
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
@@ -1675,6 +1748,7 @@ mod handle_on_failure_tests {
             &env,
             &claude_executor,
             &subprocess,
+            &user_interaction,
         )
         .await;
 
@@ -1692,6 +1766,8 @@ mod handle_on_failure_tests {
         let variables = HashMap::new();
         let env = create_test_env();
 
+        let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
+            Arc::new(crate::cook::interaction::MockUserInteraction::new());
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
@@ -1699,6 +1775,7 @@ mod handle_on_failure_tests {
             &env,
             &claude_executor,
             &subprocess,
+            &user_interaction,
         )
         .await;
 
@@ -1716,6 +1793,8 @@ mod handle_on_failure_tests {
         let variables = HashMap::new();
         let env = create_test_env();
 
+        let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
+            Arc::new(crate::cook::interaction::MockUserInteraction::new());
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
@@ -1723,6 +1802,7 @@ mod handle_on_failure_tests {
             &env,
             &claude_executor,
             &subprocess,
+            &user_interaction,
         )
         .await;
 
@@ -1742,6 +1822,8 @@ mod handle_on_failure_tests {
         variables.insert("item_id".to_string(), "item-123".to_string());
         let env = create_test_env();
 
+        let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
+            Arc::new(crate::cook::interaction::MockUserInteraction::new());
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
@@ -1749,6 +1831,7 @@ mod handle_on_failure_tests {
             &env,
             &claude_executor,
             &subprocess,
+            &user_interaction,
         )
         .await;
 
@@ -1772,6 +1855,8 @@ mod handle_on_failure_tests {
         let variables = HashMap::new();
         let env = create_test_env();
 
+        let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
+            Arc::new(crate::cook::interaction::MockUserInteraction::new());
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
@@ -1779,6 +1864,7 @@ mod handle_on_failure_tests {
             &env,
             &claude_executor,
             &subprocess,
+            &user_interaction,
         )
         .await;
 

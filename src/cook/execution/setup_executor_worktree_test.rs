@@ -98,7 +98,12 @@ async fn test_setup_phase_uses_worktree_directory() {
 
     // Execute setup phase
     let result = setup_executor
-        .execute(&setup_phase.commands, &mut mock_executor, &env, &mut context)
+        .execute(
+            &setup_phase.commands,
+            &mut mock_executor,
+            &env,
+            &mut context,
+        )
         .await;
 
     // Verify execution succeeded
@@ -111,7 +116,8 @@ async fn test_setup_phase_uses_worktree_directory() {
         .expect("Working directory should be captured");
 
     assert_eq!(
-        captured_dir, &worktree_path,
+        captured_dir,
+        &worktree_path,
         "Setup phase should execute in the worktree directory, not the main repo.\n\
          Expected: {}\n\
          Got: {}",
@@ -151,7 +157,12 @@ async fn test_setup_phase_preserves_environment_working_dir() {
     let mut context = WorkflowContext::default();
 
     setup_executor
-        .execute(&setup_phase.commands, &mut mock_executor, &env, &mut context)
+        .execute(
+            &setup_phase.commands,
+            &mut mock_executor,
+            &env,
+            &mut context,
+        )
         .await
         .unwrap();
 
