@@ -233,10 +233,7 @@ fn list_recent_logs(log_dir: &Path) -> Result<()> {
 
 /// Display a summary of a log file
 fn display_log_summary(log_path: &Path) -> Result<()> {
-    let is_jsonl = log_path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        == Some("jsonl");
+    let is_jsonl = log_path.extension().and_then(|ext| ext.to_str()) == Some("jsonl");
 
     if is_jsonl {
         display_jsonl_summary(log_path)?;
