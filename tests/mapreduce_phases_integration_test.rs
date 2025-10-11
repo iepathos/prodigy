@@ -132,7 +132,10 @@ async fn test_setup_phase_failure() {
     let result = coordinator.execute_workflow(env, subprocess).await;
 
     // Verify failure
-    assert!(result.is_err(), "Setup phase should fail with non-zero exit");
+    assert!(
+        result.is_err(),
+        "Setup phase should fail with non-zero exit"
+    );
 }
 
 #[tokio::test]
@@ -210,7 +213,8 @@ async fn test_reduce_phase_aggregation() {
         timeout_secs: Some(30),
     };
 
-    let coordinator = PhaseCoordinator::new(None, map_phase, Some(reduce_phase), subprocess.clone());
+    let coordinator =
+        PhaseCoordinator::new(None, map_phase, Some(reduce_phase), subprocess.clone());
 
     // Execute workflow
     let result = coordinator.execute_workflow(env, subprocess).await;
@@ -288,10 +292,7 @@ async fn test_phase_context_variable_passing() {
 
     // Create setup phase that outputs a value
     let mut capture_outputs = HashMap::new();
-    capture_outputs.insert(
-        "test_var".to_string(),
-        CaptureConfig::Simple(0),
-    );
+    capture_outputs.insert("test_var".to_string(), CaptureConfig::Simple(0));
 
     let setup_phase = SetupPhase {
         commands: vec![WorkflowStep {
@@ -341,12 +342,16 @@ async fn test_phase_executor_trait_implementation() {
         capture_outputs: HashMap::new(),
     };
 
-    let executor = prodigy::cook::execution::mapreduce::phases::setup::SetupPhaseExecutor::new(setup_phase);
+    let executor =
+        prodigy::cook::execution::mapreduce::phases::setup::SetupPhaseExecutor::new(setup_phase);
 
     let mut context = PhaseContext::new(env, subprocess);
 
     // Test PhaseExecutor trait methods
-    assert!(!executor.can_skip(&context), "Should not skip with commands");
+    assert!(
+        !executor.can_skip(&context),
+        "Should not skip with commands"
+    );
     assert!(executor.validate_context(&context).is_ok());
 
     // Execute
