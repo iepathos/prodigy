@@ -22,6 +22,7 @@ pub mod merge_queue;
 pub mod noop_writer;
 pub mod phases;
 pub mod progress;
+pub mod pure;
 pub mod reduce_phase;
 pub mod resources;
 pub mod state;
