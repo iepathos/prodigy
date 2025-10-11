@@ -342,6 +342,10 @@ impl SetupPhaseExecutor {
 }
 
 #[cfg(test)]
+#[path = "setup_executor_worktree_test.rs"]
+mod worktree_test;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::cook::execution::SetupPhase;
