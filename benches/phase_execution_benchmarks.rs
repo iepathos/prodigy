@@ -17,7 +17,6 @@ use prodigy::cook::orchestrator::ExecutionEnvironment;
 use prodigy::cook::workflow::WorkflowStep;
 use prodigy::subprocess::SubprocessManager;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
@@ -113,7 +112,7 @@ fn bench_map_phase_work_items(c: &mut Criterion) {
                     std::fs::write(&input_file, serde_json::to_string(&items).unwrap()).unwrap();
 
                     let map_phase = MapPhase {
-                        config: prodigy::cook::execution::mapreduce::MapConfig {
+                        config: prodigy::cook::execution::mapreduce::MapReduceConfig {
                             input: input_file.to_string_lossy().to_string(),
                             max_parallel: 5,
                             ..Default::default()
@@ -126,6 +125,7 @@ fn bench_map_phase_work_items(c: &mut Criterion) {
                         filter: None,
                         sort_by: None,
                         max_items: Some(count),
+                        distinct: None,
                         timeout_config: None,
                     };
 
@@ -134,7 +134,7 @@ fn bench_map_phase_work_items(c: &mut Criterion) {
                             map_phase,
                         );
 
-                    let mut context = PhaseContext::new(env, subprocess);
+                    let context = PhaseContext::new(env, subprocess);
 
                     // Note: Map executor may not be fully functional in new architecture
                     // This measures the pure planning/coordination overhead
@@ -172,7 +172,7 @@ fn bench_reduce_phase_aggregation(c: &mut Criterion) {
 
                     let reduce_phase = ReducePhase {
                         commands,
-                        timeout: Some(60),
+                        timeout_secs: Some(60),
                     };
 
                     let executor =
@@ -221,7 +221,7 @@ fn bench_full_workflow_execution(c: &mut Criterion) {
 
             // Map phase: minimal processing
             let map_phase = MapPhase {
-                config: prodigy::cook::execution::mapreduce::MapConfig {
+                config: prodigy::cook::execution::mapreduce::MapReduceConfig {
                     input: "[]".to_string(),
                     max_parallel: 1,
                     ..Default::default()
@@ -231,6 +231,7 @@ fn bench_full_workflow_execution(c: &mut Criterion) {
                 filter: None,
                 sort_by: None,
                 max_items: None,
+                distinct: None,
                 timeout_config: None,
             };
 
@@ -240,7 +241,7 @@ fn bench_full_workflow_execution(c: &mut Criterion) {
                     shell: Some("echo 'reduce' > /dev/null".to_string()),
                     ..Default::default()
                 }],
-                timeout: Some(30),
+                timeout_secs: Some(30),
             };
 
             let coordinator = PhaseCoordinator::new(
@@ -286,7 +287,7 @@ fn bench_phase_transitions(c: &mut Criterion) {
 
             // Minimal workflow to measure transition overhead
             let map_phase = MapPhase {
-                config: prodigy::cook::execution::mapreduce::MapConfig {
+                config: prodigy::cook::execution::mapreduce::MapReduceConfig {
                     input: "[]".to_string(),
                     max_parallel: 1,
                     ..Default::default()
@@ -296,6 +297,7 @@ fn bench_phase_transitions(c: &mut Criterion) {
                 filter: None,
                 sort_by: None,
                 max_items: None,
+                distinct: None,
                 timeout_config: None,
             };
 
@@ -326,7 +328,7 @@ fn bench_phase_scaling(c: &mut Criterion) {
                     let subprocess = create_subprocess_manager();
 
                     let map_phase = MapPhase {
-                        config: prodigy::cook::execution::mapreduce::MapConfig {
+                        config: prodigy::cook::execution::mapreduce::MapReduceConfig {
                             input: "[]".to_string(),
                             max_parallel,
                             ..Default::default()
@@ -336,6 +338,7 @@ fn bench_phase_scaling(c: &mut Criterion) {
                         filter: None,
                         sort_by: None,
                         max_items: None,
+                        distinct: None,
                         timeout_config: None,
                     };
 
