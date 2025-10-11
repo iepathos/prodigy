@@ -11,6 +11,15 @@ Prodigy uses a two-layer architecture for environment management:
 
 This chapter documents the user-facing WorkflowConfig layer - what you write in your workflow YAML files.
 
+**Internal vs. User-Facing Capabilities:**
+
+The internal `EnvironmentConfig` supports richer environment value types through the `EnvValue` enum:
+- `Static`: Simple string values (what WorkflowConfig exposes)
+- `Dynamic`: Values from command output (internal only)
+- `Conditional`: Expression-based values (internal only)
+
+In workflow YAML, the `env` field only supports static string values (`HashMap<String, String>`). The Dynamic and Conditional variants are internal runtime features not exposed in workflow configuration.
+
 **Note on Internal Features:** The `EnvironmentConfig` runtime layer includes a `StepEnvironment` struct with fields like `env`, `working_dir`, `clear_env`, and `temporary`. These are internal implementation details not exposed in `WorkflowStepCommand` YAML syntax. Per-command environment changes must use shell syntax (e.g., `ENV=value command`).
 
 ---
@@ -225,10 +234,7 @@ map:
     - shell: "timeout ${TIMEOUT_SECONDS}s ./process.sh"
 ```
 
-Activate a profile:
-```bash
-prodigy run workflow.yml --profile production
-```
+**Note:** Profile activation is not currently implemented in the CLI. You can define profiles in YAML, but there is no `--profile` flag or mechanism to activate them. The infrastructure exists for future use, but profiles cannot be activated in the current version.
 
 ### Reusable Workflows with Environment Variables
 
@@ -352,10 +358,32 @@ MIIEvQIBADANBg...
 
 **Loading Order and Precedence:**
 
-1. Files are loaded in the order specified in `env_files`
-2. Later files override earlier files
-3. Step-level `env` overrides environment files
-4. Global `env` overrides environment files
+Environment files are loaded in order, with later files overriding earlier files. This enables layered configuration:
+
+```yaml
+env_files:
+  - .env                # Base configuration
+  - .env.local          # Local overrides (gitignored)
+  - .env.production     # Environment-specific settings
+```
+
+Example override behavior:
+
+```bash
+# .env (base)
+DATABASE_URL=postgresql://localhost:5432/dev
+API_TIMEOUT=30
+
+# .env.production (overrides)
+DATABASE_URL=postgresql://prod-server:5432/app
+# API_TIMEOUT remains 30 from base file
+```
+
+Precedence order (highest to lowest):
+1. Global `env` field in workflow YAML
+2. Later files in `env_files` list
+3. Earlier files in `env_files` list
+4. Parent process environment
 
 ---
 
@@ -387,8 +415,7 @@ secrets:
 
   # Custom provider (extensible)
   CUSTOM_SECRET:
-    provider:
-      custom: "my-custom-provider"
+    provider: "my-custom-provider"
     key: "secret-id"
 
 commands:
@@ -451,13 +478,15 @@ profiles:
     DEBUG: "true"
 ```
 
-**Note:** Profile activation is managed internally by the runtime environment manager. The selection mechanism is not currently exposed in WorkflowConfig YAML. Profiles are defined for future use and internal runtime configuration.
+**Note:** Profile activation is not currently implemented. You can define profiles in YAML, but there is no mechanism to activate them via CLI or configuration. The `active_profile` field exists in the internal runtime, but there is no way to set it in the current version.
 
 ---
 
 ## Per-Command Environment Overrides
 
-While WorkflowStepCommand does not support a dedicated `env` field, you can override environment variables for individual commands using shell syntax:
+**IMPORTANT:** WorkflowStepCommand does NOT have an `env` field. All per-command environment changes must use shell syntax.
+
+You can override environment variables for individual commands using shell environment syntax:
 
 ```yaml
 env:
@@ -487,12 +516,14 @@ env:
 
 ## Environment Precedence
 
-Environment variables are resolved in the following order (highest to lowest precedence):
+Environment variables are resolved with the following precedence (highest to lowest):
 
-1. **Active profile** - If a profile is activated (internal runtime feature)
-2. **Global `env`** - Defined at workflow level in WorkflowConfig
-3. **Environment files** - Loaded from `env_files` (in order)
+1. **Shell-level overrides** - Using `ENV=value command` syntax
+2. **Global `env`** - Defined at workflow level in YAML
+3. **Environment files** - Loaded from `env_files` (later files override earlier)
 4. **Parent environment** - Always inherited from the parent process
+
+**Note:** The internal `EnvironmentConfig` runtime also supports profile-based precedence and step-level environment overrides, but these are not exposed in workflow YAML. Profile activation is not currently implemented, and WorkflowStepCommand has no `env` field.
 
 Example demonstrating precedence:
 
@@ -503,21 +534,20 @@ env_files:
   - .env  # Contains: NODE_ENV=development
 
 env:
-  NODE_ENV: production  # Overrides .env file
-
-profiles:
-  test:
-    NODE_ENV: test  # Would override global env if profile activation were exposed
-    description: "Test environment profile"
+  NODE_ENV: production  # Overrides .env file and parent environment
 
 # Steps go directly in the workflow
 - shell: "echo $NODE_ENV"  # Prints: production (from global env)
 
 # Override using shell syntax
-- shell: "NODE_ENV=staging echo $NODE_ENV"  # Prints: staging
+- shell: "NODE_ENV=staging echo $NODE_ENV"  # Prints: staging (shell override)
 ```
 
-**Note:** Profile activation is currently managed internally and not exposed in WorkflowConfig YAML.
+In this example:
+- Parent environment has `NODE_ENV=local` (lowest precedence)
+- `.env` file sets `NODE_ENV=development` (overrides parent)
+- Global `env` sets `NODE_ENV=production` (overrides .env file)
+- Shell syntax `NODE_ENV=staging` (overrides everything for that command)
 
 ---
 
@@ -621,18 +651,19 @@ commands:
   - shell: "npm run deploy"
 ```
 
-### Secrets with Fallbacks
+### Provider-Based Secrets
 
 ```yaml
 secrets:
-  # Try Vault first, fall back to environment variable
+  # Production: use Vault
   API_KEY:
     provider: vault
     key: "api/key"
 
-env:
-  # Fallback for local development
-  API_KEY: "${API_KEY:-default-key}"
+  # Development: use environment variable
+  DEV_API_KEY:
+    provider: env
+    key: "LOCAL_API_KEY"
 ```
 
 ### Build Matrix with Profiles
