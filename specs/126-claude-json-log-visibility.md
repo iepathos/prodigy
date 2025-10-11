@@ -17,21 +17,37 @@ created: 2025-10-11
 
 ## Context
 
-Prodigy captures Claude's JSON log files for every command execution (per Spec 121), storing complete conversation history, tool invocations, and token usage in `~/.local/state/claude/logs/session-{id}.json`. However, when workflow failures occur (especially in MapReduce agents), users must manually search for these logs or enable verbose mode (`-v`) to see the log path.
+Prodigy captures Claude's JSON log files for every command execution in streaming JSONL format (one JSON object per line) at:
+```
+~/.claude/projects/{worktree-path}/{session-uuid}.jsonl
+```
 
-Currently, the JSON log location is:
-- Shown in verbose output (`-v` flag)
-- Stored in `AgentResult.json_log_location`
-- Included in `MapReduceEvent::AgentCompleted`
-- Preserved in DLQ `FailureDetail.json_log_location`
+Each Claude command gets its own log file containing complete conversation history, tool invocations, and token usage.
 
-But when a workflow fails with an error like:
+### Current Implementation Issues
+
+**Issue 1: Log Path Buried in INFO Logs**
+```
+2025-10-11T15:34:15.796803Z  INFO Claude JSON log saved to: /Users/glen/.claude/projects/...
+```
+The log path is shown at INFO level and easily missed, especially when multiple commands run.
+
+**Issue 2: Only First Log Shown**
+When multiple Claude commands run (e.g., `/prodigy-implement-spec` then `/prodigy-validate-spec` then `/prodigy-complete-spec`), only the first log path is displayed, making it hard to find logs for later commands.
+
+**Issue 3: Not Shown on Error**
+When a Claude command fails with:
 ```
 ❌ Session failed: Setup phase failed: Step 'claude: /prodigy-analyze-features-for-book'
    has commit_required=true but no commits were created
 ```
+The user has NO indication of where the Claude JSON log is located.
 
-The user has no easy way to find the Claude JSON log to understand what Claude actually did during execution.
+**Issue 4: Path Confusion**
+The actual path is `~/.claude/projects/{worktree-path}/{uuid}.jsonl` but users might expect it in `~/.local/state/claude/logs/` based on other tools.
+
+**Issue 5: Streaming Not Obvious**
+The `.jsonl` format supports streaming (append-only, one JSON per line) but it's not clear to users that they can `tail -f` the file during execution.
 
 ## Objective
 
@@ -41,24 +57,39 @@ Make Claude JSON log file paths immediately visible and accessible when workflow
 
 ### Functional Requirements
 
-1. **Error Output Enhancement**
-   - When a Claude command fails, automatically display the JSON log path in the error message
-   - Include the log path even without `-v` flag
-   - Show the path prominently so it's easy to copy
+1. **Per-Command Log Display**
+   - Display Claude JSON log path for EVERY Claude command execution
+   - Show path at user-facing level (not buried in INFO logs)
+   - Format: `📋 Claude log: /path/to/{uuid}.jsonl`
+   - Display immediately when command starts (so users can tail it)
 
-2. **Success Output Enhancement**
-   - For successful Claude commands in workflows, optionally show log path (configurable)
+2. **Error Output Enhancement**
+   - When a Claude command fails, prominently display the JSON log path in the error message
+   - Include the log path even without `-v` flag
+   - Show the path above the error message so it's easy to find
+   - Include hint about streaming: "tail -f" for live viewing
+
+3. **Success Output Enhancement**
+   - After each Claude command completes, show summary with log path
+   - Format: `✅ Command completed | Log: /path/to/{uuid}.jsonl`
    - Always show log path for MapReduce agent failures in DLQ output
 
-3. **Command-Line Helper**
+4. **Streaming Support**
+   - Make it obvious that logs are streaming (append-only JSONL)
+   - Suggest `tail -f` command for live viewing during long-running commands
+   - Show when log file is being written vs. completed
+
+5. **Command-Line Helper**
    - Add `prodigy logs` command to easily access recent Claude JSON logs
    - Support filtering by session ID, workflow name, or time range
    - Provide options to view, tail, or analyze logs
+   - Handle both `.jsonl` (streaming) and `.json` (legacy) formats
 
-4. **Integration with Existing Tools**
+6. **Integration with Existing Tools**
    - `prodigy dlq show` should display JSON log paths for failed items
    - `prodigy events` should include JSON log references
    - Error messages should include the log path inline
+   - Store log path in `ExecutionResult.json_log_location` for tracking
 
 ### Non-Functional Requirements
 
@@ -69,30 +100,70 @@ Make Claude JSON log file paths immediately visible and accessible when workflow
 
 ## Acceptance Criteria
 
-- [ ] When a Claude command fails in setup/map/reduce phase, error message includes JSON log path
-- [ ] Error output format is consistent: `📋 Claude log: /path/to/session-xyz.json`
+- [ ] EVERY Claude command displays its log path when it starts: `🔄 Executing: claude /command`
+      followed by `📋 Claude log: /path/to/{uuid}.jsonl (streaming - use 'tail -f' to watch)`
+- [ ] When a Claude command fails, error includes log path above the error message
+- [ ] When a Claude command succeeds, completion shows log path: `✅ Completed | Log: /path/to/{uuid}.jsonl`
+- [ ] Multiple Claude commands in same workflow each show their own unique log paths
 - [ ] `prodigy dlq show <job_id>` displays JSON log path for each failed item
 - [ ] New command `prodigy logs [session_id]` lists and opens Claude JSON logs
 - [ ] `prodigy logs --latest` shows the most recent Claude JSON log
-- [ ] JSON log path is shown even without `-v` flag (default verbosity = 0)
-- [ ] Existing `-v` behavior unchanged (streaming output still shows log path)
-- [ ] Integration tests verify log path visibility in error scenarios
-- [ ] Documentation updated with examples of using log paths for debugging
+- [ ] `prodigy logs` command works with both `.jsonl` and `.json` formats
+- [ ] JSON log paths shown even without `-v` flag (default verbosity = 0)
+- [ ] Streaming hint (`tail -f`) shown for in-progress commands
+- [ ] Log path stored in `ExecutionResult.json_log_location` for all commands
+- [ ] Integration tests verify each command gets its own log and path is displayed
+- [ ] Documentation updated with examples of using log paths and streaming
 
 ## Technical Details
 
 ### Implementation Approach
 
-**1. Error Message Enhancement**
+**1. Per-Command Log Path Display**
 
-Modify error formatting in workflow executor to include JSON log path:
+Display log path for EVERY Claude command execution:
+
+```rust
+// In Claude command executor, RIGHT BEFORE executing
+pub async fn execute_claude_command(
+    command: &str,
+    context: &ExecutionContext,
+) -> Result<ExecutionResult> {
+    // Generate or get log file path
+    let log_path = get_claude_log_path(context)?;
+
+    // Show log path IMMEDIATELY (so user can tail it)
+    println!("📋 Claude log: {} (streaming - use 'tail -f' to watch)",
+             log_path.display());
+
+    // Execute command
+    let result = execute_command_internal(command, &log_path).await?;
+
+    // Show completion with log path
+    if result.success {
+        println!("✅ Completed | Log: {}", log_path.display());
+    } else {
+        eprintln!("❌ Failed | Log: {}", log_path.display());
+    }
+
+    // Store log path in result for later reference
+    Ok(ExecutionResult {
+        json_log_location: Some(log_path.to_string_lossy().to_string()),
+        ..result
+    })
+}
+```
+
+**2. Error Message Enhancement**
+
+Modify error formatting to include JSON log path ABOVE the error:
 
 ```rust
 // In workflow executor error handling
 if let Some(log_path) = result.json_log_location() {
+    eprintln!("\n📋 Claude log: {}", log_path);
+    eprintln!("   View: tail -f {} (or cat for completed log)\n", log_path);
     eprintln!("❌ Session failed: {}", error_message);
-    eprintln!("📋 Claude log: {}", log_path);
-    eprintln!("   View full conversation: cat {}", log_path);
 }
 ```
 
@@ -204,13 +275,80 @@ async fn handle_logs_command(
 fn find_latest_log(log_dir: &Path) -> Result<PathBuf> {
     let mut entries: Vec<_> = fs::read_dir(log_dir)?
         .filter_map(Result::ok)
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "json"))
+        .filter(|e| {
+            let path = e.path();
+            path.extension().map_or(false, |ext| ext == "json" || ext == "jsonl")
+        })
         .collect();
 
     entries.sort_by_key(|e| e.metadata().unwrap().modified().unwrap());
     entries.last()
         .map(|e| e.path())
         .ok_or_else(|| anyhow!("No Claude logs found"))
+}
+
+fn display_log_summary(log_path: &Path) -> Result<()> {
+    let is_jsonl = log_path.extension().map_or(false, |ext| ext == "jsonl");
+
+    if is_jsonl {
+        // JSONL format: one JSON object per line
+        let file = File::open(log_path)?;
+        let reader = BufReader::new(file);
+
+        let mut message_count = 0;
+        let mut tool_use_count = 0;
+        let mut total_tokens = None;
+
+        for line in reader.lines() {
+            let line = line?;
+            if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&line) {
+                if let Some(msg_type) = obj.get("type").and_then(|v| v.as_str()) {
+                    if msg_type == "user" || msg_type == "assistant" {
+                        message_count += 1;
+                    }
+                }
+
+                if let Some(usage) = obj.get("usage") {
+                    if let Some(total) = usage.get("total_tokens").and_then(|v| v.as_u64()) {
+                        total_tokens = Some(total);
+                    }
+                }
+
+                // Count tool uses
+                if let Some(content) = obj.get("content").and_then(|v| v.as_array()) {
+                    for item in content {
+                        if item.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
+                            tool_use_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        println!("Format: JSONL (streaming)");
+        println!("Messages: {}", message_count);
+        println!("Tool uses: {}", tool_use_count);
+        if let Some(tokens) = total_tokens {
+            println!("Tokens: {}", tokens);
+        }
+    } else {
+        // JSON format (legacy): single JSON object
+        let content = fs::read_to_string(log_path)?;
+        let log: serde_json::Value = serde_json::from_str(&content)?;
+
+        if let Some(messages) = log.get("messages").and_then(|v| v.as_array()) {
+            println!("Format: JSON (legacy)");
+            println!("Messages: {}", messages.len());
+        }
+
+        if let Some(usage) = log.get("usage").and_then(|v| v.as_object()) {
+            if let Some(total) = usage.get("total_tokens").and_then(|v| v.as_u64()) {
+                println!("Tokens: {}", total);
+            }
+        }
+    }
+
+    Ok(())
 }
 ```
 
@@ -285,10 +423,38 @@ prodigy logs
 ```
 
 **Output Format**:
+
 ```
-📋 Claude log: /Users/user/.local/state/claude/logs/session-abc123.json
-   View: cat /Users/user/.local/state/claude/logs/session-abc123.json
-   Messages: 15 | Tokens: 12,450 | Duration: 45s
+# During execution (immediately when command starts)
+🔄 Executing step 1/3: claude: /prodigy-implement-spec $ARG
+📋 Claude log: ~/.claude/projects/.../6ded63ac-dd89-4259-b275-a42174ac58f4.jsonl
+   (streaming - use 'tail -f' to watch live)
+
+# On successful completion
+✅ Completed | Log: ~/.claude/projects/.../6ded63ac-dd89-4259-b275-a42174ac58f4.jsonl
+
+# On failure
+❌ Failed | Log: ~/.claude/projects/.../6ded63ac-dd89-4259-b275-a42174ac58f4.jsonl
+
+📋 Claude log: ~/.claude/projects/.../6ded63ac-dd89-4259-b275-a42174ac58f4.jsonl
+   View: tail -f ~/.claude/projects/.../6ded63ac-dd89-4259-b275-a42174ac58f4.jsonl
+   Or:   cat ~/.claude/projects/.../6ded63ac-dd89-4259-b275-a42174ac58f4.jsonl | jq
+
+❌ Session failed: Setup phase failed: Step 'claude: /prodigy-analyze-features-for-book'
+   has commit_required=true but no commits were created
+
+# Example with multiple commands
+🔄 Executing: claude: /prodigy-implement-spec 127
+📋 Claude log: ~/.claude/projects/.../6ded63ac.jsonl (streaming)
+✅ Completed | Log: ~/.claude/projects/.../6ded63ac.jsonl
+
+🔄 Executing: claude: /prodigy-validate-spec 127
+📋 Claude log: ~/.claude/projects/.../d24bfe47.jsonl (streaming)
+✅ Completed | Log: ~/.claude/projects/.../d24bfe47.jsonl
+
+🔄 Executing: claude: /prodigy-complete-spec 127
+📋 Claude log: ~/.claude/projects/.../f7899b21.jsonl (streaming)
+✅ Completed | Log: ~/.claude/projects/.../f7899b21.jsonl
 ```
 
 ## Dependencies
@@ -406,25 +572,63 @@ pub fn display_claude_log_location(log_path: &str) {
 
 ### Viewing Claude Execution Logs
 
-When a Claude command fails, Prodigy automatically shows the JSON log location:
+**Every Claude command creates a streaming JSONL log file:**
 
 ```
-❌ Session failed: Setup phase failed
-📋 Claude log: /Users/user/.local/state/claude/logs/session-abc123.json
-   View: cat /Users/user/.local/state/claude/logs/session-abc123.json
+🔄 Executing: claude /prodigy-implement-spec 127
+📋 Claude log: ~/.claude/projects/.../6ded63ac.jsonl (streaming)
 ```
 
-You can view the complete conversation, tool invocations, and token usage:
+The log file is written in real-time (append-only JSONL format, one JSON object per line).
+
+### Watching Logs Live
+
+For long-running Claude commands, you can watch the log live:
 
 ```bash
-# View the log file
-cat /Users/user/.local/state/claude/logs/session-abc123.json | jq
+# Watch live as Claude executes
+tail -f ~/.claude/projects/.../6ded63ac.jsonl
 
-# View just the messages
-cat /Users/user/.local/state/claude/logs/session-abc123.json | jq '.messages'
+# Pretty-print each line as it's added
+tail -f ~/.claude/projects/.../6ded63ac.jsonl | jq -c '.'
+```
 
-# View token usage
-cat /Users/user/.local/state/claude/logs/session-abc123.json | jq '.usage'
+### Analyzing Completed Logs
+
+After a command completes, analyze the full conversation:
+
+```bash
+# View all events (one JSON object per line)
+cat ~/.claude/projects/.../6ded63ac.jsonl
+
+# Count messages by type
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -r '.type' | sort | uniq -c
+
+# View only user messages
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.type == "user")'
+
+# View only assistant responses
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.type == "assistant")'
+
+# Extract all tool uses
+cat ~/.claude/projects/.../6ded63ac.jsonl | \
+  jq -c 'select(.type == "assistant") | .content[]? | select(.type == "tool_use")'
+
+# View token usage (usually at end of file)
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.usage)'
+```
+
+### When Workflows Fail
+
+When a Claude command fails, the log path is shown prominently:
+
+```
+📋 Claude log: ~/.claude/projects/.../6ded63ac.jsonl
+   View: tail -f ~/.claude/projects/.../6ded63ac.jsonl
+   Or:   cat ~/.claude/projects/.../6ded63ac.jsonl | jq
+
+❌ Session failed: Setup phase failed: Step 'claude: /prodigy-analyze-features-for-book'
+   has commit_required=true but no commits were created
 ```
 
 ### Using the `prodigy logs` Command
