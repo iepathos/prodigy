@@ -7,10 +7,28 @@ use crate::cook::execution::SetupPhase;
 use crate::cook::workflow::{WorkflowContext, WorkflowStep};
 use anyhow::{anyhow, Context as _, Result};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use tokio::time::timeout as tokio_timeout;
 use tracing::{debug, info, warn};
+
+/// Guard to restore the original directory when dropped.
+/// This ensures we always restore the directory even if an error occurs.
+struct RestoreDirectoryGuard {
+    original_dir: PathBuf,
+}
+
+impl Drop for RestoreDirectoryGuard {
+    fn drop(&mut self) {
+        if let Err(e) = std::env::set_current_dir(&self.original_dir) {
+            warn!(
+                "Failed to restore original directory {}: {}",
+                self.original_dir.display(),
+                e
+            );
+        }
+    }
+}
 
 /// Validates that execution is happening in the correct worktree context.
 ///
@@ -179,6 +197,23 @@ impl SetupPhaseExecutor {
     {
         // Use the working directory from the environment
         let working_dir = &env.working_dir;
+
+        // Save the original directory so we can restore it later
+        let original_dir = std::env::current_dir()
+            .context("Failed to get current working directory")?;
+
+        // Change to the worktree directory before executing setup phase
+        std::env::set_current_dir(&**working_dir).with_context(|| {
+            format!(
+                "Failed to change to worktree directory: {}",
+                working_dir.display()
+            )
+        })?;
+
+        // Create a guard to ensure we restore the original directory on exit
+        let _restore_guard = RestoreDirectoryGuard {
+            original_dir: original_dir.clone(),
+        };
 
         // Validate execution context before proceeding
         validate_execution_context(working_dir)
