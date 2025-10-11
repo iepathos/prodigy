@@ -22,7 +22,7 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{OnFailureConfig, WorkflowStep, StepResult};
+use crate::cook::workflow::{OnFailureConfig, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use serde_json::Value;
 use std::collections::HashMap;
