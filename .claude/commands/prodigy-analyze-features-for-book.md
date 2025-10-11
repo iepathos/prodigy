@@ -250,25 +250,41 @@ The features.json file should:
 
 ### Phase 7: Commit Changes
 
-**Stage and Commit:**
-If running in automation mode (PRODIGY_AUTOMATION=true):
-1. Stage the features.json file:
-   - Use `git add` to stage the generated features.json file
-   - Example: `git add .prodigy/book-analysis/features.json`
+**Check Environment:**
+Check if the `PRODIGY_AUTOMATION` environment variable is set to "true":
+```bash
+echo $PRODIGY_AUTOMATION
+```
 
-2. Create commit with message:
-   - Format: "docs: analyze features for {project-name} book documentation"
-   - Example: "docs: analyze features for Prodigy book documentation"
-   - Include analysis metadata (version, date, feature count)
+**If PRODIGY_AUTOMATION=true, commit the analysis:**
 
-3. Display commit confirmation:
+1. **Stage the features.json file:**
+   ```bash
+   git add .prodigy/book-analysis/features.json
+   ```
+
+2. **Create commit:**
+   ```bash
+   git commit -m "docs: analyze features for Prodigy book documentation
+
+   - Analyzed 12 feature areas
+   - Generated features.json for drift detection
+   - Ready for gap detection phase"
+   ```
+
+3. **Verify commit:**
+   ```bash
+   git log -1 --oneline
+   ```
+
+4. **Display success message:**
    ```
    ✅ Committed feature analysis
-      • {count} feature areas analyzed
-      • Saved to {output-path}
+      • 12 feature areas analyzed
+      • Saved to .prodigy/book-analysis/features.json
       • Ready for gap detection phase
    ```
 
-**If not in automation mode:**
-- Skip commit step
-- Print message: "⚠️ Features analyzed but not committed (PRODIGY_AUTOMATION not set)"
+**If PRODIGY_AUTOMATION is not set:**
+- Print message: "⚠️ Features analyzed but not committed (not in automation mode)"
+- This is expected for manual test runs
