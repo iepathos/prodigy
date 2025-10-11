@@ -3,10 +3,25 @@
 //! Provides comprehensive environment variable management and working directory control
 //! at global, workflow, and step levels. Supports secret management, dynamic values,
 //! conditional environments, and cross-platform path handling.
+//!
+//! # Immutable Environment Context Pattern (Spec 128)
+//!
+//! This module now provides an immutable environment context pattern alongside the
+//! existing mutable EnvironmentManager for backward compatibility:
+//!
+//! - `ImmutableEnvironmentContext`: Immutable context with no hidden state
+//! - `EnvironmentContextBuilder`: Builder for creating immutable contexts
+//! - `pure` module: Pure functions for working directory and env resolution
+//!
+//! The immutable pattern prevents hidden state mutations and makes all environment
+//! configuration explicit in function signatures.
 
+pub mod builder;
 mod config;
+pub mod context;
 mod manager;
 mod path_resolver;
+pub mod pure;
 mod secret_store;
 
 pub use config::{
@@ -16,6 +31,10 @@ pub use config::{
 pub use manager::{EnvironmentContext, EnvironmentManager, EnvironmentSnapshot};
 pub use path_resolver::{PathResolver, Platform};
 pub use secret_store::{SecretStore, SecretStoreError};
+
+// Re-export immutable pattern types for convenient access
+pub use builder::EnvironmentContextBuilder;
+pub use context::ImmutableEnvironmentContext;
 
 use std::collections::HashMap;
 
