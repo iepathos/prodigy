@@ -641,15 +641,13 @@ impl EventStore for FileEventStore {
     /// }
     /// ```
     ///
-    /// # Related Functions
+    /// # Implementation
     ///
-    /// This method delegates to several pure helper functions for maintainability:
-    /// - [`update_time_range`] - Updates time range with new event timestamps
-    /// - [`increment_event_count`] - Increments count for an event type
-    /// - [`create_file_offset`] - Creates file offset records
-    /// - [`process_event_line`] - Processes a single event line
-    /// - [`process_event_file`] - Processes all events in a file
-    /// - [`save_index`] - Persists the index to disk
+    /// This method uses helper functions for maintainability:
+    /// - `update_time_range` - Updates time range with new event timestamps
+    /// - `increment_event_count` - Increments count for an event type
+    /// - File reading and JSON parsing for event data
+    /// - Index serialization and persistence to disk
     ///
     /// # Thread Safety
     ///

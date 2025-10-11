@@ -42,7 +42,7 @@ fn build_command_from_context(
 
 /// Transform streaming output to ExecutionResult
 ///
-/// This is a pure function that converts StreamingOutput (with stdout/stderr as Vec<String>)
+/// This is a pure function that converts StreamingOutput (with stdout/stderr as `Vec<String>`)
 /// into ExecutionResult (with stdout/stderr as joined strings).
 fn streaming_output_to_result(output: StreamingOutput) -> ExecutionResult {
     ExecutionResult {
