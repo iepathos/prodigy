@@ -247,3 +247,28 @@ The features.json file should:
 5. Include troubleshooting guidance (if `custom_analysis.include_troubleshooting` is true)
 6. Be user-focused, not developer-focused
 7. Be project-agnostic (work for any codebase with proper configuration)
+
+### Phase 7: Commit Changes
+
+**Stage and Commit:**
+If running in automation mode (PRODIGY_AUTOMATION=true):
+1. Stage the features.json file:
+   - Use `git add` to stage the generated features.json file
+   - Example: `git add .prodigy/book-analysis/features.json`
+
+2. Create commit with message:
+   - Format: "docs: analyze features for {project-name} book documentation"
+   - Example: "docs: analyze features for Prodigy book documentation"
+   - Include analysis metadata (version, date, feature count)
+
+3. Display commit confirmation:
+   ```
+   ✅ Committed feature analysis
+      • {count} feature areas analyzed
+      • Saved to {output-path}
+      • Ready for gap detection phase
+   ```
+
+**If not in automation mode:**
+- Skip commit step
+- Print message: "⚠️ Features analyzed but not committed (PRODIGY_AUTOMATION not set)"
