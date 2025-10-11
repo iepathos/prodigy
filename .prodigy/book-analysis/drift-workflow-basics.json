@@ -3,142 +3,120 @@
   "chapter_title": "Workflow Basics",
   "chapter_file": "book/src/workflow-basics.md",
   "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Chapter is incomplete and missing many critical workflow features. Only covers basic structure and environment configuration but lacks documentation for all command types, advanced features, and conditional execution.",
+  "severity": "medium",
+  "quality_assessment": "The chapter has been significantly improved and now provides good coverage of workflow basics. It includes command types, conditional execution, error handling, output capture, and merge workflows. However, there's a structural inaccuracy in the merge workflow examples showing nested 'commands' array instead of flat structure.",
   "issues": [
     {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Command Types",
-      "description": "Chapter only shows 'shell' and 'claude' commands but doesn't document test, goal_seek, foreach, validate, analyze, or handler commands",
-      "should_add": "Document all available command types: test (deprecated), goal_seek, foreach, validate, analyze, and handler with examples",
-      "fix_suggestion": "Add 'Command Types' section explaining each command type with YAML examples",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand (lines 280-356)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Advanced Command Options",
-      "description": "Missing documentation for on_failure, on_success, when (conditional), timeout, capture_output, capture_format, capture_streams, and output_file",
-      "should_add": "Document all step-level options: on_failure, on_success, when, timeout, capture_output, capture_format, capture_streams, output_file",
-      "fix_suggestion": "Add 'Advanced Step Options' section showing how to use conditional execution, error handling, timeouts, and output capture",
-      "source_reference": "src/cook/workflow/executor.rs:WorkflowStep (lines 477-600)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Conditional Execution",
-      "description": "No documentation of 'when:' field for conditional step execution based on expressions",
-      "should_add": "Explain when: field for conditional execution with expression syntax and examples",
-      "fix_suggestion": "Add subsection on conditional execution showing when: expressions with variable checks",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand.when (line 343)"
-    },
-    {
-      "type": "missing_content",
+      "type": "incorrect_example",
       "severity": "medium",
-      "section": "Output Capture",
-      "description": "No documentation of output capture functionality (capture, capture_format, capture_streams)",
-      "should_add": "Document capture: variable name, capture_format: (string|json|lines|number|boolean), capture_streams: (stdout|stderr|both)",
-      "fix_suggestion": "Add 'Output Capture' section explaining how to capture command output to variables with format options",
-      "source_reference": "src/cook/workflow/executor.rs:WorkflowStep.capture (lines 512-520)"
+      "section": "Merge Workflows - Line 220-227",
+      "description": "The merge workflow example shows a nested 'commands' array, but the actual MergeWorkflow struct expects a flat array of WorkflowStep commands directly under 'merge'",
+      "current_content": "merge:\n  commands:\n    - shell: \"git fetch origin\"\n    - shell: \"git merge origin/main\"\n    - shell: \"cargo test\"\n    - claude: \"/prodigy-merge-worktree ${merge.source_branch}\"\n  timeout: 600",
+      "should_be": "merge:\n  - shell: \"git fetch origin\"\n  - shell: \"git merge origin/main\"\n  - shell: \"cargo test\"\n  - claude: \"/prodigy-merge-worktree ${merge.source_branch}\"\ntimeout: 600  # at merge level, not nested",
+      "fix_suggestion": "Update the merge workflow examples to show the flat array structure without the nested 'commands' key. The timeout field should be at the merge level, not nested under commands.",
+      "source_reference": "src/config/mapreduce.rs:86-94 MergeWorkflow struct has 'commands: Vec<WorkflowStep>' and 'timeout: Option<u64>' as direct fields"
     },
     {
-      "type": "missing_content",
+      "type": "incorrect_example",
       "severity": "medium",
-      "section": "Error Handling",
-      "description": "No documentation of on_failure and on_success handlers for step-level error handling",
-      "should_add": "Document on_failure and on_success configuration for conditional command execution",
-      "fix_suggestion": "Add 'Error Handling' subsection with examples of on_failure and on_success configurations",
-      "source_reference": "src/config/command.rs:TestDebugConfig (lines 166-183)"
+      "section": "Complete Example - Line 262-266",
+      "description": "The complete example also shows incorrect merge workflow syntax with nested 'commands' array",
+      "current_content": "merge:\n  commands:\n    - shell: \"cargo test\"\n    - claude: \"/prodigy-merge-worktree ${merge.source_branch}\"\n  timeout: 300",
+      "should_be": "merge:\n  - shell: \"cargo test\"\n  - claude: \"/prodigy-merge-worktree ${merge.source_branch}\"\ntimeout: 300  # separate field at root level if needed",
+      "fix_suggestion": "Update the complete example to use the correct flat array structure for merge workflows.",
+      "source_reference": "src/config/mapreduce.rs:86-94 MergeWorkflow struct"
     },
     {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Working Directory",
-      "description": "No mention of working_dir option for setting command working directory",
-      "should_add": "Document working_dir: option for setting per-step working directory",
-      "fix_suggestion": "Add to advanced options section with example of working_dir usage",
-      "source_reference": "src/cook/workflow/executor.rs:WorkflowStep.working_dir"
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Command Types - Lines 79-104",
+      "description": "The chapter mentions command types like 'shell:', 'claude:', 'goal_seek:', 'foreach:', and 'validate:' but doesn't clearly explain that these are all WorkflowStepCommand fields, not separate command types",
+      "fix_suggestion": "Add a clarification that all these are different fields available in the WorkflowStepCommand structure, and exactly one must be present per command step. Consider showing the relationship between WorkflowCommand enum and WorkflowStepCommand.",
+      "source_reference": "src/config/command.rs:320-401 WorkflowStepCommand with claude, shell, analyze, test, goal_seek, foreach, write_file fields"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Merge Workflow",
-      "description": "Merge workflow shown but not explained - what it's for, when to use it, available variables",
-      "should_add": "Explain merge workflow purpose, execution context, and available ${merge.*} variables",
-      "fix_suggestion": "Add explanation of merge workflow concept with merge.worktree, merge.source_branch, merge.target_branch variables",
-      "source_reference": "src/config/mapreduce.rs:MergeWorkflow (lines 86-94)"
+      "severity": "low",
+      "section": "Output Capture - Lines 143-149",
+      "description": "The chapter shows 'capture: \"commit_hash\"' syntax but doesn't explain the relationship between 'capture' field and the older 'capture_output' field, or when to use each",
+      "fix_suggestion": "Add clarification that 'capture' field takes a variable name (string) and is the modern recommended approach, while 'capture_output' is the older boolean/string field for backward compatibility.",
+      "source_reference": "src/cook/workflow/executor.rs:316-319 'capture: Option<String>' field and src/config/command.rs:367-368 'capture_output: Option<CaptureOutputConfig>'"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Variable Interpolation",
-      "description": "Chapter shows ${env:VAR} and ${merge.VAR} syntax but doesn't explain variable interpolation comprehensively",
-      "should_add": "Add section on variable interpolation syntax, available variable types, and escaping",
-      "fix_suggestion": "Add 'Variables and Interpolation' section or cross-reference to variables chapter",
-      "source_reference": "src/cook/execution/interpolation.rs"
+      "section": "Output Capture - Line 148",
+      "description": "The chapter lists capture_format options but doesn't explain what each format does",
+      "current_content": "capture_format: \"string\"     # Format: string|json|lines|number|boolean",
+      "should_add": "Brief explanation of each capture format: String (raw output, default), Json (parses JSON), Lines (splits into array), Number (parses number), Boolean (parses true/false)",
+      "fix_suggestion": "Add a brief explanation of what each capture format does in the comment or add a small table showing format types and their behavior",
+      "source_reference": "src/cook/workflow/variables.rs:253-264 CaptureFormat enum with String, Json, Lines, Number, Boolean variants"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Test Command Deprecation",
-      "description": "test: command exists but is deprecated - not documented",
-      "should_add": "Note that test: is deprecated in favor of shell: with on_failure:",
-      "fix_suggestion": "Add deprecation note in commands section",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand.test comment (line 293)"
+      "section": "Command-Level Options",
+      "description": "Chapter mentions basic options but doesn't document working_dir option for setting command working directory",
+      "should_add": "Document working_dir: option for setting per-step working directory",
+      "fix_suggestion": "Add working_dir to the Command-Level Options section with a brief example",
+      "source_reference": "src/cook/workflow/executor.rs:WorkflowStep.working_dir field"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Handler Commands",
-      "description": "handler: command type for modular extensibility not documented",
-      "should_add": "Document handler: command type for custom extensible commands",
-      "fix_suggestion": "Add advanced section on handler commands if user-facing, or note internal-only if not",
-      "source_reference": "src/cook/workflow/executor.rs:HandlerStep"
+      "section": "Advanced Commands",
+      "description": "Chapter doesn't document 'handler' command type for modular extensibility",
+      "should_add": "Document handler: command type for custom extensible commands, or note if it's internal-only",
+      "fix_suggestion": "If handler is user-facing, add to advanced commands section. If internal-only, can skip.",
+      "source_reference": "src/cook/workflow/executor.rs:HandlerStep and WorkflowStep.handler field"
     }
   ],
   "positive_aspects": [
-    "Clear introduction distinguishing standard vs MapReduce workflows",
-    "Good progression from simple to full configuration format",
-    "Environment configuration well documented (env, secrets, env_files, profiles)",
-    "Shows both simple array and full configuration formats",
-    "Merge workflow example provided",
-    "Cross-references to other chapters included"
+    "Clear distinction between simple array format and full workflow format with good examples",
+    "Good progressive disclosure - starts simple and adds complexity gradually",
+    "Correct and comprehensive documentation of environment variable features (env, secrets, env_files, profiles)",
+    "Accurate examples of command-level options (id, commit_required, timeout)",
+    "Correct documentation of conditional execution with 'when' clause",
+    "Good documentation of error handling with on_failure and on_success",
+    "Output capture section covers the essential fields (capture, capture_format)",
+    "Properly cross-references to other chapters for deeper topics",
+    "Correctly documents that 'test:' command is deprecated",
+    "Good explanation of merge workflow use cases and available merge variables",
+    "Complete example ties together multiple concepts effectively",
+    "Command types section provides good overview of available commands"
   ],
   "improvement_suggestions": [
-    "Add complete 'Command Reference' section documenting all command types",
-    "Add 'Advanced Features' section for conditional execution, error handling, output capture",
-    "Add practical examples showing real workflow patterns",
-    "Add troubleshooting section for common issues",
-    "Cross-reference related chapters (variables, error-handling, advanced)",
-    "Add table of contents or quick reference for command options",
-    "Consider splitting into 'Basic Workflows' and 'Advanced Workflows' chapters"
+    "Fix the merge workflow structure examples to show flat array instead of nested 'commands'",
+    "Add a brief architectural explanation showing WorkflowConfig → WorkflowCommand → WorkflowStepCommand hierarchy",
+    "Clarify that command type fields (claude, shell, etc.) are mutually exclusive - exactly one must be present",
+    "Expand the output capture section to better explain 'capture' vs 'capture_output' and when to use each",
+    "Add brief descriptions of what each capture_format option does",
+    "Add working_dir option to command-level options section",
+    "Consider adding a troubleshooting note about common YAML errors (e.g., forgetting the dash for array items)",
+    "Add examples showing how to reference captured variables in subsequent commands"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-05",
-    "feature_inventory": "Analyzed directly from codebase (features.json not available)",
+    "analyzed_at": "2025-10-10",
+    "feature_inventory": "Derived from codebase analysis (features.json not present)",
     "topics_covered": [
       "Workflow types (standard vs MapReduce)",
-      "Basic structure (simple array format)",
+      "Simple array format",
       "Full configuration format",
-      "Environment configuration",
-      "Merge workflows"
-    ],
-    "topics_missing": [
-      "All command types (test, goal_seek, foreach, validate, analyze, handler)",
-      "Conditional execution (when:)",
+      "Command types (shell, claude, goal_seek, foreach, validate, test-deprecated)",
+      "Command-level options (id, commit_required, timeout)",
+      "Conditional execution (when clause)",
       "Error handling (on_failure, on_success)",
-      "Output capture (capture, capture_format, capture_streams)",
-      "Timeouts",
-      "Working directory",
-      "Variable interpolation details"
+      "Output capture (capture, capture_format)",
+      "Environment configuration (env, secrets, env_files, profiles)",
+      "Merge workflows with available variables"
     ],
     "validation_focus": "Check basic workflow syntax and structure documentation",
-    "codebase_sources": [
+    "source_files_reviewed": [
       "src/config/workflow.rs",
       "src/config/command.rs",
+      "src/config/mapreduce.rs",
       "src/cook/workflow/executor.rs",
-      "src/config/mapreduce.rs"
+      "src/cook/workflow/variables.rs"
     ]
   }
 }
