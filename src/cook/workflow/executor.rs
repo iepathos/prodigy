@@ -162,6 +162,8 @@ pub struct StepResult {
     pub exit_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
+    /// Optional path to Claude JSON log file for debugging
+    pub json_log_location: Option<String>,
 }
 
 /// Variable resolution tracking for verbose output
@@ -1410,6 +1412,7 @@ impl WorkflowExecutor {
     }
 
     /// Determine if commit is required and validate (delegated to pure module)
+    #[allow(clippy::too_many_arguments)]
     fn validate_commit_requirement(
         step: &WorkflowStep,
         tracked_commits_empty: bool,
@@ -1418,6 +1421,7 @@ impl WorkflowExecutor {
         dry_run: bool,
         step_name: &str,
         assumed_commits: &[String],
+        json_log_location: Option<&str>,
     ) -> Result<()> {
         pure::validate_commit_requirement(
             step,
@@ -1427,6 +1431,7 @@ impl WorkflowExecutor {
             dry_run,
             step_name,
             assumed_commits,
+            json_log_location,
         )
     }
 
@@ -1508,6 +1513,7 @@ impl WorkflowExecutor {
         tracked_commits: &[crate::cook::commit_tracker::TrackedCommit],
         before_head: &str,
         after_head: &str,
+        json_log_location: Option<&str>,
     ) -> Result<()> {
         let step_name = self.get_step_display_name(step);
 
@@ -1520,6 +1526,7 @@ impl WorkflowExecutor {
             self.dry_run,
             &step_name,
             &self.assumed_commits,
+            json_log_location,
         )?;
 
         // Handle dry run commit assumption display
