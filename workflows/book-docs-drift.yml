@@ -26,10 +26,11 @@ setup:
 
   # Step 1: Analyze codebase for workflow features, command types, and configuration
   - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
+    commit_required: true
 
   # Step 2: Detect documentation gaps and create missing chapters
+  # Note: May not commit if no gaps found, which is a successful outcome
   - claude: "/prodigy-detect-documentation-gaps --project $PROJECT_NAME --config $PROJECT_CONFIG --features $FEATURES_PATH --chapters $CHAPTERS_FILE --book-dir $BOOK_DIR"
-    commit_required: true
 
 # Map phase: Analyze and fix each book chapter for drift
 map:
