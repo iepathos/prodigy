@@ -30,6 +30,46 @@ impl Drop for RestoreDirectoryGuard {
     }
 }
 
+/// Get step display name for logging and error messages
+fn get_step_display_name(step: &WorkflowStep) -> String {
+    if let Some(claude_cmd) = &step.claude {
+        format!("claude: {claude_cmd}")
+    } else if let Some(shell_cmd) = &step.shell {
+        format!("shell: {shell_cmd}")
+    } else if let Some(test_cmd) = &step.test {
+        format!("test: {}", test_cmd.command)
+    } else if let Some(handler_step) = &step.handler {
+        format!("handler: {}", handler_step.name)
+    } else if let Some(name) = &step.name {
+        name.clone()
+    } else if let Some(command) = &step.command {
+        format!("command: {command}")
+    } else {
+        "unknown step".to_string()
+    }
+}
+
+/// Get the current git HEAD commit hash
+async fn get_current_head(working_dir: &Path) -> Result<String> {
+    use tokio::process::Command;
+
+    let output = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(working_dir)
+        .output()
+        .await
+        .context("Failed to execute git rev-parse HEAD")?;
+
+    if !output.status.success() {
+        return Err(anyhow!(
+            "git rev-parse HEAD failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
 /// Validates that execution is happening in the correct worktree context.
 ///
 /// This function performs security checks to ensure that setup phase commands
@@ -115,8 +155,40 @@ impl SetupPhaseExecutor {
             for (index, step) in commands.iter().enumerate() {
                 debug!("Executing setup step {}/{}", index + 1, commands.len());
 
+                // Track HEAD before step execution if commit validation is needed
+                let head_before = if step.commit_required {
+                    get_current_head(&env.working_dir)
+                        .await
+                        .unwrap_or_else(|_| "unknown".to_string())
+                } else {
+                    String::new()
+                };
+
                 // Execute the step
                 let step_result = executor.execute_step(step, env, context).await?;
+
+                // Validate commit requirement if specified
+                if step.commit_required {
+                    // Track HEAD after step execution
+                    let head_after = get_current_head(&env.working_dir)
+                        .await
+                        .unwrap_or_else(|_| "unknown".to_string());
+
+                    // Check if commits were created (HEAD changed)
+                    if head_before == head_after {
+                        let step_name = get_step_display_name(step);
+                        let mut error_msg = format!(
+                            "Step '{}' has commit_required=true but no commits were created",
+                            step_name
+                        );
+
+                        if let Some(log_path) = &step_result.json_log_location {
+                            error_msg.push_str(&format!("\n📝 Claude log: {}", log_path));
+                        }
+
+                        return Err(anyhow!(error_msg));
+                    }
+                }
 
                 // Capture variables if configured
                 if let Some(ref mut engine) = self.capture_engine {
@@ -141,11 +213,18 @@ impl SetupPhaseExecutor {
 
                 // Check if command failed
                 if !step_result.success {
-                    return Err(anyhow!(
+                    let mut error_msg = format!(
                         "Setup command {} failed with exit code {:?}",
                         index + 1,
                         step_result.exit_code
-                    ));
+                    );
+
+                    // Include JSON log location if available
+                    if let Some(log_path) = &step_result.json_log_location {
+                        error_msg.push_str(&format!("\n📝 Claude log: {}", log_path));
+                    }
+
+                    return Err(anyhow!(error_msg));
                 }
             }
 
