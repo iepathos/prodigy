@@ -298,6 +298,24 @@ pub enum Commands {
         #[arg(long)]
         web: Option<u16>,
     },
+    /// Manage and view Claude JSON logs
+    #[command(name = "logs")]
+    Logs {
+        /// Session ID to view logs for
+        session_id: Option<String>,
+
+        /// Show only the latest log
+        #[arg(long)]
+        latest: bool,
+
+        /// Tail the log file (follow mode)
+        #[arg(long)]
+        tail: bool,
+
+        /// Show log summary
+        #[arg(long)]
+        summary: bool,
+    },
 }
 
 #[derive(Subcommand)]
