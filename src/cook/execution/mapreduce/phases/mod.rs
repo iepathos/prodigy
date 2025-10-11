@@ -107,6 +107,7 @@
 
 pub mod coordinator;
 pub mod map;
+pub mod orchestrator;
 pub mod reduce;
 pub mod setup;
 
@@ -122,6 +123,10 @@ use std::sync::Arc;
 // Re-export key types for convenience
 pub use coordinator::{PhaseCoordinator, PhaseTransition};
 pub use map::MapPhaseExecutor;
+pub use orchestrator::{
+    calculate_optimal_parallelism, plan_phases, should_skip_phase, validate_phase_config,
+    ExecutionPlan, PhaseSpec, ResourceEstimate,
+};
 pub use reduce::ReducePhaseExecutor;
 pub use setup::SetupPhaseExecutor;
 
