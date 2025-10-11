@@ -668,6 +668,7 @@ Prodigy CLI commands:
    - Default: Clean output for production use
    - `-v`: Claude streaming output for debugging interactions
    - `-vv`/`-vvv`: Additional internal logs and tracing
+6. **Documentation**: The book documentation workflow now includes automatic drift detection and gap detection to keep documentation synchronized with code changes. Features are analyzed automatically and documentation is updated to match implementation.
 
 ## Limitations
 

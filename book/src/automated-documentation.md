@@ -413,6 +413,148 @@ Since chapter fixes happen in the map phase, the reduce phase focuses on:
 
 This ensures that all chapters work together correctly after parallel updates.
 
+## Automatic Gap Detection
+
+The book workflow system includes automatic gap detection to identify missing or incomplete documentation. This ensures your documentation coverage is comprehensive and catches areas that need attention.
+
+### How It Works
+
+Gap detection runs as part of the documentation workflow and analyzes your documentation against your codebase to identify:
+
+1. **Missing Documentation**: Features, APIs, or commands in the code that aren't documented
+2. **Incomplete Coverage**: Documentation sections that exist but don't cover all aspects
+3. **Structural Issues**: Missing chapters or sections that should exist based on your project structure
+
+The gap detection process:
+
+1. **Feature Inventory Analysis**: The setup phase creates a complete inventory of your codebase features
+2. **Documentation Coverage Analysis**: Each chapter is analyzed to determine what features it documents
+3. **Gap Identification**: Missing features are identified by comparing documentation coverage to the feature inventory
+4. **Prioritization**: Gaps are assigned severity levels (critical, high, medium, low) based on importance
+5. **Reporting**: Gaps are saved to `.prodigy/book-analysis/gaps-report.json` with details for each issue
+
+### Gap Severity Levels
+
+Gaps are categorized by severity to help prioritize documentation work:
+
+- **Critical**: Core functionality or main features that are completely undocumented
+  - Example: Primary CLI commands with no usage documentation
+  - Example: Public API functions that are exported but not documented
+
+- **High**: Important features or commonly-used functionality with missing documentation
+  - Example: Configuration options that affect behavior but aren't documented
+  - Example: Command-line flags that are widely used but lack examples
+
+- **Medium**: Secondary features or less critical areas with incomplete coverage
+  - Example: Advanced features that are documented but lack detailed examples
+  - Example: Edge cases or error handling that isn't fully explained
+
+- **Low**: Minor gaps or enhancements that would improve documentation quality
+  - Example: Missing troubleshooting tips for uncommon issues
+  - Example: Additional examples that would be helpful but aren't essential
+
+### Gap Report Format
+
+The gap detection system generates a detailed report at `.prodigy/book-analysis/gaps-report.json`:
+
+```json
+{
+  "timestamp": "2025-01-15T10:30:00Z",
+  "project_name": "YourProject",
+  "total_gaps": 5,
+  "gaps_by_severity": {
+    "critical": 1,
+    "high": 2,
+    "medium": 1,
+    "low": 1
+  },
+  "gaps": [
+    {
+      "id": "missing-cli-command-docs",
+      "severity": "critical",
+      "type": "missing_documentation",
+      "description": "CLI command 'process' is not documented",
+      "location": "book/src/user-guide.md",
+      "affected_feature": {
+        "name": "process",
+        "type": "cli_command",
+        "source": "src/cli/commands/process.rs"
+      },
+      "suggested_fix": "Add section documenting the 'process' command with usage examples and options",
+      "detected_at": "2025-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+### Customization
+
+You can customize gap detection behavior in your `book-config.json`:
+
+```json
+{
+  "project_name": "YourProject",
+  "gap_detection": {
+    "enabled": true,
+    "severity_rules": {
+      "undocumented_public_api": "critical",
+      "undocumented_cli_command": "critical",
+      "missing_examples": "medium",
+      "incomplete_troubleshooting": "low"
+    },
+    "ignore_patterns": [
+      "internal_*",
+      "test_helpers",
+      "deprecated_*"
+    ],
+    "required_sections": [
+      "Installation",
+      "Quick Start",
+      "Configuration",
+      "Troubleshooting"
+    ]
+  }
+}
+```
+
+**Configuration Options**:
+
+- `enabled`: Toggle gap detection on/off (default: true)
+- `severity_rules`: Custom rules for assigning severity levels to different gap types
+- `ignore_patterns`: Feature name patterns to exclude from gap detection
+- `required_sections`: Section names that must exist in documentation
+
+### Manual Review Recommendations
+
+While gap detection is automatic, manual review is recommended for:
+
+1. **Critical and High Severity Gaps**: Review these immediately as they indicate missing core documentation
+2. **New Features**: When adding new features to your codebase, check the gap report to ensure they're documented
+3. **After Major Refactoring**: Restructuring code may create new gaps or invalidate existing documentation
+4. **Before Releases**: Run gap detection before major releases to ensure complete documentation coverage
+5. **Severity Accuracy**: Verify that automatically assigned severity levels match your project's priorities
+
+**Best Practices for Manual Review**:
+
+- Run gap detection regularly (weekly or after significant code changes)
+- Address critical gaps before merging feature branches
+- Use gap reports to plan documentation work in sprints
+- Keep the gaps report file in version control to track progress
+- Review ignored patterns periodically to ensure they're still relevant
+
+### Integration with Drift Detection
+
+Gap detection complements drift detection in the book workflow:
+
+- **Drift Detection**: Identifies documentation that's outdated or incorrect compared to current implementation
+- **Gap Detection**: Identifies missing documentation that should exist but doesn't
+
+Together, these systems ensure your documentation is both accurate and complete:
+
+1. **Drift Detection** keeps existing documentation synchronized with code changes
+2. **Gap Detection** identifies areas where documentation is missing entirely
+3. Both run as part of the same workflow for comprehensive documentation quality
+
 ### Phase 4: Merge - Integration
 
 The merge phase cleans up and integrates changes:
