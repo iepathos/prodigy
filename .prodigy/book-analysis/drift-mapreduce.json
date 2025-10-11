@@ -4,84 +4,108 @@
   "chapter_file": "book/src/mapreduce.md",
   "drift_detected": true,
   "severity": "medium",
-  "quality_assessment": "Chapter is generally accurate but has several documentation gaps around error handling configuration and capture formats. The modern syntax vs deprecated syntax distinction is well explained, but circuit breaker configuration format in the chapter doesn't match the actual implementation.",
+  "quality_assessment": "Chapter is comprehensive and well-structured with excellent coverage of MapReduce concepts. However, it contains incorrect field names in capture configuration and backoff examples. The modern vs deprecated syntax explanations are accurate. Overall quality is good but needs corrections to match implementation.",
   "issues": [
     {
       "type": "incorrect_example",
       "severity": "high",
-      "section": "Error Handling Policy - Circuit Breaker Configuration",
-      "description": "Chapter shows circuit_breaker.timeout as a number in seconds, but the implementation uses Duration type serialized with humantime_serde (e.g., '60s', '1m')",
-      "current_content": "circuit_breaker:\n  failure_threshold: 5\n  success_threshold: 2\n  timeout: 60              # Seconds before attempting half-open",
-      "should_be": "circuit_breaker:\n  failure_threshold: 5\n  success_threshold: 2\n  timeout: \"60s\"           # Duration format: '60s', '1m', etc.",
-      "fix_suggestion": "Update example to show Duration format with humantime_serde. Add note that timeout accepts duration strings like '60s', '1m', '5m'",
-      "source_reference": "src/cook/workflow/error_policy.rs:48-61 (CircuitBreakerConfig with humantime_serde)"
+      "section": "Setup Phase (Advanced) - Capture Outputs",
+      "description": "Chapter shows 'format: json' field in capture_outputs configuration, but CaptureConfig doesn't have a 'format' field",
+      "current_content": "    analysis_result:\n      command_index: 1\n      format: json  # string, number, json, lines, boolean",
+      "should_be": "    analysis_result:\n      command_index: 1\n      json_path: \"$.result\"  # For JSON extraction\n      source: stdout         # stdout, stderr, both, combined\n      multiline: preserve    # preserve, join, first_line, last_line, array",
+      "fix_suggestion": "Remove 'format' field entirely. Document actual CaptureConfig::Detailed fields: command_index, source (stdout/stderr/both/combined), pattern (regex), json_path, max_size (bytes), default (fallback value), multiline (preserve/join/first_line/last_line/array). Add examples showing json_path for JSON, pattern for regex, and multiline options.",
+      "source_reference": "src/cook/execution/variable_capture.rs:16-41 CaptureConfig enum, lines 96-103 CaptureSource, lines 114-129 MultilineHandling"
     },
     {
       "type": "incorrect_example",
       "severity": "high",
-      "section": "Error Handling Policy - Retry Backoff Configuration",
-      "description": "Chapter shows backoff configuration with millisecond numbers and max_delay, but implementation uses Duration types without max_delay field",
-      "current_content": "retry_config:\n  max_attempts: 3\n  backoff:\n    type: exponential\n    initial: 1000          # Initial delay in ms\n    multiplier: 2\n    max_delay: 30000       # Maximum delay in ms",
-      "should_be": "retry_config:\n  max_attempts: 3\n  backoff:\n    exponential:\n      initial: \"1s\"        # Duration format\n      multiplier: 2.0",
-      "fix_suggestion": "Update to show correct BackoffStrategy enum variants (Fixed, Linear, Exponential, Fibonacci) with Duration fields. Remove max_delay which doesn't exist in implementation. Show that initial/delay use Duration types.",
-      "source_reference": "src/cook/workflow/error_policy.rs:92-99 (RetryConfig), 108-128 (BackoffStrategy enum)"
+      "section": "Error Handling Policy - Retry Backoff",
+      "description": "Chapter shows flat backoff configuration with 'type' discriminator, but implementation uses enum variants without 'type' field",
+      "current_content": "  retry_config:\n    max_attempts: 3\n    backoff:\n      type: exponential\n      initial: \"1s\"\n      multiplier: 2",
+      "should_be": "BackoffStrategy is an enum. For exponential: exponential: { initial: \"1s\", multiplier: 2.0 }\nFor fixed: fixed: { delay: \"1s\" }\nFor linear: linear: { initial: \"1s\", increment: \"500ms\" }\nFor fibonacci: fibonacci: { initial: \"1s\" }",
+      "fix_suggestion": "Show correct YAML deserialization for BackoffStrategy enum variants. Document all four variants with proper syntax: Fixed { delay }, Linear { initial, increment }, Exponential { initial, multiplier }, Fibonacci { initial }. Note that all duration fields use humantime format like '1s', '500ms'.",
+      "source_reference": "src/cook/workflow/error_policy.rs:106-129 BackoffStrategy enum definition"
     },
     {
       "type": "missing_content",
       "severity": "medium",
-      "section": "Setup Phase - Capture Formats",
-      "description": "Chapter mentions 'format: json' for capture_outputs but doesn't explain all available formats or how they differ from CaptureConfig",
-      "should_add": "Document that capture_outputs uses CaptureConfig which can be Simple(index) or Detailed with source, pattern, json_path, max_size, default, and multiline options. The 'format' field shown is actually not part of CaptureConfig - it may be confused with CaptureFormat from workflow variables.",
-      "fix_suggestion": "Add subsection explaining CaptureConfig enum: Simple(usize) vs Detailed { command_index, source (stdout/stderr/both), pattern (regex), json_path, max_size, default, multiline }. Clarify distinction from CaptureFormat used elsewhere.",
-      "source_reference": "src/cook/execution/variable_capture.rs:18-41 (CaptureConfig enum)"
+      "section": "Setup Phase - CaptureConfig Documentation",
+      "description": "Chapter doesn't explain the difference between Simple and Detailed CaptureConfig variants",
+      "should_add": "Explain CaptureConfig enum:\n- Simple(usize): Shorthand for capturing stdout from command at index with default settings\n- Detailed: Full configuration with source, pattern, json_path, max_size, default, multiline options",
+      "fix_suggestion": "Add subsection 'Capture Configuration Formats' explaining when to use Simple vs Detailed. Show examples: file_count: 0 (simple), vs detailed with all fields. Note that simple is not legacy - it's valid shorthand.",
+      "source_reference": "src/cook/execution/variable_capture.rs:16-93 CaptureConfig enum and extract_params method"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Setup Phase - MultilineHandling Options",
+      "description": "Chapter doesn't document what each multiline handling option does",
+      "should_add": "Document MultilineHandling enum values:\n- preserve (default): Keep all lines with newlines\n- join: Join lines with spaces\n- first_line: Take only first line\n- last_line: Take only last line\n- array: Return as JSON array of lines",
+      "fix_suggestion": "Add subsection explaining each multiline option with use cases. For example: 'Use first_line for extracting version strings, use array when capturing a list, use join when creating a single-line summary'.",
+      "source_reference": "src/cook/execution/variable_capture.rs:114-129 MultilineHandling enum"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Setup Phase - CaptureSource Options",
+      "description": "Chapter doesn't explain what each capture source option does",
+      "should_add": "Document CaptureSource enum:\n- stdout (default): Capture standard output\n- stderr: Capture standard error\n- both: Capture both with labels (stdout:\\n...\\nstderr:\\n...)\n- combined: Interleave stdout and stderr",
+      "fix_suggestion": "Add explanation of when to use each source option. For example: 'Use stderr to capture error messages, use both when debugging, use combined for exact output order'.",
+      "source_reference": "src/cook/execution/variable_capture.rs:96-103 CaptureSource enum"
     },
     {
       "type": "unclear_content",
-      "severity": "medium",
-      "section": "Setup Phase - Capture Configuration Example",
-      "description": "Chapter shows 'format: json' in capture configuration but this field doesn't exist in CaptureConfig struct",
-      "current_content": "analysis_result:\n  command_index: 1\n  format: json  # string, number, json, lines, boolean",
-      "should_be": "analysis_result:\n  command_index: 1\n  json_path: \"$.result\"  # Use json_path for JSON extraction\n  # OR use pattern: \"regex\" for regex extraction\n  # OR use source: stdout/stderr/both",
-      "fix_suggestion": "Replace 'format' field with actual CaptureConfig fields. Show examples of json_path for JSON, pattern for regex extraction, and source for selecting stdout/stderr.",
-      "source_reference": "src/cook/execution/variable_capture.rs:22-40 (CaptureConfig::Detailed fields)"
-    },
-    {
-      "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Map Phase - timeout_config",
-      "description": "Chapter mentions agent_timeout_secs but doesn't document the more advanced timeout_config field that exists in MapPhaseYaml",
-      "should_add": "Document timeout_config field as advanced option for more sophisticated timeout configuration beyond simple agent_timeout_secs",
-      "fix_suggestion": "Add section on advanced timeout configuration showing timeout_config as alternative to agent_timeout_secs",
-      "source_reference": "src/config/mapreduce.rs:259-260 (timeout_config field in MapPhaseYaml)"
+      "section": "Setup Phase - Simple Capture Format Comment",
+      "description": "Chapter labels simple capture format as 'legacy' but it's actually a valid shorthand, not deprecated",
+      "current_content": "    # Simple format (legacy - just index)\n    file_count: 0",
+      "should_be": "    # Simple format (shorthand - captures stdout with defaults)\n    file_count: 0",
+      "fix_suggestion": "Change comment from 'legacy' to 'shorthand' and clarify that it's for simple cases. Note: 'Use simple format when you only need stdout with default settings. Use detailed format for pattern extraction, JSON parsing, or custom source/multiline options'.",
+      "source_reference": "src/cook/execution/variable_capture.rs:18-20 CaptureConfig::Simple is a valid variant, not deprecated"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Error Handling - ErrorCollectionStrategy variants",
-      "description": "Chapter mentions error_collection: aggregate/immediate/batched:N but doesn't fully explain what each strategy does",
-      "should_add": "Explain ErrorCollectionStrategy variants:\n- aggregate: Collect all errors and report at end\n- immediate: Report each error as it occurs\n- batched:N: Report errors in batches of N items",
-      "fix_suggestion": "Add subsection explaining each error collection strategy with use cases for when to use each",
-      "source_reference": "src/cook/workflow/error_policy.rs (ErrorCollectionStrategy enum - search for it)"
+      "section": "Map Phase - timeout_config",
+      "description": "Chapter mentions agent_timeout_secs but doesn't document the timeout_config field",
+      "should_add": "Note that timeout_config is an advanced/internal field. If documenting, show its structure and use cases.",
+      "fix_suggestion": "Either add documentation for TimeoutConfig struct or add a note: 'For advanced timeout configuration beyond agent_timeout_secs, see timeout_config (advanced feature)'",
+      "source_reference": "src/config/mapreduce.rs:272-273 timeout_config field in MapPhaseYaml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Error Handling - ErrorCollectionStrategy",
+      "description": "Chapter mentions error_collection values but doesn't explain what each strategy does behaviorally",
+      "should_add": "Explain ErrorCollectionStrategy behavior:\n- aggregate: Collect all errors and report at workflow end (default)\n- immediate: Report/log each error as it occurs\n- batched:N: Report errors in batches of N items",
+      "fix_suggestion": "Add examples showing when to use each strategy. For example: 'Use immediate for debugging, use aggregate for final summary, use batched:10 for progress updates without spam'.",
+      "source_reference": "src/cook/workflow/error_policy.rs:34-44 ErrorCollectionStrategy enum"
     }
   ],
   "positive_aspects": [
-    "Excellent explanation of modern vs deprecated syntax for agent_template and reduce phases",
-    "Clear examples showing both simplified and full configuration formats",
-    "Good coverage of MapReduce structure (setup, map, reduce, merge)",
-    "Well-documented merge workflow with variable interpolation examples",
-    "Comprehensive coverage of filtering, sorting, offset, distinct, and max_items options",
-    "Good explanation of convenience fields mapping to error_policy"
+    "Excellent explanation of modern array syntax vs deprecated nested 'commands' syntax",
+    "Comprehensive coverage of all MapReduce phases (setup, map, reduce, merge)",
+    "Accurate documentation of global storage architecture in ~/.prodigy/",
+    "Event tracking and checkpoint/resume sections match implementation perfectly",
+    "DLQ retry features are accurately and thoroughly documented",
+    "Environment variable support is correctly shown",
+    "Convenience fields (on_item_failure, continue_on_failure, max_failures) are accurate",
+    "Variable interpolation examples are correct (${item}, ${map.results}, ${merge.*})",
+    "Filter, sort_by, max_items, offset, distinct options are all accurate",
+    "Merge workflow examples with both simple and full syntax are correct"
   ],
   "improvement_suggestions": [
-    "Add a 'Common Pitfalls' section covering:\n  - Duration format requirements for timeout fields\n  - Confusion between CaptureConfig and CaptureFormat\n  - When to use Simple vs Detailed capture configuration",
-    "Include a real-world example showing complete error handling configuration that actually works",
-    "Add cross-references to 'Variables' chapter for ${map.results}, ${item}, etc.",
-    "Consider adding a troubleshooting section for common MapReduce configuration errors",
-    "Show example of BackoffStrategy variants (Fixed, Linear, Exponential, Fibonacci) with actual working YAML"
+    "Add 'Capture Configuration Reference' section with complete field list and examples",
+    "Add 'Common Pitfalls' covering: incorrect CaptureConfig fields, backoff enum syntax, duration formats",
+    "Show working examples of all BackoffStrategy variants (Fixed, Linear, Exponential, Fibonacci)",
+    "Add examples of advanced capture features: pattern extraction with regex, json_path usage, multiline handling",
+    "Include troubleshooting section for common MapReduce errors",
+    "Add cross-references to Variables chapter for ${map.*} and ${item.*} variables",
+    "Consider adding a visual diagram showing CaptureConfig → CaptureSource → MultilineHandling flow"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-03",
-    "feature_inventory": ".prodigy/book-analysis/features.json (not found, used direct code inspection)",
+    "analyzed_at": "2025-10-10",
+    "feature_inventory": "Analyzed directly from codebase (features.json not provided)",
     "topics_covered": [
       "MapReduce mode",
       "Setup phase",
@@ -90,19 +114,29 @@
       "Parallel execution",
       "Error handling",
       "Merge workflows",
-      "Variable capture"
+      "Variable capture",
+      "Global storage",
+      "Event tracking",
+      "DLQ"
     ],
     "validation_focus": "Check MapReduce configuration matches MapReduceWorkflowConfig struct",
+    "source_files_reviewed": [
+      "src/config/mapreduce.rs",
+      "src/cook/workflow/error_policy.rs",
+      "src/cook/execution/variable_capture.rs"
+    ],
     "code_references": [
-      "src/config/mapreduce.rs:MapReduceWorkflowConfig",
-      "src/config/mapreduce.rs:MapPhaseYaml",
-      "src/config/mapreduce.rs:ReducePhaseYaml",
-      "src/config/mapreduce.rs:SetupPhaseConfig",
-      "src/cook/workflow/error_policy.rs:WorkflowErrorPolicy",
-      "src/cook/workflow/error_policy.rs:CircuitBreakerConfig",
-      "src/cook/workflow/error_policy.rs:RetryConfig",
-      "src/cook/workflow/error_policy.rs:BackoffStrategy",
-      "src/cook/execution/variable_capture.rs:CaptureConfig"
+      "src/config/mapreduce.rs:16-82 MapReduceWorkflowConfig",
+      "src/config/mapreduce.rs:224-274 MapPhaseYaml",
+      "src/config/mapreduce.rs:318-352 ReducePhaseYaml",
+      "src/config/mapreduce.rs:136-158 SetupPhaseConfig",
+      "src/cook/workflow/error_policy.rs:132-179 WorkflowErrorPolicy",
+      "src/cook/workflow/error_policy.rs:47-88 CircuitBreakerConfig",
+      "src/cook/workflow/error_policy.rs:91-103 RetryConfig",
+      "src/cook/workflow/error_policy.rs:106-129 BackoffStrategy",
+      "src/cook/execution/variable_capture.rs:16-93 CaptureConfig",
+      "src/cook/execution/variable_capture.rs:96-103 CaptureSource",
+      "src/cook/execution/variable_capture.rs:114-129 MultilineHandling"
     ]
   }
 }
