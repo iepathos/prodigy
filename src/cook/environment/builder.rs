@@ -8,7 +8,7 @@
 //! ```
 //! use std::path::PathBuf;
 //! use std::collections::HashMap;
-//! use prodigy::cook::environment::context::EnvironmentContextBuilder;
+//! use prodigy::cook::environment::EnvironmentContextBuilder;
 //!
 //! let mut vars = HashMap::new();
 //! vars.insert("KEY1".to_string(), "value1".to_string());
@@ -38,7 +38,7 @@ use std::path::PathBuf;
 ///
 /// ```
 /// use std::path::PathBuf;
-/// use prodigy::cook::environment::context::EnvironmentContextBuilder;
+/// use prodigy::cook::environment::EnvironmentContextBuilder;
 ///
 /// let context = EnvironmentContextBuilder::new(PathBuf::from("/project"))
 ///     .with_env("VAR".to_string(), "value".to_string())
@@ -65,7 +65,7 @@ impl EnvironmentContextBuilder {
     ///
     /// ```
     /// use std::path::PathBuf;
-    /// use prodigy::cook::environment::context::EnvironmentContextBuilder;
+    /// use prodigy::cook::environment::EnvironmentContextBuilder;
     ///
     /// let builder = EnvironmentContextBuilder::new(PathBuf::from("/project"));
     /// ```
@@ -89,7 +89,7 @@ impl EnvironmentContextBuilder {
     ///
     /// ```
     /// use std::path::PathBuf;
-    /// use prodigy::cook::environment::context::EnvironmentContextBuilder;
+    /// use prodigy::cook::environment::EnvironmentContextBuilder;
     ///
     /// let context = EnvironmentContextBuilder::new(PathBuf::from("/project"))
     ///     .with_env("DATABASE_URL".to_string(), "postgres://localhost/db".to_string())
@@ -111,7 +111,7 @@ impl EnvironmentContextBuilder {
     /// ```
     /// use std::path::PathBuf;
     /// use std::collections::HashMap;
-    /// use prodigy::cook::environment::context::EnvironmentContextBuilder;
+    /// use prodigy::cook::environment::EnvironmentContextBuilder;
     ///
     /// let mut vars = HashMap::new();
     /// vars.insert("A".to_string(), "1".to_string());
@@ -136,7 +136,7 @@ impl EnvironmentContextBuilder {
     ///
     /// ```
     /// use std::path::PathBuf;
-    /// use prodigy::cook::environment::context::EnvironmentContextBuilder;
+    /// use prodigy::cook::environment::EnvironmentContextBuilder;
     ///
     /// let context = EnvironmentContextBuilder::new(PathBuf::from("/project"))
     ///     .with_env("API_KEY".to_string(), "secret123".to_string())
@@ -162,7 +162,7 @@ impl EnvironmentContextBuilder {
     ///
     /// ```
     /// use std::path::PathBuf;
-    /// use prodigy::cook::environment::context::EnvironmentContextBuilder;
+    /// use prodigy::cook::environment::EnvironmentContextBuilder;
     ///
     /// let context = EnvironmentContextBuilder::new(PathBuf::from("/project"))
     ///     .with_secrets(vec!["API_KEY".to_string(), "TOKEN".to_string()])
@@ -187,7 +187,7 @@ impl EnvironmentContextBuilder {
     ///
     /// ```
     /// use std::path::PathBuf;
-    /// use prodigy::cook::environment::context::EnvironmentContextBuilder;
+    /// use prodigy::cook::environment::EnvironmentContextBuilder;
     ///
     /// let context = EnvironmentContextBuilder::new(PathBuf::from("/project"))
     ///     .with_profile("production".to_string())
@@ -216,7 +216,7 @@ impl EnvironmentContextBuilder {
     ///
     /// ```
     /// use std::path::PathBuf;
-    /// use prodigy::cook::environment::{EnvironmentConfig, context::EnvironmentContextBuilder};
+    /// use prodigy::cook::environment::{EnvironmentConfig, EnvironmentContextBuilder};
     ///
     /// let config = EnvironmentConfig::default();
     /// let context = EnvironmentContextBuilder::new(PathBuf::from("/project"))
@@ -275,7 +275,7 @@ impl EnvironmentContextBuilder {
     ///
     /// ```
     /// use std::path::PathBuf;
-    /// use prodigy::cook::environment::context::EnvironmentContextBuilder;
+    /// use prodigy::cook::environment::EnvironmentContextBuilder;
     ///
     /// let context = EnvironmentContextBuilder::new(PathBuf::from("/project"))
     ///     .with_env("VAR".to_string(), "value".to_string())

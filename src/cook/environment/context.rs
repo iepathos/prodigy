@@ -16,7 +16,7 @@
 //! ```
 //! use std::path::PathBuf;
 //! use prodigy::cook::environment::ImmutableEnvironmentContext;
-//! use prodigy::cook::environment::context::EnvironmentContextBuilder;
+//! use prodigy::cook::environment::EnvironmentContextBuilder;
 //!
 //! // Create immutable context with builder pattern
 //! let context = EnvironmentContextBuilder::new(PathBuf::from("/worktree"))
@@ -79,7 +79,7 @@ impl ImmutableEnvironmentContext {
     ///
     /// ```
     /// use std::path::PathBuf;
-    /// use prodigy::cook::environment::context::ImmutableEnvironmentContext;
+    /// use prodigy::cook::environment::ImmutableEnvironmentContext;
     ///
     /// let context = ImmutableEnvironmentContext::new(PathBuf::from("/project"));
     /// assert_eq!(context.working_dir(), PathBuf::from("/project").as_path());
