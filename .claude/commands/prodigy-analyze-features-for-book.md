@@ -258,29 +258,33 @@ echo $PRODIGY_AUTOMATION
 
 **If PRODIGY_AUTOMATION=true, commit the analysis:**
 
-1. **Stage the features.json file:**
+1. **Count feature areas:**
+   Count the number of top-level keys in the generated features.json (excluding metadata like "version_info", "analysis_metadata")
+
+2. **Stage the features.json file:**
    ```bash
    git add .prodigy/book-analysis/features.json
    ```
 
-2. **Create commit:**
+3. **Create commit with actual feature count:**
    ```bash
    git commit -m "docs: analyze features for Prodigy book documentation
 
-   - Analyzed 12 feature areas
+   - Analyzed {actual-count} feature areas
    - Generated features.json for drift detection
    - Ready for gap detection phase"
    ```
+   Replace `{actual-count}` with the number of feature areas you counted.
 
-3. **Verify commit:**
+4. **Verify commit:**
    ```bash
    git log -1 --oneline
    ```
 
-4. **Display success message:**
+5. **Display success message with actual count:**
    ```
    ✅ Committed feature analysis
-      • 12 feature areas analyzed
+      • {actual-count} feature areas analyzed
       • Saved to .prodigy/book-analysis/features.json
       • Ready for gap detection phase
    ```
