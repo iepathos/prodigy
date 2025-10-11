@@ -39,12 +39,13 @@
   - shell: "cargo test 2>&1"
     capture: "test_output"
     capture_streams:
-      stdout: true      # Capture standard output
-      stderr: true      # Capture error output
-      exit_code: true   # Capture exit code
-      success: true     # Capture success boolean
-      duration: true    # Capture execution duration
+      stdout: true      # Optional, default false - Capture standard output
+      stderr: true      # Optional, default false - Capture error output
+      exit_code: true   # Optional, default false - Capture exit code
+      success: true     # Optional, default false - Capture success boolean
+      duration: true    # Optional, default false - Capture execution duration
   ```
+- **Note:** All capture_streams fields are optional and default to false. Only specify the streams you need to capture
 
 ---
 
@@ -177,9 +178,10 @@
   merge:
     commands:
       - shell: "slow-merge-validation.sh"
-    timeout: "600s"  # Duration string format
+    timeout: 600  # Timeout in seconds (plain number, not a duration string)
   ```
 - Use the full format when you need to set a custom timeout
+- **Note:** Unlike most other timeout fields in Prodigy which use duration strings ("10m", "600s"), the merge.timeout field takes a plain number representing seconds
 - Check logs for merge execution errors
 
 ---
@@ -226,11 +228,7 @@
       timeout: "60s"         # Not 60
       failure_threshold: 5
   ```
-- Valid BackoffStrategy values:
-  - `constant` - Same delay every time
-  - `linear` - Increases linearly
-  - `exponential` - Doubles each time
-  - `fibonacci` - Fibonacci sequence
+- **Note:** BackoffStrategy is determined internally by the retry system and is not directly configurable in the workflow YAML. The retry behavior is controlled through the retry_config parameters (max_attempts, initial_delay, max_delay).
 - Circuit breaker requires both timeout and failure_threshold
 
 ---
@@ -303,6 +301,46 @@ prodigy run workflow.yml
 cat .prodigy/validation-result.json
 ```
 
+### Access Claude JSON logs for debugging
+
+When using verbose mode (`-v`), Prodigy displays the location of Claude's detailed JSON logs:
+```bash
+prodigy run workflow.yml -v
+# Output: Claude JSON log: ~/.local/state/claude/logs/session-abc123.json
+```
+
+These logs contain:
+- Complete message history (user messages and Claude responses)
+- All tool invocations with parameters and results
+- Token usage statistics
+- Error details and stack traces
+
+**View Claude interaction:**
+```bash
+# View complete message history
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'
+
+# Check tool invocations
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[].content[] | select(.type == "tool_use")'
+
+# Analyze token usage
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.usage'
+
+# Extract error details
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[] | select(.role == "assistant") | .content[] | select(.type == "error")'
+```
+
+**For MapReduce jobs**, check the DLQ for json_log_location:
+```bash
+# Get log location from DLQ
+prodigy dlq show <job_id> | jq '.items[].failure_history[].json_log_location'
+
+# Inspect the Claude JSON log
+cat /path/from/above/session-xyz.json | jq '.messages[-3:]'
+```
+
+This is especially valuable for debugging MapReduce agent failures, as you can see exactly what Claude was doing when the agent failed.
+
 ### Check DLQ for failed items
 ```bash
 # List failed items
@@ -310,6 +348,9 @@ prodigy dlq list <job_id>
 
 # View failure details
 prodigy dlq inspect <job_id>
+
+# Show DLQ contents (alias for inspect)
+prodigy dlq show <job_id>
 
 # Retry failed items (primary recovery operation)
 prodigy dlq retry <job_id>
@@ -319,6 +360,21 @@ prodigy dlq retry <job_id> --max-parallel 10
 
 # Dry run to see what would be retried
 prodigy dlq retry <job_id> --dry-run
+
+# Analyze failure patterns across items
+prodigy dlq analyze <job_id>
+
+# Export DLQ items to file for external analysis
+prodigy dlq export output.json --job-id <job_id>
+
+# Show DLQ statistics for workflow
+prodigy dlq stats --workflow-id <workflow_id>
+
+# Purge old DLQ items
+prodigy dlq purge --older-than-days 30
+
+# Clear processed items from DLQ
+prodigy dlq clear <workflow_id>
 ```
 
 ### Monitor MapReduce progress
@@ -392,16 +448,40 @@ Prodigy uses structured errors to help diagnose issues:
 - `AgentFailed` - Individual agent execution failed, check DLQ for details
 - `AgentTimeout` - Agent exceeded timeout, increase agent_timeout_secs
 - `CommandExecutionFailed` - Shell or Claude command failed in agent
+- `CommandFailed` - Command execution failed with non-zero exit code
 
 **Resource errors:**
 - `WorktreeMergeConflict` - Git merge conflict when merging agent results
 - `ResourceExhausted` - Out of disk space, memory, or other resources
 - `StorageError` - Failed to read/write to storage, check permissions
 
+**Configuration and validation errors:**
+- `InvalidConfiguration` - Workflow YAML has configuration errors
+- `InvalidJsonPath` - JSONPath expression syntax error, check your $.path syntax
+- `ValidationFailed` - Validation check failed, review validation criteria
+- `ShellSubstitutionFailed` - Variable substitution failed, check ${variable} references
+- `EnvironmentError` - Environment validation failed, check required env vars
+
+**Checkpoint errors:**
+- `CheckpointCorrupted` - Checkpoint file corrupted at specific version, may need to restart job
+- `CheckpointLoadFailed` - Failed to load checkpoint, check file permissions and format
+- `CheckpointSaveFailed` - Failed to save checkpoint, check disk space and permissions
+
+**Concurrency errors:**
+- `DeadlockDetected` - Deadlock in job execution, reduce parallelism or check for circular dependencies
+- `ConcurrentModification` - Concurrent modification of job state, retry operation
+
+**Other errors:**
+- `DlqError` - DLQ operation failed, check DLQ storage and permissions
+- `ProcessingError` - General processing error, check logs for details
+- `Timeout` - Operation timed out, increase timeout values
+- `General` - General error for migration compatibility
+
 **Recovery actions:**
 - Check event logs: `prodigy events <job_id>`
 - Review DLQ: `prodigy dlq list <job_id>`
 - View detailed state: `cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/checkpoint.json`
+- Check Claude JSON logs (see Debug Tips section below)
 
 ### Checkpoint and Resume Errors
 

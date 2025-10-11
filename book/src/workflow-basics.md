@@ -76,7 +76,7 @@ Standard workflows support these top-level fields:
 
 ## Command Types
 
-Prodigy supports several types of commands in workflows:
+Prodigy supports several types of commands in workflows. **Each command step must specify exactly one command type** - they are mutually exclusive.
 
 ### Core Commands
 
@@ -114,6 +114,7 @@ All command types support additional fields for advanced control:
   id: "run-tests"              # Step identifier for output referencing
   commit_required: true        # Expect git commit after this step
   timeout: 300                 # Timeout in seconds
+  working_dir: "./subproject"  # Set working directory for this command
 ```
 
 ### Conditional Execution
@@ -139,14 +140,23 @@ Handle failures gracefully:
 
 ### Output Capture
 
-Capture command output to variables:
+Capture command output to variables for use in subsequent commands:
 
 ```yaml
 - shell: "git rev-parse HEAD"
   id: "get-commit"
-  capture: "commit_hash"       # Capture to variable
-  capture_format: "string"     # Format: string|json|lines|number|boolean
+  capture: "commit_hash"       # Modern: variable name to capture output
+  capture_format: "string"     # Format type (see below)
 ```
+
+**Capture formats:**
+- `string` - Raw output as string (default)
+- `json` - Parse output as JSON object
+- `lines` - Split output into array of lines
+- `number` - Parse output as number
+- `boolean` - Parse output as true/false
+
+**Note:** The `capture` field is the recommended approach. An older `capture_output` field exists for backward compatibility but `capture` is preferred for new workflows.
 
 For comprehensive coverage of these options, see:
 - [Advanced Features](advanced.md) - Conditional execution, output capture, timeouts
@@ -218,12 +228,13 @@ Merge workflows execute when merging worktree changes back to the main branch. T
 
 ```yaml
 merge:
-  commands:
-    - shell: "git fetch origin"
-    - shell: "git merge origin/main"
-    - shell: "cargo test"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
-  timeout: 600  # Optional: overall timeout for merge workflow
+  - shell: "git fetch origin"
+  - shell: "git merge origin/main"
+  - shell: "cargo test"
+  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+
+# Optional: timeout at workflow level, not under merge
+timeout: 600
 ```
 
 **Available merge variables:**
@@ -260,10 +271,8 @@ commands:
 
 # Custom merge workflow
 merge:
-  commands:
-    - shell: "cargo test"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
-  timeout: 300
+  - shell: "cargo test"
+  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
 ```
 
 ## Next Steps

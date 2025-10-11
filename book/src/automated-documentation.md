@@ -241,9 +241,10 @@ env:
   PROJECT_NAME: "YourProject"
   PROJECT_CONFIG: ".myproject/book-config.json"
   FEATURES_PATH: ".myproject/book-analysis/features.json"
+  ANALYSIS_DIR: ".myproject/book-analysis"
 
 setup:
-  - shell: "mkdir -p .myproject/book-analysis"
+  - shell: "mkdir -p ${ANALYSIS_DIR}"
 
   # Analyze codebase and build feature inventory
   - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
@@ -253,40 +254,45 @@ map:
   json_path: "$.chapters[*]"
 
   agent_template:
-    # Analyze each chapter for drift
+    # Step 1: Analyze the chapter for drift
     - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
+      commit_required: true
+
+    # Step 2: Fix the drift in this chapter
+    - claude: "/prodigy-fix-chapter-drift --project $PROJECT_NAME --chapter-id ${item.id}"
       commit_required: true
 
   max_parallel: 3
   agent_timeout_secs: 900
 
 reduce:
-  # Aggregate all drift reports and fix issues
-  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME --config $PROJECT_CONFIG"
-    commit_required: true
-
-  # Build the book
-  - shell: "cd book && mdbook build"
+  # Rebuild the book to ensure all chapters compile together
+  - shell: "(cd book && mdbook build)"
     on_failure:
+      # Only needed if there are build errors (broken links, etc)
       claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
+      commit_required: true
 
 error_policy:
   on_item_failure: dlq
   continue_on_failure: true
   max_failures: 2
+  error_collection: aggregate
 
 merge:
   commands:
-    # Clean up temporary analysis files
-    - shell: "rm -rf .myproject/book-analysis"
-    - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files' || true"
+    # Step 1: Clean up temporary analysis files
+    - shell: "rm -rf ${ANALYSIS_DIR}"
+    - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
 
-    # Final build verification
-    - shell: "cd book && mdbook build"
+    # Step 2: Validate book builds successfully
+    - shell: "(cd book && mdbook build)"
 
-    # Merge back to main branch
+    # Step 3: Fetch latest changes and merge master into worktree
     - shell: "git fetch origin"
-    - claude: "/merge-master"
+    - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
+
+    # Step 4: Merge worktree back to master
     - claude: "/prodigy-merge-worktree ${merge.source_branch}"
 ```
 
@@ -310,11 +316,12 @@ merge:
 prodigy run workflows/book-docs-drift.yml
 
 # The workflow will:
-# 1. Analyze your codebase for features
-# 2. Check each chapter for documentation drift
-# 3. Update chapters to match current implementation
-# 4. Build the book to verify everything works
-# 5. Merge changes back to your main branch
+# 1. Setup: Analyze your codebase for features (creates feature inventory)
+# 2. Map: For each chapter in parallel:
+#    a. Analyze chapter for drift (creates drift report)
+#    b. Fix the chapter based on drift report
+# 3. Reduce: Build the complete book to verify all chapters work together
+# 4. Merge: Clean up temp files and merge changes back to main branch
 ```
 
 ## Understanding the Workflow
@@ -351,9 +358,9 @@ This generates `.myproject/book-analysis/features.json`:
 }
 ```
 
-### Phase 2: Map - Chapter Drift Detection
+### Phase 2: Map - Chapter Drift Detection and Fixing
 
-Each chapter is processed in parallel to detect drift:
+Each chapter is processed in parallel with a two-step approach:
 
 ```yaml
 map:
@@ -361,35 +368,50 @@ map:
   json_path: "$.chapters[*]"
 
   agent_template:
+    # Step 1: Analyze the chapter for drift
     - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
+      commit_required: true
+
+    # Step 2: Fix the drift in this chapter
+    - claude: "/prodigy-fix-chapter-drift --project $PROJECT_NAME --chapter-id ${item.id}"
       commit_required: true
 ```
 
-For each chapter, Claude:
+The map phase actually has **TWO steps per chapter**:
+
+**Step 1: Analyze** - For each chapter, Claude:
 1. Reads the current chapter content
 2. Compares it to the feature inventory
 3. Identifies missing, outdated, or incorrect information
-4. Creates a drift report
+4. Creates a drift report (`.prodigy/book-analysis/drift-{chapter-id}.json`)
 
-### Phase 3: Reduce - Fix Drift
+**Step 2: Fix** - Then immediately for the same chapter, Claude:
+1. Reads the drift report created in step 1
+2. Updates the chapter file to fix all identified issues
+3. Commits the fixes to the worktree
 
-The reduce phase aggregates all drift reports and updates chapters:
+Both steps run sequentially for each chapter, and chapters are processed in parallel.
+
+### Phase 3: Reduce - Validate Book Build
+
+The reduce phase validates that all updated chapters build successfully together:
 
 ```yaml
 reduce:
-  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME --config $PROJECT_CONFIG"
-    commit_required: true
-
-  - shell: "cd book && mdbook build"
+  # Rebuild the book to ensure all chapters compile together
+  - shell: "(cd book && mdbook build)"
     on_failure:
+      # Only needed if there are build errors (broken links, etc)
       claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
+      commit_required: true
 ```
 
-Claude:
-1. Reviews all drift reports
-2. Updates chapters to fix issues
-3. Ensures consistency across chapters
-4. Verifies the book builds successfully
+Since chapter fixes happen in the map phase, the reduce phase focuses on:
+1. Building the complete book with all updated chapters
+2. Detecting any build errors (broken cross-references, invalid links, etc.)
+3. Fixing build errors if they occur (via Claude command)
+
+This ensures that all chapters work together correctly after parallel updates.
 
 ### Phase 4: Merge - Integration
 
@@ -398,11 +420,18 @@ The merge phase cleans up and integrates changes:
 ```yaml
 merge:
   commands:
-    - shell: "rm -rf .myproject/book-analysis"
-    - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files' || true"
-    - shell: "cd book && mdbook build"
+    # Step 1: Clean up temporary analysis files
+    - shell: "rm -rf ${ANALYSIS_DIR}"
+    - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
+
+    # Step 2: Validate book builds successfully
+    - shell: "(cd book && mdbook build)"
+
+    # Step 3: Fetch latest changes and merge master into worktree
     - shell: "git fetch origin"
-    - claude: "/merge-master"
+    - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
+
+    # Step 4: Merge worktree back to master
     - claude: "/prodigy-merge-worktree ${merge.source_branch}"
 ```
 
@@ -420,20 +449,21 @@ on:
     branches: [main, master]
     paths:
       - 'book/**'
-      - 'workflows/book-docs-drift.yml'
-  workflow_dispatch:  # Allow manual triggers
-
-permissions:
-  contents: write
-  pages: write
-  id-token: write
+      - '.github/workflows/deploy-docs.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'book/**'
+      - '.github/workflows/deploy-docs.yml'
 
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to push to gh-pages branch
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v2
@@ -441,90 +471,26 @@ jobs:
           mdbook-version: 'latest'
 
       - name: Build book
-        run: |
-          cd book
-          mdbook build
+        run: mdbook build book
 
       - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./book/book
-          cname: docs.yourproject.com  # Optional: custom domain
 ```
 
 ### Periodic Documentation Updates
 
-Create `.github/workflows/update-docs.yml`:
-
-```yaml
-name: Update Documentation
-
-on:
-  schedule:
-    # Run weekly on Monday at 9 AM UTC
-    - cron: '0 9 * * 1'
-  workflow_dispatch:  # Allow manual triggers
-
-jobs:
-  update-docs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-
-      - name: Install Prodigy
-        run: cargo install prodigy
-
-      - name: Install mdBook
-        uses: peaceiris/actions-mdbook@v2
-        with:
-          mdbook-version: 'latest'
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
-
-      - name: Configure Claude API
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          # Configure Claude Code CLI with API key
-          echo "$ANTHROPIC_API_KEY" | claude-code auth login
-
-      - name: Run documentation workflow
-        run: |
-          prodigy run workflows/book-docs-drift.yml
-
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: 'docs: automated documentation update'
-          title: 'Automated Documentation Update'
-          body: |
-            This PR was automatically created by the documentation workflow.
-
-            Changes:
-            - Updated documentation to match current codebase
-            - Fixed any detected drift between docs and implementation
-
-            Please review the changes before merging.
-          branch: docs/automated-update
-          delete-branch: true
-```
-
-**Required Secrets**:
-- `ANTHROPIC_API_KEY`: Your Claude API key (add in repository settings)
+> **Note**: Automated documentation updates in CI/CD are not yet fully supported. Claude Code CLI installation and authentication in GitHub Actions is still in development.
+>
+> For now, run the book workflow manually:
+> ```bash
+> prodigy run workflows/book-docs-drift.yml
+> ```
+>
+> Watch the Prodigy and Claude Code documentation for updates on CI integration.
 
 ### Enable GitHub Pages
 

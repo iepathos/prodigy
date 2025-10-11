@@ -1,0 +1,138 @@
+{
+  "chapter_id": "automated-documentation",
+  "chapter_title": "Automated Documentation",
+  "chapter_file": "book/src/automated-documentation.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Chapter provides comprehensive setup guide but has several inaccuracies in workflow examples and GitHub Actions configuration. The core concepts are sound, but implementation details need updates to match current codebase.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Step 7: Create the Workflow (line 241)",
+      "description": "The map phase uses deprecated nested 'commands' structure instead of direct command array",
+      "current_content": "agent_template:\n    # Analyze each chapter for drift\n    - claude: \"/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH\"\n      commit_required: true",
+      "should_be": "agent_template:\n  # Step 1: Analyze the chapter for drift\n  - claude: \"/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH\"\n    commit_required: true\n\n  # Step 2: Fix the drift in this chapter\n  - claude: \"/prodigy-fix-chapter-drift --project $PROJECT_NAME --chapter-id ${item.id}\"\n    commit_required: true",
+      "fix_suggestion": "Update the example workflow to show two-step process (analyze + fix) as shown in the actual workflows/book-docs-drift.yml. The actual workflow has both analyze and fix steps in the map phase.",
+      "source_reference": "workflows/book-docs-drift.yml:35-42"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Step 7: Reduce phase (line 264)",
+      "description": "The reduce phase example shows aggregation and fix-drift command, but actual workflow only does book build and error fixing",
+      "current_content": "reduce:\n  # Aggregate all drift reports and fix issues\n  - claude: \"/prodigy-fix-book-drift --project $PROJECT_NAME --config $PROJECT_CONFIG\"\n    commit_required: true\n\n  # Build the book\n  - shell: \"cd book && mdbook build\"\n    on_failure:\n      claude: \"/prodigy-fix-book-build-errors --project $PROJECT_NAME\"",
+      "should_be": "reduce:\n  # Rebuild the book to ensure all chapters compile together\n  - shell: \"(cd book && mdbook build)\"\n    on_failure:\n      # Only needed if there are build errors (broken links, etc)\n      claude: \"/prodigy-fix-book-build-errors --project $PROJECT_NAME\"\n      commit_required: true",
+      "fix_suggestion": "Update reduce phase to match actual implementation - it doesn't aggregate drift reports or run fix-book-drift command. The fixing happens per-chapter in the map phase. Reduce only validates the book builds.",
+      "source_reference": "workflows/book-docs-drift.yml:46-53"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Step 7: Merge phase (line 278)",
+      "description": "Merge phase shows incorrect command sequence and non-existent /merge-master command",
+      "current_content": "merge:\n  commands:\n    # Clean up temporary analysis files\n    - shell: \"rm -rf .myproject/book-analysis\"\n    - shell: \"git add -A && git commit -m 'chore: remove temporary book analysis files' || true\"\n\n    # Final build verification\n    - shell: \"cd book && mdbook build\"\n\n    # Merge back to main branch\n    - shell: \"git fetch origin\"\n    - claude: \"/merge-master\"\n    - claude: \"/prodigy-merge-worktree ${merge.source_branch}\"",
+      "should_be": "merge:\n  commands:\n    # Step 1: Clean up temporary analysis files\n    - shell: \"rm -rf ${ANALYSIS_DIR}\"\n    - shell: \"git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true\"\n\n    # Step 2: Validate book builds successfully\n    - shell: \"(cd book && mdbook build)\"\n\n    # Step 3: Fetch latest changes and merge master into worktree\n    - shell: \"git fetch origin\"\n    - claude: \"/prodigy-merge-master --project ${PROJECT_NAME}\"\n\n    # Step 4: Merge worktree back to master\n    - claude: \"/prodigy-merge-worktree ${merge.source_branch}\"",
+      "fix_suggestion": "Update merge phase to show correct command sequence with proper step numbering. Use /prodigy-merge-master not /merge-master. Use environment variable for analysis dir cleanup.",
+      "source_reference": "workflows/book-docs-drift.yml:62-78"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "GitHub Actions - Periodic Updates (line 456)",
+      "description": "GitHub Actions workflow shows outdated npm-based Claude Code CLI installation that doesn't work",
+      "current_content": "- name: Install Claude Code CLI\n  run: npm install -g @anthropic-ai/claude-code\n\n- name: Configure Claude API\n  env:\n    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}\n  run: |\n    # Configure Claude Code CLI with API key\n    echo \"$ANTHROPIC_API_KEY\" | claude-code auth login",
+      "should_be": "# Note: Claude Code installation and authentication in CI is not currently documented\n# This section should be removed or marked as placeholder until official CI support exists",
+      "fix_suggestion": "Remove the automated documentation update workflow section or clearly mark it as a placeholder/future feature. The current npm installation method is incorrect and would not work. Focus on the manual workflow execution for now.",
+      "source_reference": "No source - feature not yet available"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Step 7: Workflow configuration",
+      "description": "Missing agent_timeout_secs configuration that exists in actual workflow",
+      "should_add": "agent_timeout_secs: 900  # 15 minutes per agent",
+      "fix_suggestion": "Add agent_timeout_secs configuration to the map phase example, showing that each agent has a 15-minute timeout",
+      "source_reference": "workflows/book-docs-drift.yml:44"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Step 7: Error policy (line 273)",
+      "description": "Error policy example is incomplete - missing error_collection field",
+      "current_content": "error_policy:\n  on_item_failure: dlq\n  continue_on_failure: true\n  max_failures: 2",
+      "should_be": "error_policy:\n  on_item_failure: dlq\n  continue_on_failure: true\n  max_failures: 2\n  error_collection: aggregate",
+      "fix_suggestion": "Add error_collection: aggregate to the error policy example to match the actual workflow configuration",
+      "source_reference": "workflows/book-docs-drift.yml:56-60"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "GitHub Actions - Deploy workflow (line 413)",
+      "description": "Deploy workflow shows permissions and trigger configuration that differs from actual implementation",
+      "current_content": "on:\n  push:\n    branches: [main, master]\n    paths:\n      - 'book/**'\n      - 'workflows/book-docs-drift.yml'\n  workflow_dispatch:  # Allow manual triggers\n\npermissions:\n  contents: write\n  pages: write\n  id-token: write",
+      "should_be": "on:\n  push:\n    branches: [main, master]\n    paths:\n      - 'book/**'\n      - '.github/workflows/deploy-docs.yml'\n  pull_request:\n    branches: [main, master]\n    paths:\n      - 'book/**'\n      - '.github/workflows/deploy-docs.yml'\n\njobs:\n  build-deploy:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: write  # Required to push to gh-pages branch",
+      "fix_suggestion": "Update to match actual .github/workflows/deploy-docs.yml: add pull_request trigger, change path to actual workflow file, simplify permissions to only what's needed",
+      "source_reference": ".github/workflows/deploy-docs.yml:3-19"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "GitHub Actions - Deploy steps (line 434)",
+      "description": "Checkout action version and build command differ from actual implementation",
+      "current_content": "- name: Checkout\n  uses: actions/checkout@v4\n\n- name: Setup mdBook\n  uses: peaceiris/actions-mdbook@v2\n  with:\n    mdbook-version: 'latest'\n\n- name: Build book\n  run: |\n    cd book\n    mdbook build",
+      "should_be": "- name: Checkout repository\n  uses: actions/checkout@v5\n\n- name: Setup mdBook\n  uses: peaceiris/actions-mdbook@v2\n  with:\n    mdbook-version: 'latest'\n\n- name: Build book\n  run: mdbook build book",
+      "fix_suggestion": "Update checkout action to v5, change step name to match actual workflow, and use single-line build command that references book directory",
+      "source_reference": ".github/workflows/deploy-docs.yml:21-30"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "GitHub Actions - Deploy step (line 448)",
+      "description": "Deploy step shows optional cname that doesn't exist in actual workflow and missing conditional",
+      "current_content": "- name: Deploy to GitHub Pages\n  uses: peaceiris/actions-gh-pages@v4\n  with:\n    github_token: ${{ secrets.GITHUB_TOKEN }}\n    publish_dir: ./book/book\n    cname: docs.yourproject.com  # Optional: custom domain",
+      "should_be": "- name: Deploy to GitHub Pages\n  if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')\n  uses: peaceiris/actions-gh-pages@v4\n  with:\n    github_token: ${{ secrets.GITHUB_TOKEN }}\n    publish_dir: ./book/book",
+      "fix_suggestion": "Add the conditional 'if' statement to only deploy on push to main/master (not on PRs), and remove the cname example as it's not used in the actual workflow",
+      "source_reference": ".github/workflows/deploy-docs.yml:32-38"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Understanding the Workflow - Phase 2",
+      "description": "Chapter shows single-step map phase but actual workflow has two steps (analyze + fix)",
+      "should_add": "The map phase actually has TWO steps per chapter:\n1. Analyze the chapter for drift (creates drift report)\n2. Fix the chapter based on drift report\n\nBoth steps run sequentially for each chapter, and chapters are processed in parallel.",
+      "fix_suggestion": "Update the Phase 2 explanation to clarify that each chapter goes through analyze AND fix steps in the map phase, not just analysis",
+      "source_reference": "workflows/book-docs-drift.yml:35-42"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive setup guide with clear step-by-step instructions",
+    "Good explanation of the overall concept and benefits",
+    "Helpful customization examples for different project types (CLI tools, libraries, web services)",
+    "Well-organized troubleshooting section",
+    "Clear explanation of file structure and configuration",
+    "Good coverage of best practices",
+    "Real-world example using Prodigy itself is valuable"
+  ],
+  "improvement_suggestions": [
+    "Verify all YAML examples against actual workflow files before publishing",
+    "Remove or clearly mark as 'future feature' the automated CI workflow until Claude Code CI integration is documented",
+    "Add a section explaining the two-phase approach in map phase (analyze then fix)",
+    "Include example of what a drift report looks like (drift-*.json structure)",
+    "Consider adding a troubleshooting entry for 'features.json not found' error",
+    "Add note about the actual Claude commands available via 'prodigy init'",
+    "Consider showing actual output/logs from running the workflow"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-10-10",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "mdBook setup",
+      "Book workflow configuration",
+      "Feature analysis",
+      "GitHub Actions integration",
+      "Customization examples"
+    ],
+    "validation_focus": "Check that setup instructions are complete, configuration examples are valid, and GitHub Actions workflows are current"
+  }
+}

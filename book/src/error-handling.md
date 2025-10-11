@@ -41,7 +41,7 @@ For more control over error handling behavior:
   on_failure:
     claude: "/fix-warnings ${shell.output}"
     fail_workflow: false     # Continue workflow even if handler fails
-    max_attempts: 3          # Retry original command up to 3 times (alias: max_retries)
+    max_attempts: 3          # Retry original command up to 3 times (setting > 1 enables auto-retry)
 ```
 
 **Available Fields:**
@@ -51,7 +51,8 @@ For more control over error handling behavior:
 - `max_attempts` - Maximum retry attempts for the original command (default: `1`, alias: `max_retries`)
 
 **Notes:**
-- If `max_attempts > 1`, Prodigy will retry the original command after running the failure handler
+- Setting `max_attempts > 1` automatically enables retry behavior, eliminating the need for the deprecated `retry_original` flag
+- Prodigy will retry the original command after running the failure handler
 - You can specify both `shell` and `claude` commands - they will execute in sequence
 - By default, having a handler means the workflow continues even if the step fails
 
@@ -85,14 +86,28 @@ For complex error handling scenarios with multiple commands and fine-grained con
 
 ### Success Handling
 
-Execute commands when a step succeeds:
+Execute commands when a step succeeds. The `on_success` field accepts a full WorkflowStep configuration with all available fields.
 
+**Simple Form:**
 ```yaml
 - shell: "deploy-staging"
   on_success:
     shell: "notify-success"
     claude: "/update-deployment-docs"
 ```
+
+**Advanced Form with Full WorkflowStep Configuration:**
+```yaml
+- shell: "build-production"
+  on_success:
+    claude: "/update-build-metrics"
+    timeout: 60              # Success handler timeout
+    capture: "metrics"       # Capture output to variable
+    working_dir: "dist"      # Run in specific directory
+    when: "${build.target} == 'release'"  # Conditional execution
+```
+
+**Note:** The `on_success` handler supports all WorkflowStep fields including `timeout`, `capture`, `working_dir`, `when`, and nested `on_failure` handlers.
 
 ### Commit Requirements
 
