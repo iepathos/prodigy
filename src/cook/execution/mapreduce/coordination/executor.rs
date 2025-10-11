@@ -348,18 +348,14 @@ impl MapReduceCoordinator {
                 }
 
                 // Add stderr if available
-                if let Some(ref stderr) = result.stderr {
-                    if !stderr.trim().is_empty() {
-                        error_msg.push_str(&format!("\nstderr: {}", stderr.trim()));
-                    }
+                if !result.stderr.trim().is_empty() {
+                    error_msg.push_str(&format!("\nstderr: {}", result.stderr.trim()));
                 }
 
                 // Add stdout if available and stderr is empty
-                if result.stderr.as_ref().is_none_or(|s| s.trim().is_empty()) {
-                    if let Some(ref stdout) = result.stdout {
-                        if !stdout.trim().is_empty() {
-                            error_msg.push_str(&format!("\nstdout: {}", stdout.trim()));
-                        }
+                if result.stderr.trim().is_empty() {
+                    if !result.stdout.trim().is_empty() {
+                        error_msg.push_str(&format!("\nstdout: {}", result.stdout.trim()));
                     }
                 }
 
@@ -430,12 +426,15 @@ impl MapReduceCoordinator {
                     MapReduceError::ProcessingError(format!("Claude command failed: {}", e))
                 })?;
 
+            // Capture json_log_location before moving other fields
+            let json_log_location = result.json_log_location().map(|s| s.to_string());
+
             Ok(StepResult {
                 success: result.success,
                 exit_code: result.exit_code,
                 stdout: result.stdout,
                 stderr: result.stderr,
-                json_log_location: result.json_log_location().map(|s| s.to_string()),
+                json_log_location,
             })
         } else if let Some(write_file_cfg) = &step.write_file {
             info!("Executing write_file command: {}", write_file_cfg.path);
@@ -844,8 +843,8 @@ impl MapReduceCoordinator {
                 }
 
                 // Capture output
-                if let Some(ref stdout) = step_result.stdout {
-                    output.push_str(stdout);
+                if !step_result.stdout.is_empty() {
+                    output.push_str(&step_result.stdout);
                     output.push('\n');
                 }
 
@@ -1025,12 +1024,15 @@ impl MapReduceCoordinator {
                     ))
                 })?;
 
+            // Capture json_log_location before moving other fields
+            let json_log_location = result.json_log_location().map(|s| s.to_string());
+
             Ok(StepResult {
                 success: result.success,
                 exit_code: result.exit_code,
                 stdout: result.stdout,
                 stderr: result.stderr,
-                json_log_location: result.json_log_location().map(|s| s.to_string()),
+                json_log_location,
             })
         } else if let Some(shell_cmd) = &step.shell {
             // Debug: print context
@@ -1067,8 +1069,9 @@ impl MapReduceCoordinator {
             Ok(StepResult {
                 success: exit_code == 0,
                 exit_code: Some(exit_code),
-                stdout: Some(output.stdout),
-                stderr: Some(output.stderr),
+                stdout: output.stdout,
+                stderr: output.stderr,
+                json_log_location: None,
             })
         } else if let Some(write_file_cfg) = &step.write_file {
             // Interpolate variables in path and content
@@ -1118,8 +1121,9 @@ impl MapReduceCoordinator {
             Ok(StepResult {
                 success: result.success,
                 exit_code: result.exit_code,
-                stdout: Some(result.stdout),
-                stderr: Some(result.stderr),
+                stdout: result.stdout,
+                stderr: result.stderr,
+                json_log_location: result.json_log_location,
             })
         } else {
             Err(MapReduceError::InvalidConfiguration {
