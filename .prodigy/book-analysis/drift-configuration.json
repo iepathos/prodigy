@@ -1,0 +1,149 @@
+{
+  "chapter_id": "configuration",
+  "chapter_title": "Configuration",
+  "chapter_file": "book/src/configuration.md",
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Chapter is a placeholder stub with no actual content. All configuration topics need to be documented based on the implementation.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Configuration File Locations",
+      "description": "Chapter does not document where Prodigy looks for configuration files",
+      "should_add": "Document the configuration file search hierarchy:\n1. Explicit path provided via CLI\n2. .prodigy/config.yml for project config\n3. .prodigy/workflow.yml for workflow config\n4. Default configuration when no files found",
+      "fix_suggestion": "Add section explaining ConfigLoader search order with examples of each config file location",
+      "source_reference": "src/config/loader.rs:31-54 (ConfigLoader::load_with_explicit_path)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Configuration Precedence Rules",
+      "description": "Chapter does not explain how different configuration sources are merged",
+      "should_add": "Document precedence hierarchy:\n1. Environment variables (highest priority)\n2. Project config (.prodigy/config.yml)\n3. Global config (~/.prodigy/config.yml)\n4. Default values (lowest priority)\n\nSpecific precedence for key settings:\n- claude_api_key: Project > Global > Env\n- auto_commit: Project > Global > Default (true)\n- log_level: Env > Global > Default (info)",
+      "fix_suggestion": "Add detailed section on config precedence with concrete examples showing how settings override each other",
+      "source_reference": "src/config/mod.rs:102-154 (Config::merge_env_vars, get_claude_api_key, get_auto_commit)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Global Configuration Structure",
+      "description": "Chapter does not document GlobalConfig fields and their purposes",
+      "should_add": "Document GlobalConfig structure:\n- prodigy_home: Base directory for Prodigy data\n- default_editor: Editor for interactive operations\n- log_level: Logging verbosity (info, debug, trace)\n- claude_api_key: API key for Claude integration\n- max_concurrent_specs: Parallel execution limit\n- auto_commit: Automatic git commits\n- plugins: Plugin system configuration",
+      "fix_suggestion": "Add section with table of GlobalConfig fields, types, defaults, and descriptions",
+      "source_reference": "src/config/mod.rs:45-59 (GlobalConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Project Configuration Structure",
+      "description": "Chapter does not document ProjectConfig fields",
+      "should_add": "Document ProjectConfig structure:\n- name: Project name (required)\n- description: Project description (optional)\n- version: Project version (optional)\n- spec_dir: Directory for specification files (default: 'specs')\n- claude_api_key: Project-specific API key (overrides global)\n- auto_commit: Project-specific auto-commit setting\n- variables: Custom project variables (TOML table)",
+      "fix_suggestion": "Add section explaining project-level configuration with YAML example",
+      "source_reference": "src/config/mod.rs:61-74 (ProjectConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Workflow Configuration",
+      "description": "Chapter does not document WorkflowConfig structure for basic workflows",
+      "should_add": "Document WorkflowConfig structure:\n- commands: List of workflow commands (required)\n- env: Global environment variables for all commands\n- secrets: Secret environment variables (masked in logs)\n- env_files: List of .env files to load\n- profiles: Named environment profiles\n- merge: Custom merge workflow configuration",
+      "fix_suggestion": "Add section on workflow-level configuration with examples of env, secrets, and profiles",
+      "source_reference": "src/config/workflow.rs:8-35 (WorkflowConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Storage Configuration",
+      "description": "Chapter does not document storage backend configuration",
+      "should_add": "Document StorageConfig structure:\n- backend: Storage backend type (file, memory)\n- connection_pool_size: Pool size for database backends (default: 10)\n- retry_policy: Retry configuration for failed operations\n- timeout: Default operation timeout (default: 30s)\n- backend_config: Backend-specific settings (FileConfig or MemoryConfig)\n- enable_locking: Distributed locking (default: true)\n- enable_cache: Caching layer (default: false)\n- cache_config: Cache configuration",
+      "fix_suggestion": "Add section explaining storage backend options and configuration",
+      "source_reference": "src/storage/config.rs:23-55 (StorageConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "File Storage Configuration",
+      "description": "Chapter does not document FileConfig options",
+      "should_add": "Document FileConfig structure:\n- base_dir: Base directory for storage\n- use_global: Use global storage at ~/.prodigy (default: true, local storage deprecated)\n- enable_file_locks: File-based locking (default: true)\n- max_file_size: Maximum file size before rotation (default: 100MB)\n- enable_compression: Compression for archived files (default: false)",
+      "fix_suggestion": "Add subsection on file storage configuration with example",
+      "source_reference": "src/storage/config.rs:65-86 (FileConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Retry Policy Configuration",
+      "description": "Chapter does not document retry policy settings",
+      "should_add": "Document RetryPolicy structure:\n- max_retries: Maximum retry attempts (default: 3)\n- initial_delay: Initial retry delay (default: 1s)\n- max_delay: Maximum retry delay (default: 30s)\n- backoff_multiplier: Exponential backoff multiplier (default: 2.0)\n- jitter: Enable jitter (default: true)",
+      "fix_suggestion": "Add subsection explaining retry behavior with example configuration",
+      "source_reference": "src/storage/config.rs:113-135 (RetryPolicy struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Environment Variables",
+      "description": "Chapter does not list supported environment variables",
+      "should_add": "Document environment variables:\n- PRODIGY_CLAUDE_API_KEY: Override API key\n- PRODIGY_LOG_LEVEL: Override log level\n- PRODIGY_EDITOR: Override default editor\n- EDITOR: Fallback editor variable\n- PRODIGY_AUTO_COMMIT: Override auto-commit setting\n- PRODIGY_STORAGE_TYPE: Storage backend type (file, memory)\n- PRODIGY_STORAGE_BASE_PATH: Custom storage directory\n- PRODIGY_STORAGE_DIR: Alternative storage directory variable\n- PRODIGY_STORAGE_PATH: Alternative storage directory variable",
+      "fix_suggestion": "Add comprehensive table of environment variables with descriptions and examples",
+      "source_reference": "src/config/mod.rs:111-131 (Config::merge_env_vars) and src/storage/config.rs:244-286 (StorageConfig::from_env)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Configuration File Formats",
+      "description": "Chapter does not specify supported configuration file formats",
+      "should_add": "Document supported formats:\n- YAML (.yml, .yaml): Primary format for all config files\n- TOML: Deprecated, no longer supported\n- JSON: Not supported\n\nNote: Only YAML format is accepted for configuration files.",
+      "fix_suggestion": "Add section clarifying that only YAML format is supported",
+      "source_reference": "src/core/config/mod.rs:42-50 (validate_config_format)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Configuration Examples",
+      "description": "Chapter has no practical examples of configuration files",
+      "should_add": "Add complete working examples:\n1. Minimal .prodigy/config.yml (project config)\n2. Complete .prodigy/config.yml with all fields\n3. Basic .prodigy/workflow.yml\n4. Workflow with environment variables and profiles\n5. Global config at ~/.prodigy/config.yml",
+      "fix_suggestion": "Add examples section with annotated YAML snippets for common use cases",
+      "source_reference": "Test files in src/config/loader.rs:135-261 show example structures"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Default Values",
+      "description": "Chapter does not document default values for configuration options",
+      "should_add": "Document all defaults:\n- log_level: 'info'\n- max_concurrent_specs: 1\n- auto_commit: true\n- spec_dir: 'specs'\n- storage backend: file\n- use_global storage: true\n- enable_locking: true\n- enable_cache: false\n- connection_pool_size: 10\n- timeout: 30s\n- max_retries: 3\n- initial_delay: 1s\n- max_delay: 30s\n- backoff_multiplier: 2.0",
+      "fix_suggestion": "Add table of all configurable options with their default values",
+      "source_reference": "src/config/mod.rs:88-99 (GlobalConfig::default) and src/storage/config.rs:183-226 (default value functions)"
+    }
+  ],
+  "positive_aspects": [
+    "Chapter file exists with proper structure",
+    "Topics list is comprehensive and well-organized",
+    "Auto-generation note sets expectations clearly"
+  ],
+  "improvement_suggestions": [
+    "Start with a practical quick-start example showing minimal configuration",
+    "Include troubleshooting section for common configuration errors",
+    "Add migration guide for users upgrading from TOML to YAML format",
+    "Include best practices for managing API keys securely",
+    "Add examples of environment-specific configurations using profiles",
+    "Document the relationship between workflow config and MapReduce config",
+    "Explain when to use global vs project vs workflow-level configuration",
+    "Add visual diagram showing configuration precedence flow",
+    "Include command to validate configuration files",
+    "Document plugin configuration system (PluginConfig struct)"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-10-10",
+    "feature_inventory": "Direct codebase analysis (features.json not available)",
+    "topics_covered": [
+      "Config file locations",
+      "Precedence rules",
+      "Claude settings",
+      "Worktree settings",
+      "Storage settings",
+      "Retry defaults"
+    ],
+    "validation_focus": "Check configuration structure matches Settings struct and precedence is correctly documented",
+    "analysis_notes": "Chapter is currently a placeholder. All content needs to be written based on Config, GlobalConfig, ProjectConfig, WorkflowConfig, and StorageConfig structures found in the codebase."
+  }
+}
