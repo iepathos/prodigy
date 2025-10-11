@@ -4,134 +4,171 @@
   "chapter_file": "book/src/examples.md",
   "drift_detected": true,
   "severity": "medium",
-  "quality_assessment": "Examples are mostly accurate with good progression from simple to complex. Main issues are incorrect environment configuration syntax in Example 6 and some missing modern features like foreach. Most examples use current syntax correctly.",
+  "quality_assessment": "Chapter shows good variety of examples but has some outdated syntax and missing modern features. Most examples are valid but could benefit from updates to reflect current best practices.",
   "issues": [
     {
-      "type": "incorrect_example",
-      "severity": "high",
-      "section": "Example 6: Environment-Aware Workflow",
-      "description": "Example shows non-existent 'environment' root key with nested structure that doesn't match actual implementation",
-      "current_content": "environment:\n  global_env:\n    DEPLOY_ENV:\n      condition: \"${branch} == 'main'\"\n      when_true: \"production\"\n      when_false: \"staging\"\n  profiles:\n    production:\n      env:\n        API_URL: https://api.production.com\n  active_profile: \"${DEPLOY_ENV}\"\n\ncommands:\n  - shell: ...",
-      "should_be": "env:\n  DEPLOY_ENV:\n    condition: \"${branch} == 'main'\"\n    when_true: \"production\"\n    when_false: \"staging\"\n\nprofiles:\n  production:\n    API_URL: https://api.production.com\n    description: \"Production environment\"\n\nactive_profile: \"${DEPLOY_ENV}\"\n\n# Steps go directly at root (not under 'commands')\n- shell: \"cargo build --release\"\n- shell: \"echo 'Deploying to ${DEPLOY_ENV} at ${API_URL}'\"",
-      "fix_suggestion": "Remove 'environment:' wrapper and 'commands:' wrapper. Use root-level fields: 'env', 'profiles', 'active_profile'. Profile env vars should be flattened, not nested under 'env' key. Steps go directly in workflow, not under 'commands'.",
-      "source_reference": "src/config/mapreduce.rs:MapReduceWorkflowConfig (lines 24-38), src/cook/environment/config.rs:EnvProfile (lines 116-124)"
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Example 3: Foreach Iteration",
+      "description": "Example uses 'commands' field in foreach, which is valid but not the recommended modern syntax",
+      "current_content": "foreach:\n  - ...\ncommands:\n  - shell: ...",
+      "should_be": "foreach:\n  - ...\ndo:\n  - shell: ...",
+      "fix_suggestion": "Update foreach syntax to use 'do:' instead of 'commands:' to match current WorkflowStepCommand expectations",
+      "source_reference": "src/config/command.rs:190-211 (ForeachConfig with 'do_block' field)"
     },
     {
       "type": "incorrect_example",
       "severity": "medium",
-      "section": "Example 6: Profile Structure",
-      "description": "Profile structure incorrectly nests env vars under 'env' key",
-      "current_content": "profiles:\n  production:\n    env:\n      API_URL: https://api.production.com",
-      "should_be": "profiles:\n  production:\n    API_URL: https://api.production.com\n    description: \"Production environment\"",
-      "fix_suggestion": "EnvProfile uses #[serde(flatten)] for env HashMap, so variables go directly in the profile object, not nested under 'env' key",
-      "source_reference": "src/cook/environment/config.rs:EnvProfile (line 118)"
+      "section": "Example 4: Parallel Code Review",
+      "description": "Example uses deprecated 'capture' field instead of modern capture syntax",
+      "current_content": "- claude: \"/review-file ${item.path}\"\n  id: \"review\"\n  capture: \"review_result\"\n  capture_format: \"json\"",
+      "should_be": "- claude: \"/review-file ${item.path}\"\n  id: \"review\"\n  capture_output: \"review_result\"\n  capture_format: \"json\"",
+      "fix_suggestion": "Update to use 'capture_output' field which is the current implementation in WorkflowStepCommand",
+      "source_reference": "src/config/command.rs:367-368 (capture_output field in WorkflowStepCommand)"
     },
     {
       "type": "missing_content",
+      "severity": "low",
+      "section": "Example 6: Multi-Step Validation",
+      "description": "Validation example doesn't show all available validation options",
+      "should_add": "Show that validation supports both single command and multi-command formats (commands array)",
+      "fix_suggestion": "Add a note or alternative example showing 'commands:' array format for multi-step validation",
+      "source_reference": "src/cook/workflow/validation.rs:12-42 (ValidationConfig with commands, shell, claude options)"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Example 7: Environment-Aware Workflow",
+      "description": "Environment example shows incorrect 'profiles' structure that doesn't match current implementation",
+      "current_content": "profiles:\n  production:\n    API_URL: https://api.production.com\n    LOG_LEVEL: error\n    description: \"Production environment\"",
+      "should_be": "profiles:\n  production:\n    env:\n      API_URL: https://api.production.com\n      LOG_LEVEL: error\n    description: \"Production environment\"",
+      "fix_suggestion": "Update profiles syntax to use nested 'env' field as per EnvProfile struct. Also update secrets syntax to match current SecretValue implementation with provider and key fields",
+      "source_reference": "src/cook/environment.rs (EnvProfile and SecretValue structs)"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Example 7: Secrets Syntax",
+      "description": "Secrets example shows incorrect syntax - should use provider and key fields",
+      "current_content": "secrets:\n  API_KEY:\n    provider: env\n    key: SECRET_API_KEY",
+      "should_be": "secrets:\n  API_KEY:\n    value: \"${SECRET_API_KEY}\"\n    secret: true\n\nor\n\nsecrets:\n  API_KEY: \"${SECRET_API_KEY}\"",
+      "fix_suggestion": "Update secrets to match SecretValue enum - either simple string or object with 'value' and 'secret' fields",
+      "source_reference": "src/cook/environment.rs:SecretValue enum"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Example 7: Environment-Aware Workflow",
+      "description": "Example shows 'env_files' as array but doesn't clarify these should be PathBuf types",
+      "current_content": "env_files:\n  - .env\n  - .env.production",
+      "should_be": "Same syntax is correct, but should add note about path resolution",
+      "fix_suggestion": "Add a note that env_files paths are relative to workflow file location",
+      "source_reference": "src/config/mapreduce.rs:33-34 (env_files: Option<Vec<PathBuf>>)"
+    },
+    {
+      "type": "incorrect_example",
       "severity": "medium",
-      "section": "Missing Examples",
-      "description": "No example showing foreach iteration, a key command type",
-      "should_add": "Add example showing foreach:\n- foreach:\n    items:\n      - \"src/**/*.rs\"\n      - \"tests/**/*.rs\"\n    do:\n      - shell: \"cargo fmt ${item}\"\n      - shell: \"cargo clippy ${item}\"\n    parallel: 3",
-      "fix_suggestion": "Add Example 8 demonstrating foreach with both static list and command-based input, plus parallel execution",
-      "source_reference": "src/config/command.rs:ForeachConfig (lines 183-211), src/config/command.rs:WorkflowStepCommand::foreach (line 303)"
+      "section": "Example 7: Step-Level Environment Override",
+      "description": "Example shows incorrect shell syntax for step-level environment override",
+      "current_content": "- shell: \"LOG_LEVEL=debug ./deploy.sh\"",
+      "should_be": "- shell: \"./deploy.sh\"\n  env:\n    LOG_LEVEL: debug",
+      "fix_suggestion": "Use step-level 'env:' field instead of shell prefix for environment variable overrides to ensure proper tracking and masking",
+      "source_reference": "src/config/command.rs:143-145 (CommandMetadata::env field)"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Example 3: Parallel Code Review",
-      "description": "Example could show output capture and better use of map results in reduce",
-      "current_content": "agent_template:\n  - claude: \"/review-file ${item.path}\"\n  - shell: \"cargo check ${item.path}\"\nreduce:\n  - claude: \"/summarize-reviews ${map.results}\"",
-      "should_add": "Add outputs configuration to capture structured review data:\nagent_template:\n  - claude: \"/review-file ${item.path}\"\n    outputs:\n      review:\n        from_output: true\n        format: json",
-      "fix_suggestion": "Enhance to demonstrate output capture pattern for aggregating structured results",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand::outputs (line 319), src/cook/workflow/variables.rs:StandardVariables::MAP_RESULTS (line 40)"
+      "section": "Example 2: Coverage Improvement with Goal Seeking",
+      "description": "Goal seek example doesn't show that both 'claude' and 'shell' options are available",
+      "current_content": "goal_seek:\n  goal: \"...\"\n  claude: \"/improve-coverage\"\n  validate: |",
+      "should_add": "Note that goal_seek supports either 'claude' or 'shell' commands for refinement",
+      "fix_suggestion": "Add a comment or alternative showing 'shell' option for goal_seek refinement command",
+      "source_reference": "src/cook/goal_seek/mod.rs:15-35 (GoalSeekConfig with both claude and shell fields)"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Example 4: Conditional Deployment",
-      "description": "Example shows capture format: boolean but doesn't explain available formats",
-      "current_content": "outputs:\n  tests_passed:\n    from_output: true\n    format: boolean",
-      "should_add": "Add comment explaining available formats: string, number, json, lines, boolean",
-      "fix_suggestion": "Add inline comment:\n# Capture formats: string, number, json, lines, boolean\noutputs:\n  tests_passed:\n    from_output: true\n    format: boolean",
-      "source_reference": "src/cook/execution/variable_capture.rs:CaptureFormat"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Missing Examples",
-      "description": "No example showing timeout or working_dir configuration",
-      "should_add": "Example showing:\n- shell: \"npm test\"\n  timeout: 300\n  working_dir: \"frontend/\"\n  on_failure:\n    shell: \"npm run debug-tests\"",
-      "fix_suggestion": "Add to existing example or create new one showing advanced step configuration options",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand::timeout (line 339), src/cook/environment/config.rs:StepEnvironment::working_dir (line 135)"
-    },
-    {
-      "type": "unclear_content",
-      "severity": "low",
-      "section": "Example 7: Error Handling",
-      "description": "Shows error_policy but doesn't explain convenience fields vs nested structure",
+      "section": "Example 8: Complex MapReduce with Error Handling",
+      "description": "Error policy example doesn't show all available error collection strategies",
       "current_content": "error_policy:\n  on_item_failure: dlq\n  continue_on_failure: true\n  max_failures: 5\n  failure_threshold: 0.3",
-      "should_add": "Add comment explaining top-level convenience fields are also available:\n# Can use top-level: on_item_failure, continue_on_failure, max_failures, failure_threshold\n# Or nest under error_policy object as shown",
-      "fix_suggestion": "Clarify that these fields can be at root level or nested under error_policy",
-      "source_reference": "src/config/mapreduce.rs:MapReduceWorkflowConfig (lines 59-77), src/cook/workflow/error_policy.rs:WorkflowErrorPolicy (lines 131-179)"
+      "should_add": "Document error_collection field with options: aggregate, immediate, batched:{size}",
+      "fix_suggestion": "Add 'error_collection: aggregate' to example and explain available strategies",
+      "source_reference": "src/config/mapreduce.rs:75-77 (error_collection field) and ErrorCollectionStrategy enum"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Missing Examples",
-      "description": "No example showing secrets management",
-      "should_add": "Example demonstrating:\nsecrets:\n  API_KEY:\n    provider: env\n    key: MY_API_KEY\n\n- shell: \"curl -H 'Authorization: Bearer ${API_KEY}' ...\"",
-      "fix_suggestion": "Add example showing secret configuration and masking in logs",
-      "source_reference": "src/config/mapreduce.rs:MapReduceWorkflowConfig::secrets (line 29), src/cook/environment/config.rs:SecretValue (lines 84-96)"
+      "section": "Missing example",
+      "description": "No example showing write_file command which is available in WorkflowStepCommand",
+      "should_add": "Add example showing write_file command with path, content, format (text/json/yaml), mode, and create_dirs options",
+      "fix_suggestion": "Add Example 9 showing write_file usage for generating configuration files or reports",
+      "source_reference": "src/config/command.rs:279-318 (WriteFileConfig and WriteFileFormat)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Missing example",
+      "description": "No example showing timeout configuration at step level",
+      "should_add": "Show that individual steps can have 'timeout: <seconds>' field",
+      "fix_suggestion": "Add timeout field to one of the existing examples with explanation",
+      "source_reference": "src/config/command.rs:382-384 (timeout field in WorkflowStepCommand)"
     }
   ],
   "positive_aspects": [
-    "Good progression from simple (Example 1) to complex (Example 7)",
-    "Example 1 clearly shows basic shell and on_failure pattern",
-    "Example 2 demonstrates goal_seek with proper validation config",
-    "Example 3 shows MapReduce basics well (setup, map, reduce)",
-    "Example 4 correctly demonstrates conditional execution with when clause",
-    "Example 5 shows multi-step validation structure",
-    "Example 7 demonstrates error handling and filtering/sorting in MapReduce",
-    "All YAML is syntactically valid and parseable",
-    "Covers practical use cases: build/test, coverage, code review, deployment",
-    "Uses current command syntax (shell:, claude:, goal_seek:, etc.)"
+    "Good variety of examples covering different use cases",
+    "Progressive complexity from simple to advanced",
+    "Examples are well-commented and show practical scenarios",
+    "Coverage of both simple workflows and MapReduce patterns",
+    "Good use of variable interpolation throughout",
+    "Example 5 correctly shows capture_format options (string, json, lines, number, boolean)",
+    "Example 3 shows both sequential and parallel foreach patterns",
+    "Example 8 demonstrates comprehensive MapReduce with filtering, sorting, and error handling",
+    "Example 1 shows basic on_failure pattern correctly",
+    "Example 2 demonstrates goal_seek with proper threshold validation"
   ],
   "improvement_suggestions": [
-    "Fix Example 6 environment configuration to match actual MapReduceWorkflowConfig structure",
-    "Add Example 8 showing foreach iteration (missing key feature)",
-    "Add example showing timeout and working_dir configuration",
-    "Add example demonstrating secrets management and masking",
-    "Enhance Example 3 to show output capture for structured data",
-    "Add brief comments explaining what each example demonstrates",
-    "Add inline comments for available capture formats",
-    "Show step-level environment overrides in an example",
-    "Add example showing validation result_file with threshold",
-    "Consider adding troubleshooting notes for common pitfalls",
-    "Add expected output snippets to show what success looks like"
+    "Update foreach syntax in Example 3 to use modern 'do:' field instead of 'commands:'",
+    "Fix capture field in Example 4 to use 'capture_output' as per current implementation",
+    "Correct environment profiles syntax in Example 7 to use nested 'env' field",
+    "Fix secrets syntax in Example 7 to match SecretValue implementation",
+    "Update step-level environment override to use 'env:' field instead of shell prefix",
+    "Add example for write_file command",
+    "Add example showing step-level timeout configuration",
+    "Clarify validation multi-command support in Example 6",
+    "Show error_collection strategies in Example 8",
+    "Add note about goal_seek supporting both claude and shell commands",
+    "Consider adding example showing on_success chaining",
+    "Add example demonstrating capture_streams options (stdout, stderr, both)",
+    "Add note about env_files path resolution"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-05",
-    "feature_inventory": "Analyzed against source code directly",
+    "analyzed_at": "2025-10-10",
+    "feature_inventory": "Analyzed directly from codebase (features.json not provided)",
     "topics_covered": [
-      "Simple workflows",
-      "Goal seeking",
-      "MapReduce parallel execution",
-      "Conditional execution",
-      "Validation",
-      "Environment configuration",
-      "Error handling"
+      "Simple build and test workflows",
+      "Goal seeking for iterative improvement",
+      "Foreach iteration (sequential and parallel)",
+      "MapReduce parallel code review",
+      "Conditional deployment with when clauses",
+      "Multi-step validation",
+      "Environment-aware workflows with profiles",
+      "Complex MapReduce with error handling"
     ],
     "validation_focus": "Check examples are valid and work with current syntax",
-    "examples_count": 7,
+    "examples_count": 8,
     "syntax_errors": [
-      "Example 6 environment structure"
+      "Example 3: foreach 'commands' should be 'do'",
+      "Example 4: 'capture' should be 'capture_output'",
+      "Example 7: profiles structure incorrect",
+      "Example 7: secrets syntax incorrect",
+      "Example 7: step-level env override using shell prefix instead of env field"
     ],
     "missing_features_to_demonstrate": [
-      "foreach iteration",
+      "write_file command",
       "timeout configuration",
-      "working_dir",
-      "secrets management",
-      "step-level environment overrides"
+      "error_collection strategies",
+      "capture_streams options",
+      "on_success chaining"
     ]
   }
 }
