@@ -17,7 +17,7 @@
 ```yaml
 - goal_seek:
     goal: "Achieve 80% test coverage"
-    claude: "/improve-coverage"
+    claude: "/improve-coverage"  # Can also use 'shell' for shell commands
     validate: |
       coverage=$(cargo tarpaulin | grep 'Coverage' | sed 's/.*: \([0-9.]*\)%.*/\1/')
       echo "score: ${coverage%.*}"
@@ -39,7 +39,7 @@
       profile: release
     - rust-version: "stable"
       profile: release
-  commands:
+  do:
     - shell: "rustup install ${foreach.item.rust-version}"
     - shell: "cargo +${foreach.item.rust-version} build --profile ${foreach.item.profile}"
     - shell: "cargo +${foreach.item.rust-version} test"
@@ -51,7 +51,7 @@
     - "worker-service"
   parallel: 3
   continue_on_error: true
-  commands:
+  do:
     - shell: "cd services/${foreach.item} && cargo build"
     - shell: "cd services/${foreach.item} && cargo test"
       on_failure:
@@ -76,7 +76,7 @@ map:
   agent_template:
     - claude: "/review-file ${item.path}"
       id: "review"
-      capture: "review_result"
+      capture_output: "review_result"
       capture_format: "json"
     - shell: "cargo check ${item.path}"
   max_parallel: 5
@@ -94,6 +94,7 @@ reduce:
   id: "test"
   capture: "test_result"
   capture_format: "boolean"  # Supported: string, json, lines, number, boolean
+  timeout: 300  # Timeout in seconds (5 minutes)
 
 - shell: "cargo build --release"
   when: "${test_result} == true"
@@ -137,22 +138,25 @@ env:
 # Environment profiles for different contexts
 profiles:
   production:
-    API_URL: https://api.production.com
-    LOG_LEVEL: error
+    env:
+      API_URL: https://api.production.com
+      LOG_LEVEL: error
     description: "Production environment"
 
   staging:
-    API_URL: https://api.staging.com
-    LOG_LEVEL: warn
+    env:
+      API_URL: https://api.staging.com
+      LOG_LEVEL: warn
     description: "Staging environment"
 
 # Secrets (masked in logs)
 secrets:
   API_KEY:
-    provider: env
-    key: SECRET_API_KEY
+    value: "${SECRET_API_KEY}"
+    secret: true
 
 # Load additional variables from .env files
+# Note: Paths are relative to workflow file location
 env_files:
   - .env
   - .env.production
@@ -163,8 +167,10 @@ env_files:
 # Use environment variables in commands
 - shell: "echo 'Deploying to ${NODE_ENV} at ${API_URL}'"
 
-# Override environment for specific command using shell syntax
-- shell: "LOG_LEVEL=debug ./deploy.sh"
+# Override environment for specific step using env field
+- shell: "./deploy.sh"
+  env:
+    LOG_LEVEL: debug
 ```
 
 **Note:** Profile activation with `active_profile` is managed internally and not currently exposed in WorkflowConfig YAML. Use `--profile` CLI flag to activate profiles.
@@ -204,4 +210,52 @@ error_policy:
   continue_on_failure: true
   max_failures: 5
   failure_threshold: 0.3
+  error_collection: aggregate  # Options: aggregate, immediate, batched:{size}
+```
+
+---
+
+## Example 9: Generating Configuration Files
+
+```yaml
+# Generate a JSON configuration file
+- write_file:
+    path: "config/deployment.json"
+    format: json  # Options: text, json, yaml
+    create_dirs: true  # Create parent directories if they don't exist
+    content:
+      environment: production
+      api_url: "${API_URL}"
+      features:
+        - auth
+        - analytics
+        - notifications
+      timeout: 30
+
+# Generate a YAML configuration file
+- write_file:
+    path: "config/services.yml"
+    format: yaml
+    content:
+      services:
+        web:
+          image: "myapp:latest"
+          ports:
+            - "8080:8080"
+        database:
+          image: "postgres:15"
+          environment:
+            POSTGRES_DB: "${DB_NAME}"
+
+# Generate a plain text report
+- write_file:
+    path: "reports/summary.txt"
+    format: text
+    mode: "0644"  # File permissions (optional)
+    content: |
+      Deployment Summary
+      ==================
+      Environment: ${NODE_ENV}
+      API URL: ${API_URL}
+      Timestamp: $(date)
 ```
