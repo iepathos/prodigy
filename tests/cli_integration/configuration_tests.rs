@@ -157,7 +157,13 @@ mapreduce_defaults:
     let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // MapReduce defaults should be applied
-    assert!(output.exit_code == exit_codes::SUCCESS || output.stderr_contains("mapreduce"));
+    assert!(
+        output.exit_code == exit_codes::SUCCESS || output.stderr_contains("mapreduce"),
+        "Expected success or mapreduce in stderr. Got exit code: {}, stdout: {}, stderr: {}",
+        output.exit_code,
+        output.stdout,
+        output.stderr
+    );
 }
 
 #[test]

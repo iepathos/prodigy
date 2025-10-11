@@ -406,6 +406,70 @@ Prodigy supports parallel execution of work items across multiple Claude agents:
 - Results are aggregated in the reduce phase
 - Failed items can be retried via the DLQ
 
+### Worktree Isolation (Spec 127)
+
+**All MapReduce workflow phases (setup, map, reduce) execute in an isolated git worktree**, ensuring the main repository remains untouched during workflow execution.
+
+#### Execution Flow
+
+```
+Main Repository (untouched during execution)
+    ↓
+Worktree Created: ~/.prodigy/worktrees/{project}/session-mapreduce-{id}
+    ↓
+Setup Phase → Executes in parent worktree
+    ↓
+Map Phase → Each agent executes in child worktree (branched from parent)
+    ↓
+Reduce Phase → Executes in parent worktree
+    ↓
+Merge Phase → Merges parent worktree changes to main repo (user confirmed)
+```
+
+#### Isolation Guarantees
+
+1. **Setup Phase Isolation**
+   - Creates dedicated worktree before setup phase execution
+   - All setup commands execute in the worktree directory
+   - File modifications occur in worktree, not main repo
+   - Git commits are created in worktree context
+   - Main repository remains clean until final merge
+
+2. **Map Phase Isolation**
+   - Each map agent runs in its own child worktree
+   - Child worktrees branch from the parent worktree (setup results)
+   - No cross-contamination between agents
+   - Independent failure isolation
+
+3. **Reduce Phase Isolation**
+   - Executes in parent worktree (same as setup)
+   - Aggregates results from all map agents
+   - Continues worktree isolation guarantee
+
+#### Benefits
+
+- **Safety**: Main repository never modified during execution
+- **Parallelism**: Multiple agents can work concurrently
+- **Reproducibility**: Clean state for each workflow run
+- **Debugging**: Worktrees preserve full execution history
+- **Recovery**: Failed workflows don't pollute main repo
+
+#### Example Verification
+
+After running a MapReduce workflow, verify main repo is clean:
+
+```bash
+# Check main repo status (should be clean)
+git status
+# Expected: nothing to commit, working tree clean
+
+# Verify worktree has changes
+cd ~/.prodigy/worktrees/prodigy/session-mapreduce-*/
+git status
+git log
+# Expected: See setup phase changes and commits
+```
+
 ### Event Tracking
 Events are logged to `~/.prodigy/events/{repo_name}/{job_id}/` for debugging:
 - Agent lifecycle events (started, completed, failed)

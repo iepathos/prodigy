@@ -5,11 +5,70 @@
 use crate::cook::execution::variable_capture::{CommandResult, VariableCaptureEngine};
 use crate::cook::execution::SetupPhase;
 use crate::cook::workflow::{WorkflowContext, WorkflowStep};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context as _, Result};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use tokio::time::timeout as tokio_timeout;
 use tracing::{debug, info, warn};
+
+/// Guard to restore the original directory when dropped.
+/// This ensures we always restore the directory even if an error occurs.
+struct RestoreDirectoryGuard {
+    original_dir: PathBuf,
+}
+
+impl Drop for RestoreDirectoryGuard {
+    fn drop(&mut self) {
+        if let Err(e) = std::env::set_current_dir(&self.original_dir) {
+            warn!(
+                "Failed to restore original directory {}: {}",
+                self.original_dir.display(),
+                e
+            );
+        }
+    }
+}
+
+/// Validates that execution is happening in the correct worktree context.
+///
+/// This function performs security checks to ensure that setup phase commands
+/// are executed in the intended worktree directory and not in the main repository.
+///
+/// # Arguments
+/// * `expected_dir` - The directory where execution should occur (worktree path)
+///
+/// # Returns
+/// * `Ok(())` if validation passes
+/// * `Err` if validation fails or current directory doesn't match expected
+///
+/// # Security
+/// This validation prevents accidental execution in the main repository which
+/// could modify production code during MapReduce workflows.
+fn validate_execution_context(expected_dir: &Path) -> Result<()> {
+    let current_dir = std::env::current_dir().context("Failed to get current working directory")?;
+
+    // Check if current directory matches expected directory
+    if current_dir != expected_dir {
+        return Err(anyhow!(
+            "Execution context validation failed: current directory '{}' does not match expected worktree directory '{}'",
+            current_dir.display(),
+            expected_dir.display()
+        ));
+    }
+
+    // Additional validation: ensure path contains worktree indicators
+    let path_str = expected_dir.to_string_lossy();
+    if !path_str.contains("worktrees") && !path_str.contains("session-") {
+        warn!(
+            "Expected directory '{}' may not be a worktree (missing 'worktrees' or 'session-' in path)",
+            expected_dir.display()
+        );
+    }
+
+    debug!("Execution context validated: {}", expected_dir.display());
+    Ok(())
+}
 
 /// Executor for the setup phase of MapReduce workflows
 pub struct SetupPhaseExecutor {
@@ -138,8 +197,29 @@ impl SetupPhaseExecutor {
         // Use the working directory from the environment
         let working_dir = &env.working_dir;
 
+        // Save the original directory so we can restore it later
+        let original_dir =
+            std::env::current_dir().context("Failed to get current working directory")?;
+
+        // Change to the worktree directory before executing setup phase
+        std::env::set_current_dir(&**working_dir).with_context(|| {
+            format!(
+                "Failed to change to worktree directory: {}",
+                working_dir.display()
+            )
+        })?;
+
+        // Create a guard to ensure we restore the original directory on exit
+        let _restore_guard = RestoreDirectoryGuard {
+            original_dir: original_dir.clone(),
+        };
+
+        // Validate execution context before proceeding
+        validate_execution_context(working_dir)
+            .context("Setup phase execution context validation failed")?;
+
         info!(
-            "Setup phase executing in directory: {}",
+            "Executing in worktree: {} (validated)",
             working_dir.display()
         );
 
