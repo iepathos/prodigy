@@ -42,11 +42,15 @@ Handle failures with automatic remediation:
     claude: "/fix-warnings"
     max_attempts: 3
     fail_workflow: false
+    commit_required: true
 ```
 
 The `on_failure` configuration supports:
-- `max_attempts`: Maximum retry attempts (default: 1)
-- `fail_workflow`: Whether to fail entire workflow on final failure (default: true)
+- `max_attempts`: Maximum retry attempts (default: 3)
+- `fail_workflow`: Whether to fail entire workflow on final failure (default: false)
+- `commit_required`: Whether the remediation command should create a git commit (default: true)
+
+**Note**: These defaults come from the `TestDebugConfig` which provides sensible defaults for error recovery workflows.
 
 ### Nested Conditionals
 
@@ -132,6 +136,21 @@ Control which streams to capture using `capture_streams`:
   capture_output: "full_output"
   capture_streams: "both"
 ```
+
+**Advanced**: The `capture_streams` field can also accept a detailed struct for fine-grained control:
+
+```yaml
+- shell: "cargo test"
+  capture_output: "test_results"
+  capture_streams:
+    stdout: true
+    stderr: true
+    exit_code: true
+    success: true
+    duration: true
+```
+
+This struct format provides additional metadata like exit codes, success status, and execution duration alongside the captured output.
 
 ### Output File Redirection
 
@@ -221,6 +240,16 @@ Run multiple validation commands in sequence:
     threshold: 100
 ```
 
+**Convenience Syntax**: For simple cases, you can use an array format directly:
+
+```yaml
+- claude: "/refactor"
+  validate:
+    - shell: "cargo test"
+    - shell: "cargo clippy"
+    - shell: "cargo fmt --check"
+```
+
 ### Validation with Result Files
 
 Read validation results from a file instead of stdout:
@@ -255,6 +284,18 @@ The `on_incomplete` configuration supports:
 - `max_attempts`: Maximum remediation attempts (default: 1)
 - `fail_workflow`: Whether to fail workflow if remediation fails (default: true)
 - `commit_required`: Whether remediation command should create a commit (default: false)
+
+**Convenience Syntax**: For simple cases, you can use an array format directly:
+
+```yaml
+- claude: "/implement-spec"
+  validate:
+    shell: "check-completeness.sh"
+    threshold: 100
+    on_incomplete:
+      - claude: "/fill-gaps"
+      - shell: "cargo fmt"
+```
 
 ---
 
