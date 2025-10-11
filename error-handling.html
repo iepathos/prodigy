@@ -212,7 +212,7 @@
   on_failure:
     claude: "/fix-warnings ${shell.output}"
     fail_workflow: false     # Continue workflow even if handler fails
-    max_attempts: 3          # Retry original command up to 3 times (alias: max_retries)
+    max_attempts: 3          # Retry original command up to 3 times (setting &gt; 1 enables auto-retry)
 </code></pre>
 <p><strong>Available Fields:</strong></p>
 <ul>
@@ -223,7 +223,8 @@
 </ul>
 <p><strong>Notes:</strong></p>
 <ul>
-<li>If <code>max_attempts &gt; 1</code>, Prodigy will retry the original command after running the failure handler</li>
+<li>Setting <code>max_attempts &gt; 1</code> automatically enables retry behavior, eliminating the need for the deprecated <code>retry_original</code> flag</li>
+<li>Prodigy will retry the original command after running the failure handler</li>
 <li>You can specify both <code>shell</code> and <code>claude</code> commands - they will execute in sequence</li>
 <li>By default, having a handler means the workflow continues even if the step fails</li>
 </ul>
@@ -254,12 +255,23 @@
 <li><code>continue_on_error</code> - Continue to next handler command even if this fails</li>
 </ul>
 <h3 id="success-handling"><a class="header" href="#success-handling">Success Handling</a></h3>
-<p>Execute commands when a step succeeds:</p>
+<p>Execute commands when a step succeeds. The <code>on_success</code> field accepts a full WorkflowStep configuration with all available fields.</p>
+<p><strong>Simple Form:</strong></p>
 <pre><code class="language-yaml">- shell: "deploy-staging"
   on_success:
     shell: "notify-success"
     claude: "/update-deployment-docs"
 </code></pre>
+<p><strong>Advanced Form with Full WorkflowStep Configuration:</strong></p>
+<pre><code class="language-yaml">- shell: "build-production"
+  on_success:
+    claude: "/update-build-metrics"
+    timeout: 60              # Success handler timeout
+    capture: "metrics"       # Capture output to variable
+    working_dir: "dist"      # Run in specific directory
+    when: "${build.target} == 'release'"  # Conditional execution
+</code></pre>
+<p><strong>Note:</strong> The <code>on_success</code> handler supports all WorkflowStep fields including <code>timeout</code>, <code>capture</code>, <code>working_dir</code>, <code>when</code>, and nested <code>on_failure</code> handlers.</p>
 <h3 id="commit-requirements"><a class="header" href="#commit-requirements">Commit Requirements</a></h3>
 <p>Specify whether a workflow step must create a git commit:</p>
 <pre><code class="language-yaml">- claude: "/implement-feature"

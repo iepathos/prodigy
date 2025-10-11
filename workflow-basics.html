@@ -243,7 +243,7 @@ merge:
 </div>
 <p><strong>Note:</strong> <code>commands</code> is only required in the full format. Simple array format doesn’t use the <code>commands</code> key.</p>
 <h2 id="command-types"><a class="header" href="#command-types">Command Types</a></h2>
-<p>Prodigy supports several types of commands in workflows:</p>
+<p>Prodigy supports several types of commands in workflows. <strong>Each command step must specify exactly one command type</strong> - they are mutually exclusive.</p>
 <h3 id="core-commands"><a class="header" href="#core-commands">Core Commands</a></h3>
 <p><strong><code>shell:</code></strong> - Execute shell commands</p>
 <pre><code class="language-yaml">- shell: "cargo build --release"
@@ -271,6 +271,7 @@ merge:
   id: "run-tests"              # Step identifier for output referencing
   commit_required: true        # Expect git commit after this step
   timeout: 300                 # Timeout in seconds
+  working_dir: "./subproject"  # Set working directory for this command
 </code></pre>
 <h3 id="conditional-execution"><a class="header" href="#conditional-execution">Conditional Execution</a></h3>
 <p>Run commands based on conditions:</p>
@@ -286,12 +287,21 @@ merge:
     shell: "notify.sh"         # Run on success
 </code></pre>
 <h3 id="output-capture"><a class="header" href="#output-capture">Output Capture</a></h3>
-<p>Capture command output to variables:</p>
+<p>Capture command output to variables for use in subsequent commands:</p>
 <pre><code class="language-yaml">- shell: "git rev-parse HEAD"
   id: "get-commit"
-  capture: "commit_hash"       # Capture to variable
-  capture_format: "string"     # Format: string|json|lines|number|boolean
+  capture: "commit_hash"       # Modern: variable name to capture output
+  capture_format: "string"     # Format type (see below)
 </code></pre>
+<p><strong>Capture formats:</strong></p>
+<ul>
+<li><code>string</code> - Raw output as string (default)</li>
+<li><code>json</code> - Parse output as JSON object</li>
+<li><code>lines</code> - Split output into array of lines</li>
+<li><code>number</code> - Parse output as number</li>
+<li><code>boolean</code> - Parse output as true/false</li>
+</ul>
+<p><strong>Note:</strong> The <code>capture</code> field is the recommended approach. An older <code>capture_output</code> field exists for backward compatibility but <code>capture</code> is preferred for new workflows.</p>
 <p>For comprehensive coverage of these options, see:</p>
 <ul>
 <li><a href="advanced.html">Advanced Features</a> - Conditional execution, output capture, timeouts</li>
@@ -342,12 +352,13 @@ merge:
 <li>Sync with upstream changes</li>
 </ul>
 <pre><code class="language-yaml">merge:
-  commands:
-    - shell: "git fetch origin"
-    - shell: "git merge origin/main"
-    - shell: "cargo test"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
-  timeout: 600  # Optional: overall timeout for merge workflow
+  - shell: "git fetch origin"
+  - shell: "git merge origin/main"
+  - shell: "cargo test"
+  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+
+# Optional: timeout at workflow level, not under merge
+timeout: 600
 </code></pre>
 <p><strong>Available merge variables:</strong></p>
 <ul>
@@ -380,10 +391,8 @@ commands:
 
 # Custom merge workflow
 merge:
-  commands:
-    - shell: "cargo test"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
-  timeout: 300
+  - shell: "cargo test"
+  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
 </code></pre>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <p>Now that you understand basic workflows, explore these topics:</p>

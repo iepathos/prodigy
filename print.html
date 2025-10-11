@@ -276,7 +276,7 @@ merge:
 </div>
 <p><strong>Note:</strong> <code>commands</code> is only required in the full format. Simple array format doesn’t use the <code>commands</code> key.</p>
 <h2 id="command-types"><a class="header" href="#command-types">Command Types</a></h2>
-<p>Prodigy supports several types of commands in workflows:</p>
+<p>Prodigy supports several types of commands in workflows. <strong>Each command step must specify exactly one command type</strong> - they are mutually exclusive.</p>
 <h3 id="core-commands"><a class="header" href="#core-commands">Core Commands</a></h3>
 <p><strong><code>shell:</code></strong> - Execute shell commands</p>
 <pre><code class="language-yaml">- shell: "cargo build --release"
@@ -304,6 +304,7 @@ merge:
   id: "run-tests"              # Step identifier for output referencing
   commit_required: true        # Expect git commit after this step
   timeout: 300                 # Timeout in seconds
+  working_dir: "./subproject"  # Set working directory for this command
 </code></pre>
 <h3 id="conditional-execution"><a class="header" href="#conditional-execution">Conditional Execution</a></h3>
 <p>Run commands based on conditions:</p>
@@ -319,12 +320,21 @@ merge:
     shell: "notify.sh"         # Run on success
 </code></pre>
 <h3 id="output-capture"><a class="header" href="#output-capture">Output Capture</a></h3>
-<p>Capture command output to variables:</p>
+<p>Capture command output to variables for use in subsequent commands:</p>
 <pre><code class="language-yaml">- shell: "git rev-parse HEAD"
   id: "get-commit"
-  capture: "commit_hash"       # Capture to variable
-  capture_format: "string"     # Format: string|json|lines|number|boolean
+  capture: "commit_hash"       # Modern: variable name to capture output
+  capture_format: "string"     # Format type (see below)
 </code></pre>
+<p><strong>Capture formats:</strong></p>
+<ul>
+<li><code>string</code> - Raw output as string (default)</li>
+<li><code>json</code> - Parse output as JSON object</li>
+<li><code>lines</code> - Split output into array of lines</li>
+<li><code>number</code> - Parse output as number</li>
+<li><code>boolean</code> - Parse output as true/false</li>
+</ul>
+<p><strong>Note:</strong> The <code>capture</code> field is the recommended approach. An older <code>capture_output</code> field exists for backward compatibility but <code>capture</code> is preferred for new workflows.</p>
 <p>For comprehensive coverage of these options, see:</p>
 <ul>
 <li><a href="advanced.html">Advanced Features</a> - Conditional execution, output capture, timeouts</li>
@@ -375,12 +385,13 @@ merge:
 <li>Sync with upstream changes</li>
 </ul>
 <pre><code class="language-yaml">merge:
-  commands:
-    - shell: "git fetch origin"
-    - shell: "git merge origin/main"
-    - shell: "cargo test"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
-  timeout: 600  # Optional: overall timeout for merge workflow
+  - shell: "git fetch origin"
+  - shell: "git merge origin/main"
+  - shell: "cargo test"
+  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+
+# Optional: timeout at workflow level, not under merge
+timeout: 600
 </code></pre>
 <p><strong>Available merge variables:</strong></p>
 <ul>
@@ -413,10 +424,8 @@ commands:
 
 # Custom merge workflow
 merge:
-  commands:
-    - shell: "cargo test"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
-  timeout: 300
+  - shell: "cargo test"
+  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
 </code></pre>
 <h2 id="next-steps-1"><a class="header" href="#next-steps-1">Next Steps</a></h2>
 <p>Now that you understand basic workflows, explore these topics:</p>
@@ -523,11 +532,11 @@ error_policy:
   # Retry configuration with backoff
   retry_config:
     max_attempts: 3
+    # BackoffStrategy is an enum - use one variant:
     backoff:
-      type: exponential      # fixed, linear, exponential, fibonacci
-      initial: "1s"          # Initial delay (e.g., "1s", "500ms")
-      multiplier: 2          # For exponential
-      # Note: max_delay is NOT supported - use max_attempts to limit retries
+      exponential:
+        initial: "1s"
+        multiplier: 2.0
 
 # Convenience fields (alternative to nested error_policy)
 # These top-level fields map to error_policy for simpler syntax
@@ -535,6 +544,92 @@ on_item_failure: dlq
 continue_on_failure: true
 max_failures: 5
 </code></pre>
+<h2 id="backoff-strategies"><a class="header" href="#backoff-strategies">Backoff Strategies</a></h2>
+<p>The <code>retry_config.backoff</code> field uses an enum-based configuration. Choose ONE of the following strategies:</p>
+<h3 id="fixed-delay"><a class="header" href="#fixed-delay">Fixed Delay</a></h3>
+<p>Retry with a constant delay between attempts:</p>
+<pre><code class="language-yaml">retry_config:
+  max_attempts: 3
+  backoff:
+    fixed:
+      delay: "1s"  # Constant delay (e.g., "1s", "500ms", "2m")
+</code></pre>
+<h3 id="linear-backoff"><a class="header" href="#linear-backoff">Linear Backoff</a></h3>
+<p>Increase delay linearly with each attempt:</p>
+<pre><code class="language-yaml">retry_config:
+  max_attempts: 5
+  backoff:
+    linear:
+      initial: "1s"      # First retry delay
+      increment: "500ms" # Add this much for each subsequent retry
+</code></pre>
+<p>Example delays: 1s, 1.5s, 2s, 2.5s, 3s</p>
+<h3 id="exponential-backoff"><a class="header" href="#exponential-backoff">Exponential Backoff</a></h3>
+<p>Double (or multiply) the delay with each attempt:</p>
+<pre><code class="language-yaml">retry_config:
+  max_attempts: 4
+  backoff:
+    exponential:
+      initial: "1s"    # First retry delay
+      multiplier: 2.0  # Multiply delay by this factor each time
+</code></pre>
+<p>Example delays (multiplier=2.0): 1s, 2s, 4s, 8s</p>
+<h3 id="fibonacci-backoff"><a class="header" href="#fibonacci-backoff">Fibonacci Backoff</a></h3>
+<p>Use Fibonacci sequence for delays (gradual exponential growth):</p>
+<pre><code class="language-yaml">retry_config:
+  max_attempts: 6
+  backoff:
+    fibonacci:
+      initial: "1s"  # Base delay unit
+</code></pre>
+<p>Example delays: 1s, 1s, 2s, 3s, 5s, 8s</p>
+<p><strong>Important Notes:</strong></p>
+<ul>
+<li>All duration fields use <a href="https://docs.rs/humantime/latest/humantime/">humantime format</a>: “1s”, “500ms”, “2m”, “1h30m”</li>
+<li>The <code>backoff</code> field is an <strong>enum</strong> - use ONE variant, not a <code>type</code> discriminator</li>
+<li>Use <code>max_attempts</code> to limit total retries (there is no <code>max_delay</code> field)</li>
+<li>Choose strategy based on your use case:
+<ul>
+<li><strong>Fixed</strong>: Predictable timing, good for known transient issues</li>
+<li><strong>Linear</strong>: Gradual increase, good for slowly-recovering services</li>
+<li><strong>Exponential</strong>: Fast backoff, good for rate limiting and congestion</li>
+<li><strong>Fibonacci</strong>: Balanced growth, good for general-purpose retries</li>
+</ul>
+</li>
+</ul>
+<h2 id="error-collection-strategies"><a class="header" href="#error-collection-strategies">Error Collection Strategies</a></h2>
+<p>The <code>error_collection</code> field controls how errors are reported during workflow execution:</p>
+<pre><code class="language-yaml">error_policy:
+  # Collect all errors and report at workflow end (default)
+  error_collection: aggregate
+
+  # OR: Report each error immediately as it occurs
+  error_collection: immediate
+
+  # OR: Report errors in batches of N items
+  error_collection: batched:10
+</code></pre>
+<p><strong>Strategy Behaviors:</strong></p>
+<ul>
+<li><code>aggregate</code> - Collect all errors in memory and report at the end
+<ul>
+<li>Use for: Final summary reports, batch processing where individual failures don’t need immediate attention</li>
+<li>Trade-off: Low noise, but you won’t see errors until completion</li>
+</ul>
+</li>
+<li><code>immediate</code> - Log/report each error as soon as it happens
+<ul>
+<li>Use for: Debugging, development, real-time monitoring</li>
+<li>Trade-off: More verbose, but immediate visibility</li>
+</ul>
+</li>
+<li><code>batched:N</code> - Report errors in batches of N items
+<ul>
+<li>Use for: Progress updates without spam, monitoring long-running jobs</li>
+<li>Trade-off: Balance between noise and visibility (e.g., <code>batched:10</code> reports every 10 failures)</li>
+</ul>
+</li>
+</ul>
 <h2 id="setup-phase-advanced"><a class="header" href="#setup-phase-advanced">Setup Phase (Advanced)</a></h2>
 <p>The setup phase supports two formats: simple array OR full configuration object.</p>
 <pre><code class="language-yaml"># Simple array format
@@ -553,19 +648,108 @@ setup:
 
   # Capture outputs from setup commands
   capture_outputs:
-    # Simple format (legacy - just index)
-    file_count: 0  # Capture from command at index 0
+    # Simple format (shorthand - captures stdout with defaults)
+    file_count: 0  # Capture stdout from command at index 0
 
-    # Full CaptureConfig format
+    # Detailed CaptureConfig format
     analysis_result:
       command_index: 1
-      format: json  # string, number, json, lines, boolean
+      source: stdout           # stdout, stderr, both, combined
+      json_path: "$.result"    # Extract JSON field
+      max_size: 1048576        # Max bytes (1MB)
+      default: "{}"            # Fallback if extraction fails
+      multiline: preserve      # preserve, join, first_line, last_line, array
 </code></pre>
 <p><strong>Setup Phase Fields:</strong></p>
 <ul>
 <li><code>commands</code> - Array of commands to execute (or use simple array format at top level)</li>
 <li><code>timeout</code> - Timeout for entire setup phase in seconds</li>
-<li><code>capture_outputs</code> - Map of variable names to command outputs (supports Simple(index) or full CaptureConfig)</li>
+<li><code>capture_outputs</code> - Map of variable names to command outputs (Simple or Detailed format)</li>
+</ul>
+<h3 id="capture-configuration-formats"><a class="header" href="#capture-configuration-formats">Capture Configuration Formats</a></h3>
+<p>Prodigy supports two CaptureConfig formats:</p>
+<p><strong>Simple Format</strong> - Shorthand for common cases:</p>
+<pre><code class="language-yaml">capture_outputs:
+  file_count: 0  # Captures stdout from command at index 0 with default settings
+</code></pre>
+<p><strong>Detailed Format</strong> - Full control over capture behavior:</p>
+<pre><code class="language-yaml">capture_outputs:
+  analysis_result:
+    command_index: 1                # Which command to capture from
+    source: stdout                  # stdout, stderr, both, combined
+    pattern: "version: (\\d+\\.\\d+)" # Regex extraction (optional)
+    json_path: "$.result"           # JSON path extraction (optional)
+    max_size: 1048576               # Max bytes to capture (optional, default 1MB)
+    default: "{}"                   # Fallback value if extraction fails (optional)
+    multiline: preserve             # How to handle multiple lines (optional)
+</code></pre>
+<p><strong>CaptureConfig Fields:</strong></p>
+<ul>
+<li><code>command_index</code> - Zero-based index of command to capture from (required)</li>
+<li><code>source</code> - Where to capture from (optional, default: stdout):
+<ul>
+<li><code>stdout</code> - Capture standard output only</li>
+<li><code>stderr</code> - Capture standard error only</li>
+<li><code>both</code> - Capture both with labels (stdout:\n…\nstderr:\n…)</li>
+<li><code>combined</code> - Interleave stdout and stderr in order</li>
+</ul>
+</li>
+<li><code>pattern</code> - Regex pattern for extraction (optional, use with capture groups)</li>
+<li><code>json_path</code> - JSONPath expression for JSON extraction (optional, e.g., “$.items[*].name”)</li>
+<li><code>max_size</code> - Maximum bytes to capture (optional, default: 1MB)</li>
+<li><code>default</code> - Fallback value if extraction fails (optional)</li>
+<li><code>multiline</code> - How to handle multiple output lines (optional, default: preserve):
+<ul>
+<li><code>preserve</code> - Keep all lines with newlines</li>
+<li><code>join</code> - Join lines with spaces (useful for single-line summaries)</li>
+<li><code>first_line</code> - Take only first line (useful for version strings)</li>
+<li><code>last_line</code> - Take only last line (useful for final status)</li>
+<li><code>array</code> - Return as JSON array of lines (useful for lists)</li>
+</ul>
+</li>
+</ul>
+<p><strong>Capture Configuration Examples:</strong></p>
+<pre><code class="language-yaml"># Extract version number from output
+capture_outputs:
+  version:
+    command_index: 0
+    pattern: "version: (\\d+\\.\\d+\\.\\d+)"
+    multiline: first_line
+
+# Parse JSON result
+capture_outputs:
+  items:
+    command_index: 1
+    source: stdout
+    json_path: "$.items[*]"
+
+# Capture error messages for debugging
+capture_outputs:
+  errors:
+    command_index: 2
+    source: stderr
+    multiline: array
+
+# Get file count as single number
+capture_outputs:
+  count:
+    command_index: 3
+    pattern: "(\\d+) files"
+    multiline: first_line
+    default: "0"
+</code></pre>
+<p><strong>When to use Simple vs Detailed:</strong></p>
+<ul>
+<li>Use <strong>Simple</strong> when you only need stdout with default settings</li>
+<li>Use <strong>Detailed</strong> when you need:
+<ul>
+<li>Pattern extraction with regex</li>
+<li>JSON parsing with JSONPath</li>
+<li>Custom source (stderr, both, combined)</li>
+<li>Multiline handling options</li>
+<li>Fallback values with <code>default</code></li>
+</ul>
+</li>
 </ul>
 <h2 id="global-storage-architecture"><a class="header" href="#global-storage-architecture">Global Storage Architecture</a></h2>
 <p>MapReduce workflows use a global storage architecture located in <code>~/.prodigy/</code> (not <code>.prodigy/</code> in your project). This enables:</p>
@@ -707,6 +891,177 @@ prodigy dlq show &lt;job_id&gt; &lt;item_id&gt;
 # Clear DLQ after manual fixes
 prodigy dlq clear &lt;job_id&gt;
 </code></pre>
+<h2 id="common-pitfalls"><a class="header" href="#common-pitfalls">Common Pitfalls</a></h2>
+<h3 id="incorrect-captureconfig-fields"><a class="header" href="#incorrect-captureconfig-fields">Incorrect CaptureConfig Fields</a></h3>
+<p><strong>Problem:</strong> Using <code>format: json</code> in capture_outputs configuration.</p>
+<pre><code class="language-yaml"># ❌ WRONG - 'format' field doesn't exist
+capture_outputs:
+  result:
+    command_index: 0
+    format: json
+</code></pre>
+<p><strong>Solution:</strong> Use the correct CaptureConfig fields:</p>
+<pre><code class="language-yaml"># ✅ CORRECT - Use json_path for JSON extraction
+capture_outputs:
+  result:
+    command_index: 0
+    json_path: "$.result"
+    source: stdout
+    multiline: preserve
+</code></pre>
+<h3 id="incorrect-backoff-enum-syntax"><a class="header" href="#incorrect-backoff-enum-syntax">Incorrect Backoff Enum Syntax</a></h3>
+<p><strong>Problem:</strong> Using flat <code>type</code> discriminator for backoff strategy.</p>
+<pre><code class="language-yaml"># ❌ WRONG - Using 'type' discriminator
+retry_config:
+  max_attempts: 3
+  backoff:
+    type: exponential
+    initial: "1s"
+    multiplier: 2
+</code></pre>
+<p><strong>Solution:</strong> Use the correct enum variant syntax:</p>
+<pre><code class="language-yaml"># ✅ CORRECT - Enum variant with nested fields
+retry_config:
+  max_attempts: 3
+  backoff:
+    exponential:
+      initial: "1s"
+      multiplier: 2.0
+</code></pre>
+<h3 id="duration-format-errors"><a class="header" href="#duration-format-errors">Duration Format Errors</a></h3>
+<p><strong>Problem:</strong> Using numeric values instead of humantime strings.</p>
+<pre><code class="language-yaml"># ❌ WRONG - Numbers without units
+backoff:
+  fixed:
+    delay: 1000  # Unclear: milliseconds? seconds?
+</code></pre>
+<p><strong>Solution:</strong> Always use humantime format strings:</p>
+<pre><code class="language-yaml"># ✅ CORRECT - Explicit units
+backoff:
+  fixed:
+    delay: "1s"  # or "1000ms", "1m", "1h30m"
+</code></pre>
+<h3 id="confusing-simple-vs-detailed-capture"><a class="header" href="#confusing-simple-vs-detailed-capture">Confusing Simple vs Detailed Capture</a></h3>
+<p><strong>Problem:</strong> Treating simple capture format as “legacy” or not knowing when to use it.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li>Use <strong>Simple</strong> (<code>variable: 0</code>) when you only need stdout with defaults</li>
+<li>Use <strong>Detailed</strong> when you need pattern/json extraction, custom source, or multiline handling</li>
+<li>Simple format is NOT deprecated - it’s a valid shorthand</li>
+</ul>
+<h3 id="missing-multiplier-decimal-point"><a class="header" href="#missing-multiplier-decimal-point">Missing Multiplier Decimal Point</a></h3>
+<p><strong>Problem:</strong> Using integer multiplier in exponential backoff.</p>
+<pre><code class="language-yaml"># ⚠️  POTENTIAL ISSUE - Integer might work but float is safer
+backoff:
+  exponential:
+    multiplier: 2
+</code></pre>
+<p><strong>Solution:</strong> Use float values explicitly:</p>
+<pre><code class="language-yaml"># ✅ CORRECT - Float value
+backoff:
+  exponential:
+    multiplier: 2.0
+</code></pre>
+<h3 id="incorrect-variable-references"><a class="header" href="#incorrect-variable-references">Incorrect Variable References</a></h3>
+<p><strong>Problem:</strong> Using wrong variable names in map/reduce phases.</p>
+<pre><code class="language-yaml"># ❌ WRONG - These variables don't exist
+reduce:
+  - shell: "echo ${results}"  # Should be ${map.results}
+  - shell: "echo ${total}"    # Should be ${map.total}
+</code></pre>
+<p><strong>Solution:</strong> Use the correct variable namespaces (see <a href="./variables.html">Variables chapter</a>):</p>
+<pre><code class="language-yaml"># ✅ CORRECT - Proper variable names
+reduce:
+  - shell: "echo ${map.results}"
+  - shell: "echo ${map.successful}/${map.total} items"
+</code></pre>
+<h3 id="max-delay-field-doesnt-exist"><a class="header" href="#max-delay-field-doesnt-exist">Max Delay Field (Doesn’t Exist)</a></h3>
+<p><strong>Problem:</strong> Trying to use <code>max_delay</code> field in backoff configuration.</p>
+<pre><code class="language-yaml"># ❌ WRONG - max_delay is not supported
+backoff:
+  exponential:
+    initial: "1s"
+    multiplier: 2.0
+    max_delay: "60s"  # This field doesn't exist
+</code></pre>
+<p><strong>Solution:</strong> Use <code>max_attempts</code> to limit retries instead:</p>
+<pre><code class="language-yaml"># ✅ CORRECT - Limit via max_attempts
+retry_config:
+  max_attempts: 5  # Limits total retry attempts
+  backoff:
+    exponential:
+      initial: "1s"
+      multiplier: 2.0
+</code></pre>
+<h3 id="nested-commands-syntax"><a class="header" href="#nested-commands-syntax">Nested Commands Syntax</a></h3>
+<p><strong>Problem:</strong> Mixing modern and deprecated syntax.</p>
+<pre><code class="language-yaml"># ⚠️  DEPRECATED but still supported
+agent_template:
+  commands:
+    - shell: "test.sh"
+</code></pre>
+<p><strong>Solution:</strong> Use modern flat syntax:</p>
+<pre><code class="language-yaml"># ✅ MODERN - Commands directly under agent_template
+agent_template:
+  - shell: "test.sh"
+  - claude: "/process '${item}'"
+</code></pre>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="workflow-validation-errors"><a class="header" href="#workflow-validation-errors">Workflow Validation Errors</a></h3>
+<p>If you see validation errors when running a MapReduce workflow:</p>
+<ol>
+<li><strong>Check backoff syntax</strong>: Ensure you’re using enum variants (e.g., <code>exponential: { initial: "1s" }</code>), not <code>type</code> discriminators</li>
+<li><strong>Check duration formats</strong>: All duration fields must use humantime format (e.g., <code>"1s"</code>, <code>"500ms"</code>)</li>
+<li><strong>Check CaptureConfig fields</strong>: Don’t use <code>format</code> - use <code>json_path</code> or <code>pattern</code> instead</li>
+<li><strong>Check variable references</strong>: Use <code>${map.*}</code>, <code>${item.*}</code>, <code>${merge.*}</code> namespaces</li>
+</ol>
+<h3 id="common-error-messages"><a class="header" href="#common-error-messages">Common Error Messages</a></h3>
+<p><strong>“unknown field <code>format</code>”</strong></p>
+<ul>
+<li>You’re using <code>format</code> in CaptureConfig</li>
+<li>Solution: Remove <code>format</code>, use <code>json_path</code> or <code>pattern</code></li>
+</ul>
+<p><strong>“missing field <code>delay</code>” (in Fixed backoff)</strong></p>
+<ul>
+<li>You’re using <code>initial</code> instead of <code>delay</code> for Fixed strategy</li>
+<li>Solution: Fixed uses <code>delay</code>, not <code>initial</code></li>
+</ul>
+<p><strong>“data did not match any variant”</strong></p>
+<ul>
+<li>Your backoff configuration doesn’t match any enum variant</li>
+<li>Solution: Check the exact field names for your chosen strategy</li>
+</ul>
+<p><strong>“invalid value: integer, expected a string”</strong></p>
+<ul>
+<li>You’re using a number for a duration field</li>
+<li>Solution: Use quoted humantime strings (e.g., <code>"1s"</code> instead of <code>1</code>)</li>
+</ul>
+<h3 id="performance-issues"><a class="header" href="#performance-issues">Performance Issues</a></h3>
+<p><strong>Too many parallel agents overwhelming system:</strong></p>
+<ul>
+<li>Reduce <code>max_parallel</code> value</li>
+<li>Use circuit breaker to prevent cascading failures</li>
+<li>Monitor with <code>prodigy events &lt;job_id&gt; --follow</code></li>
+</ul>
+<p><strong>DLQ filling up with same errors:</strong></p>
+<ul>
+<li>Check DLQ contents: <code>prodigy dlq list &lt;job_id&gt;</code></li>
+<li>Fix root cause before retrying</li>
+<li>Use <code>error_collection: immediate</code> for faster debugging</li>
+</ul>
+<h3 id="resume-not-working"><a class="header" href="#resume-not-working">Resume Not Working</a></h3>
+<p><strong>Checkpoint not found:</strong></p>
+<ul>
+<li>Check <code>~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/</code></li>
+<li>Ensure you’re using the correct job_id</li>
+<li>Run <code>prodigy resume-job &lt;job_id&gt; -v</code> for detailed logs</li>
+</ul>
+<p><strong>Resume starts from beginning:</strong></p>
+<ul>
+<li>Checkpoints may be corrupted</li>
+<li>Check event logs: <code>prodigy events &lt;job_id&gt;</code></li>
+<li>Consider using offset to skip already-processed items</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="command-types-1"><a class="header" href="#command-types-1">Command Types</a></h1>
 <h2 id="1-shell-commands"><a class="header" href="#1-shell-commands">1. Shell Commands</a></h2>
 <pre><code class="language-yaml"># Simple shell command
@@ -782,7 +1137,53 @@ prodigy dlq clear &lt;job_id&gt;
     continue_on_error: true
     max_items: 50
 </code></pre>
-<h2 id="5-validation-commands"><a class="header" href="#5-validation-commands">5. Validation Commands</a></h2>
+<h2 id="5-write-file-commands"><a class="header" href="#5-write-file-commands">5. Write File Commands</a></h2>
+<p>Create or overwrite files with content from variables or literals. Supports text, JSON, and YAML formats with automatic validation and formatting.</p>
+<pre><code class="language-yaml"># Write plain text file
+- write_file:
+    path: "output/result.txt"
+    content: "Build completed at ${shell.output}"
+    format: text
+    mode: "0644"
+    create_dirs: true
+
+# Write JSON file with validation
+- write_file:
+    path: "config/generated.json"
+    content: |
+      {
+        "version": "${version}",
+        "timestamp": "${timestamp}",
+        "items": ${items_json}
+      }
+    format: json
+
+# Write YAML file with formatting
+- write_file:
+    path: ".prodigy/metadata.yml"
+    content: |
+      workflow: ${workflow.name}
+      iteration: ${workflow.iteration}
+      results:
+        success: ${map.successful}
+        total: ${map.total}
+    format: yaml
+</code></pre>
+<p><strong>WriteFileConfig Fields:</strong></p>
+<ul>
+<li><code>path</code> - File path to write (supports variable interpolation)</li>
+<li><code>content</code> - Content to write (supports variable interpolation)</li>
+<li><code>format</code> - Output format: <code>text</code> (default), <code>json</code>, <code>yaml</code></li>
+<li><code>mode</code> - File permissions in octal (default: “0644”)</li>
+<li><code>create_dirs</code> - Create parent directories if they don’t exist (default: false)</li>
+</ul>
+<p><strong>Format Validation:</strong></p>
+<ul>
+<li><code>json</code> - Validates JSON syntax and pretty-prints output</li>
+<li><code>yaml</code> - Validates YAML syntax and formats output</li>
+<li><code>text</code> - Writes content as-is without validation</li>
+</ul>
+<h2 id="6-validation-commands"><a class="header" href="#6-validation-commands">6. Validation Commands</a></h2>
 <p>Validate implementation completeness with automatic retry.</p>
 <pre><code class="language-yaml">- claude: "/implement-auth-spec"
   validate:
@@ -814,12 +1215,10 @@ prodigy dlq clear &lt;job_id&gt;
 <ul>
 <li><code>shell</code> or <code>claude</code> - Single gap-filling command</li>
 <li><code>commands</code> - Array of commands for multi-step gap filling</li>
-<li><code>max_attempts</code> - Maximum retry attempts</li>
-<li><code>fail_workflow</code> - Whether to fail workflow if validation incomplete</li>
-<li><code>commit_required</code> - Whether to require commit after gap filling</li>
+<li><code>max_attempts</code> - Maximum retry attempts (default: 2)</li>
+<li><code>fail_workflow</code> - Whether to fail workflow if validation incomplete (default: true)</li>
+<li><code>commit_required</code> - Whether to require commit after gap filling (default: false)</li>
 <li><code>prompt</code> - Optional interactive prompt for user guidance</li>
-<li><code>retry_original</code> - Whether to retry the original command (default: false). When true, re-executes the original command instead of gap-filling commands</li>
-<li><code>strategy</code> - Retry strategy configuration (similar to OnFailureConfig strategy)</li>
 </ul>
 <p><strong>Alternative: Array format for multi-step validation</strong></p>
 <pre><code class="language-yaml">- claude: "/implement-feature"
@@ -843,17 +1242,6 @@ prodigy dlq clear &lt;job_id&gt;
         - claude: "/verify-fixes"
       max_attempts: 2
 </code></pre>
-<p><strong>Alternative: Retry original command on incomplete</strong></p>
-<pre><code class="language-yaml">- claude: "/implement-auth"
-  validate:
-    shell: "validate-auth.sh"
-    result_file: "result.json"
-    threshold: 95
-    on_incomplete:
-      retry_original: true  # Re-run "/implement-auth" instead of gap-filling
-      max_attempts: 3
-      fail_workflow: true
-</code></pre>
 <hr />
 <h2 id="command-reference"><a class="header" href="#command-reference">Command Reference</a></h2>
 <h3 id="command-fields"><a class="header" href="#command-fields">Command Fields</a></h3>
@@ -865,30 +1253,31 @@ prodigy dlq clear &lt;job_id&gt;
 <tr><td><code>when</code></td><td>string</td><td>Conditional execution expression</td></tr>
 <tr><td><code>capture</code></td><td>string</td><td>Variable name to capture output (replaces deprecated <code>capture_output: true/false</code>)</td></tr>
 <tr><td><code>capture_format</code></td><td>enum</td><td>Format: <code>string</code> (default), <code>number</code>, <code>json</code>, <code>lines</code>, <code>boolean</code> (see examples below)</td></tr>
-<tr><td><code>capture_streams</code></td><td>object</td><td>Configure which streams to capture (see CaptureStreams section below)</td></tr>
+<tr><td><code>capture_streams</code></td><td>string</td><td>Reserved for future use - currently stored as string in YAML</td></tr>
 <tr><td><code>on_success</code></td><td>object</td><td>Command to run on success</td></tr>
 <tr><td><code>on_failure</code></td><td>object</td><td>OnFailureConfig with nested command, max_attempts, fail_workflow, strategy</td></tr>
-<tr><td><code>on_exit_code</code></td><td>map</td><td>Maps exit codes to full WorkflowStep objects (e.g., <code>101: {claude: "/fix"}</code>)</td></tr>
 <tr><td><code>validate</code></td><td>object</td><td>Validation configuration</td></tr>
 <tr><td><code>output_file</code></td><td>string</td><td>Redirect command output to a file</td></tr>
 </tbody></table>
 </div>
-<p><strong>Note:</strong> The following fields exist in internal structs but are NOT exposed in WorkflowStepCommand YAML:</p>
+<p><strong>Note:</strong> The following fields are used internally during workflow execution but are NOT part of the YAML configuration syntax. These are implementation details managed by Prodigy’s execution engine, not user-facing configuration options:</p>
 <ul>
-<li><code>handler</code> - Internal HandlerStep (not user-facing)</li>
-<li><code>retry</code> - Internal RetryConfig (not user-facing)</li>
+<li><code>handler</code> - Internal HandlerStep for execution routing</li>
+<li><code>retry</code> - Internal RetryConfig for automatic retry logic</li>
 <li><code>working_dir</code> - Not available (use shell <code>cd</code> command instead)</li>
 <li><code>env</code> - Not available (use shell environment syntax: <code>ENV=value command</code>)</li>
-<li><code>auto_commit</code> - Not in WorkflowStepCommand</li>
-<li><code>commit_config</code> - Not in WorkflowStepCommand</li>
-<li><code>step_validate</code> - Not in WorkflowStepCommand</li>
-<li><code>skip_validation</code> - Not in WorkflowStepCommand</li>
-<li><code>validation_timeout</code> - Not in WorkflowStepCommand</li>
-<li><code>ignore_validation_failure</code> - Not in WorkflowStepCommand</li>
+<li><code>auto_commit</code> - Internal commit tracking</li>
+<li><code>commit_config</code> - Internal commit configuration</li>
+<li><code>step_validate</code> - Internal validation state</li>
+<li><code>skip_validation</code> - Internal validation control</li>
+<li><code>validation_timeout</code> - Internal validation timing</li>
+<li><code>ignore_validation_failure</code> - Internal validation handling</li>
 </ul>
 <h3 id="capturestreams-configuration"><a class="header" href="#capturestreams-configuration">CaptureStreams Configuration</a></h3>
-<p>The <code>capture_streams</code> field controls which output streams are captured:</p>
-<pre><code class="language-yaml">- shell: "cargo test"
+<p><strong>Note:</strong> The <code>capture_streams</code> field is currently stored as a string type in WorkflowStepCommand (line 120 of src/config/command.rs) and is reserved for future implementation. The CaptureStreams struct exists in src/cook/workflow/variables.rs for use by the execution engine, but the YAML configuration interface is not yet fully connected.</p>
+<p>When implemented, <code>capture_streams</code> will control which output streams are captured:</p>
+<pre><code class="language-yaml"># Future implementation example:
+- shell: "cargo test"
   capture: "test_results"
   capture_streams:
     stdout: true      # Capture standard output (default: true)
@@ -897,27 +1286,7 @@ prodigy dlq clear &lt;job_id&gt;
     success: true     # Capture success boolean (default: true)
     duration: true    # Capture execution duration (default: true)
 </code></pre>
-<p><strong>Examples:</strong></p>
-<pre><code class="language-yaml"># Capture only stdout and stderr
-- shell: "build.sh"
-  capture: "build_output"
-  capture_streams:
-    stdout: true
-    stderr: true
-    exit_code: false
-    success: false
-    duration: false
-
-# Capture only timing information
-- shell: "benchmark.sh"
-  capture: "bench_time"
-  capture_streams:
-    stdout: false
-    stderr: false
-    exit_code: false
-    success: false
-    duration: true
-</code></pre>
+<p>For now, use <code>capture</code> and <code>capture_format</code> to control output capture behavior.</p>
 <h3 id="capture-format-examples"><a class="header" href="#capture-format-examples">Capture Format Examples</a></h3>
 <p>The <code>capture_format</code> field controls how captured output is parsed:</p>
 <pre><code class="language-yaml"># String format (default) - raw text output
@@ -954,6 +1323,7 @@ prodigy dlq clear &lt;job_id&gt;
 <li>Legacy variable aliases (<code>$ARG</code>, <code>$ARGUMENT</code>, <code>$FILE</code>, <code>$FILE_PATH</code>) - Use modern <code>${item.*}</code> syntax</li>
 </ul>
 <p><strong>Migration: capture_output to capture</strong></p>
+<p>The old <code>capture_output: true</code> syntax captured command output to a default variable name, making it unclear where the output was stored and harder to reference in later commands.</p>
 <p>Old syntax (deprecated):</p>
 <pre><code class="language-yaml">- shell: "ls -la | wc -l"
   capture_output: true
@@ -962,7 +1332,7 @@ prodigy dlq clear &lt;job_id&gt;
 <pre><code class="language-yaml">- shell: "ls -la | wc -l"
   capture: "file_count"
 </code></pre>
-<p>The modern <code>capture</code> field allows you to specify a variable name, making output references clearer and more maintainable</p>
+<p>The modern <code>capture</code> field requires an explicit variable name, making output references clearer and more maintainable. You can then reference the captured value using <code>${file_count}</code> in subsequent commands.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="variable-interpolation"><a class="header" href="#variable-interpolation">Variable Interpolation</a></h1>
 <h2 id="overview-1"><a class="header" href="#overview-1">Overview</a></h2>
 <p>Prodigy provides two complementary variable systems:</p>
@@ -981,6 +1351,7 @@ prodigy dlq clear &lt;job_id&gt;
 <tr><td>Custom Captured Variables</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
 </tbody></table>
 </div>
+<p><strong>Note</strong>: Using phase-specific variables outside their designated phase (e.g., <code>${item}</code> in reduce phase, <code>${map.results}</code> in map phase) will result in interpolation errors or empty values. Always verify variable availability matches your workflow phase.</p>
 <h2 id="available-variables"><a class="header" href="#available-variables">Available Variables</a></h2>
 <h3 id="standard-variables"><a class="header" href="#standard-variables">Standard Variables</a></h3>
 <ul>
@@ -992,6 +1363,19 @@ prodigy dlq clear &lt;job_id&gt;
 <li><code>${step.files_changed}</code> - Files changed in current step</li>
 <li><code>${workflow.files_changed}</code> - All files changed in workflow</li>
 </ul>
+<h3 id="system-variables"><a class="header" href="#system-variables">System Variables</a></h3>
+<p>These variables are automatically available in all workflow contexts:</p>
+<ul>
+<li><code>${PROJECT_ROOT}</code> - Absolute path to the working directory (repository root)</li>
+<li><code>${WORKTREE}</code> - Name of the current worktree (if running in a Prodigy worktree session)</li>
+<li><code>${git.branch}</code> - Current git branch name</li>
+<li><code>${git.commit}</code> - Current git commit hash (short SHA)</li>
+</ul>
+<p><strong>Example Usage:</strong></p>
+<pre><code class="language-yaml">- shell: "cd ${PROJECT_ROOT} &amp;&amp; cargo build"
+- shell: "echo 'Running on branch: ${git.branch}'"
+- shell: "echo 'Commit: ${git.commit}'"
+</code></pre>
 <h3 id="output-variables"><a class="header" href="#output-variables">Output Variables</a></h3>
 <p><strong>Primary Output Variables:</strong></p>
 <ul>
@@ -1001,13 +1385,22 @@ prodigy dlq clear &lt;job_id&gt;
 <li><code>${last.exit_code}</code> - Exit code from last command</li>
 </ul>
 <p><strong>Note</strong>: <code>${shell.output}</code> is the correct variable name for shell command output. The code uses <code>shell.output</code>, not <code>shell.stdout</code>.</p>
-<p><strong>Legacy/Specialized Output Variables:</strong></p>
+<p><strong>Legacy/Specialized Output Variables (Deprecated):</strong></p>
+<p>These variables are still supported but <strong>deprecated</strong> in favor of custom capture:</p>
 <ul>
 <li><code>${handler.output}</code> - Output from handler command (used in error handling)</li>
 <li><code>${test.output}</code> - Output from test command (used in validation)</li>
 <li><code>${goal_seek.output}</code> - Output from goal-seeking command</li>
 </ul>
-<p><strong>Best Practice</strong>: For most workflows, use custom capture variables (via <code>capture:</code> field) instead of relying on these automatic output variables. This provides explicit naming and better readability.</p>
+<p><strong>Migration Note</strong>: These variables are automatically set by specific command types but are deprecated. Use custom capture variables (via <code>capture:</code> field) instead for explicit naming and better readability.</p>
+<pre><code class="language-yaml"># OLD (deprecated):
+- shell: "echo 'Result: ${shell.output}'"
+
+# NEW (preferred):
+- shell: "make build"
+  capture: "build_result"
+- shell: "echo 'Result: ${build_result}'"
+</code></pre>
 <h3 id="mapreduce-variables"><a class="header" href="#mapreduce-variables">MapReduce Variables</a></h3>
 <p><strong>Map Phase Variables</strong> (available in <code>agent_template:</code> commands):</p>
 <ul>
@@ -1046,11 +1439,39 @@ prodigy dlq clear &lt;job_id&gt;
 <li><code>${validation.status}</code> - Status (complete/incomplete/failed)</li>
 </ul>
 <h3 id="git-context-variables"><a class="header" href="#git-context-variables">Git Context Variables</a></h3>
+<p><strong>Commit Tracking:</strong></p>
 <ul>
-<li><code>${step.commits}</code> - Commits in current step (array of commit objects)</li>
-<li><code>${workflow.commits}</code> - All workflow commits (array of commit objects)</li>
+<li><code>${step.commits}</code> - Space-separated commit hashes from current step</li>
+<li><code>${workflow.commits}</code> - Space-separated commit hashes from entire workflow</li>
 </ul>
-<p><strong>Note</strong>: These are arrays of commit data. Use in foreach loops or access individual commits with array indexing. Each commit object contains fields like hash, message, timestamp, etc.</p>
+<p><strong>Note</strong>: These are space-separated strings of commit hashes (e.g., “abc123 def456 ghi789”), not arrays. Use in shell commands that accept commit lists.</p>
+<p><strong>File Change Tracking:</strong></p>
+<ul>
+<li><code>${step.files_added}</code> - Number of files added in current step</li>
+<li><code>${step.files_modified}</code> - Number of files modified in current step</li>
+<li><code>${step.files_deleted}</code> - Number of files deleted in current step</li>
+<li><code>${step.commit_count}</code> - Number of commits in current step</li>
+<li><code>${step.insertions}</code> - Lines added in current step</li>
+<li><code>${step.deletions}</code> - Lines removed in current step</li>
+</ul>
+<p><strong>Workflow Change Tracking:</strong></p>
+<ul>
+<li><code>${workflow.files_added}</code> - Total files added in entire workflow</li>
+<li><code>${workflow.files_modified}</code> - Total files modified in entire workflow</li>
+<li><code>${workflow.files_deleted}</code> - Total files deleted in entire workflow</li>
+<li><code>${workflow.commit_count}</code> - Total commits in entire workflow</li>
+<li><code>${workflow.insertions}</code> - Total lines added in entire workflow</li>
+<li><code>${workflow.deletions}</code> - Total lines removed in entire workflow</li>
+</ul>
+<p><strong>Example Usage:</strong></p>
+<pre><code class="language-yaml"># Check if step made changes
+- shell: "echo 'Step made ${step.commit_count} commits'"
+- shell: "echo 'Modified ${step.files_modified} files (+${step.insertions}/-${step.deletions} lines)'"
+
+# Use commit hashes
+- shell: "git show ${step.commits}"
+- shell: "echo 'All commits: ${workflow.commits}'"
+</code></pre>
 <h3 id="legacy-variable-aliases"><a class="header" href="#legacy-variable-aliases">Legacy Variable Aliases</a></h3>
 <p>These legacy aliases are supported for backward compatibility but should be replaced with modern equivalents:</p>
 <ul>
@@ -1133,6 +1554,7 @@ prodigy dlq clear &lt;job_id&gt;
 - shell: "echo 'Email: ${user.contact.email}'"
 - shell: "echo 'City: ${user.address.city}'"
 </code></pre>
+<p><strong>Error Handling</strong>: Accessing non-existent fields (e.g., <code>${user.missing.field}</code>) will return an error. Ensure your JSON structure matches your field access patterns, or use validation to handle missing fields gracefully.</p>
 <h3 id="variable-scope-and-precedence"><a class="header" href="#variable-scope-and-precedence">Variable Scope and Precedence</a></h3>
 <p>Variables follow a parent/child scope hierarchy:</p>
 <ol>
@@ -1141,6 +1563,7 @@ prodigy dlq clear &lt;job_id&gt;
 <li><strong>Built-in Variables</strong>: Standard workflow context variables</li>
 </ol>
 <p><strong>Precedence</strong>: Local variables override parent scope variables, which override built-in variables.</p>
+<p><strong>Scope Lifetime</strong>: Child scopes are temporary. When a child block (foreach loop, map phase agent) completes, its local variables are discarded and the parent scope is automatically restored.</p>
 <pre><code class="language-yaml"># Parent scope
 - shell: "echo 'outer'"
   capture: "message"
@@ -1155,8 +1578,53 @@ prodigy dlq clear &lt;job_id&gt;
       - shell: "echo ${message}"  # Uses local 'message'
 
 # After foreach, parent 'message' is still accessible
+# The local 'message' from foreach is discarded
 - shell: "echo ${message}"  # Uses parent 'message' → "outer"
 </code></pre>
+<hr />
+<h2 id="troubleshooting-variable-interpolation"><a class="header" href="#troubleshooting-variable-interpolation">Troubleshooting Variable Interpolation</a></h2>
+<h3 id="common-errors-and-solutions"><a class="header" href="#common-errors-and-solutions">Common Errors and Solutions</a></h3>
+<p><strong>Error: “Variable not found: item”</strong></p>
+<ul>
+<li><strong>Cause</strong>: Using <code>${item}</code> or <code>${item.*}</code> outside the map phase</li>
+<li><strong>Solution</strong>: Item variables are only available in <code>agent_template:</code> commands within MapReduce workflows. Move your code to the map phase or use a different variable.</li>
+</ul>
+<p><strong>Error: “Variable not found: map.results”</strong></p>
+<ul>
+<li><strong>Cause</strong>: Using <code>${map.results}</code> outside the reduce phase</li>
+<li><strong>Solution</strong>: Map aggregation variables are only available in <code>reduce:</code> commands. See the phase availability table above.</li>
+</ul>
+<p><strong>Error: “Failed to parse JSON field”</strong></p>
+<ul>
+<li><strong>Cause</strong>: Accessing a non-existent nested field in a JSON capture</li>
+<li><strong>Solution</strong>: Verify your JSON structure matches your field access. Use <code>jq</code> or similar tools to inspect the JSON first.</li>
+</ul>
+<p><strong>Error: “Invalid variable interpolation syntax”</strong></p>
+<ul>
+<li><strong>Cause</strong>: Missing <code>${}</code> braces or incorrect syntax</li>
+<li><strong>Solution</strong>: Always use <code>${variable.name}</code> format. Shell-style <code>$VAR</code> is not supported for Prodigy variables (only for environment variables).</li>
+</ul>
+<p><strong>Empty/Undefined Variable Value</strong></p>
+<ul>
+<li><strong>Cause</strong>: Variable hasn’t been set yet, or phase mismatch</li>
+<li><strong>Solution</strong>: Check command order and ensure the variable is captured before use. Review the phase availability table.</li>
+</ul>
+<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
+<ol>
+<li><strong>Use custom capture for clarity</strong>: Prefer <code>capture: "my_var"</code> over automatic <code>${shell.output}</code></li>
+<li><strong>Name variables descriptively</strong>: Use <code>${test_results}</code> not <code>${x}</code></li>
+<li><strong>Validate JSON captures</strong>: Test JSON structure before accessing nested fields</li>
+<li><strong>Check phase availability</strong>: Ensure variables match your workflow phase</li>
+<li><strong>Use appropriate capture formats</strong>: <code>number</code>, <code>json</code>, <code>boolean</code> provide type safety</li>
+</ol>
+<hr />
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><strong><a href="./commands.html">Command Types</a></strong> - Learn about command types and their capture behavior</li>
+<li><strong><a href="./mapreduce.html">MapReduce Workflows</a></strong> - Deep dive into MapReduce variables and phases</li>
+<li><strong><a href="./environment.html">Environment Variables</a></strong> - Using environment variables in workflows</li>
+<li><strong><a href="./examples.html">Workflow Examples</a></strong> - Practical examples using variables in real workflows</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="environment-configuration-1"><a class="header" href="#environment-configuration-1">Environment Configuration</a></h1>
 <p>Prodigy provides flexible environment configuration for workflows, allowing you to manage environment variables, secrets, profiles, and step-specific settings. This chapter explains the user-facing configuration options available in workflow YAML files.</p>
 <h2 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h2>
@@ -1166,6 +1634,14 @@ prodigy dlq clear &lt;job_id&gt;
 <li><strong>EnvironmentConfig</strong>: Internal runtime configuration that extends workflow config with additional features</li>
 </ol>
 <p>This chapter documents the user-facing WorkflowConfig layer - what you write in your workflow YAML files.</p>
+<p><strong>Internal vs. User-Facing Capabilities:</strong></p>
+<p>The internal <code>EnvironmentConfig</code> supports richer environment value types through the <code>EnvValue</code> enum:</p>
+<ul>
+<li><code>Static</code>: Simple string values (what WorkflowConfig exposes)</li>
+<li><code>Dynamic</code>: Values from command output (internal only)</li>
+<li><code>Conditional</code>: Expression-based values (internal only)</li>
+</ul>
+<p>In workflow YAML, the <code>env</code> field only supports static string values (<code>HashMap&lt;String, String&gt;</code>). The Dynamic and Conditional variants are internal runtime features not exposed in workflow configuration.</p>
 <p><strong>Note on Internal Features:</strong> The <code>EnvironmentConfig</code> runtime layer includes a <code>StepEnvironment</code> struct with fields like <code>env</code>, <code>working_dir</code>, <code>clear_env</code>, and <code>temporary</code>. These are internal implementation details not exposed in <code>WorkflowStepCommand</code> YAML syntax. Per-command environment changes must use shell syntax (e.g., <code>ENV=value command</code>).</p>
 <hr />
 <h2 id="global-environment-variables-1"><a class="header" href="#global-environment-variables-1">Global Environment Variables</a></h2>
@@ -1337,9 +1813,7 @@ map:
     - shell: "curl $API_URL/data"
     - shell: "timeout ${TIMEOUT_SECONDS}s ./process.sh"
 </code></pre>
-<p>Activate a profile:</p>
-<pre><code class="language-bash">prodigy run workflow.yml --profile production
-</code></pre>
+<p><strong>Note:</strong> Profile activation is not currently implemented in the CLI. You can define profiles in YAML, but there is no <code>--profile</code> flag or mechanism to activate them. The infrastructure exists for future use, but profiles cannot be activated in the current version.</p>
 <h3 id="reusable-workflows-with-environment-variables"><a class="header" href="#reusable-workflows-with-environment-variables">Reusable Workflows with Environment Variables</a></h3>
 <p>Environment variables enable the same workflow to work for different projects:</p>
 <pre><code class="language-yaml"># This workflow works for both Prodigy and Debtmap
@@ -1450,11 +1924,27 @@ MIIEvQIBADANBg...
 -----END PRIVATE KEY-----"
 </code></pre>
 <p><strong>Loading Order and Precedence:</strong></p>
+<p>Environment files are loaded in order, with later files overriding earlier files. This enables layered configuration:</p>
+<pre><code class="language-yaml">env_files:
+  - .env                # Base configuration
+  - .env.local          # Local overrides (gitignored)
+  - .env.production     # Environment-specific settings
+</code></pre>
+<p>Example override behavior:</p>
+<pre><code class="language-bash"># .env (base)
+DATABASE_URL=postgresql://localhost:5432/dev
+API_TIMEOUT=30
+
+# .env.production (overrides)
+DATABASE_URL=postgresql://prod-server:5432/app
+# API_TIMEOUT remains 30 from base file
+</code></pre>
+<p>Precedence order (highest to lowest):</p>
 <ol>
-<li>Files are loaded in the order specified in <code>env_files</code></li>
-<li>Later files override earlier files</li>
-<li>Step-level <code>env</code> overrides environment files</li>
-<li>Global <code>env</code> overrides environment files</li>
+<li>Global <code>env</code> field in workflow YAML</li>
+<li>Later files in <code>env_files</code> list</li>
+<li>Earlier files in <code>env_files</code> list</li>
+<li>Parent process environment</li>
 </ol>
 <hr />
 <h2 id="secrets-management"><a class="header" href="#secrets-management">Secrets Management</a></h2>
@@ -1482,8 +1972,7 @@ MIIEvQIBADANBg...
 
   # Custom provider (extensible)
   CUSTOM_SECRET:
-    provider:
-      custom: "my-custom-provider"
+    provider: "my-custom-provider"
     key: "secret-id"
 
 commands:
@@ -1536,10 +2025,11 @@ commands:
     API_URL: https://staging.api.com
     DEBUG: "true"
 </code></pre>
-<p><strong>Note:</strong> Profile activation is managed internally by the runtime environment manager. The selection mechanism is not currently exposed in WorkflowConfig YAML. Profiles are defined for future use and internal runtime configuration.</p>
+<p><strong>Note:</strong> Profile activation is not currently implemented. You can define profiles in YAML, but there is no mechanism to activate them via CLI or configuration. The <code>active_profile</code> field exists in the internal runtime, but there is no way to set it in the current version.</p>
 <hr />
 <h2 id="per-command-environment-overrides"><a class="header" href="#per-command-environment-overrides">Per-Command Environment Overrides</a></h2>
-<p>While WorkflowStepCommand does not support a dedicated <code>env</code> field, you can override environment variables for individual commands using shell syntax:</p>
+<p><strong>IMPORTANT:</strong> WorkflowStepCommand does NOT have an <code>env</code> field. All per-command environment changes must use shell syntax.</p>
+<p>You can override environment variables for individual commands using shell environment syntax:</p>
 <pre><code class="language-yaml">env:
   RUST_LOG: info
   API_URL: "https://api.example.com"
@@ -1563,13 +2053,14 @@ commands:
 <p><strong>Note:</strong> A <code>StepEnvironment</code> struct exists in the internal runtime (<code>EnvironmentConfig</code>), but it is not currently exposed in the WorkflowStepCommand YAML syntax. All per-command environment changes must use shell syntax as shown above.</p>
 <hr />
 <h2 id="environment-precedence"><a class="header" href="#environment-precedence">Environment Precedence</a></h2>
-<p>Environment variables are resolved in the following order (highest to lowest precedence):</p>
+<p>Environment variables are resolved with the following precedence (highest to lowest):</p>
 <ol>
-<li><strong>Active profile</strong> - If a profile is activated (internal runtime feature)</li>
-<li><strong>Global <code>env</code></strong> - Defined at workflow level in WorkflowConfig</li>
-<li><strong>Environment files</strong> - Loaded from <code>env_files</code> (in order)</li>
+<li><strong>Shell-level overrides</strong> - Using <code>ENV=value command</code> syntax</li>
+<li><strong>Global <code>env</code></strong> - Defined at workflow level in YAML</li>
+<li><strong>Environment files</strong> - Loaded from <code>env_files</code> (later files override earlier)</li>
 <li><strong>Parent environment</strong> - Always inherited from the parent process</li>
 </ol>
+<p><strong>Note:</strong> The internal <code>EnvironmentConfig</code> runtime also supports profile-based precedence and step-level environment overrides, but these are not exposed in workflow YAML. Profile activation is not currently implemented, and WorkflowStepCommand has no <code>env</code> field.</p>
 <p>Example demonstrating precedence:</p>
 <pre><code class="language-yaml"># Parent environment: NODE_ENV=local
 
@@ -1577,22 +2068,23 @@ env_files:
   - .env  # Contains: NODE_ENV=development
 
 env:
-  NODE_ENV: production  # Overrides .env file
-
-profiles:
-  test:
-    NODE_ENV: test  # Would override global env if profile activation were exposed
-    description: "Test environment profile"
+  NODE_ENV: production  # Overrides .env file and parent environment
 
 # Steps go directly in the workflow
 - shell: "echo $NODE_ENV"  # Prints: production (from global env)
 
 # Override using shell syntax
-- shell: "NODE_ENV=staging echo $NODE_ENV"  # Prints: staging
+- shell: "NODE_ENV=staging echo $NODE_ENV"  # Prints: staging (shell override)
 </code></pre>
-<p><strong>Note:</strong> Profile activation is currently managed internally and not exposed in WorkflowConfig YAML.</p>
+<p>In this example:</p>
+<ul>
+<li>Parent environment has <code>NODE_ENV=local</code> (lowest precedence)</li>
+<li><code>.env</code> file sets <code>NODE_ENV=development</code> (overrides parent)</li>
+<li>Global <code>env</code> sets <code>NODE_ENV=production</code> (overrides .env file)</li>
+<li>Shell syntax <code>NODE_ENV=staging</code> (overrides everything for that command)</li>
+</ul>
 <hr />
-<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<h2 id="best-practices-1"><a class="header" href="#best-practices-1">Best Practices</a></h2>
 <h3 id="1-use-environment-files-for-configuration"><a class="header" href="#1-use-environment-files-for-configuration">1. Use Environment Files for Configuration</a></h3>
 <p>Store configuration in <code>.env</code> files instead of hardcoding in YAML:</p>
 <pre><code class="language-yaml"># Good: Load from files
@@ -1666,16 +2158,17 @@ env:
 commands:
   - shell: "npm run deploy"
 </code></pre>
-<h3 id="secrets-with-fallbacks"><a class="header" href="#secrets-with-fallbacks">Secrets with Fallbacks</a></h3>
+<h3 id="provider-based-secrets"><a class="header" href="#provider-based-secrets">Provider-Based Secrets</a></h3>
 <pre><code class="language-yaml">secrets:
-  # Try Vault first, fall back to environment variable
+  # Production: use Vault
   API_KEY:
     provider: vault
     key: "api/key"
 
-env:
-  # Fallback for local development
-  API_KEY: "${API_KEY:-default-key}"
+  # Development: use environment variable
+  DEV_API_KEY:
+    provider: env
+    key: "LOCAL_API_KEY"
 </code></pre>
 <h3 id="build-matrix-with-profiles"><a class="header" href="#build-matrix-with-profiles">Build Matrix with Profiles</a></h3>
 <pre><code class="language-yaml">profiles:
@@ -1699,23 +2192,556 @@ commands:
 - shell: "echo $PATH"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
-<blockquote>
-<p><strong>Note</strong>: This chapter is currently being auto-generated by the book-docs-drift workflow. Content will be populated based on the latest codebase implementation.</p>
-</blockquote>
-<h2 id="overview-2"><a class="header" href="#overview-2">Overview</a></h2>
-<p>Prodigy can be configured through multiple configuration files with a clear precedence hierarchy.</p>
-<h2 id="topics-to-be-documented"><a class="header" href="#topics-to-be-documented">Topics to be Documented</a></h2>
+<p>Prodigy supports comprehensive configuration through multiple files with a clear precedence hierarchy. This chapter explains all configuration options and how to use them effectively.</p>
+<h2 id="quick-start-1"><a class="header" href="#quick-start-1">Quick Start</a></h2>
+<p>Minimal project configuration (<code>.prodigy/config.yml</code>):</p>
+<pre><code class="language-yaml">name: my-project
+</code></pre>
+<p>Minimal workflow configuration (<code>.prodigy/workflow.yml</code>):</p>
+<pre><code class="language-yaml">commands:
+  - prodigy-code-review
+  - prodigy-lint
+</code></pre>
+<p>That’s all you need to get started! Prodigy provides sensible defaults for everything else.</p>
+<h2 id="configuration-file-locations"><a class="header" href="#configuration-file-locations">Configuration File Locations</a></h2>
+<p>Prodigy uses a search hierarchy to find configuration files:</p>
+<h3 id="workflow-configuration"><a class="header" href="#workflow-configuration">Workflow Configuration</a></h3>
+<ol>
+<li>
+<p><strong>Explicit path via CLI</strong> (highest priority):</p>
+<pre><code class="language-bash">prodigy run custom-workflow.yml
+</code></pre>
+</li>
+<li>
+<p><strong>Project workflow file</strong>:</p>
+<pre><code>.prodigy/workflow.yml
+</code></pre>
+</li>
+<li>
+<p><strong>Default configuration</strong> (if no file found):</p>
 <ul>
-<li>Configuration file locations and search order</li>
-<li>Configuration precedence rules</li>
-<li>Claude-specific settings (model, tokens)</li>
-<li>Worktree settings (parallelism, cleanup)</li>
-<li>Storage paths (events, state, DLQ)</li>
-<li>Global retry defaults</li>
-<li>Environment-specific configurations</li>
+<li>Uses built-in defaults</li>
+<li>Minimal workflow with standard commands</li>
 </ul>
-<hr />
-<p><em>This chapter will be automatically updated by running the book documentation workflow.</em></p>
+</li>
+</ol>
+<h3 id="project-configuration"><a class="header" href="#project-configuration">Project Configuration</a></h3>
+<p>Project settings are loaded from:</p>
+<pre><code>.prodigy/config.yml
+</code></pre>
+<h3 id="global-configuration"><a class="header" href="#global-configuration">Global Configuration</a></h3>
+<p>Global user settings are stored in:</p>
+<pre><code>~/.prodigy/config.yml
+</code></pre>
+<h3 id="format-support"><a class="header" href="#format-support">Format Support</a></h3>
+<p><strong>Supported formats:</strong></p>
+<ul>
+<li>YAML (<code>.yml</code>, <code>.yaml</code>) - <strong>Recommended and required format</strong></li>
+</ul>
+<p><strong>Unsupported formats:</strong></p>
+<ul>
+<li>TOML (<code>.toml</code>) - Deprecated, no longer supported</li>
+<li>JSON (<code>.json</code>) - Not supported</li>
+</ul>
+<p>All configuration files must use YAML format.</p>
+<h2 id="configuration-precedence-rules"><a class="header" href="#configuration-precedence-rules">Configuration Precedence Rules</a></h2>
+<p>Prodigy merges configuration from multiple sources with clear precedence:</p>
+<h3 id="overall-precedence-hierarchy"><a class="header" href="#overall-precedence-hierarchy">Overall Precedence Hierarchy</a></h3>
+<ol>
+<li><strong>Environment variables</strong> (highest priority)</li>
+<li><strong>Project configuration</strong> (<code>.prodigy/config.yml</code>)</li>
+<li><strong>Global configuration</strong> (<code>~/.prodigy/config.yml</code>)</li>
+<li><strong>Default values</strong> (lowest priority)</li>
+</ol>
+<h3 id="specific-settings-precedence"><a class="header" href="#specific-settings-precedence">Specific Settings Precedence</a></h3>
+<h4 id="claude-api-key"><a class="header" href="#claude-api-key">Claude API Key</a></h4>
+<pre><code>Project config &gt; Global config &gt; Environment variable
+</code></pre>
+<p>Example:</p>
+<pre><code class="language-yaml"># .prodigy/config.yml (takes precedence)
+claude_api_key: "sk-project-key"
+</code></pre>
+<pre><code class="language-yaml"># ~/.prodigy/config.yml (fallback)
+claude_api_key: "sk-global-key"
+</code></pre>
+<pre><code class="language-bash"># Environment variable (lowest priority for API key)
+export PRODIGY_CLAUDE_API_KEY="sk-env-key"
+</code></pre>
+<h4 id="auto-commit-setting"><a class="header" href="#auto-commit-setting">Auto-Commit Setting</a></h4>
+<pre><code>Project config &gt; Global config &gt; Default (true)
+</code></pre>
+<h4 id="log-level"><a class="header" href="#log-level">Log Level</a></h4>
+<pre><code>Environment variable &gt; Global config &gt; Default (info)
+</code></pre>
+<p>Example:</p>
+<pre><code class="language-bash"># Override log level via environment
+export PRODIGY_LOG_LEVEL="debug"
+prodigy run workflow.yml
+</code></pre>
+<h2 id="global-configuration-structure"><a class="header" href="#global-configuration-structure">Global Configuration Structure</a></h2>
+<p>Global configuration is stored in <code>~/.prodigy/config.yml</code> and applies to all projects.</p>
+<h3 id="globalconfig-fields"><a class="header" href="#globalconfig-fields">GlobalConfig Fields</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>prodigy_home</code></td><td>Path</td><td><code>~/.prodigy</code></td><td>Base directory for Prodigy data</td></tr>
+<tr><td><code>default_editor</code></td><td>String</td><td>None</td><td>Editor for interactive operations</td></tr>
+<tr><td><code>log_level</code></td><td>String</td><td><code>"info"</code></td><td>Logging verbosity (<code>info</code>, <code>debug</code>, <code>trace</code>)</td></tr>
+<tr><td><code>claude_api_key</code></td><td>String</td><td>None</td><td>API key for Claude integration</td></tr>
+<tr><td><code>max_concurrent_specs</code></td><td>Number</td><td><code>1</code></td><td>Parallel execution limit</td></tr>
+<tr><td><code>auto_commit</code></td><td>Boolean</td><td><code>true</code></td><td>Automatic git commits</td></tr>
+<tr><td><code>plugins</code></td><td>Object</td><td>None</td><td>Plugin system configuration</td></tr>
+</tbody></table>
+</div>
+<h3 id="example-global-configuration"><a class="header" href="#example-global-configuration">Example Global Configuration</a></h3>
+<pre><code class="language-yaml"># ~/.prodigy/config.yml
+prodigy_home: /Users/username/.prodigy
+default_editor: vim
+log_level: info
+claude_api_key: sk-ant-your-key-here
+max_concurrent_specs: 1
+auto_commit: true
+</code></pre>
+<h2 id="project-configuration-structure"><a class="header" href="#project-configuration-structure">Project Configuration Structure</a></h2>
+<p>Project configuration is stored in <code>.prodigy/config.yml</code> and overrides global settings for a specific project.</p>
+<h3 id="projectconfig-fields"><a class="header" href="#projectconfig-fields">ProjectConfig Fields</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>name</code></td><td>String</td><td><strong>Yes</strong></td><td>-</td><td>Project name</td></tr>
+<tr><td><code>description</code></td><td>String</td><td>No</td><td>None</td><td>Project description</td></tr>
+<tr><td><code>version</code></td><td>String</td><td>No</td><td>None</td><td>Project version</td></tr>
+<tr><td><code>spec_dir</code></td><td>Path</td><td>No</td><td><code>"specs"</code></td><td>Directory for specification files</td></tr>
+<tr><td><code>claude_api_key</code></td><td>String</td><td>No</td><td>None</td><td>Project-specific API key</td></tr>
+<tr><td><code>auto_commit</code></td><td>Boolean</td><td>No</td><td>None</td><td>Project-specific auto-commit setting</td></tr>
+<tr><td><code>variables</code></td><td>Table</td><td>No</td><td>None</td><td>Custom project variables (TOML table)</td></tr>
+</tbody></table>
+</div>
+<h3 id="example-project-configuration"><a class="header" href="#example-project-configuration">Example Project Configuration</a></h3>
+<p><strong>Minimal:</strong></p>
+<pre><code class="language-yaml"># .prodigy/config.yml
+name: my-project
+</code></pre>
+<p><strong>Complete:</strong></p>
+<pre><code class="language-yaml"># .prodigy/config.yml
+name: my-awesome-project
+description: A fantastic project using Prodigy
+version: 2.1.0
+spec_dir: custom-specs
+claude_api_key: sk-ant-project-key
+auto_commit: false
+
+variables:
+  PROJECT_ROOT: /path/to/project
+  API_URL: https://api.example.com
+</code></pre>
+<h2 id="workflow-configuration-1"><a class="header" href="#workflow-configuration-1">Workflow Configuration</a></h2>
+<p>Workflow configuration defines commands to execute and their environment.</p>
+<h3 id="workflowconfig-structure"><a class="header" href="#workflowconfig-structure">WorkflowConfig Structure</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>commands</code></td><td>Array</td><td>List of commands to execute (required)</td></tr>
+<tr><td><code>env</code></td><td>Object</td><td>Global environment variables</td></tr>
+<tr><td><code>secrets</code></td><td>Object</td><td>Secret environment variables (masked in logs)</td></tr>
+<tr><td><code>env_files</code></td><td>Array</td><td>List of <code>.env</code> files to load</td></tr>
+<tr><td><code>profiles</code></td><td>Object</td><td>Named environment profiles</td></tr>
+<tr><td><code>merge</code></td><td>Object</td><td>Custom merge workflow configuration</td></tr>
+</tbody></table>
+</div>
+<h3 id="basic-workflow-examples"><a class="header" href="#basic-workflow-examples">Basic Workflow Examples</a></h3>
+<p><strong>Simple command list:</strong></p>
+<pre><code class="language-yaml">commands:
+  - prodigy-code-review
+  - prodigy-implement-spec
+  - prodigy-lint
+</code></pre>
+<p><strong>With environment variables:</strong></p>
+<pre><code class="language-yaml">env:
+  PROJECT_NAME: prodigy
+  VERSION: 1.0.0
+
+commands:
+  - prodigy-build
+  - prodigy-test
+</code></pre>
+<p><strong>With secrets (masked in logs):</strong></p>
+<pre><code class="language-yaml">env:
+  PROJECT_NAME: prodigy
+
+secrets:
+  API_KEY:
+    secret: true
+    value: sk-secret-key-here
+
+commands:
+  - prodigy-deploy
+</code></pre>
+<p><strong>With profiles (environment-specific):</strong></p>
+<pre><code class="language-yaml">env:
+  PROJECT_NAME: prodigy
+
+  API_URL:
+    default: http://localhost:3000
+    staging: https://staging.api.com
+    prod: https://api.com
+
+commands:
+  - prodigy-deploy
+</code></pre>
+<p>Run with a profile:</p>
+<pre><code class="language-bash">prodigy run workflow.yml --profile prod
+</code></pre>
+<p><strong>With custom merge workflow:</strong></p>
+<pre><code class="language-yaml">commands:
+  - prodigy-implement-feature
+
+merge:
+  commands:
+    - shell: "cargo test"
+    - shell: "cargo clippy"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+  timeout: 600
+</code></pre>
+<h2 id="storage-configuration"><a class="header" href="#storage-configuration">Storage Configuration</a></h2>
+<p>Storage configuration controls where and how Prodigy stores data (events, state, DLQ).</p>
+<h3 id="storageconfig-structure"><a class="header" href="#storageconfig-structure">StorageConfig Structure</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>backend</code></td><td>String</td><td><code>"file"</code></td><td>Storage backend type (<code>file</code>, <code>memory</code>)</td></tr>
+<tr><td><code>connection_pool_size</code></td><td>Number</td><td><code>10</code></td><td>Pool size for database backends</td></tr>
+<tr><td><code>retry_policy</code></td><td>Object</td><td>See below</td><td>Retry configuration</td></tr>
+<tr><td><code>timeout</code></td><td>Duration</td><td><code>30s</code></td><td>Default operation timeout</td></tr>
+<tr><td><code>backend_config</code></td><td>Object</td><td>See below</td><td>Backend-specific settings</td></tr>
+<tr><td><code>enable_locking</code></td><td>Boolean</td><td><code>true</code></td><td>Distributed locking</td></tr>
+<tr><td><code>enable_cache</code></td><td>Boolean</td><td><code>false</code></td><td>Caching layer</td></tr>
+<tr><td><code>cache_config</code></td><td>Object</td><td>See below</td><td>Cache configuration</td></tr>
+</tbody></table>
+</div>
+<h3 id="file-storage-configuration"><a class="header" href="#file-storage-configuration">File Storage Configuration</a></h3>
+<p>The file backend stores data in the filesystem (recommended for production).</p>
+<h4 id="fileconfig-fields"><a class="header" href="#fileconfig-fields">FileConfig Fields</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>base_dir</code></td><td>Path</td><td><code>~/.prodigy</code></td><td>Base directory for storage</td></tr>
+<tr><td><code>use_global</code></td><td>Boolean</td><td><code>true</code></td><td>Use global storage (local storage deprecated)</td></tr>
+<tr><td><code>enable_file_locks</code></td><td>Boolean</td><td><code>true</code></td><td>File-based locking</td></tr>
+<tr><td><code>max_file_size</code></td><td>Number</td><td><code>104857600</code></td><td>Max file size before rotation (100MB)</td></tr>
+<tr><td><code>enable_compression</code></td><td>Boolean</td><td><code>false</code></td><td>Compression for archived files</td></tr>
+</tbody></table>
+</div>
+<h4 id="example-file-storage-configuration"><a class="header" href="#example-file-storage-configuration">Example File Storage Configuration</a></h4>
+<pre><code class="language-yaml">storage:
+  backend: file
+  backend_config:
+    base_dir: /custom/prodigy/data
+    use_global: true
+    enable_file_locks: true
+    max_file_size: 104857600  # 100MB
+    enable_compression: false
+</code></pre>
+<h3 id="memory-storage-configuration"><a class="header" href="#memory-storage-configuration">Memory Storage Configuration</a></h3>
+<p>The memory backend stores data in RAM (useful for testing).</p>
+<h4 id="memoryconfig-fields"><a class="header" href="#memoryconfig-fields">MemoryConfig Fields</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>max_memory</code></td><td>Number</td><td><code>104857600</code></td><td>Maximum memory usage (100MB)</td></tr>
+<tr><td><code>persist_to_disk</code></td><td>Boolean</td><td><code>false</code></td><td>Enable persistence to disk</td></tr>
+<tr><td><code>persistence_path</code></td><td>Path</td><td>None</td><td>Persistence file path</td></tr>
+</tbody></table>
+</div>
+<h4 id="example-memory-storage-configuration"><a class="header" href="#example-memory-storage-configuration">Example Memory Storage Configuration</a></h4>
+<pre><code class="language-yaml">storage:
+  backend: memory
+  backend_config:
+    max_memory: 104857600  # 100MB
+    persist_to_disk: false
+</code></pre>
+<h3 id="retry-policy-configuration"><a class="header" href="#retry-policy-configuration">Retry Policy Configuration</a></h3>
+<p>Controls retry behavior for failed storage operations.</p>
+<h4 id="retrypolicy-fields"><a class="header" href="#retrypolicy-fields">RetryPolicy Fields</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>max_retries</code></td><td>Number</td><td><code>3</code></td><td>Maximum retry attempts</td></tr>
+<tr><td><code>initial_delay</code></td><td>Duration</td><td><code>1s</code></td><td>Initial retry delay</td></tr>
+<tr><td><code>max_delay</code></td><td>Duration</td><td><code>30s</code></td><td>Maximum retry delay</td></tr>
+<tr><td><code>backoff_multiplier</code></td><td>Number</td><td><code>2.0</code></td><td>Exponential backoff multiplier</td></tr>
+<tr><td><code>jitter</code></td><td>Boolean</td><td><code>true</code></td><td>Enable jitter</td></tr>
+</tbody></table>
+</div>
+<h4 id="example-retry-policy"><a class="header" href="#example-retry-policy">Example Retry Policy</a></h4>
+<pre><code class="language-yaml">storage:
+  retry_policy:
+    max_retries: 5
+    initial_delay: 1s
+    max_delay: 60s
+    backoff_multiplier: 2.0
+    jitter: true
+</code></pre>
+<h3 id="cache-configuration"><a class="header" href="#cache-configuration">Cache Configuration</a></h3>
+<p>Optional caching layer for improved performance.</p>
+<h4 id="cacheconfig-fields"><a class="header" href="#cacheconfig-fields">CacheConfig Fields</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>max_entries</code></td><td>Number</td><td><code>1000</code></td><td>Cache size limit (entries)</td></tr>
+<tr><td><code>ttl</code></td><td>Duration</td><td><code>3600s</code></td><td>Cache TTL (1 hour)</td></tr>
+<tr><td><code>cache_type</code></td><td>String</td><td><code>"memory"</code></td><td>Cache implementation</td></tr>
+</tbody></table>
+</div>
+<h4 id="example-cache-configuration"><a class="header" href="#example-cache-configuration">Example Cache Configuration</a></h4>
+<pre><code class="language-yaml">storage:
+  enable_cache: true
+  cache_config:
+    max_entries: 5000
+    ttl: 600s  # 10 minutes
+    cache_type: memory
+</code></pre>
+<h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
+<p>Prodigy recognizes the following environment variables:</p>
+<h3 id="core-environment-variables"><a class="header" href="#core-environment-variables">Core Environment Variables</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>PRODIGY_CLAUDE_API_KEY</code></td><td>String</td><td>Override Claude API key</td></tr>
+<tr><td><code>PRODIGY_LOG_LEVEL</code></td><td>String</td><td>Override log level (<code>info</code>, <code>debug</code>, <code>trace</code>)</td></tr>
+<tr><td><code>PRODIGY_EDITOR</code></td><td>String</td><td>Override default editor</td></tr>
+<tr><td><code>EDITOR</code></td><td>String</td><td>Fallback editor variable</td></tr>
+<tr><td><code>PRODIGY_AUTO_COMMIT</code></td><td>Boolean</td><td>Override auto-commit setting (<code>true</code>, <code>false</code>)</td></tr>
+</tbody></table>
+</div>
+<h3 id="storage-environment-variables"><a class="header" href="#storage-environment-variables">Storage Environment Variables</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>PRODIGY_STORAGE_TYPE</code></td><td>String</td><td>Storage backend type (<code>file</code>, <code>memory</code>)</td></tr>
+<tr><td><code>PRODIGY_STORAGE_BASE_PATH</code></td><td>Path</td><td>Custom storage directory</td></tr>
+<tr><td><code>PRODIGY_STORAGE_DIR</code></td><td>Path</td><td>Alternative storage directory variable</td></tr>
+<tr><td><code>PRODIGY_STORAGE_PATH</code></td><td>Path</td><td>Alternative storage directory variable</td></tr>
+</tbody></table>
+</div>
+<h3 id="automation-environment-variables"><a class="header" href="#automation-environment-variables">Automation Environment Variables</a></h3>
+<p>These variables are set automatically by Prodigy during execution:</p>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Value</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>PRODIGY_AUTOMATION</code></td><td><code>"true"</code></td><td>Signals automated execution mode</td></tr>
+<tr><td><code>PRODIGY_CLAUDE_STREAMING</code></td><td><code>"true"</code></td><td>Enables streaming mode (when verbosity &gt;= 1)</td></tr>
+</tbody></table>
+</div>
+<h3 id="examples"><a class="header" href="#examples">Examples</a></h3>
+<p><strong>Override log level:</strong></p>
+<pre><code class="language-bash">export PRODIGY_LOG_LEVEL=debug
+prodigy run workflow.yml
+</code></pre>
+<p><strong>Set API key:</strong></p>
+<pre><code class="language-bash">export PRODIGY_CLAUDE_API_KEY=sk-ant-your-key
+prodigy run workflow.yml
+</code></pre>
+<p><strong>Disable auto-commit:</strong></p>
+<pre><code class="language-bash">export PRODIGY_AUTO_COMMIT=false
+prodigy run workflow.yml
+</code></pre>
+<p><strong>Custom storage location:</strong></p>
+<pre><code class="language-bash">export PRODIGY_STORAGE_BASE_PATH=/custom/storage
+prodigy run workflow.yml
+</code></pre>
+<h2 id="complete-configuration-examples"><a class="header" href="#complete-configuration-examples">Complete Configuration Examples</a></h2>
+<h3 id="minimal-setup"><a class="header" href="#minimal-setup">Minimal Setup</a></h3>
+<p><strong>Project config (<code>.prodigy/config.yml</code>):</strong></p>
+<pre><code class="language-yaml">name: my-project
+</code></pre>
+<p><strong>Workflow (<code>.prodigy/workflow.yml</code>):</strong></p>
+<pre><code class="language-yaml">commands:
+  - prodigy-code-review
+  - prodigy-lint
+</code></pre>
+<h3 id="full-featured-setup"><a class="header" href="#full-featured-setup">Full-Featured Setup</a></h3>
+<p><strong>Global config (<code>~/.prodigy/config.yml</code>):</strong></p>
+<pre><code class="language-yaml">prodigy_home: /Users/username/.prodigy
+default_editor: vim
+log_level: info
+claude_api_key: sk-ant-global-key
+max_concurrent_specs: 1
+auto_commit: true
+</code></pre>
+<p><strong>Project config (<code>.prodigy/config.yml</code>):</strong></p>
+<pre><code class="language-yaml">name: production-app
+description: Our production application
+version: 2.0.0
+spec_dir: specifications
+auto_commit: false
+
+variables:
+  PROJECT_ROOT: /app
+  ENV: production
+</code></pre>
+<p><strong>Workflow with environments (<code>.prodigy/workflow.yml</code>):</strong></p>
+<pre><code class="language-yaml">env:
+  PROJECT_NAME: production-app
+  VERSION: 2.0.0
+
+  DATABASE_URL:
+    default: postgres://localhost/dev
+    staging: postgres://staging-db/app
+    prod: postgres://prod-db/app
+
+secrets:
+  DB_PASSWORD:
+    secret: true
+    value: super-secret
+
+commands:
+  - name: prodigy-code-review
+    options:
+      focus: security
+  - shell: "cargo build --release"
+  - shell: "cargo test --all"
+  - prodigy-deploy
+
+merge:
+  commands:
+    - shell: "cargo test"
+    - shell: "cargo clippy -- -D warnings"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+  timeout: 600
+</code></pre>
+<h2 id="default-values-reference"><a class="header" href="#default-values-reference">Default Values Reference</a></h2>
+<p>Quick reference of all default values:</p>
+<div class="table-wrapper"><table><thead><tr><th>Setting</th><th>Default Value</th></tr></thead><tbody>
+<tr><td><code>log_level</code></td><td><code>"info"</code></td></tr>
+<tr><td><code>max_concurrent_specs</code></td><td><code>1</code></td></tr>
+<tr><td><code>auto_commit</code></td><td><code>true</code></td></tr>
+<tr><td><code>spec_dir</code></td><td><code>"specs"</code></td></tr>
+<tr><td><code>storage.backend</code></td><td><code>"file"</code></td></tr>
+<tr><td><code>storage.use_global</code></td><td><code>true</code></td></tr>
+<tr><td><code>storage.enable_locking</code></td><td><code>true</code></td></tr>
+<tr><td><code>storage.enable_cache</code></td><td><code>false</code></td></tr>
+<tr><td><code>storage.connection_pool_size</code></td><td><code>10</code></td></tr>
+<tr><td><code>storage.timeout</code></td><td><code>30s</code></td></tr>
+<tr><td><code>storage.retry_policy.max_retries</code></td><td><code>3</code></td></tr>
+<tr><td><code>storage.retry_policy.initial_delay</code></td><td><code>1s</code></td></tr>
+<tr><td><code>storage.retry_policy.max_delay</code></td><td><code>30s</code></td></tr>
+<tr><td><code>storage.retry_policy.backoff_multiplier</code></td><td><code>2.0</code></td></tr>
+<tr><td><code>storage.file.max_file_size</code></td><td><code>104857600</code> (100MB)</td></tr>
+<tr><td><code>storage.cache.max_entries</code></td><td><code>1000</code></td></tr>
+<tr><td><code>storage.cache.ttl</code></td><td><code>3600s</code> (1 hour)</td></tr>
+</tbody></table>
+</div>
+<h2 id="best-practices-2"><a class="header" href="#best-practices-2">Best Practices</a></h2>
+<h3 id="managing-api-keys-securely"><a class="header" href="#managing-api-keys-securely">Managing API Keys Securely</a></h3>
+<p><strong>DO:</strong></p>
+<ul>
+<li>Store API keys in global config (<code>~/.prodigy/config.yml</code>)</li>
+<li>Use environment variables for CI/CD environments</li>
+<li>Use workflow <code>secrets</code> for sensitive values</li>
+<li>Add <code>.prodigy/config.yml</code> to <code>.gitignore</code> if it contains secrets</li>
+</ul>
+<p><strong>DON’T:</strong></p>
+<ul>
+<li>Commit API keys to version control</li>
+<li>Share project configs containing secrets</li>
+<li>Log or print secret values</li>
+</ul>
+<h3 id="when-to-use-each-configuration-level"><a class="header" href="#when-to-use-each-configuration-level">When to Use Each Configuration Level</a></h3>
+<p><strong>Global config (<code>~/.prodigy/config.yml</code>):</strong></p>
+<ul>
+<li>Personal preferences (editor, log level)</li>
+<li>Default Claude API key</li>
+<li>System-wide settings</li>
+</ul>
+<p><strong>Project config (<code>.prodigy/config.yml</code>):</strong></p>
+<ul>
+<li>Project name and metadata</li>
+<li>Project-specific spec directory</li>
+<li>Project-specific API key (if needed)</li>
+<li>Custom variables shared by team</li>
+</ul>
+<p><strong>Workflow config (<code>.prodigy/workflow.yml</code>):</strong></p>
+<ul>
+<li>Command sequences</li>
+<li>Environment variables for commands</li>
+<li>Environment-specific settings (profiles)</li>
+<li>Workflow-level secrets</li>
+</ul>
+<p><strong>Environment variables:</strong></p>
+<ul>
+<li>CI/CD overrides</li>
+<li>Temporary testing configurations</li>
+<li>Dynamic runtime values</li>
+</ul>
+<h3 id="environment-specific-configurations"><a class="header" href="#environment-specific-configurations">Environment-Specific Configurations</a></h3>
+<p>Use profiles for different environments:</p>
+<pre><code class="language-yaml">env:
+  # Common variables
+  PROJECT_NAME: my-app
+
+  # Environment-specific
+  API_URL:
+    default: http://localhost:3000
+    dev: http://localhost:3000
+    staging: https://staging.api.com
+    prod: https://api.com
+
+  LOG_LEVEL:
+    default: debug
+    prod: info
+
+commands:
+  - prodigy-deploy
+</code></pre>
+<p>Run for specific environment:</p>
+<pre><code class="language-bash">prodigy run workflow.yml --profile prod
+</code></pre>
+<h2 id="troubleshooting-1"><a class="header" href="#troubleshooting-1">Troubleshooting</a></h2>
+<h3 id="common-configuration-errors"><a class="header" href="#common-configuration-errors">Common Configuration Errors</a></h3>
+<p><strong>Error: “Unsupported configuration file format”</strong></p>
+<ul>
+<li><strong>Cause:</strong> Using TOML or JSON instead of YAML</li>
+<li><strong>Solution:</strong> Convert your config to YAML format (<code>.yml</code> or <code>.yaml</code>)</li>
+</ul>
+<p><strong>Error: “Failed to read configuration file”</strong></p>
+<ul>
+<li><strong>Cause:</strong> File doesn’t exist or permissions issue</li>
+<li><strong>Solution:</strong> Check file path and permissions</li>
+</ul>
+<p><strong>Error: “Failed to parse configuration”</strong></p>
+<ul>
+<li><strong>Cause:</strong> Invalid YAML syntax</li>
+<li><strong>Solution:</strong> Validate YAML syntax (use <code>yamllint</code> or online validator)</li>
+</ul>
+<p><strong>Error: “Claude API key not found”</strong></p>
+<ul>
+<li><strong>Cause:</strong> No API key configured</li>
+<li><strong>Solution:</strong> Set <code>claude_api_key</code> in global or project config, or use <code>PRODIGY_CLAUDE_API_KEY</code> environment variable</li>
+</ul>
+<h3 id="validating-configuration"><a class="header" href="#validating-configuration">Validating Configuration</a></h3>
+<p>Check your configuration syntax:</p>
+<pre><code class="language-bash"># Validate YAML syntax
+yamllint .prodigy/workflow.yml
+
+# Test configuration loading
+prodigy run workflow.yml --dry-run
+</code></pre>
+<h3 id="configuration-precedence-debugging"><a class="header" href="#configuration-precedence-debugging">Configuration Precedence Debugging</a></h3>
+<p>To see which configuration values are being used:</p>
+<pre><code class="language-bash"># Enable debug logging
+export PRODIGY_LOG_LEVEL=debug
+prodigy run workflow.yml -v
+</code></pre>
+<p>This will show which config files are loaded and how values are merged.</p>
+<h2 id="migration-guide-toml-to-yaml"><a class="header" href="#migration-guide-toml-to-yaml">Migration Guide: TOML to YAML</a></h2>
+<p>If you’re upgrading from an older version that used TOML:</p>
+<p><strong>Old TOML format (<code>.prodigy/config.toml</code>):</strong></p>
+<pre><code class="language-toml">name = "my-project"
+description = "My project"
+
+[variables]
+PROJECT_ROOT = "/app"
+</code></pre>
+<p><strong>New YAML format (<code>.prodigy/config.yml</code>):</strong></p>
+<pre><code class="language-yaml">name: my-project
+description: My project
+
+variables:
+  PROJECT_ROOT: /app
+</code></pre>
+<p><strong>Key differences:</strong></p>
+<ul>
+<li>Use <code>:</code> instead of <code>=</code> for assignments</li>
+<li>Indentation matters (use 2 spaces)</li>
+<li>No need for <code>[section]</code> headers (use nested structure)</li>
+<li>Strings usually don’t need quotes (unless they contain special characters)</li>
+</ul>
+<h2 id="related-documentation"><a class="header" href="#related-documentation">Related Documentation</a></h2>
+<ul>
+<li><a href="./workflows.html">Workflow System</a> - Learn about workflow execution</li>
+<li><a href="./mapreduce.html">MapReduce</a> - Configure MapReduce workflows</li>
+<li><a href="./cli-reference.html">CLI Reference</a> - Command-line options</li>
+<li><a href="./storage.html">Storage System</a> - Understanding storage backends</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-features"><a class="header" href="#advanced-features">Advanced Features</a></h1>
 <p>This chapter covers advanced workflow features for building sophisticated automation pipelines. These features enable conditional execution, parallel processing, validation, and complex control flow.</p>
 <hr />
@@ -1744,12 +2770,15 @@ commands:
     claude: "/fix-warnings"
     max_attempts: 3
     fail_workflow: false
+    commit_required: true
 </code></pre>
 <p>The <code>on_failure</code> configuration supports:</p>
 <ul>
-<li><code>max_attempts</code>: Maximum retry attempts (default: 1)</li>
-<li><code>fail_workflow</code>: Whether to fail entire workflow on final failure (default: true)</li>
+<li><code>max_attempts</code>: Maximum retry attempts (default: 3)</li>
+<li><code>fail_workflow</code>: Whether to fail entire workflow on final failure (default: false)</li>
+<li><code>commit_required</code>: Whether the remediation command should create a git commit (default: true)</li>
 </ul>
+<p><strong>Note</strong>: These defaults come from the <code>TestDebugConfig</code> which provides sensible defaults for error recovery workflows.</p>
 <h3 id="nested-conditionals"><a class="header" href="#nested-conditionals">Nested Conditionals</a></h3>
 <p>Chain multiple levels of conditional execution:</p>
 <pre><code class="language-yaml">- shell: "cargo check"
@@ -1816,6 +2845,17 @@ commands:
   capture_output: "full_output"
   capture_streams: "both"
 </code></pre>
+<p><strong>Advanced</strong>: The <code>capture_streams</code> field can also accept a detailed struct for fine-grained control:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  capture_output: "test_results"
+  capture_streams:
+    stdout: true
+    stderr: true
+    exit_code: true
+    success: true
+    duration: true
+</code></pre>
+<p>This struct format provides additional metadata like exit codes, success status, and execution duration alongside the captured output.</p>
 <h3 id="output-file-redirection"><a class="header" href="#output-file-redirection">Output File Redirection</a></h3>
 <p>Write command output directly to a file:</p>
 <pre><code class="language-yaml"># Redirect output to file
@@ -1874,6 +2914,13 @@ commands:
       - shell: "cargo fmt --check"
     threshold: 100
 </code></pre>
+<p><strong>Convenience Syntax</strong>: For simple cases, you can use an array format directly:</p>
+<pre><code class="language-yaml">- claude: "/refactor"
+  validate:
+    - shell: "cargo test"
+    - shell: "cargo clippy"
+    - shell: "cargo fmt --check"
+</code></pre>
 <h3 id="validation-with-result-files"><a class="header" href="#validation-with-result-files">Validation with Result Files</a></h3>
 <p>Read validation results from a file instead of stdout:</p>
 <pre><code class="language-yaml">- claude: "/implement-feature"
@@ -1902,6 +2949,15 @@ commands:
 <li><code>fail_workflow</code>: Whether to fail workflow if remediation fails (default: true)</li>
 <li><code>commit_required</code>: Whether remediation command should create a commit (default: false)</li>
 </ul>
+<p><strong>Convenience Syntax</strong>: For simple cases, you can use an array format directly:</p>
+<pre><code class="language-yaml">- claude: "/implement-spec"
+  validate:
+    shell: "check-completeness.sh"
+    threshold: 100
+    on_incomplete:
+      - claude: "/fill-gaps"
+      - shell: "cargo fmt"
+</code></pre>
 <hr />
 <h2 id="parallel-iteration-with-foreach"><a class="header" href="#parallel-iteration-with-foreach">Parallel Iteration with Foreach</a></h2>
 <p>Process multiple items in parallel using the <code>foreach</code> command.</p>
@@ -1973,7 +3029,7 @@ commands:
     fail_on_incomplete: true
 </code></pre>
 <hr />
-<h2 id="best-practices-1"><a class="header" href="#best-practices-1">Best Practices</a></h2>
+<h2 id="best-practices-3"><a class="header" href="#best-practices-3">Best Practices</a></h2>
 <h3 id="1-use-meaningful-variable-names"><a class="header" href="#1-use-meaningful-variable-names">1. Use Meaningful Variable Names</a></h3>
 <pre><code class="language-yaml"># Good
 - shell: "cargo test --format json"
@@ -2079,39 +3135,1217 @@ commands:
       fail_workflow: true
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="workflow-composition"><a class="header" href="#workflow-composition">Workflow Composition</a></h1>
-<blockquote>
-<p><strong>Note</strong>: This chapter is currently being auto-generated by the book-docs-drift workflow. Content will be populated based on the latest codebase implementation.</p>
-</blockquote>
-<h2 id="overview-3"><a class="header" href="#overview-3">Overview</a></h2>
-<p>Prodigy supports composing complex workflows from reusable templates and importing shared configurations.</p>
-<h2 id="topics-to-be-documented-1"><a class="header" href="#topics-to-be-documented-1">Topics to be Documented</a></h2>
+<p>Prodigy provides powerful composition features that enable building complex workflows from reusable components. This chapter covers importing workflows, using templates, defining parameters, and composing workflows through inheritance.</p>
+<h2 id="overview-2"><a class="header" href="#overview-2">Overview</a></h2>
+<p>Workflow composition allows you to:</p>
 <ul>
-<li>Importing workflows with path and alias</li>
-<li>Defining reusable templates with parameters</li>
-<li>Extending base workflows</li>
-<li>Using templates with parameter substitution</li>
-<li>Template parameter type validation</li>
+<li><strong>Import</strong> shared workflow configurations from other files</li>
+<li><strong>Extend</strong> base workflows to inherit common configurations</li>
+<li><strong>Use templates</strong> from a registry for standardized patterns</li>
+<li><strong>Define parameters</strong> with type validation for flexible workflows</li>
+<li><strong>Execute sub-workflows</strong> in parallel or sequentially</li>
+<li><strong>Set defaults</strong> for common parameter values</li>
 </ul>
-<hr />
-<p><em>This chapter will be automatically updated by running the book documentation workflow.</em></p>
+<p>These features promote code reuse, maintainability, and consistency across your automation workflows.</p>
+<h2 id="workflow-imports"><a class="header" href="#workflow-imports">Workflow Imports</a></h2>
+<p>Import external workflow files to reuse configurations and share common patterns across multiple workflows.</p>
+<h3 id="basic-import"><a class="header" href="#basic-import">Basic Import</a></h3>
+<p>Import an entire workflow file:</p>
+<pre><code class="language-yaml">name: my-workflow
+imports:
+  - path: ./common/utilities.yml
+</code></pre>
+<p>This imports all content from <code>utilities.yml</code> into your workflow.</p>
+<h3 id="import-with-alias"><a class="header" href="#import-with-alias">Import with Alias</a></h3>
+<p>Use an alias to reference imported workflows:</p>
+<pre><code class="language-yaml">imports:
+  - path: ./common/utilities.yml
+    alias: utils
+</code></pre>
+<p>The alias provides a namespace for the imported content, preventing naming conflicts.</p>
+<h3 id="selective-import"><a class="header" href="#selective-import">Selective Import</a></h3>
+<p>Import only specific items from a workflow file:</p>
+<pre><code class="language-yaml">imports:
+  - path: ./common/validators.yml
+    selective:
+      - validate_output
+      - validate_schema
+</code></pre>
+<p>This imports only the specified workflows, reducing unnecessary dependencies.</p>
+<h3 id="multiple-imports"><a class="header" href="#multiple-imports">Multiple Imports</a></h3>
+<p>You can import from multiple files:</p>
+<pre><code class="language-yaml">imports:
+  - path: ./common/setup.yml
+    alias: setup
+  - path: ./common/cleanup.yml
+    alias: cleanup
+  - path: ./shared/validators.yml
+    selective:
+      - validate_config
+</code></pre>
+<p>Imports are processed in order, and later imports can override earlier ones.</p>
+<h2 id="workflow-extension-inheritance"><a class="header" href="#workflow-extension-inheritance">Workflow Extension (Inheritance)</a></h2>
+<p>Extend a base workflow to inherit its configuration. Child workflows override parent values, allowing you to customize specific aspects while maintaining common configuration.</p>
+<h3 id="basic-extension"><a class="header" href="#basic-extension">Basic Extension</a></h3>
+<pre><code class="language-yaml">name: production-workflow
+extends: base-workflow
+</code></pre>
+<p>This workflow inherits all configuration from <code>base-workflow</code>.</p>
+<h3 id="base-resolution-paths"><a class="header" href="#base-resolution-paths">Base Resolution Paths</a></h3>
+<p>Prodigy searches for base workflows in the following locations (in order):</p>
+<ol>
+<li><code>./bases/&lt;name&gt;.yml</code></li>
+<li><code>./templates/&lt;name&gt;.yml</code></li>
+<li><code>./workflows/&lt;name&gt;.yml</code></li>
+<li><code>./&lt;name&gt;.yml</code></li>
+</ol>
+<p>For example, <code>extends: base-workflow</code> will look for:</p>
+<ul>
+<li><code>./bases/base-workflow.yml</code></li>
+<li><code>./templates/base-workflow.yml</code></li>
+<li><code>./workflows/base-workflow.yml</code></li>
+<li><code>./base-workflow.yml</code></li>
+</ul>
+<h3 id="override-behavior"><a class="header" href="#override-behavior">Override Behavior</a></h3>
+<p>Child workflows override parent configuration:</p>
+<pre><code class="language-yaml"># bases/base-workflow.yml
+name: base
+commands:
+  - shell: "echo 'Setup'"
+  - shell: "echo 'Base task'"
+defaults:
+  timeout: 300
+  verbose: false
+
+# production.yml
+name: production
+extends: base-workflow
+commands:
+  - shell: "echo 'Production task'"  # Overrides base commands
+defaults:
+  verbose: true  # Overrides base default
+</code></pre>
+<p>The <code>production</code> workflow completely replaces the <code>commands</code> array and overrides the <code>verbose</code> default, while inheriting the <code>timeout</code> default.</p>
+<h2 id="template-system"><a class="header" href="#template-system">Template System</a></h2>
+<p>Templates provide reusable workflow patterns that can be instantiated with different parameters. Templates can be stored in a registry or loaded from files.</p>
+<h3 id="template-sources"><a class="header" href="#template-sources">Template Sources</a></h3>
+<p>Templates can come from three sources:</p>
+<h4 id="1-registry-templates"><a class="header" href="#1-registry-templates">1. Registry Templates</a></h4>
+<p>Store templates in a central registry:</p>
+<pre><code class="language-yaml">name: my-workflow
+template:
+  name: refactor-base
+  source: refactor-base  # Registry name
+  with:
+    style: modular
+    target: src/
+</code></pre>
+<h4 id="2-file-templates"><a class="header" href="#2-file-templates">2. File Templates</a></h4>
+<p>Load templates from local files:</p>
+<pre><code class="language-yaml">template:
+  name: ci-pipeline
+  source: ./templates/ci-pipeline.yml
+  with:
+    environment: staging
+</code></pre>
+<h4 id="3-url-templates-planned"><a class="header" href="#3-url-templates-planned">3. URL Templates (Planned)</a></h4>
+<p>Future support for remote templates:</p>
+<pre><code class="language-yaml">template:
+  name: shared-workflow
+  source: https://example.com/templates/workflow.yml
+</code></pre>
+<p><em>Note: URL template sources are not yet implemented.</em></p>
+<h3 id="template-parameters"><a class="header" href="#template-parameters">Template Parameters</a></h3>
+<p>Pass parameters to templates using the <code>with</code> field:</p>
+<pre><code class="language-yaml">template:
+  name: refactor-base
+  source: refactor-base
+  with:
+    style: functional
+    max_complexity: 5
+    target_dir: src/
+</code></pre>
+<p>Parameters are substituted throughout the template workflow.</p>
+<h3 id="template-overrides"><a class="header" href="#template-overrides">Template Overrides</a></h3>
+<p>Override specific template values:</p>
+<pre><code class="language-yaml">template:
+  name: test-workflow
+  source: test-base
+  with:
+    parallel: true
+  override:
+    timeout: 600
+    retry_count: 5
+</code></pre>
+<p>The <code>override</code> field allows you to modify template values after parameter substitution.</p>
+<h3 id="template-registry-management"><a class="header" href="#template-registry-management">Template Registry Management</a></h3>
+<h4 id="registering-templates"><a class="header" href="#registering-templates">Registering Templates</a></h4>
+<p>Register a template for reuse:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use prodigy::cook::workflow::{ComposableWorkflow, TemplateRegistry};
+
+let registry = TemplateRegistry::new();
+let template = ComposableWorkflow::from_config(/* ... */);
+
+registry.register_template("my-template".to_string(), template).await?;
+<span class="boring">}</span></code></pre></pre>
+<h4 id="listing-templates"><a class="header" href="#listing-templates">Listing Templates</a></h4>
+<p>View all available templates:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let templates = registry.list().await?;
+for template in templates {
+    println!("{}: {} (v{})", template.name,
+             template.description.unwrap_or_default(),
+             template.version);
+}
+<span class="boring">}</span></code></pre></pre>
+<h4 id="searching-by-tags"><a class="header" href="#searching-by-tags">Searching by Tags</a></h4>
+<p>Find templates by tags:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let refactor_templates = registry.search_by_tags(&amp;["refactor".to_string()]).await?;
+<span class="boring">}</span></code></pre></pre>
+<h4 id="deleting-templates"><a class="header" href="#deleting-templates">Deleting Templates</a></h4>
+<p>Remove a template from the registry:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>registry.delete("old-template").await?;
+<span class="boring">}</span></code></pre></pre>
+<h3 id="template-metadata"><a class="header" href="#template-metadata">Template Metadata</a></h3>
+<p>Templates can include metadata for better organization:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use prodigy::cook::workflow::composition::registry::TemplateMetadata;
+
+let metadata = TemplateMetadata {
+    description: Some("Refactoring workflow for Rust code".to_string()),
+    author: Some("DevOps Team".to_string()),
+    version: "2.0.0".to_string(),
+    tags: vec!["refactor".to_string(), "rust".to_string()],
+    created_at: chrono::Utc::now(),
+    updated_at: chrono::Utc::now(),
+};
+
+registry.register_template_with_metadata(
+    "refactor-rust".to_string(),
+    template,
+    metadata
+).await?;
+<span class="boring">}</span></code></pre></pre>
+<h2 id="parameter-definitions"><a class="header" href="#parameter-definitions">Parameter Definitions</a></h2>
+<p>Define parameters with type validation to create flexible, reusable workflows.</p>
+<h3 id="parameter-types"><a class="header" href="#parameter-types">Parameter Types</a></h3>
+<p>Prodigy supports the following parameter types:</p>
+<ul>
+<li><code>string</code> - Text values</li>
+<li><code>number</code> - Numeric values</li>
+<li><code>boolean</code> - True/false values</li>
+<li><code>array</code> - List of values</li>
+<li><code>object</code> - Structured data</li>
+<li><code>any</code> - Any JSON value</li>
+</ul>
+<h3 id="required-parameters"><a class="header" href="#required-parameters">Required Parameters</a></h3>
+<p>Define parameters that must be provided:</p>
+<pre><code class="language-yaml">parameters:
+  required:
+    - name: target_file
+      type: string
+      description: File to process
+    - name: iteration_count
+      type: number
+      description: Number of iterations to run
+    - name: enabled
+      type: boolean
+      description: Enable feature flag
+</code></pre>
+<h3 id="optional-parameters"><a class="header" href="#optional-parameters">Optional Parameters</a></h3>
+<p>Define optional parameters with default values:</p>
+<pre><code class="language-yaml">parameters:
+  optional:
+    - name: style
+      type: string
+      description: Processing style
+      default: "functional"
+    - name: timeout
+      type: number
+      description: Timeout in seconds
+      default: 300
+    - name: verbose
+      type: boolean
+      description: Enable verbose output
+      default: false
+</code></pre>
+<h3 id="parameter-validation"><a class="header" href="#parameter-validation">Parameter Validation</a></h3>
+<p>Add custom validation expressions:</p>
+<pre><code class="language-yaml">parameters:
+  required:
+    - name: email
+      type: string
+      description: Email address
+      validation: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    - name: count
+      type: number
+      description: Item count
+      validation: "value &gt;= 1 &amp;&amp; value &lt;= 100"
+</code></pre>
+<p><em>Note: Custom validation expression evaluation is planned but not fully implemented.</em></p>
+<h3 id="array-and-object-parameters"><a class="header" href="#array-and-object-parameters">Array and Object Parameters</a></h3>
+<p>Define complex parameter types:</p>
+<pre><code class="language-yaml">parameters:
+  required:
+    - name: files
+      type: array
+      description: List of files to process
+    - name: config
+      type: object
+      description: Configuration object
+  optional:
+    - name: tags
+      type: array
+      description: Tags to apply
+      default: []
+</code></pre>
+<h3 id="type-validation"><a class="header" href="#type-validation">Type Validation</a></h3>
+<p>Prodigy automatically validates parameter types:</p>
+<pre><code class="language-yaml"># Valid
+parameters:
+  target_file: "src/main.rs"
+  iteration_count: 5
+  enabled: true
+
+# Invalid - type mismatch
+parameters:
+  target_file: "src/main.rs"
+  iteration_count: "five"  # Error: expected number, got string
+  enabled: true
+</code></pre>
+<h3 id="parameter-substitution"><a class="header" href="#parameter-substitution">Parameter Substitution</a></h3>
+<p>Use parameters in commands with <code>${parameter_name}</code> syntax:</p>
+<pre><code class="language-yaml">parameters:
+  required:
+    - name: target_dir
+      type: string
+      description: Target directory
+commands:
+  - shell: "cd ${target_dir} &amp;&amp; cargo build"
+  - claude: "/analyze ${target_dir}"
+</code></pre>
+<h2 id="default-values"><a class="header" href="#default-values">Default Values</a></h2>
+<p>Set default parameter values at the workflow level:</p>
+<pre><code class="language-yaml">defaults:
+  timeout: 300
+  retry_count: 3
+  verbose: false
+  environment: development
+</code></pre>
+<p>Defaults are applied before parameter validation and can be overridden by:</p>
+<ol>
+<li>Values in the <code>parameters</code> section</li>
+<li>Values passed at workflow invocation time</li>
+<li>Template <code>override</code> fields</li>
+</ol>
+<p>Defaults interact with parameters as follows:</p>
+<ul>
+<li>If a required parameter has a default, it’s not strictly required</li>
+<li>Optional parameter defaults take precedence over workflow defaults</li>
+<li>Workflow defaults provide fallback values for any parameter</li>
+</ul>
+<h2 id="sub-workflows"><a class="header" href="#sub-workflows">Sub-Workflows</a></h2>
+<p>Execute child workflows as part of a parent workflow. Sub-workflows can run in parallel and have their own parameters and outputs.</p>
+<h3 id="basic-sub-workflow"><a class="header" href="#basic-sub-workflow">Basic Sub-Workflow</a></h3>
+<pre><code class="language-yaml">workflows:
+  process_files:
+    source: ./workflows/process.yml
+    parameters:
+      parallel: true
+</code></pre>
+<h3 id="sub-workflow-parameters"><a class="header" href="#sub-workflow-parameters">Sub-Workflow Parameters</a></h3>
+<p>Pass parameters to sub-workflows:</p>
+<pre><code class="language-yaml">workflows:
+  validate_code:
+    source: ./workflows/validate.yml
+    parameters:
+      strict_mode: true
+      max_warnings: 5
+</code></pre>
+<h3 id="inputoutput-mapping"><a class="header" href="#inputoutput-mapping">Input/Output Mapping</a></h3>
+<p>Map inputs and outputs between parent and sub-workflows:</p>
+<pre><code class="language-yaml">workflows:
+  transform_data:
+    source: ./workflows/transform.yml
+    inputs:
+      source_files: "file_list"  # Map parent variable to sub-workflow input
+      config: "transform_config"
+    outputs:
+      - processed_count  # Expose sub-workflow output to parent
+      - error_log
+</code></pre>
+<h3 id="parallel-execution-1"><a class="header" href="#parallel-execution-1">Parallel Execution</a></h3>
+<p>Run multiple sub-workflows in parallel:</p>
+<pre><code class="language-yaml">workflows:
+  run_tests:
+    source: ./workflows/test.yml
+    parallel: true
+    parameters:
+      suite: unit
+
+  run_linting:
+    source: ./workflows/lint.yml
+    parallel: true
+</code></pre>
+<p>Both workflows execute concurrently.</p>
+<h3 id="error-handling-2"><a class="header" href="#error-handling-2">Error Handling</a></h3>
+<p>Control sub-workflow error behavior:</p>
+<pre><code class="language-yaml">workflows:
+  optional_task:
+    source: ./workflows/optional.yml
+    continue_on_error: true  # Parent continues if this fails
+
+  critical_task:
+    source: ./workflows/critical.yml
+    continue_on_error: false  # Parent fails if this fails (default)
+</code></pre>
+<h3 id="timeouts-and-working-directory"><a class="header" href="#timeouts-and-working-directory">Timeouts and Working Directory</a></h3>
+<p>Configure execution constraints:</p>
+<pre><code class="language-yaml">workflows:
+  long_running:
+    source: ./workflows/process.yml
+    timeout: 600  # 10 minutes in seconds
+    working_dir: ./build/  # Execute from this directory
+</code></pre>
+<h2 id="composition-metadata"><a class="header" href="#composition-metadata">Composition Metadata</a></h2>
+<p>Prodigy tracks metadata about workflow composition for debugging and dependency analysis.</p>
+<h3 id="tracked-information"><a class="header" href="#tracked-information">Tracked Information</a></h3>
+<p>The composition system tracks:</p>
+<ul>
+<li><strong>Sources</strong>: All workflow files involved in composition</li>
+<li><strong>Templates</strong>: Templates used and their sources</li>
+<li><strong>Parameters</strong>: Parameters applied during composition</li>
+<li><strong>Composed At</strong>: Timestamp of composition</li>
+<li><strong>Dependencies</strong>: Full dependency graph with types</li>
+</ul>
+<h3 id="dependency-types"><a class="header" href="#dependency-types">Dependency Types</a></h3>
+<p>The system tracks four types of dependencies:</p>
+<ul>
+<li><code>Import</code> - Files imported with <code>imports:</code></li>
+<li><code>Extends</code> - Base workflows referenced with <code>extends:</code></li>
+<li><code>Template</code> - Templates used with <code>template:</code></li>
+<li><code>SubWorkflow</code> - Sub-workflows defined in <code>workflows:</code></li>
+</ul>
+<h3 id="dependency-graph"><a class="header" href="#dependency-graph">Dependency Graph</a></h3>
+<p>Prodigy builds a complete dependency graph during composition:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use prodigy::cook::workflow::{WorkflowComposer, ComposedWorkflow};
+
+let composed: ComposedWorkflow = composer.compose(&amp;source, params).await?;
+
+// Access composition metadata
+println!("Sources: {:?}", composed.metadata.sources);
+println!("Templates: {:?}", composed.metadata.templates);
+println!("Dependencies: {:?}", composed.metadata.dependencies);
+<span class="boring">}</span></code></pre></pre>
+<h3 id="circular-dependency-detection"><a class="header" href="#circular-dependency-detection">Circular Dependency Detection</a></h3>
+<p>The composer automatically detects circular dependencies:</p>
+<pre><code class="language-yaml"># workflow-a.yml
+name: workflow-a
+extends: workflow-b
+
+# workflow-b.yml
+name: workflow-b
+extends: workflow-a  # Error: circular dependency detected
+</code></pre>
+<p>This prevents infinite loops during composition.</p>
+<h2 id="complete-examples"><a class="header" href="#complete-examples">Complete Examples</a></h2>
+<h3 id="example-1-basic-import-with-alias"><a class="header" href="#example-1-basic-import-with-alias">Example 1: Basic Import with Alias</a></h3>
+<pre><code class="language-yaml">name: integration-test
+imports:
+  - path: ./common/setup.yml
+    alias: setup
+  - path: ./common/assertions.yml
+    alias: assert
+
+commands:
+  - shell: "npm install"
+  - shell: "npm test"
+</code></pre>
+<h3 id="example-2-selective-import"><a class="header" href="#example-2-selective-import">Example 2: Selective Import</a></h3>
+<pre><code class="language-yaml">name: validation-workflow
+imports:
+  - path: ./validators/all.yml
+    selective:
+      - validate_yaml
+      - validate_json
+      - validate_toml
+
+commands:
+  - shell: "find . -name '*.yml' -exec validate {}"
+</code></pre>
+<h3 id="example-3-template-from-registry"><a class="header" href="#example-3-template-from-registry">Example 3: Template from Registry</a></h3>
+<pre><code class="language-yaml">name: refactor-project
+template:
+  name: rust-refactor
+  source: rust-refactor  # From registry
+  with:
+    max_complexity: 5
+    style: functional
+    target: src/
+
+commands:
+  - claude: "/analyze-debt"
+</code></pre>
+<h3 id="example-4-template-with-override"><a class="header" href="#example-4-template-with-override">Example 4: Template with Override</a></h3>
+<pre><code class="language-yaml">name: custom-ci
+template:
+  name: ci-base
+  source: ./templates/ci.yml
+  with:
+    environment: production
+  override:
+    timeout: 1800
+    retry_count: 3
+</code></pre>
+<h3 id="example-5-workflow-with-parameters"><a class="header" href="#example-5-workflow-with-parameters">Example 5: Workflow with Parameters</a></h3>
+<pre><code class="language-yaml">name: deploy-service
+parameters:
+  required:
+    - name: environment
+      type: string
+      description: Deployment environment
+      validation: "^(dev|staging|prod)$"
+    - name: version
+      type: string
+      description: Version to deploy
+  optional:
+    - name: rollback_on_error
+      type: boolean
+      description: Auto-rollback on deployment failure
+      default: true
+
+commands:
+  - shell: "deploy --env ${environment} --version ${version}"
+  - shell: "verify-deployment ${environment}"
+</code></pre>
+<h3 id="example-6-complex-composition"><a class="header" href="#example-6-complex-composition">Example 6: Complex Composition</a></h3>
+<pre><code class="language-yaml">name: full-pipeline
+extends: base-pipeline
+
+imports:
+  - path: ./common/docker.yml
+    alias: docker
+  - path: ./common/kubernetes.yml
+    alias: k8s
+
+template:
+  name: ci-cd-base
+  source: ci-cd-base
+  with:
+    registry: docker.io
+    namespace: my-app
+
+parameters:
+  required:
+    - name: branch
+      type: string
+      description: Git branch
+    - name: tag
+      type: string
+      description: Docker tag
+  optional:
+    - name: skip_tests
+      type: boolean
+      description: Skip test execution
+      default: false
+
+defaults:
+  timeout: 600
+  retry_count: 2
+
+workflows:
+  run_tests:
+    source: ./workflows/test.yml
+    parallel: true
+    parameters:
+      suite: all
+    continue_on_error: false
+
+  build_image:
+    source: ./workflows/docker-build.yml
+    parameters:
+      tag: "${tag}"
+    timeout: 900
+
+commands:
+  - shell: "echo 'Pipeline completed for ${branch}'"
+</code></pre>
+<h3 id="example-7-sub-workflow-execution"><a class="header" href="#example-7-sub-workflow-execution">Example 7: Sub-Workflow Execution</a></h3>
+<pre><code class="language-yaml">name: multi-stage-pipeline
+workflows:
+  stage1_build:
+    source: ./workflows/build.yml
+    parameters:
+      target: release
+    outputs:
+      - artifact_path
+
+  stage2_test:
+    source: ./workflows/test.yml
+    parallel: true
+    inputs:
+      artifact: "artifact_path"
+    continue_on_error: false
+
+  stage3_deploy:
+    source: ./workflows/deploy.yml
+    inputs:
+      artifact: "artifact_path"
+    timeout: 600
+    working_dir: ./deployment/
+
+commands:
+  - shell: "echo 'All stages completed'"
+</code></pre>
+<h3 id="example-8-parameterized-template"><a class="header" href="#example-8-parameterized-template">Example 8: Parameterized Template</a></h3>
+<pre><code class="language-yaml">name: analyze-codebase
+template:
+  name: code-analysis
+  source: code-analysis
+  with:
+    language: rust
+    strictness: high
+    output_format: json
+  override:
+    max_parallel: 4
+
+parameters:
+  required:
+    - name: target_dir
+      type: string
+      description: Directory to analyze
+  optional:
+    - name: exclude_patterns
+      type: array
+      description: Patterns to exclude
+      default: ["target/", "node_modules/"]
+
+commands:
+  - claude: "/analyze ${target_dir} --exclude ${exclude_patterns}"
+</code></pre>
+<h2 id="best-practices-4"><a class="header" href="#best-practices-4">Best Practices</a></h2>
+<h3 id="when-to-use-each-feature"><a class="header" href="#when-to-use-each-feature">When to Use Each Feature</a></h3>
+<ul>
+<li><strong>Imports</strong>: Share common configurations (environment variables, setup steps)</li>
+<li><strong>Extends</strong>: Create workflow hierarchies with base configurations</li>
+<li><strong>Templates</strong>: Standardize workflows across projects and teams</li>
+<li><strong>Parameters</strong>: Make workflows flexible and reusable</li>
+<li><strong>Sub-workflows</strong>: Break complex workflows into manageable pieces</li>
+</ul>
+<h3 id="organizing-reusable-workflows"><a class="header" href="#organizing-reusable-workflows">Organizing Reusable Workflows</a></h3>
+<p>Create a clear directory structure:</p>
+<pre><code>project/
+├── workflows/          # Main workflows
+├── bases/             # Base workflows for inheritance
+├── templates/         # Template workflows
+└── common/            # Shared configurations for import
+    ├── setup.yml
+    ├── cleanup.yml
+    └── validators.yml
+</code></pre>
+<h3 id="template-registry-management-1"><a class="header" href="#template-registry-management-1">Template Registry Management</a></h3>
+<ul>
+<li>Use descriptive template names</li>
+<li>Version templates semantically (1.0.0, 2.0.0)</li>
+<li>Tag templates for discoverability (e.g., “refactor”, “ci”, “test”)</li>
+<li>Document required parameters in template descriptions</li>
+<li>Test templates before registering them</li>
+</ul>
+<h3 id="avoiding-circular-dependencies"><a class="header" href="#avoiding-circular-dependencies">Avoiding Circular Dependencies</a></h3>
+<ul>
+<li>Keep inheritance chains shallow (max 2-3 levels)</li>
+<li>Use imports for shared utilities, not mutual dependencies</li>
+<li>Design base workflows to be self-contained</li>
+<li>Document dependency relationships</li>
+</ul>
+<h3 id="testing-composed-workflows"><a class="header" href="#testing-composed-workflows">Testing Composed Workflows</a></h3>
+<p>Test workflows at each composition level:</p>
+<ol>
+<li><strong>Unit level</strong>: Test individual workflows</li>
+<li><strong>Integration level</strong>: Test workflows with imports</li>
+<li><strong>Composition level</strong>: Test fully composed workflows with all features</li>
+</ol>
+<h3 id="naming-conventions"><a class="header" href="#naming-conventions">Naming Conventions</a></h3>
+<p>Use consistent naming:</p>
+<ul>
+<li>Base workflows: <code>base-{purpose}.yml</code></li>
+<li>Templates: <code>{category}-{purpose}.yml</code></li>
+<li>Shared utilities: <code>{function}-utils.yml</code></li>
+<li>Parameters: Use snake_case (<code>target_file</code>, not <code>targetFile</code>)</li>
+</ul>
+<h2 id="troubleshooting-2"><a class="header" href="#troubleshooting-2">Troubleshooting</a></h2>
+<h3 id="circular-dependency-errors"><a class="header" href="#circular-dependency-errors">Circular Dependency Errors</a></h3>
+<p><strong>Error</strong>: <code>Circular dependency detected in workflow composition</code></p>
+<p><strong>Cause</strong>: Workflows reference each other in a loop</p>
+<p><strong>Solution</strong>: Review your <code>extends</code> and <code>imports</code> to break the cycle:</p>
+<pre><code class="language-yaml"># Bad: A extends B, B extends A
+# Good: A and B both extend base-workflow
+</code></pre>
+<h3 id="template-not-found-errors"><a class="header" href="#template-not-found-errors">Template Not Found Errors</a></h3>
+<p><strong>Error</strong>: <code>Template 'my-template' not found in registry</code></p>
+<p><strong>Cause</strong>: Template doesn’t exist or hasn’t been registered</p>
+<p><strong>Solution</strong>:</p>
+<ol>
+<li>List available templates: <code>registry.list().await?</code></li>
+<li>Register the template before using it</li>
+<li>Check template name spelling</li>
+</ol>
+<h3 id="parameter-validation-failures"><a class="header" href="#parameter-validation-failures">Parameter Validation Failures</a></h3>
+<p><strong>Error</strong>: <code>Required parameter 'target' not provided</code></p>
+<p><strong>Cause</strong>: Missing required parameter</p>
+<p><strong>Solution</strong>: Provide all required parameters:</p>
+<pre><code class="language-yaml">parameters:
+  target: "src/"
+  iterations: 5
+</code></pre>
+<p><strong>Error</strong>: <code>Type mismatch: expected Number, got String</code></p>
+<p><strong>Cause</strong>: Parameter value doesn’t match declared type</p>
+<p><strong>Solution</strong>: Ensure parameter types match:</p>
+<pre><code class="language-yaml"># Wrong: count: "5"
+# Right: count: 5
+</code></pre>
+<h3 id="import-path-resolution"><a class="header" href="#import-path-resolution">Import Path Resolution</a></h3>
+<p><strong>Error</strong>: <code>Failed to load import from "./common/utils.yml"</code></p>
+<p><strong>Cause</strong>: Import path doesn’t exist</p>
+<p><strong>Solution</strong>:</p>
+<ol>
+<li>Use paths relative to workflow file</li>
+<li>Verify file exists at the specified location</li>
+<li>Check file permissions</li>
+</ol>
+<h3 id="base-workflow-not-found"><a class="header" href="#base-workflow-not-found">Base Workflow Not Found</a></h3>
+<p><strong>Error</strong>: <code>Base workflow 'base' not found</code></p>
+<p><strong>Cause</strong>: Base workflow not in standard locations</p>
+<p><strong>Solution</strong>: Place base workflow in one of:</p>
+<ul>
+<li><code>./bases/base.yml</code></li>
+<li><code>./templates/base.yml</code></li>
+<li><code>./workflows/base.yml</code></li>
+<li><code>./base.yml</code></li>
+</ul>
+<p>Or use a full path in <code>extends</code>.</p>
+<h2 id="related-chapters"><a class="header" href="#related-chapters">Related Chapters</a></h2>
+<ul>
+<li><a href="workflow-basics.html">Workflow Basics</a> - Fundamental workflow concepts</li>
+<li><a href="commands.html">Commands</a> - Command types and execution</li>
+<li><a href="variables.html">Variables</a> - Variable interpolation and substitution</li>
+<li><a href="examples.html">Examples</a> - Additional workflow examples</li>
+</ul>
+<h2 id="further-reading"><a class="header" href="#further-reading">Further Reading</a></h2>
+<ul>
+<li>Source code: <code>src/cook/workflow/composition/</code></li>
+<li>Integration tests: <code>tests/workflow_composition_test.rs</code></li>
+<li>Template registry: <code>src/cook/workflow/composition/registry.rs</code></li>
+<li>Dependency resolution: <code>src/cook/workflow/composition/composer.rs</code></li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="retry-configuration"><a class="header" href="#retry-configuration">Retry Configuration</a></h1>
-<blockquote>
-<p><strong>Note</strong>: This chapter is currently being auto-generated by the book-docs-drift workflow. Content will be populated based on the latest codebase implementation.</p>
-</blockquote>
-<h2 id="overview-4"><a class="header" href="#overview-4">Overview</a></h2>
-<p>Prodigy provides sophisticated retry mechanisms with multiple backoff strategies to handle transient failures gracefully.</p>
-<h2 id="topics-to-be-documented-2"><a class="header" href="#topics-to-be-documented-2">Topics to be Documented</a></h2>
+<p>Prodigy provides sophisticated retry mechanisms with multiple backoff strategies to handle transient failures gracefully. The retry system supports both command-level and workflow-level configurations with fine-grained control over retry behavior.</p>
+<h2 id="overview-3"><a class="header" href="#overview-3">Overview</a></h2>
+<p>Prodigy has two retry systems that work together:</p>
+<ol>
+<li><strong>Enhanced Retry System</strong> - Rich, configurable retry with multiple backoff strategies, jitter, circuit breakers, and conditional retry (from <code>src/cook/retry_v2.rs</code>)</li>
+<li><strong>Workflow-Level Retry</strong> - Simpler retry configuration for workflow-level error policies (from <code>src/cook/workflow/error_policy.rs</code>)</li>
+</ol>
+<p>This chapter focuses on the enhanced retry system which provides comprehensive retry capabilities.</p>
+<h2 id="retryconfig-structure"><a class="header" href="#retryconfig-structure">RetryConfig Structure</a></h2>
+<p>The <code>RetryConfig</code> struct controls retry behavior with the following fields:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>attempts</code></td><td><code>u32</code></td><td><code>3</code></td><td>Maximum number of retry attempts</td></tr>
+<tr><td><code>backoff</code></td><td><code>BackoffStrategy</code></td><td><code>Exponential</code></td><td>Strategy for calculating delays between retries</td></tr>
+<tr><td><code>initial_delay</code></td><td><code>Duration</code></td><td><code>1s</code></td><td>Initial delay before first retry</td></tr>
+<tr><td><code>max_delay</code></td><td><code>Duration</code></td><td><code>30s</code></td><td>Maximum delay between any two retries</td></tr>
+<tr><td><code>jitter</code></td><td><code>bool</code></td><td><code>false</code></td><td>Whether to add randomness to delays</td></tr>
+<tr><td><code>jitter_factor</code></td><td><code>f64</code></td><td><code>0.3</code></td><td>Amount of jitter (0.0 to 1.0)</td></tr>
+<tr><td><code>retry_on</code></td><td><code>Vec&lt;ErrorMatcher&gt;</code></td><td><code>[]</code></td><td>Retry only on specific error types (empty = retry all)</td></tr>
+<tr><td><code>retry_budget</code></td><td><code>Option&lt;Duration&gt;</code></td><td><code>None</code></td><td>Maximum total time for all retry attempts</td></tr>
+<tr><td><code>on_failure</code></td><td><code>FailureAction</code></td><td><code>Stop</code></td><td>Action to take after all retries exhausted</td></tr>
+</tbody></table>
+</div>
+<h3 id="duration-format"><a class="header" href="#duration-format">Duration Format</a></h3>
+<p>All duration fields use the <code>humantime</code> format. Examples:</p>
 <ul>
-<li>Workflow-level retry defaults</li>
-<li>Per-command retry configuration</li>
-<li>Backoff strategies (exponential, fibonacci, linear, fixed)</li>
-<li>Retry budget and time limits</li>
-<li>Conditional retry with error type filtering</li>
-<li>Jitter for distributed systems</li>
+<li><code>1s</code> - 1 second</li>
+<li><code>30s</code> - 30 seconds</li>
+<li><code>5m</code> - 5 minutes</li>
+<li><code>100ms</code> - 100 milliseconds</li>
 </ul>
-<hr />
-<p><em>This chapter will be automatically updated by running the book documentation workflow.</em></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="error-handling-2"><a class="header" href="#error-handling-2">Error Handling</a></h1>
+<h2 id="basic-retry-configuration"><a class="header" href="#basic-retry-configuration">Basic Retry Configuration</a></h2>
+<p>The simplest retry configuration uses default values:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 3
+</code></pre>
+<p>This will:</p>
+<ul>
+<li>Retry up to 3 times</li>
+<li>Use exponential backoff (base 2.0)</li>
+<li>Start with 1 second delay</li>
+<li>Cap delays at 30 seconds</li>
+</ul>
+<h2 id="backoff-strategies-1"><a class="header" href="#backoff-strategies-1">Backoff Strategies</a></h2>
+<p>Prodigy supports five backoff strategies for controlling delay between retries:</p>
+<h3 id="fixed-backoff"><a class="header" href="#fixed-backoff">Fixed Backoff</a></h3>
+<p>Same delay for every retry attempt:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  backoff: fixed
+  initial_delay: 2s
+</code></pre>
+<p><strong>Delay sequence</strong>: 2s, 2s, 2s, 2s, 2s</p>
+<p><strong>Use case</strong>: Simple retry logic when you want consistent delays.</p>
+<h3 id="linear-backoff-1"><a class="header" href="#linear-backoff-1">Linear Backoff</a></h3>
+<p>Delay increases by a fixed amount each retry:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 4
+  backoff:
+    linear:
+      increment: 2s
+  initial_delay: 1s
+</code></pre>
+<p><strong>Delay sequence</strong>: 1s, 3s, 5s, 7s</p>
+<p><strong>Use case</strong>: Gradual backoff when you expect quick recovery.</p>
+<h3 id="exponential-backoff-1"><a class="header" href="#exponential-backoff-1">Exponential Backoff</a></h3>
+<p>Delay doubles (or increases by <code>base</code> factor) each retry:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  backoff:
+    exponential:
+      base: 2.0
+  initial_delay: 1s
+  max_delay: 30s
+</code></pre>
+<p><strong>Delay sequence</strong>: 1s, 2s, 4s, 8s, 16s</p>
+<p><strong>Use case</strong>: Most common strategy - backs off quickly to avoid overwhelming failing services. Default strategy.</p>
+<h3 id="fibonacci-backoff-1"><a class="header" href="#fibonacci-backoff-1">Fibonacci Backoff</a></h3>
+<p>Delay follows Fibonacci sequence:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 6
+  backoff: fibonacci
+  initial_delay: 1s
+</code></pre>
+<p><strong>Delay sequence</strong>: 1s, 1s, 2s, 3s, 5s, 8s</p>
+<p><strong>Use case</strong>: Smoother increase than exponential, good for distributed systems.</p>
+<h3 id="custom-backoff"><a class="header" href="#custom-backoff">Custom Backoff</a></h3>
+<p>Specify exact delays for each retry:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 4
+  backoff:
+    custom:
+      delays: [1s, 2s, 5s, 10s]
+</code></pre>
+<p><strong>Delay sequence</strong>: Exactly as specified</p>
+<p><strong>Use case</strong>: When you need precise control over timing (e.g., aligning with rate limit windows).</p>
+<h2 id="backoff-strategy-comparison"><a class="header" href="#backoff-strategy-comparison">Backoff Strategy Comparison</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Strategy</th><th>Attempt 1</th><th>Attempt 2</th><th>Attempt 3</th><th>Attempt 4</th><th>Attempt 5</th><th>Best For</th></tr></thead><tbody>
+<tr><td>Fixed (2s)</td><td>2s</td><td>2s</td><td>2s</td><td>2s</td><td>2s</td><td>Simple retry</td></tr>
+<tr><td>Linear (+2s)</td><td>1s</td><td>3s</td><td>5s</td><td>7s</td><td>9s</td><td>Gradual backoff</td></tr>
+<tr><td>Exponential (base 2.0)</td><td>1s</td><td>2s</td><td>4s</td><td>8s</td><td>16s</td><td>Most failures</td></tr>
+<tr><td>Fibonacci</td><td>1s</td><td>1s</td><td>2s</td><td>3s</td><td>5s</td><td>Distributed systems</td></tr>
+</tbody></table>
+</div>
+<h2 id="jitter-for-distributed-systems"><a class="header" href="#jitter-for-distributed-systems">Jitter for Distributed Systems</a></h2>
+<p>Jitter adds randomness to retry delays to prevent the “thundering herd” problem where many clients retry at the same time.</p>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  backoff:
+    exponential:
+      base: 2.0
+  initial_delay: 10s
+  jitter: true
+  jitter_factor: 0.5
+</code></pre>
+<p>With <code>jitter_factor: 0.5</code>:</p>
+<ul>
+<li>A 10s delay becomes a random delay between <strong>7.5s and 12.5s</strong></li>
+<li>A 20s delay becomes a random delay between <strong>15s and 25s</strong></li>
+</ul>
+<p>The jitter range is calculated as: <code>delay ± (delay * jitter_factor / 2)</code></p>
+<p><strong>When to use jitter</strong>:</p>
+<ul>
+<li>Multiple clients accessing the same service</li>
+<li>Distributed systems with many workers</li>
+<li>Rate-limited APIs</li>
+<li>Preventing synchronized retry storms</li>
+</ul>
+<h2 id="conditional-retry-with-error-matchers"><a class="header" href="#conditional-retry-with-error-matchers">Conditional Retry with Error Matchers</a></h2>
+<p>By default, Prodigy retries all errors. Use <code>retry_on</code> to retry only specific error types:</p>
+<h3 id="network-errors"><a class="header" href="#network-errors">Network Errors</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 3
+  retry_on:
+    - network
+</code></pre>
+<p>Matches errors containing: <code>network</code>, <code>connection</code>, <code>refused</code>, <code>unreachable</code></p>
+<h3 id="timeout-errors"><a class="header" href="#timeout-errors">Timeout Errors</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  retry_on:
+    - timeout
+  backoff:
+    exponential:
+      base: 2.0
+  initial_delay: 2s
+</code></pre>
+<p>Matches errors containing: <code>timeout</code>, <code>timed out</code></p>
+<h3 id="server-errors-http-5xx"><a class="header" href="#server-errors-http-5xx">Server Errors (HTTP 5xx)</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 3
+  retry_on:
+    - server_error
+</code></pre>
+<p>Matches errors containing: <code>500</code>, <code>502</code>, <code>503</code>, <code>504</code>, <code>server error</code></p>
+<h3 id="rate-limit-errors"><a class="header" href="#rate-limit-errors">Rate Limit Errors</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  retry_on:
+    - rate_limit
+  initial_delay: 60s
+</code></pre>
+<p>Matches errors containing: <code>rate limit</code>, <code>429</code>, <code>too many requests</code></p>
+<h3 id="custom-error-patterns"><a class="header" href="#custom-error-patterns">Custom Error Patterns</a></h3>
+<p>Use regex patterns for custom error matching:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 3
+  retry_on:
+    - pattern: "database connection|pool exhausted"
+    - pattern: "ECONNRESET"
+</code></pre>
+<h3 id="multiple-error-types"><a class="header" href="#multiple-error-types">Multiple Error Types</a></h3>
+<p>Retry on any matching error type:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  retry_on:
+    - network
+    - timeout
+    - rate_limit
+  backoff: fibonacci
+  initial_delay: 1s
+</code></pre>
+<h2 id="retry-budget"><a class="header" href="#retry-budget">Retry Budget</a></h2>
+<p>A retry budget limits the total time spent on retries to prevent indefinite retry loops:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 10
+  retry_budget: 5m
+  backoff:
+    exponential:
+      base: 2.0
+  initial_delay: 1s
+</code></pre>
+<p>In this example:</p>
+<ul>
+<li>Allows up to 10 retry attempts</li>
+<li><strong>BUT</strong> stops retrying if total time exceeds 5 minutes</li>
+<li>Useful for preventing workflows from hanging indefinitely</li>
+</ul>
+<p><strong>Without retry budget</strong>: Exponential backoff with 10 attempts could take hours
+<strong>With retry budget</strong>: Guarantees workflow fails within 5 minutes</p>
+<h2 id="failure-actions"><a class="header" href="#failure-actions">Failure Actions</a></h2>
+<p>Configure what happens after all retries are exhausted:</p>
+<h3 id="stop-workflow-default"><a class="header" href="#stop-workflow-default">Stop Workflow (Default)</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 3
+  on_failure: stop
+</code></pre>
+<p>Stops the entire workflow execution on final failure.</p>
+<h3 id="continue-with-next-step"><a class="header" href="#continue-with-next-step">Continue with Next Step</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 3
+  on_failure: continue
+</code></pre>
+<p>Logs the failure but continues workflow execution.</p>
+<h3 id="fallback-command"><a class="header" href="#fallback-command">Fallback Command</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 3
+  on_failure:
+    fallback:
+      command: "echo 'Primary command failed, using fallback'"
+</code></pre>
+<p>Executes a fallback command if primary command fails after all retries.</p>
+<h2 id="complete-examples-1"><a class="header" href="#complete-examples-1">Complete Examples</a></h2>
+<h3 id="retry-network-requests"><a class="header" href="#retry-network-requests">Retry Network Requests</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  backoff:
+    exponential:
+      base: 2.0
+  initial_delay: 1s
+  max_delay: 30s
+  jitter: true
+  jitter_factor: 0.3
+  retry_on:
+    - network
+    - timeout
+    - server_error
+  retry_budget: 2m
+</code></pre>
+<p><strong>Behavior</strong>:</p>
+<ul>
+<li>Retries up to 5 times on network/timeout/server errors</li>
+<li>Exponential backoff: 1s, 2s, 4s, 8s, 16s (with jitter)</li>
+<li>Total retry time limited to 2 minutes</li>
+<li>Other errors (like syntax errors) fail immediately</li>
+</ul>
+<h3 id="retry-rate-limited-apis"><a class="header" href="#retry-rate-limited-apis">Retry Rate-Limited APIs</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 3
+  backoff: fibonacci
+  initial_delay: 60s
+  max_delay: 300s
+  retry_on:
+    - rate_limit
+  retry_budget: 15m
+</code></pre>
+<p><strong>Behavior</strong>:</p>
+<ul>
+<li>Waits 60s, 60s, 120s between retries (Fibonacci sequence)</li>
+<li>Only retries on rate limit errors (429, “rate limit exceeded”)</li>
+<li>Gives up after 15 minutes total</li>
+</ul>
+<h3 id="retry-flaky-tests"><a class="header" href="#retry-flaky-tests">Retry Flaky Tests</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 3
+  backoff: fixed
+  initial_delay: 500ms
+  on_failure: continue
+</code></pre>
+<p><strong>Behavior</strong>:</p>
+<ul>
+<li>Quick retries with 500ms between attempts</li>
+<li>Fixed delay (doesn’t increase)</li>
+<li>Continues workflow even if test fails 3 times</li>
+</ul>
+<h3 id="retry-with-circuit-breaker"><a class="header" href="#retry-with-circuit-breaker">Retry with Circuit Breaker</a></h3>
+<p>The <code>RetryExecutor</code> supports circuit breakers to prevent cascading failures:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use prodigy::cook::retry_v2::{RetryConfig, RetryExecutor};
+use std::time::Duration;
+
+let config = RetryConfig {
+    attempts: 5,
+    ..Default::default()
+};
+
+let executor = RetryExecutor::new(config)
+    .with_circuit_breaker(
+        3,                             // Open after 3 consecutive failures
+        Duration::from_secs(30)        // Stay open for 30 seconds
+    );
+
+let result = executor
+    .execute_with_retry(|| async {
+        // Your operation here
+        Ok("success")
+    }, "my-operation")
+    .await?;
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Circuit breaker states</strong>:</p>
+<ul>
+<li><strong>Closed</strong>: Normal operation, requests pass through</li>
+<li><strong>Open</strong>: Too many failures, immediately reject requests</li>
+<li><strong>Half-Open</strong>: After timeout, test with limited requests</li>
+</ul>
+<h2 id="workflow-level-vs-command-level-retry"><a class="header" href="#workflow-level-vs-command-level-retry">Workflow-Level vs Command-Level Retry</a></h2>
+<p>Prodigy has two retry systems that serve different purposes:</p>
+<h3 id="command-level-retry-enhanced"><a class="header" href="#command-level-retry-enhanced">Command-Level Retry (Enhanced)</a></h3>
+<p>Configured per command using <code>RetryConfig</code>:</p>
+<pre><code class="language-yaml">commands:
+  - shell: "curl https://api.example.com/data"
+    retry:
+      attempts: 5
+      backoff: exponential
+      retry_on: [network, timeout]
+</code></pre>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>Rich backoff strategies (exponential, fibonacci, custom)</li>
+<li>Jitter support</li>
+<li>Conditional retry (error matchers)</li>
+<li>Retry budget</li>
+<li>Circuit breaker integration</li>
+<li>Detailed retry metrics</li>
+</ul>
+<h3 id="workflow-level-retry-error-policy"><a class="header" href="#workflow-level-retry-error-policy">Workflow-Level Retry (Error Policy)</a></h3>
+<p>Configured in workflow error policy from <code>error_policy.rs</code>:</p>
+<pre><code class="language-yaml">error_policy:
+  on_item_failure: retry
+  retry_config:
+    max_attempts: 3
+    backoff:
+      exponential:
+        initial: 1s
+        multiplier: 2.0
+</code></pre>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>Simpler configuration</li>
+<li>Workflow-level failure handling</li>
+<li>Integrates with DLQ (Dead Letter Queue)</li>
+<li>Circuit breaker support</li>
+<li>Error metrics and pattern detection</li>
+</ul>
+<p><strong>When to use each</strong>:</p>
+<ul>
+<li><strong>Command-level</strong>: For specific commands that need sophisticated retry logic</li>
+<li><strong>Workflow-level</strong>: For consistent retry behavior across all workflow items in MapReduce jobs</li>
+</ul>
+<h3 id="command-metadata-override"><a class="header" href="#command-metadata-override">Command Metadata Override</a></h3>
+<p>Individual commands can override workflow-level retry settings:</p>
+<pre><code class="language-yaml"># Workflow default
+retry:
+  attempts: 3
+
+# Command override
+commands:
+  - claude: "/analyze ${item}"
+    metadata:
+      retries: 5  # This command gets 5 attempts instead of 3
+</code></pre>
+<p>From <code>src/config/command.rs:135</code>.</p>
+<h2 id="retry-metrics-and-observability"><a class="header" href="#retry-metrics-and-observability">Retry Metrics and Observability</a></h2>
+<p>The retry system tracks metrics for monitoring:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let executor = RetryExecutor::new(config);
+// ... execute operations ...
+let metrics = executor.metrics().await;
+
+println!("Total attempts: {}", metrics.total_attempts);
+println!("Successful: {}", metrics.successful_attempts);
+println!("Failed: {}", metrics.failed_attempts);
+println!("Retry history: {:?}", metrics.retries);
+<span class="boring">}</span></code></pre></pre>
+<p>Metrics include:</p>
+<ul>
+<li><code>total_attempts</code> - Total number of attempts made</li>
+<li><code>successful_attempts</code> - Number of successful operations</li>
+<li><code>failed_attempts</code> - Number of failed operations</li>
+<li><code>retries</code> - Vec of (attempt_number, delay) pairs</li>
+</ul>
+<h2 id="best-practices-5"><a class="header" href="#best-practices-5">Best Practices</a></h2>
+<h3 id="choosing-a-backoff-strategy"><a class="header" href="#choosing-a-backoff-strategy">Choosing a Backoff Strategy</a></h3>
+<ol>
+<li><strong>Use Exponential for most cases</strong> - Default strategy, works well for most failures</li>
+<li><strong>Use Fibonacci for distributed systems</strong> - Smoother curve, avoids overwhelming services</li>
+<li><strong>Use Linear for quick recovery scenarios</strong> - When failures are brief and predictable</li>
+<li><strong>Use Fixed only for very specific cases</strong> - When you know exact timing requirements</li>
+<li><strong>Use Custom for rate-limited APIs</strong> - Align retries with API rate limit windows</li>
+</ol>
+<h3 id="setting-appropriate-timeouts"><a class="header" href="#setting-appropriate-timeouts">Setting Appropriate Timeouts</a></h3>
+<ul>
+<li><strong>initial_delay</strong>: Start small (1-2s) for transient errors, larger (30-60s) for rate limits</li>
+<li><strong>max_delay</strong>: Cap at reasonable time (30s for interactive, 5m for background jobs)</li>
+<li><strong>retry_budget</strong>: Always set this to prevent infinite retry loops
+<ul>
+<li>Interactive operations: 1-5 minutes</li>
+<li>Background jobs: 15-30 minutes</li>
+<li>Critical operations: 1 hour</li>
+</ul>
+</li>
+</ul>
+<h3 id="using-jitter"><a class="header" href="#using-jitter">Using Jitter</a></h3>
+<p>Enable jitter when:</p>
+<ul>
+<li>✅ Multiple clients/workers accessing the same service</li>
+<li>✅ Distributed systems with parallel execution</li>
+<li>✅ Rate-limited APIs</li>
+<li>❌ Single client applications</li>
+<li>❌ When exact timing is critical</li>
+</ul>
+<h3 id="conditional-retry"><a class="header" href="#conditional-retry">Conditional Retry</a></h3>
+<p>Always use <code>retry_on</code> to avoid retrying permanent failures:</p>
+<pre><code class="language-yaml"># ❌ BAD: Retries syntax errors forever
+retry:
+  attempts: 10
+  backoff: exponential
+
+# ✅ GOOD: Only retries transient failures
+retry:
+  attempts: 10
+  retry_on: [network, timeout, server_error]
+  backoff: exponential
+</code></pre>
+<h3 id="retry-budget-guidelines"><a class="header" href="#retry-budget-guidelines">Retry Budget Guidelines</a></h3>
+<p>Set retry budgets based on operation criticality:</p>
+<div class="table-wrapper"><table><thead><tr><th>Operation Type</th><th>Suggested Budget</th><th>Reasoning</th></tr></thead><tbody>
+<tr><td>User-facing API calls</td><td>5-10 seconds</td><td>User is waiting</td></tr>
+<tr><td>Background sync</td><td>5-15 minutes</td><td>Can afford patience</td></tr>
+<tr><td>Critical data operations</td><td>30-60 minutes</td><td>Must complete</td></tr>
+<tr><td>Non-critical tasks</td><td>1-5 minutes</td><td>Fail fast</td></tr>
+</tbody></table>
+</div>
+<h2 id="troubleshooting-3"><a class="header" href="#troubleshooting-3">Troubleshooting</a></h2>
+<h3 id="retries-taking-too-long"><a class="header" href="#retries-taking-too-long">Retries Taking Too Long</a></h3>
+<p><strong>Problem</strong>: Workflow hangs during retries</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Add a <code>retry_budget</code> to cap total retry time</li>
+<li>Reduce <code>max_delay</code> to speed up retry cycles</li>
+<li>Reduce <code>attempts</code> to fail faster</li>
+<li>Use <code>linear</code> or <code>fibonacci</code> instead of <code>exponential</code></li>
+</ol>
+<h3 id="not-retrying-when-expected"><a class="header" href="#not-retrying-when-expected">Not Retrying When Expected</a></h3>
+<p><strong>Problem</strong>: Operation fails without retrying</p>
+<p><strong>Causes</strong>:</p>
+<ol>
+<li>Error doesn’t match <code>retry_on</code> patterns</li>
+<li>Already at max <code>attempts</code></li>
+<li><code>retry_budget</code> exhausted</li>
+<li>Circuit breaker is open</li>
+</ol>
+<p><strong>Debug</strong>:</p>
+<ul>
+<li>Remove <code>retry_on</code> to retry all errors</li>
+<li>Check error message matches patterns (case-insensitive)</li>
+<li>Increase <code>retry_budget</code> or <code>attempts</code></li>
+<li>Check circuit breaker status</li>
+</ul>
+<h3 id="thundering-herd-problem"><a class="header" href="#thundering-herd-problem">Thundering Herd Problem</a></h3>
+<p><strong>Problem</strong>: Many workers retry at the same time, overwhelming service</p>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  jitter: true
+  jitter_factor: 0.5  # 50% jitter range
+  backoff: fibonacci   # Smoother than exponential
+</code></pre>
+<h3 id="rate-limit-issues"><a class="header" href="#rate-limit-issues">Rate Limit Issues</a></h3>
+<p><strong>Problem</strong>: Keep hitting rate limits despite retries</p>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-yaml">retry:
+  attempts: 3
+  retry_on:
+    - rate_limit
+  backoff: custom
+    delays: [60s, 120s, 300s]  # Align with rate limit window
+  retry_budget: 15m
+</code></pre>
+<h2 id="related-topics"><a class="header" href="#related-topics">Related Topics</a></h2>
+<ul>
+<li><a href="./error-handling.html">Error Handling</a> - Overall error handling strategy</li>
+<li><a href="./workflow-configuration.html">Workflow Configuration</a> - Workflow-level settings</li>
+<li><a href="./mapreduce.html">MapReduce</a> - Retry in MapReduce workflows</li>
+<li><a href="./dead-letter-queue.html">Dead Letter Queue</a> - Handling failed items</li>
+</ul>
+<h2 id="implementation-references"><a class="header" href="#implementation-references">Implementation References</a></h2>
+<ul>
+<li>Enhanced retry system: <code>src/cook/retry_v2.rs:14-461</code></li>
+<li>Workflow error policy: <code>src/cook/workflow/error_policy.rs:91-129</code></li>
+<li>Command metadata: <code>src/config/command.rs:135</code></li>
+<li>Circuit breaker: <code>src/cook/retry_v2.rs:325-397</code></li>
+<li>Error matchers: <code>src/cook/retry_v2.rs:100-151</code></li>
+<li>Retry metrics: <code>src/cook/retry_v2.rs:399-422</code></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="error-handling-3"><a class="header" href="#error-handling-3">Error Handling</a></h1>
 <p>Prodigy provides comprehensive error handling at both the workflow level (for MapReduce jobs) and the command level (for individual workflow steps). This chapter covers the practical features available for handling failures gracefully.</p>
 <hr />
 <h2 id="command-level-error-handling"><a class="header" href="#command-level-error-handling">Command-Level Error Handling</a></h2>
@@ -2142,7 +4376,7 @@ commands:
   on_failure:
     claude: "/fix-warnings ${shell.output}"
     fail_workflow: false     # Continue workflow even if handler fails
-    max_attempts: 3          # Retry original command up to 3 times (alias: max_retries)
+    max_attempts: 3          # Retry original command up to 3 times (setting &gt; 1 enables auto-retry)
 </code></pre>
 <p><strong>Available Fields:</strong></p>
 <ul>
@@ -2153,7 +4387,8 @@ commands:
 </ul>
 <p><strong>Notes:</strong></p>
 <ul>
-<li>If <code>max_attempts &gt; 1</code>, Prodigy will retry the original command after running the failure handler</li>
+<li>Setting <code>max_attempts &gt; 1</code> automatically enables retry behavior, eliminating the need for the deprecated <code>retry_original</code> flag</li>
+<li>Prodigy will retry the original command after running the failure handler</li>
 <li>You can specify both <code>shell</code> and <code>claude</code> commands - they will execute in sequence</li>
 <li>By default, having a handler means the workflow continues even if the step fails</li>
 </ul>
@@ -2184,12 +4419,23 @@ commands:
 <li><code>continue_on_error</code> - Continue to next handler command even if this fails</li>
 </ul>
 <h3 id="success-handling"><a class="header" href="#success-handling">Success Handling</a></h3>
-<p>Execute commands when a step succeeds:</p>
+<p>Execute commands when a step succeeds. The <code>on_success</code> field accepts a full WorkflowStep configuration with all available fields.</p>
+<p><strong>Simple Form:</strong></p>
 <pre><code class="language-yaml">- shell: "deploy-staging"
   on_success:
     shell: "notify-success"
     claude: "/update-deployment-docs"
 </code></pre>
+<p><strong>Advanced Form with Full WorkflowStep Configuration:</strong></p>
+<pre><code class="language-yaml">- shell: "build-production"
+  on_success:
+    claude: "/update-build-metrics"
+    timeout: 60              # Success handler timeout
+    capture: "metrics"       # Capture output to variable
+    working_dir: "dist"      # Run in specific directory
+    when: "${build.target} == 'release'"  # Conditional execution
+</code></pre>
+<p><strong>Note:</strong> The <code>on_success</code> handler supports all WorkflowStep fields including <code>timeout</code>, <code>capture</code>, <code>working_dir</code>, <code>when</code>, and nested <code>on_failure</code> handlers.</p>
 <h3 id="commit-requirements"><a class="header" href="#commit-requirements">Commit Requirements</a></h3>
 <p>Specify whether a workflow step must create a git commit:</p>
 <pre><code class="language-yaml">- claude: "/implement-feature"
@@ -2329,7 +4575,7 @@ prodigy dlq retry &lt;job_id&gt; --dry-run
 </code></pre>
 <p>This centralized storage allows multiple worktrees to share the same DLQ.</p>
 <hr />
-<h2 id="best-practices-2"><a class="header" href="#best-practices-2">Best Practices</a></h2>
+<h2 id="best-practices-6"><a class="header" href="#best-practices-6">Best Practices</a></h2>
 <h3 id="when-to-use-command-level-error-handling"><a class="header" href="#when-to-use-command-level-error-handling">When to Use Command-Level Error Handling</a></h3>
 <ul>
 <li><strong>Recovery:</strong> Use <code>on_failure</code> to fix issues and retry (e.g., clearing cache before reinstalling)</li>
@@ -2376,7 +4622,7 @@ prodigy dlq retry &lt;job_id&gt; --dry-run
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="automated-documentation-with-mdbook"><a class="header" href="#automated-documentation-with-mdbook">Automated Documentation with mdBook</a></h1>
 <p>This guide shows you how to set up automated, always-up-to-date documentation for any project using Prodigy’s book workflow system. This same system maintains the documentation you’re reading right now.</p>
-<h2 id="overview-5"><a class="header" href="#overview-5">Overview</a></h2>
+<h2 id="overview-4"><a class="header" href="#overview-4">Overview</a></h2>
 <p>The book workflow system:</p>
 <ul>
 <li><strong>Analyzes your codebase</strong> to build a feature inventory</li>
@@ -2593,9 +4839,10 @@ env:
   PROJECT_NAME: "YourProject"
   PROJECT_CONFIG: ".myproject/book-config.json"
   FEATURES_PATH: ".myproject/book-analysis/features.json"
+  ANALYSIS_DIR: ".myproject/book-analysis"
 
 setup:
-  - shell: "mkdir -p .myproject/book-analysis"
+  - shell: "mkdir -p ${ANALYSIS_DIR}"
 
   # Analyze codebase and build feature inventory
   - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
@@ -2605,40 +4852,45 @@ map:
   json_path: "$.chapters[*]"
 
   agent_template:
-    # Analyze each chapter for drift
+    # Step 1: Analyze the chapter for drift
     - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
+      commit_required: true
+
+    # Step 2: Fix the drift in this chapter
+    - claude: "/prodigy-fix-chapter-drift --project $PROJECT_NAME --chapter-id ${item.id}"
       commit_required: true
 
   max_parallel: 3
   agent_timeout_secs: 900
 
 reduce:
-  # Aggregate all drift reports and fix issues
-  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME --config $PROJECT_CONFIG"
-    commit_required: true
-
-  # Build the book
-  - shell: "cd book &amp;&amp; mdbook build"
+  # Rebuild the book to ensure all chapters compile together
+  - shell: "(cd book &amp;&amp; mdbook build)"
     on_failure:
+      # Only needed if there are build errors (broken links, etc)
       claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
+      commit_required: true
 
 error_policy:
   on_item_failure: dlq
   continue_on_failure: true
   max_failures: 2
+  error_collection: aggregate
 
 merge:
   commands:
-    # Clean up temporary analysis files
-    - shell: "rm -rf .myproject/book-analysis"
-    - shell: "git add -A &amp;&amp; git commit -m 'chore: remove temporary book analysis files' || true"
+    # Step 1: Clean up temporary analysis files
+    - shell: "rm -rf ${ANALYSIS_DIR}"
+    - shell: "git add -A &amp;&amp; git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
 
-    # Final build verification
-    - shell: "cd book &amp;&amp; mdbook build"
+    # Step 2: Validate book builds successfully
+    - shell: "(cd book &amp;&amp; mdbook build)"
 
-    # Merge back to main branch
+    # Step 3: Fetch latest changes and merge master into worktree
     - shell: "git fetch origin"
-    - claude: "/merge-master"
+    - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
+
+    # Step 4: Merge worktree back to master
     - claude: "/prodigy-merge-worktree ${merge.source_branch}"
 </code></pre>
 <p><strong>Workflow Sections</strong>:</p>
@@ -2660,11 +4912,12 @@ merge:
 prodigy run workflows/book-docs-drift.yml
 
 # The workflow will:
-# 1. Analyze your codebase for features
-# 2. Check each chapter for documentation drift
-# 3. Update chapters to match current implementation
-# 4. Build the book to verify everything works
-# 5. Merge changes back to your main branch
+# 1. Setup: Analyze your codebase for features (creates feature inventory)
+# 2. Map: For each chapter in parallel:
+#    a. Analyze chapter for drift (creates drift report)
+#    b. Fix the chapter based on drift report
+# 3. Reduce: Build the complete book to verify all chapters work together
+# 4. Merge: Clean up temp files and merge changes back to main branch
 </code></pre>
 <h2 id="understanding-the-workflow"><a class="header" href="#understanding-the-workflow">Understanding the Workflow</a></h2>
 <h3 id="phase-1-setup---feature-analysis"><a class="header" href="#phase-1-setup---feature-analysis">Phase 1: Setup - Feature Analysis</a></h3>
@@ -2692,49 +4945,69 @@ prodigy run workflows/book-docs-drift.yml
   ]
 }
 </code></pre>
-<h3 id="phase-2-map---chapter-drift-detection"><a class="header" href="#phase-2-map---chapter-drift-detection">Phase 2: Map - Chapter Drift Detection</a></h3>
-<p>Each chapter is processed in parallel to detect drift:</p>
+<h3 id="phase-2-map---chapter-drift-detection-and-fixing"><a class="header" href="#phase-2-map---chapter-drift-detection-and-fixing">Phase 2: Map - Chapter Drift Detection and Fixing</a></h3>
+<p>Each chapter is processed in parallel with a two-step approach:</p>
 <pre><code class="language-yaml">map:
   input: "workflows/data/chapters.json"
   json_path: "$.chapters[*]"
 
   agent_template:
+    # Step 1: Analyze the chapter for drift
     - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
       commit_required: true
+
+    # Step 2: Fix the drift in this chapter
+    - claude: "/prodigy-fix-chapter-drift --project $PROJECT_NAME --chapter-id ${item.id}"
+      commit_required: true
 </code></pre>
-<p>For each chapter, Claude:</p>
+<p>The map phase actually has <strong>TWO steps per chapter</strong>:</p>
+<p><strong>Step 1: Analyze</strong> - For each chapter, Claude:</p>
 <ol>
 <li>Reads the current chapter content</li>
 <li>Compares it to the feature inventory</li>
 <li>Identifies missing, outdated, or incorrect information</li>
-<li>Creates a drift report</li>
+<li>Creates a drift report (<code>.prodigy/book-analysis/drift-{chapter-id}.json</code>)</li>
 </ol>
-<h3 id="phase-3-reduce---fix-drift"><a class="header" href="#phase-3-reduce---fix-drift">Phase 3: Reduce - Fix Drift</a></h3>
-<p>The reduce phase aggregates all drift reports and updates chapters:</p>
-<pre><code class="language-yaml">reduce:
-  - claude: "/prodigy-fix-book-drift --project $PROJECT_NAME --config $PROJECT_CONFIG"
-    commit_required: true
-
-  - shell: "cd book &amp;&amp; mdbook build"
-    on_failure:
-      claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
-</code></pre>
-<p>Claude:</p>
+<p><strong>Step 2: Fix</strong> - Then immediately for the same chapter, Claude:</p>
 <ol>
-<li>Reviews all drift reports</li>
-<li>Updates chapters to fix issues</li>
-<li>Ensures consistency across chapters</li>
-<li>Verifies the book builds successfully</li>
+<li>Reads the drift report created in step 1</li>
+<li>Updates the chapter file to fix all identified issues</li>
+<li>Commits the fixes to the worktree</li>
 </ol>
+<p>Both steps run sequentially for each chapter, and chapters are processed in parallel.</p>
+<h3 id="phase-3-reduce---validate-book-build"><a class="header" href="#phase-3-reduce---validate-book-build">Phase 3: Reduce - Validate Book Build</a></h3>
+<p>The reduce phase validates that all updated chapters build successfully together:</p>
+<pre><code class="language-yaml">reduce:
+  # Rebuild the book to ensure all chapters compile together
+  - shell: "(cd book &amp;&amp; mdbook build)"
+    on_failure:
+      # Only needed if there are build errors (broken links, etc)
+      claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
+      commit_required: true
+</code></pre>
+<p>Since chapter fixes happen in the map phase, the reduce phase focuses on:</p>
+<ol>
+<li>Building the complete book with all updated chapters</li>
+<li>Detecting any build errors (broken cross-references, invalid links, etc.)</li>
+<li>Fixing build errors if they occur (via Claude command)</li>
+</ol>
+<p>This ensures that all chapters work together correctly after parallel updates.</p>
 <h3 id="phase-4-merge---integration"><a class="header" href="#phase-4-merge---integration">Phase 4: Merge - Integration</a></h3>
 <p>The merge phase cleans up and integrates changes:</p>
 <pre><code class="language-yaml">merge:
   commands:
-    - shell: "rm -rf .myproject/book-analysis"
-    - shell: "git add -A &amp;&amp; git commit -m 'chore: remove temporary book analysis files' || true"
-    - shell: "cd book &amp;&amp; mdbook build"
+    # Step 1: Clean up temporary analysis files
+    - shell: "rm -rf ${ANALYSIS_DIR}"
+    - shell: "git add -A &amp;&amp; git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
+
+    # Step 2: Validate book builds successfully
+    - shell: "(cd book &amp;&amp; mdbook build)"
+
+    # Step 3: Fetch latest changes and merge master into worktree
     - shell: "git fetch origin"
-    - claude: "/merge-master"
+    - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
+
+    # Step 4: Merge worktree back to master
     - claude: "/prodigy-merge-worktree ${merge.source_branch}"
 </code></pre>
 <h2 id="github-actions-integration"><a class="header" href="#github-actions-integration">GitHub Actions Integration</a></h2>
@@ -2747,20 +5020,21 @@ on:
     branches: [main, master]
     paths:
       - 'book/**'
-      - 'workflows/book-docs-drift.yml'
-  workflow_dispatch:  # Allow manual triggers
-
-permissions:
-  contents: write
-  pages: write
-  id-token: write
+      - '.github/workflows/deploy-docs.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'book/**'
+      - '.github/workflows/deploy-docs.yml'
 
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to push to gh-pages branch
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v2
@@ -2768,87 +5042,23 @@ jobs:
           mdbook-version: 'latest'
 
       - name: Build book
-        run: |
-          cd book
-          mdbook build
+        run: mdbook build book
 
       - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' &amp;&amp; (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./book/book
-          cname: docs.yourproject.com  # Optional: custom domain
 </code></pre>
 <h3 id="periodic-documentation-updates"><a class="header" href="#periodic-documentation-updates">Periodic Documentation Updates</a></h3>
-<p>Create <code>.github/workflows/update-docs.yml</code>:</p>
-<pre><code class="language-yaml">name: Update Documentation
-
-on:
-  schedule:
-    # Run weekly on Monday at 9 AM UTC
-    - cron: '0 9 * * 1'
-  workflow_dispatch:  # Allow manual triggers
-
-jobs:
-  update-docs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-
-      - name: Install Prodigy
-        run: cargo install prodigy
-
-      - name: Install mdBook
-        uses: peaceiris/actions-mdbook@v2
-        with:
-          mdbook-version: 'latest'
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
-
-      - name: Configure Claude API
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          # Configure Claude Code CLI with API key
-          echo "$ANTHROPIC_API_KEY" | claude-code auth login
-
-      - name: Run documentation workflow
-        run: |
-          prodigy run workflows/book-docs-drift.yml
-
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: 'docs: automated documentation update'
-          title: 'Automated Documentation Update'
-          body: |
-            This PR was automatically created by the documentation workflow.
-
-            Changes:
-            - Updated documentation to match current codebase
-            - Fixed any detected drift between docs and implementation
-
-            Please review the changes before merging.
-          branch: docs/automated-update
-          delete-branch: true
+<blockquote>
+<p><strong>Note</strong>: Automated documentation updates in CI/CD are not yet fully supported. Claude Code CLI installation and authentication in GitHub Actions is still in development.</p>
+<p>For now, run the book workflow manually:</p>
+<pre><code class="language-bash">prodigy run workflows/book-docs-drift.yml
 </code></pre>
-<p><strong>Required Secrets</strong>:</p>
-<ul>
-<li><code>ANTHROPIC_API_KEY</code>: Your Claude API key (add in repository settings)</li>
-</ul>
+<p>Watch the Prodigy and Claude Code documentation for updates on CI integration.</p>
+</blockquote>
 <h3 id="enable-github-pages"><a class="header" href="#enable-github-pages">Enable GitHub Pages</a></h3>
 <ol>
 <li>Go to repository Settings → Pages</li>
@@ -2941,7 +5151,7 @@ jobs:
 <li>Deployment</li>
 <li>Monitoring</li>
 </ul>
-<h2 id="best-practices-3"><a class="header" href="#best-practices-3">Best Practices</a></h2>
+<h2 id="best-practices-7"><a class="header" href="#best-practices-7">Best Practices</a></h2>
 <h3 id="1-start-with-minimal-chapters"><a class="header" href="#1-start-with-minimal-chapters">1. Start with Minimal Chapters</a></h3>
 <p>Don’t try to document everything at once:</p>
 <pre><code class="language-json">{
@@ -2993,7 +5203,7 @@ prodigy run workflows/book-docs-drift.yml
 }
 </code></pre>
 <p>This ensures focused, accurate updates.</p>
-<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h2 id="troubleshooting-4"><a class="header" href="#troubleshooting-4">Troubleshooting</a></h2>
 <h3 id="issue-feature-analysis-produces-empty-results"><a class="header" href="#issue-feature-analysis-produces-empty-results">Issue: Feature Analysis Produces Empty Results</a></h3>
 <p><strong>Cause</strong>: Analysis targets don’t match your code structure</p>
 <p><strong>Solution</strong>: Check that <code>source_files</code> paths exist:</p>
@@ -3134,7 +5344,7 @@ cat workflows/data/chapters.json | jq -r '.chapters[].file' | xargs ls -la
 <li>✅ <strong>Easy to customize</strong> - Configuration-based, works for any project</li>
 </ul>
 <p>The same commands that maintain Prodigy’s documentation can maintain yours.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="examples"><a class="header" href="#examples">Examples</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="examples-1"><a class="header" href="#examples-1">Examples</a></h1>
 <h2 id="example-1-simple-build-and-test"><a class="header" href="#example-1-simple-build-and-test">Example 1: Simple Build and Test</a></h2>
 <pre><code class="language-yaml">- shell: "cargo build"
 - shell: "cargo test"
@@ -3146,7 +5356,7 @@ cat workflows/data/chapters.json | jq -r '.chapters[].file' | xargs ls -la
 <h2 id="example-2-coverage-improvement-with-goal-seeking"><a class="header" href="#example-2-coverage-improvement-with-goal-seeking">Example 2: Coverage Improvement with Goal Seeking</a></h2>
 <pre><code class="language-yaml">- goal_seek:
     goal: "Achieve 80% test coverage"
-    claude: "/improve-coverage"
+    claude: "/improve-coverage"  # Can also use 'shell' for shell commands
     validate: |
       coverage=$(cargo tarpaulin | grep 'Coverage' | sed 's/.*: \([0-9.]*\)%.*/\1/')
       echo "score: ${coverage%.*}"
@@ -3164,7 +5374,7 @@ cat workflows/data/chapters.json | jq -r '.chapters[].file' | xargs ls -la
       profile: release
     - rust-version: "stable"
       profile: release
-  commands:
+  do:
     - shell: "rustup install ${foreach.item.rust-version}"
     - shell: "cargo +${foreach.item.rust-version} build --profile ${foreach.item.profile}"
     - shell: "cargo +${foreach.item.rust-version} test"
@@ -3176,7 +5386,7 @@ cat workflows/data/chapters.json | jq -r '.chapters[].file' | xargs ls -la
     - "worker-service"
   parallel: 3
   continue_on_error: true
-  commands:
+  do:
     - shell: "cd services/${foreach.item} &amp;&amp; cargo build"
     - shell: "cd services/${foreach.item} &amp;&amp; cargo test"
       on_failure:
@@ -3197,7 +5407,7 @@ map:
   agent_template:
     - claude: "/review-file ${item.path}"
       id: "review"
-      capture: "review_result"
+      capture_output: "review_result"
       capture_format: "json"
     - shell: "cargo check ${item.path}"
   max_parallel: 5
@@ -3211,6 +5421,7 @@ reduce:
   id: "test"
   capture: "test_result"
   capture_format: "boolean"  # Supported: string, json, lines, number, boolean
+  timeout: 300  # Timeout in seconds (5 minutes)
 
 - shell: "cargo build --release"
   when: "${test_result} == true"
@@ -3246,22 +5457,25 @@ env:
 # Environment profiles for different contexts
 profiles:
   production:
-    API_URL: https://api.production.com
-    LOG_LEVEL: error
+    env:
+      API_URL: https://api.production.com
+      LOG_LEVEL: error
     description: "Production environment"
 
   staging:
-    API_URL: https://api.staging.com
-    LOG_LEVEL: warn
+    env:
+      API_URL: https://api.staging.com
+      LOG_LEVEL: warn
     description: "Staging environment"
 
 # Secrets (masked in logs)
 secrets:
   API_KEY:
-    provider: env
-    key: SECRET_API_KEY
+    value: "${SECRET_API_KEY}"
+    secret: true
 
 # Load additional variables from .env files
+# Note: Paths are relative to workflow file location
 env_files:
   - .env
   - .env.production
@@ -3272,8 +5486,10 @@ env_files:
 # Use environment variables in commands
 - shell: "echo 'Deploying to ${NODE_ENV} at ${API_URL}'"
 
-# Override environment for specific command using shell syntax
-- shell: "LOG_LEVEL=debug ./deploy.sh"
+# Override environment for specific step using env field
+- shell: "./deploy.sh"
+  env:
+    LOG_LEVEL: debug
 </code></pre>
 <p><strong>Note:</strong> Profile activation with <code>active_profile</code> is managed internally and not currently exposed in WorkflowConfig YAML. Use <code>--profile</code> CLI flag to activate profiles.</p>
 <hr />
@@ -3308,8 +5524,52 @@ error_policy:
   continue_on_failure: true
   max_failures: 5
   failure_threshold: 0.3
+  error_collection: aggregate  # Options: aggregate, immediate, batched:{size}
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="troubleshooting-1"><a class="header" href="#troubleshooting-1">Troubleshooting</a></h1>
+<hr />
+<h2 id="example-9-generating-configuration-files"><a class="header" href="#example-9-generating-configuration-files">Example 9: Generating Configuration Files</a></h2>
+<pre><code class="language-yaml"># Generate a JSON configuration file
+- write_file:
+    path: "config/deployment.json"
+    format: json  # Options: text, json, yaml
+    create_dirs: true  # Create parent directories if they don't exist
+    content:
+      environment: production
+      api_url: "${API_URL}"
+      features:
+        - auth
+        - analytics
+        - notifications
+      timeout: 30
+
+# Generate a YAML configuration file
+- write_file:
+    path: "config/services.yml"
+    format: yaml
+    content:
+      services:
+        web:
+          image: "myapp:latest"
+          ports:
+            - "8080:8080"
+        database:
+          image: "postgres:15"
+          environment:
+            POSTGRES_DB: "${DB_NAME}"
+
+# Generate a plain text report
+- write_file:
+    path: "reports/summary.txt"
+    format: text
+    mode: "0644"  # File permissions (optional)
+    content: |
+      Deployment Summary
+      ==================
+      Environment: ${NODE_ENV}
+      API URL: ${API_URL}
+      Timestamp: $(date)
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="troubleshooting-5"><a class="header" href="#troubleshooting-5">Troubleshooting</a></h1>
 <h2 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h2>
 <h3 id="1-variables-not-interpolating"><a class="header" href="#1-variables-not-interpolating">1. Variables not interpolating</a></h3>
 <p><strong>Symptom:</strong> Variables appear as literal <code>${variable_name}</code> in output instead of their values.</p>
@@ -3351,13 +5611,14 @@ error_policy:
 <pre><code class="language-yaml">- shell: "cargo test 2&gt;&amp;1"
   capture: "test_output"
   capture_streams:
-    stdout: true      # Capture standard output
-    stderr: true      # Capture error output
-    exit_code: true   # Capture exit code
-    success: true     # Capture success boolean
-    duration: true    # Capture execution duration
+    stdout: true      # Optional, default false - Capture standard output
+    stderr: true      # Optional, default false - Capture error output
+    exit_code: true   # Optional, default false - Capture exit code
+    success: true     # Optional, default false - Capture success boolean
+    duration: true    # Optional, default false - Capture execution duration
 </code></pre>
 </li>
+<li><strong>Note:</strong> All capture_streams fields are optional and default to false. Only specify the streams you need to capture</li>
 </ul>
 <hr />
 <h3 id="3-validation-failing"><a class="header" href="#3-validation-failing">3. Validation failing</a></h3>
@@ -3493,11 +5754,14 @@ error_policy:
 <pre><code class="language-yaml">merge:
   commands:
     - shell: "slow-merge-validation.sh"
-  timeout: "600s"  # Duration string format
+  timeout: 600  # Timeout in seconds (plain number, not a duration string)
 </code></pre>
 </li>
 <li>
 <p>Use the full format when you need to set a custom timeout</p>
+</li>
+<li>
+<p><strong>Note:</strong> Unlike most other timeout fields in Prodigy which use duration strings (“10m”, “600s”), the merge.timeout field takes a plain number representing seconds</p>
 </li>
 <li>
 <p>Check logs for merge execution errors</p>
@@ -3547,14 +5811,7 @@ error_policy:
     failure_threshold: 5
 </code></pre>
 </li>
-<li>Valid BackoffStrategy values:
-<ul>
-<li><code>constant</code> - Same delay every time</li>
-<li><code>linear</code> - Increases linearly</li>
-<li><code>exponential</code> - Doubles each time</li>
-<li><code>fibonacci</code> - Fibonacci sequence</li>
-</ul>
-</li>
+<li><strong>Note:</strong> BackoffStrategy is determined internally by the retry system and is not directly configurable in the workflow YAML. The retry behavior is controlled through the retry_config parameters (max_attempts, initial_delay, max_delay).</li>
 <li>Circuit breaker requires both timeout and failure_threshold</li>
 </ul>
 <hr />
@@ -3613,12 +5870,48 @@ prodigy run workflow.yml
 # View the validation result file (if workflow validation completed)
 cat .prodigy/validation-result.json
 </code></pre>
+<h3 id="access-claude-json-logs-for-debugging"><a class="header" href="#access-claude-json-logs-for-debugging">Access Claude JSON logs for debugging</a></h3>
+<p>When using verbose mode (<code>-v</code>), Prodigy displays the location of Claude’s detailed JSON logs:</p>
+<pre><code class="language-bash">prodigy run workflow.yml -v
+# Output: Claude JSON log: ~/.local/state/claude/logs/session-abc123.json
+</code></pre>
+<p>These logs contain:</p>
+<ul>
+<li>Complete message history (user messages and Claude responses)</li>
+<li>All tool invocations with parameters and results</li>
+<li>Token usage statistics</li>
+<li>Error details and stack traces</li>
+</ul>
+<p><strong>View Claude interaction:</strong></p>
+<pre><code class="language-bash"># View complete message history
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'
+
+# Check tool invocations
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[].content[] | select(.type == "tool_use")'
+
+# Analyze token usage
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.usage'
+
+# Extract error details
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[] | select(.role == "assistant") | .content[] | select(.type == "error")'
+</code></pre>
+<p><strong>For MapReduce jobs</strong>, check the DLQ for json_log_location:</p>
+<pre><code class="language-bash"># Get log location from DLQ
+prodigy dlq show &lt;job_id&gt; | jq '.items[].failure_history[].json_log_location'
+
+# Inspect the Claude JSON log
+cat /path/from/above/session-xyz.json | jq '.messages[-3:]'
+</code></pre>
+<p>This is especially valuable for debugging MapReduce agent failures, as you can see exactly what Claude was doing when the agent failed.</p>
 <h3 id="check-dlq-for-failed-items"><a class="header" href="#check-dlq-for-failed-items">Check DLQ for failed items</a></h3>
 <pre><code class="language-bash"># List failed items
 prodigy dlq list &lt;job_id&gt;
 
 # View failure details
 prodigy dlq inspect &lt;job_id&gt;
+
+# Show DLQ contents (alias for inspect)
+prodigy dlq show &lt;job_id&gt;
 
 # Retry failed items (primary recovery operation)
 prodigy dlq retry &lt;job_id&gt;
@@ -3628,6 +5921,21 @@ prodigy dlq retry &lt;job_id&gt; --max-parallel 10
 
 # Dry run to see what would be retried
 prodigy dlq retry &lt;job_id&gt; --dry-run
+
+# Analyze failure patterns across items
+prodigy dlq analyze &lt;job_id&gt;
+
+# Export DLQ items to file for external analysis
+prodigy dlq export output.json --job-id &lt;job_id&gt;
+
+# Show DLQ statistics for workflow
+prodigy dlq stats --workflow-id &lt;workflow_id&gt;
+
+# Purge old DLQ items
+prodigy dlq purge --older-than-days 30
+
+# Clear processed items from DLQ
+prodigy dlq clear &lt;workflow_id&gt;
 </code></pre>
 <h3 id="monitor-mapreduce-progress"><a class="header" href="#monitor-mapreduce-progress">Monitor MapReduce progress</a></h3>
 <pre><code class="language-bash"># View events
@@ -3670,7 +5978,7 @@ map:
 <pre><code class="language-yaml">- shell: "prodigy run other-workflow.yml"
 </code></pre>
 <hr />
-<h2 id="common-error-messages"><a class="header" href="#common-error-messages">Common Error Messages</a></h2>
+<h2 id="common-error-messages-1"><a class="header" href="#common-error-messages-1">Common Error Messages</a></h2>
 <h3 id="mapreduceerror-types"><a class="header" href="#mapreduceerror-types">MapReduceError Types</a></h3>
 <p>Prodigy uses structured errors to help diagnose issues:</p>
 <p><strong>Job-level errors:</strong></p>
@@ -3684,6 +5992,7 @@ map:
 <li><code>AgentFailed</code> - Individual agent execution failed, check DLQ for details</li>
 <li><code>AgentTimeout</code> - Agent exceeded timeout, increase agent_timeout_secs</li>
 <li><code>CommandExecutionFailed</code> - Shell or Claude command failed in agent</li>
+<li><code>CommandFailed</code> - Command execution failed with non-zero exit code</li>
 </ul>
 <p><strong>Resource errors:</strong></p>
 <ul>
@@ -3691,11 +6000,38 @@ map:
 <li><code>ResourceExhausted</code> - Out of disk space, memory, or other resources</li>
 <li><code>StorageError</code> - Failed to read/write to storage, check permissions</li>
 </ul>
+<p><strong>Configuration and validation errors:</strong></p>
+<ul>
+<li><code>InvalidConfiguration</code> - Workflow YAML has configuration errors</li>
+<li><code>InvalidJsonPath</code> - JSONPath expression syntax error, check your $.path syntax</li>
+<li><code>ValidationFailed</code> - Validation check failed, review validation criteria</li>
+<li><code>ShellSubstitutionFailed</code> - Variable substitution failed, check ${variable} references</li>
+<li><code>EnvironmentError</code> - Environment validation failed, check required env vars</li>
+</ul>
+<p><strong>Checkpoint errors:</strong></p>
+<ul>
+<li><code>CheckpointCorrupted</code> - Checkpoint file corrupted at specific version, may need to restart job</li>
+<li><code>CheckpointLoadFailed</code> - Failed to load checkpoint, check file permissions and format</li>
+<li><code>CheckpointSaveFailed</code> - Failed to save checkpoint, check disk space and permissions</li>
+</ul>
+<p><strong>Concurrency errors:</strong></p>
+<ul>
+<li><code>DeadlockDetected</code> - Deadlock in job execution, reduce parallelism or check for circular dependencies</li>
+<li><code>ConcurrentModification</code> - Concurrent modification of job state, retry operation</li>
+</ul>
+<p><strong>Other errors:</strong></p>
+<ul>
+<li><code>DlqError</code> - DLQ operation failed, check DLQ storage and permissions</li>
+<li><code>ProcessingError</code> - General processing error, check logs for details</li>
+<li><code>Timeout</code> - Operation timed out, increase timeout values</li>
+<li><code>General</code> - General error for migration compatibility</li>
+</ul>
 <p><strong>Recovery actions:</strong></p>
 <ul>
 <li>Check event logs: <code>prodigy events &lt;job_id&gt;</code></li>
 <li>Review DLQ: <code>prodigy dlq list &lt;job_id&gt;</code></li>
 <li>View detailed state: <code>cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/checkpoint.json</code></li>
+<li>Check Claude JSON logs (see Debug Tips section below)</li>
 </ul>
 <h3 id="checkpoint-and-resume-errors"><a class="header" href="#checkpoint-and-resume-errors">Checkpoint and Resume Errors</a></h3>
 <p><strong>“Checkpoint not found”</strong></p>

@@ -223,13 +223,14 @@
 <pre><code class="language-yaml">- shell: "cargo test 2&gt;&amp;1"
   capture: "test_output"
   capture_streams:
-    stdout: true      # Capture standard output
-    stderr: true      # Capture error output
-    exit_code: true   # Capture exit code
-    success: true     # Capture success boolean
-    duration: true    # Capture execution duration
+    stdout: true      # Optional, default false - Capture standard output
+    stderr: true      # Optional, default false - Capture error output
+    exit_code: true   # Optional, default false - Capture exit code
+    success: true     # Optional, default false - Capture success boolean
+    duration: true    # Optional, default false - Capture execution duration
 </code></pre>
 </li>
+<li><strong>Note:</strong> All capture_streams fields are optional and default to false. Only specify the streams you need to capture</li>
 </ul>
 <hr />
 <h3 id="3-validation-failing"><a class="header" href="#3-validation-failing">3. Validation failing</a></h3>
@@ -365,11 +366,14 @@
 <pre><code class="language-yaml">merge:
   commands:
     - shell: "slow-merge-validation.sh"
-  timeout: "600s"  # Duration string format
+  timeout: 600  # Timeout in seconds (plain number, not a duration string)
 </code></pre>
 </li>
 <li>
 <p>Use the full format when you need to set a custom timeout</p>
+</li>
+<li>
+<p><strong>Note:</strong> Unlike most other timeout fields in Prodigy which use duration strings (“10m”, “600s”), the merge.timeout field takes a plain number representing seconds</p>
 </li>
 <li>
 <p>Check logs for merge execution errors</p>
@@ -419,14 +423,7 @@
     failure_threshold: 5
 </code></pre>
 </li>
-<li>Valid BackoffStrategy values:
-<ul>
-<li><code>constant</code> - Same delay every time</li>
-<li><code>linear</code> - Increases linearly</li>
-<li><code>exponential</code> - Doubles each time</li>
-<li><code>fibonacci</code> - Fibonacci sequence</li>
-</ul>
-</li>
+<li><strong>Note:</strong> BackoffStrategy is determined internally by the retry system and is not directly configurable in the workflow YAML. The retry behavior is controlled through the retry_config parameters (max_attempts, initial_delay, max_delay).</li>
 <li>Circuit breaker requires both timeout and failure_threshold</li>
 </ul>
 <hr />
@@ -485,12 +482,48 @@ prodigy run workflow.yml
 # View the validation result file (if workflow validation completed)
 cat .prodigy/validation-result.json
 </code></pre>
+<h3 id="access-claude-json-logs-for-debugging"><a class="header" href="#access-claude-json-logs-for-debugging">Access Claude JSON logs for debugging</a></h3>
+<p>When using verbose mode (<code>-v</code>), Prodigy displays the location of Claude’s detailed JSON logs:</p>
+<pre><code class="language-bash">prodigy run workflow.yml -v
+# Output: Claude JSON log: ~/.local/state/claude/logs/session-abc123.json
+</code></pre>
+<p>These logs contain:</p>
+<ul>
+<li>Complete message history (user messages and Claude responses)</li>
+<li>All tool invocations with parameters and results</li>
+<li>Token usage statistics</li>
+<li>Error details and stack traces</li>
+</ul>
+<p><strong>View Claude interaction:</strong></p>
+<pre><code class="language-bash"># View complete message history
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'
+
+# Check tool invocations
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[].content[] | select(.type == "tool_use")'
+
+# Analyze token usage
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.usage'
+
+# Extract error details
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[] | select(.role == "assistant") | .content[] | select(.type == "error")'
+</code></pre>
+<p><strong>For MapReduce jobs</strong>, check the DLQ for json_log_location:</p>
+<pre><code class="language-bash"># Get log location from DLQ
+prodigy dlq show &lt;job_id&gt; | jq '.items[].failure_history[].json_log_location'
+
+# Inspect the Claude JSON log
+cat /path/from/above/session-xyz.json | jq '.messages[-3:]'
+</code></pre>
+<p>This is especially valuable for debugging MapReduce agent failures, as you can see exactly what Claude was doing when the agent failed.</p>
 <h3 id="check-dlq-for-failed-items"><a class="header" href="#check-dlq-for-failed-items">Check DLQ for failed items</a></h3>
 <pre><code class="language-bash"># List failed items
 prodigy dlq list &lt;job_id&gt;
 
 # View failure details
 prodigy dlq inspect &lt;job_id&gt;
+
+# Show DLQ contents (alias for inspect)
+prodigy dlq show &lt;job_id&gt;
 
 # Retry failed items (primary recovery operation)
 prodigy dlq retry &lt;job_id&gt;
@@ -500,6 +533,21 @@ prodigy dlq retry &lt;job_id&gt; --max-parallel 10
 
 # Dry run to see what would be retried
 prodigy dlq retry &lt;job_id&gt; --dry-run
+
+# Analyze failure patterns across items
+prodigy dlq analyze &lt;job_id&gt;
+
+# Export DLQ items to file for external analysis
+prodigy dlq export output.json --job-id &lt;job_id&gt;
+
+# Show DLQ statistics for workflow
+prodigy dlq stats --workflow-id &lt;workflow_id&gt;
+
+# Purge old DLQ items
+prodigy dlq purge --older-than-days 30
+
+# Clear processed items from DLQ
+prodigy dlq clear &lt;workflow_id&gt;
 </code></pre>
 <h3 id="monitor-mapreduce-progress"><a class="header" href="#monitor-mapreduce-progress">Monitor MapReduce progress</a></h3>
 <pre><code class="language-bash"># View events
@@ -556,6 +604,7 @@ map:
 <li><code>AgentFailed</code> - Individual agent execution failed, check DLQ for details</li>
 <li><code>AgentTimeout</code> - Agent exceeded timeout, increase agent_timeout_secs</li>
 <li><code>CommandExecutionFailed</code> - Shell or Claude command failed in agent</li>
+<li><code>CommandFailed</code> - Command execution failed with non-zero exit code</li>
 </ul>
 <p><strong>Resource errors:</strong></p>
 <ul>
@@ -563,11 +612,38 @@ map:
 <li><code>ResourceExhausted</code> - Out of disk space, memory, or other resources</li>
 <li><code>StorageError</code> - Failed to read/write to storage, check permissions</li>
 </ul>
+<p><strong>Configuration and validation errors:</strong></p>
+<ul>
+<li><code>InvalidConfiguration</code> - Workflow YAML has configuration errors</li>
+<li><code>InvalidJsonPath</code> - JSONPath expression syntax error, check your $.path syntax</li>
+<li><code>ValidationFailed</code> - Validation check failed, review validation criteria</li>
+<li><code>ShellSubstitutionFailed</code> - Variable substitution failed, check ${variable} references</li>
+<li><code>EnvironmentError</code> - Environment validation failed, check required env vars</li>
+</ul>
+<p><strong>Checkpoint errors:</strong></p>
+<ul>
+<li><code>CheckpointCorrupted</code> - Checkpoint file corrupted at specific version, may need to restart job</li>
+<li><code>CheckpointLoadFailed</code> - Failed to load checkpoint, check file permissions and format</li>
+<li><code>CheckpointSaveFailed</code> - Failed to save checkpoint, check disk space and permissions</li>
+</ul>
+<p><strong>Concurrency errors:</strong></p>
+<ul>
+<li><code>DeadlockDetected</code> - Deadlock in job execution, reduce parallelism or check for circular dependencies</li>
+<li><code>ConcurrentModification</code> - Concurrent modification of job state, retry operation</li>
+</ul>
+<p><strong>Other errors:</strong></p>
+<ul>
+<li><code>DlqError</code> - DLQ operation failed, check DLQ storage and permissions</li>
+<li><code>ProcessingError</code> - General processing error, check logs for details</li>
+<li><code>Timeout</code> - Operation timed out, increase timeout values</li>
+<li><code>General</code> - General error for migration compatibility</li>
+</ul>
 <p><strong>Recovery actions:</strong></p>
 <ul>
 <li>Check event logs: <code>prodigy events &lt;job_id&gt;</code></li>
 <li>Review DLQ: <code>prodigy dlq list &lt;job_id&gt;</code></li>
 <li>View detailed state: <code>cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/checkpoint.json</code></li>
+<li>Check Claude JSON logs (see Debug Tips section below)</li>
 </ul>
 <h3 id="checkpoint-and-resume-errors"><a class="header" href="#checkpoint-and-resume-errors">Checkpoint and Resume Errors</a></h3>
 <p><strong>“Checkpoint not found”</strong></p>

@@ -190,6 +190,14 @@
 <li><strong>EnvironmentConfig</strong>: Internal runtime configuration that extends workflow config with additional features</li>
 </ol>
 <p>This chapter documents the user-facing WorkflowConfig layer - what you write in your workflow YAML files.</p>
+<p><strong>Internal vs. User-Facing Capabilities:</strong></p>
+<p>The internal <code>EnvironmentConfig</code> supports richer environment value types through the <code>EnvValue</code> enum:</p>
+<ul>
+<li><code>Static</code>: Simple string values (what WorkflowConfig exposes)</li>
+<li><code>Dynamic</code>: Values from command output (internal only)</li>
+<li><code>Conditional</code>: Expression-based values (internal only)</li>
+</ul>
+<p>In workflow YAML, the <code>env</code> field only supports static string values (<code>HashMap&lt;String, String&gt;</code>). The Dynamic and Conditional variants are internal runtime features not exposed in workflow configuration.</p>
 <p><strong>Note on Internal Features:</strong> The <code>EnvironmentConfig</code> runtime layer includes a <code>StepEnvironment</code> struct with fields like <code>env</code>, <code>working_dir</code>, <code>clear_env</code>, and <code>temporary</code>. These are internal implementation details not exposed in <code>WorkflowStepCommand</code> YAML syntax. Per-command environment changes must use shell syntax (e.g., <code>ENV=value command</code>).</p>
 <hr />
 <h2 id="global-environment-variables"><a class="header" href="#global-environment-variables">Global Environment Variables</a></h2>
@@ -361,9 +369,7 @@ map:
     - shell: "curl $API_URL/data"
     - shell: "timeout ${TIMEOUT_SECONDS}s ./process.sh"
 </code></pre>
-<p>Activate a profile:</p>
-<pre><code class="language-bash">prodigy run workflow.yml --profile production
-</code></pre>
+<p><strong>Note:</strong> Profile activation is not currently implemented in the CLI. You can define profiles in YAML, but there is no <code>--profile</code> flag or mechanism to activate them. The infrastructure exists for future use, but profiles cannot be activated in the current version.</p>
 <h3 id="reusable-workflows-with-environment-variables"><a class="header" href="#reusable-workflows-with-environment-variables">Reusable Workflows with Environment Variables</a></h3>
 <p>Environment variables enable the same workflow to work for different projects:</p>
 <pre><code class="language-yaml"># This workflow works for both Prodigy and Debtmap
@@ -474,11 +480,27 @@ MIIEvQIBADANBg...
 -----END PRIVATE KEY-----"
 </code></pre>
 <p><strong>Loading Order and Precedence:</strong></p>
+<p>Environment files are loaded in order, with later files overriding earlier files. This enables layered configuration:</p>
+<pre><code class="language-yaml">env_files:
+  - .env                # Base configuration
+  - .env.local          # Local overrides (gitignored)
+  - .env.production     # Environment-specific settings
+</code></pre>
+<p>Example override behavior:</p>
+<pre><code class="language-bash"># .env (base)
+DATABASE_URL=postgresql://localhost:5432/dev
+API_TIMEOUT=30
+
+# .env.production (overrides)
+DATABASE_URL=postgresql://prod-server:5432/app
+# API_TIMEOUT remains 30 from base file
+</code></pre>
+<p>Precedence order (highest to lowest):</p>
 <ol>
-<li>Files are loaded in the order specified in <code>env_files</code></li>
-<li>Later files override earlier files</li>
-<li>Step-level <code>env</code> overrides environment files</li>
-<li>Global <code>env</code> overrides environment files</li>
+<li>Global <code>env</code> field in workflow YAML</li>
+<li>Later files in <code>env_files</code> list</li>
+<li>Earlier files in <code>env_files</code> list</li>
+<li>Parent process environment</li>
 </ol>
 <hr />
 <h2 id="secrets-management"><a class="header" href="#secrets-management">Secrets Management</a></h2>
@@ -506,8 +528,7 @@ MIIEvQIBADANBg...
 
   # Custom provider (extensible)
   CUSTOM_SECRET:
-    provider:
-      custom: "my-custom-provider"
+    provider: "my-custom-provider"
     key: "secret-id"
 
 commands:
@@ -560,10 +581,11 @@ commands:
     API_URL: https://staging.api.com
     DEBUG: "true"
 </code></pre>
-<p><strong>Note:</strong> Profile activation is managed internally by the runtime environment manager. The selection mechanism is not currently exposed in WorkflowConfig YAML. Profiles are defined for future use and internal runtime configuration.</p>
+<p><strong>Note:</strong> Profile activation is not currently implemented. You can define profiles in YAML, but there is no mechanism to activate them via CLI or configuration. The <code>active_profile</code> field exists in the internal runtime, but there is no way to set it in the current version.</p>
 <hr />
 <h2 id="per-command-environment-overrides"><a class="header" href="#per-command-environment-overrides">Per-Command Environment Overrides</a></h2>
-<p>While WorkflowStepCommand does not support a dedicated <code>env</code> field, you can override environment variables for individual commands using shell syntax:</p>
+<p><strong>IMPORTANT:</strong> WorkflowStepCommand does NOT have an <code>env</code> field. All per-command environment changes must use shell syntax.</p>
+<p>You can override environment variables for individual commands using shell environment syntax:</p>
 <pre><code class="language-yaml">env:
   RUST_LOG: info
   API_URL: "https://api.example.com"
@@ -587,13 +609,14 @@ commands:
 <p><strong>Note:</strong> A <code>StepEnvironment</code> struct exists in the internal runtime (<code>EnvironmentConfig</code>), but it is not currently exposed in the WorkflowStepCommand YAML syntax. All per-command environment changes must use shell syntax as shown above.</p>
 <hr />
 <h2 id="environment-precedence"><a class="header" href="#environment-precedence">Environment Precedence</a></h2>
-<p>Environment variables are resolved in the following order (highest to lowest precedence):</p>
+<p>Environment variables are resolved with the following precedence (highest to lowest):</p>
 <ol>
-<li><strong>Active profile</strong> - If a profile is activated (internal runtime feature)</li>
-<li><strong>Global <code>env</code></strong> - Defined at workflow level in WorkflowConfig</li>
-<li><strong>Environment files</strong> - Loaded from <code>env_files</code> (in order)</li>
+<li><strong>Shell-level overrides</strong> - Using <code>ENV=value command</code> syntax</li>
+<li><strong>Global <code>env</code></strong> - Defined at workflow level in YAML</li>
+<li><strong>Environment files</strong> - Loaded from <code>env_files</code> (later files override earlier)</li>
 <li><strong>Parent environment</strong> - Always inherited from the parent process</li>
 </ol>
+<p><strong>Note:</strong> The internal <code>EnvironmentConfig</code> runtime also supports profile-based precedence and step-level environment overrides, but these are not exposed in workflow YAML. Profile activation is not currently implemented, and WorkflowStepCommand has no <code>env</code> field.</p>
 <p>Example demonstrating precedence:</p>
 <pre><code class="language-yaml"># Parent environment: NODE_ENV=local
 
@@ -601,20 +624,21 @@ env_files:
   - .env  # Contains: NODE_ENV=development
 
 env:
-  NODE_ENV: production  # Overrides .env file
-
-profiles:
-  test:
-    NODE_ENV: test  # Would override global env if profile activation were exposed
-    description: "Test environment profile"
+  NODE_ENV: production  # Overrides .env file and parent environment
 
 # Steps go directly in the workflow
 - shell: "echo $NODE_ENV"  # Prints: production (from global env)
 
 # Override using shell syntax
-- shell: "NODE_ENV=staging echo $NODE_ENV"  # Prints: staging
+- shell: "NODE_ENV=staging echo $NODE_ENV"  # Prints: staging (shell override)
 </code></pre>
-<p><strong>Note:</strong> Profile activation is currently managed internally and not exposed in WorkflowConfig YAML.</p>
+<p>In this example:</p>
+<ul>
+<li>Parent environment has <code>NODE_ENV=local</code> (lowest precedence)</li>
+<li><code>.env</code> file sets <code>NODE_ENV=development</code> (overrides parent)</li>
+<li>Global <code>env</code> sets <code>NODE_ENV=production</code> (overrides .env file)</li>
+<li>Shell syntax <code>NODE_ENV=staging</code> (overrides everything for that command)</li>
+</ul>
 <hr />
 <h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
 <h3 id="1-use-environment-files-for-configuration"><a class="header" href="#1-use-environment-files-for-configuration">1. Use Environment Files for Configuration</a></h3>
@@ -690,16 +714,17 @@ env:
 commands:
   - shell: "npm run deploy"
 </code></pre>
-<h3 id="secrets-with-fallbacks"><a class="header" href="#secrets-with-fallbacks">Secrets with Fallbacks</a></h3>
+<h3 id="provider-based-secrets"><a class="header" href="#provider-based-secrets">Provider-Based Secrets</a></h3>
 <pre><code class="language-yaml">secrets:
-  # Try Vault first, fall back to environment variable
+  # Production: use Vault
   API_KEY:
     provider: vault
     key: "api/key"
 
-env:
-  # Fallback for local development
-  API_KEY: "${API_KEY:-default-key}"
+  # Development: use environment variable
+  DEV_API_KEY:
+    provider: env
+    key: "LOCAL_API_KEY"
 </code></pre>
 <h3 id="build-matrix-with-profiles"><a class="header" href="#build-matrix-with-profiles">Build Matrix with Profiles</a></h3>
 <pre><code class="language-yaml">profiles:

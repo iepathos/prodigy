@@ -199,6 +199,7 @@
 <tr><td>Custom Captured Variables</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
 </tbody></table>
 </div>
+<p><strong>Note</strong>: Using phase-specific variables outside their designated phase (e.g., <code>${item}</code> in reduce phase, <code>${map.results}</code> in map phase) will result in interpolation errors or empty values. Always verify variable availability matches your workflow phase.</p>
 <h2 id="available-variables"><a class="header" href="#available-variables">Available Variables</a></h2>
 <h3 id="standard-variables"><a class="header" href="#standard-variables">Standard Variables</a></h3>
 <ul>
@@ -210,6 +211,19 @@
 <li><code>${step.files_changed}</code> - Files changed in current step</li>
 <li><code>${workflow.files_changed}</code> - All files changed in workflow</li>
 </ul>
+<h3 id="system-variables"><a class="header" href="#system-variables">System Variables</a></h3>
+<p>These variables are automatically available in all workflow contexts:</p>
+<ul>
+<li><code>${PROJECT_ROOT}</code> - Absolute path to the working directory (repository root)</li>
+<li><code>${WORKTREE}</code> - Name of the current worktree (if running in a Prodigy worktree session)</li>
+<li><code>${git.branch}</code> - Current git branch name</li>
+<li><code>${git.commit}</code> - Current git commit hash (short SHA)</li>
+</ul>
+<p><strong>Example Usage:</strong></p>
+<pre><code class="language-yaml">- shell: "cd ${PROJECT_ROOT} &amp;&amp; cargo build"
+- shell: "echo 'Running on branch: ${git.branch}'"
+- shell: "echo 'Commit: ${git.commit}'"
+</code></pre>
 <h3 id="output-variables"><a class="header" href="#output-variables">Output Variables</a></h3>
 <p><strong>Primary Output Variables:</strong></p>
 <ul>
@@ -219,13 +233,22 @@
 <li><code>${last.exit_code}</code> - Exit code from last command</li>
 </ul>
 <p><strong>Note</strong>: <code>${shell.output}</code> is the correct variable name for shell command output. The code uses <code>shell.output</code>, not <code>shell.stdout</code>.</p>
-<p><strong>Legacy/Specialized Output Variables:</strong></p>
+<p><strong>Legacy/Specialized Output Variables (Deprecated):</strong></p>
+<p>These variables are still supported but <strong>deprecated</strong> in favor of custom capture:</p>
 <ul>
 <li><code>${handler.output}</code> - Output from handler command (used in error handling)</li>
 <li><code>${test.output}</code> - Output from test command (used in validation)</li>
 <li><code>${goal_seek.output}</code> - Output from goal-seeking command</li>
 </ul>
-<p><strong>Best Practice</strong>: For most workflows, use custom capture variables (via <code>capture:</code> field) instead of relying on these automatic output variables. This provides explicit naming and better readability.</p>
+<p><strong>Migration Note</strong>: These variables are automatically set by specific command types but are deprecated. Use custom capture variables (via <code>capture:</code> field) instead for explicit naming and better readability.</p>
+<pre><code class="language-yaml"># OLD (deprecated):
+- shell: "echo 'Result: ${shell.output}'"
+
+# NEW (preferred):
+- shell: "make build"
+  capture: "build_result"
+- shell: "echo 'Result: ${build_result}'"
+</code></pre>
 <h3 id="mapreduce-variables"><a class="header" href="#mapreduce-variables">MapReduce Variables</a></h3>
 <p><strong>Map Phase Variables</strong> (available in <code>agent_template:</code> commands):</p>
 <ul>
@@ -264,11 +287,39 @@
 <li><code>${validation.status}</code> - Status (complete/incomplete/failed)</li>
 </ul>
 <h3 id="git-context-variables"><a class="header" href="#git-context-variables">Git Context Variables</a></h3>
+<p><strong>Commit Tracking:</strong></p>
 <ul>
-<li><code>${step.commits}</code> - Commits in current step (array of commit objects)</li>
-<li><code>${workflow.commits}</code> - All workflow commits (array of commit objects)</li>
+<li><code>${step.commits}</code> - Space-separated commit hashes from current step</li>
+<li><code>${workflow.commits}</code> - Space-separated commit hashes from entire workflow</li>
 </ul>
-<p><strong>Note</strong>: These are arrays of commit data. Use in foreach loops or access individual commits with array indexing. Each commit object contains fields like hash, message, timestamp, etc.</p>
+<p><strong>Note</strong>: These are space-separated strings of commit hashes (e.g., “abc123 def456 ghi789”), not arrays. Use in shell commands that accept commit lists.</p>
+<p><strong>File Change Tracking:</strong></p>
+<ul>
+<li><code>${step.files_added}</code> - Number of files added in current step</li>
+<li><code>${step.files_modified}</code> - Number of files modified in current step</li>
+<li><code>${step.files_deleted}</code> - Number of files deleted in current step</li>
+<li><code>${step.commit_count}</code> - Number of commits in current step</li>
+<li><code>${step.insertions}</code> - Lines added in current step</li>
+<li><code>${step.deletions}</code> - Lines removed in current step</li>
+</ul>
+<p><strong>Workflow Change Tracking:</strong></p>
+<ul>
+<li><code>${workflow.files_added}</code> - Total files added in entire workflow</li>
+<li><code>${workflow.files_modified}</code> - Total files modified in entire workflow</li>
+<li><code>${workflow.files_deleted}</code> - Total files deleted in entire workflow</li>
+<li><code>${workflow.commit_count}</code> - Total commits in entire workflow</li>
+<li><code>${workflow.insertions}</code> - Total lines added in entire workflow</li>
+<li><code>${workflow.deletions}</code> - Total lines removed in entire workflow</li>
+</ul>
+<p><strong>Example Usage:</strong></p>
+<pre><code class="language-yaml"># Check if step made changes
+- shell: "echo 'Step made ${step.commit_count} commits'"
+- shell: "echo 'Modified ${step.files_modified} files (+${step.insertions}/-${step.deletions} lines)'"
+
+# Use commit hashes
+- shell: "git show ${step.commits}"
+- shell: "echo 'All commits: ${workflow.commits}'"
+</code></pre>
 <h3 id="legacy-variable-aliases"><a class="header" href="#legacy-variable-aliases">Legacy Variable Aliases</a></h3>
 <p>These legacy aliases are supported for backward compatibility but should be replaced with modern equivalents:</p>
 <ul>
@@ -351,6 +402,7 @@
 - shell: "echo 'Email: ${user.contact.email}'"
 - shell: "echo 'City: ${user.address.city}'"
 </code></pre>
+<p><strong>Error Handling</strong>: Accessing non-existent fields (e.g., <code>${user.missing.field}</code>) will return an error. Ensure your JSON structure matches your field access patterns, or use validation to handle missing fields gracefully.</p>
 <h3 id="variable-scope-and-precedence"><a class="header" href="#variable-scope-and-precedence">Variable Scope and Precedence</a></h3>
 <p>Variables follow a parent/child scope hierarchy:</p>
 <ol>
@@ -359,6 +411,7 @@
 <li><strong>Built-in Variables</strong>: Standard workflow context variables</li>
 </ol>
 <p><strong>Precedence</strong>: Local variables override parent scope variables, which override built-in variables.</p>
+<p><strong>Scope Lifetime</strong>: Child scopes are temporary. When a child block (foreach loop, map phase agent) completes, its local variables are discarded and the parent scope is automatically restored.</p>
 <pre><code class="language-yaml"># Parent scope
 - shell: "echo 'outer'"
   capture: "message"
@@ -373,8 +426,53 @@
       - shell: "echo ${message}"  # Uses local 'message'
 
 # After foreach, parent 'message' is still accessible
+# The local 'message' from foreach is discarded
 - shell: "echo ${message}"  # Uses parent 'message' → "outer"
 </code></pre>
+<hr />
+<h2 id="troubleshooting-variable-interpolation"><a class="header" href="#troubleshooting-variable-interpolation">Troubleshooting Variable Interpolation</a></h2>
+<h3 id="common-errors-and-solutions"><a class="header" href="#common-errors-and-solutions">Common Errors and Solutions</a></h3>
+<p><strong>Error: “Variable not found: item”</strong></p>
+<ul>
+<li><strong>Cause</strong>: Using <code>${item}</code> or <code>${item.*}</code> outside the map phase</li>
+<li><strong>Solution</strong>: Item variables are only available in <code>agent_template:</code> commands within MapReduce workflows. Move your code to the map phase or use a different variable.</li>
+</ul>
+<p><strong>Error: “Variable not found: map.results”</strong></p>
+<ul>
+<li><strong>Cause</strong>: Using <code>${map.results}</code> outside the reduce phase</li>
+<li><strong>Solution</strong>: Map aggregation variables are only available in <code>reduce:</code> commands. See the phase availability table above.</li>
+</ul>
+<p><strong>Error: “Failed to parse JSON field”</strong></p>
+<ul>
+<li><strong>Cause</strong>: Accessing a non-existent nested field in a JSON capture</li>
+<li><strong>Solution</strong>: Verify your JSON structure matches your field access. Use <code>jq</code> or similar tools to inspect the JSON first.</li>
+</ul>
+<p><strong>Error: “Invalid variable interpolation syntax”</strong></p>
+<ul>
+<li><strong>Cause</strong>: Missing <code>${}</code> braces or incorrect syntax</li>
+<li><strong>Solution</strong>: Always use <code>${variable.name}</code> format. Shell-style <code>$VAR</code> is not supported for Prodigy variables (only for environment variables).</li>
+</ul>
+<p><strong>Empty/Undefined Variable Value</strong></p>
+<ul>
+<li><strong>Cause</strong>: Variable hasn’t been set yet, or phase mismatch</li>
+<li><strong>Solution</strong>: Check command order and ensure the variable is captured before use. Review the phase availability table.</li>
+</ul>
+<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
+<ol>
+<li><strong>Use custom capture for clarity</strong>: Prefer <code>capture: "my_var"</code> over automatic <code>${shell.output}</code></li>
+<li><strong>Name variables descriptively</strong>: Use <code>${test_results}</code> not <code>${x}</code></li>
+<li><strong>Validate JSON captures</strong>: Test JSON structure before accessing nested fields</li>
+<li><strong>Check phase availability</strong>: Ensure variables match your workflow phase</li>
+<li><strong>Use appropriate capture formats</strong>: <code>number</code>, <code>json</code>, <code>boolean</code> provide type safety</li>
+</ol>
+<hr />
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><strong><a href="./commands.html">Command Types</a></strong> - Learn about command types and their capture behavior</li>
+<li><strong><a href="./mapreduce.html">MapReduce Workflows</a></strong> - Deep dive into MapReduce variables and phases</li>
+<li><strong><a href="./environment.html">Environment Variables</a></strong> - Using environment variables in workflows</li>
+<li><strong><a href="./examples.html">Workflow Examples</a></strong> - Practical examples using variables in real workflows</li>
+</ul>
 
                     </main>
 

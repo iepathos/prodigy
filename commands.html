@@ -256,7 +256,53 @@
     continue_on_error: true
     max_items: 50
 </code></pre>
-<h2 id="5-validation-commands"><a class="header" href="#5-validation-commands">5. Validation Commands</a></h2>
+<h2 id="5-write-file-commands"><a class="header" href="#5-write-file-commands">5. Write File Commands</a></h2>
+<p>Create or overwrite files with content from variables or literals. Supports text, JSON, and YAML formats with automatic validation and formatting.</p>
+<pre><code class="language-yaml"># Write plain text file
+- write_file:
+    path: "output/result.txt"
+    content: "Build completed at ${shell.output}"
+    format: text
+    mode: "0644"
+    create_dirs: true
+
+# Write JSON file with validation
+- write_file:
+    path: "config/generated.json"
+    content: |
+      {
+        "version": "${version}",
+        "timestamp": "${timestamp}",
+        "items": ${items_json}
+      }
+    format: json
+
+# Write YAML file with formatting
+- write_file:
+    path: ".prodigy/metadata.yml"
+    content: |
+      workflow: ${workflow.name}
+      iteration: ${workflow.iteration}
+      results:
+        success: ${map.successful}
+        total: ${map.total}
+    format: yaml
+</code></pre>
+<p><strong>WriteFileConfig Fields:</strong></p>
+<ul>
+<li><code>path</code> - File path to write (supports variable interpolation)</li>
+<li><code>content</code> - Content to write (supports variable interpolation)</li>
+<li><code>format</code> - Output format: <code>text</code> (default), <code>json</code>, <code>yaml</code></li>
+<li><code>mode</code> - File permissions in octal (default: “0644”)</li>
+<li><code>create_dirs</code> - Create parent directories if they don’t exist (default: false)</li>
+</ul>
+<p><strong>Format Validation:</strong></p>
+<ul>
+<li><code>json</code> - Validates JSON syntax and pretty-prints output</li>
+<li><code>yaml</code> - Validates YAML syntax and formats output</li>
+<li><code>text</code> - Writes content as-is without validation</li>
+</ul>
+<h2 id="6-validation-commands"><a class="header" href="#6-validation-commands">6. Validation Commands</a></h2>
 <p>Validate implementation completeness with automatic retry.</p>
 <pre><code class="language-yaml">- claude: "/implement-auth-spec"
   validate:
@@ -288,12 +334,10 @@
 <ul>
 <li><code>shell</code> or <code>claude</code> - Single gap-filling command</li>
 <li><code>commands</code> - Array of commands for multi-step gap filling</li>
-<li><code>max_attempts</code> - Maximum retry attempts</li>
-<li><code>fail_workflow</code> - Whether to fail workflow if validation incomplete</li>
-<li><code>commit_required</code> - Whether to require commit after gap filling</li>
+<li><code>max_attempts</code> - Maximum retry attempts (default: 2)</li>
+<li><code>fail_workflow</code> - Whether to fail workflow if validation incomplete (default: true)</li>
+<li><code>commit_required</code> - Whether to require commit after gap filling (default: false)</li>
 <li><code>prompt</code> - Optional interactive prompt for user guidance</li>
-<li><code>retry_original</code> - Whether to retry the original command (default: false). When true, re-executes the original command instead of gap-filling commands</li>
-<li><code>strategy</code> - Retry strategy configuration (similar to OnFailureConfig strategy)</li>
 </ul>
 <p><strong>Alternative: Array format for multi-step validation</strong></p>
 <pre><code class="language-yaml">- claude: "/implement-feature"
@@ -317,17 +361,6 @@
         - claude: "/verify-fixes"
       max_attempts: 2
 </code></pre>
-<p><strong>Alternative: Retry original command on incomplete</strong></p>
-<pre><code class="language-yaml">- claude: "/implement-auth"
-  validate:
-    shell: "validate-auth.sh"
-    result_file: "result.json"
-    threshold: 95
-    on_incomplete:
-      retry_original: true  # Re-run "/implement-auth" instead of gap-filling
-      max_attempts: 3
-      fail_workflow: true
-</code></pre>
 <hr />
 <h2 id="command-reference"><a class="header" href="#command-reference">Command Reference</a></h2>
 <h3 id="command-fields"><a class="header" href="#command-fields">Command Fields</a></h3>
@@ -339,30 +372,31 @@
 <tr><td><code>when</code></td><td>string</td><td>Conditional execution expression</td></tr>
 <tr><td><code>capture</code></td><td>string</td><td>Variable name to capture output (replaces deprecated <code>capture_output: true/false</code>)</td></tr>
 <tr><td><code>capture_format</code></td><td>enum</td><td>Format: <code>string</code> (default), <code>number</code>, <code>json</code>, <code>lines</code>, <code>boolean</code> (see examples below)</td></tr>
-<tr><td><code>capture_streams</code></td><td>object</td><td>Configure which streams to capture (see CaptureStreams section below)</td></tr>
+<tr><td><code>capture_streams</code></td><td>string</td><td>Reserved for future use - currently stored as string in YAML</td></tr>
 <tr><td><code>on_success</code></td><td>object</td><td>Command to run on success</td></tr>
 <tr><td><code>on_failure</code></td><td>object</td><td>OnFailureConfig with nested command, max_attempts, fail_workflow, strategy</td></tr>
-<tr><td><code>on_exit_code</code></td><td>map</td><td>Maps exit codes to full WorkflowStep objects (e.g., <code>101: {claude: "/fix"}</code>)</td></tr>
 <tr><td><code>validate</code></td><td>object</td><td>Validation configuration</td></tr>
 <tr><td><code>output_file</code></td><td>string</td><td>Redirect command output to a file</td></tr>
 </tbody></table>
 </div>
-<p><strong>Note:</strong> The following fields exist in internal structs but are NOT exposed in WorkflowStepCommand YAML:</p>
+<p><strong>Note:</strong> The following fields are used internally during workflow execution but are NOT part of the YAML configuration syntax. These are implementation details managed by Prodigy’s execution engine, not user-facing configuration options:</p>
 <ul>
-<li><code>handler</code> - Internal HandlerStep (not user-facing)</li>
-<li><code>retry</code> - Internal RetryConfig (not user-facing)</li>
+<li><code>handler</code> - Internal HandlerStep for execution routing</li>
+<li><code>retry</code> - Internal RetryConfig for automatic retry logic</li>
 <li><code>working_dir</code> - Not available (use shell <code>cd</code> command instead)</li>
 <li><code>env</code> - Not available (use shell environment syntax: <code>ENV=value command</code>)</li>
-<li><code>auto_commit</code> - Not in WorkflowStepCommand</li>
-<li><code>commit_config</code> - Not in WorkflowStepCommand</li>
-<li><code>step_validate</code> - Not in WorkflowStepCommand</li>
-<li><code>skip_validation</code> - Not in WorkflowStepCommand</li>
-<li><code>validation_timeout</code> - Not in WorkflowStepCommand</li>
-<li><code>ignore_validation_failure</code> - Not in WorkflowStepCommand</li>
+<li><code>auto_commit</code> - Internal commit tracking</li>
+<li><code>commit_config</code> - Internal commit configuration</li>
+<li><code>step_validate</code> - Internal validation state</li>
+<li><code>skip_validation</code> - Internal validation control</li>
+<li><code>validation_timeout</code> - Internal validation timing</li>
+<li><code>ignore_validation_failure</code> - Internal validation handling</li>
 </ul>
 <h3 id="capturestreams-configuration"><a class="header" href="#capturestreams-configuration">CaptureStreams Configuration</a></h3>
-<p>The <code>capture_streams</code> field controls which output streams are captured:</p>
-<pre><code class="language-yaml">- shell: "cargo test"
+<p><strong>Note:</strong> The <code>capture_streams</code> field is currently stored as a string type in WorkflowStepCommand (line 120 of src/config/command.rs) and is reserved for future implementation. The CaptureStreams struct exists in src/cook/workflow/variables.rs for use by the execution engine, but the YAML configuration interface is not yet fully connected.</p>
+<p>When implemented, <code>capture_streams</code> will control which output streams are captured:</p>
+<pre><code class="language-yaml"># Future implementation example:
+- shell: "cargo test"
   capture: "test_results"
   capture_streams:
     stdout: true      # Capture standard output (default: true)
@@ -371,27 +405,7 @@
     success: true     # Capture success boolean (default: true)
     duration: true    # Capture execution duration (default: true)
 </code></pre>
-<p><strong>Examples:</strong></p>
-<pre><code class="language-yaml"># Capture only stdout and stderr
-- shell: "build.sh"
-  capture: "build_output"
-  capture_streams:
-    stdout: true
-    stderr: true
-    exit_code: false
-    success: false
-    duration: false
-
-# Capture only timing information
-- shell: "benchmark.sh"
-  capture: "bench_time"
-  capture_streams:
-    stdout: false
-    stderr: false
-    exit_code: false
-    success: false
-    duration: true
-</code></pre>
+<p>For now, use <code>capture</code> and <code>capture_format</code> to control output capture behavior.</p>
 <h3 id="capture-format-examples"><a class="header" href="#capture-format-examples">Capture Format Examples</a></h3>
 <p>The <code>capture_format</code> field controls how captured output is parsed:</p>
 <pre><code class="language-yaml"># String format (default) - raw text output
@@ -428,6 +442,7 @@
 <li>Legacy variable aliases (<code>$ARG</code>, <code>$ARGUMENT</code>, <code>$FILE</code>, <code>$FILE_PATH</code>) - Use modern <code>${item.*}</code> syntax</li>
 </ul>
 <p><strong>Migration: capture_output to capture</strong></p>
+<p>The old <code>capture_output: true</code> syntax captured command output to a default variable name, making it unclear where the output was stored and harder to reference in later commands.</p>
 <p>Old syntax (deprecated):</p>
 <pre><code class="language-yaml">- shell: "ls -la | wc -l"
   capture_output: true
@@ -436,7 +451,7 @@
 <pre><code class="language-yaml">- shell: "ls -la | wc -l"
   capture: "file_count"
 </code></pre>
-<p>The modern <code>capture</code> field allows you to specify a variable name, making output references clearer and more maintainable</p>
+<p>The modern <code>capture</code> field requires an explicit variable name, making output references clearer and more maintainable. You can then reference the captured value using <code>${file_count}</code> in subsequent commands.</p>
 
                     </main>
 

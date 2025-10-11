@@ -209,12 +209,15 @@
     claude: "/fix-warnings"
     max_attempts: 3
     fail_workflow: false
+    commit_required: true
 </code></pre>
 <p>The <code>on_failure</code> configuration supports:</p>
 <ul>
-<li><code>max_attempts</code>: Maximum retry attempts (default: 1)</li>
-<li><code>fail_workflow</code>: Whether to fail entire workflow on final failure (default: true)</li>
+<li><code>max_attempts</code>: Maximum retry attempts (default: 3)</li>
+<li><code>fail_workflow</code>: Whether to fail entire workflow on final failure (default: false)</li>
+<li><code>commit_required</code>: Whether the remediation command should create a git commit (default: true)</li>
 </ul>
+<p><strong>Note</strong>: These defaults come from the <code>TestDebugConfig</code> which provides sensible defaults for error recovery workflows.</p>
 <h3 id="nested-conditionals"><a class="header" href="#nested-conditionals">Nested Conditionals</a></h3>
 <p>Chain multiple levels of conditional execution:</p>
 <pre><code class="language-yaml">- shell: "cargo check"
@@ -281,6 +284,17 @@
   capture_output: "full_output"
   capture_streams: "both"
 </code></pre>
+<p><strong>Advanced</strong>: The <code>capture_streams</code> field can also accept a detailed struct for fine-grained control:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  capture_output: "test_results"
+  capture_streams:
+    stdout: true
+    stderr: true
+    exit_code: true
+    success: true
+    duration: true
+</code></pre>
+<p>This struct format provides additional metadata like exit codes, success status, and execution duration alongside the captured output.</p>
 <h3 id="output-file-redirection"><a class="header" href="#output-file-redirection">Output File Redirection</a></h3>
 <p>Write command output directly to a file:</p>
 <pre><code class="language-yaml"># Redirect output to file
@@ -339,6 +353,13 @@
       - shell: "cargo fmt --check"
     threshold: 100
 </code></pre>
+<p><strong>Convenience Syntax</strong>: For simple cases, you can use an array format directly:</p>
+<pre><code class="language-yaml">- claude: "/refactor"
+  validate:
+    - shell: "cargo test"
+    - shell: "cargo clippy"
+    - shell: "cargo fmt --check"
+</code></pre>
 <h3 id="validation-with-result-files"><a class="header" href="#validation-with-result-files">Validation with Result Files</a></h3>
 <p>Read validation results from a file instead of stdout:</p>
 <pre><code class="language-yaml">- claude: "/implement-feature"
@@ -367,6 +388,15 @@
 <li><code>fail_workflow</code>: Whether to fail workflow if remediation fails (default: true)</li>
 <li><code>commit_required</code>: Whether remediation command should create a commit (default: false)</li>
 </ul>
+<p><strong>Convenience Syntax</strong>: For simple cases, you can use an array format directly:</p>
+<pre><code class="language-yaml">- claude: "/implement-spec"
+  validate:
+    shell: "check-completeness.sh"
+    threshold: 100
+    on_incomplete:
+      - claude: "/fill-gaps"
+      - shell: "cargo fmt"
+</code></pre>
 <hr />
 <h2 id="parallel-iteration-with-foreach"><a class="header" href="#parallel-iteration-with-foreach">Parallel Iteration with Foreach</a></h2>
 <p>Process multiple items in parallel using the <code>foreach</code> command.</p>
