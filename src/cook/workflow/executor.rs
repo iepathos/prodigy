@@ -1467,8 +1467,12 @@ impl WorkflowExecutor {
                     )
                     .await?;
 
-                // Update working directory if overridden
-                let working_dir_override = if env_context.working_dir != **env.working_dir {
+                // Only override working directory if step explicitly set it
+                // This respects ExecutionEnvironment (e.g., MapReduce worktrees)
+                // while allowing legitimate per-step directory overrides
+                let working_dir_override = if step.working_dir.is_some()
+                    && env_context.working_dir != **env.working_dir
+                {
                     Some(env_context.working_dir.clone())
                 } else {
                     None
