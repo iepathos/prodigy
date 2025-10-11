@@ -116,8 +116,11 @@ fn test_setup_phase_modifies_worktree_not_main_repo() {
     let worktree_path = create_worktree(&main_repo, "setup-worktree");
 
     // Simulate setup phase: create a file in the worktree
-    fs::write(worktree_path.join("work-items.json"), r#"{"items": [{"id": 1}]}"#)
-        .expect("Failed to write work-items.json");
+    fs::write(
+        worktree_path.join("work-items.json"),
+        r#"{"items": [{"id": 1}]}"#,
+    )
+    .expect("Failed to write work-items.json");
 
     // Commit the change in the worktree
     Command::new("git")
@@ -328,11 +331,8 @@ fn test_main_repo_isolation_guarantee() {
     // Perform multiple operations in worktree
     for i in 1..=10 {
         let filename = format!("generated-{}.json", i);
-        fs::write(
-            worktree_path.join(&filename),
-            format!(r#"{{"id": {}}}"#, i),
-        )
-        .expect("Failed to write file");
+        fs::write(worktree_path.join(&filename), format!(r#"{{"id": {}}}"#, i))
+            .expect("Failed to write file");
 
         Command::new("git")
             .args(["add", &filename])

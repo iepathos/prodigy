@@ -1798,7 +1798,10 @@ impl WorkflowExecutor {
         )?);
 
         // Create session for the MapReduce workflow
-        let session_id = format!("session-mapreduce-{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
+        let session_id = format!(
+            "session-mapreduce-{}",
+            chrono::Utc::now().format("%Y%m%d_%H%M%S")
+        );
         let worktree_result = worktree_manager
             .create_session_with_id(&session_id)
             .await

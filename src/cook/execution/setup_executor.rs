@@ -46,8 +46,7 @@ impl Drop for RestoreDirectoryGuard {
 /// This validation prevents accidental execution in the main repository which
 /// could modify production code during MapReduce workflows.
 fn validate_execution_context(expected_dir: &Path) -> Result<()> {
-    let current_dir = std::env::current_dir()
-        .context("Failed to get current working directory")?;
+    let current_dir = std::env::current_dir().context("Failed to get current working directory")?;
 
     // Check if current directory matches expected directory
     if current_dir != expected_dir {
@@ -199,8 +198,8 @@ impl SetupPhaseExecutor {
         let working_dir = &env.working_dir;
 
         // Save the original directory so we can restore it later
-        let original_dir = std::env::current_dir()
-            .context("Failed to get current working directory")?;
+        let original_dir =
+            std::env::current_dir().context("Failed to get current working directory")?;
 
         // Change to the worktree directory before executing setup phase
         std::env::set_current_dir(&**working_dir).with_context(|| {
