@@ -22,7 +22,7 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{OnFailureConfig, WorkflowStep};
+use crate::cook::workflow::{OnFailureConfig, WorkflowStep, StepResult};
 use crate::subprocess::SubprocessManager;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -31,15 +31,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, Semaphore};
 use tracing::{debug, info, warn};
-
-/// Result of executing a single step
-#[derive(Debug, Clone)]
-struct StepResult {
-    pub success: bool,
-    pub exit_code: Option<i32>,
-    pub stdout: Option<String>,
-    pub stderr: Option<String>,
-}
 
 /// Main coordinator for MapReduce execution
 pub struct MapReduceCoordinator {
@@ -424,8 +415,9 @@ impl MapReduceCoordinator {
             Ok(StepResult {
                 success: exit_code == 0,
                 exit_code: Some(exit_code),
-                stdout: Some(output.stdout),
-                stderr: Some(output.stderr),
+                stdout: output.stdout,
+                stderr: output.stderr,
+                json_log_location: None,
             })
         } else if let Some(claude_cmd) = &step.claude {
             info!("Executing Claude command: {}", claude_cmd);
@@ -441,8 +433,9 @@ impl MapReduceCoordinator {
             Ok(StepResult {
                 success: result.success,
                 exit_code: result.exit_code,
-                stdout: Some(result.stdout),
-                stderr: Some(result.stderr),
+                stdout: result.stdout,
+                stderr: result.stderr,
+                json_log_location: result.json_log_location().map(|s| s.to_string()),
             })
         } else if let Some(write_file_cfg) = &step.write_file {
             info!("Executing write_file command: {}", write_file_cfg.path);
@@ -457,8 +450,9 @@ impl MapReduceCoordinator {
             Ok(StepResult {
                 success: result.success,
                 exit_code: result.exit_code,
-                stdout: Some(result.stdout),
-                stderr: Some(result.stderr),
+                stdout: result.stdout,
+                stderr: result.stderr,
+                json_log_location: result.json_log_location,
             })
         } else {
             Err(MapReduceError::InvalidConfiguration {
@@ -1034,8 +1028,9 @@ impl MapReduceCoordinator {
             Ok(StepResult {
                 success: result.success,
                 exit_code: result.exit_code,
-                stdout: Some(result.stdout),
-                stderr: Some(result.stderr),
+                stdout: result.stdout,
+                stderr: result.stderr,
+                json_log_location: result.json_log_location().map(|s| s.to_string()),
             })
         } else if let Some(shell_cmd) = &step.shell {
             // Debug: print context
