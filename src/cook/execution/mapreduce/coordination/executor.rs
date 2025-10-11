@@ -1245,12 +1245,11 @@ impl MapReduceCoordinator {
             .await
             .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
 
-        // Create variables with map results
+        // Create variables - ONLY scalar values to avoid E2BIG errors
+        // Large data (map.results) should be accessed via write_file + file references
+        // Passing large JSON as environment variables causes "Argument list too long" (os error 7)
+        // when total size exceeds ARG_MAX limit (~1MB on macOS)
         let mut variables = HashMap::new();
-        variables.insert(
-            "map.results".to_string(),
-            serde_json::to_string(map_results).unwrap_or_default(),
-        );
         variables.insert("map.successful".to_string(), summary.successful.to_string());
         variables.insert("map.failed".to_string(), summary.failed.to_string());
         variables.insert("map.total".to_string(), summary.total.to_string());
