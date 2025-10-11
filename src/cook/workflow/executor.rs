@@ -1790,6 +1790,34 @@ impl WorkflowExecutor {
 
         // Don't duplicate the message - it's already shown by the orchestrator
 
+        // Create worktree for MapReduce execution BEFORE setup phase
+        // This ensures all phases (setup, map, reduce) execute in the isolated worktree
+        let worktree_manager = Arc::new(WorktreeManager::new(
+            env.working_dir.to_path_buf(),
+            self.subprocess.clone(),
+        )?);
+
+        // Create session for the MapReduce workflow
+        let session_id = format!("session-mapreduce-{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
+        let worktree_result = worktree_manager
+            .create_session_with_id(&session_id)
+            .await
+            .context("Failed to create worktree for MapReduce workflow")?;
+
+        tracing::info!(
+            "Created worktree for MapReduce at: {}",
+            worktree_result.path.display()
+        );
+
+        // Update environment to use the worktree directory
+        // This ensures setup, map, and reduce phases all execute in the worktree
+        let worktree_env = ExecutionEnvironment {
+            working_dir: Arc::new(worktree_result.path.clone()),
+            project_dir: env.project_dir.clone(),
+            worktree_name: Some(Arc::from(worktree_result.name.as_str())),
+            session_id: Arc::from(session_id.as_str()),
+        };
+
         let mut workflow_context = WorkflowContext::default();
         let mut generated_input_file: Option<String> = None;
         let mut _captured_variables = HashMap::new();
@@ -1836,11 +1864,12 @@ impl WorkflowExecutor {
                 let mut setup_executor = SetupPhaseExecutor::new(&setup_phase);
 
                 // Execute setup phase with file detection
+                // IMPORTANT: Use worktree_env here to ensure setup executes in the worktree
                 let (captured, gen_file) = setup_executor
                     .execute_with_file_detection(
                         &setup_phase.commands,
                         self,
-                        env,
+                        &worktree_env,
                         &mut workflow_context,
                     )
                     .await
@@ -1875,20 +1904,14 @@ impl WorkflowExecutor {
         }
         map_phase.config.input = interpolated_input;
 
-        // Create worktree manager
-        // Use working_dir as base for MapReduce agent worktrees so they branch from parent worktree
-        let worktree_manager = Arc::new(WorktreeManager::new(
-            env.working_dir.to_path_buf(),
-            self.subprocess.clone(),
-        )?);
-
         // Create MapReduce executor
+        // Use the worktree as the base for map phase agent worktrees
         let mut mapreduce_executor = MapReduceExecutor::new(
             self.claude_executor.clone(),
             self.session_manager.clone(),
             self.user_interaction.clone(),
-            worktree_manager,
-            env.working_dir.to_path_buf(), // Use working_dir instead of project_dir to handle worktrees correctly
+            worktree_manager.clone(),
+            worktree_result.path.clone(), // Use worktree path as base for agents
         )
         .await;
 
@@ -1899,12 +1922,13 @@ impl WorkflowExecutor {
 
         // Execute MapReduce workflow
         // Note: setup phase was already executed above, so we pass None to avoid duplicate execution
+        // Use worktree_env for map and reduce phases to ensure all execution happens in the worktree
         let results = mapreduce_executor
             .execute_with_context(
                 None, // Setup already executed above with proper environment variables
                 map_phase,
                 workflow.reduce_phase.clone(),
-                env.clone(),
+                worktree_env,
             )
             .await?;
 
