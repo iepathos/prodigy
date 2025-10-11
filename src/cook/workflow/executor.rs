@@ -1864,6 +1864,12 @@ impl WorkflowExecutor {
             };
 
             if !setup_phase.commands.is_empty() {
+                // Update EnvironmentManager's working directory to the worktree
+                // This ensures that when steps don't specify a working_dir, they default to the worktree
+                if let Some(ref mut env_manager) = self.environment_manager {
+                    env_manager.set_working_dir((*worktree_env.working_dir).clone());
+                }
+
                 let mut setup_executor = SetupPhaseExecutor::new(&setup_phase);
 
                 // Execute setup phase with file detection
