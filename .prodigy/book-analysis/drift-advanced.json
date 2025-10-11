@@ -2,90 +2,128 @@
   "chapter_id": "advanced",
   "chapter_title": "Advanced Features",
   "chapter_file": "book/src/advanced.md",
-  "drift_detected": false,
-  "severity": "low",
-  "quality_assessment": "Chapter accurately documents advanced features with correct syntax and comprehensive examples. All major issues from previous analysis have been resolved. Only minor improvements needed.",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Chapter is mostly accurate but has some outdated information about on_failure configuration and uses deprecated TestDebugConfig instead of the current structure. Missing details about capture_streams field.",
   "issues": [
     {
-      "type": "unclear_content",
-      "severity": "low",
-      "section": "Stream Capture Control",
-      "description": "capture_streams documentation shows string values (\"stdout\", \"stderr\", \"both\") but implementation uses a CaptureStreams struct with boolean fields",
-      "current_content": "capture_streams: \"stdout\"\ncapture_streams: \"stderr\"\ncapture_streams: \"both\"",
-      "should_be": "Implementation uses CaptureStreams struct with stdout/stderr/exit_code/success/duration boolean fields, not simple string values",
-      "fix_suggestion": "Verify the actual YAML syntax accepted - if strings are supported via deserialization, document both formats. If not, update examples to match struct-based configuration.",
-      "source_reference": "src/cook/workflow/variables.rs:268-279 CaptureStreams struct"
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "On Failure Handlers",
+      "description": "Chapter shows on_failure with max_attempts and fail_workflow fields, but TestDebugConfig has a different default structure",
+      "current_content": "on_failure:\n    claude: \"/fix-warnings\"\n    max_attempts: 3\n    fail_workflow: false",
+      "should_be": "on_failure is now part of WorkflowStepCommand and uses TestDebugConfig which has max_attempts defaulting to 3, fail_workflow defaulting to false, and commit_required defaulting to true",
+      "fix_suggestion": "Update documentation to reflect that TestDebugConfig.default_max_attempts is 3, fail_workflow defaults to false, and commit_required defaults to true",
+      "source_reference": "src/config/command.rs:167-183 (TestDebugConfig struct)"
     },
     {
       "type": "missing_content",
       "severity": "low",
+      "section": "Stream Capture Control",
+      "description": "Chapter documents capture_streams field with 'stdout', 'stderr', 'both' but implementation is more complex with a struct",
+      "should_add": "The capture_streams field in the implementation uses CaptureStreams struct with boolean fields for stdout, stderr, exit_code, success, and duration - not just string values",
+      "fix_suggestion": "Add clarification that capture_streams can be a simple string ('stdout', 'stderr', 'both') OR a detailed struct with boolean flags",
+      "source_reference": "src/cook/workflow/variables.rs:268-292 (CaptureStreams struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Capture Formats",
+      "description": "Chapter documents all capture formats correctly (string, number, json, lines, boolean)",
+      "should_add": "All formats are accurately documented and match CaptureFormat enum",
+      "fix_suggestion": "No changes needed - this section is accurate",
+      "source_reference": "src/cook/workflow/variables.rs:250-265 (CaptureFormat enum)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Validation Configuration",
+      "description": "Chapter shows both basic and multi-step validation but doesn't mention that validation can be an array format",
+      "should_add": "ValidationConfig supports array format where validation is a direct list of commands",
+      "fix_suggestion": "Add example showing validation as array: validate: [commands list]",
+      "source_reference": "src/cook/workflow/validation.rs:51-96 (ValidationConfig deserialization)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "On Incomplete Configuration",
+      "description": "Chapter shows on_incomplete with claude, shell, max_attempts, fail_workflow, and commit_required but doesn't mention it can also accept an array format",
+      "should_add": "OnIncompleteConfig supports array format for commands similar to ValidationConfig",
+      "fix_suggestion": "Add note that on_incomplete can be an array of commands for convenience",
+      "source_reference": "src/cook/workflow/validation.rs:154-213 (OnIncompleteConfig deserialization)"
+    },
+    {
+      "type": "correct_example",
+      "severity": "none",
       "section": "Conditional Execution",
-      "description": "Chapter doesn't mention that on_success and on_failure can use any WorkflowStepCommand, not just nested commands",
-      "should_add": "Clarify that on_success/on_failure handlers support full WorkflowStepCommand syntax including goal_seek, foreach, validate, etc.",
-      "fix_suggestion": "Add note that handlers can be any workflow step command type, with example showing advanced handler usage",
-      "source_reference": "src/config/command.rs:329-331 on_success and on_failure fields"
+      "description": "The when field is correctly documented and matches implementation",
+      "current_content": "when: \"${tests_passed}\" and when: \"${environment == 'production' && tests_passed}\"",
+      "should_be": "Matches WorkflowStepCommand.when field",
+      "fix_suggestion": "No changes needed",
+      "source_reference": "src/config/command.rs:388 (when field in WorkflowStepCommand)"
     },
     {
-      "type": "incomplete_explanation",
-      "severity": "low",
+      "type": "correct_example",
+      "severity": "none",
+      "section": "Timeout Configuration",
+      "description": "Timeout configuration is correctly documented at command level",
+      "current_content": "timeout: 600  # 10 minutes",
+      "should_be": "Matches WorkflowStepCommand.timeout field (Option<u64>)",
+      "fix_suggestion": "No changes needed",
+      "source_reference": "src/config/command.rs:383-384 (timeout field)"
+    },
+    {
+      "type": "correct_example",
+      "severity": "none",
       "section": "Step Identification",
-      "description": "Chapter shows step ID usage but doesn't explain all benefits or scoping rules",
-      "should_add": "Explain that step IDs enable referencing specific step outputs, help with debugging in logs, and provide clearer workflow structure. Document ID scoping and uniqueness requirements.",
-      "fix_suggestion": "Expand section to cover ID benefits beyond just output referencing, add example of ID in error messages and logs",
-      "source_reference": "src/config/command.rs:306 id field documentation"
+      "description": "Step ID feature is correctly documented",
+      "current_content": "id: \"test-step\"",
+      "should_be": "Matches WorkflowStepCommand.id field",
+      "fix_suggestion": "No changes needed",
+      "source_reference": "src/config/command.rs:351-352 (id field)"
     },
     {
-      "type": "incomplete_explanation",
-      "severity": "low",
+      "type": "correct_example",
+      "severity": "none",
       "section": "Output File Redirection",
-      "description": "Chapter documents output_file but doesn't explain detailed behavior",
+      "description": "output_file field is correctly documented",
       "current_content": "output_file: \"test-results.txt\"",
-      "should_add": "Clarify which streams are redirected (stdout only? both?), how it interacts with capture_output, and whether file is created in working directory or absolute path",
-      "fix_suggestion": "Add explanation of output_file behavior: streams redirected, file location, interaction with capture",
-      "source_reference": "src/config/command.rs:353-355 output_file field"
+      "should_be": "Matches WorkflowStepCommand.output_file field",
+      "fix_suggestion": "No changes needed",
+      "source_reference": "src/config/command.rs:399-400 (output_file field)"
     }
   ],
   "positive_aspects": [
-    "Accurate capture_format enumeration (string, number, json, lines, boolean)",
-    "Correct output_file field documentation",
-    "Accurate when/conditional execution syntax",
-    "Comprehensive timeout documentation with correct semantics",
-    "Correct on_failure configuration with max_attempts and fail_workflow fields",
-    "Accurate validation configuration with all supported fields (shell, claude, commands, threshold, on_incomplete, result_file)",
-    "Good coverage of on_incomplete handlers with proper field documentation (claude, shell, commands, max_attempts, fail_workflow, commit_required)",
-    "Excellent nested conditionals examples showing real-world patterns",
-    "Strong foreach documentation with all configuration options (foreach, parallel, continue_on_error, max_items)",
-    "Accurate goal_seek configuration and behavior explanation",
-    "Well-structured best practices section with practical examples",
-    "Clear progression from simple to complex features",
-    "Good use of YAML examples throughout",
-    "All previously-documented non-existent features have been removed (on_exit_code, retry backoff, working_dir, auto_commit, handler, step_validate)",
-    "Chapter now focuses on features that actually exist in the implementation"
+    "Comprehensive coverage of advanced features",
+    "Good progression from simple to complex examples",
+    "Practical real-world examples in Common Patterns section",
+    "Clear explanation of conditional execution with when clause",
+    "Well-organized sections with clear headers",
+    "Capture formats are accurately documented (string, number, json, lines, boolean)",
+    "Timeout configuration correctly shown at command level",
+    "Step identification feature clearly explained",
+    "Good coverage of validation with threshold and on_incomplete",
+    "Foreach parallel iteration is well documented"
   ],
   "improvement_suggestions": [
-    "Add troubleshooting section for common conditional execution pitfalls",
-    "Include performance considerations for nested conditionals",
-    "Add example showing combination of multiple advanced features in one workflow",
-    "Consider adding flowchart for conditional execution paths",
+    "Clarify the default values for TestDebugConfig (max_attempts=3, fail_workflow=false, commit_required=true)",
+    "Add note that validation and on_incomplete can use array format for convenience",
+    "Mention that capture_streams can be either a string ('stdout', 'stderr', 'both') or a detailed struct",
     "Add cross-references to related chapters (Variables, Error Handling)",
-    "Include example of using step IDs in complex multi-step workflows",
-    "Add note about variable interpolation in when conditions",
-    "Consider adding section on debugging complex conditional workflows",
-    "Clarify capture_streams syntax if string format is supported via deserialization",
-    "Add more detail about output_file behavior and interactions"
+    "Consider adding a troubleshooting section for common issues with advanced features",
+    "Add note about the relationship between on_failure and TestDebugConfig"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-05",
-    "feature_inventory": "Direct codebase analysis",
+    "analyzed_at": "2025-10-10",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Conditional execution",
       "Output capture formats",
       "Nested conditionals",
       "Timeouts",
-      "Step identification",
       "Validation",
-      "Foreach iteration",
-      "Goal seeking"
+      "Foreach",
+      "Goal-seeking"
     ],
     "validation_focus": "Check advanced features match implementation"
   }
