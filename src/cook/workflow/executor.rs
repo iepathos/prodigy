@@ -1821,6 +1821,24 @@ impl WorkflowExecutor {
             session_id: Arc::from(session_id.as_str()),
         };
 
+        // SPEC 128: Create immutable environment context for worktree execution
+        // This context explicitly specifies the worktree directory and prevents
+        // hidden state mutations. All environment configuration is immutable after creation.
+        use crate::cook::environment::EnvironmentContextBuilder;
+        let _worktree_context = EnvironmentContextBuilder::new(worktree_result.path.clone())
+            .with_config(
+                self.global_environment_config
+                    .as_ref()
+                    .unwrap_or(&crate::cook::environment::EnvironmentConfig::default()),
+            )
+            .context("Failed to create immutable environment context")?
+            .build();
+
+        // Note: The immutable context pattern is now available for future refactoring.
+        // Currently, the executor still uses ExecutionEnvironment (worktree_env) which is
+        // passed explicitly to all phase executors. This ensures working directory is
+        // always explicit in function signatures rather than hidden in mutable state.
+
         let mut workflow_context = WorkflowContext::default();
         let mut generated_input_file: Option<String> = None;
         let mut _captured_variables = HashMap::new();
@@ -1864,11 +1882,18 @@ impl WorkflowExecutor {
             };
 
             if !setup_phase.commands.is_empty() {
-                // Update EnvironmentManager's working directory to the worktree
-                // This ensures that when steps don't specify a working_dir, they default to the worktree
-                if let Some(ref mut env_manager) = self.environment_manager {
-                    env_manager.set_working_dir((*worktree_env.working_dir).clone());
-                }
+                // SPEC 128: Immutable Environment Context Pattern
+                // Instead of mutating EnvironmentManager's working directory (which caused bugs),
+                // we create an immutable context that explicitly specifies the worktree directory.
+                // The setup phase executor uses worktree_env (ExecutionEnvironment) which already
+                // has the correct working directory set, making this mutation unnecessary.
+                //
+                // The previous code:
+                //   env_manager.set_working_dir(worktree_path);  // Hidden mutation!
+                // caused bugs because state changes weren't visible in function signatures.
+                //
+                // The new approach: Pass worktree_env explicitly to all executors
+                // (already done via execute_with_file_detection parameter)
 
                 let mut setup_executor = SetupPhaseExecutor::new(&setup_phase);
 
