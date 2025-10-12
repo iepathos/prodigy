@@ -8,7 +8,6 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 /// Trait for executing Claude commands
 #[async_trait]
@@ -147,8 +146,7 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         project_path: &Path,
         env_vars: HashMap<String, String>,
     ) -> Result<ExecutionResult> {
-        // Display log directory location BEFORE execution so users can tail logs in real-time
-        display_log_directory_hint(project_path);
+        // Note: --print mode doesn't stream JSON, so no log file is created
 
         let mut context = ExecutionContext::default();
         #[allow(clippy::field_reassign_with_default)]
@@ -216,11 +214,11 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         project_path: &Path,
         env_vars: HashMap<String, String>,
     ) -> Result<ExecutionResult> {
-        // Record start time for log file detection
-        let execution_start = SystemTime::now();
+        // Generate log file path that Prodigy will save the streaming JSON to
+        let log_path = generate_streaming_log_path(project_path)?;
 
-        // Display log directory location BEFORE execution so users can tail logs in real-time
-        display_log_directory_hint(project_path);
+        // Display the exact log file path BEFORE execution so users can tail it
+        tracing::info!("📁 Claude streaming log: {}", log_path.display());
 
         // Build execution context using pure helper
         let mut context = build_execution_context(project_path, env_vars.clone());
@@ -257,21 +255,12 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
 
         match result {
             Ok(mut execution_result) => {
-                // Detect JSON log location after execution (success or failure)
-                use crate::cook::execution::claude_log_detection::detect_json_log_location;
-
-                if let Some(log_location) = detect_json_log_location(
-                    project_path,
-                    &execution_result.stdout,
-                    execution_start,
-                )
-                .await
-                {
-                    // Store in metadata for error handling
-                    execution_result =
-                        execution_result.with_json_log_location(log_location.clone());
+                // Save the streaming JSON output to the log file
+                if let Err(e) = save_streaming_output_to_file(&execution_result.stdout, &log_path).await {
+                    tracing::warn!("Failed to save streaming JSON log: {}", e);
                 } else {
-                    tracing::debug!("Could not detect Claude JSON log location");
+                    // Store log path in metadata
+                    execution_result = execution_result.with_json_log_location(log_path);
                 }
 
                 if !execution_result.success {
@@ -342,19 +331,42 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
 
 // Pure helper functions for configuration parsing
 
-/// Display hint about where Claude logs are saved
-/// Called before Claude execution starts so users can tail logs in real-time
-fn display_log_directory_hint(project_path: &Path) {
-    use crate::cook::execution::claude_log_detection::sanitize_project_path;
+/// Generate a unique log file path for saving Claude streaming JSON
+/// Path format: ~/.prodigy/logs/claude-streaming/{timestamp}-{uuid}.jsonl
+fn generate_streaming_log_path(_project_path: &Path) -> Result<std::path::PathBuf> {
+    use chrono::Utc;
+    use uuid::Uuid;
 
-    let log_dir = dirs::home_dir()
-        .map(|h| {
-            let sanitized = sanitize_project_path(project_path);
-            h.join(".claude/projects").join(sanitized)
-        })
-        .unwrap_or_else(|| std::path::PathBuf::from("~/.claude/projects"));
+    let home = dirs::home_dir()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
 
-    tracing::info!("📁 Claude log directory: {} (use: ls -lt {} | head -1 to see latest)", log_dir.display(), log_dir.display());
+    let log_dir = home.join(".prodigy/logs/claude-streaming");
+
+    // Create directory if it doesn't exist
+    std::fs::create_dir_all(&log_dir)?;
+
+    // Generate unique filename with timestamp and UUID
+    let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+    let uuid = Uuid::new_v4();
+    let filename = format!("{}-{}.jsonl", timestamp, uuid);
+
+    Ok(log_dir.join(filename))
+}
+
+/// Save the streaming JSON output to a file
+async fn save_streaming_output_to_file(
+    streaming_output: &str,
+    log_path: &std::path::Path,
+) -> Result<()> {
+    use tokio::fs::File;
+    use tokio::io::AsyncWriteExt;
+
+    let mut file = File::create(log_path).await?;
+    file.write_all(streaming_output.as_bytes()).await?;
+    file.flush().await?;
+
+    tracing::debug!("Saved streaming JSON to: {}", log_path.display());
+    Ok(())
 }
 
 /// Parse timeout value from environment variables
