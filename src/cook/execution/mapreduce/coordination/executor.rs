@@ -187,7 +187,112 @@ impl MapReduceCoordinator {
                 .await?;
         }
 
+        // CRITICAL: Merge MapReduce worktree changes back to parent worktree
+        // The MapReduce workflow runs in a child worktree. Agent worktrees merge to this
+        // MapReduce worktree, but we must also merge the MapReduce worktree itself back
+        // to the parent worktree so changes propagate correctly to master.
+        self.merge_mapreduce_to_parent(env).await?;
+
         Ok(map_results)
+    }
+
+    /// Merge MapReduce worktree changes back to parent worktree
+    ///
+    /// This function creates a branch in the MapReduce worktree and merges it back to the
+    /// parent worktree. This is necessary because the MapReduce workflow runs in a nested
+    /// worktree hierarchy:
+    ///
+    /// ```
+    /// master
+    ///   ↓
+    /// parent-worktree (session-xxx)
+    ///   ↓
+    /// mapreduce-worktree (session-mapreduce-xxx) ← We are here
+    ///   ↓
+    /// agent-worktrees (mapreduce-agent-xxx) → Merge to mapreduce-worktree (done in agent execution)
+    /// ```
+    ///
+    /// Without this step, changes remain trapped in the MapReduce worktree and never
+    /// propagate to the parent worktree or master branch.
+    async fn merge_mapreduce_to_parent(&self, env: &ExecutionEnvironment) -> MapReduceResult<()> {
+        // Only merge if we're in a MapReduce worktree context
+        let worktree_name = match &env.worktree_name {
+            Some(name) => name.as_ref(),
+            None => {
+                debug!("Not in a worktree context, skipping MapReduce to parent merge");
+                return Ok(());
+            }
+        };
+
+        // Check if this is a MapReduce worktree (contains "mapreduce" in the name)
+        if !worktree_name.contains("mapreduce") {
+            debug!("Not a MapReduce worktree, skipping parent merge");
+            return Ok(());
+        }
+
+        info!("Merging MapReduce worktree changes back to parent worktree");
+
+        // Create a branch for the MapReduce worktree
+        let mapreduce_branch = format!("merge-{}", worktree_name);
+
+        // Create branch in MapReduce worktree (current working directory)
+        let branch_result = self.subprocess.runner().run(
+            crate::subprocess::ProcessCommandBuilder::new("git")
+                .args(["checkout", "-b", &mapreduce_branch])
+                .current_dir(&env.working_dir)
+                .build()
+        ).await;
+
+        if let Err(e) = branch_result {
+            warn!("Failed to create branch for MapReduce worktree: {}", e);
+            // Continue anyway - might already exist
+        }
+
+        // Find parent worktree by going up one level from MapReduce worktree
+        // Structure: ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx
+        // Parent is: ~/.prodigy/worktrees/session-xxx
+        let parent_worktree = match env.working_dir.parent() {
+            Some(parent) => parent,
+            None => {
+                warn!("Cannot determine parent worktree path from {}", env.working_dir.display());
+                return Ok(());
+            }
+        };
+
+        info!(
+            "Merging MapReduce worktree {} to parent {}",
+            env.working_dir.display(),
+            parent_worktree.display()
+        );
+
+        // Merge MapReduce branch to parent worktree
+        let git_ops = GitOperations::new();
+
+        // Create a pseudo-environment for the parent worktree
+        let parent_env = ExecutionEnvironment {
+            working_dir: Arc::new(parent_worktree.to_path_buf()),
+            project_dir: env.project_dir.clone(),
+            worktree_name: parent_worktree.file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| Arc::from(s)),
+            session_id: env.session_id.clone(),
+        };
+
+        // Use git operations to merge the MapReduce branch to parent
+        match git_ops.merge_agent_to_parent(&mapreduce_branch, &parent_env).await {
+            Ok(()) => {
+                info!("Successfully merged MapReduce worktree to parent");
+            }
+            Err(e) => {
+                warn!("Failed to merge MapReduce worktree to parent: {}", e);
+                return Err(MapReduceError::ProcessingError(format!(
+                    "Failed to merge MapReduce worktree to parent: {}",
+                    e
+                )));
+            }
+        }
+
+        Ok(())
     }
 
     /// Execute in dry-run mode
