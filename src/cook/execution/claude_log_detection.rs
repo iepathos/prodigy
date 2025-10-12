@@ -126,7 +126,7 @@ fn infer_log_location(project_path: &Path) -> Option<PathBuf> {
 /// Sanitize project path for Claude's directory structure
 ///
 /// Claude sanitizes paths by replacing '/' with '-'
-fn sanitize_project_path(path: &Path) -> String {
+pub fn sanitize_project_path(path: &Path) -> String {
     path.to_string_lossy()
         .replace('/', "-")
         .trim_start_matches('-')

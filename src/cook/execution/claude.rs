@@ -147,6 +147,9 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         project_path: &Path,
         env_vars: HashMap<String, String>,
     ) -> Result<ExecutionResult> {
+        // Display log directory location BEFORE execution so users can tail logs in real-time
+        display_log_directory_hint(project_path);
+
         let mut context = ExecutionContext::default();
         #[allow(clippy::field_reassign_with_default)]
         {
@@ -216,6 +219,9 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         // Record start time for log file detection
         let execution_start = SystemTime::now();
 
+        // Display log directory location BEFORE execution so users can tail logs in real-time
+        display_log_directory_hint(project_path);
+
         // Build execution context using pure helper
         let mut context = build_execution_context(project_path, env_vars.clone());
 
@@ -261,20 +267,9 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
                 )
                 .await
                 {
-                    // Store in metadata
+                    // Store in metadata for error handling
                     execution_result =
                         execution_result.with_json_log_location(log_location.clone());
-
-                    // Display log path to console - ALWAYS, regardless of verbosity
-                    // This is critical for debugging failed commands
-                    if execution_result.success {
-                        println!("✅ Completed | Log: {}", log_location.display());
-                    } else {
-                        println!("❌ Failed | Log: {}", log_location.display());
-                    }
-
-                    // Log to tracing for debugging
-                    tracing::info!("Claude JSON log saved to: {}", log_location.display());
                 } else {
                     tracing::debug!("Could not detect Claude JSON log location");
                 }
@@ -346,6 +341,21 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
 }
 
 // Pure helper functions for configuration parsing
+
+/// Display hint about where Claude logs are saved
+/// Called before Claude execution starts so users can tail logs in real-time
+fn display_log_directory_hint(project_path: &Path) {
+    use crate::cook::execution::claude_log_detection::sanitize_project_path;
+
+    let log_dir = dirs::home_dir()
+        .map(|h| {
+            let sanitized = sanitize_project_path(project_path);
+            h.join(".claude/projects").join(sanitized)
+        })
+        .unwrap_or_else(|| std::path::PathBuf::from("~/.claude/projects"));
+
+    tracing::info!("📁 Claude log directory: {} (use: ls -lt {} | head -1 to see latest)", log_dir.display(), log_dir.display());
+}
 
 /// Parse timeout value from environment variables
 /// Returns None if the environment variable is not set or contains an invalid value
