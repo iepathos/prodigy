@@ -3,6 +3,78 @@
 //! This module implements a pure functional state machine for agent lifecycle
 //! management. All functions are pure - they take state and transitions as
 //! inputs and return new states, with no side effects or I/O operations.
+//!
+//! ## State Machine Diagram
+//!
+//! ```text
+//! ┌─────────┐
+//! │ Created │
+//! └────┬────┘
+//!      │
+//!      │ Start { worktree_path }
+//!      │
+//!      ▼
+//! ┌─────────┐
+//! │ Running │
+//! └────┬────┘
+//!      │
+//!      ├─────────────────────────┬──────────────────────────┐
+//!      │                         │                          │
+//!      │ Complete                │ Fail                     │
+//!      │ { output, commits }     │ { error, json_log }      │
+//!      │                         │                          │
+//!      ▼                         ▼                          │
+//! ┌───────────┐           ┌────────┐                      │
+//! │ Completed │           │ Failed │                      │
+//! └───────────┘           └────────┘                      │
+//! ```
+//!
+//! ## Valid State Transitions
+//!
+//! - **Created → Running**: Agent starts execution with worktree path
+//! - **Running → Completed**: Agent completes successfully with output and commits
+//! - **Running → Failed**: Agent fails with error message and optional log location
+//!
+//! ## Invalid Transitions
+//!
+//! All other transitions are invalid and will return `StateError::InvalidTransition`:
+//! - Created → Completed (must go through Running)
+//! - Created → Failed (must go through Running)
+//! - Completed → * (terminal state)
+//! - Failed → * (terminal state)
+//!
+//! ## Usage Example
+//!
+//! ```rust
+//! use prodigy::cook::execution::mapreduce::agent::{
+//!     AgentLifecycleState, AgentTransition, apply_transition, state_to_result
+//! };
+//! use serde_json::json;
+//! use std::path::PathBuf;
+//!
+//! // Create initial state
+//! let state = AgentLifecycleState::Created {
+//!     agent_id: "agent-1".to_string(),
+//!     work_item: json!({"task": "build"}),
+//! };
+//!
+//! // Transition to running
+//! let transition = AgentTransition::Start {
+//!     worktree_path: PathBuf::from("/tmp/worktree"),
+//! };
+//! let state = apply_transition(state, transition).unwrap();
+//!
+//! // Transition to completed
+//! let transition = AgentTransition::Complete {
+//!     output: Some("Build successful".to_string()),
+//!     commits: vec!["abc123".to_string()],
+//! };
+//! let state = apply_transition(state, transition).unwrap();
+//!
+//! // Convert to result
+//! let result = state_to_result(&state).unwrap();
+//! assert!(result.is_success());
+//! ```
 
 use super::types::{AgentLifecycleState, AgentResult, AgentStatus, AgentTransition};
 use std::time::Instant;
