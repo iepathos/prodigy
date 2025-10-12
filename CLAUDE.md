@@ -386,7 +386,9 @@ Tracks the current cooking session:
 
 When executing Claude commands, Prodigy sets these environment variables:
 - `PRODIGY_AUTOMATION="true"` - Signals automated execution mode
-- `PRODIGY_CLAUDE_STREAMING="true"` - Enables streaming mode for Claude commands (when verbosity >= 1)
+
+Claude JSON streaming is enabled by default for all Claude commands to ensure workflow auditability. To disable streaming (e.g., in CI/CD environments with storage constraints), set:
+- `PRODIGY_CLAUDE_STREAMING="false"` - Explicitly disables JSON streaming and uses legacy print mode
 
 ## Global Storage Architecture
 

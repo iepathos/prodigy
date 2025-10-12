@@ -384,13 +384,6 @@ impl WorkflowExecutor {
         // Add automation flag
         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
-        // Enable Claude streaming if set in environment or by default for better observability
-        if std::env::var("PRODIGY_CLAUDE_STREAMING").unwrap_or_else(|_| "true".to_string())
-            == "true"
-        {
-            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
-        }
-
         // Add step-specific environment variables with interpolation
         for (key, value) in &step.env {
             let (interpolated_value, resolutions) = ctx.interpolate_with_tracking(value);

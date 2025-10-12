@@ -307,7 +307,6 @@ impl MapReduceCoordinator {
 
             // Set environment variables
             let mut env_vars = HashMap::new();
-            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
             env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
             debug!("Environment Variables:");
