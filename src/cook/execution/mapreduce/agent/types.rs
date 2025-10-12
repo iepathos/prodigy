@@ -6,9 +6,10 @@
 use crate::cook::workflow::WorkflowStep;
 use crate::worktree::WorktreeSession;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
 /// Status of an agent's execution
@@ -311,4 +312,52 @@ impl AgentOperation {
             Self::Complete => "Complete".to_string(),
         }
     }
+}
+
+// ============================================================================
+// State Machine Types (Pure State Model)
+// ============================================================================
+
+/// Pure agent state enum for explicit state machine transitions
+#[derive(Debug, Clone, PartialEq)]
+pub enum AgentLifecycleState {
+    /// Agent created but not started
+    Created { agent_id: String, work_item: Value },
+    /// Agent is currently executing
+    Running {
+        agent_id: String,
+        started_at: Instant,
+        worktree_path: PathBuf,
+    },
+    /// Agent completed successfully
+    Completed {
+        agent_id: String,
+        output: Option<String>,
+        commits: Vec<String>,
+        duration: Duration,
+    },
+    /// Agent failed with error
+    Failed {
+        agent_id: String,
+        error: String,
+        duration: Duration,
+        json_log_location: Option<String>,
+    },
+}
+
+/// Transitions between agent states
+#[derive(Debug, Clone)]
+pub enum AgentTransition {
+    /// Transition from Created to Running
+    Start { worktree_path: PathBuf },
+    /// Transition from Running to Completed
+    Complete {
+        output: Option<String>,
+        commits: Vec<String>,
+    },
+    /// Transition from Running to Failed
+    Fail {
+        error: String,
+        json_log_location: Option<String>,
+    },
 }
