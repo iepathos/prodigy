@@ -248,6 +248,24 @@ impl MapReduceCoordinator {
         }
     }
 
+    /// Get a displayable name for a workflow step
+    fn get_step_display_name(step: &WorkflowStep) -> String {
+        if let Some(claude_cmd) = &step.claude {
+            format!("claude: {}", claude_cmd)
+        } else if let Some(shell_cmd) = &step.shell {
+            // Truncate long shell commands for readability
+            if shell_cmd.len() > 60 {
+                format!("shell: {}...", &shell_cmd[..57])
+            } else {
+                format!("shell: {}", shell_cmd)
+            }
+        } else if let Some(write_file) = &step.write_file {
+            format!("write_file: {}", write_file.path)
+        } else {
+            "unknown step".to_string()
+        }
+    }
+
     /// Execute the setup phase
     async fn execute_setup_phase(
         &self,
@@ -261,17 +279,22 @@ impl MapReduceCoordinator {
         );
 
         for (index, step) in setup_phase.commands.iter().enumerate() {
-            // Display user-facing progress
+            // Get step display name for logging
+            let step_name = Self::get_step_display_name(step);
+
+            // Display user-facing progress with the actual command
             self.user_interaction.display_progress(&format!(
-                "Setup: Executing step {}/{}",
+                "Setup [{}/{}]: {}",
                 index + 1,
-                setup_phase.commands.len()
+                setup_phase.commands.len(),
+                step_name
             ));
 
             info!(
-                "Executing setup step {}/{}",
+                "Executing setup step {}/{}: {}",
                 index + 1,
-                setup_phase.commands.len()
+                setup_phase.commands.len(),
+                step_name
             );
 
             // Log execution context at DEBUG level
@@ -300,9 +323,10 @@ impl MapReduceCoordinator {
             // Display completion
             if result.success {
                 self.user_interaction.display_success(&format!(
-                    "✓ Setup step {}/{} completed",
+                    "✓ Setup [{}/{}]: {} completed",
                     index + 1,
-                    setup_phase.commands.len()
+                    setup_phase.commands.len(),
+                    step_name
                 ));
             }
 
@@ -340,7 +364,7 @@ impl MapReduceCoordinator {
                 }
 
                 // No on_failure handler, build error message and fail
-                let mut error_msg = format!("Setup step {} failed", index + 1);
+                let mut error_msg = format!("Setup step {} ({}) failed", index + 1, step_name);
 
                 // Add exit code if available
                 if let Some(code) = result.exit_code {
@@ -357,8 +381,11 @@ impl MapReduceCoordinator {
                     error_msg.push_str(&format!("\nstdout: {}", result.stdout.trim()));
                 }
 
-                // If it's a Claude command, add log location hint
-                if step.claude.is_some() {
+                // Add Claude JSON log location if available (most direct path to debugging)
+                if let Some(json_log) = &result.json_log_location {
+                    error_msg.push_str(&format!("\n\n📝 Claude log: {}", json_log));
+                } else if step.claude.is_some() {
+                    // Fallback: If Claude command but no direct log, show event logs location
                     if let Ok(repo_name) = crate::storage::extract_repo_name(&self.project_root) {
                         let log_hint = format!(
                             "\n\n💡 Check Claude logs at: ~/.prodigy/events/{}/{}/*.jsonl",

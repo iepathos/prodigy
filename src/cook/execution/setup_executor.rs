@@ -153,7 +153,14 @@ impl SetupPhaseExecutor {
         // Define the execution logic
         let execution = async {
             for (index, step) in commands.iter().enumerate() {
-                debug!("Executing setup step {}/{}", index + 1, commands.len());
+                // Log user-visible progress for each setup step
+                let step_name = get_step_display_name(step);
+                info!(
+                    "Setup [{}/{}]: {}",
+                    index + 1,
+                    commands.len(),
+                    step_name
+                );
 
                 // Track HEAD before step execution if commit validation is needed
                 let head_before = if step.commit_required {
