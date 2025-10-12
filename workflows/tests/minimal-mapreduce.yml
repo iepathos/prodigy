@@ -1,0 +1,81 @@
+# Minimal MapReduce workflow to test merge-to-parent functionality
+#
+# This workflow tests the critical merge path:
+#   agent worktrees → MapReduce worktree → parent worktree → main branch
+#
+# The bug we fixed was that MapReduce worktree → parent worktree merge
+# was using direct git commands instead of Claude's intelligent merge command.
+#
+# How to run:
+#   prodigy run workflows/tests/minimal-mapreduce.yml
+#
+# Expected outcome:
+#   - Setup phase creates a test file with 3 items
+#   - Map phase processes each item in parallel (creates output files)
+#   - Each agent commits its work and merges to MapReduce worktree
+#   - MapReduce worktree merges to parent worktree (the fix we made)
+#   - Reduce phase verifies all items were processed
+#   - All changes should be visible in the parent worktree after completion
+
+name: minimal-mapreduce-test
+mode: mapreduce
+
+# Setup phase: Create test data
+# This runs in the MapReduce worktree
+setup:
+  - shell: |
+      echo '[
+        {"id": 1, "name": "item-one"},
+        {"id": 2, "name": "item-two"},
+        {"id": 3, "name": "item-three"}
+      ]' > test-items.json
+      echo "Created test-items.json with 3 items"
+
+# Map phase: Process each item in parallel
+map:
+  input: test-items.json
+  json_path: $[*]
+  max_parallel: 2
+
+  agent_template:
+    # Create an output file for this item
+    - shell: |
+        echo "Processed by agent: ${item.name}" > output-${item.name}.txt
+        echo "Item ID: ${item.id}" >> output-${item.name}.txt
+        cat output-${item.name}.txt
+
+    # Commit the work (required for merge to happen)
+    - shell: git add output-${item.name}.txt
+    - shell: git commit -m "Process ${item.name} (id=${item.id})"
+      commit_required: true
+
+# Reduce phase: Verify all items were processed
+# This runs in the MapReduce worktree after all agents merge their work
+reduce:
+  - shell: |
+      echo "=== Reduce Phase: Checking Results ==="
+      ls -la output-*.txt || echo "No output files found!"
+
+      # Count output files
+      count=$(ls output-*.txt 2>/dev/null | wc -l)
+      echo "Found $count output files"
+
+      # Verify we got all 3 items
+      if [ "$count" -eq 3 ]; then
+        echo "✓ All 3 items were processed successfully"
+      else
+        echo "✗ Expected 3 items, found $count"
+        exit 1
+      fi
+
+  - shell: |
+      echo "=== Contents of output files ==="
+      for f in output-*.txt; do
+        echo "--- $f ---"
+        cat "$f"
+        echo ""
+      done
+
+# Note: After this workflow completes, the MapReduce worktree should merge
+# back to the parent worktree using Claude's /prodigy-merge-worktree command
+# (the fix we implemented in executor.rs:315-346)
