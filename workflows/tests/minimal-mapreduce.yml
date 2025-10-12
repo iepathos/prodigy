@@ -35,7 +35,7 @@ setup:
 map:
   input: test-items.json
   json_path: $[*]
-  max_parallel: 2
+  max_parallel: 3
 
   agent_template:
     # Create an output file for this item
