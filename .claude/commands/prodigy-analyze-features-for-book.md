@@ -250,13 +250,7 @@ The features.json file should:
 
 ### Phase 7: Commit Changes
 
-**Check Environment:**
-Check if the `PRODIGY_AUTOMATION` environment variable is set to "true":
-```bash
-echo $PRODIGY_AUTOMATION
-```
-
-**If PRODIGY_AUTOMATION=true, commit the analysis:**
+**CRITICAL: You MUST create a git commit at the end of this command.**
 
 1. **Count feature areas:**
    Count the number of top-level keys in the generated features.json (excluding metadata like "version_info", "analysis_metadata")
@@ -276,7 +270,7 @@ echo $PRODIGY_AUTOMATION
    ```
    Replace `{actual-count}` with the number of feature areas you counted.
 
-4. **Verify commit:**
+4. **Verify commit was created:**
    ```bash
    git log -1 --oneline
    ```
@@ -289,6 +283,4 @@ echo $PRODIGY_AUTOMATION
       • Ready for gap detection phase
    ```
 
-**If PRODIGY_AUTOMATION is not set:**
-- Print message: "⚠️ Features analyzed but not committed (not in automation mode)"
-- This is expected for manual test runs
+**IMPORTANT:** This command is used in workflows with `commit_required: true`, which means you MUST create a commit. The workflow will fail if no commit is created.
