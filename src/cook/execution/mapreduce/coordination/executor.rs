@@ -248,13 +248,60 @@ impl MapReduceCoordinator {
             // Continue anyway - might already exist
         }
 
-        // Find parent worktree by going up one level from MapReduce worktree
-        // Structure: ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx
-        // Parent is: ~/.prodigy/worktrees/session-xxx
-        let parent_worktree = match env.working_dir.parent() {
-            Some(parent) => parent,
+        // Find parent worktree - it's actually at ~/.prodigy/worktrees/{project}/session-xxx
+        // The MapReduce worktree is at ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx
+        // where session-xxx is just a container directory, not the actual parent worktree
+
+        // Extract the session ID from the current worktree name
+        let session_id = match &env.session_id {
+            id if id.starts_with("session-") => id.as_ref(),
+            id => {
+                warn!("Unexpected session ID format: {}", id);
+                return Ok(());
+            }
+        };
+
+        // Try to find the parent worktree at the expected location
+        // Pattern: ~/.prodigy/worktrees/{project}/{session_id}
+        let worktrees_base = env.working_dir
+            .parent() // Go up from session-mapreduce-xxx to session-xxx directory
+            .and_then(|p| p.parent()); // Go up from session-xxx to worktrees base
+
+        let parent_worktree = match worktrees_base {
+            Some(base) => {
+                // Look for the parent worktree at {base}/prodigy/{session_id}
+                let prodigy_parent = base.join("prodigy").join(session_id);
+                if prodigy_parent.exists() && prodigy_parent.join(".git").exists() {
+                    prodigy_parent
+                } else {
+                    // Fallback: try to find any directory at {base}/{project}/{session_id}
+                    // that contains a .git file/directory
+                    let mut found_parent = None;
+                    if let Ok(entries) = std::fs::read_dir(base) {
+                        for entry in entries.flatten() {
+                            let project_dir = entry.path();
+                            if project_dir.is_dir() {
+                                let potential_parent = project_dir.join(session_id);
+                                if potential_parent.exists() && potential_parent.join(".git").exists() {
+                                    found_parent = Some(potential_parent);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    match found_parent {
+                        Some(parent) => parent,
+                        None => {
+                            warn!("Cannot find parent worktree for session {}", session_id);
+                            warn!("Looked in: {}/*/{}/.git", base.display(), session_id);
+                            return Ok(());
+                        }
+                    }
+                }
+            }
             None => {
-                warn!("Cannot determine parent worktree path from {}", env.working_dir.display());
+                warn!("Cannot determine worktrees base directory from {}", env.working_dir.display());
                 return Ok(());
             }
         };
