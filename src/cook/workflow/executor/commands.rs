@@ -57,6 +57,11 @@ pub async fn execute_claude_command(
             )
         })?;
 
+    // Log the Claude JSON log location immediately after execution
+    if let Some(json_log) = result.json_log_location() {
+        tracing::info!("📝 Claude log: {}", json_log);
+    }
+
     Ok(convert_execution_result(result))
 }
 
