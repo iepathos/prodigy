@@ -256,7 +256,9 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         match result {
             Ok(mut execution_result) => {
                 // Save the streaming JSON output to the log file
-                if let Err(e) = save_streaming_output_to_file(&execution_result.stdout, &log_path).await {
+                if let Err(e) =
+                    save_streaming_output_to_file(&execution_result.stdout, &log_path).await
+                {
                     tracing::warn!("Failed to save streaming JSON log: {}", e);
                 } else {
                     // Store log path in metadata
@@ -337,8 +339,8 @@ fn generate_streaming_log_path(_project_path: &Path) -> Result<std::path::PathBu
     use chrono::Utc;
     use uuid::Uuid;
 
-    let home = dirs::home_dir()
-        .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+    let home =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
 
     let log_dir = home.join(".prodigy/logs/claude-streaming");
 

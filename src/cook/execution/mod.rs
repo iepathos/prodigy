@@ -7,6 +7,8 @@ pub mod bridge;
 pub mod bridge_tests;
 pub mod claude;
 pub mod claude_log_detection;
+#[cfg(test)]
+pub mod claude_log_path_test;
 pub mod claude_stream_handler;
 #[cfg(test)]
 pub mod claude_streaming_test;
