@@ -384,6 +384,11 @@ impl WorkflowExecutor {
         // Add automation flag
         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
+        // Propagate PRODIGY_CLAUDE_STREAMING environment variable if set (spec 129)
+        if let Ok(streaming_val) = std::env::var("PRODIGY_CLAUDE_STREAMING") {
+            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), streaming_val);
+        }
+
         // Add step-specific environment variables with interpolation
         for (key, value) in &step.env {
             let (interpolated_value, resolutions) = ctx.interpolate_with_tracking(value);

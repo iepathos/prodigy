@@ -594,7 +594,9 @@ impl WorkflowExecutor {
                 .display_progress(&format!("Running validation (Claude): {}", command));
 
             // Execute Claude command for validation
-            let env_vars = HashMap::new();
+            // Use prepare_env_vars to get environment variables with proper streaming flag propagation
+            let dummy_step = WorkflowStep::default();
+            let env_vars = self.prepare_env_vars(&dummy_step, env, ctx);
             self.execute_claude_command(&command, env, env_vars).await?
         } else if let Some(shell_cmd) = validation_config
             .shell

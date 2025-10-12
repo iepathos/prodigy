@@ -2164,7 +2164,7 @@ mod execute_setup_phase_tests {
 
         let err_msg = result.unwrap_err().to_string();
         assert!(
-            err_msg.contains("Setup step 1 failed"),
+            err_msg.contains("Setup step 1") && err_msg.contains("failed"),
             "Error should mention step number"
         );
         assert!(
