@@ -368,16 +368,12 @@ impl AgentExecutor for StandardExecutor {
         context: ExecutionContext,
     ) -> ExecutionResult<AgentResult> {
         // Create initial lifecycle state using state machine
-        let lifecycle_state = Self::create_initial_state(
-            handle.item_id().to_string(),
-            item.clone(),
-        );
+        let lifecycle_state =
+            Self::create_initial_state(handle.item_id().to_string(), item.clone());
 
         // Transition to running state
-        let lifecycle_state = Self::transition_to_running(
-            lifecycle_state,
-            handle.worktree_path().to_path_buf(),
-        )?;
+        let lifecycle_state =
+            Self::transition_to_running(lifecycle_state, handle.worktree_path().to_path_buf())?;
 
         // Update legacy state for backward compatibility
         {
@@ -405,8 +401,9 @@ impl AgentExecutor for StandardExecutor {
                 }
 
                 // Convert state machine state to AgentResult
-                let mut agent_result = state_to_result(&final_state)
-                    .ok_or_else(|| ExecutionError::AgentError("State conversion failed".to_string()))?;
+                let mut agent_result = state_to_result(&final_state).ok_or_else(|| {
+                    ExecutionError::AgentError("State conversion failed".to_string())
+                })?;
 
                 // Add additional fields not in state machine
                 agent_result.files_modified = files;
@@ -432,8 +429,9 @@ impl AgentExecutor for StandardExecutor {
                 }
 
                 // Convert state machine state to AgentResult
-                let mut agent_result = state_to_result(&final_state)
-                    .ok_or_else(|| ExecutionError::AgentError("State conversion failed".to_string()))?;
+                let mut agent_result = state_to_result(&final_state).ok_or_else(|| {
+                    ExecutionError::AgentError("State conversion failed".to_string())
+                })?;
 
                 // Add additional fields not in state machine
                 agent_result.worktree_path = Some(handle.worktree_path().to_path_buf());
@@ -612,10 +610,8 @@ mod integration_tests {
 
         // Create and transition to running
         let state = StandardExecutor::create_initial_state(agent_id, work_item);
-        let running_state = StandardExecutor::transition_to_running(
-            state,
-            PathBuf::from("/tmp/test"),
-        ).unwrap();
+        let running_state =
+            StandardExecutor::transition_to_running(state, PathBuf::from("/tmp/test")).unwrap();
 
         // Transition to completed
         let output = Some("Command executed successfully".to_string());
@@ -628,7 +624,10 @@ mod integration_tests {
 
         assert!(completed_state.is_ok());
         let completed_state = completed_state.unwrap();
-        assert!(matches!(completed_state, AgentLifecycleState::Completed { .. }));
+        assert!(matches!(
+            completed_state,
+            AgentLifecycleState::Completed { .. }
+        ));
 
         // Convert to result and verify
         let result = state_to_result(&completed_state);
@@ -647,10 +646,8 @@ mod integration_tests {
 
         // Create and transition to running
         let state = StandardExecutor::create_initial_state(agent_id, work_item);
-        let running_state = StandardExecutor::transition_to_running(
-            state,
-            PathBuf::from("/tmp/test"),
-        ).unwrap();
+        let running_state =
+            StandardExecutor::transition_to_running(state, PathBuf::from("/tmp/test")).unwrap();
 
         // Transition to failed
         let error_msg = "Command execution failed".to_string();
@@ -684,11 +681,8 @@ mod integration_tests {
         let state = StandardExecutor::create_initial_state(agent_id, work_item);
 
         // Try to transition directly from Created to Completed (invalid)
-        let invalid_result = StandardExecutor::transition_to_completed(
-            state,
-            Some("output".to_string()),
-            vec![],
-        );
+        let invalid_result =
+            StandardExecutor::transition_to_completed(state, Some("output".to_string()), vec![]);
 
         assert!(invalid_result.is_err());
         assert!(matches!(
@@ -708,10 +702,9 @@ mod integration_tests {
         assert!(matches!(state, AgentLifecycleState::Created { .. }));
 
         // Start
-        let state = StandardExecutor::transition_to_running(
-            state,
-            PathBuf::from("/tmp/worktree-5"),
-        ).unwrap();
+        let state =
+            StandardExecutor::transition_to_running(state, PathBuf::from("/tmp/worktree-5"))
+                .unwrap();
         assert!(matches!(state, AgentLifecycleState::Running { .. }));
 
         // Complete
@@ -719,7 +712,8 @@ mod integration_tests {
             state,
             Some("All tests passed".to_string()),
             vec!["commit-1".to_string()],
-        ).unwrap();
+        )
+        .unwrap();
         assert!(matches!(state, AgentLifecycleState::Completed { .. }));
 
         // Verify result
@@ -738,17 +732,17 @@ mod integration_tests {
         let state = StandardExecutor::create_initial_state(agent_id.clone(), work_item);
 
         // Start
-        let state = StandardExecutor::transition_to_running(
-            state,
-            PathBuf::from("/tmp/worktree-6"),
-        ).unwrap();
+        let state =
+            StandardExecutor::transition_to_running(state, PathBuf::from("/tmp/worktree-6"))
+                .unwrap();
 
         // Fail
         let state = StandardExecutor::transition_to_failed(
             state,
             "Test execution failed".to_string(),
             Some("/logs/test.json".to_string()),
-        ).unwrap();
+        )
+        .unwrap();
         assert!(matches!(state, AgentLifecycleState::Failed { .. }));
 
         // Verify result
