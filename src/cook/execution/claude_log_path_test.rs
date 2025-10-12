@@ -84,6 +84,7 @@ mod tests {
     #[tokio::test]
     async fn test_non_streaming_mode_no_log_path() {
         // Verify that non-streaming mode doesn't create a log path
+        // Note: Spec 129 changed default to streaming, so we must explicitly opt-out
 
         let mock_runner = MockCommandRunner::new();
         mock_runner.add_response(ExecutionResult {
@@ -96,8 +97,9 @@ mod tests {
 
         let executor = ClaudeExecutorImpl::new(mock_runner);
 
-        // No PRODIGY_CLAUDE_STREAMING env var = print mode
-        let env_vars = HashMap::new();
+        // Explicitly opt-out of streaming mode (spec 129: streaming is now the default)
+        let mut env_vars = HashMap::new();
+        env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "false".to_string());
 
         let result = executor
             .execute_claude_command("/test-command", Path::new("/tmp"), env_vars)

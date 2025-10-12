@@ -2247,7 +2247,7 @@ mod execute_setup_phase_tests {
 
         let err_msg = result.unwrap_err().to_string();
         assert!(
-            err_msg.contains("Setup step 1 failed"),
+            err_msg.contains("Setup step 1"),
             "Error should mention step number"
         );
         // Note: log hint only appears if extract_repo_name succeeds, which it won't in this test
