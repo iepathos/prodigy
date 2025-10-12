@@ -49,13 +49,6 @@ impl ClaudeCommandExecutor {
         );
         env_vars.insert("PRODIGY_ITEM_ID".to_string(), context.item_id.clone());
 
-        // Enable streaming if set in environment or by default for better observability
-        if std::env::var("PRODIGY_CLAUDE_STREAMING").unwrap_or_else(|_| "true".to_string())
-            == "true"
-        {
-            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
-        }
-
         // Add context environment variables
         for (key, value) in &context.environment {
             env_vars.insert(key.clone(), value.clone());

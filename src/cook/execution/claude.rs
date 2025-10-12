@@ -83,24 +83,25 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
             return self.handle_test_mode_execution(command).await;
         }
 
-        // Check for streaming mode via environment variable
-        let streaming_enabled = env_vars
+        // Streaming is enabled by default for auditability
+        // Only disabled if explicitly set to "false"
+        let streaming_disabled = env_vars
             .get("PRODIGY_CLAUDE_STREAMING")
-            .is_some_and(|v| v == "true");
+            .is_some_and(|v| v == "false");
 
         tracing::debug!(
             "Claude execution mode: streaming={}, env_var={:?}",
-            streaming_enabled,
+            !streaming_disabled,
             env_vars.get("PRODIGY_CLAUDE_STREAMING")
         );
 
-        if streaming_enabled {
-            // Try streaming mode, even without event logger (output will still be captured)
+        if !streaming_disabled {
+            // Default: streaming mode for audit trail and debugging
             tracing::debug!("Using streaming mode for Claude command");
             self.execute_with_streaming(command, project_path, env_vars)
                 .await
         } else {
-            // Existing --print mode execution
+            // Explicit opt-out: print mode for resource-constrained environments
             tracing::debug!("Using print mode for Claude command");
             self.execute_with_print(command, project_path, env_vars)
                 .await
