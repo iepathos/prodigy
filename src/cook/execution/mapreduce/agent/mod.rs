@@ -7,12 +7,13 @@ pub mod execution;
 pub mod lifecycle;
 pub mod lifecycle_with_cleanup;
 pub mod results;
+pub mod state_machine;
 pub mod types;
 
 // Re-export core types for convenience
 pub use types::{
-    AgentConfig, AgentHandle, AgentOperation, AgentResult, AgentState, AgentStateStatus,
-    AgentStatus,
+    AgentConfig, AgentHandle, AgentLifecycleState, AgentOperation, AgentResult, AgentState,
+    AgentStateStatus, AgentStatus, AgentTransition,
 };
 
 // Re-export execution functionality
@@ -24,6 +25,9 @@ pub use lifecycle_with_cleanup::CleanupAwareLifecycleManager;
 
 // Re-export result aggregation
 pub use results::{AgentResultAggregator, AggregatedResults, DefaultResultAggregator};
+
+// Re-export state machine functions
+pub use state_machine::{apply_transition, get_agent_id, is_valid_transition, state_to_result};
 
 #[cfg(test)]
 mod tests;
