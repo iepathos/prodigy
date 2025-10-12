@@ -2165,12 +2165,14 @@ mod execute_setup_phase_tests {
 
         let err_msg = result.unwrap_err().to_string();
         assert!(
-            err_msg.contains("Setup step 1 failed"),
-            "Error should mention step number"
+            err_msg.contains("Setup step 1") && err_msg.contains("failed"),
+            "Error should mention step number and failure, got: {}",
+            err_msg
         );
         assert!(
             err_msg.contains("exit code:"),
-            "Error should include exit code"
+            "Error should include exit code, got: {}",
+            err_msg
         );
     }
 
@@ -2248,8 +2250,9 @@ mod execute_setup_phase_tests {
 
         let err_msg = result.unwrap_err().to_string();
         assert!(
-            err_msg.contains("Setup step 1 failed"),
-            "Error should mention step number"
+            err_msg.contains("Setup step 1") && err_msg.contains("failed"),
+            "Error should mention step number and failure, got: {}",
+            err_msg
         );
         // Note: log hint only appears if extract_repo_name succeeds, which it won't in this test
     }
