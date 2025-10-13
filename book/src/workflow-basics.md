@@ -96,7 +96,7 @@ Prodigy supports several types of commands in workflows. **Each command step mus
 
 - **`goal_seek:`** - Goal-seeking operations with validation (see [Advanced Features](advanced.md))
 - **`foreach:`** - Iterate over lists with nested commands (see [Advanced Features](advanced.md))
-- **`validate:`** - Validation steps with configurable thresholds (see [Commands](commands.md))
+- **`validate:`** - Validates that implementation matches spec/plan requirements (see [Commands](commands.md))
 - **`write_file:`** - Write content to files with format validation (see [Commands](commands.md))
 - **`analyze:`** - Run analysis handlers for coverage, complexity metrics, etc. (see [Commands](commands.md))
 
@@ -153,9 +153,9 @@ Capture command output to variables for use in subsequent commands:
 ```yaml
 - shell: "git rev-parse HEAD"
   id: "get-commit"
-  capture: "commit_hash"       # Modern: variable name to capture output
-  capture_format: "string"     # Format type (see below)
-  capture_streams: "stdout"    # Which streams to capture (default)
+  capture_output: "commit_hash"  # Variable name to capture output
+  capture_format: "string"       # Format type (see below)
+  capture_streams: "stdout"      # Which streams to capture (default)
 ```
 
 **Capture formats:**
@@ -174,13 +174,30 @@ Capture command output to variables for use in subsequent commands:
 ```yaml
 # Example: Capture stderr separately for error analysis
 - shell: "cargo build 2>&1"
-  capture: "build_output"
+  capture_output: "build_output"
   capture_streams: "both"
 ```
 
-**Backward compatibility:**
-- `capture` - Recommended for simple output capture (just the output string)
-- `capture_output` - Legacy field that stores full metadata including `exit_code`, `success`, and `duration`. Use `capture` for new workflows unless you need the extra metadata.
+**Output capture with metadata:**
+
+When using `capture_output` with a variable name, the command output is stored in that variable, and additional metadata is automatically captured as sub-fields:
+
+- `${varname}` - The captured output (formatted according to `capture_format`)
+- `${varname.exit_code}` - The command's exit code (0 for success)
+- `${varname.success}` - Boolean indicating command success (true/false)
+- `${varname.duration}` - Command execution duration in seconds
+- `${varname.stderr}` - Standard error output (when using `capture_streams: "both"`)
+
+Example:
+```yaml
+- shell: "cargo test"
+  capture_output: "test_results"
+  capture_format: "string"
+
+- shell: "echo 'Exit code: ${test_results.exit_code}'"
+- shell: "echo 'Success: ${test_results.success}'"
+- shell: "echo 'Duration: ${test_results.duration}s'"
+```
 
 For comprehensive coverage of these options, see:
 - [Advanced Features](advanced.md) - Conditional execution, output capture, timeouts
