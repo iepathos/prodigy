@@ -1,0 +1,67 @@
+{
+  "analysis_date": "2025-01-12T14:30:00Z",
+  "features_analyzed": 13,
+  "documented_topics": 13,
+  "gaps_found": 2,
+  "gaps": [
+    {
+      "severity": "high",
+      "type": "missing_chapter",
+      "feature_category": "git_context_advanced",
+      "feature_description": "Advanced git context filtering with pattern matching, format modifiers, and file pattern options",
+      "recommended_chapter_id": "git-context-advanced",
+      "recommended_title": "Advanced Git Context",
+      "recommended_location": "book/src/git-context-advanced.md",
+      "reasoning": "The variables chapter covers basic git context but doesn't document pattern filtering, format modifiers, file patterns, or combined filters which are distinct capabilities in the codebase"
+    },
+    {
+      "severity": "high",
+      "type": "missing_chapter",
+      "feature_category": "mapreduce_worktree_architecture",
+      "feature_description": "MapReduce worktree hierarchy, branch naming, merge flows, and debugging strategies",
+      "recommended_chapter_id": "mapreduce-worktree-architecture",
+      "recommended_title": "MapReduce Worktree Architecture",
+      "recommended_location": "book/src/mapreduce-worktree-architecture.md",
+      "reasoning": "Critical architectural feature covering worktree isolation, hierarchical structure, agent merge flows, and parent-to-master merges. Essential for understanding MapReduce execution model but not documented in existing MapReduce chapter which focuses on workflow syntax"
+    }
+  ],
+  "actions_taken": [
+    {
+      "action": "created_chapter_definition",
+      "chapter_id": "git-context-advanced",
+      "file_path": "workflows/data/prodigy-chapters.json",
+      "timestamp": "2025-01-12T14:30:00Z"
+    },
+    {
+      "action": "created_chapter_definition",
+      "chapter_id": "mapreduce-worktree-architecture",
+      "file_path": "workflows/data/prodigy-chapters.json",
+      "timestamp": "2025-01-12T14:30:00Z"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "book/src/git-context-advanced.md",
+      "chapter_id": "git-context-advanced",
+      "timestamp": "2025-01-12T14:30:00Z"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "book/src/mapreduce-worktree-architecture.md",
+      "chapter_id": "mapreduce-worktree-architecture",
+      "timestamp": "2025-01-12T14:30:00Z"
+    },
+    {
+      "action": "updated_summary",
+      "file_path": "book/src/SUMMARY.md",
+      "chapters_added": 2,
+      "timestamp": "2025-01-12T14:30:00Z"
+    }
+  ],
+  "summary": {
+    "previously_documented": 11,
+    "gaps_detected": 2,
+    "chapters_created": 2,
+    "stubs_created": 2,
+    "summary_updated": true
+  }
+}
