@@ -102,9 +102,12 @@ impl MapReduceCoordinator {
         // Create session manager - not used but required for struct
         let session_manager = Arc::new(DummySessionManager);
 
-        // Create merge queue for serializing agent merges
+        // Create merge queue for serializing agent merges with Claude support
         let git_ops = Arc::new(GitOperations::new());
-        let merge_queue = Arc::new(MergeQueue::new(git_ops));
+        let merge_queue = Arc::new(MergeQueue::new_with_claude(
+            git_ops,
+            Some(claude_executor.clone()),
+        ));
 
         Self {
             agent_manager,

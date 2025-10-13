@@ -171,6 +171,8 @@ impl GitOperations {
     /// Execute a git merge
     ///
     /// Performs the actual merge with --no-ff to always create a merge commit.
+    /// If the merge encounters conflicts, returns a specific error indicating
+    /// that Claude-assisted merge should be attempted.
     async fn execute_merge(&self, parent_path: &Path, agent_branch: &str) -> MapReduceResult<()> {
         let output = Command::new("git")
             .args([
@@ -187,6 +189,23 @@ impl GitOperations {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
+
+            // Check if this is a merge conflict
+            if stderr.contains("CONFLICT") || stderr.contains("conflict") {
+                // Abort the failed merge to leave worktree in clean state
+                warn!(
+                    "Merge conflict detected for {}, aborting merge",
+                    agent_branch
+                );
+                self.abort_merge(parent_path).await;
+
+                // Return a specific error indicating conflict that needs Claude assistance
+                return Err(MapReduceError::General {
+                    message: format!("Merge conflict detected for agent branch '{}'. Claude-assisted merge required.", agent_branch),
+                    source: None,
+                });
+            }
+
             return Err(self.create_git_error("merge_agent_branch", &stderr));
         }
 

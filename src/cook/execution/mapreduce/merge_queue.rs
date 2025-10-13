@@ -5,9 +5,11 @@
 //! sequentially through a background worker, we eliminate MERGE_HEAD race conditions
 //! while preserving parallel agent execution.
 
+use crate::cook::execution::claude::ClaudeExecutor;
 use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
 use crate::cook::execution::mapreduce::resources::git::GitOperations;
 use crate::cook::orchestrator::ExecutionEnvironment;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
@@ -34,6 +36,8 @@ struct MergeRequest {
 /// and processes them sequentially through a background worker task.
 /// This prevents race conditions when multiple agents try to merge to
 /// the same parent worktree simultaneously.
+///
+/// When conflicts occur, the queue automatically invokes Claude to resolve them.
 pub struct MergeQueue {
     /// Channel for submitting merge requests
     tx: mpsc::UnboundedSender<MergeRequest>,
@@ -47,6 +51,17 @@ impl MergeQueue {
     /// The worker task will process merge requests sequentially until
     /// the queue is dropped and all senders are closed.
     pub fn new(git_ops: Arc<GitOperations>) -> Self {
+        Self::new_with_claude(git_ops, None)
+    }
+
+    /// Create a new merge queue with Claude support for conflict resolution
+    ///
+    /// When a Claude executor is provided, the queue will automatically attempt
+    /// to resolve merge conflicts using Claude-assisted merge commands.
+    pub fn new_with_claude(
+        git_ops: Arc<GitOperations>,
+        claude_executor: Option<Arc<dyn ClaudeExecutor>>,
+    ) -> Self {
         let (tx, mut rx) = mpsc::unbounded_channel::<MergeRequest>();
 
         // Spawn background worker to process merges serially
@@ -60,11 +75,67 @@ impl MergeQueue {
                     request.agent_id, request.item_id
                 );
 
+                // Try standard git merge first
                 let result = git_ops
                     .merge_agent_to_parent(&request.branch_name, &request.env)
                     .await;
 
-                match &result {
+                // If merge failed and we have Claude, check if it's a conflict
+                let final_result = match (&result, &claude_executor) {
+                    (Err(MapReduceError::General { message, .. }), Some(executor))
+                        if message.contains("Merge conflict detected")
+                            && message.contains("Claude-assisted merge required") =>
+                    {
+                        info!(
+                            "Attempting Claude-assisted merge for agent {} (item {})",
+                            request.agent_id, request.item_id
+                        );
+
+                        // Execute Claude merge command in parent worktree
+                        let mut env_vars = HashMap::new();
+                        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+
+                        match executor
+                            .execute_claude_command(
+                                &format!("/prodigy-merge-worktree {}", request.branch_name),
+                                &request.env.working_dir,
+                                env_vars,
+                            )
+                            .await
+                        {
+                            Ok(claude_result) if claude_result.success => {
+                                info!(
+                                    "Claude successfully resolved merge conflicts for agent {} (item {})",
+                                    request.agent_id, request.item_id
+                                );
+                                Ok(())
+                            }
+                            Ok(claude_result) => {
+                                warn!(
+                                    "Claude failed to resolve merge conflicts for agent {} (item {}): {}",
+                                    request.agent_id, request.item_id, claude_result.stderr
+                                );
+                                Err(MapReduceError::ProcessingError(format!(
+                                    "Claude-assisted merge failed for agent {}: {}",
+                                    request.branch_name, claude_result.stderr
+                                )))
+                            }
+                            Err(e) => {
+                                warn!(
+                                    "Failed to execute Claude merge command for agent {} (item {}): {}",
+                                    request.agent_id, request.item_id, e
+                                );
+                                Err(MapReduceError::ProcessingError(format!(
+                                    "Failed to execute Claude merge command: {}",
+                                    e
+                                )))
+                            }
+                        }
+                    }
+                    _ => result,
+                };
+
+                match &final_result {
                     Ok(()) => {
                         merge_count += 1;
                         debug!(
@@ -81,7 +152,7 @@ impl MergeQueue {
                 }
 
                 // Send result back to waiting agent (ignore send errors - agent may have timed out)
-                let _ = request.response_tx.send(result);
+                let _ = request.response_tx.send(final_result);
             }
 
             info!(
