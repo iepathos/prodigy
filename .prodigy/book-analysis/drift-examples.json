@@ -1,0 +1,117 @@
+{
+  "chapter_id": "examples",
+  "chapter_title": "Examples",
+  "chapter_file": "book/src/examples.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Chapter has valid examples with good coverage, but contains some minor syntax inconsistencies and lacks some advanced features. Environment example has outdated structure.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Example 2: Coverage Improvement with Goal Seeking",
+      "description": "commit_required field is at wrong level - should be on the claude/shell command inside goal_seek, not on goal_seek itself",
+      "current_content": "- goal_seek:\n    goal: \"Achieve 80% test coverage\"\n    claude: \"/improve-coverage\"\n    validate: |\n      coverage=$(cargo tarpaulin | grep 'Coverage' | sed 's/.*: \\([0-9.]*\\)%.*/\\1/')\n      echo \"score: ${coverage%.*}\"\n    threshold: 80\n    max_attempts: 5\n  commit_required: true",
+      "should_be": "- goal_seek:\n    goal: \"Achieve 80% test coverage\"\n    claude: \"/improve-coverage\"\n    validate: |\n      coverage=$(cargo tarpaulin | grep 'Coverage' | sed 's/.*: \\([0-9.]*\\)%.*/\\1/')\n      echo \"score: ${coverage%.*}\"\n    threshold: 80\n    max_attempts: 5",
+      "fix_suggestion": "Remove commit_required from goal_seek level. GoalSeekConfig doesn't have this field. If commit is needed, it should be part of the Claude command execution logic.",
+      "source_reference": "src/cook/goal_seek/mod.rs:14-40 (GoalSeekConfig struct)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Example 7: Environment-Aware Workflow",
+      "description": "Environment configuration structure is outdated - uses separate 'profiles' and 'secrets' sections instead of modern structure",
+      "current_content": "env:\n  NODE_ENV: production\n  API_URL: https://api.production.com\n\nprofiles:\n  production:\n    env:\n      API_URL: https://api.production.com\n      LOG_LEVEL: error\n    description: \"Production environment\"\n\nsecrets:\n  API_KEY:\n    value: \"${SECRET_API_KEY}\"\n    secret: true",
+      "should_be": "env:\n  NODE_ENV: production\n  API_URL: https://api.production.com\n\nsecrets:\n  API_KEY:\n    value: \"${SECRET_API_KEY}\"\n    secret: true\n\nprofiles:\n  production:\n    env:\n      API_URL: https://api.production.com\n      LOG_LEVEL: error",
+      "fix_suggestion": "Update to match WorkflowConfig structure. The 'profiles' field should contain EnvProfile objects with 'env' field (no 'description' field exists). The 'secrets' structure is correct with SecretValue.",
+      "source_reference": "src/config/workflow.rs:11-34 (WorkflowConfig struct)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Example 7: Environment-Aware Workflow",
+      "description": "Example shows 'description' field in profiles but this field doesn't exist in EnvProfile",
+      "current_content": "profiles:\n  production:\n    env:\n      API_URL: https://api.production.com\n      LOG_LEVEL: error\n    description: \"Production environment\"",
+      "should_be": "profiles:\n  production:\n    env:\n      API_URL: https://api.production.com\n      LOG_LEVEL: error",
+      "fix_suggestion": "Remove 'description' field from profile examples as it's not part of the EnvProfile struct",
+      "source_reference": "src/cook/environment/mod.rs (EnvProfile struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Missing Advanced Examples",
+      "description": "No examples showing some advanced features documented in features.json",
+      "should_add": "Consider adding examples for:\n- Nested on_failure/on_success handlers with max_attempts\n- Retry configuration with different backoff strategies\n- Conditional execution with complex when clauses\n- Working directory control with cwd field\n- Git context variables (step.files_added, etc.)\n- Pattern filtering in git context (*.rs)\n- Format modifiers (:json, :lines, :csv)",
+      "fix_suggestion": "Add an Example 10 showing advanced features like nested error handlers, retry config, and git context variables",
+      "source_reference": "features.json:advanced_features, git_context_advanced"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Example 7: Environment-Aware Workflow Note",
+      "description": "Note about active_profile could be clearer about how to use profiles",
+      "current_content": "**Note:** Profile activation with `active_profile` is managed internally and not currently exposed in WorkflowConfig YAML. Use `--profile` CLI flag to activate profiles.",
+      "should_be": "**Note:** Profiles are activated using the `--profile <name>` CLI flag when running workflows. For example: `prodigy run workflow.yml --profile production`",
+      "fix_suggestion": "Make the note more user-friendly by showing concrete usage example",
+      "source_reference": "CLI profile activation"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Example 8: Complex MapReduce",
+      "description": "Missing explanation that error_policy is optional and defaults exist",
+      "should_add": "Add note explaining that error_policy configuration is optional and sane defaults are used (on_item_failure: dlq, continue_on_failure: true, error_collection: aggregate)",
+      "fix_suggestion": "Add a comment or note in the example explaining the default behavior",
+      "source_reference": "src/cook/workflow/error_policy.rs:130-179 (WorkflowErrorPolicy defaults)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Example 4: Parallel Code Review",
+      "description": "Missing explanation of JSONPath syntax used",
+      "current_content": "json_path: \"$[*]\"  # Process all items",
+      "should_add": "Add more explanation about JSONPath syntax differences. The example uses \"$[*]\" for root array, but setup phase creates {path: ...} objects. Should explain relationship between JSONPath and data structure.",
+      "fix_suggestion": "Add a note explaining: 'JSONPath \"$[*]\" matches all items in root array. Since setup phase creates array of {path: ...} objects, each item will have item.path available.'",
+      "source_reference": "MapReduce JSONPath extraction"
+    }
+  ],
+  "positive_aspects": [
+    "Examples cover a wide range of features from simple to complex",
+    "Good progression from basic (Example 1) to advanced (Example 8)",
+    "Examples are practical and use real tools (cargo, debtmap)",
+    "MapReduce example is comprehensive and shows proper structure",
+    "foreach examples show both sequential and parallel usage",
+    "Most YAML syntax is correct and would parse successfully",
+    "Good use of comments to explain what examples do",
+    "write_file example shows all supported formats (json, yaml, text)",
+    "Conditional deployment example demonstrates output capture and when clauses well"
+  ],
+  "improvement_suggestions": [
+    "Fix environment configuration structure in Example 7 to match current implementation",
+    "Remove commit_required from goal_seek level in Example 2",
+    "Remove 'description' field from profile examples",
+    "Add an example showing nested error handlers with retry configuration",
+    "Add an example demonstrating git context variables with pattern filtering",
+    "Clarify JSONPath usage in MapReduce examples with more explanation",
+    "Consider adding an example showing backoff strategies for retries",
+    "Add example showing working directory control with cwd field",
+    "Show example of validation with multi-step commands and on_incomplete handler",
+    "Add best practices section at end of chapter referencing features.json guidance"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-10-12",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Simple build and test workflows",
+      "Goal seeking for coverage improvement",
+      "Foreach iteration with parallel execution",
+      "MapReduce parallel code review",
+      "Conditional execution",
+      "Multi-step validation",
+      "Environment-aware workflows",
+      "Complex MapReduce with error handling",
+      "File generation with write_file"
+    ],
+    "validation_focus": "Check examples are valid and work with current syntax"
+  }
+}
