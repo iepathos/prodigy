@@ -1,0 +1,136 @@
+{
+  "chapter_id": "workflow-basics",
+  "chapter_title": "Workflow Basics",
+  "chapter_file": "book/src/workflow-basics.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Overall good foundation, but missing several important command-level options and has some field naming inconsistencies. The chapter correctly covers the basic structure, but would benefit from more complete documentation of advanced options like cwd, capture_streams, and output_file.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Command-Level Options",
+      "description": "Chapter doesn't document the 'cwd' (working_dir) field for per-command working directory control",
+      "should_add": "Document 'cwd' or 'working_dir' field for setting per-command working directory",
+      "fix_suggestion": "Add example showing: shell: \"make build\"\n  cwd: \"${PROJECT_DIR}/subdir\"",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand, features.json:advanced_features.working_directory"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Output Capture",
+      "description": "Chapter mentions capture_format and capture but doesn't document capture_streams field",
+      "current_content": "Capture formats: string, json, lines, number, boolean",
+      "should_add": "Document capture_streams field (stdout, stderr, both) for controlling which output streams to capture",
+      "fix_suggestion": "Add subsection explaining capture_streams with examples of capturing stderr separately",
+      "source_reference": "src/config/command.rs:capture_streams, features.json:advanced_features.output_capture.streams"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Command-Level Options",
+      "description": "Chapter doesn't mention output_file field for redirecting command output to a file",
+      "should_add": "Document output_file field for saving command output to a file",
+      "fix_suggestion": "Add example: shell: \"cargo test\"\n  output_file: \"test-results.txt\"",
+      "source_reference": "src/config/command.rs:output_file, features.json:command_types.shell.common_fields"
+    },
+    {
+      "type": "inconsistent_naming",
+      "severity": "low",
+      "section": "Command-Level Options - Basic Options",
+      "description": "Chapter shows 'working_dir' in example but features.json references 'cwd' as the field name",
+      "current_content": "working_dir: \"./subproject\"  # Set working directory for this command",
+      "should_be": "cwd: \"./subproject\"  # Set working directory for this command (or working_dir as alias)",
+      "fix_suggestion": "Clarify whether 'cwd' or 'working_dir' is the canonical field name, or document both as aliases",
+      "source_reference": "features.json:advanced_features.working_directory.field shows 'cwd'"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Command Types",
+      "description": "Chapter mentions write_file and analyze commands are not documented in detail",
+      "should_add": "At minimum mention that write_file and analyze commands exist, even if detailed docs are in Commands chapter",
+      "fix_suggestion": "Add brief bullets: write_file: Write content to files with format validation\nanalyze: Run analysis handlers for coverage, complexity, etc.",
+      "source_reference": "features.json:command_types.write_file and command_types.analyze"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Output Capture",
+      "description": "Chapter mentions capture_output for backward compatibility but doesn't explain the differences clearly",
+      "current_content": "Note: The capture field is the recommended approach. An older capture_output field exists for backward compatibility but capture is preferred for new workflows.",
+      "should_add": "Clarify what capture_output does differently and when you might need it",
+      "fix_suggestion": "Add brief explanation: 'capture_output' stores full output metadata including exit_code and duration, while 'capture' is simpler for just the output string",
+      "source_reference": "features.json:advanced_features.output_capture.metadata shows capture_output provides exit_code, success, duration"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Merge Workflows",
+      "description": "The timeout placement comment is confusing: 'Optional: timeout at workflow level, not under merge'",
+      "current_content": "merge:\n  - shell: \"git fetch origin\"\n  - shell: \"git merge origin/main\"\n  - shell: \"cargo test\"\n  - claude: \"/prodigy-merge-worktree ${merge.source_branch}\"\n\n# Optional: timeout at workflow level, not under merge\ntimeout: 600",
+      "should_be": "Clarify that timeout applies to the merge phase itself, not individual commands",
+      "fix_suggestion": "Rewrite comment to be clearer about scope: 'Timeout for entire merge phase (optional)' and perhaps show it as a field under merge configuration if that's supported",
+      "source_reference": "features.json:advanced_features.timeout_control.phase_level"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Environment Configuration",
+      "description": "Chapter doesn't mention step-level environment overrides",
+      "should_add": "Document that individual commands can override environment variables with 'env' field",
+      "fix_suggestion": "Add example in Environment Configuration section: - shell: \"npm test\"\n  env:\n    NODE_ENV: test\n    DEBUG: \"true\"",
+      "source_reference": "features.json:environment.step_env"
+    },
+    {
+      "type": "missing_best_practice",
+      "severity": "low",
+      "section": "Next Steps",
+      "description": "Chapter links to chapters that don't exist yet (command-reference.md, conditionals.md, output-capture.md)",
+      "current_content": "- [Command Reference](command-reference.md)\n- [Conditional Execution](conditionals.md)\n- [Output Capture](output-capture.md)",
+      "fix_suggestion": "Update links to point to existing chapters or mark as 'coming soon'. Most content is covered in commands.md and advanced.md",
+      "source_reference": "Book structure review needed"
+    }
+  ],
+  "positive_aspects": [
+    "Clear progression from simple to complex workflows",
+    "Good examples showing both simple array format and full object format",
+    "Comprehensive coverage of environment variables, secrets, and profiles",
+    "Well-structured with clear headings and tables",
+    "Correctly documents merge workflows and their variables",
+    "Good use of tables for summarizing available fields",
+    "Helpful notes distinguishing simple vs full format",
+    "Correctly marks 'test' command as deprecated",
+    "Good cross-references to other chapters for detailed information"
+  ],
+  "improvement_suggestions": [
+    "Add a visual diagram showing workflow execution flow",
+    "Include a troubleshooting subsection for common beginner mistakes",
+    "Add more real-world examples (CI/CD pipeline, deployment workflow)",
+    "Consider adding a 'Quick Reference' box at the end summarizing key syntax",
+    "Add examples showing how to debug workflows (using -v flag, checking logs)",
+    "Include performance tips (when to use simple vs full format, timeout best practices)",
+    "Add links to GitHub examples or templates users can copy",
+    "Consider adding a 'Common Gotchas' callout box",
+    "Clarify the relationship between capture, capture_output, and capture_format more explicitly"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-10-12",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Simple workflows",
+      "Full workflow structure",
+      "Command types",
+      "Command-level options",
+      "Environment configuration",
+      "Merge workflows"
+    ],
+    "validation_focus": "Check basic workflow syntax and structure documentation",
+    "issues_by_severity": {
+      "high": 0,
+      "medium": 3,
+      "low": 6
+    },
+    "total_issues": 9
+  }
+}

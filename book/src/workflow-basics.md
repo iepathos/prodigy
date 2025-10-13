@@ -97,6 +97,8 @@ Prodigy supports several types of commands in workflows. **Each command step mus
 - **`goal_seek:`** - Goal-seeking operations with validation (see [Advanced Features](advanced.md))
 - **`foreach:`** - Iterate over lists with nested commands (see [Advanced Features](advanced.md))
 - **`validate:`** - Validation steps with configurable thresholds (see [Commands](commands.md))
+- **`write_file:`** - Write content to files with format validation (see [Commands](commands.md))
+- **`analyze:`** - Run analysis handlers for coverage, complexity metrics, etc. (see [Commands](commands.md))
 
 **Deprecated:**
 - **`test:`** - Deprecated in favor of `shell:` with `on_failure:` handlers
@@ -114,8 +116,14 @@ All command types support additional fields for advanced control:
   id: "run-tests"              # Step identifier for output referencing
   commit_required: true        # Expect git commit after this step
   timeout: 300                 # Timeout in seconds
-  working_dir: "./subproject"  # Set working directory for this command
+  cwd: "./subproject"          # Set working directory (alias: working_dir)
+  output_file: "test-results.txt"  # Save output to file
 ```
+
+**Working Directory Control:**
+- `cwd` (or `working_dir`) - Changes working directory for the command
+- Supports variable interpolation: `cwd: "${PROJECT_DIR}/subdir"`
+- Relative paths are relative to workflow file location
 
 ### Conditional Execution
 
@@ -147,6 +155,7 @@ Capture command output to variables for use in subsequent commands:
   id: "get-commit"
   capture: "commit_hash"       # Modern: variable name to capture output
   capture_format: "string"     # Format type (see below)
+  capture_streams: "stdout"    # Which streams to capture (default)
 ```
 
 **Capture formats:**
@@ -156,7 +165,22 @@ Capture command output to variables for use in subsequent commands:
 - `number` - Parse output as number
 - `boolean` - Parse output as true/false
 
-**Note:** The `capture` field is the recommended approach. An older `capture_output` field exists for backward compatibility but `capture` is preferred for new workflows.
+**Stream control:**
+- `capture_streams` - Controls which output streams to capture:
+  - `stdout` - Capture standard output only (default)
+  - `stderr` - Capture error output only
+  - `both` - Capture both stdout and stderr combined
+
+```yaml
+# Example: Capture stderr separately for error analysis
+- shell: "cargo build 2>&1"
+  capture: "build_output"
+  capture_streams: "both"
+```
+
+**Backward compatibility:**
+- `capture` - Recommended for simple output capture (just the output string)
+- `capture_output` - Legacy field that stores full metadata including `exit_code`, `success`, and `duration`. Use `capture` for new workflows unless you need the extra metadata.
 
 For comprehensive coverage of these options, see:
 - [Advanced Features](advanced.md) - Conditional execution, output capture, timeouts
@@ -214,6 +238,23 @@ profiles:
 
 Activate a profile with: `prodigy run --profile development`
 
+### Step-Level Environment Overrides
+
+Individual commands can override or add environment variables:
+
+```yaml
+- shell: "npm test"
+  env:
+    NODE_ENV: test
+    DEBUG: "true"
+
+- shell: "cargo build"
+  env:
+    RUST_BACKTRACE: full
+```
+
+Step-level environment variables override global variables for that command only.
+
 For more details, see the [Environment Variables chapter](environment.md).
 
 ## Merge Workflows
@@ -232,9 +273,7 @@ merge:
   - shell: "git merge origin/main"
   - shell: "cargo test"
   - claude: "/prodigy-merge-worktree ${merge.source_branch}"
-
-# Optional: timeout at workflow level, not under merge
-timeout: 600
+  timeout: 600  # Optional: timeout for entire merge phase (seconds)
 ```
 
 **Available merge variables:**
@@ -279,9 +318,9 @@ merge:
 
 Now that you understand basic workflows, explore these topics:
 
-- **[Command Reference](command-reference.md)** - Detailed guide to all command types and options
+- **[Command Types](commands.md)** - Detailed guide to all command types and options
+- **[Advanced Features](advanced.md)** - Conditional execution, output capture, goal seeking, and more
 - **[Environment Variables](environment.md)** - Advanced environment configuration
 - **[Error Handling](error-handling.md)** - Handle failures gracefully
 - **[MapReduce Workflows](mapreduce.md)** - Parallel processing for large-scale tasks
-- **[Conditional Execution](conditionals.md)** - Run commands based on conditions
-- **[Output Capture](output-capture.md)** - Capture and use command outputs
+- **[Variables](variables.md)** - Variable interpolation and usage
