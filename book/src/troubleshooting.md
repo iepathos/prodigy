@@ -91,9 +91,16 @@
 - JSONPath syntax errors
 
 **Solutions:**
-- Test JSONPath expression with actual data using `jq`:
+- Test JSONPath expression with actual data. Note: `jq` uses its own filter syntax, not JSONPath:
   ```bash
-  jq '$.items[*]' items.json
+  # jq uses its own syntax (not JSONPath)
+  jq '.items[]' items.json
+
+  # For filtering with jq
+  jq '.items[] | select(.score >= 5)' items.json
+
+  # To test actual JSONPath expressions, use an online JSONPath tester
+  # or a tool that supports JSONPath directly
   ```
 - Verify input file exists and contains expected structure
 - Check setup phase completed successfully
@@ -228,8 +235,44 @@
       timeout: "60s"         # Not 60
       failure_threshold: 5
   ```
-- **Note:** BackoffStrategy is determined internally by the retry system and is not directly configurable in the workflow YAML. The retry behavior is controlled through the retry_config parameters (max_attempts, initial_delay, max_delay).
+- **Backoff Strategy:** Prodigy uses exponential backoff by default, which is not directly configurable in the workflow YAML. The backoff behavior is controlled through the retry_config parameters:
+  - `max_attempts` - Number of retry attempts before giving up
+  - `initial_delay` - Starting delay between retries (e.g., "1s")
+  - `max_delay` - Maximum delay between retries (e.g., "30s")
+  - The delay doubles with each retry (exponential backoff) up to max_delay
 - Circuit breaker requires both timeout and failure_threshold
+
+---
+
+### 10. Claude output visibility issues
+**Symptom:** Can't see Claude's streaming output, or seeing too much output when you don't need it.
+
+**Causes:**
+- Default verbosity level hides Claude streaming output
+- Running in CI/CD where streaming output clutters logs
+- Need to debug Claude interactions but not seeing details
+
+**Solutions:**
+- **To see Claude streaming output**, use the `-v` flag:
+  ```bash
+  # Shows Claude streaming JSON output
+  prodigy run workflow.yml -v
+  ```
+- **To force streaming output**, set environment variable:
+  ```bash
+  # Forces streaming regardless of verbosity
+  PRODIGY_CLAUDE_CONSOLE_OUTPUT=true prodigy run workflow.yml
+  ```
+- **To disable streaming in CI/CD**, set environment variable:
+  ```bash
+  # Disables streaming for cleaner logs
+  PRODIGY_CLAUDE_STREAMING=false prodigy run workflow.yml
+  ```
+- **For more detailed logs**, increase verbosity:
+  ```bash
+  prodigy run workflow.yml -vv   # Debug logs
+  prodigy run workflow.yml -vvv  # Trace logs
+  ```
 
 ---
 
@@ -284,11 +327,17 @@ PRODIGY_CLAUDE_CONSOLE_OUTPUT=true prodigy run workflow.yml
 
 ### Test JSONPath expressions
 ```bash
-# Manually test your JSONPath
-jq '$.items[*]' items.json
+# Note: jq uses its own filter syntax, not JSONPath
+# Use jq for quick testing with equivalent expressions
 
-# Test with filter
-jq '$.items[] | select(.score >= 5)' items.json
+# Get all items (equivalent to JSONPath $.items[*])
+jq '.items[]' items.json
+
+# Test with filter (equivalent to JSONPath $[?(@.score >= 5)])
+jq '.items[] | select(.score >= 5)' items.json
+
+# For actual JSONPath testing, use an online JSONPath tester
+# or a tool that supports JSONPath directly
 ```
 
 ### Validate workflow syntax
@@ -303,6 +352,23 @@ cat .prodigy/validation-result.json
 
 ### Access Claude JSON logs for debugging
 
+**Primary method - Use the `prodigy logs` command:**
+```bash
+# View the most recent Claude log
+prodigy logs --latest
+
+# View with summary of activity
+prodigy logs --latest --summary
+
+# Follow the latest log in real-time
+prodigy logs --latest --tail
+
+# List recent logs
+prodigy logs
+```
+
+**Alternative - Manual inspection:**
+
 When using verbose mode (`-v`), Prodigy displays the location of Claude's detailed JSON logs:
 ```bash
 prodigy run workflow.yml -v
@@ -315,7 +381,7 @@ These logs contain:
 - Token usage statistics
 - Error details and stack traces
 
-**View Claude interaction:**
+**Advanced analysis with jq:**
 ```bash
 # View complete message history
 cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'
@@ -392,6 +458,18 @@ ls ~/.prodigy/events/
 cat .prodigy/session_state.json
 ```
 
+### Inspect checkpoint files for job state
+```bash
+# View checkpoint to understand job state
+cat ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
+
+# Check checkpoint version and completed items
+jq '.version, .completed_items | length' ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
+
+# List all pending items
+jq '.pending_items' ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
+```
+
 ---
 
 ## FAQ
@@ -432,6 +510,21 @@ map:
 - shell: "prodigy run other-workflow.yml"
 ```
 
+### Q: How do I clean up old worktrees?
+**A:** Use the `prodigy worktree clean` command to remove completed worktrees:
+```bash
+# List all worktrees
+prodigy worktree ls
+
+# Clean up completed worktrees
+prodigy worktree clean
+
+# Force cleanup of all worktrees (use with caution)
+prodigy worktree clean -f
+```
+
+Old worktrees can consume disk space, so periodic cleanup is recommended. The `clean` command safely removes worktrees that are no longer in use, while `-f` forces removal of all worktrees including those that may still be active.
+
 ---
 
 ## Common Error Messages
@@ -440,9 +533,9 @@ map:
 Prodigy uses structured errors to help diagnose issues:
 
 **Job-level errors:**
+- `JobInitializationFailed` - Job failed to initialize, check configuration and permissions
+- `JobAlreadyExists` - Job ID already exists, choose a different job ID or clean up old job
 - `JobNotFound` - Job ID doesn't exist, check job_id spelling or if job was cleaned up
-- `InvalidJobConfiguration` - Workflow YAML has configuration errors
-- `WorktreeSetupFailed` - Failed to create git worktree, check disk space and git status
 
 **Agent-level errors:**
 - `AgentFailed` - Individual agent execution failed, check DLQ for details
@@ -451,9 +544,11 @@ Prodigy uses structured errors to help diagnose issues:
 - `CommandFailed` - Command execution failed with non-zero exit code
 
 **Resource errors:**
-- `WorktreeMergeConflict` - Git merge conflict when merging agent results
 - `ResourceExhausted` - Out of disk space, memory, or other resources
-- `StorageError` - Failed to read/write to storage, check permissions
+
+**Worktree errors:**
+- `WorktreeCreationFailed` - Failed to create git worktree, check disk space and git status
+- `WorktreeMergeConflict` - Git merge conflict when merging agent results
 
 **Configuration and validation errors:**
 - `InvalidConfiguration` - Workflow YAML has configuration errors
@@ -466,6 +561,10 @@ Prodigy uses structured errors to help diagnose issues:
 - `CheckpointCorrupted` - Checkpoint file corrupted at specific version, may need to restart job
 - `CheckpointLoadFailed` - Failed to load checkpoint, check file permissions and format
 - `CheckpointSaveFailed` - Failed to save checkpoint, check disk space and permissions
+- `CheckpointPersistFailed` - Failed to persist checkpoint to disk, check disk space
+
+**I/O errors:**
+- `WorkItemLoadFailed` - Failed to load work items from input file, check file format and path
 
 **Concurrency errors:**
 - `DeadlockDetected` - Deadlock in job execution, reduce parallelism or check for circular dependencies
