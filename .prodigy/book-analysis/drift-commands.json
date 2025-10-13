@@ -1,0 +1,128 @@
+{
+  "chapter_id": "commands",
+  "chapter_title": "Command Types",
+  "chapter_file": "book/src/commands.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Chapter has strong examples but missing important field (cwd) and confusing field documentation around capture/capture_output distinction and internal vs configuration fields",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Command Reference - Command Fields",
+      "description": "Missing 'cwd' (current working directory) field which is available in WorkflowStepCommand",
+      "should_add": "Add cwd field to command fields table with description, type, and example showing how to set working directory per command",
+      "fix_suggestion": "Add row to Command Fields table:\n| `cwd` | string | Working directory for command execution (supports variable expansion) |\n\nAdd example in Command Reference section:\n```yaml\n- shell: \"npm install\"\n  cwd: \"${PROJECT_DIR}/frontend\"\n```",
+      "source_reference": "features.json:222-224 (advanced_features.working_directory), src/config/command.rs (WorkflowStepCommand likely has cwd field based on features.json)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Command Reference - Note about internal fields",
+      "description": "Chapter incorrectly states 'working_dir - Not available (use shell `cd` command instead)' when cwd field actually exists",
+      "current_content": "- `working_dir` - Not available (use shell `cd` command instead)",
+      "should_be": "Remove this line entirely since cwd field is available, or update to: `working_dir` - Deprecated name, use `cwd` instead",
+      "fix_suggestion": "Remove the incorrect 'working_dir - Not available' line from the internal fields note (line 230) and document the actual 'cwd' field in the main table",
+      "source_reference": "features.json:222-224, chapter line 230"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "medium",
+      "section": "Command Reference - capture vs capture_output",
+      "description": "Chapter doesn't clearly explain the relationship between 'capture' and 'capture_output' fields - that capture is the modern approach and capture_output is legacy boolean support",
+      "current_content": "Lines 219 and 367-368 mention both fields but don't explain their relationship clearly",
+      "should_be": "Clearly document that `capture: \"var_name\"` is the modern field for named output capture, while `capture_output: true` is legacy boolean format retained for backward compatibility",
+      "fix_suggestion": "Update the capture field description in the Command Fields table to:\n| `capture` | string | Variable name to capture output (modern approach - replaces deprecated `capture_output: true` with explicit variable name) |\n\nEmphasize this in the Migration section (lines 299-315) by explaining the conceptual improvement: explicit variable names make workflows more maintainable",
+      "source_reference": "src/config/command.rs:366-411 (CaptureOutputConfig enum), chapter lines 219, 299-315"
+    },
+    {
+      "type": "confusing_organization",
+      "severity": "medium",
+      "section": "Command Reference - Internal fields note",
+      "description": "Lines 227-237 list internal implementation fields in the Command Reference section, which could confuse users into thinking these are configurable. The note says they are NOT user-facing but listing them alongside actual configuration fields is confusing",
+      "current_content": "Note starting 'The following fields are used internally...' lists many internal fields mixed with actual configuration documentation",
+      "should_be": "Either remove this section entirely OR move it to a separate 'Architecture Notes' or 'For Contributors' section to clearly separate user-facing configuration from internal implementation details",
+      "fix_suggestion": "Move the internal fields note to a collapsible 'Technical Notes' section at the end of the chapter, or remove it entirely since it's not relevant for users writing workflows. Keep only user-configurable fields in the Command Reference section.",
+      "source_reference": "Chapter lines 227-237"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "CaptureStreams Configuration",
+      "description": "Lines 239-257 document capture_streams as 'reserved for future implementation' but don't explain why it's documented if it's not yet available, or what users should do instead",
+      "current_content": "Section shows future implementation example but doesn't guide users on current best practices",
+      "should_be": "Add clear guidance: 'For now, use `capture` and `capture_format` to control output capture. The `capture_streams` field will be implemented in a future version to provide fine-grained control over which streams (stdout, stderr, exit_code, etc.) are captured.'",
+      "fix_suggestion": "Add a 'Current Workaround' subsection explaining how to achieve similar results with existing fields, or just remove this section until the feature is implemented to avoid confusion",
+      "source_reference": "Chapter lines 239-257, src/config/command.rs:395-396"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Goal-Seeking Commands",
+      "description": "Section shows basic goal_seek example but doesn't explain error handling, what happens when threshold isn't met, or practical troubleshooting tips",
+      "should_add": "Add explanation of fail_on_incomplete field, what happens when max_attempts is reached, and how to debug goal-seeking workflows that aren't converging",
+      "fix_suggestion": "Add troubleshooting subsection:\n- If threshold isn't met: Check validate command output format (must output 'score: N')\n- Use fail_on_incomplete: false for optional quality gates\n- View validation scores in verbose mode (-v) to debug convergence issues",
+      "source_reference": "src/cook/goal_seek/mod.rs:15-41, chapter lines 45-69"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Foreach Commands",
+      "description": "Section shows foreach syntax but doesn't explain variable scoping, how to access loop index/count, or best practices for error handling in parallel execution",
+      "should_add": "Document that ${item} variable is available in the loop body, explain continue_on_error behavior with parallel execution, and show how to aggregate results from foreach loops",
+      "fix_suggestion": "Add subsection 'Foreach Variables and Error Handling':\n- ${item}: Current item value\n- continue_on_error: true (default) - Failed items don't stop the loop\n- Parallel execution caveat: Output order is not guaranteed\n- No built-in result aggregation - use write_file to collect results",
+      "source_reference": "src/config/command.rs:189-211, features.json:67-72"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "Validation Commands - DEPRECATED comment",
+      "description": "Line 146 shows '# DEPRECATED: 'command' field (use 'shell' instead)' but this is a comment in example code, not properly documented as a deprecation",
+      "current_content": "# DEPRECATED: 'command' field (use 'shell' instead)",
+      "should_be": "Either remove this comment from the example (since the example already shows using 'shell'), or add a proper 'Deprecation Notice' box before the example",
+      "fix_suggestion": "Add a callout box before the example:\n> **Deprecation Notice**: The `command` field in ValidationConfig is deprecated. Use `shell` instead. The `command` field is still supported for backward compatibility but will be removed in a future version.",
+      "source_reference": "Chapter line 146, src/cook/workflow/validation.rs:13-15"
+    },
+    {
+      "type": "missing_best_practices",
+      "severity": "low",
+      "section": "Write File Commands",
+      "description": "Write file section shows examples but doesn't explain when to use each format, error handling for format validation failures, or how to handle write conflicts",
+      "should_add": "Best practices: Use json/yaml formats when generating configuration files for validation, use text format for logs or documentation, set create_dirs: true when writing to nested paths",
+      "fix_suggestion": "Add 'Best Practices' subsection:\n- Use format validation (json/yaml) for config files to catch errors early\n- Set appropriate file permissions with mode field\n- Use create_dirs: true when writing to paths that may not exist\n- Combine with validation to ensure generated files meet requirements",
+      "source_reference": "src/config/command.rs:278-317, features.json:74-78"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent, comprehensive examples for all command types",
+    "Good coverage of shell, claude, goal_seek, foreach, write_file, and validation commands",
+    "Clear YAML syntax examples that are copy-pasteable",
+    "Good explanation of capture_format with all supported formats (string, number, json, lines, boolean)",
+    "Helpful migration guide for capture_output to capture (lines 299-315)",
+    "Well-organized Command Reference table with clear field descriptions",
+    "Good coverage of validation and on_incomplete configuration with multiple examples"
+  ],
+  "improvement_suggestions": [
+    "Add the missing cwd field documentation with clear examples",
+    "Clarify the relationship between capture and capture_output fields",
+    "Reorganize to separate user-configurable fields from internal implementation details",
+    "Add troubleshooting tips for goal_seek and foreach commands",
+    "Add best practices section for write_file command",
+    "Consider moving or removing the capture_streams 'future implementation' section to avoid confusion",
+    "Add cross-references to related chapters (variables chapter for capture, error-handling chapter for on_failure)",
+    "Add a 'Common Gotchas' section with solutions to frequent issues"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-10-12",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Shell commands",
+      "Claude commands",
+      "Goal-seeking",
+      "Foreach",
+      "Validation",
+      "Write file"
+    ],
+    "validation_focus": "Check all command types and their fields are documented"
+  }
+}
