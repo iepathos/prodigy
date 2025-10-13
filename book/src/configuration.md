@@ -60,7 +60,7 @@ Global user settings are stored in:
 - YAML (`.yml`, `.yaml`) - **Recommended and required format**
 
 **Unsupported formats:**
-- TOML (`.toml`) - Deprecated, no longer supported
+- TOML (`.toml`) - No longer supported. Prodigy will reject TOML files with an error during validation. See the Migration Guide below for converting to YAML.
 - JSON (`.json`) - Not supported
 
 All configuration files must use YAML format.
@@ -80,24 +80,32 @@ Prodigy merges configuration from multiple sources with clear precedence:
 
 #### Claude API Key
 ```
-Project config > Global config > Environment variable
+Project config > Global config (with env var overrides) > Defaults
 ```
+
+**Important:** Environment variables are merged into global config via the `merge_env_vars()` function before the project config check, so the actual evaluation order is:
+
+1. **Project config** (highest priority) - Explicit project-level API key
+2. **Global config with environment variable overrides** - Environment variables override values in `~/.prodigy/config.yml`
+3. **Defaults** (lowest priority)
 
 Example:
 ```yaml
-# .prodigy/config.yml (takes precedence)
+# .prodigy/config.yml (highest priority - takes precedence over everything)
 claude_api_key: "sk-project-key"
 ```
 
 ```yaml
-# ~/.prodigy/config.yml (fallback)
+# ~/.prodigy/config.yml (can be overridden by env vars)
 claude_api_key: "sk-global-key"
 ```
 
 ```bash
-# Environment variable (lowest priority for API key)
+# Environment variable (overrides global config, but not project config)
 export PRODIGY_CLAUDE_API_KEY="sk-env-key"
 ```
+
+If both `~/.prodigy/config.yml` has `claude_api_key: "sk-global-key"` and `PRODIGY_CLAUDE_API_KEY="sk-env-key"` is set, the environment variable wins for the merged global config. However, if `.prodigy/config.yml` has a `claude_api_key`, it overrides both.
 
 #### Auto-Commit Setting
 ```
@@ -158,7 +166,7 @@ Project configuration is stored in `.prodigy/config.yml` and overrides global se
 | `spec_dir` | Path | No | `"specs"` | Directory for specification files |
 | `claude_api_key` | String | No | None | Project-specific API key |
 | `auto_commit` | Boolean | No | None | Project-specific auto-commit setting |
-| `variables` | Table | No | None | Custom project variables (TOML table) |
+| `variables` | Map | No | None | Custom project variables (YAML map, stored internally as toml::Table for backward compatibility) |
 
 ### Example Project Configuration
 
@@ -293,7 +301,7 @@ The file backend stores data in the filesystem (recommended for production).
 | `base_dir` | Path | `~/.prodigy` | Base directory for storage |
 | `use_global` | Boolean | `true` | Use global storage (local storage deprecated) |
 | `enable_file_locks` | Boolean | `true` | File-based locking |
-| `max_file_size` | Number | `104857600` | Max file size before rotation (100MB) |
+| `max_file_size` | Number | `104857600` | Max file size before rotation (100MB). Note: MemoryConfig also has a max_memory field with the same 100MB default. |
 | `enable_compression` | Boolean | `false` | Compression for archived files |
 
 #### Example File Storage Configuration
@@ -399,9 +407,16 @@ Prodigy recognizes the following environment variables:
 | Variable | Type | Description |
 |----------|------|-------------|
 | `PRODIGY_STORAGE_TYPE` | String | Storage backend type (`file`, `memory`) |
-| `PRODIGY_STORAGE_BASE_PATH` | Path | Custom storage directory |
-| `PRODIGY_STORAGE_DIR` | Path | Alternative storage directory variable |
-| `PRODIGY_STORAGE_PATH` | Path | Alternative storage directory variable |
+| `PRODIGY_STORAGE_BASE_PATH` | Path | Custom storage directory (recommended) |
+| `PRODIGY_STORAGE_DIR` | Path | Alternative storage directory variable (fallback) |
+| `PRODIGY_STORAGE_PATH` | Path | Alternative storage directory variable (fallback) |
+
+**Note:** Multiple environment variable names are supported for the storage base path. They are checked in the following order:
+1. `PRODIGY_STORAGE_BASE_PATH` (recommended)
+2. `PRODIGY_STORAGE_DIR` (fallback)
+3. `PRODIGY_STORAGE_PATH` (fallback)
+
+Use `PRODIGY_STORAGE_BASE_PATH` for consistency with the config file field name.
 
 ### Automation Environment Variables
 
@@ -410,7 +425,7 @@ These variables are set automatically by Prodigy during execution:
 | Variable | Value | Description |
 |----------|-------|-------------|
 | `PRODIGY_AUTOMATION` | `"true"` | Signals automated execution mode |
-| `PRODIGY_CLAUDE_STREAMING` | `"true"` | Enables streaming mode (when verbosity >= 1) |
+| `PRODIGY_CLAUDE_STREAMING` | `"true"` or `"false"` | Automatically set by Prodigy based on verbosity level (`-v` flag). Can be manually set to `"false"` to disable JSON streaming in CI/CD environments with storage constraints. |
 
 ### Examples
 
