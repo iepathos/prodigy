@@ -1,5 +1,37 @@
 # MapReduce Workflows
 
+## Quick Start
+
+Want to get started with MapReduce? Here's a minimal working example:
+
+```yaml
+name: my-first-mapreduce
+mode: mapreduce
+
+# Generate work items
+setup:
+  - shell: "echo '[{\"id\": 1, \"name\": \"task-1\"}, {\"id\": 2, \"name\": \"task-2\"}]' > items.json"
+
+# Process items in parallel
+map:
+  input: "items.json"
+  json_path: "$[*]"
+  agent_template:
+    - shell: "echo Processing ${item.name}"
+  max_parallel: 5
+
+# Aggregate results
+reduce:
+  - shell: "echo Completed ${map.successful}/${map.total} items"
+```
+
+Run it:
+```bash
+prodigy run workflow.yml
+```
+
+That's it! Now let's explore the full capabilities.
+
 ## Complete Structure
 
 ```yaml
@@ -705,3 +737,240 @@ If you see validation errors when running a MapReduce workflow:
 - Checkpoints may be corrupted
 - Check event logs: `prodigy events <job_id>`
 - Consider using offset to skip already-processed items
+
+## Performance Tuning
+
+### Choosing max_parallel
+
+The `max_parallel` setting controls how many agents run concurrently. Choose based on:
+
+**System Resources:**
+- **CPU-bound tasks** (compilation, analysis): `max_parallel = CPU cores * 0.75`
+- **I/O-bound tasks** (API calls, file operations): `max_parallel = CPU cores * 2`
+- **Memory-intensive tasks**: Lower value to avoid OOM (e.g., `max_parallel = 4`)
+
+**Work Item Characteristics:**
+- **Fast items** (<30s each): Higher parallelism (10-20) for throughput
+- **Slow items** (>5min each): Lower parallelism (3-5) to avoid timeout cascades
+- **Flaky items** (transient failures): Use circuit breaker + lower parallelism
+
+**Example Configurations:**
+
+```yaml
+# Code review across 100 PRs (API-bound, fast)
+map:
+  max_parallel: 20
+  agent_timeout_secs: 120
+
+# Multi-file refactoring (CPU/memory-bound, slow)
+map:
+  max_parallel: 4
+  agent_timeout_secs: 600
+
+# Test suite execution (flaky, medium)
+map:
+  max_parallel: 8
+  agent_timeout_secs: 300
+  error_policy:
+    circuit_breaker:
+      failure_threshold: 3
+```
+
+### Timeout Configuration
+
+Choose `agent_timeout_secs` based on task complexity:
+
+- **Simple tasks** (file operations): 60-120 seconds
+- **Medium tasks** (code analysis): 300 seconds (default)
+- **Complex tasks** (refactoring, tests): 600-1200 seconds
+- **Very slow tasks** (large builds): 1800+ seconds
+
+**Warning:** Set timeout too low → premature failures. Set too high → hung agents block progress.
+
+### Circuit Breaker Tuning
+
+Use circuit breakers to prevent cascading failures:
+
+```yaml
+error_policy:
+  circuit_breaker:
+    failure_threshold: 5      # Open after 5 consecutive failures
+    success_threshold: 2      # Close after 2 successes in half-open
+    timeout: "60s"           # Try again after 1 minute
+    half_open_requests: 3    # Test with 3 requests before fully closing
+```
+
+**When to use:**
+- External API dependencies (rate limiting, downtime)
+- Flaky test suites (intermittent failures)
+- Resource contention (database connections, file locks)
+
+**Tuning guidelines:**
+- **Sensitive systems**: Lower `failure_threshold` (3-5), shorter `timeout` (30s-1m)
+- **Robust systems**: Higher `failure_threshold` (10+), longer `timeout` (5m-10m)
+- **Testing recovery**: Lower `half_open_requests` (1-2) for faster validation
+
+## Real-World Use Cases
+
+### Use Case 1: Code Review Across PRs
+
+Review all open pull requests in parallel:
+
+```yaml
+name: review-all-prs
+mode: mapreduce
+
+setup:
+  - shell: "gh pr list --json number,title,headRefName --limit 100 > prs.json"
+  capture_outputs:
+    prs: 0
+
+map:
+  input: "prs.json"
+  json_path: "$[*]"
+  agent_template:
+    - shell: "gh pr checkout ${item.number}"
+    - claude: "/review-pr ${item.number}"
+    - shell: "gh pr review ${item.number} --comment --body-file review.md"
+  max_parallel: 10
+  agent_timeout_secs: 300
+
+reduce:
+  - claude: "/summarize-reviews ${map.results}"
+  - shell: "echo '✅ Reviewed ${map.successful} PRs'"
+```
+
+### Use Case 2: Multi-File Refactoring
+
+Refactor a common pattern across many files:
+
+```yaml
+name: refactor-error-handling
+mode: mapreduce
+
+setup:
+  - shell: "rg -l 'unwrap\\(\\)' src/ --json | jq -s 'map({path: .data.path.text})' > files.json"
+
+map:
+  input: "files.json"
+  json_path: "$[*]"
+  agent_template:
+    - claude: "/refactor-unwrap ${item.path}"
+    - shell: "cargo test --lib -- --test-threads=1"
+      on_failure:
+        claude: "/fix-tests ${item.path}"
+  max_parallel: 4
+  agent_timeout_secs: 600
+
+reduce:
+  - shell: "cargo test --all"
+  - claude: "/verify-refactoring ${map.results}"
+```
+
+### Use Case 3: Documentation Drift Analysis
+
+Analyze and fix documentation for multiple chapters:
+
+```yaml
+name: fix-docs-drift
+mode: mapreduce
+
+setup:
+  - shell: "ls book/src/*.md | jq -R -s 'split(\"\\n\") | map(select(length > 0)) | map({path: .})' > chapters.json"
+
+map:
+  input: "chapters.json"
+  json_path: "$[*]"
+  agent_template:
+    - claude: "/analyze-drift ${item.path}"
+    - claude: "/fix-drift ${item.path}"
+  max_parallel: 8
+  filter: "item.path != 'book/src/SUMMARY.md'"
+
+reduce:
+  - claude: "/summarize-drift-fixes ${map.results}"
+  - shell: "mdbook build book/"
+```
+
+### Use Case 4: Test Suite Parallelization
+
+Run test suites in parallel across modules:
+
+```yaml
+name: parallel-tests
+mode: mapreduce
+
+setup:
+  - shell: "cargo test --list --format json | jq -s 'map(select(.type == \"test\")) | map({name: .name})' > tests.json"
+
+map:
+  input: "tests.json"
+  json_path: "$[*]"
+  agent_template:
+    - shell: "cargo test ${item.name} -- --exact"
+  max_parallel: 16
+  agent_timeout_secs: 120
+  error_policy:
+    on_item_failure: dlq
+    continue_on_failure: true
+
+reduce:
+  - shell: "prodigy dlq list ${job_id}"
+  - shell: "echo '✅ ${map.successful}/${map.total} tests passed'"
+```
+
+## Workflow Format Comparison
+
+### Simple vs Full Configuration
+
+Many workflow sections support both simple (array) and full (object) formats. Here's when to use each:
+
+| Feature | Simple Format | Full Format | When to Use Simple | When to Use Full |
+|---------|--------------|-------------|-------------------|------------------|
+| **setup** | `setup: [commands]` | `setup: {commands, timeout, capture_outputs}` | No timeout or capture needed | Need timeout or output capture |
+| **merge** | `merge: [commands]` | `merge: {commands, timeout}` | Default timeout (5min) OK | Custom timeout needed |
+| **reduce** | `reduce: [commands]` | `reduce: {commands}` (deprecated) | Always (modern syntax) | Never (use simple) |
+| **agent_template** | `agent_template: [commands]` | `agent_template: {commands}` (deprecated) | Always (modern syntax) | Never (use simple) |
+
+**Migration from Full to Simple:**
+
+```yaml
+# ❌ OLD (deprecated but supported)
+agent_template:
+  commands:
+    - claude: "/process ${item}"
+
+reduce:
+  commands:
+    - shell: "echo done"
+
+# ✅ NEW (recommended)
+agent_template:
+  - claude: "/process ${item}"
+
+reduce:
+  - shell: "echo done"
+```
+
+**When Full Format is Required:**
+
+```yaml
+# Setup with capture (requires full format)
+setup:
+  commands:
+    - shell: "cargo test --list --format json > tests.json"
+  timeout: 300
+  capture_outputs:
+    test_count:
+      command_index: 0
+      json_path: "$.length"
+
+# Merge with custom timeout (requires full format)
+merge:
+  commands:
+    - shell: "cargo build --release"
+    - claude: "/merge-worktree ${merge.source_branch}"
+  timeout: 1200  # 20 minutes
+```
+
+**Best Practice:** Use simple format by default, switch to full only when you need the extra features (timeout, capture_outputs).
