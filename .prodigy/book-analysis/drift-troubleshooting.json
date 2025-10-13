@@ -4,112 +4,137 @@
   "chapter_file": "book/src/troubleshooting.md",
   "drift_detected": true,
   "severity": "low",
-  "quality_assessment": "Chapter is comprehensive and well-aligned with codebase. Most troubleshooting advice is accurate and practical. Minor gaps in coverage of newer error types and debugging tools.",
+  "quality_assessment": "Excellent chapter with comprehensive coverage of common issues and accurate technical details. The chapter is remarkably well-aligned with the codebase implementation. Only minor enhancements needed for improved user experience.",
   "issues": [
     {
       "type": "missing_content",
-      "severity": "medium",
-      "section": "Common Error Messages - MapReduceError Types",
-      "description": "Chapter lists many MapReduceError types but misses some that are defined in the codebase",
-      "should_add": "Add missing error types: InvalidEnvironment, InvalidWorkflow, CheckpointVersionMismatch, WorktreeCleanupFailed",
-      "fix_suggestion": "Review src/errors.rs MapReduceError enum and ensure all variants are documented with recovery guidance",
-      "source_reference": "src/errors.rs:MapReduceError"
-    },
-    {
-      "type": "missing_content",
       "severity": "low",
-      "section": "Debug Tips - Claude Log Commands",
-      "description": "Chapter shows manual cat/jq commands for Claude logs but doesn't mention the prodigy logs command",
-      "should_add": "Emphasize 'prodigy logs --latest' as the primary way to access Claude logs, with manual jq commands as advanced alternative",
-      "fix_suggestion": "Add prodigy logs command examples before the manual jq commands to guide users to the easier interface first",
-      "source_reference": "features.json:troubleshooting.debugging_techniques"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "FAQ",
-      "description": "No FAQ entry about worktree cleanup or session management",
-      "should_add": "Add FAQ: 'Q: How do I clean up old worktrees?' with answer about 'prodigy worktree clean'",
-      "fix_suggestion": "Add worktree cleanup FAQ entry to help users manage disk space",
-      "source_reference": "CLAUDE.md mentions 'prodigy worktree clean'"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Common Issues",
-      "description": "Missing troubleshooting for streaming output control",
-      "should_add": "Add section on 'Claude output not showing' or 'Too much Claude output' with verbosity flag guidance",
-      "fix_suggestion": "Add troubleshooting entry for controlling Claude streaming output via -v flag and PRODIGY_CLAUDE_CONSOLE_OUTPUT",
-      "source_reference": "features.json:command_types.claude.streaming_output"
+      "section": "Claude Streaming Output (Issue #10)",
+      "description": "Chapter explains streaming control but doesn't mention the new streaming log storage feature",
+      "should_add": "Document that Prodigy now saves Claude streaming logs to ~/.prodigy/logs/claude-streaming/ with format {timestamp}-{uuid}.jsonl for post-execution analysis",
+      "fix_suggestion": "Add a note after line 276 explaining where streaming logs are saved and that the log path is displayed before execution starts with 📁 emoji",
+      "source_reference": "src/cook/execution/claude.rs:218-222, 338-357"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Common Issues #9 - Error Policy Configuration",
-      "description": "Chapter mentions BackoffStrategy is not configurable but doesn't explain what controls backoff behavior",
-      "current_content": "BackoffStrategy is determined internally by the retry system and is not directly configurable in the workflow YAML.",
-      "should_be": "Explain that backoff is controlled via retry_config parameters (max_attempts, initial_delay, max_delay) and which backoff strategy is used by default",
-      "fix_suggestion": "Clarify that exponential backoff is the default and show how retry_config parameters affect the backoff behavior",
-      "source_reference": "features.json:retry_configuration.backoff_strategies"
+      "section": "Debug Tips - Access Claude JSON logs",
+      "description": "Chapter shows Claude's native logs (~/.local/state/claude/logs/) but doesn't clarify relationship with Prodigy's streaming logs",
+      "current_content": "When using verbose mode (-v), Prodigy displays the location of Claude's detailed JSON logs",
+      "should_be": "Explain two types of logs: (1) Claude's native logs in ~/.local/state/claude/logs/ (session files), (2) Prodigy's streaming logs in ~/.prodigy/logs/claude-streaming/ (JSONL format)",
+      "fix_suggestion": "Update lines 355-408 to clarify that Prodigy saves its own streaming logs separately from Claude's native session logs",
+      "source_reference": "src/cook/execution/claude.rs:339-357"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "DLQ Commands (lines 411-444)",
+      "description": "Chapter documents most DLQ commands but doesn't mention 'show' as an alias for 'inspect'",
+      "current_content": "prodigy dlq inspect <job_id>",
+      "should_add": "Note that 'prodigy dlq show <job_id>' is an alias for 'inspect' (shown on line 419)",
+      "fix_suggestion": "Update line 419 comment to mention both commands: '# View failure details (inspect/show are aliases)'",
+      "source_reference": "book/src/troubleshooting.md:419"
+    },
+    {
+      "type": "missing_best_practice",
+      "severity": "low",
+      "section": "Claude Streaming Output (Issue #10)",
+      "description": "Doesn't provide guidance on when to use streaming vs non-streaming mode",
+      "should_add": "Guidance explaining tradeoffs: Use streaming (default) for debugging and audit trail; disable with PRODIGY_CLAUDE_STREAMING=false in CI/CD or when disk space is constrained",
+      "fix_suggestion": "Add 'When to Use Each Mode' subsection after line 276 explaining the use cases",
+      "source_reference": "src/cook/execution/claude.rs:86-108"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Common Issues #9 - Error Policy Configuration (line 238)",
+      "description": "Chapter correctly states backoff is not directly configurable but could be clearer about what IS configurable",
+      "current_content": "Backoff Strategy: Prodigy uses exponential backoff by default, which is not directly configurable in the workflow YAML",
+      "should_be": "Add clarity that while you can't choose the backoff algorithm (always exponential with base 2.0), you CAN control the behavior via retry_config parameters",
+      "fix_suggestion": "Expand the explanation to show HOW the retry_config parameters (initial_delay, max_delay, max_attempts) control the exponential backoff curve",
+      "source_reference": "src/cook/retry_v2.rs:70-98, 284-305"
     },
     {
       "type": "missing_content",
       "severity": "low",
       "section": "Debug Tips",
-      "description": "Missing guidance on using checkpoint files for debugging",
-      "should_add": "Add tip on inspecting checkpoint files to understand job state: 'cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/checkpoint.json'",
-      "fix_suggestion": "Add checkpoint inspection to debug tips section",
-      "source_reference": "features.json:troubleshooting.debugging_techniques"
+      "description": "Missing tip about inspecting checkpoint files for job state debugging",
+      "should_add": "Add checkpoint inspection example showing how to view completed_items, pending_items, and checkpoint version",
+      "fix_suggestion": "Already partially covered on lines 461-471, but could add more context about what each checkpoint field means",
+      "source_reference": "Global storage architecture: ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json"
     },
     {
       "type": "unclear_content",
       "severity": "low",
-      "section": "Common Issues #4 - MapReduce items not found",
-      "description": "JSONPath testing example uses jq but jq doesn't support JSONPath syntax directly",
-      "current_content": "Test JSONPath expression with actual data using `jq`:\n```bash\njq '$.items[*]' items.json\n```",
-      "should_be": "Clarify that jq uses its own filter syntax, not JSONPath, so users should test the equivalent jq expression",
-      "fix_suggestion": "Either show equivalent jq syntax (.items[]) or recommend using an online JSONPath tester instead",
-      "source_reference": "JSONPath and jq have different syntaxes"
+      "section": "Common Issues #4 - MapReduce items not found (lines 94-113)",
+      "description": "Chapter correctly warns that jq uses different syntax than JSONPath, but the distinction could be clearer",
+      "current_content": "Lines 94-104 show jq syntax with a note that it's different from JSONPath",
+      "should_be": "More prominent distinction between 'testing with jq' (which uses jq filter syntax) vs 'testing JSONPath expressions' (which requires JSONPath-specific tools)",
+      "fix_suggestion": "The current text is actually quite good - consider adding a visual separator or callout box to make the warning more prominent",
+      "source_reference": "book/src/troubleshooting.md:94-113"
     }
   ],
   "positive_aspects": [
-    "Comprehensive coverage of common user issues",
-    "Clear structure with symptoms, causes, and solutions",
-    "Good mix of conceptual explanations and concrete examples",
-    "Excellent debugging tips section with practical commands",
-    "Well-organized FAQ with direct answers",
-    "Accurate information about capture_streams, timeout formats, and merge configurations",
-    "Good coverage of MapReduceError types with recovery guidance",
-    "Helpful examples for debugging with jq, DLQ commands, and verbosity flags"
+    "Comprehensive coverage of all documented MapReduceError variants with accurate descriptions",
+    "Correct explanation that BackoffStrategy enum exists but is not configurable via YAML",
+    "Accurate documentation of PRODIGY_CLAUDE_CONSOLE_OUTPUT and PRODIGY_CLAUDE_STREAMING environment variables",
+    "Excellent detail on capture_streams with correct defaults (all fields are optional and default to false)",
+    "Clear distinction between timeout formats: duration strings ('10m', '600s') for most fields vs plain numbers for agent_timeout_secs and merge.timeout",
+    "Accurate merge workflow format explanation showing both simplified and full formats",
+    "Helpful examples for each troubleshooting scenario with clear symptoms, causes, and solutions",
+    "Well-organized structure: Common Issues, Debug Tips, FAQ, Error Messages, and Best Practices",
+    "Excellent JSONPath vs jq syntax clarification with practical examples",
+    "Accurate error recovery actions for each MapReduceError type",
+    "Practical debug commands with jq filters for log analysis",
+    "Good coverage of DLQ workflow including retry command",
+    "Accurate checkpoint and resume error documentation",
+    "Correct information about worktree cleanup commands"
   ],
   "improvement_suggestions": [
-    "Add more cross-references to other chapters for deeper explanations",
-    "Include links to source code or architecture docs for advanced users",
-    "Add troubleshooting entry for checkpoint/resume issues",
-    "Consider adding a 'Quick Reference' section with common debug commands",
-    "Add visual diagrams for debugging workflow (e.g., 'Where to look when X fails')",
-    "Consider grouping errors by phase (setup, map, reduce) for easier navigation",
-    "Add examples of interpreting Claude JSON logs to debug specific failure patterns"
+    "Add brief explanation of Prodigy's dual-log architecture (native Claude logs + Prodigy streaming logs)",
+    "Include example workflow showing when to check which log file",
+    "Add troubleshooting tip for disk space issues with streaming logs (mention purge old logs)",
+    "Consider adding a 'Quick Reference' card with 5-10 most common debug commands",
+    "Add cross-references to other chapters for deeper dives (e.g., link to MapReduce chapter from DLQ section)",
+    "Consider visual diagram showing 'debug decision tree' (if X fails, check Y, then try Z)",
+    "Add example of using streaming logs to debug specific failure patterns",
+    "Include tip about correlation_id tracking across logs and events"
   ],
   "metadata": {
     "analyzed_at": "2025-10-12",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "Variable interpolation issues",
-      "Capture configuration problems",
-      "Validation and goal_seek failures",
-      "MapReduce item selection",
-      "Timeout configuration",
-      "Environment variables",
-      "Merge workflow issues",
-      "Error handling patterns",
-      "Error policy configuration",
-      "Verbosity flags",
-      "Claude JSON logs",
-      "DLQ inspection and retry",
-      "MapReduce error types",
-      "Checkpoint and resume errors"
+      "Variable interpolation",
+      "Capture configuration with capture_streams",
+      "Validation and goal-seeking with goal_seek commands",
+      "MapReduce item selection with JSONPath",
+      "Timeout configuration (duration strings vs numbers)",
+      "Environment variables and profiles",
+      "Merge workflows (simplified and full formats)",
+      "Error handling with on_failure",
+      "Error policy configuration with retry_config and circuit_breaker",
+      "Claude output visibility with verbosity flags and env vars",
+      "Verbosity levels (-v, -vv, -vvv)",
+      "JSONPath expressions and jq equivalents",
+      "Workflow validation",
+      "Claude JSON logs (native and streaming)",
+      "DLQ management (list, inspect, retry, analyze, export, stats, purge, clear)",
+      "MapReduce monitoring with events and checkpoints",
+      "Checkpoint inspection and job state",
+      "MapReduceError types (all documented types match implementation)",
+      "Checkpoint and resume errors",
+      "Worktree cleanup and management",
+      "Common error messages with recovery actions",
+      "Best practices for debugging"
     ],
-    "validation_focus": "Check troubleshooting covers common user issues"
+    "validation_focus": "Check troubleshooting covers common user issues",
+    "code_references": [
+      "src/cook/execution/errors.rs:15-162 - MapReduceError enum definition",
+      "src/cook/retry_v2.rs:70-98 - BackoffStrategy enum",
+      "src/cook/execution/claude.rs:86-108 - Claude streaming control",
+      "src/cook/execution/claude.rs:218-222 - Log path announcement",
+      "src/cook/execution/claude.rs:338-357 - Streaming log generation",
+      "src/cli/commands/dlq.rs:8-73 - DLQ command implementations"
+    ]
   }
 }
