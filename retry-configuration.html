@@ -245,6 +245,7 @@
   initial_delay: 1s
 </code></pre>
 <p><strong>Delay sequence</strong>: 1s, 3s, 5s, 7s</p>
+<p>The <code>increment</code> field specifies the additional delay added on each retry attempt. In this example, the delay starts at 1s and increases by 2s on each retry.</p>
 <p><strong>Use case</strong>: Gradual backoff when you expect quick recovery.</p>
 <h3 id="exponential-backoff"><a class="header" href="#exponential-backoff">Exponential Backoff</a></h3>
 <p>Delay doubles (or increases by <code>base</code> factor) each retry:</p>
@@ -273,10 +274,19 @@
   attempts: 4
   backoff:
     custom:
-      delays: [1s, 2s, 5s, 10s]
+      delays:
+        - secs: 1
+          nanos: 0
+        - secs: 2
+          nanos: 0
+        - secs: 5
+          nanos: 0
+        - secs: 10
+          nanos: 0
 </code></pre>
 <p><strong>Delay sequence</strong>: Exactly as specified</p>
 <p><strong>Use case</strong>: When you need precise control over timing (e.g., aligning with rate limit windows).</p>
+<p><strong>Note</strong>: Custom backoff delays require explicit Duration format with <code>secs</code> and <code>nanos</code> fields. The <code>delays</code> field does not use humantime format unlike other duration fields in RetryConfig. Once the custom delays array is exhausted, any remaining retry attempts will use the <code>max_delay</code> value.</p>
 <h2 id="backoff-strategy-comparison"><a class="header" href="#backoff-strategy-comparison">Backoff Strategy Comparison</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>Strategy</th><th>Attempt 1</th><th>Attempt 2</th><th>Attempt 3</th><th>Attempt 4</th><th>Attempt 5</th><th>Best For</th></tr></thead><tbody>
 <tr><td>Fixed (2s)</td><td>2s</td><td>2s</td><td>2s</td><td>2s</td><td>2s</td><td>Simple retry</td></tr>
@@ -301,7 +311,8 @@
 <li>A 10s delay becomes a random delay between <strong>7.5s and 12.5s</strong></li>
 <li>A 20s delay becomes a random delay between <strong>15s and 25s</strong></li>
 </ul>
-<p>The jitter range is calculated as: <code>delay ± (delay * jitter_factor / 2)</code></p>
+<p>The jitter is applied as: <code>delay + random(-delay * factor / 2, +delay * factor / 2)</code></p>
+<p>For example, with a 10s delay and factor 0.5: <code>10s + random(-2.5s, +2.5s)</code> = 7.5s to 12.5s</p>
 <p><strong>When to use jitter</strong>:</p>
 <ul>
 <li>Multiple clients accessing the same service</li>
@@ -311,6 +322,7 @@
 </ul>
 <h2 id="conditional-retry-with-error-matchers"><a class="header" href="#conditional-retry-with-error-matchers">Conditional Retry with Error Matchers</a></h2>
 <p>By default, Prodigy retries all errors. Use <code>retry_on</code> to retry only specific error types:</p>
+<p><strong>Note</strong>: All error matching is case-insensitive. Error messages are normalized to lowercase before pattern comparison.</p>
 <h3 id="network-errors"><a class="header" href="#network-errors">Network Errors</a></h3>
 <pre><code class="language-yaml">retry:
   attempts: 3
@@ -489,6 +501,16 @@ let result = executor
 </ul>
 <h2 id="workflow-level-vs-command-level-retry"><a class="header" href="#workflow-level-vs-command-level-retry">Workflow-Level vs Command-Level Retry</a></h2>
 <p>Prodigy has two retry systems that serve different purposes:</p>
+<h3 id="field-name-differences"><a class="header" href="#field-name-differences">Field Name Differences</a></h3>
+<p>The two retry systems use different field names and structures:</p>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>retry_v2::RetryConfig</th><th>error_policy::RetryConfig</th></tr></thead><tbody>
+<tr><td>Max attempts</td><td><code>attempts</code></td><td><code>max_attempts</code></td></tr>
+<tr><td>Backoff</td><td><code>backoff</code> (enum variants)</td><td><code>backoff</code> (enum with nested fields)</td></tr>
+<tr><td>Exponential base</td><td><code>exponential: { base }</code></td><td><code>exponential: { initial, multiplier }</code></td></tr>
+<tr><td>Linear increment</td><td><code>linear: { increment }</code></td><td><code>linear: { initial, increment }</code></td></tr>
+<tr><td>Fixed delay</td><td><code>backoff: fixed</code></td><td><code>fixed: { delay }</code></td></tr>
+</tbody></table>
+</div>
 <h3 id="command-level-retry-enhanced"><a class="header" href="#command-level-retry-enhanced">Command-Level Retry (Enhanced)</a></h3>
 <p>Configured per command using <code>RetryConfig</code>:</p>
 <pre><code class="language-yaml">commands:
@@ -658,8 +680,15 @@ retry:
   attempts: 3
   retry_on:
     - rate_limit
-  backoff: custom
-    delays: [60s, 120s, 300s]  # Align with rate limit window
+  backoff:
+    custom:
+      delays:
+        - secs: 60
+          nanos: 0
+        - secs: 120
+          nanos: 0
+        - secs: 300
+          nanos: 0
   retry_budget: 15m
 </code></pre>
 <h2 id="related-topics"><a class="header" href="#related-topics">Related Topics</a></h2>

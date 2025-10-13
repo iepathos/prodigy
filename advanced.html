@@ -196,12 +196,50 @@
 - shell: "deploy.sh"
   when: "${environment == 'production' &amp;&amp; tests_passed}"
 </code></pre>
+<h4 id="expression-syntax-for-when-clauses"><a class="header" href="#expression-syntax-for-when-clauses">Expression Syntax for When Clauses</a></h4>
+<p>The <code>when</code> clause supports a flexible expression syntax for conditional logic:</p>
+<p><strong>Variable Interpolation:</strong></p>
+<ul>
+<li>Use <code>${variable}</code> to reference captured outputs or environment variables</li>
+<li>Variables are evaluated in the context of previous command results</li>
+<li>Boolean variables are evaluated as truthy/falsy values</li>
+</ul>
+<p><strong>Comparison Operators:</strong></p>
+<ul>
+<li><code>==</code> - Equality comparison (e.g., <code>${status == 'success'}</code>)</li>
+<li><code>!=</code> - Inequality comparison (e.g., <code>${exit_code != 0}</code>)</li>
+</ul>
+<p><strong>Logical Operators:</strong></p>
+<ul>
+<li><code>&amp;&amp;</code> - Logical AND (e.g., <code>${tests_passed &amp;&amp; build_succeeded}</code>)</li>
+<li><code>||</code> - Logical OR (e.g., <code>${is_dev || is_staging}</code>)</li>
+</ul>
+<p><strong>Type Coercion:</strong></p>
+<ul>
+<li>String values: Non-empty strings are truthy, empty strings are falsy</li>
+<li>Numeric values: Non-zero numbers are truthy, zero is falsy</li>
+<li>Boolean values: <code>true</code> is truthy, <code>false</code> is falsy</li>
+</ul>
+<p><strong>Complex Expressions:</strong></p>
+<pre><code class="language-yaml"># Multiple conditions with logical operators
+- shell: "deploy.sh"
+  when: "${environment == 'production' &amp;&amp; tests_passed &amp;&amp; coverage &gt;= 80}"
+
+# Nested logic with parentheses
+- shell: "run-checks.sh"
+  when: "${(is_pr || is_main) &amp;&amp; tests_passed}"
+
+# Comparing captured outputs
+- shell: "notify-team.sh"
+  when: "${test-step.exit_code == 0 &amp;&amp; build-step.success}"
+</code></pre>
 <h3 id="on-success-handlers"><a class="header" href="#on-success-handlers">On Success Handlers</a></h3>
 <p>Execute follow-up commands when a command succeeds:</p>
 <pre><code class="language-yaml">- shell: "cargo test"
   on_success:
     shell: "cargo bench"
 </code></pre>
+<p><strong>Note</strong>: The <code>on_success</code> field supports any workflow step command with all its features, including nested conditionals, output capture, validation, and error handlers. You can create complex success workflows by combining multiple handlers or using <code>when</code> clauses for sophisticated control flow.</p>
 <h3 id="on-failure-handlers"><a class="header" href="#on-failure-handlers">On Failure Handlers</a></h3>
 <p>Handle failures with automatic remediation:</p>
 <pre><code class="language-yaml">- shell: "cargo clippy"
@@ -268,7 +306,8 @@
   capture_format: "boolean"
 </code></pre>
 <h3 id="stream-capture-control"><a class="header" href="#stream-capture-control">Stream Capture Control</a></h3>
-<p>Control which streams to capture using <code>capture_streams</code>:</p>
+<p>The <code>capture_streams</code> field supports two formats:</p>
+<p><strong>Simple String Format</strong> - For basic stream selection:</p>
 <pre><code class="language-yaml"># Capture only stdout (default)
 - shell: "cargo build"
   capture_output: "build_log"
@@ -284,7 +323,8 @@
   capture_output: "full_output"
   capture_streams: "both"
 </code></pre>
-<p><strong>Advanced</strong>: The <code>capture_streams</code> field can also accept a detailed struct for fine-grained control:</p>
+<p>Use the string format when you only need to capture output from specific streams.</p>
+<p><strong>Advanced Struct Format</strong> - For fine-grained control with metadata:</p>
 <pre><code class="language-yaml">- shell: "cargo test"
   capture_output: "test_results"
   capture_streams:
@@ -294,7 +334,14 @@
     success: true
     duration: true
 </code></pre>
-<p>This struct format provides additional metadata like exit codes, success status, and execution duration alongside the captured output.</p>
+<p>Use the struct format when you need additional metadata alongside the captured output:</p>
+<ul>
+<li><code>exit_code</code>: Capture the command’s exit code</li>
+<li><code>success</code>: Capture whether the command succeeded (true/false)</li>
+<li><code>duration</code>: Capture how long the command took to execute</li>
+</ul>
+<p>This is particularly useful for validation workflows where you need to make decisions based on command success or timing information.</p>
+<p><strong>Format Flexibility</strong>: The <code>capture_streams</code> field is flexible—you can choose either format based on your needs. Use the simple string format (<code>"stdout"</code>, <code>"stderr"</code>, <code>"both"</code>) when you only need basic stream selection, or the struct format when you need metadata like <code>exit_code</code>, <code>success</code>, and <code>duration</code> alongside the output. Both formats are supported via Rust’s untagged enum deserialization.</p>
 <h3 id="output-file-redirection"><a class="header" href="#output-file-redirection">Output File Redirection</a></h3>
 <p>Write command output directly to a file:</p>
 <pre><code class="language-yaml"># Redirect output to file
@@ -304,15 +351,110 @@
 # File is written to working directory
 # Can be combined with capture_output to save and use output
 </code></pre>
+<h3 id="working-directory-control"><a class="header" href="#working-directory-control">Working Directory Control</a></h3>
+<p>Control the working directory for individual commands using the <code>working_dir</code> field. This allows you to execute commands in different directories without changing your workflow’s base directory:</p>
+<pre><code class="language-yaml"># Run frontend build in frontend directory
+- shell: "npm install"
+  working_dir: "./frontend"
+
+# Run backend build in backend directory
+- shell: "cargo build"
+  working_dir: "./backend"
+
+# Run tests in a subdirectory
+- shell: "pytest"
+  working_dir: "./tests"
+</code></pre>
+<p>The <code>working_dir</code> path is relative to the workflow’s root directory. This is particularly useful for:</p>
+<ul>
+<li><strong>Monorepo workflows</strong>: Building different packages in their respective directories</li>
+<li><strong>Multi-language projects</strong>: Running language-specific tools in appropriate directories</li>
+<li><strong>Isolated testing</strong>: Running tests in dedicated test directories</li>
+<li><strong>Subproject operations</strong>: Working with nested projects without changing global context</li>
+</ul>
+<p><strong>Note</strong>: The <code>working_dir</code> field is also available with the alias <code>cwd</code> for compatibility with other tools.</p>
 <hr />
 <h2 id="step-identification"><a class="header" href="#step-identification">Step Identification</a></h2>
-<p>Assign unique IDs to steps for referencing their outputs:</p>
+<p>Assign unique IDs to steps for explicit output referencing. This is particularly useful in complex workflows where multiple steps produce outputs and you need to reference specific results.</p>
+<h3 id="basic-step-ids"><a class="header" href="#basic-step-ids">Basic Step IDs</a></h3>
 <pre><code class="language-yaml">- shell: "cargo test"
   id: "test-step"
   capture_output: "test_results"
 
 # Reference step output by ID
 - shell: "echo 'Tests: ${test-step.output}'"
+</code></pre>
+<h3 id="when-to-use-step-ids"><a class="header" href="#when-to-use-step-ids">When to Use Step IDs</a></h3>
+<p><strong>1. Complex Workflows with Multiple Parallel Paths</strong></p>
+<p>When you have multiple steps producing similar outputs, IDs make references unambiguous:</p>
+<pre><code class="language-yaml">- shell: "cargo test --lib"
+  id: "unit-tests"
+  capture_output: "results"
+
+- shell: "cargo test --test integration"
+  id: "integration-tests"
+  capture_output: "results"
+
+# Clear reference to specific test results
+- claude: "/analyze-failures '${unit-tests.output}'"
+  when: "${unit-tests.exit_code} != 0"
+
+- claude: "/analyze-failures '${integration-tests.output}'"
+  when: "${integration-tests.exit_code} != 0"
+</code></pre>
+<p><strong>2. Debugging Specific Steps</strong></p>
+<p>Step IDs help identify which step produced problematic output:</p>
+<pre><code class="language-yaml">- shell: "npm run build"
+  id: "build"
+  capture_output: "build_log"
+
+- shell: "npm run lint"
+  id: "lint"
+  capture_output: "lint_log"
+
+- shell: "npm test"
+  id: "test"
+  capture_output: "test_log"
+
+# Reference specific logs for debugging
+- claude: "/debug-build-failure '${build.output}'"
+  when: "${build.exit_code} != 0"
+</code></pre>
+<p><strong>3. Conditional Execution Based on Specific Step Outputs</strong></p>
+<p>Use step IDs to create complex conditional logic:</p>
+<pre><code class="language-yaml">- shell: "cargo clippy"
+  id: "clippy-check"
+  capture_output: "warnings"
+  capture_format: "lines"
+
+- shell: "cargo fmt --check"
+  id: "format-check"
+  capture_output: "format_issues"
+
+# Only proceed if both checks pass
+- shell: "cargo build --release"
+  when: "${clippy-check.exit_code} == 0 &amp;&amp; ${format-check.exit_code} == 0"
+
+# Fix clippy warnings if present
+- claude: "/fix-clippy-warnings '${clippy-check.output}'"
+  when: "${clippy-check.exit_code} != 0"
+  on_failure:
+    claude: "/analyze-clippy-fix-failures"
+</code></pre>
+<p><strong>4. Combining with Validation and Error Handlers</strong></p>
+<p>Step IDs enable sophisticated error handling patterns:</p>
+<pre><code class="language-yaml">- shell: "cargo test --format json"
+  id: "test-run"
+  capture_output: "test_results"
+  capture_format: "json"
+  validate:
+    shell: "check-coverage.sh"
+    threshold: 80
+    on_incomplete:
+      claude: "/improve-coverage '${test-run.output}'"
+      max_attempts: 3
+  on_failure:
+    claude: "/debug-test-failures '${test-run.output}'"
 </code></pre>
 <hr />
 <h2 id="timeout-configuration"><a class="header" href="#timeout-configuration">Timeout Configuration</a></h2>
@@ -582,7 +724,7 @@
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="composition.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="git-context-advanced.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -596,7 +738,7 @@
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="composition.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="git-context-advanced.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

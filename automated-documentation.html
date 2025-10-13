@@ -209,7 +209,13 @@
 <p><strong>Claude Code CLI</strong> with valid API credentials</p>
 </li>
 <li>
-<p><strong>Git repository</strong> for your project</p>
+<p><strong>Git</strong> - Version control system (git 2.25+ recommended) and an initialized git repository for your project</p>
+<pre><code class="language-bash"># Verify git is installed
+git --version
+
+# Initialize a repository if needed
+git init
+</code></pre>
 </li>
 </ol>
 <h2 id="quick-start-30-minutes"><a class="header" href="#quick-start-30-minutes">Quick Start (30 Minutes)</a></h2>
@@ -422,7 +428,7 @@ map:
       commit_required: true
 
   max_parallel: 3
-  agent_timeout_secs: 900
+  agent_timeout_secs: 900  # 15-minute timeout per agent
 
 reduce:
   # Rebuild the book to ensure all chapters compile together
@@ -438,10 +444,24 @@ error_policy:
   max_failures: 2
   error_collection: aggregate
 
+# Configuration parameters:
+# - max_parallel: 3 chapters processed concurrently
+# - agent_timeout_secs: 900 sets a 15-minute timeout per agent (900 seconds = 15 minutes)
+#   This prevents any single chapter from hanging the entire workflow
+#   Adjust this value based on your expected chapter processing time
+#
+# Error Policy fields:
+# - on_item_failure: dlq - Failed chapters are sent to the Dead Letter Queue for manual review and retry
+# - continue_on_failure: true - Workflow continues processing other chapters even if some fail
+# - max_failures: 2 - Stop the entire workflow if more than 2 chapters fail (prevents cascading failures)
+# - error_collection: aggregate - Collect all errors and report them together at the end
+
 merge:
   commands:
     # Step 1: Clean up temporary analysis files
     - shell: "rm -rf ${ANALYSIS_DIR}"
+    # The '|| true' prevents the merge phase from failing if there are no changes to commit
+    # (e.g., if cleanup didn't modify any tracked files). This is a safety pattern for optional cleanup steps.
     - shell: "git add -A &amp;&amp; git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
 
     # Step 2: Validate book builds successfully
@@ -481,6 +501,9 @@ prodigy run workflows/book-docs-drift.yml
 # 4. Merge: Clean up temp files and merge changes back to main branch
 </code></pre>
 <h2 id="understanding-the-workflow"><a class="header" href="#understanding-the-workflow">Understanding the Workflow</a></h2>
+<blockquote>
+<p><strong>Note</strong>: All workflow phases (setup, map, reduce, merge) execute in an isolated git worktree, ensuring the main repository remains untouched during execution. This isolation is a key feature of Prodigy’s MapReduce implementation (Spec 127).</p>
+</blockquote>
 <h3 id="phase-1-setup---feature-analysis"><a class="header" href="#phase-1-setup---feature-analysis">Phase 1: Setup - Feature Analysis</a></h3>
 <p>The setup phase analyzes your codebase and creates a feature inventory:</p>
 <pre><code class="language-yaml">setup:
@@ -507,7 +530,12 @@ prodigy run workflows/book-docs-drift.yml
 }
 </code></pre>
 <h3 id="phase-2-map---chapter-drift-detection-and-fixing"><a class="header" href="#phase-2-map---chapter-drift-detection-and-fixing">Phase 2: Map - Chapter Drift Detection and Fixing</a></h3>
-<p>Each chapter is processed in parallel with a two-step approach:</p>
+<p><strong>Execution Model</strong>: The map phase processes chapters with controlled parallelism (max_parallel: 3 chapters at a time). For each chapter, two steps execute sequentially in the same isolated agent worktree:</p>
+<ol>
+<li><strong>Analyze</strong> - Detect drift and create a drift report</li>
+<li><strong>Fix</strong> - Read the drift report and update the chapter</li>
+</ol>
+<p>Each agent runs in its own isolated git worktree, allowing multiple chapters to be processed concurrently without interference. This sequential execution within each agent ensures the drift report from step 1 is available to step 2. Meanwhile, multiple chapters are processed in parallel across different agent worktrees.</p>
 <pre><code class="language-yaml">map:
   input: "workflows/data/chapters.json"
   json_path: "$.chapters[*]"
@@ -521,7 +549,7 @@ prodigy run workflows/book-docs-drift.yml
     - claude: "/prodigy-fix-chapter-drift --project $PROJECT_NAME --chapter-id ${item.id}"
       commit_required: true
 </code></pre>
-<p>The map phase actually has <strong>TWO steps per chapter</strong>:</p>
+<p><strong>Detailed Breakdown</strong>:</p>
 <p><strong>Step 1: Analyze</strong> - For each chapter, Claude:</p>
 <ol>
 <li>Reads the current chapter content</li>
@@ -536,6 +564,8 @@ prodigy run workflows/book-docs-drift.yml
 <li>Commits the fixes to the worktree</li>
 </ol>
 <p>Both steps run sequentially for each chapter, and chapters are processed in parallel.</p>
+<p><strong>Why commit_required: true is Critical</strong></p>
+<p>Each map agent runs in its own isolated git worktree. The <code>commit_required: true</code> flag ensures the drift report is committed to git in that worktree. This is critical because without the commit, the drift report file created by step 1 would not be accessible to step 2, even though they run sequentially in the same agent worktree.</p>
 <h3 id="phase-3-reduce---validate-book-build"><a class="header" href="#phase-3-reduce---validate-book-build">Phase 3: Reduce - Validate Book Build</a></h3>
 <p>The reduce phase validates that all updated chapters build successfully together:</p>
 <pre><code class="language-yaml">reduce:
@@ -553,12 +583,172 @@ prodigy run workflows/book-docs-drift.yml
 <li>Fixing build errors if they occur (via Claude command)</li>
 </ol>
 <p>This ensures that all chapters work together correctly after parallel updates.</p>
+<h2 id="automatic-gap-detection"><a class="header" href="#automatic-gap-detection">Automatic Gap Detection</a></h2>
+<p>The book workflow system includes automatic gap detection to identify missing or incomplete documentation. This ensures your documentation coverage is comprehensive and catches areas that need attention.</p>
+<h3 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h3>
+<p>Gap detection runs as part of the documentation workflow and analyzes your documentation against your codebase to identify:</p>
+<ol>
+<li><strong>Missing Documentation</strong>: Features, APIs, or commands in the code that aren’t documented</li>
+<li><strong>Incomplete Coverage</strong>: Documentation sections that exist but don’t cover all aspects</li>
+<li><strong>Structural Issues</strong>: Missing chapters or sections that should exist based on your project structure</li>
+</ol>
+<p>The gap detection process:</p>
+<ol>
+<li><strong>Feature Inventory Analysis</strong>: The setup phase creates a complete inventory of your codebase features</li>
+<li><strong>Documentation Coverage Analysis</strong>: Each chapter is analyzed to determine what features it documents</li>
+<li><strong>Gap Identification</strong>: Missing features are identified by comparing documentation coverage to the feature inventory</li>
+<li><strong>Prioritization</strong>: Gaps are assigned severity levels (critical, high, medium, low) based on importance</li>
+<li><strong>Reporting</strong>: Gaps are saved to <code>.prodigy/book-analysis/gaps-report.json</code> with details for each issue</li>
+</ol>
+<h3 id="gap-severity-levels"><a class="header" href="#gap-severity-levels">Gap Severity Levels</a></h3>
+<p>Gaps are categorized by severity to help prioritize documentation work:</p>
+<ul>
+<li>
+<p><strong>Critical</strong>: Core functionality or main features that are completely undocumented</p>
+<ul>
+<li>Example: Primary CLI commands with no usage documentation</li>
+<li>Example: Public API functions that are exported but not documented</li>
+</ul>
+</li>
+<li>
+<p><strong>High</strong>: Important features or commonly-used functionality with missing documentation</p>
+<ul>
+<li>Example: Configuration options that affect behavior but aren’t documented</li>
+<li>Example: Command-line flags that are widely used but lack examples</li>
+</ul>
+</li>
+<li>
+<p><strong>Medium</strong>: Secondary features or less critical areas with incomplete coverage</p>
+<ul>
+<li>Example: Advanced features that are documented but lack detailed examples</li>
+<li>Example: Edge cases or error handling that isn’t fully explained</li>
+</ul>
+</li>
+<li>
+<p><strong>Low</strong>: Minor gaps or enhancements that would improve documentation quality</p>
+<ul>
+<li>Example: Missing troubleshooting tips for uncommon issues</li>
+<li>Example: Additional examples that would be helpful but aren’t essential</li>
+</ul>
+</li>
+</ul>
+<h3 id="gap-report-format"><a class="header" href="#gap-report-format">Gap Report Format</a></h3>
+<p>The gap detection system generates a detailed report at <code>.prodigy/book-analysis/gaps-report.json</code>:</p>
+<pre><code class="language-json">{
+  "timestamp": "2025-01-15T10:30:00Z",
+  "project_name": "YourProject",
+  "total_gaps": 5,
+  "gaps_by_severity": {
+    "critical": 1,
+    "high": 2,
+    "medium": 1,
+    "low": 1
+  },
+  "gaps": [
+    {
+      "id": "missing-cli-command-docs",
+      "severity": "critical",
+      "type": "missing_documentation",
+      "description": "CLI command 'process' is not documented",
+      "location": "book/src/user-guide.md",
+      "affected_feature": {
+        "name": "process",
+        "type": "cli_command",
+        "source": "src/cli/commands/process.rs"
+      },
+      "suggested_fix": "Add section documenting the 'process' command with usage examples and options",
+      "detected_at": "2025-01-15T10:30:00Z"
+    }
+  ]
+}
+</code></pre>
+<h3 id="customization"><a class="header" href="#customization">Customization</a></h3>
+<p>You can customize gap detection behavior in your <code>book-config.json</code>:</p>
+<pre><code class="language-json">{
+  "project_name": "YourProject",
+  "gap_detection": {
+    "enabled": true,
+    "severity_rules": {
+      "undocumented_public_api": "critical",
+      "undocumented_cli_command": "critical",
+      "missing_examples": "medium",
+      "incomplete_troubleshooting": "low"
+    },
+    "ignore_patterns": [
+      "internal_*",
+      "test_helpers",
+      "deprecated_*"
+    ],
+    "required_sections": [
+      "Installation",
+      "Quick Start",
+      "Configuration",
+      "Troubleshooting"
+    ]
+  }
+}
+</code></pre>
+<p><strong>Configuration Options</strong>:</p>
+<ul>
+<li><code>enabled</code>: Toggle gap detection on/off (default: true)</li>
+<li><code>severity_rules</code>: Custom rules for assigning severity levels to different gap types</li>
+<li><code>ignore_patterns</code>: Feature name patterns to exclude from gap detection</li>
+<li><code>required_sections</code>: Section names that must exist in documentation</li>
+</ul>
+<h3 id="manual-review-recommendations"><a class="header" href="#manual-review-recommendations">Manual Review Recommendations</a></h3>
+<p>While gap detection is automatic, manual review is recommended for:</p>
+<ol>
+<li><strong>Critical and High Severity Gaps</strong>: Review these immediately as they indicate missing core documentation</li>
+<li><strong>New Features</strong>: When adding new features to your codebase, check the gap report to ensure they’re documented</li>
+<li><strong>After Major Refactoring</strong>: Restructuring code may create new gaps or invalidate existing documentation</li>
+<li><strong>Before Releases</strong>: Run gap detection before major releases to ensure complete documentation coverage</li>
+<li><strong>Severity Accuracy</strong>: Verify that automatically assigned severity levels match your project’s priorities</li>
+</ol>
+<p><strong>Best Practices for Manual Review</strong>:</p>
+<ul>
+<li>Run gap detection regularly (weekly or after significant code changes)</li>
+<li>Address critical gaps before merging feature branches</li>
+<li>Use gap reports to plan documentation work in sprints</li>
+<li>Keep the gaps report file in version control to track progress</li>
+<li>Review ignored patterns periodically to ensure they’re still relevant</li>
+</ul>
+<p><strong>Analyzing the Gaps Report:</strong></p>
+<p>Use these commands to query and analyze the gaps report:</p>
+<pre><code class="language-bash"># View all detected gaps
+cat .prodigy/book-analysis/gaps-report.json | jq '.gaps'
+
+# Filter to show only critical gaps
+cat .prodigy/book-analysis/gaps-report.json | jq '.gaps[] | select(.severity == "critical")'
+
+# Count gaps by severity level
+cat .prodigy/book-analysis/gaps-report.json | jq '.gaps_by_severity'
+
+# Get gap details for a specific chapter
+cat .prodigy/book-analysis/gaps-report.json | jq '.gaps[] | select(.location | contains("user-guide.md"))'
+
+# List all affected features
+cat .prodigy/book-analysis/gaps-report.json | jq '.gaps[].affected_feature.name'
+</code></pre>
+<h3 id="integration-with-drift-detection"><a class="header" href="#integration-with-drift-detection">Integration with Drift Detection</a></h3>
+<p>Gap detection complements drift detection in the book workflow:</p>
+<ul>
+<li><strong>Drift Detection</strong>: Identifies documentation that’s outdated or incorrect compared to current implementation</li>
+<li><strong>Gap Detection</strong>: Identifies missing documentation that should exist but doesn’t</li>
+</ul>
+<p>Together, these systems ensure your documentation is both accurate and complete:</p>
+<ol>
+<li><strong>Drift Detection</strong> keeps existing documentation synchronized with code changes</li>
+<li><strong>Gap Detection</strong> identifies areas where documentation is missing entirely</li>
+<li>Both run as part of the same workflow for comprehensive documentation quality</li>
+</ol>
 <h3 id="phase-4-merge---integration"><a class="header" href="#phase-4-merge---integration">Phase 4: Merge - Integration</a></h3>
 <p>The merge phase cleans up and integrates changes:</p>
 <pre><code class="language-yaml">merge:
   commands:
     # Step 1: Clean up temporary analysis files
     - shell: "rm -rf ${ANALYSIS_DIR}"
+    # The '|| true' prevents the merge phase from failing if there are no changes to commit
+    # (e.g., if cleanup didn't modify any tracked files). This is a safety pattern for optional cleanup steps.
     - shell: "git add -A &amp;&amp; git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
 
     # Step 2: Validate book builds successfully
@@ -618,6 +808,7 @@ jobs:
 <p>For now, run the book workflow manually:</p>
 <pre><code class="language-bash">prodigy run workflows/book-docs-drift.yml
 </code></pre>
+<p>When CI support is added, Prodigy’s json_log_location tracking (Spec 121) will enable debugging Claude commands in CI by capturing detailed JSON logs for each command execution. This will make it easy to troubleshoot documentation updates that fail in CI environments.</p>
 <p>Watch the Prodigy and Claude Code documentation for updates on CI integration.</p>
 </blockquote>
 <h3 id="enable-github-pages"><a class="header" href="#enable-github-pages">Enable GitHub Pages</a></h3>
@@ -799,6 +990,22 @@ cat workflows/data/chapters.json | jq -r '.chapters[].file' | xargs ls -la
 <li>Add more specific <code>validation</code> criteria in chapters.json</li>
 <li>Review and manually refine after first run</li>
 </ol>
+<h3 id="issue-some-chapters-failed-to-update"><a class="header" href="#issue-some-chapters-failed-to-update">Issue: Some Chapters Failed to Update</a></h3>
+<p><strong>Cause</strong>: Chapter processing timeout, Claude error, or validation failure</p>
+<p><strong>Solution</strong>: Use the Dead Letter Queue (DLQ) to retry failed chapters:</p>
+<pre><code class="language-bash"># View failed chapters
+prodigy dlq show &lt;job_id&gt;
+
+# Retry all failed chapters
+prodigy dlq retry &lt;job_id&gt;
+
+# Retry with custom parallelism
+prodigy dlq retry &lt;job_id&gt; --max-parallel 2
+
+# Dry run to see what would be retried
+prodigy dlq retry &lt;job_id&gt; --dry-run
+</code></pre>
+<p>The DLQ preserves all context from the original failure, making it safe to retry after fixing any underlying issues. Failed items in the DLQ include the <code>json_log_location</code> field pointing to detailed Claude execution logs. Use this to debug exactly what went wrong during chapter processing.</p>
 <h2 id="advanced-configuration"><a class="header" href="#advanced-configuration">Advanced Configuration</a></h2>
 <h3 id="custom-analysis-functions"><a class="header" href="#custom-analysis-functions">Custom Analysis Functions</a></h3>
 <p>You can extend the analysis by providing custom analysis functions in your config:</p>
@@ -910,7 +1117,7 @@ cat workflows/data/chapters.json | jq -r '.chapters[].file' | xargs ls -la
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="error-handling.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="mapreduce-worktree-architecture.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -924,7 +1131,7 @@ cat workflows/data/chapters.json | jq -r '.chapters[].file' | xargs ls -la
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="error-handling.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="mapreduce-worktree-architecture.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 

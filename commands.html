@@ -238,7 +238,14 @@
 <li><code>threshold</code>: Minimum score to consider complete</li>
 <li><code>max_attempts</code>: Maximum refinement iterations</li>
 <li><code>timeout_seconds</code>: Optional timeout per attempt</li>
-<li><code>fail_on_incomplete</code>: Whether to fail workflow if threshold not met</li>
+<li><code>fail_on_incomplete</code>: Whether to fail workflow if threshold not met (default: true)</li>
+</ul>
+<p><strong>Troubleshooting:</strong></p>
+<ul>
+<li><strong>Threshold not met:</strong> Check that validate command outputs exactly <code>score: N</code> format (0-100)</li>
+<li><strong>Not converging:</strong> Use <code>fail_on_incomplete: false</code> for optional quality gates</li>
+<li><strong>Debug scores:</strong> Run workflow with verbose mode (<code>-v</code>) to see validation scores each iteration</li>
+<li><strong>Max attempts reached:</strong> Increase <code>max_attempts</code> or lower <code>threshold</code> if goal is too ambitious</li>
 </ul>
 <h2 id="4-foreach-commands"><a class="header" href="#4-foreach-commands">4. Foreach Commands</a></h2>
 <p>Iterate over a list with optional parallelism.</p>
@@ -255,6 +262,24 @@
 
     continue_on_error: true
     max_items: 50
+</code></pre>
+<p><strong>Variables and Error Handling:</strong></p>
+<ul>
+<li><strong>${item}</strong>: Current item value available in loop body</li>
+<li><strong>continue_on_error: true</strong> (default): Failed items don’t stop the loop</li>
+<li><strong>Parallel execution caveat</strong>: Output order is not guaranteed when using <code>parallel</code></li>
+<li><strong>No built-in result aggregation</strong>: Use <code>write_file</code> commands to collect results if needed</li>
+</ul>
+<p><strong>Example with result collection:</strong></p>
+<pre><code class="language-yaml">- foreach:
+    input: ["module1", "module2", "module3"]
+    parallel: 3
+    do:
+      - shell: "cargo test --package ${item}"
+      - write_file:
+          path: "results/${item}.txt"
+          content: "Test result: ${shell.output}"
+          create_dirs: true
 </code></pre>
 <h2 id="5-write-file-commands"><a class="header" href="#5-write-file-commands">5. Write File Commands</a></h2>
 <p>Create or overwrite files with content from variables or literals. Supports text, JSON, and YAML formats with automatic validation and formatting.</p>
@@ -302,12 +327,22 @@
 <li><code>yaml</code> - Validates YAML syntax and formats output</li>
 <li><code>text</code> - Writes content as-is without validation</li>
 </ul>
+<p><strong>Best Practices:</strong></p>
+<ul>
+<li><strong>Use format validation for config files</strong>: Set <code>format: json</code> or <code>format: yaml</code> when generating configuration files to catch syntax errors early</li>
+<li><strong>Set appropriate permissions</strong>: Use <code>mode</code> field to control file permissions (e.g., <code>"0600"</code> for sensitive files)</li>
+<li><strong>Handle nested paths</strong>: Set <code>create_dirs: true</code> when writing to paths that may not exist</li>
+<li><strong>Combine with validation</strong>: Use <code>validate</code> field to ensure generated files meet requirements before proceeding</li>
+<li><strong>For logs and documentation</strong>: Use <code>format: text</code> to write content as-is without validation overhead</li>
+</ul>
 <h2 id="6-validation-commands"><a class="header" href="#6-validation-commands">6. Validation Commands</a></h2>
 <p>Validate implementation completeness with automatic retry.</p>
+<blockquote>
+<p><strong>Deprecation Notice</strong>: The <code>command</code> field in ValidationConfig is deprecated. Use <code>shell</code> instead for shell commands or <code>claude</code> for Claude commands. The <code>command</code> field is still supported for backward compatibility but will be removed in a future version.</p>
+</blockquote>
 <pre><code class="language-yaml">- claude: "/implement-auth-spec"
   validate:
     shell: "debtmap validate --spec auth.md --output result.json"
-    # DEPRECATED: 'command' field (use 'shell' instead)
     result_file: "result.json"
     threshold: 95  # Percentage completion required (default: 100.0)
     timeout: 60
@@ -370,42 +405,34 @@
 <tr><td><code>timeout</code></td><td>number</td><td>Command timeout in seconds</td></tr>
 <tr><td><code>commit_required</code></td><td>boolean</td><td>Whether command should create a git commit</td></tr>
 <tr><td><code>when</code></td><td>string</td><td>Conditional execution expression</td></tr>
-<tr><td><code>capture</code></td><td>string</td><td>Variable name to capture output (replaces deprecated <code>capture_output: true/false</code>)</td></tr>
+<tr><td><code>capture</code></td><td>string</td><td>Variable name to capture command output (replaces deprecated <code>capture_output: true</code>)</td></tr>
 <tr><td><code>capture_format</code></td><td>enum</td><td>Format: <code>string</code> (default), <code>number</code>, <code>json</code>, <code>lines</code>, <code>boolean</code> (see examples below)</td></tr>
-<tr><td><code>capture_streams</code></td><td>string</td><td>Reserved for future use - currently stored as string in YAML</td></tr>
+<tr><td><code>capture_streams</code></td><td>string</td><td>Reserved for future YAML syntax - not yet available in workflows</td></tr>
 <tr><td><code>on_success</code></td><td>object</td><td>Command to run on success</td></tr>
 <tr><td><code>on_failure</code></td><td>object</td><td>OnFailureConfig with nested command, max_attempts, fail_workflow, strategy</td></tr>
 <tr><td><code>validate</code></td><td>object</td><td>Validation configuration</td></tr>
 <tr><td><code>output_file</code></td><td>string</td><td>Redirect command output to a file</td></tr>
 </tbody></table>
 </div>
-<p><strong>Note:</strong> The following fields are used internally during workflow execution but are NOT part of the YAML configuration syntax. These are implementation details managed by Prodigy’s execution engine, not user-facing configuration options:</p>
-<ul>
-<li><code>handler</code> - Internal HandlerStep for execution routing</li>
-<li><code>retry</code> - Internal RetryConfig for automatic retry logic</li>
-<li><code>working_dir</code> - Not available (use shell <code>cd</code> command instead)</li>
-<li><code>env</code> - Not available (use shell environment syntax: <code>ENV=value command</code>)</li>
-<li><code>auto_commit</code> - Internal commit tracking</li>
-<li><code>commit_config</code> - Internal commit configuration</li>
-<li><code>step_validate</code> - Internal validation state</li>
-<li><code>skip_validation</code> - Internal validation control</li>
-<li><code>validation_timeout</code> - Internal validation timing</li>
-<li><code>ignore_validation_failure</code> - Internal validation handling</li>
-</ul>
 <h3 id="capturestreams-configuration"><a class="header" href="#capturestreams-configuration">CaptureStreams Configuration</a></h3>
-<p><strong>Note:</strong> The <code>capture_streams</code> field is currently stored as a string type in WorkflowStepCommand (line 120 of src/config/command.rs) and is reserved for future implementation. The CaptureStreams struct exists in src/cook/workflow/variables.rs for use by the execution engine, but the YAML configuration interface is not yet fully connected.</p>
-<p>When implemented, <code>capture_streams</code> will control which output streams are captured:</p>
-<pre><code class="language-yaml"># Future implementation example:
+<p><strong>Note:</strong> While <code>capture_streams</code> functionality is implemented internally in Prodigy’s execution engine, it is not yet exposed in the YAML workflow syntax. The field exists in the configuration structs but is currently stored as a string placeholder.</p>
+<p><strong>Current Approach:</strong> Use the <code>capture</code> and <code>capture_format</code> fields to control output capture:</p>
+<pre><code class="language-yaml"># Capture stdout as string (most common use case)
 - shell: "cargo test"
-  capture: "test_results"
-  capture_streams:
-    stdout: true      # Capture standard output (default: true)
-    stderr: false     # Capture standard error (default: false)
-    exit_code: true   # Capture exit code (default: true)
-    success: true     # Capture success boolean (default: true)
-    duration: true    # Capture execution duration (default: true)
+  capture: "test_output"
+  capture_format: "string"
+
+# Capture exit status as boolean
+- shell: "cargo test"
+  capture: "test_passed"
+  capture_format: "boolean"
+
+# Capture and parse JSON output
+- shell: "cargo metadata --format-version 1"
+  capture: "project_info"
+  capture_format: "json"
 </code></pre>
-<p>For now, use <code>capture</code> and <code>capture_format</code> to control output capture behavior.</p>
+<p><strong>Future Enhancement:</strong> A future version will expose <code>capture_streams</code> in YAML syntax to provide fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured. Until then, use the <code>capture</code> and <code>capture_format</code> fields which cover most common use cases.</p>
 <h3 id="capture-format-examples"><a class="header" href="#capture-format-examples">Capture Format Examples</a></h3>
 <p>The <code>capture_format</code> field controls how captured output is parsed:</p>
 <pre><code class="language-yaml"># String format (default) - raw text output
@@ -442,7 +469,7 @@
 <li>Legacy variable aliases (<code>$ARG</code>, <code>$ARGUMENT</code>, <code>$FILE</code>, <code>$FILE_PATH</code>) - Use modern <code>${item.*}</code> syntax</li>
 </ul>
 <p><strong>Migration: capture_output to capture</strong></p>
-<p>The old <code>capture_output: true</code> syntax captured command output to a default variable name, making it unclear where the output was stored and harder to reference in later commands.</p>
+<p>The old <code>capture_output: true/false</code> syntax is deprecated. It used a boolean value to enable/disable output capture, but didn’t specify where the output was stored, making it unclear and harder to reference in later commands.</p>
 <p>Old syntax (deprecated):</p>
 <pre><code class="language-yaml">- shell: "ls -la | wc -l"
   capture_output: true
@@ -451,7 +478,55 @@
 <pre><code class="language-yaml">- shell: "ls -la | wc -l"
   capture: "file_count"
 </code></pre>
-<p>The modern <code>capture</code> field requires an explicit variable name, making output references clearer and more maintainable. You can then reference the captured value using <code>${file_count}</code> in subsequent commands.</p>
+<p><strong>Why the change?</strong> The modern <code>capture</code> field requires an explicit variable name, making workflows more maintainable:</p>
+<ul>
+<li><strong>Explicit is better than implicit</strong>: Variable names are self-documenting</li>
+<li><strong>Easier refactoring</strong>: Clear what each command produces</li>
+<li><strong>Better error messages</strong>: References to undefined variables are clearer</li>
+</ul>
+<p>You can then reference the captured value using <code>${file_count}</code> in subsequent commands. The boolean <code>capture_output</code> field is retained for backward compatibility but should not be used in new workflows.</p>
+<hr />
+<h2 id="technical-notes"><a class="header" href="#technical-notes">Technical Notes</a></h2>
+<details>
+<summary>Internal Implementation Fields (for contributors)</summary>
+<p>The following fields are used internally during workflow execution but are NOT part of the YAML configuration syntax. These are implementation details managed by Prodigy’s execution engine, not user-facing configuration options:</p>
+<ul>
+<li><code>handler</code> - Internal HandlerStep for execution routing</li>
+<li><code>retry</code> - Internal RetryConfig for automatic retry logic</li>
+<li><code>env</code> - Not available (use shell environment syntax: <code>ENV=value command</code>)</li>
+<li><code>auto_commit</code> - Internal commit tracking</li>
+<li><code>commit_config</code> - Internal commit configuration</li>
+<li><code>step_validate</code> - Internal validation state</li>
+<li><code>skip_validation</code> - Internal validation control</li>
+<li><code>validation_timeout</code> - Internal validation timing</li>
+<li><code>ignore_validation_failure</code> - Internal validation handling</li>
+</ul>
+<p>These fields are documented here for reference when working on Prodigy’s source code, but should not be used in workflow YAML files.</p>
+</details>
+<hr />
+<h2 id="cross-references"><a class="header" href="#cross-references">Cross-References</a></h2>
+<p>For more information on related topics:</p>
+<ul>
+<li><strong>Variable Interpolation</strong>: See the Variables chapter for details on using captured outputs like <code>${variable_name}</code> in subsequent commands</li>
+<li><strong>Error Handling</strong>: See the Error Handling chapter for advanced <code>on_failure</code> strategies and retry patterns</li>
+<li><strong>MapReduce Workflows</strong>: See the MapReduce chapter for large-scale parallel command execution</li>
+</ul>
+<p><strong>Example: Using Captured Output in Subsequent Commands</strong></p>
+<pre><code class="language-yaml"># Capture build output and use it in later commands
+- shell: "cargo build --release 2&gt;&amp;1"
+  capture: "build_output"
+  capture_format: "string"
+
+# Use the captured output in Claude command
+- claude: "/analyze-warnings '${build_output}'"
+  when: "${build_output contains 'warning'}"
+
+# Store output to file for later analysis
+- write_file:
+    path: "logs/build-${workflow.iteration}.log"
+    content: "${build_output}"
+    create_dirs: true
+</code></pre>
 
                     </main>
 

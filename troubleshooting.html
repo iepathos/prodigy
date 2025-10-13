@@ -279,14 +279,30 @@
 </ul>
 <p><strong>Solutions:</strong></p>
 <ul>
-<li>Test JSONPath expression with actual data using <code>jq</code>:
-<pre><code class="language-bash">jq '$.items[*]' items.json
+<li>
+<p>Test JSONPath expression with actual data.</p>
+<p><strong>⚠️ IMPORTANT: jq uses its own filter syntax, NOT JSONPath!</strong></p>
+<pre><code class="language-bash"># jq uses its own syntax (not JSONPath)
+jq '.items[]' items.json
+
+# For filtering with jq
+jq '.items[] | select(.score &gt;= 5)' items.json
+
+# To test actual JSONPath expressions, use an online JSONPath tester
+# or a tool that supports JSONPath directly
 </code></pre>
 </li>
-<li>Verify input file exists and contains expected structure</li>
-<li>Check setup phase completed successfully</li>
-<li>Use simpler JSONPath first: <code>$[*]</code> to get all items</li>
-<li>Common JSONPath mistakes:
+<li>
+<p>Verify input file exists and contains expected structure</p>
+</li>
+<li>
+<p>Check setup phase completed successfully</p>
+</li>
+<li>
+<p>Use simpler JSONPath first: <code>$[*]</code> to get all items</p>
+</li>
+<li>
+<p>Common JSONPath mistakes:</p>
 <ul>
 <li>Wrong bracket syntax: Use <code>$.items[*]</code> not <code>$.items[]</code></li>
 <li>Missing root <code>$</code>: Always start with <code>$</code></li>
@@ -423,9 +439,56 @@
     failure_threshold: 5
 </code></pre>
 </li>
-<li><strong>Note:</strong> BackoffStrategy is determined internally by the retry system and is not directly configurable in the workflow YAML. The retry behavior is controlled through the retry_config parameters (max_attempts, initial_delay, max_delay).</li>
+<li><strong>Backoff Strategy:</strong> Prodigy uses exponential backoff by default (base 2.0), which is not directly configurable in the workflow YAML. However, you CAN control the backoff behavior through the retry_config parameters:
+<ul>
+<li><code>max_attempts</code> - Number of retry attempts before giving up</li>
+<li><code>initial_delay</code> - Starting delay between retries (e.g., “1s”)</li>
+<li><code>max_delay</code> - Maximum delay between retries (e.g., “30s”)</li>
+<li>The delay doubles with each retry (exponential backoff with base 2.0) up to max_delay</li>
+<li>Example: With <code>initial_delay: "1s"</code> and <code>max_delay: "30s"</code>, retries occur at 1s, 2s, 4s, 8s, 16s, 30s, 30s…</li>
+<li>These parameters shape the exponential backoff curve to match your needs</li>
+</ul>
+</li>
 <li>Circuit breaker requires both timeout and failure_threshold</li>
 </ul>
+<hr />
+<h3 id="10-claude-output-visibility-issues"><a class="header" href="#10-claude-output-visibility-issues">10. Claude output visibility issues</a></h3>
+<p><strong>Symptom:</strong> Can’t see Claude’s streaming output, or seeing too much output when you don’t need it.</p>
+<p><strong>Causes:</strong></p>
+<ul>
+<li>Default verbosity level hides Claude streaming output</li>
+<li>Running in CI/CD where streaming output clutters logs</li>
+<li>Need to debug Claude interactions but not seeing details</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li><strong>To see Claude streaming output</strong>, use the <code>-v</code> flag:
+<pre><code class="language-bash"># Shows Claude streaming JSON output
+prodigy run workflow.yml -v
+</code></pre>
+</li>
+<li><strong>To force streaming output</strong>, set environment variable:
+<pre><code class="language-bash"># Forces streaming regardless of verbosity
+PRODIGY_CLAUDE_CONSOLE_OUTPUT=true prodigy run workflow.yml
+</code></pre>
+</li>
+<li><strong>To disable streaming in CI/CD</strong>, set environment variable:
+<pre><code class="language-bash"># Disables streaming for cleaner logs
+PRODIGY_CLAUDE_STREAMING=false prodigy run workflow.yml
+</code></pre>
+</li>
+<li><strong>For more detailed logs</strong>, increase verbosity:
+<pre><code class="language-bash">prodigy run workflow.yml -vv   # Debug logs
+prodigy run workflow.yml -vvv  # Trace logs
+</code></pre>
+</li>
+</ul>
+<p><strong>When to Use Each Mode:</strong></p>
+<ul>
+<li><strong>Use streaming (default)</strong>: For debugging Claude interactions, maintaining an audit trail, and local development</li>
+<li><strong>Disable streaming (<code>PRODIGY_CLAUDE_STREAMING=false</code>)</strong>: In CI/CD environments where disk space is constrained or when streaming logs aren’t needed</li>
+</ul>
+<p><strong>Streaming logs are saved to:</strong> <code>~/.prodigy/logs/claude-streaming/</code> with format <code>{timestamp}-{uuid}.jsonl</code>. The log path is displayed before execution starts with a 📁 emoji for easy reference.</p>
 <hr />
 <h2 id="debug-tips"><a class="header" href="#debug-tips">Debug Tips</a></h2>
 <h3 id="use-verbosity-flags-for-debugging"><a class="header" href="#use-verbosity-flags-for-debugging">Use verbosity flags for debugging</a></h3>
@@ -468,11 +531,17 @@ PRODIGY_CLAUDE_CONSOLE_OUTPUT=true prodigy run workflow.yml
 - shell: "echo 'Duration: ${test_output.duration}s'"
 </code></pre>
 <h3 id="test-jsonpath-expressions"><a class="header" href="#test-jsonpath-expressions">Test JSONPath expressions</a></h3>
-<pre><code class="language-bash"># Manually test your JSONPath
-jq '$.items[*]' items.json
+<pre><code class="language-bash"># Note: jq uses its own filter syntax, not JSONPath
+# Use jq for quick testing with equivalent expressions
 
-# Test with filter
-jq '$.items[] | select(.score &gt;= 5)' items.json
+# Get all items (equivalent to JSONPath $.items[*])
+jq '.items[]' items.json
+
+# Test with filter (equivalent to JSONPath $[?(@.score &gt;= 5)])
+jq '.items[] | select(.score &gt;= 5)' items.json
+
+# For actual JSONPath testing, use an online JSONPath tester
+# or a tool that supports JSONPath directly
 </code></pre>
 <h3 id="validate-workflow-syntax"><a class="header" href="#validate-workflow-syntax">Validate workflow syntax</a></h3>
 <pre><code class="language-bash"># Workflows are validated automatically when loaded
@@ -483,18 +552,53 @@ prodigy run workflow.yml
 cat .prodigy/validation-result.json
 </code></pre>
 <h3 id="access-claude-json-logs-for-debugging"><a class="header" href="#access-claude-json-logs-for-debugging">Access Claude JSON logs for debugging</a></h3>
-<p>When using verbose mode (<code>-v</code>), Prodigy displays the location of Claude’s detailed JSON logs:</p>
+<p>Prodigy maintains two types of Claude logs for comprehensive debugging:</p>
+<ol>
+<li>
+<p><strong>Prodigy’s streaming logs</strong> (JSONL format): <code>~/.prodigy/logs/claude-streaming/{timestamp}-{uuid}.jsonl</code></p>
+<ul>
+<li>Real-time streaming output during command execution</li>
+<li>One JSON object per line (JSONL format)</li>
+<li>Log path displayed before execution with 📁 emoji</li>
+<li>Controlled by <code>PRODIGY_CLAUDE_STREAMING</code> environment variable</li>
+</ul>
+</li>
+<li>
+<p><strong>Claude’s native session logs</strong> (JSON format): <code>~/.local/state/claude/logs/session-{id}.json</code></p>
+<ul>
+<li>Complete session history created by Claude Code CLI</li>
+<li>Full message history and tool invocations</li>
+<li>Token usage statistics and error details</li>
+<li>Location displayed with verbose mode (<code>-v</code>)</li>
+</ul>
+</li>
+</ol>
+<p><strong>Primary method - Use the <code>prodigy logs</code> command:</strong></p>
+<pre><code class="language-bash"># View the most recent Claude log
+prodigy logs --latest
+
+# View with summary of activity
+prodigy logs --latest --summary
+
+# Follow the latest log in real-time
+prodigy logs --latest --tail
+
+# List recent logs
+prodigy logs
+</code></pre>
+<p><strong>Alternative - Manual inspection:</strong></p>
+<p>When using verbose mode (<code>-v</code>), Prodigy displays the location of Claude’s native session logs:</p>
 <pre><code class="language-bash">prodigy run workflow.yml -v
 # Output: Claude JSON log: ~/.local/state/claude/logs/session-abc123.json
 </code></pre>
-<p>These logs contain:</p>
+<p>Claude’s native logs contain:</p>
 <ul>
 <li>Complete message history (user messages and Claude responses)</li>
 <li>All tool invocations with parameters and results</li>
 <li>Token usage statistics</li>
 <li>Error details and stack traces</li>
 </ul>
-<p><strong>View Claude interaction:</strong></p>
+<p><strong>Advanced analysis with jq:</strong></p>
 <pre><code class="language-bash"># View complete message history
 cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'
 
@@ -519,10 +623,8 @@ cat /path/from/above/session-xyz.json | jq '.messages[-3:]'
 <pre><code class="language-bash"># List failed items
 prodigy dlq list &lt;job_id&gt;
 
-# View failure details
+# View failure details (inspect/show are aliases)
 prodigy dlq inspect &lt;job_id&gt;
-
-# Show DLQ contents (alias for inspect)
 prodigy dlq show &lt;job_id&gt;
 
 # Retry failed items (primary recovery operation)
@@ -562,6 +664,28 @@ ls ~/.prodigy/events/
 # Check session state
 cat .prodigy/session_state.json
 </code></pre>
+<h3 id="inspect-checkpoint-files-for-job-state"><a class="header" href="#inspect-checkpoint-files-for-job-state">Inspect checkpoint files for job state</a></h3>
+<p>Checkpoint files contain the complete state of a MapReduce job and are crucial for debugging:</p>
+<pre><code class="language-bash"># View checkpoint to understand job state
+cat ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
+
+# Check checkpoint version and completed items count
+jq '.version, .completed_items | length' ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
+
+# List all pending items (items not yet processed)
+jq '.pending_items' ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
+
+# View job progress summary
+jq '{version, total: (.completed_items | length) + (.pending_items | length), completed: (.completed_items | length), pending: (.pending_items | length)}' ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
+</code></pre>
+<p><strong>Key checkpoint fields:</strong></p>
+<ul>
+<li><code>version</code> - Checkpoint format version (for migration compatibility)</li>
+<li><code>completed_items</code> - Work items that have been successfully processed</li>
+<li><code>pending_items</code> - Work items still waiting to be processed</li>
+<li><code>job_id</code> - Unique identifier for the MapReduce job</li>
+<li><code>timestamp</code> - When the checkpoint was last saved</li>
+</ul>
 <hr />
 <h2 id="faq"><a class="header" href="#faq">FAQ</a></h2>
 <h3 id="q-why-are-my-changes-not-being-committed"><a class="header" href="#q-why-are-my-changes-not-being-committed">Q: Why are my changes not being committed?</a></h3>
@@ -589,15 +713,27 @@ map:
 <p><strong>A:</strong> Not directly, but you can use <code>shell</code> commands to invoke other workflows:</p>
 <pre><code class="language-yaml">- shell: "prodigy run other-workflow.yml"
 </code></pre>
+<h3 id="q-how-do-i-clean-up-old-worktrees"><a class="header" href="#q-how-do-i-clean-up-old-worktrees">Q: How do I clean up old worktrees?</a></h3>
+<p><strong>A:</strong> Use the <code>prodigy worktree clean</code> command to remove completed worktrees:</p>
+<pre><code class="language-bash"># List all worktrees
+prodigy worktree ls
+
+# Clean up completed worktrees
+prodigy worktree clean
+
+# Force cleanup of all worktrees (use with caution)
+prodigy worktree clean -f
+</code></pre>
+<p>Old worktrees can consume disk space, so periodic cleanup is recommended. The <code>clean</code> command safely removes worktrees that are no longer in use, while <code>-f</code> forces removal of all worktrees including those that may still be active.</p>
 <hr />
 <h2 id="common-error-messages"><a class="header" href="#common-error-messages">Common Error Messages</a></h2>
 <h3 id="mapreduceerror-types"><a class="header" href="#mapreduceerror-types">MapReduceError Types</a></h3>
 <p>Prodigy uses structured errors to help diagnose issues:</p>
 <p><strong>Job-level errors:</strong></p>
 <ul>
+<li><code>JobInitializationFailed</code> - Job failed to initialize, check configuration and permissions</li>
+<li><code>JobAlreadyExists</code> - Job ID already exists, choose a different job ID or clean up old job</li>
 <li><code>JobNotFound</code> - Job ID doesn’t exist, check job_id spelling or if job was cleaned up</li>
-<li><code>InvalidJobConfiguration</code> - Workflow YAML has configuration errors</li>
-<li><code>WorktreeSetupFailed</code> - Failed to create git worktree, check disk space and git status</li>
 </ul>
 <p><strong>Agent-level errors:</strong></p>
 <ul>
@@ -608,9 +744,12 @@ map:
 </ul>
 <p><strong>Resource errors:</strong></p>
 <ul>
-<li><code>WorktreeMergeConflict</code> - Git merge conflict when merging agent results</li>
 <li><code>ResourceExhausted</code> - Out of disk space, memory, or other resources</li>
-<li><code>StorageError</code> - Failed to read/write to storage, check permissions</li>
+</ul>
+<p><strong>Worktree errors:</strong></p>
+<ul>
+<li><code>WorktreeCreationFailed</code> - Failed to create git worktree, check disk space and git status</li>
+<li><code>WorktreeMergeConflict</code> - Git merge conflict when merging agent results</li>
 </ul>
 <p><strong>Configuration and validation errors:</strong></p>
 <ul>
@@ -625,6 +764,11 @@ map:
 <li><code>CheckpointCorrupted</code> - Checkpoint file corrupted at specific version, may need to restart job</li>
 <li><code>CheckpointLoadFailed</code> - Failed to load checkpoint, check file permissions and format</li>
 <li><code>CheckpointSaveFailed</code> - Failed to save checkpoint, check disk space and permissions</li>
+<li><code>CheckpointPersistFailed</code> - Failed to persist checkpoint to disk, check disk space</li>
+</ul>
+<p><strong>I/O errors:</strong></p>
+<ul>
+<li><code>WorkItemLoadFailed</code> - Failed to load work items from input file, check file format and path</li>
 </ul>
 <p><strong>Concurrency errors:</strong></p>
 <ul>

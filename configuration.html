@@ -230,7 +230,7 @@
 </ul>
 <p><strong>Unsupported formats:</strong></p>
 <ul>
-<li>TOML (<code>.toml</code>) - Deprecated, no longer supported</li>
+<li>TOML (<code>.toml</code>) - No longer supported. Prodigy will reject TOML files with an error during validation. See the Migration Guide below for converting to YAML.</li>
 <li>JSON (<code>.json</code>) - Not supported</li>
 </ul>
 <p>All configuration files must use YAML format.</p>
@@ -245,18 +245,25 @@
 </ol>
 <h3 id="specific-settings-precedence"><a class="header" href="#specific-settings-precedence">Specific Settings Precedence</a></h3>
 <h4 id="claude-api-key"><a class="header" href="#claude-api-key">Claude API Key</a></h4>
-<pre><code>Project config &gt; Global config &gt; Environment variable
+<pre><code>Project config &gt; Global config (with env var overrides) &gt; Defaults
 </code></pre>
+<p><strong>Important:</strong> Environment variables are merged into global config via the <code>merge_env_vars()</code> function before the project config check, so the actual evaluation order is:</p>
+<ol>
+<li><strong>Project config</strong> (highest priority) - Explicit project-level API key</li>
+<li><strong>Global config with environment variable overrides</strong> - Environment variables override values in <code>~/.prodigy/config.yml</code></li>
+<li><strong>Defaults</strong> (lowest priority)</li>
+</ol>
 <p>Example:</p>
-<pre><code class="language-yaml"># .prodigy/config.yml (takes precedence)
+<pre><code class="language-yaml"># .prodigy/config.yml (highest priority - takes precedence over everything)
 claude_api_key: "sk-project-key"
 </code></pre>
-<pre><code class="language-yaml"># ~/.prodigy/config.yml (fallback)
+<pre><code class="language-yaml"># ~/.prodigy/config.yml (can be overridden by env vars)
 claude_api_key: "sk-global-key"
 </code></pre>
-<pre><code class="language-bash"># Environment variable (lowest priority for API key)
+<pre><code class="language-bash"># Environment variable (overrides global config, but not project config)
 export PRODIGY_CLAUDE_API_KEY="sk-env-key"
 </code></pre>
+<p>If both <code>~/.prodigy/config.yml</code> has <code>claude_api_key: "sk-global-key"</code> and <code>PRODIGY_CLAUDE_API_KEY="sk-env-key"</code> is set, the environment variable wins for the merged global config. However, if <code>.prodigy/config.yml</code> has a <code>claude_api_key</code>, it overrides both.</p>
 <h4 id="auto-commit-setting"><a class="header" href="#auto-commit-setting">Auto-Commit Setting</a></h4>
 <pre><code>Project config &gt; Global config &gt; Default (true)
 </code></pre>
@@ -300,7 +307,7 @@ auto_commit: true
 <tr><td><code>spec_dir</code></td><td>Path</td><td>No</td><td><code>"specs"</code></td><td>Directory for specification files</td></tr>
 <tr><td><code>claude_api_key</code></td><td>String</td><td>No</td><td>None</td><td>Project-specific API key</td></tr>
 <tr><td><code>auto_commit</code></td><td>Boolean</td><td>No</td><td>None</td><td>Project-specific auto-commit setting</td></tr>
-<tr><td><code>variables</code></td><td>Table</td><td>No</td><td>None</td><td>Custom project variables (TOML table)</td></tr>
+<tr><td><code>variables</code></td><td>Map</td><td>No</td><td>None</td><td>Custom project variables as YAML map (internally stored as toml::Table for backward compatibility - users can ignore this detail)</td></tr>
 </tbody></table>
 </div>
 <h3 id="example-project-configuration"><a class="header" href="#example-project-configuration">Example Project Configuration</a></h3>
@@ -408,7 +415,7 @@ merge:
 <tr><td><code>base_dir</code></td><td>Path</td><td><code>~/.prodigy</code></td><td>Base directory for storage</td></tr>
 <tr><td><code>use_global</code></td><td>Boolean</td><td><code>true</code></td><td>Use global storage (local storage deprecated)</td></tr>
 <tr><td><code>enable_file_locks</code></td><td>Boolean</td><td><code>true</code></td><td>File-based locking</td></tr>
-<tr><td><code>max_file_size</code></td><td>Number</td><td><code>104857600</code></td><td>Max file size before rotation (100MB)</td></tr>
+<tr><td><code>max_file_size</code></td><td>Number</td><td><code>104857600</code></td><td>Max file size before rotation (100MB). Note: MemoryConfig also has a max_memory field with the same 100MB default.</td></tr>
 <tr><td><code>enable_compression</code></td><td>Boolean</td><td><code>false</code></td><td>Compression for archived files</td></tr>
 </tbody></table>
 </div>
@@ -489,16 +496,23 @@ merge:
 <h3 id="storage-environment-variables"><a class="header" href="#storage-environment-variables">Storage Environment Variables</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>PRODIGY_STORAGE_TYPE</code></td><td>String</td><td>Storage backend type (<code>file</code>, <code>memory</code>)</td></tr>
-<tr><td><code>PRODIGY_STORAGE_BASE_PATH</code></td><td>Path</td><td>Custom storage directory</td></tr>
-<tr><td><code>PRODIGY_STORAGE_DIR</code></td><td>Path</td><td>Alternative storage directory variable</td></tr>
-<tr><td><code>PRODIGY_STORAGE_PATH</code></td><td>Path</td><td>Alternative storage directory variable</td></tr>
+<tr><td><code>PRODIGY_STORAGE_BASE_PATH</code></td><td>Path</td><td>Custom storage directory (recommended)</td></tr>
+<tr><td><code>PRODIGY_STORAGE_DIR</code></td><td>Path</td><td>Alternative storage directory variable (fallback)</td></tr>
+<tr><td><code>PRODIGY_STORAGE_PATH</code></td><td>Path</td><td>Alternative storage directory variable (fallback)</td></tr>
 </tbody></table>
 </div>
+<p><strong>Note:</strong> Multiple environment variable names are supported for the storage base path. They are checked in the following order:</p>
+<ol>
+<li><code>PRODIGY_STORAGE_BASE_PATH</code> (recommended)</li>
+<li><code>PRODIGY_STORAGE_DIR</code> (fallback)</li>
+<li><code>PRODIGY_STORAGE_PATH</code> (fallback)</li>
+</ol>
+<p>Use <code>PRODIGY_STORAGE_BASE_PATH</code> for consistency with the config file field name.</p>
 <h3 id="automation-environment-variables"><a class="header" href="#automation-environment-variables">Automation Environment Variables</a></h3>
 <p>These variables are set automatically by Prodigy during execution:</p>
 <div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Value</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>PRODIGY_AUTOMATION</code></td><td><code>"true"</code></td><td>Signals automated execution mode</td></tr>
-<tr><td><code>PRODIGY_CLAUDE_STREAMING</code></td><td><code>"true"</code></td><td>Enables streaming mode (when verbosity &gt;= 1)</td></tr>
+<tr><td><code>PRODIGY_CLAUDE_STREAMING</code></td><td><code>"true"</code> or <code>"false"</code></td><td>Automatically set by Prodigy based on verbosity level (<code>-v</code> flag). Can be manually set to <code>"false"</code> to disable JSON streaming in CI/CD environments with storage constraints.</td></tr>
 </tbody></table>
 </div>
 <h3 id="examples"><a class="header" href="#examples">Examples</a></h3>

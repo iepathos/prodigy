@@ -257,7 +257,9 @@ merge:
 <ul>
 <li><strong><code>goal_seek:</code></strong> - Goal-seeking operations with validation (see <a href="advanced.html">Advanced Features</a>)</li>
 <li><strong><code>foreach:</code></strong> - Iterate over lists with nested commands (see <a href="advanced.html">Advanced Features</a>)</li>
-<li><strong><code>validate:</code></strong> - Validation steps with configurable thresholds (see <a href="commands.html">Commands</a>)</li>
+<li><strong><code>validate:</code></strong> - Validates that implementation matches spec/plan requirements (see <a href="commands.html">Commands</a>)</li>
+<li><strong><code>write_file:</code></strong> - Write content to files with format validation (see <a href="commands.html">Commands</a>)</li>
+<li><strong><code>analyze:</code></strong> - Run analysis handlers for coverage, complexity metrics, etc. (see <a href="commands.html">Commands</a>)</li>
 </ul>
 <p><strong>Deprecated:</strong></p>
 <ul>
@@ -271,8 +273,15 @@ merge:
   id: "run-tests"              # Step identifier for output referencing
   commit_required: true        # Expect git commit after this step
   timeout: 300                 # Timeout in seconds
-  working_dir: "./subproject"  # Set working directory for this command
+  cwd: "./subproject"          # Set working directory (alias: working_dir)
+  output_file: "test-results.txt"  # Save output to file
 </code></pre>
+<p><strong>Working Directory Control:</strong></p>
+<ul>
+<li><code>cwd</code> (or <code>working_dir</code>) - Changes working directory for the command</li>
+<li>Supports variable interpolation: <code>cwd: "${PROJECT_DIR}/subdir"</code></li>
+<li>Relative paths are relative to workflow file location</li>
+</ul>
 <h3 id="conditional-execution"><a class="header" href="#conditional-execution">Conditional Execution</a></h3>
 <p>Run commands based on conditions:</p>
 <pre><code class="language-yaml">- shell: "deploy.sh"
@@ -290,8 +299,9 @@ merge:
 <p>Capture command output to variables for use in subsequent commands:</p>
 <pre><code class="language-yaml">- shell: "git rev-parse HEAD"
   id: "get-commit"
-  capture: "commit_hash"       # Modern: variable name to capture output
-  capture_format: "string"     # Format type (see below)
+  capture_output: "commit_hash"  # Variable name to capture output
+  capture_format: "string"       # Format type (see below)
+  capture_streams: "stdout"      # Which streams to capture (default)
 </code></pre>
 <p><strong>Capture formats:</strong></p>
 <ul>
@@ -301,7 +311,39 @@ merge:
 <li><code>number</code> - Parse output as number</li>
 <li><code>boolean</code> - Parse output as true/false</li>
 </ul>
-<p><strong>Note:</strong> The <code>capture</code> field is the recommended approach. An older <code>capture_output</code> field exists for backward compatibility but <code>capture</code> is preferred for new workflows.</p>
+<p><strong>Stream control:</strong></p>
+<ul>
+<li><code>capture_streams</code> - Controls which output streams to capture:
+<ul>
+<li><code>stdout</code> - Capture standard output only (default)</li>
+<li><code>stderr</code> - Capture error output only</li>
+<li><code>both</code> - Capture both stdout and stderr combined</li>
+</ul>
+</li>
+</ul>
+<pre><code class="language-yaml"># Example: Capture stderr separately for error analysis
+- shell: "cargo build 2&gt;&amp;1"
+  capture_output: "build_output"
+  capture_streams: "both"
+</code></pre>
+<p><strong>Output capture with metadata:</strong></p>
+<p>When using <code>capture_output</code> with a variable name, the command output is stored in that variable, and additional metadata is automatically captured as sub-fields:</p>
+<ul>
+<li><code>${varname}</code> - The captured output (formatted according to <code>capture_format</code>)</li>
+<li><code>${varname.exit_code}</code> - The command’s exit code (0 for success)</li>
+<li><code>${varname.success}</code> - Boolean indicating command success (true/false)</li>
+<li><code>${varname.duration}</code> - Command execution duration in seconds</li>
+<li><code>${varname.stderr}</code> - Standard error output (when using <code>capture_streams: "both"</code>)</li>
+</ul>
+<p>Example:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  capture_output: "test_results"
+  capture_format: "string"
+
+- shell: "echo 'Exit code: ${test_results.exit_code}'"
+- shell: "echo 'Success: ${test_results.success}'"
+- shell: "echo 'Duration: ${test_results.duration}s'"
+</code></pre>
 <p>For comprehensive coverage of these options, see:</p>
 <ul>
 <li><a href="advanced.html">Advanced Features</a> - Conditional execution, output capture, timeouts</li>
@@ -341,6 +383,18 @@ merge:
     API_URL: https://api.example.com
 </code></pre>
 <p>Activate a profile with: <code>prodigy run --profile development</code></p>
+<h3 id="step-level-environment-overrides"><a class="header" href="#step-level-environment-overrides">Step-Level Environment Overrides</a></h3>
+<p>Individual commands can override or add environment variables:</p>
+<pre><code class="language-yaml">- shell: "npm test"
+  env:
+    NODE_ENV: test
+    DEBUG: "true"
+
+- shell: "cargo build"
+  env:
+    RUST_BACKTRACE: full
+</code></pre>
+<p>Step-level environment variables override global variables for that command only.</p>
 <p>For more details, see the <a href="environment.html">Environment Variables chapter</a>.</p>
 <h2 id="merge-workflows"><a class="header" href="#merge-workflows">Merge Workflows</a></h2>
 <p>Merge workflows execute when merging worktree changes back to the main branch. This feature enables custom validation, testing, and conflict resolution before integrating changes.</p>
@@ -356,9 +410,7 @@ merge:
   - shell: "git merge origin/main"
   - shell: "cargo test"
   - claude: "/prodigy-merge-worktree ${merge.source_branch}"
-
-# Optional: timeout at workflow level, not under merge
-timeout: 600
+  timeout: 600  # Optional: timeout for entire merge phase (seconds)
 </code></pre>
 <p><strong>Available merge variables:</strong></p>
 <ul>
@@ -397,12 +449,12 @@ merge:
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <p>Now that you understand basic workflows, explore these topics:</p>
 <ul>
-<li><strong><a href="command-reference.html">Command Reference</a></strong> - Detailed guide to all command types and options</li>
+<li><strong><a href="commands.html">Command Types</a></strong> - Detailed guide to all command types and options</li>
+<li><strong><a href="advanced.html">Advanced Features</a></strong> - Conditional execution, output capture, goal seeking, and more</li>
 <li><strong><a href="environment.html">Environment Variables</a></strong> - Advanced environment configuration</li>
 <li><strong><a href="error-handling.html">Error Handling</a></strong> - Handle failures gracefully</li>
 <li><strong><a href="mapreduce.html">MapReduce Workflows</a></strong> - Parallel processing for large-scale tasks</li>
-<li><strong><a href="conditionals.html">Conditional Execution</a></strong> - Run commands based on conditions</li>
-<li><strong><a href="output-capture.html">Output Capture</a></strong> - Capture and use command outputs</li>
+<li><strong><a href="variables.html">Variables</a></strong> - Variable interpolation and usage</li>
 </ul>
 
                     </main>

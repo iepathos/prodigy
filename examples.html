@@ -199,8 +199,8 @@
       echo "score: ${coverage%.*}"
     threshold: 80
     max_attempts: 5
-  commit_required: true
 </code></pre>
+<p><strong>Note:</strong> The <code>goal_seek</code> command will automatically commit changes made by the Claude command. Commit behavior is controlled by the command execution, not by the <code>goal_seek</code> configuration.</p>
 <hr />
 <h2 id="example-3-foreach-iteration"><a class="header" href="#example-3-foreach-iteration">Example 3: Foreach Iteration</a></h2>
 <pre><code class="language-yaml"># Test multiple configurations in sequence
@@ -221,7 +221,7 @@
     - "web-service"
     - "api-gateway"
     - "worker-service"
-  parallel: 3
+  parallel: 3  # Options: false (sequential), true (default parallelism), or number (specific count)
   continue_on_error: true
   do:
     - shell: "cd services/${foreach.item} &amp;&amp; cargo build"
@@ -240,7 +240,7 @@ setup:
 
 map:
   input: items.json
-  json_path: "$[*]"  # Process all items
+  json_path: "$[*]"  # Process all items in root array
   agent_template:
     - claude: "/review-file ${item.path}"
       id: "review"
@@ -252,12 +252,13 @@ map:
 reduce:
   - claude: "/summarize-reviews ${map.results}"
 </code></pre>
+<p><strong>Note:</strong> JSONPath <code>"$[*]"</code> matches all items in the root array. Since the setup phase creates an array of <code>{path: ...}</code> objects, each map agent receives an <code>item</code> object with <code>item.path</code> available for use in commands.</p>
 <hr />
 <h2 id="example-5-conditional-deployment"><a class="header" href="#example-5-conditional-deployment">Example 5: Conditional Deployment</a></h2>
 <pre><code class="language-yaml">- shell: "cargo test --quiet &amp;&amp; echo true || echo false"
   id: "test"
-  capture: "test_result"
-  capture_format: "boolean"  # Supported: string, json, lines, number, boolean
+  capture_output: "test_result"  # Canonical field name (alias: 'capture')
+  capture_format: "boolean"  # Supported formats explained below
   timeout: 300  # Timeout in seconds (5 minutes)
 
 - shell: "cargo build --release"
@@ -268,6 +269,14 @@ reduce:
   on_success:
     shell: "docker push myapp:latest"
 </code></pre>
+<p><strong>Note:</strong> <code>capture_format</code> options:</p>
+<ul>
+<li><code>string</code> - Raw text output (default)</li>
+<li><code>json</code> - Parse output as JSON object</li>
+<li><code>lines</code> - Split output into array of lines</li>
+<li><code>number</code> - Parse output as numeric value</li>
+<li><code>boolean</code> - Parse as true/false based on exit code or output text</li>
+</ul>
 <hr />
 <h2 id="example-6-multi-step-validation"><a class="header" href="#example-6-multi-step-validation">Example 6: Multi-Step Validation</a></h2>
 <pre><code class="language-yaml">- claude: "/implement-feature auth"
@@ -291,25 +300,27 @@ env:
   NODE_ENV: production
   API_URL: https://api.production.com
 
+# Secrets (automatically masked in logs)
+secrets:
+  # Simple format - just the secret value
+  API_KEY: "${SECRET_API_KEY}"
+
+  # OR provider format - fetch from external secret store
+  # API_KEY:
+  #   provider: env
+  #   key: SECRET_API_KEY
+  #   version: latest  # optional
+
 # Environment profiles for different contexts
+# Note: Variables go directly under the profile name, not nested under 'env'
 profiles:
   production:
-    env:
-      API_URL: https://api.production.com
-      LOG_LEVEL: error
-    description: "Production environment"
+    API_URL: https://api.production.com
+    LOG_LEVEL: error
 
   staging:
-    env:
-      API_URL: https://api.staging.com
-      LOG_LEVEL: warn
-    description: "Staging environment"
-
-# Secrets (masked in logs)
-secrets:
-  API_KEY:
-    value: "${SECRET_API_KEY}"
-    secret: true
+    API_URL: https://api.staging.com
+    LOG_LEVEL: warn
 
 # Load additional variables from .env files
 # Note: Paths are relative to workflow file location
@@ -328,7 +339,7 @@ env_files:
   env:
     LOG_LEVEL: debug
 </code></pre>
-<p><strong>Note:</strong> Profile activation with <code>active_profile</code> is managed internally and not currently exposed in WorkflowConfig YAML. Use <code>--profile</code> CLI flag to activate profiles.</p>
+<p><strong>Note:</strong> Profiles are activated using the <code>--profile &lt;name&gt;</code> CLI flag when running workflows. For example: <code>prodigy run workflow.yml --profile production</code></p>
 <hr />
 <h2 id="example-8-complex-mapreduce-with-error-handling"><a class="header" href="#example-8-complex-mapreduce-with-error-handling">Example 8: Complex MapReduce with Error Handling</a></h2>
 <pre><code class="language-yaml">name: tech-debt-elimination
@@ -357,12 +368,13 @@ reduce:
   - claude: "/compare-debt-reports --before debt.json --after debt-after.json"
 
 error_policy:
-  on_item_failure: dlq
-  continue_on_failure: true
-  max_failures: 5
-  failure_threshold: 0.3
-  error_collection: aggregate  # Options: aggregate, immediate, batched:{size}
+  on_item_failure: dlq  # Default: dlq (failed items to Dead Letter Queue)
+  continue_on_failure: true  # Default: true (continue despite failures)
+  max_failures: 5  # Optional: stop after N failures
+  failure_threshold: 0.3  # Optional: stop if &gt;30% fail
+  error_collection: aggregate  # Default: aggregate (Options: aggregate, immediate, batched:{size})
 </code></pre>
+<p><strong>Note:</strong> The entire <code>error_policy</code> block is optional with sensible defaults. If not specified, failed items go to the Dead Letter Queue (<code>on_item_failure: dlq</code>), workflow continues despite failures (<code>continue_on_failure: true</code>), and errors are aggregated at the end (<code>error_collection: aggregate</code>). Use <code>max_failures</code> or <code>failure_threshold</code> to fail fast if too many items fail.</p>
 <hr />
 <h2 id="example-9-generating-configuration-files"><a class="header" href="#example-9-generating-configuration-files">Example 9: Generating Configuration Files</a></h2>
 <pre><code class="language-yaml"># Generate a JSON configuration file
@@ -406,6 +418,49 @@ error_policy:
       API URL: ${API_URL}
       Timestamp: $(date)
 </code></pre>
+<hr />
+<h2 id="example-10-advanced-features"><a class="header" href="#example-10-advanced-features">Example 10: Advanced Features</a></h2>
+<pre><code class="language-yaml"># Nested error handling with retry configuration
+- shell: "cargo build --release"
+  on_failure:
+    shell: "cargo clean"
+    on_success:
+      shell: "cargo build --release"
+      max_attempts: 2
+  on_success:
+    shell: "cargo test --release"
+
+# Complex conditional execution with max_attempts
+- shell: "cargo test"
+  id: "test"
+  capture_output: "test_output"
+
+- claude: "/fix-tests"
+  when: "${test_output} contains 'FAILED'"
+  max_attempts: 3
+
+# Conditional deployment based on test results
+- shell: "cargo build --release"
+  when: "${test.exit_code} == 0"
+
+# Multi-condition logic
+- shell: "./deploy.sh"
+  when: "${test_output} contains 'passed' and ${build_output} contains 'Finished'"
+</code></pre>
+<p><strong>Note:</strong> Advanced features currently supported:</p>
+<ul>
+<li><strong>Nested handlers</strong>: Chain <code>on_failure</code> and <code>on_success</code> handlers for complex error recovery</li>
+<li><strong>Max attempts</strong>: Combine with conditional execution for automatic retry logic</li>
+<li><strong>Conditional execution</strong>: Use <code>when</code> clauses with captured output or variables</li>
+<li><strong>Complex conditionals</strong>: Combine multiple conditions with <code>and</code>/<code>or</code> operators</li>
+</ul>
+<p><strong>Future capabilities</strong> (not yet implemented, but planned):</p>
+<ul>
+<li><strong>Working directory</strong>: <code>cwd</code> field for running commands in specific directories</li>
+<li><strong>Git context variables</strong>: Access <code>files_modified</code>, <code>files_added</code> from git operations</li>
+<li><strong>Pattern filtering</strong>: Filter file lists with <code>:*.rs</code> syntax</li>
+<li><strong>Format modifiers</strong>: Advanced output transformation with <code>:json</code>, <code>:lines</code>, <code>:csv</code></li>
+</ul>
 
                     </main>
 

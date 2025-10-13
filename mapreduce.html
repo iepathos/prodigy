@@ -182,6 +182,31 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="mapreduce-workflows"><a class="header" href="#mapreduce-workflows">MapReduce Workflows</a></h1>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
+<p>Want to get started with MapReduce? Here’s a minimal working example:</p>
+<pre><code class="language-yaml">name: my-first-mapreduce
+mode: mapreduce
+
+# Generate work items
+setup:
+  - shell: "echo '[{\"id\": 1, \"name\": \"task-1\"}, {\"id\": 2, \"name\": \"task-2\"}]' &gt; items.json"
+
+# Process items in parallel
+map:
+  input: "items.json"
+  json_path: "$[*]"
+  agent_template:
+    - shell: "echo Processing ${item.name}"
+  max_parallel: 5
+
+# Aggregate results
+reduce:
+  - shell: "echo Completed ${map.successful}/${map.total} items"
+</code></pre>
+<p>Run it:</p>
+<pre><code class="language-bash">prodigy run workflow.yml
+</code></pre>
+<p>That’s it! Now let’s explore the full capabilities.</p>
 <h2 id="complete-structure"><a class="header" href="#complete-structure">Complete Structure</a></h2>
 <pre><code class="language-yaml">name: parallel-processing
 mode: mapreduce
@@ -270,7 +295,7 @@ error_policy:
   circuit_breaker:
     failure_threshold: 5      # Open circuit after N failures
     success_threshold: 2      # Close circuit after N successes
-    timeout: "60s"           # Duration before attempting half-open (e.g., "60s", "1m", "5m")
+    timeout: "60s"           # Duration before attempting half-open (humantime format: "1s", "1m", "5m")
     half_open_requests: 3    # Test requests in half-open state
 
   # Retry configuration with backoff
@@ -329,7 +354,8 @@ max_failures: 5
 <p>Example delays: 1s, 1s, 2s, 3s, 5s, 8s</p>
 <p><strong>Important Notes:</strong></p>
 <ul>
-<li>All duration fields use <a href="https://docs.rs/humantime/latest/humantime/">humantime format</a>: “1s”, “500ms”, “2m”, “1h30m”</li>
+<li>All duration fields use <a href="https://docs.rs/humantime/latest/humantime/">humantime format</a> via <a href="https://docs.rs/humantime-serde/">humantime_serde</a>: “1s”, “500ms”, “2m”, “1h30m”, “1.5s”</li>
+<li>The humantime_serde library enables flexible duration parsing - you can use units like “s”, “ms”, “m”, “h” and combine them (e.g., “1h30m”)</li>
 <li>The <code>backoff</code> field is an <strong>enum</strong> - use ONE variant, not a <code>type</code> discriminator</li>
 <li>Use <code>max_attempts</code> to limit total retries (there is no <code>max_delay</code> field)</li>
 <li>Choose strategy based on your use case:
@@ -685,6 +711,12 @@ backoff:
   fixed:
     delay: "1s"  # or "1000ms", "1m", "1h30m"
 </code></pre>
+<p><strong>Note:</strong> All Duration fields (delay, initial, increment, timeout) use <a href="https://docs.rs/humantime-serde/">humantime_serde</a> for serialization, which supports flexible formats:</p>
+<ul>
+<li>Single units: <code>"1s"</code>, <code>"500ms"</code>, <code>"2m"</code>, <code>"1h"</code></li>
+<li>Combined units: <code>"1h30m"</code>, <code>"2m30s"</code></li>
+<li>Decimal values: <code>"1.5s"</code>, <code>"0.5m"</code></li>
+</ul>
 <h3 id="confusing-simple-vs-detailed-capture"><a class="header" href="#confusing-simple-vs-detailed-capture">Confusing Simple vs Detailed Capture</a></h3>
 <p><strong>Problem:</strong> Treating simple capture format as “legacy” or not knowing when to use it.</p>
 <p><strong>Solution:</strong></p>
@@ -806,6 +838,208 @@ agent_template:
 <li>Check event logs: <code>prodigy events &lt;job_id&gt;</code></li>
 <li>Consider using offset to skip already-processed items</li>
 </ul>
+<h2 id="performance-tuning"><a class="header" href="#performance-tuning">Performance Tuning</a></h2>
+<h3 id="choosing-max_parallel"><a class="header" href="#choosing-max_parallel">Choosing max_parallel</a></h3>
+<p>The <code>max_parallel</code> setting controls how many agents run concurrently. Choose based on:</p>
+<p><strong>System Resources:</strong></p>
+<ul>
+<li><strong>CPU-bound tasks</strong> (compilation, analysis): <code>max_parallel = CPU cores * 0.75</code></li>
+<li><strong>I/O-bound tasks</strong> (API calls, file operations): <code>max_parallel = CPU cores * 2</code></li>
+<li><strong>Memory-intensive tasks</strong>: Lower value to avoid OOM (e.g., <code>max_parallel = 4</code>)</li>
+</ul>
+<p><strong>Work Item Characteristics:</strong></p>
+<ul>
+<li><strong>Fast items</strong> (&lt;30s each): Higher parallelism (10-20) for throughput</li>
+<li><strong>Slow items</strong> (&gt;5min each): Lower parallelism (3-5) to avoid timeout cascades</li>
+<li><strong>Flaky items</strong> (transient failures): Use circuit breaker + lower parallelism</li>
+</ul>
+<p><strong>Example Configurations:</strong></p>
+<pre><code class="language-yaml"># Code review across 100 PRs (API-bound, fast)
+map:
+  max_parallel: 20
+  agent_timeout_secs: 120
+
+# Multi-file refactoring (CPU/memory-bound, slow)
+map:
+  max_parallel: 4
+  agent_timeout_secs: 600
+
+# Test suite execution (flaky, medium)
+map:
+  max_parallel: 8
+  agent_timeout_secs: 300
+  error_policy:
+    circuit_breaker:
+      failure_threshold: 3
+</code></pre>
+<h3 id="timeout-configuration"><a class="header" href="#timeout-configuration">Timeout Configuration</a></h3>
+<p>Choose <code>agent_timeout_secs</code> based on task complexity:</p>
+<ul>
+<li><strong>Simple tasks</strong> (file operations): 60-120 seconds</li>
+<li><strong>Medium tasks</strong> (code analysis): 300 seconds (default)</li>
+<li><strong>Complex tasks</strong> (refactoring, tests): 600-1200 seconds</li>
+<li><strong>Very slow tasks</strong> (large builds): 1800+ seconds</li>
+</ul>
+<p><strong>Warning:</strong> Set timeout too low → premature failures. Set too high → hung agents block progress.</p>
+<h3 id="circuit-breaker-tuning"><a class="header" href="#circuit-breaker-tuning">Circuit Breaker Tuning</a></h3>
+<p>Use circuit breakers to prevent cascading failures:</p>
+<pre><code class="language-yaml">error_policy:
+  circuit_breaker:
+    failure_threshold: 5      # Open after 5 consecutive failures
+    success_threshold: 2      # Close after 2 successes in half-open
+    timeout: "60s"           # Try again after 1 minute
+    half_open_requests: 3    # Test with 3 requests before fully closing
+</code></pre>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>External API dependencies (rate limiting, downtime)</li>
+<li>Flaky test suites (intermittent failures)</li>
+<li>Resource contention (database connections, file locks)</li>
+</ul>
+<p><strong>Tuning guidelines:</strong></p>
+<ul>
+<li><strong>Sensitive systems</strong>: Lower <code>failure_threshold</code> (3-5), shorter <code>timeout</code> (30s-1m)</li>
+<li><strong>Robust systems</strong>: Higher <code>failure_threshold</code> (10+), longer <code>timeout</code> (5m-10m)</li>
+<li><strong>Testing recovery</strong>: Lower <code>half_open_requests</code> (1-2) for faster validation</li>
+</ul>
+<h2 id="real-world-use-cases"><a class="header" href="#real-world-use-cases">Real-World Use Cases</a></h2>
+<h3 id="use-case-1-code-review-across-prs"><a class="header" href="#use-case-1-code-review-across-prs">Use Case 1: Code Review Across PRs</a></h3>
+<p>Review all open pull requests in parallel:</p>
+<pre><code class="language-yaml">name: review-all-prs
+mode: mapreduce
+
+setup:
+  - shell: "gh pr list --json number,title,headRefName --limit 100 &gt; prs.json"
+  capture_outputs:
+    prs: 0
+
+map:
+  input: "prs.json"
+  json_path: "$[*]"
+  agent_template:
+    - shell: "gh pr checkout ${item.number}"
+    - claude: "/review-pr ${item.number}"
+    - shell: "gh pr review ${item.number} --comment --body-file review.md"
+  max_parallel: 10
+  agent_timeout_secs: 300
+
+reduce:
+  - claude: "/summarize-reviews ${map.results}"
+  - shell: "echo '✅ Reviewed ${map.successful} PRs'"
+</code></pre>
+<h3 id="use-case-2-multi-file-refactoring"><a class="header" href="#use-case-2-multi-file-refactoring">Use Case 2: Multi-File Refactoring</a></h3>
+<p>Refactor a common pattern across many files:</p>
+<pre><code class="language-yaml">name: refactor-error-handling
+mode: mapreduce
+
+setup:
+  - shell: "rg -l 'unwrap\\(\\)' src/ --json | jq -s 'map({path: .data.path.text})' &gt; files.json"
+
+map:
+  input: "files.json"
+  json_path: "$[*]"
+  agent_template:
+    - claude: "/refactor-unwrap ${item.path}"
+    - shell: "cargo test --lib -- --test-threads=1"
+      on_failure:
+        claude: "/fix-tests ${item.path}"
+  max_parallel: 4
+  agent_timeout_secs: 600
+
+reduce:
+  - shell: "cargo test --all"
+  - claude: "/verify-refactoring ${map.results}"
+</code></pre>
+<h3 id="use-case-3-documentation-drift-analysis"><a class="header" href="#use-case-3-documentation-drift-analysis">Use Case 3: Documentation Drift Analysis</a></h3>
+<p>Analyze and fix documentation for multiple chapters:</p>
+<pre><code class="language-yaml">name: fix-docs-drift
+mode: mapreduce
+
+setup:
+  - shell: "ls book/src/*.md | jq -R -s 'split(\"\\n\") | map(select(length &gt; 0)) | map({path: .})' &gt; chapters.json"
+
+map:
+  input: "chapters.json"
+  json_path: "$[*]"
+  agent_template:
+    - claude: "/analyze-drift ${item.path}"
+    - claude: "/fix-drift ${item.path}"
+  max_parallel: 8
+  filter: "item.path != 'book/src/SUMMARY.md'"
+
+reduce:
+  - claude: "/summarize-drift-fixes ${map.results}"
+  - shell: "mdbook build book/"
+</code></pre>
+<h3 id="use-case-4-test-suite-parallelization"><a class="header" href="#use-case-4-test-suite-parallelization">Use Case 4: Test Suite Parallelization</a></h3>
+<p>Run test suites in parallel across modules:</p>
+<pre><code class="language-yaml">name: parallel-tests
+mode: mapreduce
+
+setup:
+  - shell: "cargo test --list --format json | jq -s 'map(select(.type == \"test\")) | map({name: .name})' &gt; tests.json"
+
+map:
+  input: "tests.json"
+  json_path: "$[*]"
+  agent_template:
+    - shell: "cargo test ${item.name} -- --exact"
+  max_parallel: 16
+  agent_timeout_secs: 120
+  error_policy:
+    on_item_failure: dlq
+    continue_on_failure: true
+
+reduce:
+  - shell: "prodigy dlq list ${job_id}"
+  - shell: "echo '✅ ${map.successful}/${map.total} tests passed'"
+</code></pre>
+<h2 id="workflow-format-comparison"><a class="header" href="#workflow-format-comparison">Workflow Format Comparison</a></h2>
+<h3 id="simple-vs-full-configuration"><a class="header" href="#simple-vs-full-configuration">Simple vs Full Configuration</a></h3>
+<p>Many workflow sections support both simple (array) and full (object) formats. Here’s when to use each:</p>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>Simple Format</th><th>Full Format</th><th>When to Use Simple</th><th>When to Use Full</th></tr></thead><tbody>
+<tr><td><strong>setup</strong></td><td><code>setup: [commands]</code></td><td><code>setup: {commands, timeout, capture_outputs}</code></td><td>No timeout or capture needed</td><td>Need timeout or output capture</td></tr>
+<tr><td><strong>merge</strong></td><td><code>merge: [commands]</code></td><td><code>merge: {commands, timeout}</code></td><td>Default timeout (5min) OK</td><td>Custom timeout needed</td></tr>
+<tr><td><strong>reduce</strong></td><td><code>reduce: [commands]</code></td><td><code>reduce: {commands}</code> (deprecated)</td><td>Always (modern syntax)</td><td>Never (use simple)</td></tr>
+<tr><td><strong>agent_template</strong></td><td><code>agent_template: [commands]</code></td><td><code>agent_template: {commands}</code> (deprecated)</td><td>Always (modern syntax)</td><td>Never (use simple)</td></tr>
+</tbody></table>
+</div>
+<p><strong>Migration from Full to Simple:</strong></p>
+<pre><code class="language-yaml"># ❌ OLD (deprecated but supported)
+agent_template:
+  commands:
+    - claude: "/process ${item}"
+
+reduce:
+  commands:
+    - shell: "echo done"
+
+# ✅ NEW (recommended)
+agent_template:
+  - claude: "/process ${item}"
+
+reduce:
+  - shell: "echo done"
+</code></pre>
+<p><strong>When Full Format is Required:</strong></p>
+<pre><code class="language-yaml"># Setup with capture (requires full format)
+setup:
+  commands:
+    - shell: "cargo test --list --format json &gt; tests.json"
+  timeout: 300
+  capture_outputs:
+    test_count:
+      command_index: 0
+      json_path: "$.length"
+
+# Merge with custom timeout (requires full format)
+merge:
+  commands:
+    - shell: "cargo build --release"
+    - claude: "/merge-worktree ${merge.source_branch}"
+  timeout: 1200  # 20 minutes
+</code></pre>
+<p><strong>Best Practice:</strong> Use simple format by default, switch to full only when you need the extra features (timeout, capture_outputs).</p>
 
                     </main>
 

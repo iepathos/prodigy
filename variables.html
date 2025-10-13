@@ -200,6 +200,7 @@
 </tbody></table>
 </div>
 <p><strong>Note</strong>: Using phase-specific variables outside their designated phase (e.g., <code>${item}</code> in reduce phase, <code>${map.results}</code> in map phase) will result in interpolation errors or empty values. Always verify variable availability matches your workflow phase.</p>
+<p><strong>Reduce Phase Access to Item Data</strong>: In reduce phase, individual item variables (<code>${item.*}</code>) are not directly available, but you can access all item data through <code>${map.results}</code> which contains the aggregated results from all map agents. This allows you to process item-level information during aggregation.</p>
 <h2 id="available-variables"><a class="header" href="#available-variables">Available Variables</a></h2>
 <h3 id="standard-variables"><a class="header" href="#standard-variables">Standard Variables</a></h3>
 <ul>
@@ -208,9 +209,8 @@
 <li><code>${workflow.iteration}</code> - Current iteration number</li>
 <li><code>${step.name}</code> - Current step name</li>
 <li><code>${step.index}</code> - Current step index</li>
-<li><code>${step.files_changed}</code> - Files changed in current step</li>
-<li><code>${workflow.files_changed}</code> - All files changed in workflow</li>
 </ul>
+<p><strong>Note</strong>: For detailed file tracking, use the Git Context Variables section below which includes <code>step.files_changed</code>, <code>step.files_added</code>, <code>step.files_modified</code>, etc.</p>
 <h3 id="system-variables"><a class="header" href="#system-variables">System Variables</a></h3>
 <p>These variables are automatically available in all workflow contexts:</p>
 <ul>
@@ -219,6 +219,7 @@
 <li><code>${git.branch}</code> - Current git branch name</li>
 <li><code>${git.commit}</code> - Current git commit hash (short SHA)</li>
 </ul>
+<p><strong>Git Context Variables:</strong> The <code>git.branch</code> and <code>git.commit</code> variables are dynamically populated from your repository state when the workflow runs. They are not available if running outside a git repository.</p>
 <p><strong>Example Usage:</strong></p>
 <pre><code class="language-yaml">- shell: "cd ${PROJECT_ROOT} &amp;&amp; cargo build"
 - shell: "echo 'Running on branch: ${git.branch}'"
@@ -279,13 +280,15 @@
 </ul>
 <h3 id="validation-variables"><a class="header" href="#validation-variables">Validation Variables</a></h3>
 <ul>
-<li><code>${validation.completion}</code> - Completion percentage</li>
-<li><code>${validation.completion_percentage}</code> - Completion percentage (numeric)</li>
+<li><code>${validation.completion}</code> - Completion percentage (numeric, same as completion_percentage)</li>
+<li><code>${validation.completion_percentage}</code> - Completion percentage (numeric, explicit alias)</li>
 <li><code>${validation.implemented}</code> - List of implemented features</li>
 <li><code>${validation.missing}</code> - Missing requirements</li>
+<li><code>${validation.missing_count}</code> - Number of missing requirements (numeric)</li>
 <li><code>${validation.gaps}</code> - Gap details</li>
 <li><code>${validation.status}</code> - Status (complete/incomplete/failed)</li>
 </ul>
+<p><strong>Note</strong>: <code>validation.completion</code> and <code>validation.completion_percentage</code> are equivalent - both return the numeric completion percentage value.</p>
 <h3 id="git-context-variables"><a class="header" href="#git-context-variables">Git Context Variables</a></h3>
 <p><strong>Commit Tracking:</strong></p>
 <ul>
@@ -295,30 +298,37 @@
 <p><strong>Note</strong>: These are space-separated strings of commit hashes (e.g., “abc123 def456 ghi789”), not arrays. Use in shell commands that accept commit lists.</p>
 <p><strong>File Change Tracking:</strong></p>
 <ul>
-<li><code>${step.files_added}</code> - Number of files added in current step</li>
-<li><code>${step.files_modified}</code> - Number of files modified in current step</li>
-<li><code>${step.files_deleted}</code> - Number of files deleted in current step</li>
-<li><code>${step.commit_count}</code> - Number of commits in current step</li>
-<li><code>${step.insertions}</code> - Lines added in current step</li>
-<li><code>${step.deletions}</code> - Lines removed in current step</li>
+<li><code>${step.files_added}</code> - Space-separated list of files added in current step</li>
+<li><code>${step.files_modified}</code> - Space-separated list of files modified in current step</li>
+<li><code>${step.files_deleted}</code> - Space-separated list of files deleted in current step</li>
+<li><code>${step.files_changed}</code> - Space-separated list of all changed files (union of added, modified, deleted)</li>
+<li><code>${step.commit_count}</code> - Number of commits in current step (numeric)</li>
+<li><code>${step.insertions}</code> - Lines added in current step (numeric)</li>
+<li><code>${step.deletions}</code> - Lines removed in current step (numeric)</li>
 </ul>
 <p><strong>Workflow Change Tracking:</strong></p>
 <ul>
-<li><code>${workflow.files_added}</code> - Total files added in entire workflow</li>
-<li><code>${workflow.files_modified}</code> - Total files modified in entire workflow</li>
-<li><code>${workflow.files_deleted}</code> - Total files deleted in entire workflow</li>
-<li><code>${workflow.commit_count}</code> - Total commits in entire workflow</li>
-<li><code>${workflow.insertions}</code> - Total lines added in entire workflow</li>
-<li><code>${workflow.deletions}</code> - Total lines removed in entire workflow</li>
+<li><code>${workflow.files_added}</code> - Space-separated list of all files added in entire workflow</li>
+<li><code>${workflow.files_modified}</code> - Space-separated list of all files modified in entire workflow</li>
+<li><code>${workflow.files_deleted}</code> - Space-separated list of all files deleted in entire workflow</li>
+<li><code>${workflow.files_changed}</code> - Space-separated list of all changed files in entire workflow</li>
+<li><code>${workflow.commit_count}</code> - Total commits in entire workflow (numeric)</li>
+<li><code>${workflow.insertions}</code> - Total lines added in entire workflow (numeric)</li>
+<li><code>${workflow.deletions}</code> - Total lines removed in entire workflow (numeric)</li>
 </ul>
 <p><strong>Example Usage:</strong></p>
 <pre><code class="language-yaml"># Check if step made changes
 - shell: "echo 'Step made ${step.commit_count} commits'"
-- shell: "echo 'Modified ${step.files_modified} files (+${step.insertions}/-${step.deletions} lines)'"
+- shell: "echo 'Modified files: ${step.files_modified}'"
+- shell: "echo 'Code changes: +${step.insertions}/-${step.deletions} lines'"
 
 # Use commit hashes
 - shell: "git show ${step.commits}"
 - shell: "echo 'All commits: ${workflow.commits}'"
+
+# Use file lists in shell commands
+- shell: "for file in ${step.files_changed}; do echo $file; done"
+- shell: "wc -l ${step.files_added}"  # Count lines in newly added files
 </code></pre>
 <h3 id="legacy-variable-aliases"><a class="header" href="#legacy-variable-aliases">Legacy Variable Aliases</a></h3>
 <p>These legacy aliases are supported for backward compatibility but should be replaced with modern equivalents:</p>

@@ -219,15 +219,19 @@
 <li><code>shell</code> - Shell command to run on failure</li>
 <li><code>claude</code> - Claude command to run on failure</li>
 <li><code>fail_workflow</code> - Whether to fail the entire workflow (default: <code>false</code>)</li>
-<li><code>max_attempts</code> - Maximum retry attempts for the original command (default: <code>1</code>, alias: <code>max_retries</code>)</li>
+<li><code>max_attempts</code> - Maximum retry attempts for the original command (default: <code>1</code>)</li>
+<li><code>max_retries</code> - Alternative name for <code>max_attempts</code> (both are supported for backward compatibility)</li>
 </ul>
 <p><strong>Notes:</strong></p>
 <ul>
-<li>Setting <code>max_attempts &gt; 1</code> automatically enables retry behavior, eliminating the need for the deprecated <code>retry_original</code> flag</li>
-<li>Prodigy will retry the original command after running the failure handler</li>
+<li>When <code>max_attempts &gt; 1</code>, Prodigy automatically retries the original command after running the failure handler (the deprecated <code>retry_original</code> flag is no longer needed)</li>
+<li>Retry behavior is now controlled by the <code>max_attempts</code>/<code>max_retries</code> value, not a separate flag</li>
 <li>You can specify both <code>shell</code> and <code>claude</code> commands - they will execute in sequence</li>
 <li>By default, having a handler means the workflow continues even if the step fails</li>
 </ul>
+<blockquote>
+<p><strong>Migration from <code>retry_original</code>:</strong> Previously you used <code>retry_original: true</code> with <code>max_retries: 3</code>. Now just use <code>max_attempts: 3</code> (retry is implicit when &gt; 1). Both <code>max_attempts</code> and <code>max_retries</code> are supported as aliases for backward compatibility.</p>
+</blockquote>
 <h3 id="detailed-handler-configuration"><a class="header" href="#detailed-handler-configuration">Detailed Handler Configuration</a></h3>
 <p>For complex error handling scenarios with multiple commands and fine-grained control:</p>
 <pre><code class="language-yaml">- shell: "deploy-production"
@@ -236,12 +240,24 @@
     timeout: 300             # Handler timeout in seconds
     handler_failure_fatal: true  # Fail workflow if handler fails
     fail_workflow: false     # Don't fail workflow if step fails
+    capture:                 # Capture handler output to variables
+      error_log: "handler_output"
+      rollback_status: "rollback_result"
     commands:
       - shell: "rollback-deployment"
         continue_on_error: true
       - claude: "/analyze-deployment-failure"
       - shell: "notify-team"
 </code></pre>
+<p><strong>Handler Configuration Fields:</strong></p>
+<ul>
+<li><code>strategy</code> - Handler strategy (recovery, fallback, cleanup, custom)</li>
+<li><code>timeout</code> - Handler timeout in seconds</li>
+<li><code>handler_failure_fatal</code> - Fail workflow if handler fails</li>
+<li><code>fail_workflow</code> - Whether to fail the entire workflow</li>
+<li><code>capture</code> - Map of variable names to capture from handler output (e.g., <code>error_log: "handler_output"</code>). Note: capture applies to the handler’s combined output, not individual commands.</li>
+<li><code>commands</code> - List of handler commands to execute</li>
+</ul>
 <p><strong>Handler Strategies:</strong></p>
 <ul>
 <li><code>recovery</code> - Try to fix the problem and retry (default)</li>
@@ -321,10 +337,10 @@ error_policy:
   circuit_breaker:
     failure_threshold: 5      # Open circuit after 5 consecutive failures
     success_threshold: 2      # Close circuit after 2 successes
-    timeout: 30s             # Time before attempting half-open state
+    timeout: 30s             # Duration in humantime format (e.g., 30s, 1m, 500ms)
     half_open_requests: 3    # Test requests in half-open state
 </code></pre>
-<p><strong>Note:</strong> Use duration format for timeout (e.g., <code>30s</code>, <code>1m</code>, <code>500ms</code>)</p>
+<p><strong>Note:</strong> The <code>timeout</code> field uses humantime format supporting <code>1s</code>, <code>100ms</code>, <code>2m</code>, <code>30s</code> for duration parsing</p>
 <h3 id="retry-configuration-with-backoff"><a class="header" href="#retry-configuration-with-backoff">Retry Configuration with Backoff</a></h3>
 <p>Configure automatic retry behavior for failed items:</p>
 <pre><code class="language-yaml">error_policy:
@@ -338,37 +354,70 @@ error_policy:
 </code></pre>
 <p><strong>Backoff Strategy Options:</strong></p>
 <pre><code class="language-yaml"># Fixed delay between retries
+# Always waits the same duration
 backoff:
   type: fixed
   delay: 1s
 
 # Linear increase in delay
+# Calculates: delay = initial + (retry_count * increment)
+# Example with initial=1s, increment=500ms:
+#   Retry 1: 1s + (1 * 500ms) = 1.5s
+#   Retry 2: 1s + (2 * 500ms) = 2s
+#   Retry 3: 1s + (3 * 500ms) = 2.5s
 backoff:
   type: linear
   initial: 1s
   increment: 500ms
 
 # Exponential backoff (recommended)
+# Calculates: delay = initial * (multiplier ^ retry_count)
+# Example: 1s, 2s, 4s, 8s...
 backoff:
   type: exponential
   initial: 1s
   multiplier: 2
 
 # Fibonacci sequence delays
+# Calculates: delay = initial * fibonacci(retry_count)
+# Example: 1s, 1s, 2s, 3s, 5s...
 backoff:
   type: fibonacci
   initial: 1s
 </code></pre>
 <p><strong>Important:</strong> All duration values use humantime format (e.g., <code>1s</code>, <code>100ms</code>, <code>2m</code>, <code>30s</code>), not milliseconds.</p>
+<blockquote>
+<p><strong>Note on Serialization:</strong> BackoffStrategy accepts Duration values in humantime format (<code>1s</code>, <code>100ms</code>, <code>2m</code>) for convenience. Only CircuitBreakerConfig’s <code>timeout</code> field explicitly requires humantime format via serde attribute - other Duration fields use standard serialization but accept humantime strings.</p>
+</blockquote>
 <h3 id="error-metrics"><a class="header" href="#error-metrics">Error Metrics</a></h3>
-<p>Prodigy automatically tracks error metrics for MapReduce jobs:</p>
+<p>Prodigy automatically tracks error metrics for MapReduce jobs using the <code>ErrorMetrics</code> structure:</p>
+<p><strong>Available Fields:</strong></p>
 <ul>
-<li><strong>Counts:</strong> total_items, successful, failed, skipped</li>
-<li><strong>Rates:</strong> failure_rate (0.0 to 1.0)</li>
-<li><strong>Patterns:</strong> Detects recurring error types with suggested remediation</li>
-<li><strong>Error types:</strong> Frequency of each error category</li>
+<li><code>total_items</code> - Total number of work items processed</li>
+<li><code>successful</code> - Number of items that completed successfully</li>
+<li><code>failed</code> - Number of items that failed</li>
+<li><code>skipped</code> - Number of items that were skipped</li>
+<li><code>failure_rate</code> - Percentage of failures (0.0 to 1.0)</li>
+<li><code>error_types</code> - Map of error types to their frequency counts</li>
+<li><code>failure_patterns</code> - Detected recurring error patterns with suggested remediation</li>
 </ul>
-<p>Access metrics during execution or after completion to understand job health.</p>
+<p><strong>Accessing Metrics:</strong></p>
+<p>Access metrics during execution or after completion to understand job health:</p>
+<pre><code class="language-yaml"># In your reduce phase
+reduce:
+  - shell: "echo 'Processed ${map.successful}/${map.total} items'"
+  - shell: "echo 'Failure rate: ${map.failure_rate}'"
+</code></pre>
+<p>You can also access metrics programmatically via the Prodigy API or through CLI commands like <code>prodigy events</code> to view detailed error statistics.</p>
+<p><strong>Pattern Detection:</strong></p>
+<p>Prodigy automatically detects recurring error patterns when an error type occurs 3 or more times. The <code>failure_patterns</code> field includes suggested remediation actions:</p>
+<ul>
+<li><strong>Timeout errors</strong> → “Consider increasing timeout_per_agent”</li>
+<li><strong>Network errors</strong> → “Check network connectivity and retry configuration”</li>
+<li><strong>Permission errors</strong> → “Verify file permissions and access rights”</li>
+<li><strong>Out of memory errors</strong> → “Consider reducing max_parallel or increasing memory limits”</li>
+</ul>
+<p>These suggestions help diagnose and resolve systemic issues in MapReduce jobs.</p>
 <hr />
 <h2 id="dead-letter-queue-dlq"><a class="header" href="#dead-letter-queue-dlq">Dead Letter Queue (DLQ)</a></h2>
 <p>The Dead Letter Queue stores failed work items from MapReduce jobs for later retry or analysis. This is only available for MapReduce workflows, not regular workflows.</p>
@@ -465,7 +514,7 @@ prodigy dlq retry &lt;job_id&gt; --dry-run
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="automated-documentation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="mapreduce-worktree-architecture.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -479,7 +528,7 @@ prodigy dlq retry &lt;job_id&gt; --dry-run
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="automated-documentation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="mapreduce-worktree-architecture.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

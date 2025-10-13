@@ -218,7 +218,7 @@ imports:
       - validate_output
       - validate_schema
 </code></pre>
-<p>This imports only the specified workflows, reducing unnecessary dependencies.</p>
+<p>Selective import configuration is validated and stored. The actual filtering of specific items during composition is planned for a future release (see <code>import_selective</code> in <code>composer.rs</code>).</p>
 <h3 id="multiple-imports"><a class="header" href="#multiple-imports">Multiple Imports</a></h3>
 <p>You can import from multiple files:</p>
 <pre><code class="language-yaml">imports:
@@ -272,13 +272,13 @@ commands:
 defaults:
   verbose: true  # Overrides base default
 </code></pre>
-<p>The <code>production</code> workflow completely replaces the <code>commands</code> array and overrides the <code>verbose</code> default, while inheriting the <code>timeout</code> default.</p>
+<p>Child workflows override parent configuration at the field level. The child’s <code>commands</code> array completely replaces the parent’s commands (not merged). Similarly, if the child defines <code>defaults</code>, the entire defaults HashMap is replaced - individual defaults are not merged. In this example, the <code>production</code> workflow completely replaces the <code>commands</code> array. If <code>production</code> provides defaults with only <code>verbose: true</code>, it would NOT inherit the <code>timeout: 300</code> from base - it would need to re-specify both defaults to keep them.</p>
 <h2 id="template-system"><a class="header" href="#template-system">Template System</a></h2>
 <p>Templates provide reusable workflow patterns that can be instantiated with different parameters. Templates can be stored in a registry or loaded from files.</p>
 <h3 id="template-sources"><a class="header" href="#template-sources">Template Sources</a></h3>
 <p>Templates can come from three sources:</p>
 <h4 id="1-registry-templates"><a class="header" href="#1-registry-templates">1. Registry Templates</a></h4>
-<p>Store templates in a central registry:</p>
+<p>Store templates in a central registry (fully implemented with <code>FileTemplateStorage</code>):</p>
 <pre><code class="language-yaml">name: my-workflow
 template:
   name: refactor-base
@@ -287,8 +287,9 @@ template:
     style: modular
     target: src/
 </code></pre>
+<p>Templates are loaded from the registry using <code>TemplateRegistry</code> with <code>FileTemplateStorage</code> backend. Templates are cached in memory after first load for performance.</p>
 <h4 id="2-file-templates"><a class="header" href="#2-file-templates">2. File Templates</a></h4>
-<p>Load templates from local files:</p>
+<p>Load templates from local files (fully implemented via <code>TemplateSource::File</code> enum):</p>
 <pre><code class="language-yaml">template:
   name: ci-pipeline
   source: ./templates/ci-pipeline.yml
@@ -301,7 +302,7 @@ template:
   name: shared-workflow
   source: https://example.com/templates/workflow.yml
 </code></pre>
-<p><em>Note: URL template sources are not yet implemented.</em></p>
+<p><em>Note: URL template sources are not yet implemented. The system returns an explicit error message if a URL source is attempted.</em></p>
 <h3 id="template-parameters"><a class="header" href="#template-parameters">Template Parameters</a></h3>
 <p>Pass parameters to templates using the <code>with</code> field:</p>
 <pre><code class="language-yaml">template:
@@ -312,7 +313,7 @@ template:
     max_complexity: 5
     target_dir: src/
 </code></pre>
-<p>Parameters are substituted throughout the template workflow.</p>
+<p>Parameter validation and storage is fully implemented. The automatic substitution of parameters throughout template commands is planned for a future release (see <code>apply_template_params</code> in <code>composer.rs</code>).</p>
 <h3 id="template-overrides"><a class="header" href="#template-overrides">Template Overrides</a></h3>
 <p>Override specific template values:</p>
 <pre><code class="language-yaml">template:
@@ -425,7 +426,24 @@ registry.register_template_with_metadata(
       default: false
 </code></pre>
 <h3 id="parameter-validation"><a class="header" href="#parameter-validation">Parameter Validation</a></h3>
-<p>Add custom validation expressions:</p>
+<p>Prodigy supports two types of parameter validation:</p>
+<h4 id="type-validation-fully-implemented"><a class="header" href="#type-validation-fully-implemented">Type Validation (Fully Implemented)</a></h4>
+<p>All parameter types are validated automatically:</p>
+<pre><code class="language-yaml">parameters:
+  required:
+    - name: count
+      type: number
+      description: Item count
+    - name: enabled
+      type: boolean
+      description: Feature flag
+    - name: files
+      type: array
+      description: File list
+</code></pre>
+<p>Type validation is fully implemented for all six parameter types (string, number, boolean, array, object, any) in the <code>validate_parameter_value</code> method.</p>
+<h4 id="custom-validation-expressions-planned"><a class="header" href="#custom-validation-expressions-planned">Custom Validation Expressions (Planned)</a></h4>
+<p>Custom validation expressions can be defined but evaluation is not yet implemented:</p>
 <pre><code class="language-yaml">parameters:
   required:
     - name: email
@@ -437,7 +455,7 @@ registry.register_template_with_metadata(
       description: Item count
       validation: "value &gt;= 1 &amp;&amp; value &lt;= 100"
 </code></pre>
-<p><em>Note: Custom validation expression evaluation is planned but not fully implemented.</em></p>
+<p><em>Note: The validation field is stored but custom expression evaluation is not yet implemented. Type validation IS working for all parameter types.</em></p>
 <h3 id="array-and-object-parameters"><a class="header" href="#array-and-object-parameters">Array and Object Parameters</a></h3>
 <p>Define complex parameter types:</p>
 <pre><code class="language-yaml">parameters:
@@ -487,7 +505,8 @@ commands:
   verbose: false
   environment: development
 </code></pre>
-<p>Defaults are applied before parameter validation and can be overridden by:</p>
+<p>Default values are validated and stored in the workflow configuration. The automatic application of defaults to missing parameters is planned but not yet fully implemented (see <code>apply_defaults</code> in <code>composer.rs</code>).</p>
+<p>When implemented, defaults will be applied before parameter validation and can be overridden by:</p>
 <ol>
 <li>Values in the <code>parameters</code> section</li>
 <li>Values passed at workflow invocation time</li>
@@ -501,6 +520,7 @@ commands:
 </ul>
 <h2 id="sub-workflows"><a class="header" href="#sub-workflows">Sub-Workflows</a></h2>
 <p>Execute child workflows as part of a parent workflow. Sub-workflows can run in parallel and have their own parameters and outputs.</p>
+<p><em>Implementation Status: Sub-workflow configuration, composition, and context management are fully implemented. Integration with the main workflow executor is in progress (see <code>execute_composed</code> in <code>sub_workflow.rs</code>).</em></p>
 <h3 id="basic-sub-workflow"><a class="header" href="#basic-sub-workflow">Basic Sub-Workflow</a></h3>
 <pre><code class="language-yaml">workflows:
   process_files:
@@ -661,7 +681,7 @@ parameters:
     - name: environment
       type: string
       description: Deployment environment
-      validation: "^(dev|staging|prod)$"
+      # validation: "^(dev|staging|prod)$"  # Custom validation not yet implemented
     - name: version
       type: string
       description: Version to deploy
@@ -808,6 +828,25 @@ commands:
 <li>Document required parameters in template descriptions</li>
 <li>Test templates before registering them</li>
 </ul>
+<h4 id="template-registry-setup"><a class="header" href="#template-registry-setup">Template Registry Setup</a></h4>
+<p>Place templates in a central <code>templates/</code> directory in your project. Use <code>FileTemplateStorage</code> with your project’s template directory:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use prodigy::cook::workflow::composition::registry::{TemplateRegistry, FileTemplateStorage};
+
+let storage = FileTemplateStorage::new("./templates");
+let registry = TemplateRegistry::new_with_storage(storage);
+<span class="boring">}</span></code></pre></pre>
+<p>Templates are cached in memory after first load for performance. The registry automatically scans the template directory and makes all templates available by name.</p>
+<p><strong>Template File Structure:</strong></p>
+<p>Templates must be <code>.yml</code> files in the base directory, with optional <code>.meta.json</code> files for metadata. For example:</p>
+<pre><code>templates/
+├── refactor-base.yml           # Template workflow definition
+├── refactor-base.meta.json     # Optional metadata (description, version, tags)
+├── ci-pipeline.yml
+└── ci-pipeline.meta.json
+</code></pre>
+<p>The registry loads the workflow definition from <code>.yml</code> files and metadata from the corresponding <code>.meta.json</code> sidecar files if present.</p>
 <h3 id="avoiding-circular-dependencies"><a class="header" href="#avoiding-circular-dependencies">Avoiding Circular Dependencies</a></h3>
 <ul>
 <li>Keep inheritance chains shallow (max 2-3 levels)</li>
@@ -900,7 +939,7 @@ commands:
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="advanced.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="git-context-advanced.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -914,7 +953,7 @@ commands:
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="advanced.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="git-context-advanced.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
