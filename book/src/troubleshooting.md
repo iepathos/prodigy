@@ -91,7 +91,9 @@
 - JSONPath syntax errors
 
 **Solutions:**
-- Test JSONPath expression with actual data. Note: `jq` uses its own filter syntax, not JSONPath:
+- Test JSONPath expression with actual data.
+
+  **⚠️ IMPORTANT: jq uses its own filter syntax, NOT JSONPath!**
   ```bash
   # jq uses its own syntax (not JSONPath)
   jq '.items[]' items.json
@@ -235,11 +237,13 @@
       timeout: "60s"         # Not 60
       failure_threshold: 5
   ```
-- **Backoff Strategy:** Prodigy uses exponential backoff by default, which is not directly configurable in the workflow YAML. The backoff behavior is controlled through the retry_config parameters:
+- **Backoff Strategy:** Prodigy uses exponential backoff by default (base 2.0), which is not directly configurable in the workflow YAML. However, you CAN control the backoff behavior through the retry_config parameters:
   - `max_attempts` - Number of retry attempts before giving up
   - `initial_delay` - Starting delay between retries (e.g., "1s")
   - `max_delay` - Maximum delay between retries (e.g., "30s")
-  - The delay doubles with each retry (exponential backoff) up to max_delay
+  - The delay doubles with each retry (exponential backoff with base 2.0) up to max_delay
+  - Example: With `initial_delay: "1s"` and `max_delay: "30s"`, retries occur at 1s, 2s, 4s, 8s, 16s, 30s, 30s...
+  - These parameters shape the exponential backoff curve to match your needs
 - Circuit breaker requires both timeout and failure_threshold
 
 ---
@@ -273,6 +277,12 @@
   prodigy run workflow.yml -vv   # Debug logs
   prodigy run workflow.yml -vvv  # Trace logs
   ```
+
+**When to Use Each Mode:**
+- **Use streaming (default)**: For debugging Claude interactions, maintaining an audit trail, and local development
+- **Disable streaming (`PRODIGY_CLAUDE_STREAMING=false`)**: In CI/CD environments where disk space is constrained or when streaming logs aren't needed
+
+**Streaming logs are saved to:** `~/.prodigy/logs/claude-streaming/` with format `{timestamp}-{uuid}.jsonl`. The log path is displayed before execution starts with a 📁 emoji for easy reference.
 
 ---
 
@@ -352,6 +362,20 @@ cat .prodigy/validation-result.json
 
 ### Access Claude JSON logs for debugging
 
+Prodigy maintains two types of Claude logs for comprehensive debugging:
+
+1. **Prodigy's streaming logs** (JSONL format): `~/.prodigy/logs/claude-streaming/{timestamp}-{uuid}.jsonl`
+   - Real-time streaming output during command execution
+   - One JSON object per line (JSONL format)
+   - Log path displayed before execution with 📁 emoji
+   - Controlled by `PRODIGY_CLAUDE_STREAMING` environment variable
+
+2. **Claude's native session logs** (JSON format): `~/.local/state/claude/logs/session-{id}.json`
+   - Complete session history created by Claude Code CLI
+   - Full message history and tool invocations
+   - Token usage statistics and error details
+   - Location displayed with verbose mode (`-v`)
+
 **Primary method - Use the `prodigy logs` command:**
 ```bash
 # View the most recent Claude log
@@ -369,13 +393,13 @@ prodigy logs
 
 **Alternative - Manual inspection:**
 
-When using verbose mode (`-v`), Prodigy displays the location of Claude's detailed JSON logs:
+When using verbose mode (`-v`), Prodigy displays the location of Claude's native session logs:
 ```bash
 prodigy run workflow.yml -v
 # Output: Claude JSON log: ~/.local/state/claude/logs/session-abc123.json
 ```
 
-These logs contain:
+Claude's native logs contain:
 - Complete message history (user messages and Claude responses)
 - All tool invocations with parameters and results
 - Token usage statistics
@@ -412,10 +436,8 @@ This is especially valuable for debugging MapReduce agent failures, as you can s
 # List failed items
 prodigy dlq list <job_id>
 
-# View failure details
+# View failure details (inspect/show are aliases)
 prodigy dlq inspect <job_id>
-
-# Show DLQ contents (alias for inspect)
 prodigy dlq show <job_id>
 
 # Retry failed items (primary recovery operation)
@@ -459,16 +481,28 @@ cat .prodigy/session_state.json
 ```
 
 ### Inspect checkpoint files for job state
+Checkpoint files contain the complete state of a MapReduce job and are crucial for debugging:
+
 ```bash
 # View checkpoint to understand job state
 cat ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
 
-# Check checkpoint version and completed items
+# Check checkpoint version and completed items count
 jq '.version, .completed_items | length' ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
 
-# List all pending items
+# List all pending items (items not yet processed)
 jq '.pending_items' ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
+
+# View job progress summary
+jq '{version, total: (.completed_items | length) + (.pending_items | length), completed: (.completed_items | length), pending: (.pending_items | length)}' ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/checkpoint.json
 ```
+
+**Key checkpoint fields:**
+- `version` - Checkpoint format version (for migration compatibility)
+- `completed_items` - Work items that have been successfully processed
+- `pending_items` - Work items still waiting to be processed
+- `job_id` - Unique identifier for the MapReduce job
+- `timestamp` - When the checkpoint was last saved
 
 ---
 
