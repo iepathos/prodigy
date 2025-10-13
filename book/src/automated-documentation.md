@@ -27,7 +27,15 @@ The generalized commands work for any codebase: Rust, Python, JavaScript, etc.
 
 3. **Claude Code CLI** with valid API credentials
 
-4. **Git repository** for your project
+4. **Git** - Version control system (git 2.25+ recommended) and an initialized git repository for your project
+
+   ```bash
+   # Verify git is installed
+   git --version
+
+   # Initialize a repository if needed
+   git init
+   ```
 
 ## Quick Start (30 Minutes)
 
@@ -263,7 +271,7 @@ map:
       commit_required: true
 
   max_parallel: 3
-  agent_timeout_secs: 900
+  agent_timeout_secs: 900  # 15-minute timeout per agent
 
 reduce:
   # Rebuild the book to ensure all chapters compile together
@@ -279,10 +287,24 @@ error_policy:
   max_failures: 2
   error_collection: aggregate
 
+# Configuration parameters:
+# - max_parallel: 3 chapters processed concurrently
+# - agent_timeout_secs: 900 sets a 15-minute timeout per agent (900 seconds = 15 minutes)
+#   This prevents any single chapter from hanging the entire workflow
+#   Adjust this value based on your expected chapter processing time
+#
+# Error Policy fields:
+# - on_item_failure: dlq - Failed chapters are sent to the Dead Letter Queue for manual review and retry
+# - continue_on_failure: true - Workflow continues processing other chapters even if some fail
+# - max_failures: 2 - Stop the entire workflow if more than 2 chapters fail (prevents cascading failures)
+# - error_collection: aggregate - Collect all errors and report them together at the end
+
 merge:
   commands:
     # Step 1: Clean up temporary analysis files
     - shell: "rm -rf ${ANALYSIS_DIR}"
+    # The '|| true' prevents the merge phase from failing if there are no changes to commit
+    # (e.g., if cleanup didn't modify any tracked files). This is a safety pattern for optional cleanup steps.
     - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
 
     # Step 2: Validate book builds successfully
@@ -360,7 +382,12 @@ This generates `.myproject/book-analysis/features.json`:
 
 ### Phase 2: Map - Chapter Drift Detection and Fixing
 
-Each chapter is processed in parallel with a two-step approach:
+**Execution Model**: The map phase processes chapters with controlled parallelism (max_parallel: 3 chapters at a time). For each chapter, two steps execute sequentially in the same isolated agent worktree:
+
+1. **Analyze** - Detect drift and create a drift report
+2. **Fix** - Read the drift report and update the chapter
+
+This sequential execution within each agent ensures the drift report from step 1 is available to step 2. Meanwhile, multiple chapters are processed in parallel across different agent worktrees.
 
 ```yaml
 map:
@@ -377,7 +404,7 @@ map:
       commit_required: true
 ```
 
-The map phase actually has **TWO steps per chapter**:
+**Detailed Breakdown**:
 
 **Step 1: Analyze** - For each chapter, Claude:
 1. Reads the current chapter content
@@ -391,6 +418,10 @@ The map phase actually has **TWO steps per chapter**:
 3. Commits the fixes to the worktree
 
 Both steps run sequentially for each chapter, and chapters are processed in parallel.
+
+**Why commit_required: true is Critical**
+
+The `commit_required: true` flag in step 1 ensures the drift report is committed to git. Since both steps run in the same isolated agent worktree, this commit makes the drift report accessible to step 2. Without this commit, step 2 wouldn't be able to read the drift report file that step 1 just created.
 
 ### Phase 3: Reduce - Validate Book Build
 
@@ -542,6 +573,27 @@ While gap detection is automatic, manual review is recommended for:
 - Keep the gaps report file in version control to track progress
 - Review ignored patterns periodically to ensure they're still relevant
 
+**Analyzing the Gaps Report:**
+
+Use these commands to query and analyze the gaps report:
+
+```bash
+# View all detected gaps
+cat .prodigy/book-analysis/gaps-report.json | jq '.gaps'
+
+# Filter to show only critical gaps
+cat .prodigy/book-analysis/gaps-report.json | jq '.gaps[] | select(.severity == "critical")'
+
+# Count gaps by severity level
+cat .prodigy/book-analysis/gaps-report.json | jq '.gaps_by_severity'
+
+# Get gap details for a specific chapter
+cat .prodigy/book-analysis/gaps-report.json | jq '.gaps[] | select(.location | contains("user-guide.md"))'
+
+# List all affected features
+cat .prodigy/book-analysis/gaps-report.json | jq '.gaps[].affected_feature.name'
+```
+
 ### Integration with Drift Detection
 
 Gap detection complements drift detection in the book workflow:
@@ -564,6 +616,8 @@ merge:
   commands:
     # Step 1: Clean up temporary analysis files
     - shell: "rm -rf ${ANALYSIS_DIR}"
+    # The '|| true' prevents the merge phase from failing if there are no changes to commit
+    # (e.g., if cleanup didn't modify any tracked files). This is a safety pattern for optional cleanup steps.
     - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
 
     # Step 2: Validate book builds successfully
@@ -631,6 +685,8 @@ jobs:
 > ```bash
 > prodigy run workflows/book-docs-drift.yml
 > ```
+>
+> When CI support is added, Prodigy's json_log_location tracking (Spec 121) will enable debugging Claude commands in CI by capturing detailed JSON logs for each command execution. This will make it easy to troubleshoot documentation updates that fail in CI environments.
 >
 > Watch the Prodigy and Claude Code documentation for updates on CI integration.
 
@@ -865,6 +921,28 @@ Fix any missing files or broken links.
 1. Create better chapter outlines before running workflow
 2. Add more specific `validation` criteria in chapters.json
 3. Review and manually refine after first run
+
+### Issue: Some Chapters Failed to Update
+
+**Cause**: Chapter processing timeout, Claude error, or validation failure
+
+**Solution**: Use the Dead Letter Queue (DLQ) to retry failed chapters:
+
+```bash
+# View failed chapters
+prodigy dlq show <job_id>
+
+# Retry all failed chapters
+prodigy dlq retry <job_id>
+
+# Retry with custom parallelism
+prodigy dlq retry <job_id> --max-parallel 2
+
+# Dry run to see what would be retried
+prodigy dlq retry <job_id> --dry-run
+```
+
+The DLQ preserves all context from the original failure, making it safe to retry after fixing any underlying issues.
 
 ## Advanced Configuration
 
