@@ -48,11 +48,12 @@ For more control over error handling behavior:
 - `shell` - Shell command to run on failure
 - `claude` - Claude command to run on failure
 - `fail_workflow` - Whether to fail the entire workflow (default: `false`)
-- `max_attempts` - Maximum retry attempts for the original command (default: `1`, alias: `max_retries`)
+- `max_attempts` - Maximum retry attempts for the original command (default: `1`)
+- `max_retries` - Alternative name for `max_attempts` (both are supported for backward compatibility)
 
 **Notes:**
-- Setting `max_attempts > 1` automatically enables retry behavior, eliminating the need for the deprecated `retry_original` flag
-- Prodigy will retry the original command after running the failure handler
+- When `max_attempts > 1`, Prodigy automatically retries the original command after running the failure handler (the deprecated `retry_original` flag is no longer needed)
+- Retry behavior is now controlled by the `max_attempts`/`max_retries` value, not a separate flag
 - You can specify both `shell` and `claude` commands - they will execute in sequence
 - By default, having a handler means the workflow continues even if the step fails
 
@@ -67,12 +68,23 @@ For complex error handling scenarios with multiple commands and fine-grained con
     timeout: 300             # Handler timeout in seconds
     handler_failure_fatal: true  # Fail workflow if handler fails
     fail_workflow: false     # Don't fail workflow if step fails
+    capture:                 # Capture handler output to variables
+      error_log: "handler_output"
+      rollback_status: "rollback_result"
     commands:
       - shell: "rollback-deployment"
         continue_on_error: true
       - claude: "/analyze-deployment-failure"
       - shell: "notify-team"
 ```
+
+**Handler Configuration Fields:**
+- `strategy` - Handler strategy (recovery, fallback, cleanup, custom)
+- `timeout` - Handler timeout in seconds
+- `handler_failure_fatal` - Fail workflow if handler fails
+- `fail_workflow` - Whether to fail the entire workflow
+- `capture` - Map of variable names to capture from handler output (e.g., `error_log: "handler_output"`)
+- `commands` - List of handler commands to execute
 
 **Handler Strategies:**
 - `recovery` - Try to fix the problem and retry (default)
@@ -170,11 +182,11 @@ error_policy:
   circuit_breaker:
     failure_threshold: 5      # Open circuit after 5 consecutive failures
     success_threshold: 2      # Close circuit after 2 successes
-    timeout: 30s             # Time before attempting half-open state
+    timeout: 30s             # Duration in humantime format (e.g., 30s, 1m, 500ms)
     half_open_requests: 3    # Test requests in half-open state
 ```
 
-**Note:** Use duration format for timeout (e.g., `30s`, `1m`, `500ms`)
+**Note:** The `timeout` field uses humantime format supporting `1s`, `100ms`, `2m`, `30s` for duration parsing
 
 ### Retry Configuration with Backoff
 
@@ -195,23 +207,30 @@ error_policy:
 
 ```yaml
 # Fixed delay between retries
+# Always waits the same duration
 backoff:
   type: fixed
   delay: 1s
 
 # Linear increase in delay
+# Calculates: delay = initial + (retry_count * increment)
+# Example: 1s, 1.5s, 2s, 2.5s...
 backoff:
   type: linear
   initial: 1s
   increment: 500ms
 
 # Exponential backoff (recommended)
+# Calculates: delay = initial * (multiplier ^ retry_count)
+# Example: 1s, 2s, 4s, 8s...
 backoff:
   type: exponential
   initial: 1s
   multiplier: 2
 
 # Fibonacci sequence delays
+# Calculates: delay = initial * fibonacci(retry_count)
+# Example: 1s, 1s, 2s, 3s, 5s...
 backoff:
   type: fibonacci
   initial: 1s
@@ -221,14 +240,29 @@ backoff:
 
 ### Error Metrics
 
-Prodigy automatically tracks error metrics for MapReduce jobs:
+Prodigy automatically tracks error metrics for MapReduce jobs using the `ErrorMetrics` structure:
 
-- **Counts:** total_items, successful, failed, skipped
-- **Rates:** failure_rate (0.0 to 1.0)
-- **Patterns:** Detects recurring error types with suggested remediation
-- **Error types:** Frequency of each error category
+**Available Fields:**
+- `total_items` - Total number of work items processed
+- `successful` - Number of items that completed successfully
+- `failed` - Number of items that failed
+- `skipped` - Number of items that were skipped
+- `failure_rate` - Percentage of failures (0.0 to 1.0)
+- `error_types` - Map of error types to their frequency counts
+- `failure_patterns` - Detected recurring error patterns with suggested remediation
 
-Access metrics during execution or after completion to understand job health.
+**Accessing Metrics:**
+
+Access metrics during execution or after completion to understand job health:
+
+```yaml
+# In your reduce phase
+reduce:
+  - shell: "echo 'Processed ${map.successful}/${map.total} items'"
+  - shell: "echo 'Failure rate: ${map.failure_rate}'"
+```
+
+You can also access metrics programmatically via the Prodigy API or through CLI commands like `prodigy events` to view detailed error statistics.
 
 ---
 
