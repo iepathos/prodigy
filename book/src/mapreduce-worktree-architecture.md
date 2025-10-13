@@ -13,9 +13,9 @@ Parent Worktree (session-mapreduce-{id})
     ├── Setup Phase → Executes here
     ├── Reduce Phase → Executes here
     └── Map Phase → Each agent in child worktree
-        ├── Child Worktree (agent-{id}-item-{n})
-        ├── Child Worktree (agent-{id}-item-{n})
-        └── Child Worktree (agent-{id}-item-{n})
+        ├── Child Worktree (mapreduce-agent-{id})
+        ├── Child Worktree (mapreduce-agent-{id})
+        └── Child Worktree (mapreduce-agent-{id})
 ```
 
 This architecture provides complete isolation, allowing parallel agents to work independently while preserving a clean main repository.
@@ -26,7 +26,7 @@ This architecture provides complete isolation, allowing parallel agents to work 
 
 Created at the start of MapReduce workflow execution:
 
-**Location**: `~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}`
+**Location**: `~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}` (or anonymous worktree path if session_id not specified)
 
 **Purpose**:
 - Isolates all workflow execution from main repository
@@ -36,18 +36,22 @@ Created at the start of MapReduce workflow execution:
 
 **Branch**: `prodigy-session-mapreduce-{timestamp}`
 
+**Note**: MapReduce coordinators typically create named session worktrees, but individual agents may use anonymous worktrees from the pool if no session context is provided.
+
 ### Child Worktrees
 
 Created for each map agent:
 
-**Location**: `~/.prodigy/worktrees/{project}/agent-{job_id}-{agent_id}-item-{n}`
+**Location**: `~/.prodigy/worktrees/{project}/mapreduce-agent-{agent_id}`
 
 **Purpose**:
 - Complete isolation per agent
 - Independent failure handling
 - Parallel execution safety
 
-**Branch**: `agent-{job_id}-{agent_id}-item-{n}` (branched from parent worktree)
+**Branch**: `prodigy-agent-{session_id}-{item_id}` (branched from parent worktree)
+
+**Note**: The `agent_id` in the location path encodes the work item information. Agent worktrees are created dynamically as map agents execute.
 
 ## Branch Naming Conventions
 
@@ -61,14 +65,13 @@ Example: `prodigy-session-mapreduce-20250112_143052`
 
 ### Agent Worktree Branch
 
-Format: `agent-{job_id}-{agent_id}-item-{item_index}`
+Format: `prodigy-agent-{session_id}-{item_id}`
 
-Example: `agent-mapreduce-20250112_143052_agent_5-item_3`
+Example: `prodigy-agent-session-abc123-xyz456`
 
 **Components**:
-- `job_id`: MapReduce job identifier
-- `agent_id`: Unique agent identifier
-- `item_index`: Work item index in the job
+- `session_id`: MapReduce agent session identifier
+- `item_id`: Work item identifier from the map phase
 
 ## Merge Flow
 
@@ -122,23 +125,15 @@ Main Repository (original branch)
 
 Agents are added to a merge queue as they complete:
 
-**Queue Location**: `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/merge_queue.json`
+**Queue Architecture**: Merge queue is managed in-memory by a background worker task. Merge requests are processed sequentially via an unbounded channel, eliminating MERGE_HEAD race conditions. Queue state is not persisted - merge operations are atomic.
 
-**Queue Format**:
-```json
-{
-  "pending": [
-    {
-      "agent_id": "agent-1",
-      "branch": "agent-mapreduce-20250112_143052_agent_1-item_0",
-      "worktree_path": "/path/to/worktree",
-      "completed_at": "2025-01-12T14:35:42Z"
-    }
-  ],
-  "merged": [],
-  "failed": []
-}
-```
+**Queue Processing**: Queue processes `MergeRequest` objects containing:
+- `agent_id`: Unique agent identifier
+- `branch_name`: Agent's git branch to merge
+- `item_id`: Work item identifier for correlation
+- `env`: Execution environment context (variables, secrets)
+
+Merge requests are processed FIFO with automatic conflict detection.
 
 ### Sequential Merge Processing
 
@@ -149,6 +144,25 @@ Merges are processed sequentially to prevent conflicts:
 3. Perform merge into parent worktree
 4. Update queue (move to merged or failed)
 5. Release lock
+
+### Automatic Conflict Resolution
+
+If a standard git merge fails with conflicts, the merge queue automatically invokes Claude using the `/prodigy-merge-worktree` command to resolve conflicts intelligently:
+
+**Conflict Resolution Flow**:
+1. Standard git merge attempted
+2. If conflicts detected, invoke Claude with `/prodigy-merge-worktree {branch_name}`
+3. Claude analyzes conflicts and attempts resolution
+4. If Claude succeeds, merge completes automatically
+5. If Claude fails, agent is marked as failed and added to DLQ
+
+**Benefits**:
+- Reduces manual merge conflict resolution overhead
+- Handles common conflict patterns automatically
+- Preserves full context for debugging via Claude logs
+- Falls back gracefully to DLQ for complex conflicts
+
+This automatic conflict resolution is especially useful when multiple agents modify overlapping code areas.
 
 ## Parent to Master Merge
 
@@ -205,10 +219,11 @@ git log --oneline
 
 **Agent Failed to Merge:**
 
-1. Check merge queue: `cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/merge_queue.json`
-2. Inspect failed agent worktree: `cd ~/.prodigy/worktrees/{project}/agent-*`
+1. Check DLQ for failure details: `prodigy dlq show {job_id}`
+2. Inspect failed agent worktree: `cd ~/.prodigy/worktrees/{project}/mapreduce-agent-*`
 3. Review agent changes: `git diff master`
 4. Check for conflicts: `git status`
+5. Review Claude merge logs if conflict resolution was attempted
 
 **Parent Worktree Not Merging:**
 
@@ -262,12 +277,12 @@ git status
 ### Verify Agent Merges
 
 ```bash
-# Check merge queue status
-cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/merge_queue.json
+# Check for merge events
+prodigy events {job_id}
 
 # Verify merged agents in parent worktree
 cd ~/.prodigy/worktrees/{project}/session-mapreduce-*
-git log --oneline | grep "Merge agent"
+git log --oneline | grep "Merge"
 ```
 
 ## Best Practices
