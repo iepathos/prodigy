@@ -50,7 +50,7 @@
     - "web-service"
     - "api-gateway"
     - "worker-service"
-  parallel: 3
+  parallel: 3  # Options: false (sequential), true (default parallelism), or number (specific count)
   continue_on_error: true
   do:
     - shell: "cd services/${foreach.item} && cargo build"
@@ -95,8 +95,8 @@ reduce:
 ```yaml
 - shell: "cargo test --quiet && echo true || echo false"
   id: "test"
-  capture: "test_result"
-  capture_format: "boolean"  # Supported: string, json, lines, number, boolean
+  capture_output: "test_result"  # Canonical field name (alias: 'capture')
+  capture_format: "boolean"  # Supported formats explained below
   timeout: 300  # Timeout in seconds (5 minutes)
 
 - shell: "cargo build --release"
@@ -107,6 +107,13 @@ reduce:
   on_success:
     shell: "docker push myapp:latest"
 ```
+
+**Note:** `capture_format` options:
+- `string` - Raw text output (default)
+- `json` - Parse output as JSON object
+- `lines` - Split output into array of lines
+- `number` - Parse output as numeric value
+- `boolean` - Parse as true/false based on exit code or output text
 
 ---
 
@@ -138,23 +145,27 @@ env:
   NODE_ENV: production
   API_URL: https://api.production.com
 
-# Secrets (masked in logs)
+# Secrets (automatically masked in logs)
 secrets:
-  API_KEY:
-    value: "${SECRET_API_KEY}"
-    secret: true
+  # Simple format - just the secret value
+  API_KEY: "${SECRET_API_KEY}"
+
+  # OR provider format - fetch from external secret store
+  # API_KEY:
+  #   provider: env
+  #   key: SECRET_API_KEY
+  #   version: latest  # optional
 
 # Environment profiles for different contexts
+# Note: Variables go directly under the profile name, not nested under 'env'
 profiles:
   production:
-    env:
-      API_URL: https://api.production.com
-      LOG_LEVEL: error
+    API_URL: https://api.production.com
+    LOG_LEVEL: error
 
   staging:
-    env:
-      API_URL: https://api.staging.com
-      LOG_LEVEL: warn
+    API_URL: https://api.staging.com
+    LOG_LEVEL: warn
 
 # Load additional variables from .env files
 # Note: Paths are relative to workflow file location
@@ -207,14 +218,14 @@ reduce:
   - claude: "/compare-debt-reports --before debt.json --after debt-after.json"
 
 error_policy:
-  on_item_failure: dlq
-  continue_on_failure: true
-  max_failures: 5
-  failure_threshold: 0.3
-  error_collection: aggregate  # Options: aggregate, immediate, batched:{size}
+  on_item_failure: dlq  # Default: dlq (failed items to Dead Letter Queue)
+  continue_on_failure: true  # Default: true (continue despite failures)
+  max_failures: 5  # Optional: stop after N failures
+  failure_threshold: 0.3  # Optional: stop if >30% fail
+  error_collection: aggregate  # Default: aggregate (Options: aggregate, immediate, batched:{size})
 ```
 
-**Note:** The `error_policy` configuration is optional. If not specified, sensible defaults are used: `on_item_failure: dlq` (failed items go to Dead Letter Queue), `continue_on_failure: true` (workflow continues despite failures), and `error_collection: aggregate` (errors are collected and reported at the end).
+**Note:** The entire `error_policy` block is optional with sensible defaults. If not specified, failed items go to the Dead Letter Queue (`on_item_failure: dlq`), workflow continues despite failures (`continue_on_failure: true`), and errors are aggregated at the end (`error_collection: aggregate`). Use `max_failures` or `failure_threshold` to fail fast if too many items fail.
 
 ---
 
@@ -278,55 +289,32 @@ error_policy:
   on_success:
     shell: "cargo test --release"
 
-# Working directory control
-- shell: "npm install"
-  cwd: "frontend/"
-
-- shell: "npm run build"
-  cwd: "frontend/"
-
-# Git context variables (available after git operations)
-- shell: "git add ."
-- shell: "git commit -m 'Update implementation'"
-  id: "commit"
-
-# Access git context from previous step
-- shell: "echo 'Modified files: ${step.commit.files_modified}'"
-- shell: "echo 'Files added: ${step.commit.files_added}'"
-- shell: "echo 'Rust files changed: ${step.commit.files_modified:*.rs}'"
-
-# Git context with pattern filtering
-- shell: |
-    for file in ${step.commit.files_modified:*.rs}; do
-      echo "Running clippy on $file"
-      cargo clippy --file "$file"
-    done
-
-# Format modifiers for output capture
-- claude: "/analyze-codebase"
-  id: "analysis"
-  capture: "analysis_result"
-  capture_format: "json"
-
-# Use captured output with format modifiers
-- shell: "echo 'Issues found: ${analysis_result:json:.issues | length}'"
-- shell: "echo 'File list:' && echo '${analysis_result:lines}'"
-- shell: "echo '${analysis_result:csv}' > report.csv"
-
-# Complex conditional execution
+# Complex conditional execution with max_attempts
 - shell: "cargo test"
   id: "test"
-  capture: "test_output"
+  capture_output: "test_output"
 
 - claude: "/fix-tests"
   when: "${test_output} contains 'FAILED'"
   max_attempts: 3
+
+# Conditional deployment based on test results
+- shell: "cargo build --release"
+  when: "${test.exit_code} == 0"
+
+# Multi-condition logic
+- shell: "./deploy.sh"
+  when: "${test_output} contains 'passed' and ${build_output} contains 'Finished'"
 ```
 
-**Note:** Advanced features include:
+**Note:** Advanced features currently supported:
 - **Nested handlers**: Chain `on_failure` and `on_success` handlers for complex error recovery
-- **Working directory**: Use `cwd` to run commands in specific directories
-- **Git context**: Access `files_modified`, `files_added`, `files_deleted` from git operations
-- **Pattern filtering**: Use `:*.rs` syntax to filter file lists by pattern
-- **Format modifiers**: Apply `:json`, `:lines`, `:csv` modifiers to captured output
-- **Max attempts**: Combine with conditional execution for retry logic
+- **Max attempts**: Combine with conditional execution for automatic retry logic
+- **Conditional execution**: Use `when` clauses with captured output or variables
+- **Complex conditionals**: Combine multiple conditions with `and`/`or` operators
+
+**Future capabilities** (not yet implemented, but planned):
+- **Working directory**: `cwd` field for running commands in specific directories
+- **Git context variables**: Access `files_modified`, `files_added` from git operations
+- **Pattern filtering**: Filter file lists with `:*.rs` syntax
+- **Format modifiers**: Advanced output transformation with `:json`, `:lines`, `:csv`
