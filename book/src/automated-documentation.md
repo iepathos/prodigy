@@ -348,6 +348,8 @@ prodigy run workflows/book-docs-drift.yml
 
 ## Understanding the Workflow
 
+> **Note**: All workflow phases (setup, map, reduce, merge) execute in an isolated git worktree, ensuring the main repository remains untouched during execution. This isolation is a key feature of Prodigy's MapReduce implementation (Spec 127).
+
 ### Phase 1: Setup - Feature Analysis
 
 The setup phase analyzes your codebase and creates a feature inventory:
@@ -387,7 +389,7 @@ This generates `.myproject/book-analysis/features.json`:
 1. **Analyze** - Detect drift and create a drift report
 2. **Fix** - Read the drift report and update the chapter
 
-This sequential execution within each agent ensures the drift report from step 1 is available to step 2. Meanwhile, multiple chapters are processed in parallel across different agent worktrees.
+Each agent runs in its own isolated git worktree, allowing multiple chapters to be processed concurrently without interference. This sequential execution within each agent ensures the drift report from step 1 is available to step 2. Meanwhile, multiple chapters are processed in parallel across different agent worktrees.
 
 ```yaml
 map:
@@ -421,7 +423,7 @@ Both steps run sequentially for each chapter, and chapters are processed in para
 
 **Why commit_required: true is Critical**
 
-The `commit_required: true` flag in step 1 ensures the drift report is committed to git. Since both steps run in the same isolated agent worktree, this commit makes the drift report accessible to step 2. Without this commit, step 2 wouldn't be able to read the drift report file that step 1 just created.
+Each map agent runs in its own isolated git worktree. The `commit_required: true` flag ensures the drift report is committed to git in that worktree. This is critical because without the commit, the drift report file created by step 1 would not be accessible to step 2, even though they run sequentially in the same agent worktree.
 
 ### Phase 3: Reduce - Validate Book Build
 
@@ -942,7 +944,7 @@ prodigy dlq retry <job_id> --max-parallel 2
 prodigy dlq retry <job_id> --dry-run
 ```
 
-The DLQ preserves all context from the original failure, making it safe to retry after fixing any underlying issues.
+The DLQ preserves all context from the original failure, making it safe to retry after fixing any underlying issues. Failed items in the DLQ include the `json_log_location` field pointing to detailed Claude execution logs. Use this to debug exactly what went wrong during chapter processing.
 
 ## Advanced Configuration
 
