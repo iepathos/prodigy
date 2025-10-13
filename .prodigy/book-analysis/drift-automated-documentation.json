@@ -4,106 +4,116 @@
   "chapter_file": "book/src/automated-documentation.md",
   "drift_detected": true,
   "severity": "medium",
-  "quality_assessment": "Chapter is comprehensive and well-structured with good examples and clear progression. Primary issues are in workflow examples that need to match actual implementation files. The explanation of concepts is solid but some implementation details need updates.",
+  "quality_assessment": "Chapter is comprehensive and well-structured with complete setup instructions and workflow examples. Contains minor outdated references and some missing advanced features. The explanation of concepts is solid, workflow examples match actual implementation files, and setup instructions are accurate. Overall quality is good with room for improvement in advanced configuration details.",
   "issues": [
     {
       "type": "incorrect_example",
       "severity": "high",
-      "section": "Step 7: Merge phase (line 282-297)",
-      "description": "Merge phase shows incorrect command name '/merge-master' which doesn't exist",
+      "section": "Step 7: Create the Workflow - Merge Phase (line 313-318)",
+      "description": "Merge phase shows incorrect command name '/merge-master' instead of '/prodigy-merge-master'",
       "current_content": "    # Step 3: Fetch latest changes and merge master into worktree\n    - shell: \"git fetch origin\"\n    - claude: \"/merge-master\"\n\n    # Step 4: Merge worktree back to master\n    - claude: \"/prodigy-merge-worktree ${merge.source_branch}\"",
       "should_be": "    # Step 3: Fetch latest changes and merge master into worktree\n    - shell: \"git fetch origin\"\n    - claude: \"/prodigy-merge-master --project ${PROJECT_NAME}\"\n\n    # Step 4: Merge worktree back to master\n    - claude: \"/prodigy-merge-worktree ${merge.source_branch}\"",
       "fix_suggestion": "Change '/merge-master' to '/prodigy-merge-master --project ${PROJECT_NAME}' to match the actual command name and required parameter",
-      "source_reference": "workflows/book-docs-drift.yml:73-77"
+      "source_reference": "workflows/book-docs-drift.yml:79 and .claude/commands/prodigy-merge-master.md"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Phase 4: Merge - Integration (line 626-631)",
+      "description": "Another instance of incorrect command name '/merge-master' in merge phase explanation",
+      "current_content": "    # Step 3: Fetch latest changes and merge master into worktree\n    - shell: \"git fetch origin\"\n    - claude: \"/merge-master\"",
+      "should_be": "    # Step 3: Fetch latest changes and merge master into worktree\n    - shell: \"git fetch origin\"\n    - claude: \"/prodigy-merge-master --project ${PROJECT_NAME}\"",
+      "fix_suggestion": "Update to use correct command name '/prodigy-merge-master' with required parameter",
+      "source_reference": "workflows/book-docs-drift.yml:79 and .claude/commands/prodigy-merge-master.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Step 7: Create the Workflow - Map Phase (line 274)",
+      "description": "The example workflow shows 'agent_timeout_secs: 900' as a configuration option in the map phase, but this field is not explained",
+      "current_content": "  max_parallel: 3\n  agent_timeout_secs: 900  # 15-minute timeout per agent",
+      "should_add": "Add explanation in configuration parameters comment section about what agent_timeout_secs does and why it's set to 900 seconds",
+      "fix_suggestion": "The comment exists inline but could be expanded in the 'Configuration parameters' section below (line 290-300) to explain: 'agent_timeout_secs sets a per-agent timeout to prevent any single chapter from hanging the workflow. Adjust based on expected chapter processing time.'",
+      "source_reference": "src/config/mapreduce.rs:MapPhaseYaml::agent_timeout_secs field"
     },
     {
       "type": "incomplete_explanation",
       "severity": "medium",
-      "section": "Map Phase - Two-Step Approach (Line 361-393)",
-      "description": "Chapter explains the two-step map phase but doesn't clarify the importance of commit_required: true",
-      "current_content": "**Step 1: Analyze** - For each chapter, Claude:\n1. Reads the current chapter content\n2. Compares it to the feature inventory\n3. Identifies missing, outdated, or incorrect information\n4. Creates a drift report (`.prodigy/book-analysis/drift-{chapter-id}.json`)\n\n**Step 2: Fix** - Then immediately for the same chapter, Claude:\n1. Reads the drift report created in step 1\n2. Updates the chapter file to fix all identified issues\n3. Commits the fixes to the worktree\n\nBoth steps run sequentially for each chapter, and chapters are processed in parallel.",
-      "should_add": "Clarify that commit_required: true in step 1 is critical - it ensures the drift report is committed to git, making it accessible to step 2 in the same agent worktree",
-      "fix_suggestion": "Add after the two-step explanation: 'The commit_required: true flag in step 1 is critical - it ensures the drift report is committed to git. Since both steps run in the same isolated agent worktree, this commit makes the drift report accessible to step 2.'",
+      "section": "Phase 2: Map - Chapter Drift Detection and Fixing (line 383-420)",
+      "description": "Chapter explains the two-step map phase but the explanation of commit_required: true could be more explicit about worktree isolation",
+      "current_content": "**Why commit_required: true is Critical**\n\nThe `commit_required: true` flag in step 1 ensures the drift report is committed to git. Since both steps run in the same isolated agent worktree, this commit makes the drift report accessible to step 2. Without this commit, step 2 wouldn't be able to read the drift report file that step 1 just created.",
+      "should_be": "The explanation is mostly correct but could emphasize the worktree isolation aspect more clearly",
+      "fix_suggestion": "Enhance the explanation with: 'Each map agent runs in its own isolated git worktree. The commit_required: true flag ensures the drift report is committed to git in that worktree. This is critical because without the commit, the drift report file created by step 1 would not be accessible to step 2, even though they run sequentially in the same agent worktree.'",
       "source_reference": "MapReduce agent isolation model with sequential command execution in worktrees"
     },
     {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Workflow Setup (Step 7) - Map Phase",
-      "description": "Chapter doesn't explain the agent_timeout_secs configuration shown in the example",
-      "current_content": "map:\n  input: \"workflows/data/chapters.json\"\n  json_path: \"$.chapters[*]\"\n\n  agent_template:\n    # Step 1: Analyze the chapter for drift\n    - claude: \"/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH\"\n      commit_required: true\n\n    # Step 2: Fix the drift in this chapter\n    - claude: \"/prodigy-fix-chapter-drift --project $PROJECT_NAME --chapter-id ${item.id}\"\n      commit_required: true\n\n  max_parallel: 3\n  agent_timeout_secs: 900",
-      "should_add": "Explain what agent_timeout_secs does and why it's set to 900",
-      "fix_suggestion": "Add after the map configuration: '- agent_timeout_secs: 900 sets a 15-minute timeout per agent (15 minutes = 900 seconds). This prevents any single chapter from hanging the entire workflow. Adjust this value based on your expected chapter processing time.'",
-      "source_reference": "src/config/mapreduce.rs:MapPhaseYaml::agent_timeout_secs"
-    },
-    {
       "type": "incomplete_explanation",
       "severity": "medium",
-      "section": "Error Handling Configuration (Line 276-280)",
-      "description": "Error policy configuration is shown but not explained",
-      "current_content": "error_policy:\n  on_item_failure: dlq\n  continue_on_failure: true\n  max_failures: 2\n  error_collection: aggregate",
-      "should_add": "Detailed explanation of what each error policy field does",
-      "fix_suggestion": "Add explanation after the error_policy block:\n\n**Error Policy Fields:**\n- `on_item_failure: dlq` - Failed chapters are sent to the Dead Letter Queue for manual review and retry\n- `continue_on_failure: true` - Workflow continues processing other chapters even if some fail\n- `max_failures: 2` - Stop the entire workflow if more than 2 chapters fail (prevents cascading failures)\n- `error_collection: aggregate` - Collect all errors and report them together at the end",
+      "section": "Step 7: Error Policy Configuration (line 284-300)",
+      "description": "Error policy configuration is shown with inline comments but could use more detailed explanation",
+      "current_content": "error_policy:\n  on_item_failure: dlq\n  continue_on_failure: true\n  max_failures: 2\n  error_collection: aggregate\n\n# Configuration parameters:\n# - max_parallel: 3 chapters processed concurrently\n# - agent_timeout_secs: 900 sets a 15-minute timeout per agent (900 seconds = 15 minutes)\n#   This prevents any single chapter from hanging the entire workflow\n#   Adjust this value based on your expected chapter processing time\n#\n# Error Policy fields:\n# - on_item_failure: dlq - Failed chapters are sent to the Dead Letter Queue for manual review and retry\n# - continue_on_failure: true - Workflow continues processing other chapters even if some fail\n# - max_failures: 2 - Stop the entire workflow if more than 2 chapters fail (prevents cascading failures)\n# - error_collection: aggregate - Collect all errors and report them together at the end",
+      "should_be": "The explanation is present in comments, which is good. Could be enhanced by moving to a separate 'Understanding Error Handling' subsection",
+      "fix_suggestion": "Consider adding a subsection after Step 7 that explains error handling in detail, separate from the YAML comments, with examples of what happens when chapters fail",
       "source_reference": "src/config/error.rs:WorkflowErrorPolicy"
     },
     {
-      "type": "outdated_information",
-      "severity": "high",
-      "section": "GitHub Actions - Periodic Updates (Line 626-636)",
-      "description": "Note is correct but could be clearer about what's not yet available",
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "GitHub Actions Integration - Periodic Documentation Updates (line 682-691)",
+      "description": "Note about CI limitations is good but doesn't mention json_log_location tracking that will help with CI debugging",
       "current_content": "> **Note**: Automated documentation updates in CI/CD are not yet fully supported. Claude Code CLI installation and authentication in GitHub Actions is still in development.\n>\n> For now, run the book workflow manually:\n> ```bash\n> prodigy run workflows/book-docs-drift.yml\n> ```",
-      "should_be": "> **Note**: Automated documentation updates in CI/CD are not yet fully supported. Claude Code CLI installation and authentication in GitHub Actions is still in development.\n>\n> For now, run the book workflow manually:\n> ```bash\n> prodigy run workflows/book-docs-drift.yml\n> ```\n>\n> When CI support is added, Prodigy's json_log_location tracking (Spec 121) will enable debugging Claude commands in CI by capturing detailed JSON logs for each command execution.",
-      "fix_suggestion": "Add note about json_log_location feature that will help with CI debugging when Claude Code CI support is available",
-      "source_reference": "Spec 121 - Claude Command Observability"
+      "should_add": "Add note about json_log_location tracking (Spec 121) for future CI debugging",
+      "fix_suggestion": "Add after the note: '\n>\n> When CI support is added, Prodigy's json_log_location tracking (Spec 121) will enable debugging Claude commands in CI by capturing detailed JSON logs for each command execution. This will make it easy to troubleshoot documentation updates that fail in CI environments.\n>\n> Watch the Prodigy and Claude Code documentation for updates on CI integration.'",
+      "source_reference": "CLAUDE.md Spec 121 - Claude Command Observability with json_log_location"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Gap Detection - Manual Review (Line 527-543)",
-      "description": "Chapter mentions manual review but doesn't show how to query the gaps report",
-      "current_content": "While gap detection is automatic, manual review is recommended for:\n\n1. **Critical and High Severity Gaps**: Review these immediately as they indicate missing core documentation\n2. **New Features**: When adding new features to your codebase, check the gap report to ensure they're documented",
-      "should_add": "Add practical examples of how to query and analyze the gaps report",
-      "fix_suggestion": "Add after the manual review section:\n\n**Analyzing the Gaps Report:**\n\n```bash\n# View all detected gaps\ncat .prodigy/book-analysis/gaps-report.json | jq '.gaps'\n\n# Filter to show only critical gaps\ncat .prodigy/book-analysis/gaps-report.json | jq '.gaps[] | select(.severity == \"critical\")'\n\n# Count gaps by severity level\ncat .prodigy/book-analysis/gaps-report.json | jq '.gaps_by_severity'\n\n# Get gap details for a specific chapter\ncat .prodigy/book-analysis/gaps-report.json | jq '.gaps[] | select(.location | contains(\"user-guide.md\"))'\n```",
-      "source_reference": "Gap detection output format documented in chapter"
+      "section": "Gap Detection - Manual Review (line 558-574)",
+      "description": "Manual review section exists but could include practical examples of querying gaps report",
+      "current_content": "**Best Practices for Manual Review**:\n\n- Run gap detection regularly (weekly or after significant code changes)\n- Address critical gaps before merging feature branches\n- Use gap reports to plan documentation work in sprints\n- Keep the gaps report file in version control to track progress\n- Review ignored patterns periodically to ensure they're still relevant",
+      "should_add": "Add practical bash examples for querying and analyzing gaps report",
+      "fix_suggestion": "Add section after 'Best Practices for Manual Review' titled '**Analyzing the Gaps Report:**' with jq examples for viewing all gaps, filtering by severity, counting by severity, filtering by location, and listing affected features",
+      "source_reference": "Gap detection output format documented in chapter at line 489-518"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Merge Phase - Cleanup (Line 565-567)",
-      "description": "Cleanup command uses '|| true' but doesn't explain why",
+      "section": "Step 7: Merge Phase - Cleanup (line 307-308)",
+      "description": "Cleanup command uses '|| true' without explanation",
       "current_content": "    # Step 1: Clean up temporary analysis files\n    - shell: \"rm -rf ${ANALYSIS_DIR}\"\n    - shell: \"git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true\"",
       "should_add": "Explain the purpose of '|| true' in the git commit command",
-      "fix_suggestion": "Add comment or note: 'The || true prevents the merge phase from failing if there are no changes to commit (e.g., if cleanup didn't modify any tracked files). This is a safety pattern for optional cleanup steps.'",
+      "fix_suggestion": "Add inline comment: '# The '|| true' prevents the merge phase from failing if there are no changes to commit\n# (e.g., if cleanup didn't modify any tracked files). This is a safety pattern for optional cleanup steps.'",
       "source_reference": "Shell command best practices - idempotent cleanup"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Prerequisites (Line 16-30)",
-      "description": "Prerequisites list doesn't explicitly mention git installation",
-      "current_content": "1. **Install Prodigy**:\n   ```bash\n   cargo install prodigy\n   ```\n\n2. **Install mdBook**:\n   ```bash\n   cargo install mdbook\n   ```\n\n3. **Claude Code CLI** with valid API credentials\n\n4. **Git repository** for your project",
-      "should_add": "Make git installation explicit, not just 'git repository'",
-      "fix_suggestion": "Change item 4 to:\n\n4. **Git** - Version control system (git 2.25+ recommended) and an initialized git repository for your project\n\n   ```bash\n   # Verify git is installed\n   git --version\n   \n   # Initialize a repository if needed\n   git init\n   ```",
-      "source_reference": "Prodigy requires git for worktree management"
-    },
-    {
-      "type": "unclear_content",
-      "severity": "low",
-      "section": "Understanding the Workflow - Phase 2 (Line 361-393)",
-      "description": "The parallel vs sequential execution model could be stated more clearly upfront",
-      "current_content": "Each chapter is processed in parallel with a two-step approach:\n\n```yaml\nmap:\n  input: \"workflows/data/chapters.json\"\n  json_path: \"$.chapters[*]\"\n\n  agent_template:\n    # Step 1: Analyze the chapter for drift\n    - claude: \"/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH\"\n      commit_required: true\n\n    # Step 2: Fix the drift in this chapter\n    - claude: \"/prodigy-fix-chapter-drift --project $PROJECT_NAME --chapter-id ${item.id}\"\n      commit_required: true\n```\n\nThe map phase actually has **TWO steps per chapter**:",
-      "should_be": "Lead with the execution model before diving into the YAML",
-      "fix_suggestion": "Restructure to start with: 'The map phase processes chapters with controlled parallelism (max_parallel: 3 chapters at a time). For each chapter, two steps execute sequentially in the same isolated agent worktree:\n\n1. **Analyze** - Detect drift and create a drift report\n2. **Fix** - Read the drift report and update the chapter\n\nThis sequential execution within each agent ensures the drift report from step 1 is available to step 2. Meanwhile, multiple chapters are processed in parallel across different agent worktrees.'",
-      "source_reference": "MapReduce execution model - parallel chapters, sequential steps"
+      "section": "Troubleshooting (line 873-923)",
+      "description": "Troubleshooting section exists and covers several issues, but DLQ retry section could reference json_log_location for debugging",
+      "current_content": "### Issue: Some Chapters Failed to Update\n\n**Cause**: Chapter processing timeout, Claude error, or validation failure\n\n**Solution**: Use the Dead Letter Queue (DLQ) to retry failed chapters:\n\n```bash\n# View failed chapters\nprodigy dlq show <job_id>\n\n# Retry all failed chapters\nprodigy dlq retry <job_id>\n\n# Retry with custom parallelism\nprodigy dlq retry <job_id> --max-parallel 2\n\n# Dry run to see what would be retried\nprodigy dlq retry <job_id> --dry-run\n```\n\nThe DLQ preserves all context from the original failure, making it safe to retry after fixing any underlying issues.",
+      "should_add": "Add note about checking json_log_location in DLQ for detailed Claude execution logs",
+      "fix_suggestion": "Add after the DLQ explanation: 'Failed items in the DLQ include the json_log_location field pointing to detailed Claude execution logs. Use this to debug exactly what went wrong during chapter processing.'",
+      "source_reference": "CLAUDE.md Spec 121 - json_log_location in DLQ items"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Troubleshooting (Line 817-867)",
-      "description": "Troubleshooting section doesn't cover DLQ retry for failed chapters",
-      "should_add": "Add troubleshooting entry for failed chapter processing and DLQ retry",
-      "fix_suggestion": "Add troubleshooting entry:\n\n### Issue: Some Chapters Failed to Update\n\n**Cause**: Chapter processing timeout, Claude error, or validation failure\n\n**Solution**: Use the Dead Letter Queue to retry failed chapters:\n```bash\n# View failed chapters\nprodigy dlq show <job_id>\n\n# Retry all failed chapters\nprodigy dlq retry <job_id>\n\n# Retry with custom parallelism\nprodigy dlq retry <job_id> --max-parallel 2\n\n# Dry run to see what would be retried\nprodigy dlq retry <job_id> --dry-run\n```",
-      "source_reference": "DLQ retry functionality - src/dlq/retry.rs"
+      "section": "Understanding the Workflow (all phases)",
+      "description": "Chapter doesn't explicitly mention that all phases (setup, map, reduce) execute in isolated worktree per Spec 127",
+      "should_add": "Note that all MapReduce workflow phases execute in isolated worktrees, not in main repository",
+      "fix_suggestion": "Add a note at the beginning of 'Understanding the Workflow' section (before Phase 1): 'All workflow phases (setup, map, reduce, merge) execute in an isolated git worktree, ensuring the main repository remains untouched during execution. This isolation is a key feature of Prodigy's MapReduce implementation (Spec 127).'",
+      "source_reference": "CLAUDE.md Spec 127 - Worktree Isolation for all MapReduce phases"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Phase 2: Map - Execution Model (line 385-391)",
+      "description": "The parallel vs sequential execution model is explained but could be stated more clearly upfront",
+      "current_content": "**Execution Model**: The map phase processes chapters with controlled parallelism (max_parallel: 3 chapters at a time). For each chapter, two steps execute sequentially in the same isolated agent worktree:\n\n1. **Analyze** - Detect drift and create a drift report\n2. **Fix** - Read the drift report and update the chapter\n\nThis sequential execution within each agent ensures the drift report from step 1 is available to step 2. Meanwhile, multiple chapters are processed in parallel across different agent worktrees.",
+      "should_be": "This is actually quite good! Minor improvement could emphasize the isolation guarantees",
+      "fix_suggestion": "Consider adding: 'Each agent runs in its own isolated git worktree, allowing multiple chapters to be processed concurrently without interference.'",
+      "source_reference": "MapReduce execution model - parallel chapters, sequential steps in isolated worktrees"
     }
   ],
   "positive_aspects": [
@@ -113,23 +123,29 @@
     "Clear explanation of the workflow phases (setup, map, reduce, merge)",
     "Good coverage of gap detection feature with severity levels and customization",
     "Well-structured customization examples for different project types (CLI, library, web service)",
-    "Helpful troubleshooting section with common issues and solutions",
-    "GitHub Actions integration section with realistic expectations",
+    "Helpful troubleshooting section with common issues and solutions, including DLQ retry",
+    "GitHub Actions integration section with realistic expectations about current limitations",
     "Book configuration examples are detailed and well-commented",
     "Best practices section provides actionable guidance",
-    "Chapter dependency explanation is practical and clear"
+    "Chapter dependency explanation is practical and clear",
+    "Error policy configuration is explained inline with helpful comments",
+    "Merge phase includes cleanup and validation steps",
+    "Prerequisites section is clear and includes verification commands",
+    "Advanced configuration section covers multi-language projects and custom analysis"
   ],
   "improvement_suggestions": [
-    "Add diagram showing the complete workflow flow from setup through merge",
-    "Include example output showing what a drift report looks like (drift-*.json structure)",
-    "Add FAQ section for common questions (e.g., 'How often should I run this?', 'Can I run on a subset of chapters?')",
-    "Consider adding performance tuning section covering max_parallel, agent_timeout_secs trade-offs",
+    "Fix command names in merge phase examples (/merge-master → /prodigy-merge-master)",
+    "Add practical jq examples for analyzing gaps report in Manual Review section",
+    "Add note about Spec 127 worktree isolation at beginning of workflow explanation",
+    "Enhance json_log_location references in CI and troubleshooting sections",
+    "Consider adding diagram showing complete workflow flow from setup through merge",
+    "Add FAQ section for common questions (e.g., 'How often should I run this?', 'Can I run on subset of chapters?')",
+    "Consider adding performance tuning section covering max_parallel and agent_timeout_secs trade-offs",
     "Add section on monitoring workflow progress with events (prodigy events <job_id>)",
-    "Include example of customizing gap detection severity rules in book-config.json",
+    "Include example of what a drift report looks like (drift-*.json structure sample)",
     "Add 'Common Mistakes' section based on user experience",
-    "Consider adding example of what happens when a chapter fails (show DLQ entry)",
-    "Add note about disk space requirements for worktrees and analysis files",
-    "Consider adding verification checklist before first run"
+    "Consider adding verification checklist before first run",
+    "Add note about disk space requirements for worktrees and analysis files"
   ],
   "metadata": {
     "analyzed_at": "2025-10-12",
@@ -139,7 +155,12 @@
       "Book workflow configuration",
       "Feature analysis",
       "GitHub Actions integration",
-      "Customization examples"
+      "Customization examples",
+      "Gap detection",
+      "Troubleshooting",
+      "DLQ retry",
+      "Error handling",
+      "Advanced configuration"
     ],
     "validation_focus": "Check that setup instructions are complete, configuration examples are valid, and GitHub Actions workflows are current"
   }
