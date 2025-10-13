@@ -1,0 +1,102 @@
+{
+  "chapter_id": "mapreduce-worktree-architecture",
+  "chapter_title": "MapReduce Worktree Architecture",
+  "chapter_file": "book/src/mapreduce-worktree-architecture.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Chapter accurately documents worktree hierarchy, branch naming, and merge flows. Main issues are minor inaccuracies in branch format and incomplete coverage of Claude-assisted merge features. The chapter provides good value for understanding the architecture.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Agent Worktree Branch (line 64)",
+      "description": "Branch format shows 'agent-{job_id}-{agent_id}-item-{item_index}' but actual implementation generates 'prodigy-agent-{session_id}-{item_id}'",
+      "current_content": "Format: `agent-{job_id}-{agent_id}-item-{item_index}`\n\nExample: `agent-mapreduce-20250112_143052_agent_5-item_3`",
+      "should_be": "Format: `prodigy-agent-{session_id}-{item_id}`\n\nExample: `prodigy-agent-session-123-abc`",
+      "fix_suggestion": "Update branch format to match actual implementation in generate_agent_branch_name() function. The actual format is simpler and doesn't include a separate agent_id or item_index.",
+      "source_reference": "src/cook/execution/mapreduce/utils.rs:192-194"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Agent Merge Details",
+      "description": "Chapter doesn't document Claude-assisted merge capability for handling conflicts",
+      "should_add": "Document that merge queue automatically invokes Claude (/prodigy-merge-worktree) when conflicts are detected, with fallback to manual resolution",
+      "fix_suggestion": "Add subsection under 'Agent Merge Details' explaining automatic conflict resolution: 'If a standard git merge fails with conflicts, the merge queue automatically invokes Claude using the /prodigy-merge-worktree command to resolve conflicts. If Claude resolution fails, the agent is marked as failed and added to the DLQ.'",
+      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:84-136"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Merge Queue",
+      "description": "Queue format example doesn't show all status fields used in actual implementation",
+      "current_content": "Shows only 'pending', 'merged', 'failed' arrays",
+      "should_add": "Add note that merge requests include agent_id, branch_name, item_id, and env context",
+      "fix_suggestion": "Update queue format documentation to note: 'Queue processes MergeRequest objects containing agent_id, branch_name, item_id, and execution environment. Processing is FIFO with automatic conflict detection.'",
+      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:18-31"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Parent Worktree (line 29)",
+      "description": "Location path shows 'session-mapreduce-{timestamp}' but doesn't mention fallback to anonymous worktrees",
+      "current_content": "**Location**: `~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}`",
+      "should_be": "**Location**: `~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}` (or anonymous worktree path if session_id not specified)",
+      "fix_suggestion": "Add note about anonymous worktree allocation: 'MapReduce coordinators typically create named session worktrees, but individual agents may use anonymous worktrees from the pool if no session context is provided.'",
+      "source_reference": "src/cook/execution/mapreduce/resources/worktree.rs:38-83"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Child Worktrees",
+      "description": "Location format shows 'agent-{job_id}-{agent_id}-item-{n}' but implementation uses 'mapreduce-agent-{config.id}'",
+      "current_content": "**Location**: `~/.prodigy/worktrees/{project}/agent-{job_id}-{agent_id}-item-{n}`",
+      "should_be": "**Location**: `~/.prodigy/worktrees/{project}/mapreduce-agent-{agent_id}` (where agent_id encodes the work item information)",
+      "fix_suggestion": "Update location format to match implementation and clarify that session_id is constructed as 'mapreduce-agent-{id}' where id is the agent configuration id",
+      "source_reference": "src/cook/execution/mapreduce/agent/lifecycle.rs:101"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Merge Queue (line 125)",
+      "description": "Queue location path uses old state format, but chapter correctly uses new global storage paths",
+      "current_content": "**Queue Location**: `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/merge_queue.json`",
+      "should_be": "Queue is managed in-memory with background worker, not persisted to disk as JSON file",
+      "fix_suggestion": "Update to clarify: 'Merge queue is managed in-memory by a background worker task. Merge requests are processed sequentially via an unbounded channel, eliminating MERGE_HEAD race conditions. Queue state is not persisted - merge operations are atomic.'",
+      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:41-46"
+    }
+  ],
+  "positive_aspects": [
+    "Clear hierarchical diagram showing worktree relationships",
+    "Accurate explanation of worktree isolation benefits",
+    "Good coverage of merge flow and conflict handling",
+    "Comprehensive debugging section with practical commands",
+    "Well-organized verification commands",
+    "Best practices section is helpful",
+    "Troubleshooting section covers common scenarios"
+  ],
+  "improvement_suggestions": [
+    "Add diagram showing branch lineage and merge flow visually",
+    "Include example of Claude-assisted merge conflict resolution",
+    "Add section on performance implications of worktree architecture",
+    "Include metrics/observability for tracking merge queue depth",
+    "Add examples of actual git commands used internally",
+    "Clarify when worktree pool vs direct manager is used",
+    "Add section on resource limits and cleanup policies"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-12",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Worktree hierarchy",
+      "Branch naming",
+      "Merge flow",
+      "Agent merge",
+      "MapReduce to parent merge",
+      "Parent to master merge",
+      "Debugging",
+      "Verification"
+    ],
+    "validation_focus": "Check that worktree isolation, branch naming conventions, merge flows, and debugging strategies are documented"
+  }
+}
