@@ -1,0 +1,79 @@
+{
+  "chapter_id": "advanced",
+  "chapter_title": "Advanced Features",
+  "chapter_file": "book/src/advanced.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Chapter is mostly accurate and well-organized. The content aligns well with the implementation. Only minor additions needed for completeness - missing working_dir (cwd) feature and could benefit from clarification on capture_streams struct format.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Advanced Features - Working Directory Control",
+      "description": "Chapter does not document the 'cwd' (working directory) field for per-command directory control",
+      "should_add": "Document cwd field for controlling working directory per command step",
+      "fix_suggestion": "Add a section on 'Working Directory Control' explaining the cwd field with examples. This is listed in features.json under advanced_features.working_directory but not documented in the chapter.",
+      "source_reference": "features.json:advanced_features.working_directory, field: 'cwd'"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Stream Capture Control - Advanced Struct Format",
+      "description": "Chapter shows capture_streams struct format example (lines 141-151) but doesn't clarify when to use string vs struct format",
+      "current_content": "capture_streams: \"stdout\" | \"stderr\" | \"both\"\n\nOR\n\ncapture_streams:\n  stdout: true\n  stderr: true\n  exit_code: true\n  success: true\n  duration: true",
+      "should_be": "Clarify that string format ('stdout', 'stderr', 'both') is for simple cases, and struct format is for capturing additional metadata like exit_code, success, duration",
+      "fix_suggestion": "Add a note explaining the two formats: simple string for basic stream selection, struct for fine-grained control with metadata capture. Make it clear when each format is appropriate.",
+      "source_reference": "src/cook/workflow/variables.rs:CaptureStreams struct definition"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Step Identification",
+      "description": "Section is very brief (lines 170-181) - could expand with more practical examples",
+      "current_content": "Basic example of using 'id' field to reference step output",
+      "should_be": "Expand with examples showing when step IDs are particularly useful: complex workflows with multiple parallel paths, debugging specific steps, conditional execution based on specific step outputs",
+      "fix_suggestion": "Add 2-3 more examples showing practical use cases for step IDs in complex workflows, especially with foreach or conditional execution",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand.id field"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent coverage of conditional execution with when, on_success, on_failure",
+    "Comprehensive output capture section with all formats documented (string, number, json, lines, boolean)",
+    "Well-organized progression from basic to advanced features",
+    "Good examples throughout showing practical YAML syntax",
+    "Accurate documentation of capture_format and capture_streams fields",
+    "Correct documentation of timeout configuration at command level",
+    "Good coverage of validation with on_incomplete handlers",
+    "Excellent section on foreach with parallel execution, error handling, and limiting",
+    "Comprehensive goal-seeking documentation",
+    "Best practices section provides practical guidance",
+    "Common patterns section shows real-world usage"
+  ],
+  "improvement_suggestions": [
+    "Add section on 'Working Directory Control' (cwd field) under Advanced Features",
+    "Clarify when to use string vs struct format for capture_streams",
+    "Expand Step Identification section with more complex workflow examples",
+    "Consider adding a troubleshooting subsection for common capture_output pitfalls",
+    "Add example showing combination of step IDs with validation and on_failure handlers",
+    "Consider adding performance considerations for parallel foreach execution"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-12",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Conditional execution (when, on_success, on_failure)",
+      "Output capture (capture_output, capture_format, capture_streams)",
+      "Nested conditionals",
+      "Timeouts",
+      "Implementation validation",
+      "Parallel iteration (foreach)",
+      "Goal-seeking operations",
+      "Step identification",
+      "Output file redirection"
+    ],
+    "validation_focus": "Check advanced features match implementation",
+    "implementation_alignment": "High - all documented features verified in codebase",
+    "completeness_score": 0.95,
+    "accuracy_score": 1.0
+  }
+}

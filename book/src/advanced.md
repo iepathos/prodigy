@@ -118,7 +118,9 @@ Control how output is parsed with `capture_format`:
 
 ### Stream Capture Control
 
-Control which streams to capture using `capture_streams`:
+The `capture_streams` field supports two formats:
+
+**Simple String Format** - For basic stream selection:
 
 ```yaml
 # Capture only stdout (default)
@@ -137,7 +139,9 @@ Control which streams to capture using `capture_streams`:
   capture_streams: "both"
 ```
 
-**Advanced**: The `capture_streams` field can also accept a detailed struct for fine-grained control:
+Use the string format when you only need to capture output from specific streams.
+
+**Advanced Struct Format** - For fine-grained control with metadata:
 
 ```yaml
 - shell: "cargo test"
@@ -150,7 +154,12 @@ Control which streams to capture using `capture_streams`:
     duration: true
 ```
 
-This struct format provides additional metadata like exit codes, success status, and execution duration alongside the captured output.
+Use the struct format when you need additional metadata alongside the captured output:
+- `exit_code`: Capture the command's exit code
+- `success`: Capture whether the command succeeded (true/false)
+- `duration`: Capture how long the command took to execute
+
+This is particularly useful for validation workflows where you need to make decisions based on command success or timing information.
 
 ### Output File Redirection
 
@@ -169,7 +178,9 @@ Write command output directly to a file:
 
 ## Step Identification
 
-Assign unique IDs to steps for referencing their outputs:
+Assign unique IDs to steps for explicit output referencing. This is particularly useful in complex workflows where multiple steps produce outputs and you need to reference specific results.
+
+### Basic Step IDs
 
 ```yaml
 - shell: "cargo test"
@@ -178,6 +189,95 @@ Assign unique IDs to steps for referencing their outputs:
 
 # Reference step output by ID
 - shell: "echo 'Tests: ${test-step.output}'"
+```
+
+### When to Use Step IDs
+
+**1. Complex Workflows with Multiple Parallel Paths**
+
+When you have multiple steps producing similar outputs, IDs make references unambiguous:
+
+```yaml
+- shell: "cargo test --lib"
+  id: "unit-tests"
+  capture_output: "results"
+
+- shell: "cargo test --test integration"
+  id: "integration-tests"
+  capture_output: "results"
+
+# Clear reference to specific test results
+- claude: "/analyze-failures '${unit-tests.output}'"
+  when: "${unit-tests.exit_code} != 0"
+
+- claude: "/analyze-failures '${integration-tests.output}'"
+  when: "${integration-tests.exit_code} != 0"
+```
+
+**2. Debugging Specific Steps**
+
+Step IDs help identify which step produced problematic output:
+
+```yaml
+- shell: "npm run build"
+  id: "build"
+  capture_output: "build_log"
+
+- shell: "npm run lint"
+  id: "lint"
+  capture_output: "lint_log"
+
+- shell: "npm test"
+  id: "test"
+  capture_output: "test_log"
+
+# Reference specific logs for debugging
+- claude: "/debug-build-failure '${build.output}'"
+  when: "${build.exit_code} != 0"
+```
+
+**3. Conditional Execution Based on Specific Step Outputs**
+
+Use step IDs to create complex conditional logic:
+
+```yaml
+- shell: "cargo clippy"
+  id: "clippy-check"
+  capture_output: "warnings"
+  capture_format: "lines"
+
+- shell: "cargo fmt --check"
+  id: "format-check"
+  capture_output: "format_issues"
+
+# Only proceed if both checks pass
+- shell: "cargo build --release"
+  when: "${clippy-check.exit_code} == 0 && ${format-check.exit_code} == 0"
+
+# Fix clippy warnings if present
+- claude: "/fix-clippy-warnings '${clippy-check.output}'"
+  when: "${clippy-check.exit_code} != 0"
+  on_failure:
+    claude: "/analyze-clippy-fix-failures"
+```
+
+**4. Combining with Validation and Error Handlers**
+
+Step IDs enable sophisticated error handling patterns:
+
+```yaml
+- shell: "cargo test --format json"
+  id: "test-run"
+  capture_output: "test_results"
+  capture_format: "json"
+  validate:
+    shell: "check-coverage.sh"
+    threshold: 80
+    on_incomplete:
+      claude: "/improve-coverage '${test-run.output}'"
+      max_attempts: 3
+  on_failure:
+    claude: "/debug-test-failures '${test-run.output}'"
 ```
 
 ---
