@@ -84,6 +84,8 @@ retry:
 
 **Delay sequence**: 1s, 3s, 5s, 7s
 
+The `increment` field specifies the additional delay added on each retry attempt. In this example, the delay starts at 1s and increases by 2s on each retry.
+
 **Use case**: Gradual backoff when you expect quick recovery.
 
 ### Exponential Backoff
@@ -135,6 +137,8 @@ retry:
 
 **Use case**: When you need precise control over timing (e.g., aligning with rate limit windows).
 
+**Note**: The delays use humantime format (e.g., '1s', '2s', '5m', '100ms') and are automatically parsed to Duration objects by the `humantime_serde` library. Once the custom delays array is exhausted, any remaining retry attempts will use the `max_delay` value.
+
 ## Backoff Strategy Comparison
 
 | Strategy | Attempt 1 | Attempt 2 | Attempt 3 | Attempt 4 | Attempt 5 | Best For |
@@ -163,7 +167,9 @@ With `jitter_factor: 0.5`:
 - A 10s delay becomes a random delay between **7.5s and 12.5s**
 - A 20s delay becomes a random delay between **15s and 25s**
 
-The jitter range is calculated as: `delay ± (delay * jitter_factor / 2)`
+The jitter is applied as: `delay + random(-delay * factor / 2, +delay * factor / 2)`
+
+For example, with a 10s delay and factor 0.5: `10s + random(-2.5s, +2.5s)` = 7.5s to 12.5s
 
 **When to use jitter**:
 - Multiple clients accessing the same service
@@ -174,6 +180,8 @@ The jitter range is calculated as: `delay ± (delay * jitter_factor / 2)`
 ## Conditional Retry with Error Matchers
 
 By default, Prodigy retries all errors. Use `retry_on` to retry only specific error types:
+
+**Note**: All error matching is case-insensitive. Error messages are normalized to lowercase before pattern comparison.
 
 ### Network Errors
 
@@ -404,6 +412,18 @@ let result = executor
 ## Workflow-Level vs Command-Level Retry
 
 Prodigy has two retry systems that serve different purposes:
+
+### Field Name Differences
+
+The two retry systems use different field names and structures:
+
+| Feature | retry_v2::RetryConfig | error_policy::RetryConfig |
+|---------|----------------------|---------------------------|
+| Max attempts | `attempts` | `max_attempts` |
+| Backoff | `backoff` (enum variants) | `backoff` (enum with nested fields) |
+| Exponential base | `exponential: { base }` | `exponential: { initial, multiplier }` |
+| Linear increment | `linear: { increment }` | `linear: { initial, increment }` |
+| Fixed delay | `backoff: fixed` | `fixed: { delay }` |
 
 ### Command-Level Retry (Enhanced)
 
