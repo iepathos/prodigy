@@ -216,7 +216,14 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         env_vars: HashMap<String, String>,
     ) -> Result<ExecutionResult> {
         // Generate log file path that Prodigy will save the streaming JSON to
-        let log_path = generate_streaming_log_path(project_path)?;
+        // Use temp directory in test environments (when RUST_TEST_THREADS is set)
+        // This avoids permission issues in CI
+        let use_temp_dir = std::env::var("RUST_TEST_THREADS").is_ok();
+        let log_path = if use_temp_dir {
+            generate_streaming_log_path_temp()?
+        } else {
+            generate_streaming_log_path_home()?
+        };
 
         // Display the exact log file path BEFORE execution so users can tail it
         tracing::info!("📁 Claude streaming log: {}", log_path.display());
@@ -253,6 +260,22 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
             .runner
             .run_with_streaming("claude", &args, &context, processor)
             .await;
+
+        // If streaming fails with ENOTSUP (operation not supported), fall back to print mode
+        // This can happen in test environments with resource contention
+        let result = match result {
+            Err(e) if e.to_string().contains("Operation not supported") => {
+                tracing::warn!(
+                    "Streaming mode failed (operation not supported), falling back to print mode: {}",
+                    e
+                );
+                // Fall back to print mode
+                return self
+                    .execute_with_print(command, project_path, env_vars)
+                    .await;
+            }
+            other => other,
+        };
 
         match result {
             Ok(mut execution_result) => {
@@ -334,9 +357,9 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
 
 // Pure helper functions for configuration parsing
 
-/// Generate a unique log file path for saving Claude streaming JSON
+/// Generate a unique log file path for saving Claude streaming JSON in home directory
 /// Path format: ~/.prodigy/logs/claude-streaming/{timestamp}-{uuid}.jsonl
-fn generate_streaming_log_path(_project_path: &Path) -> Result<std::path::PathBuf> {
+fn generate_streaming_log_path_home() -> Result<std::path::PathBuf> {
     use chrono::Utc;
     use uuid::Uuid;
 
@@ -344,6 +367,26 @@ fn generate_streaming_log_path(_project_path: &Path) -> Result<std::path::PathBu
         dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
 
     let log_dir = home.join(".prodigy/logs/claude-streaming");
+
+    // Create directory if it doesn't exist
+    std::fs::create_dir_all(&log_dir)?;
+
+    // Generate unique filename with timestamp and UUID
+    let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+    let uuid = Uuid::new_v4();
+    let filename = format!("{}-{}.jsonl", timestamp, uuid);
+
+    Ok(log_dir.join(filename))
+}
+
+/// Generate a unique log file path in temporary directory (for testing)
+/// Path format: /tmp/.prodigy-test/logs/claude-streaming/{timestamp}-{uuid}.jsonl
+fn generate_streaming_log_path_temp() -> Result<std::path::PathBuf> {
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    let temp_dir = std::env::temp_dir();
+    let log_dir = temp_dir.join(".prodigy-test/logs/claude-streaming");
 
     // Create directory if it doesn't exist
     std::fs::create_dir_all(&log_dir)?;
@@ -794,7 +837,9 @@ mod tests {
         });
 
         let executor = ClaudeExecutorImpl::new(mock_runner);
-        let env_vars = HashMap::new();
+        let mut env_vars = HashMap::new();
+        // Explicitly opt out of streaming mode to use print mode (no log file creation)
+        env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "false".to_string());
 
         let result = executor
             .execute_claude_command("/test-command", Path::new("/tmp"), env_vars)

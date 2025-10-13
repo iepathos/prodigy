@@ -62,8 +62,8 @@ mod tests {
         println!("📁 Log path that SHOULD have been displayed: {}", log_path);
 
         assert!(
-            log_path.contains(".prodigy/logs/claude-streaming/"),
-            "Expected log path to be in .prodigy/logs/claude-streaming/, got: {}",
+            log_path.contains(".prodigy-test/logs/claude-streaming/") || log_path.contains(".prodigy/logs/claude-streaming/"),
+            "Expected log path to be in .prodigy-test/logs/claude-streaming/ or .prodigy/logs/claude-streaming/, got: {}",
             log_path
         );
         assert!(
