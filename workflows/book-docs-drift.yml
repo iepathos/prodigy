@@ -51,7 +51,7 @@ map:
 # Reduce phase: Validate and handle any merge conflicts
 reduce:
   # Rebuild the book to ensure all chapters compile together
-  - shell: "(cd book && mdbook build)"
+  - shell: "cd book && mdbook build"
     on_failure:
       # Only needed if there are build errors (broken links, etc)
       claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
