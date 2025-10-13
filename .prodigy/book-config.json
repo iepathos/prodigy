@@ -175,6 +175,26 @@
         "github_actions",
         "customization"
       ]
+    },
+    {
+      "area": "mapreduce_worktree_architecture",
+      "source_files": [
+        "docs/mapreduce-worktree-architecture.md",
+        "src/cook/execution/mapreduce/coordination/executor.rs",
+        "src/cook/execution/mapreduce/merge_queue.rs",
+        "src/worktree/manager.rs",
+        "tests/mapreduce_to_parent_merge_test.rs"
+      ],
+      "feature_categories": [
+        "worktree_hierarchy",
+        "branch_naming",
+        "merge_flow",
+        "agent_merge",
+        "mapreduce_to_parent_merge",
+        "parent_to_master_merge",
+        "debugging",
+        "verification"
+      ]
     }
   ],
   "chapter_file": "workflows/data/prodigy-chapters.json",

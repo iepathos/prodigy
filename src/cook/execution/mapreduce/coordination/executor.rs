@@ -198,22 +198,21 @@ impl MapReduceCoordinator {
 
     /// Merge MapReduce worktree changes back to parent worktree
     ///
-    /// This function creates a branch in the MapReduce worktree and merges it back to the
-    /// parent worktree. This is necessary because the MapReduce workflow runs in a nested
-    /// worktree hierarchy:
+    /// This function merges the MapReduce worktree branch back to the parent worktree.
+    /// The MapReduce workflow runs in a nested worktree hierarchy:
     ///
     /// ```
     /// master
     ///   ↓
-    /// parent-worktree (session-xxx)
+    /// parent-worktree (session-xxx) on branch prodigy-session-xxx
     ///   ↓
-    /// mapreduce-worktree (session-mapreduce-xxx) ← We are here
+    /// mapreduce-worktree (session-mapreduce-xxx) on branch prodigy-session-mapreduce-xxx ← We are here
     ///   ↓
     /// agent-worktrees (mapreduce-agent-xxx) → Merge to mapreduce-worktree (done in agent execution)
     /// ```
     ///
-    /// Without this step, changes remain trapped in the MapReduce worktree and never
-    /// propagate to the parent worktree or master branch.
+    /// The MapReduce worktree has accumulated all agent merges on its branch (prodigy-session-mapreduce-xxx).
+    /// We need to merge this branch to the parent worktree so changes propagate to master.
     async fn merge_mapreduce_to_parent(&self, env: &ExecutionEnvironment) -> MapReduceResult<()> {
         // Only merge if we're in a MapReduce worktree context
         let worktree_name = match &env.worktree_name {
@@ -232,24 +231,27 @@ impl MapReduceCoordinator {
 
         info!("Merging MapReduce worktree changes back to parent worktree");
 
-        // Create a branch for the MapReduce worktree
-        let mapreduce_branch = format!("merge-{}", worktree_name);
+        // The MapReduce worktree's branch follows the pattern: prodigy-{worktree_name}
+        // This is the branch that contains all the agent merges and needs to be merged to parent
+        let mapreduce_branch = format!("prodigy-{}", worktree_name);
 
-        // Create branch in MapReduce worktree (current working directory)
-        let branch_result = self
+        // Verify the branch exists
+        let branch_exists = self
             .subprocess
             .runner()
             .run(
                 crate::subprocess::ProcessCommandBuilder::new("git")
-                    .args(["checkout", "-b", &mapreduce_branch])
+                    .args(["rev-parse", "--verify", &mapreduce_branch])
                     .current_dir(&env.working_dir)
                     .build(),
             )
             .await;
 
-        if let Err(e) = branch_result {
-            warn!("Failed to create branch for MapReduce worktree: {}", e);
-            // Continue anyway - might already exist
+        if branch_exists.is_err() {
+            return Err(MapReduceError::ProcessingError(format!(
+                "MapReduce branch '{}' does not exist. Cannot merge to parent.",
+                mapreduce_branch
+            )));
         }
 
         // Find parent worktree - it's actually at ~/.prodigy/worktrees/{project}/session-xxx
