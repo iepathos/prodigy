@@ -4,58 +4,130 @@
   "chapter_file": "book/src/advanced.md",
   "drift_detected": true,
   "severity": "low",
-  "quality_assessment": "Chapter is mostly accurate and well-organized. The content aligns well with the implementation. Only minor additions needed for completeness - missing working_dir (cwd) feature and could benefit from clarification on capture_streams struct format.",
+  "quality_assessment": "Chapter is comprehensive and mostly accurate. Content aligns well with implementation. Only minor clarifications needed for capture_streams format flexibility and working_dir feature documentation.",
   "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Stream Capture Control (lines 119-162)",
+      "description": "Documentation shows both string and struct formats for capture_streams but doesn't explicitly state that these are alternative formats via untagged enum",
+      "current_content": "Shows both formats separately:\n- Simple String Format: capture_streams: \"stdout\"\n- Advanced Struct Format: capture_streams: { stdout: true, ... }",
+      "should_be": "Clarify that capture_streams supports BOTH formats via Rust untagged enum deserialization - users can choose either based on needs",
+      "fix_suggestion": "Add explicit note: 'capture_streams is flexible - use the simple string format when you only need basic stream selection, or the struct format when you need metadata like exit_code, success, and duration alongside the output.'",
+      "source_reference": "src/cook/workflow/variables.rs:268-296 (CaptureStreams struct), src/config/command.rs:395-396 (field defined as Option<String> but deserialization handles both)"
+    },
     {
       "type": "missing_content",
       "severity": "low",
       "section": "Advanced Features - Working Directory Control",
-      "description": "Chapter does not document the 'cwd' (working directory) field for per-command directory control",
-      "should_add": "Document cwd field for controlling working directory per command step",
-      "fix_suggestion": "Add a section on 'Working Directory Control' explaining the cwd field with examples. This is listed in features.json under advanced_features.working_directory but not documented in the chapter.",
-      "source_reference": "features.json:advanced_features.working_directory, field: 'cwd'"
-    },
-    {
-      "type": "unclear_content",
-      "severity": "low",
-      "section": "Stream Capture Control - Advanced Struct Format",
-      "description": "Chapter shows capture_streams struct format example (lines 141-151) but doesn't clarify when to use string vs struct format",
-      "current_content": "capture_streams: \"stdout\" | \"stderr\" | \"both\"\n\nOR\n\ncapture_streams:\n  stdout: true\n  stderr: true\n  exit_code: true\n  success: true\n  duration: true",
-      "should_be": "Clarify that string format ('stdout', 'stderr', 'both') is for simple cases, and struct format is for capturing additional metadata like exit_code, success, duration",
-      "fix_suggestion": "Add a note explaining the two formats: simple string for basic stream selection, struct for fine-grained control with metadata capture. Make it clear when each format is appropriate.",
-      "source_reference": "src/cook/workflow/variables.rs:CaptureStreams struct definition"
+      "description": "Chapter does not document the 'cwd' or 'working_dir' field for per-command directory control",
+      "should_add": "Document working_dir field for controlling the working directory on a per-command basis",
+      "fix_suggestion": "Add subsection 'Working Directory Control' under Advanced Features with examples:\n```yaml\n- shell: \"npm install\"\n  working_dir: \"./frontend\"\n\n- shell: \"cargo build\"\n  working_dir: \"./backend\"\n```",
+      "source_reference": "features.json mentions advanced_features.working_directory as a capability"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Step Identification",
-      "description": "Section is very brief (lines 170-181) - could expand with more practical examples",
-      "current_content": "Basic example of using 'id' field to reference step output",
-      "should_be": "Expand with examples showing when step IDs are particularly useful: complex workflows with multiple parallel paths, debugging specific steps, conditional execution based on specific step outputs",
-      "fix_suggestion": "Add 2-3 more examples showing practical use cases for step IDs in complex workflows, especially with foreach or conditional execution",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand.id field"
+      "section": "Conditional Execution - when clause (lines 11-23)",
+      "description": "Shows 'when' clause usage but doesn't explain expression syntax, operators, or evaluation rules",
+      "current_content": "when: \"${tests_passed}\"\nwhen: \"${environment == 'production' && tests_passed}\"",
+      "should_be": "Add explanation of expression syntax: variable interpolation ${var}, comparison operators (==, !=), logical operators (&&, ||), and boolean evaluation",
+      "fix_suggestion": "Add subsection 'Expression Syntax for When Clauses' explaining:\n1. Variable interpolation: ${var}\n2. Comparison operators: ==, !=\n3. Logical operators: &&, ||\n4. Type coercion and truthy/falsy values\n5. Nested expressions with parentheses",
+      "source_reference": "src/config/command.rs:388 (when field), expression evaluation in interpolation engine"
+    },
+    {
+      "type": "correct_content",
+      "severity": "none",
+      "section": "Capture Formats (lines 88-117)",
+      "description": "All five capture formats documented: string, number, json, lines, boolean",
+      "current_content": "Complete documentation of all CaptureFormat enum variants with examples",
+      "should_be": "No changes needed",
+      "fix_suggestion": "Content is accurate and complete",
+      "source_reference": "src/cook/workflow/variables.rs:251-265 (CaptureFormat enum matches documentation exactly)"
+    },
+    {
+      "type": "correct_content",
+      "severity": "none",
+      "section": "On Failure Handlers (lines 39-53)",
+      "description": "Documentation of max_attempts, fail_workflow, and commit_required defaults",
+      "current_content": "max_attempts: 3, fail_workflow: false, commit_required: true",
+      "should_be": "Documentation is accurate",
+      "fix_suggestion": "No changes needed - defaults match TestDebugConfig implementation",
+      "source_reference": "src/config/command.rs:168-183 (TestDebugConfig with correct defaults)"
+    },
+    {
+      "type": "enhancement",
+      "severity": "low",
+      "section": "On Success Handlers (lines 25-33)",
+      "description": "Simple example doesn't show full capability of on_success field",
+      "current_content": "on_success:\n  shell: \"cargo bench\"",
+      "should_be": "Add note that on_success supports full WorkflowStepCommand with all features",
+      "fix_suggestion": "Add note: 'on_success supports any WorkflowStepCommand, including nested conditionals, output capture, validation, and more. You can chain multiple success handlers or combine with when clauses for complex workflows.'",
+      "source_reference": "src/config/command.rs:375-376 (on_success: Option<Box<WorkflowStepCommand>>)"
+    },
+    {
+      "type": "correct_content",
+      "severity": "none",
+      "section": "Step Identification (lines 179-282)",
+      "description": "Comprehensive documentation with excellent use case examples",
+      "current_content": "Shows 4 detailed use cases: complex workflows, debugging, conditional execution, validation/error handlers",
+      "should_be": "Content is excellent",
+      "fix_suggestion": "No changes needed - this is exemplary documentation with clear, practical examples",
+      "source_reference": "src/config/command.rs:351-352 (id field)"
+    },
+    {
+      "type": "correct_content",
+      "severity": "none",
+      "section": "Validation Configuration (lines 303-399)",
+      "description": "Thorough documentation of validation with all configuration options",
+      "current_content": "Covers: basic validation, Claude validation, multi-step, result files, on_incomplete handlers, convenience syntax",
+      "should_be": "Content is comprehensive",
+      "fix_suggestion": "No changes needed - validation documentation is complete and accurate",
+      "source_reference": "src/cook/workflow/validation.rs:12-92 (ValidationConfig struct)"
+    },
+    {
+      "type": "correct_content",
+      "severity": "none",
+      "section": "Foreach Configuration (lines 402-463)",
+      "description": "Complete documentation of foreach features",
+      "current_content": "Documents: input sources, parallel execution, error handling, max_items limiting",
+      "should_be": "Content is accurate",
+      "fix_suggestion": "No changes needed - foreach documentation matches ForeachConfig implementation",
+      "source_reference": "src/config/command.rs:189-211 (ForeachConfig struct)"
+    },
+    {
+      "type": "correct_content",
+      "severity": "none",
+      "section": "Goal-Seeking Operations (lines 467-502)",
+      "description": "Accurate documentation of goal_seek configuration",
+      "current_content": "Documents: goal, command, validate, threshold, max_attempts, timeout, fail_on_incomplete",
+      "should_be": "Content is complete",
+      "fix_suggestion": "No changes needed - goal_seek documentation is thorough",
+      "source_reference": "src/config/command.rs:339-340 (goal_seek field)"
     }
   ],
   "positive_aspects": [
-    "Excellent coverage of conditional execution with when, on_success, on_failure",
-    "Comprehensive output capture section with all formats documented (string, number, json, lines, boolean)",
-    "Well-organized progression from basic to advanced features",
-    "Good examples throughout showing practical YAML syntax",
-    "Accurate documentation of capture_format and capture_streams fields",
-    "Correct documentation of timeout configuration at command level",
-    "Good coverage of validation with on_incomplete handlers",
-    "Excellent section on foreach with parallel execution, error handling, and limiting",
-    "Comprehensive goal-seeking documentation",
-    "Best practices section provides practical guidance",
-    "Common patterns section shows real-world usage"
+    "Comprehensive coverage of advanced features with clear, progressive organization",
+    "Excellent Step Identification section (lines 179-282) with 4 detailed use cases - exemplary documentation",
+    "Complete and accurate capture format documentation (all 5 formats)",
+    "Thorough validation documentation with multiple examples and convenience syntax",
+    "Good Best Practices section (lines 505-568) with actionable guidance",
+    "Common Patterns section (lines 571-642) shows real-world workflows",
+    "Accurate documentation of timeout at command level",
+    "Output file redirection is documented (lines 164-176)",
+    "Nested conditionals example shows practical chaining",
+    "Foreach documentation covers all configuration options",
+    "Goal-seeking operations well-explained with basic and advanced examples"
   ],
   "improvement_suggestions": [
-    "Add section on 'Working Directory Control' (cwd field) under Advanced Features",
-    "Clarify when to use string vs struct format for capture_streams",
-    "Expand Step Identification section with more complex workflow examples",
-    "Consider adding a troubleshooting subsection for common capture_output pitfalls",
-    "Add example showing combination of step IDs with validation and on_failure handlers",
-    "Consider adding performance considerations for parallel foreach execution"
+    "Add explicit note about capture_streams supporting both string and struct formats",
+    "Add 'Working Directory Control' section documenting working_dir/cwd field",
+    "Add subsection on 'when' clause expression syntax and evaluation rules",
+    "Consider adding note about on_success supporting full WorkflowStepCommand capabilities",
+    "Add troubleshooting tips for common output capture issues",
+    "Consider performance considerations section for parallel foreach execution",
+    "Add example combining multiple advanced features (conditional + capture + validation)",
+    "Mention complexity warnings for deeply nested conditionals (suggest 2-3 levels max)"
   ],
   "metadata": {
     "analyzed_at": "2025-01-12",
@@ -63,17 +135,20 @@
     "topics_covered": [
       "Conditional execution (when, on_success, on_failure)",
       "Output capture (capture_output, capture_format, capture_streams)",
+      "Stream capture control (string and struct formats)",
       "Nested conditionals",
-      "Timeouts",
+      "Step identification",
+      "Timeout configuration",
+      "Output file redirection",
       "Implementation validation",
       "Parallel iteration (foreach)",
       "Goal-seeking operations",
-      "Step identification",
-      "Output file redirection"
+      "Best practices",
+      "Common patterns"
     ],
     "validation_focus": "Check advanced features match implementation",
-    "implementation_alignment": "High - all documented features verified in codebase",
-    "completeness_score": 0.95,
-    "accuracy_score": 1.0
+    "implementation_alignment": "High - all documented features verified against source code",
+    "completeness_score": 0.92,
+    "accuracy_score": 0.98
   }
 }
