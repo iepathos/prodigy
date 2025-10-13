@@ -4,69 +4,120 @@
   "chapter_file": "book/src/mapreduce.md",
   "drift_detected": false,
   "severity": "low",
-  "quality_assessment": "Excellent - This chapter is comprehensive, accurate, and well-organized. It matches the implementation closely and provides extensive practical guidance.",
+  "quality_assessment": "Excellent - Chapter is comprehensive, accurate, and well-maintained. Documentation closely matches implementation with only minor opportunities for enhancement. All major features, structs, and enums are documented correctly with accurate syntax examples.",
   "issues": [
     {
-      "type": "minor_clarity",
+      "type": "minor_enhancement",
       "severity": "low",
-      "section": "Setup Phase (Advanced)",
-      "description": "The chapter uses 'Simple format' and 'Detailed format' terminology for CaptureConfig, which is accurate but could emphasize that Simple format is not legacy",
-      "current_content": "The section correctly shows both formats but readers might incorrectly assume Simple is legacy",
-      "improvement_suggestion": "Already well-handled with 'When to use Simple vs Detailed' section that clarifies Simple format is a valid shorthand, not deprecated",
-      "source_reference": "src/cook/execution/variable_capture.rs:18-41"
+      "section": "Performance Tuning",
+      "description": "Circuit breaker timeout field uses Duration type in code, but documentation shows string format. Both are valid due to humantime_serde, but could clarify.",
+      "current_content": "timeout: \"60s\"           # Duration before attempting half-open",
+      "should_be": "timeout: \"60s\"           # Duration (humantime format: \"1s\", \"1m\", \"5m\")",
+      "fix_suggestion": "Add brief note that Duration fields use humantime_serde for flexible parsing",
+      "source_reference": "src/cook/workflow/error_policy.rs:56 (with = \"humantime_serde\")"
     },
     {
       "type": "minor_enhancement",
       "severity": "low",
-      "section": "Backoff Strategies",
-      "description": "Could add more context about when to use humantime_serde vs standard Duration deserialization",
-      "improvement_suggestion": "The chapter correctly documents humantime format requirement. Could add note that this uses humantime_serde crate for deserialization",
-      "source_reference": "src/cook/workflow/error_policy.rs:56"
+      "section": "Common Pitfalls",
+      "description": "Could mention that BackoffStrategy fields use humantime_serde which allows flexible duration parsing",
+      "should_add": "Note that all Duration fields (delay, initial, increment, timeout) are serialized using humantime_serde, supporting multiple formats like \"1s\", \"500ms\", \"2m\", \"1h30m\"",
+      "fix_suggestion": "Add subsection explaining humantime_serde usage in Duration fields for clarity",
+      "source_reference": "src/cook/workflow/error_policy.rs:56 and BackoffStrategy enum"
     }
   ],
   "positive_aspects": [
-    "Complete and accurate MapReduceWorkflowConfig documentation",
-    "Correctly documents both modern (direct array) and legacy (nested commands) syntax",
-    "Excellent CaptureConfig documentation with both Simple and Detailed formats",
-    "Comprehensive backoff strategies section with all four variants correctly documented",
-    "Clear enum syntax examples for BackoffStrategy (not using 'type' discriminator)",
-    "Accurate error handling and circuit breaker documentation",
-    "Well-organized 'Common Pitfalls' section addresses real user confusion points",
-    "Global storage architecture accurately documented with correct paths",
-    "Thorough troubleshooting section with practical solutions",
-    "Excellent examples throughout showing real YAML usage",
-    "Clear documentation of environment variables support (Spec 120)",
-    "Accurate DLQ and checkpoint documentation",
-    "Correct variable namespaces documented (${item.*}, ${map.*}, ${merge.*})",
-    "Good coverage of edge cases and deprecated syntax with migration guidance"
+    "Comprehensive coverage of all MapReduce phases (setup, map, reduce)",
+    "Excellent documentation of both simple and detailed CaptureConfig formats",
+    "Clear explanation of backoff strategies with all enum variants covered",
+    "Accurate documentation of error handling policies and circuit breakers",
+    "Strong troubleshooting section with common pitfalls and solutions",
+    "Good real-world examples covering diverse use cases",
+    "Correct documentation of modern vs deprecated syntax",
+    "Accurate variable interpolation examples",
+    "Comprehensive DLQ retry documentation",
+    "Clear performance tuning guidelines",
+    "Well-organized workflow format comparison table",
+    "Accurate global storage architecture documentation",
+    "Complete checkpoint and resume behavior explanation",
+    "Proper documentation of multiline handling options",
+    "Correct CaptureSource enum variants (stdout, stderr, both, combined)",
+    "Accurate JSONPath extraction documentation",
+    "Proper merge workflow syntax documentation (both simple and full)",
+    "Complete error collection strategies documented",
+    "Accurate agent timeout configuration",
+    "Correct distinct/offset/max_items field documentation",
+    "Quick start section provides minimal working example",
+    "Environment variables support properly documented",
+    "Worktree isolation architecture explained correctly"
   ],
   "improvement_suggestions": [
-    "Consider adding a 'Quick Start' section at the beginning for users who want to get started quickly",
-    "Could add more visual diagrams to illustrate MapReduce execution flow",
-    "Consider adding a section on performance tuning (when to adjust max_parallel, agent_timeout_secs, etc.)",
-    "Could add more real-world use case examples (e.g., code review across PRs, multi-file refactoring)",
-    "Consider adding a comparison table: Simple vs Full workflow format"
+    "Consider adding a diagram showing MapReduce workflow execution flow",
+    "Could add more examples of custom error handlers (ItemFailureAction::Custom)",
+    "Could clarify that humantime_serde enables flexible duration parsing throughout",
+    "Consider adding troubleshooting for timeout_config field usage",
+    "Could mention that simple capture format (variable: 0) is not legacy but a valid shorthand"
   ],
   "metadata": {
     "analyzed_at": "2025-01-12",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "MapReduce mode",
-      "Setup phase with capture_outputs",
-      "Map phase with agent templates",
-      "Reduce phase aggregation",
+      "Setup phase",
+      "Map phase",
+      "Reduce phase",
       "Parallel execution",
-      "Error handling policies",
-      "Backoff strategies",
-      "Circuit breakers",
-      "DLQ management",
+      "Error handling",
+      "DLQ retry",
       "Checkpoint and resume",
-      "Global storage architecture",
-      "Environment variables (Spec 120)",
-      "Worktree isolation (Spec 127)"
+      "Circuit breakers",
+      "Backoff strategies",
+      "Variable capture",
+      "Performance tuning"
     ],
     "validation_focus": "Check MapReduce configuration matches MapReduceWorkflowConfig struct",
-    "validation_result": "✅ PASS - All MapReduceWorkflowConfig fields and enum variants documented accurately"
+    "validation_result": "✅ PASS - All MapReduceWorkflowConfig fields and enum variants documented accurately",
+    "structs_verified": [
+      "MapReduceWorkflowConfig",
+      "MapPhaseYaml",
+      "ReducePhaseYaml",
+      "SetupPhaseConfig",
+      "AgentTemplate",
+      "MergeWorkflow",
+      "CaptureConfig",
+      "WorkflowErrorPolicy",
+      "BackoffStrategy",
+      "CircuitBreakerConfig",
+      "RetryConfig",
+      "ErrorCollectionStrategy",
+      "ItemFailureAction",
+      "CaptureSource",
+      "MultilineHandling"
+    ],
+    "code_references_checked": [
+      "src/config/mapreduce.rs (lines 1-1029)",
+      "src/cook/execution/variable_capture.rs (lines 1-605)",
+      "src/cook/workflow/error_policy.rs (lines 1-659)"
+    ],
+    "syntax_formats_verified": [
+      "Agent template: modern flat array (preferred) and deprecated nested commands",
+      "Reduce phase: modern flat array (preferred) and deprecated nested commands",
+      "Setup phase: simple array and full config with timeout/capture_outputs",
+      "Merge workflow: simple array and full config with timeout",
+      "CaptureConfig: Simple (index) and Detailed (full config)",
+      "BackoffStrategy: Fixed, Linear, Exponential, Fibonacci enum variants",
+      "ErrorCollectionStrategy: Aggregate, Immediate, Batched enum variants"
+    ],
+    "examples_validated": [
+      "Quick start example (valid)",
+      "Complete structure (valid)",
+      "Backoff strategies (all variants valid)",
+      "Error collection strategies (valid)",
+      "Setup phase advanced (valid)",
+      "Capture configuration (both simple and detailed valid)",
+      "Common pitfalls (all correct)",
+      "Real-world use cases (all valid)"
+    ]
   },
   "technical_validation": {
     "struct_accuracy": {
@@ -148,6 +199,27 @@
         ],
         "accuracy": "100%",
         "notes": "Complete error policy documentation with all enum variants"
+      },
+      "CaptureSource": {
+        "variants_documented": [
+          "stdout",
+          "stderr",
+          "both",
+          "combined"
+        ],
+        "accuracy": "100%",
+        "notes": "All CaptureSource variants correctly documented with clear explanations"
+      },
+      "MultilineHandling": {
+        "variants_documented": [
+          "preserve",
+          "join",
+          "first_line",
+          "last_line",
+          "array"
+        ],
+        "accuracy": "100%",
+        "notes": "All multiline handling options documented with examples"
       }
     },
     "syntax_validation": {
@@ -157,14 +229,24 @@
       "merge": "✅ Both simple array and full config formats documented",
       "backoff_enum": "✅ Correct enum variant syntax used (not 'type' discriminator)",
       "duration_format": "✅ humantime format correctly documented throughout",
-      "capture_config": "✅ Both Simple and Detailed formats correctly documented"
+      "capture_config": "✅ Both Simple and Detailed formats correctly documented",
+      "error_collection": "✅ All three strategies with correct syntax",
+      "circuit_breaker": "✅ All fields correctly documented"
     },
     "examples_validation": {
+      "quick_start": "✅ Valid YAML, minimal working example",
       "complete_structure": "✅ Valid YAML, all required fields present",
-      "backoff_examples": "✅ All four strategies shown with correct syntax",
-      "capture_examples": "✅ Multiple examples showing different capture scenarios",
-      "error_collection": "✅ All three strategies (aggregate, immediate, batched) documented",
-      "common_pitfalls": "✅ All pitfall examples show real errors and correct solutions"
+      "backoff_fixed": "✅ Correct Fixed backoff syntax",
+      "backoff_linear": "✅ Correct Linear backoff syntax",
+      "backoff_exponential": "✅ Correct Exponential backoff syntax",
+      "backoff_fibonacci": "✅ Correct Fibonacci backoff syntax",
+      "capture_simple": "✅ Simple capture format example valid",
+      "capture_detailed": "✅ Detailed capture format examples valid",
+      "error_collection_aggregate": "✅ Correct aggregate strategy",
+      "error_collection_immediate": "✅ Correct immediate strategy",
+      "error_collection_batched": "✅ Correct batched:N strategy",
+      "common_pitfalls": "✅ All pitfall examples show real errors and correct solutions",
+      "real_world_use_cases": "✅ All four use case examples are syntactically valid"
     }
   }
 }
