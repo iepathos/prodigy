@@ -204,7 +204,7 @@ impl MapReduceCoordinator {
     /// This function merges the MapReduce worktree branch back to the parent worktree.
     /// The MapReduce workflow runs in a nested worktree hierarchy:
     ///
-    /// ```
+    /// ```text
     /// master
     ///   ↓
     /// parent-worktree (session-xxx) on branch prodigy-session-xxx
