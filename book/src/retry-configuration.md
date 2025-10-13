@@ -130,14 +130,22 @@ retry:
   attempts: 4
   backoff:
     custom:
-      delays: [1s, 2s, 5s, 10s]
+      delays:
+        - secs: 1
+          nanos: 0
+        - secs: 2
+          nanos: 0
+        - secs: 5
+          nanos: 0
+        - secs: 10
+          nanos: 0
 ```
 
 **Delay sequence**: Exactly as specified
 
 **Use case**: When you need precise control over timing (e.g., aligning with rate limit windows).
 
-**Note**: The delays use humantime format (e.g., '1s', '2s', '5m', '100ms') and are automatically parsed to Duration objects by the `humantime_serde` library. Once the custom delays array is exhausted, any remaining retry attempts will use the `max_delay` value.
+**Note**: Custom backoff delays require explicit Duration format with `secs` and `nanos` fields. The `delays` field does not use humantime format unlike other duration fields in RetryConfig. Once the custom delays array is exhausted, any remaining retry attempts will use the `max_delay` value.
 
 ## Backoff Strategy Comparison
 
@@ -618,8 +626,15 @@ retry:
   attempts: 3
   retry_on:
     - rate_limit
-  backoff: custom
-    delays: [60s, 120s, 300s]  # Align with rate limit window
+  backoff:
+    custom:
+      delays:
+        - secs: 60
+          nanos: 0
+        - secs: 120
+          nanos: 0
+        - secs: 300
+          nanos: 0
   retry_budget: 15m
 ```
 
