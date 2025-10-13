@@ -22,6 +22,43 @@ Use the `when` field to conditionally execute commands based on variable values:
   when: "${environment == 'production' && tests_passed}"
 ```
 
+#### Expression Syntax for When Clauses
+
+The `when` clause supports a flexible expression syntax for conditional logic:
+
+**Variable Interpolation:**
+- Use `${variable}` to reference captured outputs or environment variables
+- Variables are evaluated in the context of previous command results
+- Boolean variables are evaluated as truthy/falsy values
+
+**Comparison Operators:**
+- `==` - Equality comparison (e.g., `${status == 'success'}`)
+- `!=` - Inequality comparison (e.g., `${exit_code != 0}`)
+
+**Logical Operators:**
+- `&&` - Logical AND (e.g., `${tests_passed && build_succeeded}`)
+- `||` - Logical OR (e.g., `${is_dev || is_staging}`)
+
+**Type Coercion:**
+- String values: Non-empty strings are truthy, empty strings are falsy
+- Numeric values: Non-zero numbers are truthy, zero is falsy
+- Boolean values: `true` is truthy, `false` is falsy
+
+**Complex Expressions:**
+```yaml
+# Multiple conditions with logical operators
+- shell: "deploy.sh"
+  when: "${environment == 'production' && tests_passed && coverage >= 80}"
+
+# Nested logic with parentheses
+- shell: "run-checks.sh"
+  when: "${(is_pr || is_main) && tests_passed}"
+
+# Comparing captured outputs
+- shell: "notify-team.sh"
+  when: "${test-step.exit_code == 0 && build-step.success}"
+```
+
 ### On Success Handlers
 
 Execute follow-up commands when a command succeeds:
@@ -31,6 +68,8 @@ Execute follow-up commands when a command succeeds:
   on_success:
     shell: "cargo bench"
 ```
+
+**Note**: The `on_success` field supports any workflow step command with all its features, including nested conditionals, output capture, validation, and error handlers. You can create complex success workflows by combining multiple handlers or using `when` clauses for sophisticated control flow.
 
 ### On Failure Handlers
 
@@ -161,6 +200,8 @@ Use the struct format when you need additional metadata alongside the captured o
 
 This is particularly useful for validation workflows where you need to make decisions based on command success or timing information.
 
+**Format Flexibility**: The `capture_streams` field is flexible—you can choose either format based on your needs. Use the simple string format (`"stdout"`, `"stderr"`, `"both"`) when you only need basic stream selection, or the struct format when you need metadata like `exit_code`, `success`, and `duration` alongside the output. Both formats are supported via Rust's untagged enum deserialization.
+
 ### Output File Redirection
 
 Write command output directly to a file:
@@ -173,6 +214,32 @@ Write command output directly to a file:
 # File is written to working directory
 # Can be combined with capture_output to save and use output
 ```
+
+### Working Directory Control
+
+Control the working directory for individual commands using the `working_dir` field. This allows you to execute commands in different directories without changing your workflow's base directory:
+
+```yaml
+# Run frontend build in frontend directory
+- shell: "npm install"
+  working_dir: "./frontend"
+
+# Run backend build in backend directory
+- shell: "cargo build"
+  working_dir: "./backend"
+
+# Run tests in a subdirectory
+- shell: "pytest"
+  working_dir: "./tests"
+```
+
+The `working_dir` path is relative to the workflow's root directory. This is particularly useful for:
+- **Monorepo workflows**: Building different packages in their respective directories
+- **Multi-language projects**: Running language-specific tools in appropriate directories
+- **Isolated testing**: Running tests in dedicated test directories
+- **Subproject operations**: Working with nested projects without changing global context
+
+**Note**: The `working_dir` field is also available with the alias `cwd` for compatibility with other tools.
 
 ---
 
