@@ -57,6 +57,11 @@ reduce:
       claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
       commit_required: true
 
+  # Clean up temporary analysis files
+  - shell: "rm -rf ${ANALYSIS_DIR}"
+  - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
+ 
+
 # Error handling
 error_policy:
   on_item_failure: dlq
@@ -67,13 +72,6 @@ error_policy:
 # Custom merge workflow - cleanup and validation before merging
 merge:
   commands:
-    # Step 1: Clean up temporary analysis files
-    - shell: "rm -rf ${ANALYSIS_DIR}"
-    - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
-
-    # Step 2: Validate book builds successfully
-    - shell: "(cd book && mdbook build)"
-
     # Step 3: Fetch latest changes and merge master into worktree
     - shell: "git fetch origin"
     - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
