@@ -4,101 +4,96 @@
   "chapter_file": "book/src/error-handling.md",
   "drift_detected": true,
   "severity": "low",
-  "quality_assessment": "Excellent chapter with comprehensive coverage of error handling features. The chapter accurately reflects the implementation with only minor documentation gaps around some advanced field names and implementation details.",
+  "quality_assessment": "Excellent comprehensive chapter with accurate coverage of both command-level and workflow-level error handling. Documentation closely matches implementation with only minor clarifications needed around serialization formats and deprecated fields. Strong examples and best practices throughout.",
   "issues": [
     {
-      "type": "missing_content",
+      "type": "inconsistent_documentation",
       "severity": "low",
-      "section": "Advanced Configuration",
-      "description": "Chapter shows 'max_attempts' and 'max_retries' as separate concepts but implementation uses 'max_retries' with 'max_attempts' as an alias",
-      "current_content": "max_attempts: 3          # Retry original command up to 3 times (setting > 1 enables auto-retry)",
-      "should_be": "max_attempts: 3          # Retry original command (alias for max_retries)\nmax_retries: 3           # Also supported for backward compatibility",
-      "fix_suggestion": "Clarify that 'max_attempts' is an alias for 'max_retries' in OnFailureConfig::Advanced",
-      "source_reference": "src/cook/workflow/on_failure.rs:103"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Detailed Handler Configuration",
-      "description": "Chapter mentions 'strategy' field but doesn't document all fields available in FailureHandlerConfig",
-      "should_add": "Document 'capture' field in FailureHandlerConfig for capturing handler output variables",
-      "fix_suggestion": "Add subsection explaining the 'capture' field under FailureHandlerConfig: 'capture: HashMap<String, String> - Variables to capture from handler'",
-      "source_reference": "src/cook/workflow/on_failure.rs:39-40"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Circuit Breaker",
-      "description": "Duration format example uses 's' suffix but doesn't clarify full humantime format support",
-      "current_content": "timeout: 30s             # Time before attempting half-open state",
-      "should_be": "timeout: 30s             # Duration in humantime format (e.g., 30s, 1m, 500ms)",
-      "fix_suggestion": "Add a note that circuit breaker uses humantime_serde for duration parsing, supporting formats like '1s', '100ms', '2m', '30s'",
-      "source_reference": "src/cook/workflow/error_policy.rs:56"
+      "section": "Retry Configuration with Backoff",
+      "description": "Chapter shows humantime format (1s, 500ms) for BackoffStrategy Duration fields but doesn't clarify these use standard Duration serialization, unlike CircuitBreakerConfig.timeout which explicitly uses humantime_serde",
+      "current_content": "backoff:\n  type: exponential\n  initial: 1s\n  multiplier: 2\n\n# Note says: 'All duration values use humantime format'",
+      "should_be": "Clarify that BackoffStrategy Duration fields accept humantime strings but don't use humantime_serde attribute (only CircuitBreakerConfig.timeout does)",
+      "fix_suggestion": "Add note: 'BackoffStrategy accepts Duration values in humantime format (1s, 100ms, 2m). Only CircuitBreakerConfig.timeout explicitly requires humantime format via serde attribute.'",
+      "source_reference": "src/cook/workflow/error_policy.rs:108-120 (BackoffStrategy without humantime_serde) vs line 56 (CircuitBreakerConfig.timeout with humantime_serde)"
     },
     {
       "type": "missing_content",
       "severity": "low",
       "section": "Retry Configuration with Backoff",
-      "description": "Backoff strategy examples are accurate but missing detail on how Linear backoff 'increment' works",
-      "current_content": "backoff:\n  type: linear\n  initial: 1s\n  increment: 500ms",
-      "should_add": "Explain that Linear backoff adds 'increment' to delay for each retry: delay = initial + (retry_count * increment)",
-      "fix_suggestion": "Add a brief explanation of how each backoff strategy calculates delays",
+      "description": "Chapter shows backoff formula examples in comments but doesn't explain calculation details for Linear strategy",
+      "current_content": "# Linear increase in delay\n# Calculates: delay = initial + (retry_count * increment)\n# Example: 1s, 1.5s, 2s, 2.5s...",
+      "should_be": "Example calculation is correct and matches implementation",
+      "fix_suggestion": "Current documentation is accurate - consider adding worked example showing retry 1 = 1s, retry 2 = 1.5s, retry 3 = 2s for clarity",
       "source_reference": "src/cook/workflow/error_policy.rs:111-114"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Error Metrics",
-      "description": "Chapter mentions error metrics but doesn't document the ErrorMetrics struct fields available for inspection",
-      "should_add": "Document all ErrorMetrics fields: total_items, successful, failed, skipped, failure_rate, error_types, failure_patterns",
-      "fix_suggestion": "Add a subsection showing the ErrorMetrics structure and how to access it programmatically or through CLI commands",
-      "source_reference": "src/cook/workflow/error_policy.rs:195-211"
     },
     {
       "type": "outdated_information",
       "severity": "low",
       "section": "Command-Level Error Handling - Advanced Configuration",
-      "description": "Chapter mentions deprecated 'retry_original' flag which still exists but is deprecated in favor of max_attempts/max_retries logic",
-      "current_content": "Prodigy will retry the original command after running the failure handler",
-      "should_be": "When max_attempts > 1, Prodigy automatically retries the original command after running the failure handler (the deprecated retry_original flag is no longer needed)",
-      "fix_suggestion": "Update explanation to clarify that retry behavior is now controlled by max_attempts/max_retries value, not a separate flag",
-      "source_reference": "src/cook/workflow/on_failure.rs:99-100, 125-127"
+      "description": "Chapter correctly notes retry_original is deprecated but could provide clearer migration guidance",
+      "current_content": "Notes section: 'the deprecated retry_original flag is no longer needed'\nmax_attempts: 3          # Retry original command up to 3 times (setting > 1 enables auto-retry)",
+      "should_be": "Provide explicit before/after migration example",
+      "fix_suggestion": "Add migration callout box: 'Migration: Previously retry_original: true with max_retries: 3, now just use max_attempts: 3 (retry is implicit when > 1). Both max_attempts and max_retries are supported (aliases).'",
+      "source_reference": "src/cook/workflow/on_failure.rs:99-127 (retry_original deprecated, max_retries with max_attempts alias)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Error Metrics",
+      "description": "Chapter documents ErrorMetrics fields but doesn't explain pattern detection threshold or suggest_action algorithm",
+      "current_content": "Lists ErrorMetrics fields including failure_patterns with suggested_action",
+      "should_add": "Explain pattern detection triggers at 3 occurrences and show examples of suggested actions",
+      "fix_suggestion": "Add subsection: 'Pattern Detection: Prodigy detects recurring patterns when error type occurs 3+ times. Examples: Timeout → \"Consider increasing timeout_per_agent\", Network → \"Check network connectivity\", Permission → \"Verify file permissions\"'",
+      "source_reference": "src/cook/workflow/error_policy.rs:456-489 (detect_patterns method with threshold of 3, suggest_action method)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Detailed Handler Configuration",
+      "description": "Chapter documents capture field in handler config but example shows it at wrong level",
+      "current_content": "capture:\n  error_log: \"handler_output\"\n  rollback_status: \"rollback_result\"",
+      "should_be": "Example is correct - capture is at FailureHandlerConfig level, not HandlerCommand level",
+      "fix_suggestion": "Current documentation is accurate. Consider adding note that capture applies to handler's combined output, not individual commands.",
+      "source_reference": "src/cook/workflow/on_failure.rs:38-40 (capture field in FailureHandlerConfig)"
     }
   ],
   "positive_aspects": [
-    "Excellent organization from simple to complex patterns",
-    "Clear distinction between command-level and workflow-level error handling",
-    "Comprehensive coverage of all major error handling features",
-    "Practical examples for each configuration option",
-    "Good explanations of DLQ, circuit breaker, and retry strategies",
-    "Accurate YAML syntax examples that match implementation",
-    "Well-documented best practices section",
-    "All backoff strategies are correctly documented",
-    "Circuit breaker states and thresholds are accurate",
-    "Error collection strategies are clearly explained"
+    "Comprehensive coverage of both command-level and workflow-level error handling",
+    "Clear progression from simple forms to advanced configuration",
+    "Excellent examples for each error handling pattern",
+    "Accurate YAML syntax that matches implementation",
+    "Circuit breaker configuration correctly shows humantime format for timeout field",
+    "All four backoff strategies (Fixed, Linear, Exponential, Fibonacci) accurately documented with formulas",
+    "DLQ workflow well explained with CLI commands",
+    "on_success handler correctly documented as accepting full WorkflowStep",
+    "Best practices section provides valuable guidance on when to use each approach",
+    "Common patterns show real-world examples",
+    "Error collection strategies (aggregate, immediate, batched) clearly explained",
+    "Success handling section shows both simple and advanced forms correctly"
   ],
   "improvement_suggestions": [
-    "Add a diagram showing the error handling decision flow (when to use command-level vs workflow-level)",
-    "Include more examples of combining multiple error handling features",
-    "Add a troubleshooting section for common error handling misconfigurations",
-    "Document how to access ErrorMetrics programmatically or via CLI",
-    "Add examples of custom failure patterns and suggested actions",
-    "Clarify the relationship between max_attempts/max_retries and retry_original deprecation",
-    "Add examples showing how circuit breaker states transition",
-    "Document the 'capture' field in FailureHandlerConfig with examples"
+    "Add comparison table: command-level vs workflow-level error handling to help users choose",
+    "Include troubleshooting section with common error handling mistakes",
+    "Add examples showing error handler variable access beyond ${shell.output} (e.g., ${shell.exit_code})",
+    "Show how to combine multiple strategies (e.g., on_failure with circuit breaker)",
+    "Add visual flow diagram: step fails → handler executes → retry logic → DLQ",
+    "Include example of circuit breaker state transitions with metrics",
+    "Clarify serialization format differences between BackoffStrategy and CircuitBreakerConfig durations",
+    "Add worked examples for each backoff strategy calculation"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-12",
+    "analyzed_at": "2025-10-12",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "Command-level error handling",
-      "Workflow-level error policy",
+      "Command-level error handling (on_failure with simple, advanced, and detailed forms)",
+      "Workflow-level error policy (MapReduce only)",
+      "Circuit breaker configuration",
+      "Retry configuration with backoff strategies",
       "Dead Letter Queue (DLQ)",
-      "Circuit breaker",
-      "Retry configuration with backoff",
-      "Error metrics",
-      "Success handling",
-      "Commit requirements"
+      "Error metrics and pattern detection",
+      "Success handling (on_success)",
+      "Commit requirements",
+      "Error collection strategies"
     ],
     "validation_focus": "Check error handling policies and configurations"
   }

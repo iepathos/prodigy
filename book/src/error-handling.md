@@ -57,6 +57,8 @@ For more control over error handling behavior:
 - You can specify both `shell` and `claude` commands - they will execute in sequence
 - By default, having a handler means the workflow continues even if the step fails
 
+> **Migration from `retry_original`:** Previously you used `retry_original: true` with `max_retries: 3`. Now just use `max_attempts: 3` (retry is implicit when > 1). Both `max_attempts` and `max_retries` are supported as aliases for backward compatibility.
+
 ### Detailed Handler Configuration
 
 For complex error handling scenarios with multiple commands and fine-grained control:
@@ -83,7 +85,7 @@ For complex error handling scenarios with multiple commands and fine-grained con
 - `timeout` - Handler timeout in seconds
 - `handler_failure_fatal` - Fail workflow if handler fails
 - `fail_workflow` - Whether to fail the entire workflow
-- `capture` - Map of variable names to capture from handler output (e.g., `error_log: "handler_output"`)
+- `capture` - Map of variable names to capture from handler output (e.g., `error_log: "handler_output"`). Note: capture applies to the handler's combined output, not individual commands.
 - `commands` - List of handler commands to execute
 
 **Handler Strategies:**
@@ -214,7 +216,10 @@ backoff:
 
 # Linear increase in delay
 # Calculates: delay = initial + (retry_count * increment)
-# Example: 1s, 1.5s, 2s, 2.5s...
+# Example with initial=1s, increment=500ms:
+#   Retry 1: 1s + (1 * 500ms) = 1.5s
+#   Retry 2: 1s + (2 * 500ms) = 2s
+#   Retry 3: 1s + (3 * 500ms) = 2.5s
 backoff:
   type: linear
   initial: 1s
@@ -237,6 +242,8 @@ backoff:
 ```
 
 **Important:** All duration values use humantime format (e.g., `1s`, `100ms`, `2m`, `30s`), not milliseconds.
+
+> **Note on Serialization:** BackoffStrategy accepts Duration values in humantime format (`1s`, `100ms`, `2m`) for convenience. Only CircuitBreakerConfig's `timeout` field explicitly requires humantime format via serde attribute - other Duration fields use standard serialization but accept humantime strings.
 
 ### Error Metrics
 
@@ -263,6 +270,17 @@ reduce:
 ```
 
 You can also access metrics programmatically via the Prodigy API or through CLI commands like `prodigy events` to view detailed error statistics.
+
+**Pattern Detection:**
+
+Prodigy automatically detects recurring error patterns when an error type occurs 3 or more times. The `failure_patterns` field includes suggested remediation actions:
+
+- **Timeout errors** → "Consider increasing timeout_per_agent"
+- **Network errors** → "Check network connectivity and retry configuration"
+- **Permission errors** → "Verify file permissions and access rights"
+- **Out of memory errors** → "Consider reducing max_parallel or increasing memory limits"
+
+These suggestions help diagnose and resolve systemic issues in MapReduce jobs.
 
 ---
 
