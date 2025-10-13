@@ -166,7 +166,7 @@ Project configuration is stored in `.prodigy/config.yml` and overrides global se
 | `spec_dir` | Path | No | `"specs"` | Directory for specification files |
 | `claude_api_key` | String | No | None | Project-specific API key |
 | `auto_commit` | Boolean | No | None | Project-specific auto-commit setting |
-| `variables` | Map | No | None | Custom project variables (YAML map, stored internally as toml::Table for backward compatibility) |
+| `variables` | Map | No | None | Custom project variables as YAML map (internally stored as toml::Table for backward compatibility - users can ignore this detail) |
 
 ### Example Project Configuration
 

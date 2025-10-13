@@ -122,7 +122,7 @@ error_policy:
   circuit_breaker:
     failure_threshold: 5      # Open circuit after N failures
     success_threshold: 2      # Close circuit after N successes
-    timeout: "60s"           # Duration before attempting half-open (e.g., "60s", "1m", "5m")
+    timeout: "60s"           # Duration before attempting half-open (humantime format: "1s", "1m", "5m")
     half_open_requests: 3    # Test requests in half-open state
 
   # Retry configuration with backoff
@@ -191,7 +191,8 @@ retry_config:
 Example delays: 1s, 1s, 2s, 3s, 5s, 8s
 
 **Important Notes:**
-- All duration fields use [humantime format](https://docs.rs/humantime/latest/humantime/): "1s", "500ms", "2m", "1h30m"
+- All duration fields use [humantime format](https://docs.rs/humantime/latest/humantime/) via [humantime_serde](https://docs.rs/humantime-serde/): "1s", "500ms", "2m", "1h30m", "1.5s"
+- The humantime_serde library enables flexible duration parsing - you can use units like "s", "ms", "m", "h" and combine them (e.g., "1h30m")
 - The `backoff` field is an **enum** - use ONE variant, not a `type` discriminator
 - Use `max_attempts` to limit total retries (there is no `max_delay` field)
 - Choose strategy based on your use case:
@@ -590,6 +591,11 @@ backoff:
   fixed:
     delay: "1s"  # or "1000ms", "1m", "1h30m"
 ```
+
+**Note:** All Duration fields (delay, initial, increment, timeout) use [humantime_serde](https://docs.rs/humantime-serde/) for serialization, which supports flexible formats:
+- Single units: `"1s"`, `"500ms"`, `"2m"`, `"1h"`
+- Combined units: `"1h30m"`, `"2m30s"`
+- Decimal values: `"1.5s"`, `"0.5m"`
 
 ### Confusing Simple vs Detailed Capture
 

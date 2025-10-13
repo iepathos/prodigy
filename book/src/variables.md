@@ -22,6 +22,8 @@ Both systems use the same `${variable.name}` interpolation syntax and can be fre
 
 **Note**: Using phase-specific variables outside their designated phase (e.g., `${item}` in reduce phase, `${map.results}` in map phase) will result in interpolation errors or empty values. Always verify variable availability matches your workflow phase.
 
+**Reduce Phase Access to Item Data**: In reduce phase, individual item variables (`${item.*}`) are not directly available, but you can access all item data through `${map.results}` which contains the aggregated results from all map agents. This allows you to process item-level information during aggregation.
+
 ## Available Variables
 
 ### Standard Variables
@@ -30,8 +32,8 @@ Both systems use the same `${variable.name}` interpolation syntax and can be fre
 - `${workflow.iteration}` - Current iteration number
 - `${step.name}` - Current step name
 - `${step.index}` - Current step index
-- `${step.files_changed}` - Files changed in current step
-- `${workflow.files_changed}` - All files changed in workflow
+
+**Note**: For detailed file tracking, use the Git Context Variables section below which includes `step.files_changed`, `step.files_added`, `step.files_modified`, etc.
 
 ### System Variables
 
@@ -41,6 +43,8 @@ These variables are automatically available in all workflow contexts:
 - `${WORKTREE}` - Name of the current worktree (if running in a Prodigy worktree session)
 - `${git.branch}` - Current git branch name
 - `${git.commit}` - Current git commit hash (short SHA)
+
+**Git Context Variables:** The `git.branch` and `git.commit` variables are dynamically populated from your repository state when the workflow runs. They are not available if running outside a git repository.
 
 **Example Usage:**
 ```yaml
@@ -106,12 +110,15 @@ These variables are still supported but **deprecated** in favor of custom captur
 - `${merge.session_id}` - Session ID
 
 ### Validation Variables
-- `${validation.completion}` - Completion percentage
-- `${validation.completion_percentage}` - Completion percentage (numeric)
+- `${validation.completion}` - Completion percentage (numeric, same as completion_percentage)
+- `${validation.completion_percentage}` - Completion percentage (numeric, explicit alias)
 - `${validation.implemented}` - List of implemented features
 - `${validation.missing}` - Missing requirements
+- `${validation.missing_count}` - Number of missing requirements (numeric)
 - `${validation.gaps}` - Gap details
 - `${validation.status}` - Status (complete/incomplete/failed)
+
+**Note**: `validation.completion` and `validation.completion_percentage` are equivalent - both return the numeric completion percentage value.
 
 ### Git Context Variables
 
@@ -122,30 +129,37 @@ These variables are still supported but **deprecated** in favor of custom captur
 **Note**: These are space-separated strings of commit hashes (e.g., "abc123 def456 ghi789"), not arrays. Use in shell commands that accept commit lists.
 
 **File Change Tracking:**
-- `${step.files_added}` - Number of files added in current step
-- `${step.files_modified}` - Number of files modified in current step
-- `${step.files_deleted}` - Number of files deleted in current step
-- `${step.commit_count}` - Number of commits in current step
-- `${step.insertions}` - Lines added in current step
-- `${step.deletions}` - Lines removed in current step
+- `${step.files_added}` - Space-separated list of files added in current step
+- `${step.files_modified}` - Space-separated list of files modified in current step
+- `${step.files_deleted}` - Space-separated list of files deleted in current step
+- `${step.files_changed}` - Space-separated list of all changed files (union of added, modified, deleted)
+- `${step.commit_count}` - Number of commits in current step (numeric)
+- `${step.insertions}` - Lines added in current step (numeric)
+- `${step.deletions}` - Lines removed in current step (numeric)
 
 **Workflow Change Tracking:**
-- `${workflow.files_added}` - Total files added in entire workflow
-- `${workflow.files_modified}` - Total files modified in entire workflow
-- `${workflow.files_deleted}` - Total files deleted in entire workflow
-- `${workflow.commit_count}` - Total commits in entire workflow
-- `${workflow.insertions}` - Total lines added in entire workflow
-- `${workflow.deletions}` - Total lines removed in entire workflow
+- `${workflow.files_added}` - Space-separated list of all files added in entire workflow
+- `${workflow.files_modified}` - Space-separated list of all files modified in entire workflow
+- `${workflow.files_deleted}` - Space-separated list of all files deleted in entire workflow
+- `${workflow.files_changed}` - Space-separated list of all changed files in entire workflow
+- `${workflow.commit_count}` - Total commits in entire workflow (numeric)
+- `${workflow.insertions}` - Total lines added in entire workflow (numeric)
+- `${workflow.deletions}` - Total lines removed in entire workflow (numeric)
 
 **Example Usage:**
 ```yaml
 # Check if step made changes
 - shell: "echo 'Step made ${step.commit_count} commits'"
-- shell: "echo 'Modified ${step.files_modified} files (+${step.insertions}/-${step.deletions} lines)'"
+- shell: "echo 'Modified files: ${step.files_modified}'"
+- shell: "echo 'Code changes: +${step.insertions}/-${step.deletions} lines'"
 
 # Use commit hashes
 - shell: "git show ${step.commits}"
 - shell: "echo 'All commits: ${workflow.commits}'"
+
+# Use file lists in shell commands
+- shell: "for file in ${step.files_changed}; do echo $file; done"
+- shell: "wc -l ${step.files_added}"  # Count lines in newly added files
 ```
 
 ### Legacy Variable Aliases

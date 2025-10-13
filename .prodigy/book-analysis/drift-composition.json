@@ -3,8 +3,8 @@
   "chapter_title": "Workflow Composition",
   "chapter_file": "book/src/composition.md",
   "drift_detected": true,
-  "severity": "low",
-  "quality_assessment": "Chapter is comprehensive and accurate with excellent implementation coverage. Most features are well-documented with clear examples. Minor issues include incomplete implementation notes and a few areas where additional clarity would help users.",
+  "severity": "medium",
+  "quality_assessment": "Chapter is comprehensive and accurate with excellent implementation coverage. Most features are well-documented with clear examples. Medium severity due to several planned features being documented without clear 'not yet available' warnings, which could confuse users expecting features to work today. Key issues: inheritance override behavior explanation is confusing, parameter/defaults/selective-import/sub-workflow execution limitations need clearer visibility.",
   "issues": [
     {
       "type": "incomplete_explanation",
@@ -76,14 +76,33 @@
       "source_reference": "src/cook/workflow/composition/registry.rs:25-38 (TemplateRegistry initialization)"
     },
     {
-      "type": "unclear_content",
-      "severity": "low",
+      "type": "incorrect_explanation",
+      "severity": "medium",
       "section": "Workflow Extension - Override Behavior",
-      "description": "Example shows override behavior but could be more explicit about complete replacement",
-      "current_content": "The `production` workflow completely replaces the `commands` array and overrides the `verbose` default, while inheriting the `timeout` default.",
-      "should_be": "More explicit about field-by-field override semantics",
-      "fix_suggestion": "Expand explanation: 'In inheritance, child values completely replace parent values at the field level. If child has a commands array, it replaces the entire parent commands array (not merged). Individual fields in defaults are merged, with child values overriding parent values only for those specific keys.'",
-      "source_reference": "src/cook/workflow/composition/composer.rs:289-319 (merge_workflows_with_inheritance shows complete replacement)"
+      "description": "Chapter explains defaults merging behavior incorrectly. It says 'Individual fields in defaults are merged, with child values overriding parent values only for those specific keys' but the code in merge_workflows_with_inheritance actually does complete replacement of the defaults HashMap if the child has one.",
+      "current_content": "Individual fields in `defaults` are merged, with child values overriding parent values only for those specific keys. In this example, the `production` workflow completely replaces the `commands` array and overrides the `verbose` default, while inheriting the `timeout` default.",
+      "should_be": "Child workflows override parent configuration at the field level. The child's `commands` array completely replaces the parent's commands (not merged). Similarly, if the child defines `defaults`, the entire defaults HashMap is replaced. In this example, if production provides defaults with only `verbose: true`, it would NOT inherit the `timeout: 300` from the base - it would need to re-specify both.",
+      "fix_suggestion": "Correct the explanation to match the actual code behavior: child fields completely replace parent fields, no merging at the sub-field level. Update the example to show that child must re-specify all defaults it wants to keep.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:289-319 (merge_workflows_with_inheritance shows: if child.defaults.is_some() { merged.defaults = child.defaults.clone() })"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "Example 5: Workflow with Parameters",
+      "description": "Example shows validation: \"^(dev|staging|prod)$\" for environment parameter, but custom validation expressions are not yet implemented. Users trying this example will find validation doesn't work.",
+      "current_content": "validation: \"^(dev|staging|prod)$\"",
+      "should_be": "Either remove the validation field or add a comment: # validation: \"^(dev|staging|prod)$\" # Custom validation not yet implemented",
+      "fix_suggestion": "Update example to only show features that work today (type validation), or clearly mark planned features as comments with notes.",
+      "source_reference": "src/cook/workflow/composition/mod.rs:269-276 (validation field stored but TODO for evaluation)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Best Practices - Template Registry",
+      "description": "Chapter shows Rust API for template registry but doesn't explain the file structure requirements. Users need to know that templates must be .yml files with optional .meta.json sidecars.",
+      "should_add": "Explanation of template directory structure: templates must be .yml files in the base_dir, with optional .meta.json files for metadata. For example: templates/refactor-base.yml and templates/refactor-base.meta.json",
+      "fix_suggestion": "Add file structure example showing how to organize template files and metadata files in the templates/ directory.",
+      "source_reference": "src/cook/workflow/composition/registry.rs:261-267 (template_path and metadata_path methods)"
     }
   ],
   "positive_aspects": [
@@ -100,16 +119,18 @@
     "Sub-workflow configuration options are complete and accurate"
   ],
   "improvement_suggestions": [
-    "Add a 'Feature Implementation Status' section at the beginning listing what's complete vs planned",
-    "Include more examples of parameter substitution syntax once implemented",
-    "Add a diagram showing the workflow composition process flow",
-    "Provide guidance on when to use imports vs extends vs templates",
-    "Add best practices for template versioning and migration",
-    "Include examples of common template patterns (CI/CD, testing, deployment)",
-    "Document performance considerations for large composition hierarchies",
-    "Add troubleshooting entry for template parameter type mismatches",
-    "Include example of testing composed workflows in isolation",
-    "Add section on debugging composition issues (viewing metadata, dependency graph)"
+    "Add a 'Current Limitations' section at the beginning listing what doesn't work yet (parameter substitution, defaults application, sub-workflow execution, selective import filtering, custom validation)",
+    "Create clear visual distinction between 'Available Now' and 'Planned' features throughout the chapter (e.g., use callout boxes or emoji indicators)",
+    "Add CLI usage examples alongside Rust API examples where applicable (e.g., template management commands if they exist)",
+    "Include more practical examples showing realistic use cases (CI/CD pipelines with template composition, testing workflows with parameters)",
+    "Add a migration guide for when planned features are implemented (how to update workflows to use parameter substitution, etc.)",
+    "Add a diagram showing the workflow composition process flow (imports -> inheritance -> templates -> validation)",
+    "Provide decision matrix for when to use imports vs extends vs templates",
+    "Add best practices for template versioning and migration strategies",
+    "Include performance notes (template caching, workflow loader cache, composition overhead)",
+    "Document troubleshooting steps for parameter type mismatches with clearer error examples",
+    "Add examples of debugging composition issues (viewing metadata, inspecting dependency graph)",
+    "Include complete file structure example showing project layout with bases/, templates/, workflows/, common/ directories"
   ],
   "metadata": {
     "analyzed_at": "2025-01-12",

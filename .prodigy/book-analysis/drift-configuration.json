@@ -3,89 +3,63 @@
   "chapter_title": "Configuration",
   "chapter_file": "book/src/configuration.md",
   "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "Chapter is comprehensive and well-structured with excellent examples, but has some incorrect precedence documentation and minor inconsistencies with the codebase implementation.",
+  "severity": "low",
+  "quality_assessment": "Chapter is comprehensive, well-structured, and accurate. The documentation correctly explains configuration precedence including environment variable merging. Only minor issues with internal implementation details (MemoryConfig default) and some terminology that could be clearer.",
   "issues": [
-    {
-      "type": "outdated_information",
-      "severity": "high",
-      "section": "Configuration Precedence Rules - Claude API Key",
-      "description": "Chapter shows incorrect precedence for Claude API key - states 'Project config > Global config > Environment variable' but code shows environment variables are merged into global config before project config check",
-      "current_content": "#### Claude API Key\n```\nProject config > Global config > Environment variable\n```",
-      "should_be": "#### Claude API Key\n```\nProject config > Global config (which includes merged env vars) > Defaults\n```\n\nNote: Environment variables are merged into global config via merge_env_vars(), so the actual evaluation order is: Project config > (Global config with env var overrides) > Defaults",
-      "fix_suggestion": "Update the precedence documentation to clarify that environment variables override global config settings through the merge_env_vars() function, and project config has final precedence over the merged global config",
-      "source_reference": "src/config/mod.rs:111-131 (merge_env_vars merges env into global), src/config/mod.rs:133-138 (get_claude_api_key checks project then global)"
-    },
     {
       "type": "incorrect_example",
       "severity": "medium",
-      "section": "File Storage Configuration - max_file_size inconsistency",
-      "description": "Chapter documents max_file_size default as 104857600 bytes (100MB), but the MemoryConfig::default() in code uses this value while default_memory_limit() helper function returns 1GB",
-      "current_content": "Default Values Reference table shows storage.file.max_file_size as 104857600 (100MB)",
-      "should_be": "The documented value of 100MB (104857600 bytes) is correct for FileConfig::max_file_size. Note that MemoryConfig has a separate max_memory field that also defaults to 100MB despite a helper function default_memory_limit() returning 1GB",
-      "fix_suggestion": "Clarify that FileConfig::max_file_size and MemoryConfig::max_memory both default to 100MB (104857600 bytes). The default_memory_limit() helper exists but is not used in MemoryConfig::default()",
-      "source_reference": "src/storage/config.rs:80 (max_file_size default), src/storage/config.rs:103-110 (MemoryConfig::default), src/storage/config.rs:200-202 (default_memory_limit helper)"
+      "section": "Storage Configuration - MemoryConfig max_memory default",
+      "description": "Chapter states max_memory default is 100MB for MemoryConfig, but code actually defaults to 100MB in MemoryConfig::default() while helper function default_memory_limit() returns 1GB",
+      "current_content": "Line 327: '| `max_memory` | Number | `104857600` | Maximum memory usage (100MB) |'\nLine 350: 'assert_eq!(config.max_memory, 100 * 1024 * 1024); // 100 MB'",
+      "should_be": "The chapter is correct - MemoryConfig::default() does set max_memory to 100MB (100 * 1024 * 1024). However, there's a helper function default_memory_limit() that returns 1GB which is not used by MemoryConfig::default()",
+      "fix_suggestion": "No change needed in chapter. The code has an unused helper function default_memory_limit() that returns 1GB, but MemoryConfig::default() correctly uses 100MB as documented",
+      "source_reference": "src/storage/config.rs:103-111 (MemoryConfig::default uses 100MB), src/storage/config.rs:200-202 (unused default_memory_limit returns 1GB)"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
+      "severity": "low",
       "section": "Project Configuration - variables field type",
-      "description": "Chapter mentions 'variables: Custom project variables (TOML table)' which is technically accurate for the internal type but may confuse users since all configs are now YAML",
-      "current_content": "| `variables` | Table | No | None | Custom project variables (TOML table) |",
-      "should_be": "| `variables` | Map | No | None | Custom project variables (stored internally as toml::Table for backward compatibility but defined in YAML) |",
-      "fix_suggestion": "Clarify that the variables field is defined in YAML like all other config, but the internal representation uses toml::Table type for historical reasons. Users should just think of it as a YAML map/dictionary.",
+      "description": "Chapter describes variables field type as 'Map' but mentions it's stored as 'toml::Table' for backward compatibility. Could clarify the YAML perspective more clearly.",
+      "current_content": "Line 169: '| `variables` | Map | No | None | Custom project variables (YAML map, stored internally as toml::Table for backward compatibility) |'",
+      "should_be": "Description is accurate but could emphasize users should just think of this as a standard YAML map/dictionary",
+      "fix_suggestion": "Consider rephrasing to: 'Custom project variables as YAML map (internally stored as toml::Table for backward compatibility - users can ignore this detail)'",
       "source_reference": "src/config/mod.rs:73 (variables: Option<toml::Table>)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Storage Environment Variables",
-      "description": "Chapter lists PRODIGY_STORAGE_BASE_PATH but doesn't mention that the code checks multiple alternative environment variable names in fallback order",
-      "should_add": "Document that storage base path can be configured via multiple environment variable names (checked in order): PRODIGY_STORAGE_BASE_PATH, PRODIGY_STORAGE_DIR, or PRODIGY_STORAGE_PATH",
-      "fix_suggestion": "Update the environment variables section to explain that multiple env var names are supported for storage path, with PRODIGY_STORAGE_BASE_PATH being the primary recommended name",
-      "source_reference": "src/storage/config.rs:258-266 (StorageConfig::from_env checks multiple env var names)"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Automation Environment Variables - PRODIGY_CLAUDE_STREAMING",
-      "description": "Chapter mentions PRODIGY_CLAUDE_STREAMING but description is brief and doesn't explain when users would manually set it",
-      "current_content": "| `PRODIGY_CLAUDE_STREAMING` | `\"true\"` | Enables streaming mode (when verbosity >= 1) |",
-      "should_be": "| `PRODIGY_CLAUDE_STREAMING` | `\"true\"` or `\"false\"` | Automatically set by Prodigy based on verbosity (-v flag). Can be manually set to \"false\" to disable streaming in CI/CD environments with storage constraints |",
-      "fix_suggestion": "Expand the description to clarify this is primarily an internal variable that users might want to override in specific scenarios like CI/CD",
-      "source_reference": "CLAUDE.md documentation mentions this for CI/CD control"
     },
     {
       "type": "unclear_content",
       "severity": "low",
-      "section": "Configuration File Locations - Format Support",
-      "description": "Chapter states 'TOML (.toml) - Deprecated, no longer supported' which is accurate but could be clearer that validation actively rejects TOML files",
-      "current_content": "**Unsupported formats:**\n- TOML (`.toml`) - Deprecated, no longer supported\n- JSON (`.json`) - Not supported",
-      "should_be": "**Unsupported formats:**\n- TOML (`.toml`) - No longer supported. Prodigy will reject TOML files with an error. See Migration Guide below for converting to YAML.\n- JSON (`.json`) - Not supported",
-      "fix_suggestion": "Make it clearer that TOML files will cause an error and reference the migration guide provided later in the chapter",
-      "source_reference": "src/core/config/mod.rs:43-50 (validate_config_format only accepts yaml/yml)"
+      "section": "Configuration File Locations - Legacy references",
+      "description": "Some struct documentation comments in code still reference .toml files, but chapter correctly documents .yml format requirement",
+      "current_content": "Code comments at src/config/mod.rs:49 and :64 mention 'config.toml' file locations",
+      "should_be": "Chapter is correct - only YAML supported. Code comments should be updated to say .yml",
+      "fix_suggestion": "No change needed in chapter. This is a code documentation issue, not a book issue.",
+      "source_reference": "src/config/mod.rs:49 and :64 - comments say '.toml' but validation rejects it"
     }
   ],
   "positive_aspects": [
     "Excellent comprehensive coverage of all configuration types (Global, Project, Workflow, Storage)",
+    "CORRECT precedence documentation - properly explains environment variable merging happens before project config check (lines 86-108)",
     "Clear table format for field documentation with types, defaults, and descriptions",
     "Good progression from Quick Start to advanced configuration",
     "Helpful complete examples showing minimal and full-featured setups side-by-side",
-    "Thorough environment variables documentation with examples",
+    "Thorough environment variables documentation with correct precedence ordering",
     "Practical troubleshooting section with validation tips and common errors",
-    "Good migration guide from TOML to YAML with before/after examples",
+    "Excellent migration guide from TOML to YAML with before/after examples",
     "Best practices section covers security (API keys) and configuration level usage well",
     "Complete default values reference table for easy lookup",
-    "Well-organized section structure with clear headings"
+    "Well-organized section structure with clear headings",
+    "Format Support section correctly states YAML is required and TOML is rejected",
+    "Storage environment variables section (lines 414-419) correctly documents multiple variable name fallbacks"
   ],
   "improvement_suggestions": [
-    "Add a diagram showing the complete configuration precedence flow with environment variable merging",
+    "Add a visual diagram showing the complete configuration precedence flow with environment variable merging",
     "Include example of checking which config values are active using debug logging (PRODIGY_LOG_LEVEL=debug)",
     "Add cross-references to related workflow and MapReduce configuration chapters",
     "Consider adding a FAQ section for common configuration questions",
     "Add note about where to find the prodigy_home directory on different platforms (macOS, Linux, Windows)",
-    "Clarify that PRODIGY_STORAGE_DIR and PRODIGY_STORAGE_PATH are alternatives to PRODIGY_STORAGE_BASE_PATH",
-    "Fix the Claude API key precedence example to show the correct evaluation order"
+    "Consider adding a callout box highlighting the precedence order for quick reference",
+    "Add example showing what validation error users see when using TOML file"
   ],
   "metadata": {
     "analyzed_at": "2025-01-12",
@@ -105,7 +79,9 @@
       "Cache configuration",
       "Best practices",
       "Migration guide",
-      "Troubleshooting"
+      "Troubleshooting",
+      "Format validation",
+      "YAML requirement"
     ],
     "validation_focus": "Check configuration structure matches Settings struct and precedence is correctly documented"
   }

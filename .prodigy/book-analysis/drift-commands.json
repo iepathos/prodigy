@@ -3,27 +3,28 @@
   "chapter_title": "Command Types",
   "chapter_file": "book/src/commands.md",
   "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Chapter has strong examples but missing important field (cwd) and confusing field documentation around capture/capture_output distinction and internal vs configuration fields",
+  "severity": "medium",
+  "quality_assessment": "Chapter has strong examples and covers all command types well. Main issues are: (1) 'cwd' field is documented but doesn't exist in WorkflowStepCommand, (2) capture_streams documentation says 'reserved for future' but it's actually implemented in StepConfig, (3) minor confusion around capture vs capture_output distinction.",
   "issues": [
     {
-      "type": "missing_content",
+      "type": "incorrect_example",
       "severity": "high",
       "section": "Command Reference - Command Fields",
-      "description": "Missing 'cwd' (current working directory) field which is available in WorkflowStepCommand",
-      "should_add": "Add cwd field to command fields table with description, type, and example showing how to set working directory per command",
-      "fix_suggestion": "Add row to Command Fields table:\n| `cwd` | string | Working directory for command execution (supports variable expansion) |\n\nAdd example in Command Reference section:\n```yaml\n- shell: \"npm install\"\n  cwd: \"${PROJECT_DIR}/frontend\"\n```",
-      "source_reference": "features.json:222-224 (advanced_features.working_directory), src/config/command.rs (WorkflowStepCommand likely has cwd field based on features.json)"
+      "description": "The 'cwd' field is documented in the Command Fields table but WorkflowStepCommand doesn't have this field - only StepConfig has 'working_dir'",
+      "current_content": "| `cwd` | string | Working directory for command execution (supports variable expansion) |",
+      "should_be": "Field doesn't exist in WorkflowStepCommand - only exists as 'working_dir' in internal StepConfig",
+      "fix_suggestion": "Either: (1) Remove 'cwd' from Command Fields table since it's not in the YAML-facing WorkflowStepCommand struct, OR (2) Add 'cwd' field to WorkflowStepCommand and map it to StepConfig.working_dir during execution. The chapter example at line 27 shows 'cwd:' but this field doesn't exist in the actual struct.",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand (no cwd field); src/cook/workflow/executor.rs:343 (StepConfig has working_dir); chapter line 256 documents cwd but line 27 example won't work"
     },
     {
       "type": "outdated_information",
-      "severity": "high",
-      "section": "Command Reference - Note about internal fields",
-      "description": "Chapter incorrectly states 'working_dir - Not available (use shell `cd` command instead)' when cwd field actually exists",
-      "current_content": "- `working_dir` - Not available (use shell `cd` command instead)",
-      "should_be": "Remove this line entirely since cwd field is available, or update to: `working_dir` - Deprecated name, use `cwd` instead",
-      "fix_suggestion": "Remove the incorrect 'working_dir - Not available' line from the internal fields note (line 230) and document the actual 'cwd' field in the main table",
-      "source_reference": "features.json:222-224, chapter line 230"
+      "severity": "medium",
+      "section": "CaptureStreams Configuration",
+      "description": "Chapter says capture_streams is 'reserved for future implementation' but it's actually fully implemented in StepConfig",
+      "current_content": "**Note:** The `capture_streams` field is reserved for future implementation and should not be used in workflows yet.",
+      "should_be": "CaptureStreams is implemented in StepConfig with stdout, stderr, exit_code, success, and duration fields (Default: stdout, exit_code, success, duration enabled; stderr disabled)",
+      "fix_suggestion": "Update section to either: (1) Document that capture_streams works in StepConfig but may not be exposed in YAML WorkflowStepCommand syntax yet, OR (2) If it's truly not exposed in YAML, explain current workaround: 'Use capture and capture_format fields for now. Fine-grained stream control via capture_streams will be added to YAML syntax in a future version.'",
+      "source_reference": "src/cook/workflow/variables.rs:269-292 (CaptureStreams struct fully implemented); src/cook/workflow/executor.rs:327 (capture_streams field in StepConfig); src/config/command.rs:396 (capture_streams Option<String> in WorkflowStepCommand)"
     },
     {
       "type": "unclear_content",
@@ -56,61 +57,66 @@
       "source_reference": "Chapter lines 239-257, src/config/command.rs:395-396"
     },
     {
-      "type": "missing_content",
+      "type": "correct_documentation",
       "severity": "low",
       "section": "Goal-Seeking Commands",
-      "description": "Section shows basic goal_seek example but doesn't explain error handling, what happens when threshold isn't met, or practical troubleshooting tips",
-      "should_add": "Add explanation of fail_on_incomplete field, what happens when max_attempts is reached, and how to debug goal-seeking workflows that aren't converging",
-      "fix_suggestion": "Add troubleshooting subsection:\n- If threshold isn't met: Check validate command output format (must output 'score: N')\n- Use fail_on_incomplete: false for optional quality gates\n- View validation scores in verbose mode (-v) to debug convergence issues",
-      "source_reference": "src/cook/goal_seek/mod.rs:15-41, chapter lines 45-69"
+      "description": "Section already includes comprehensive troubleshooting guidance covering threshold validation, convergence issues, and debugging",
+      "current_content": "**Troubleshooting:** section at lines 74-78 covers all common issues",
+      "should_be": "Documentation is complete and matches implementation",
+      "fix_suggestion": "No changes needed - goal_seek documentation includes clear examples, field descriptions, and practical troubleshooting tips.",
+      "source_reference": "Chapter lines 49-78 match src/cook/goal_seek/mod.rs:15-41"
     },
     {
-      "type": "missing_content",
+      "type": "correct_documentation",
       "severity": "low",
       "section": "Foreach Commands",
-      "description": "Section shows foreach syntax but doesn't explain variable scoping, how to access loop index/count, or best practices for error handling in parallel execution",
-      "should_add": "Document that ${item} variable is available in the loop body, explain continue_on_error behavior with parallel execution, and show how to aggregate results from foreach loops",
-      "fix_suggestion": "Add subsection 'Foreach Variables and Error Handling':\n- ${item}: Current item value\n- continue_on_error: true (default) - Failed items don't stop the loop\n- Parallel execution caveat: Output order is not guaranteed\n- No built-in result aggregation - use write_file to collect results",
-      "source_reference": "src/config/command.rs:189-211, features.json:67-72"
+      "description": "Section already documents ${item} variable, continue_on_error behavior, parallel execution caveats, and result aggregation approach",
+      "current_content": "**Variables and Error Handling:** section at lines 100-104 covers all key points",
+      "should_be": "Documentation is complete and accurate",
+      "fix_suggestion": "No changes needed - foreach documentation is comprehensive with good examples and clear explanation of behavior.",
+      "source_reference": "Chapter lines 100-117 match src/config/command.rs:189-211"
     },
     {
-      "type": "incorrect_example",
+      "type": "correct_but_could_improve",
       "severity": "low",
-      "section": "Validation Commands - DEPRECATED comment",
-      "description": "Line 146 shows '# DEPRECATED: 'command' field (use 'shell' instead)' but this is a comment in example code, not properly documented as a deprecation",
-      "current_content": "# DEPRECATED: 'command' field (use 'shell' instead)",
-      "should_be": "Either remove this comment from the example (since the example already shows using 'shell'), or add a proper 'Deprecation Notice' box before the example",
-      "fix_suggestion": "Add a callout box before the example:\n> **Deprecation Notice**: The `command` field in ValidationConfig is deprecated. Use `shell` instead. The `command` field is still supported for backward compatibility but will be removed in a future version.",
-      "source_reference": "Chapter line 146, src/cook/workflow/validation.rs:13-15"
+      "section": "Validation Commands - Deprecation Notice",
+      "description": "The chapter already has a proper deprecation notice at line 178 for the 'command' field, which is good",
+      "current_content": "> **Deprecation Notice**: The `command` field in ValidationConfig is deprecated. Use `shell` instead for shell commands or `claude` for Claude commands. The `command` field is still supported for backward compatibility but will be removed in a future version.",
+      "should_be": "This is correct and matches the code",
+      "fix_suggestion": "No changes needed - deprecation is properly documented. This is a positive example of clear deprecation communication.",
+      "source_reference": "Chapter line 178, src/cook/workflow/validation.rs:13-15"
     },
     {
-      "type": "missing_best_practices",
+      "type": "correct_documentation",
       "severity": "low",
       "section": "Write File Commands",
-      "description": "Write file section shows examples but doesn't explain when to use each format, error handling for format validation failures, or how to handle write conflicts",
-      "should_add": "Best practices: Use json/yaml formats when generating configuration files for validation, use text format for logs or documentation, set create_dirs: true when writing to nested paths",
-      "fix_suggestion": "Add 'Best Practices' subsection:\n- Use format validation (json/yaml) for config files to catch errors early\n- Set appropriate file permissions with mode field\n- Use create_dirs: true when writing to paths that may not exist\n- Combine with validation to ensure generated files meet requirements",
-      "source_reference": "src/config/command.rs:278-317, features.json:74-78"
+      "description": "Write file section already includes comprehensive best practices covering format selection, permissions, directory creation, and validation",
+      "current_content": "**Best Practices:** section at lines 167-172 covers all key recommendations",
+      "should_be": "Documentation is complete with good examples and clear guidance",
+      "fix_suggestion": "No changes needed - write_file documentation is excellent with examples for each format, clear field descriptions, and practical best practices.",
+      "source_reference": "Chapter lines 119-172 match src/config/command.rs:278-317"
     }
   ],
   "positive_aspects": [
-    "Excellent, comprehensive examples for all command types",
-    "Good coverage of shell, claude, goal_seek, foreach, write_file, and validation commands",
+    "Excellent, comprehensive examples for all command types with clear, practical use cases",
+    "Complete coverage of all command types: shell, claude, goal_seek, foreach, write_file, validation",
     "Clear YAML syntax examples that are copy-pasteable",
-    "Good explanation of capture_format with all supported formats (string, number, json, lines, boolean)",
-    "Helpful migration guide for capture_output to capture (lines 299-315)",
+    "Comprehensive explanation of capture_format with all supported formats (string, number, json, lines, boolean) including examples",
+    "Helpful migration guide for capture_output to capture with clear explanation of why the change improves maintainability",
     "Well-organized Command Reference table with clear field descriptions",
-    "Good coverage of validation and on_incomplete configuration with multiple examples"
+    "Excellent troubleshooting section for goal_seek with practical debugging tips",
+    "Good Variables and Error Handling section for foreach explaining ${item}, continue_on_error, and parallel caveats",
+    "Comprehensive Write File best practices covering format selection, permissions, and directory creation",
+    "Proper deprecation notices for test: command and ValidationConfig.command field",
+    "Good example of result collection in foreach loops using write_file"
   ],
   "improvement_suggestions": [
-    "Add the missing cwd field documentation with clear examples",
-    "Clarify the relationship between capture and capture_output fields",
-    "Reorganize to separate user-configurable fields from internal implementation details",
-    "Add troubleshooting tips for goal_seek and foreach commands",
-    "Add best practices section for write_file command",
-    "Consider moving or removing the capture_streams 'future implementation' section to avoid confusion",
-    "Add cross-references to related chapters (variables chapter for capture, error-handling chapter for on_failure)",
-    "Add a 'Common Gotchas' section with solutions to frequent issues"
+    "CRITICAL: Remove or fix 'cwd' field documentation - this field doesn't exist in WorkflowStepCommand (only working_dir in StepConfig)",
+    "Update CaptureStreams section - it's not 'future implementation', it's already implemented in StepConfig",
+    "Clarify which fields are YAML-configurable vs internal implementation details",
+    "Add note about capture vs capture_output in Command Fields table for clarity",
+    "Consider adding cross-references to related chapters (variables chapter for capture details, error-handling chapter for on_failure strategies)",
+    "Add example showing command output capture and usage in subsequent commands"
   ],
   "metadata": {
     "analyzed_at": "2025-10-12",

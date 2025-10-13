@@ -1,67 +1,84 @@
 {
-  "analysis_date": "2025-01-12T14:30:00Z",
+  "analysis_date": "2025-10-12T00:00:00Z",
   "features_analyzed": 13,
-  "documented_topics": 13,
-  "gaps_found": 2,
-  "gaps": [
-    {
-      "severity": "high",
-      "type": "missing_chapter",
-      "feature_category": "git_context_advanced",
-      "feature_description": "Advanced git context filtering with pattern matching, format modifiers, and file pattern options",
-      "recommended_chapter_id": "git-context-advanced",
-      "recommended_title": "Advanced Git Context",
-      "recommended_location": "book/src/git-context-advanced.md",
-      "reasoning": "The variables chapter covers basic git context but doesn't document pattern filtering, format modifiers, file patterns, or combined filters which are distinct capabilities in the codebase"
+  "documented_topics": 15,
+  "gaps_found": 0,
+  "gaps": [],
+  "actions_taken": [],
+  "summary": "All feature areas from features.json are documented with corresponding chapters. No missing chapters or documentation gaps detected.",
+  "coverage_details": {
+    "workflow_basics": {
+      "status": "documented",
+      "chapter_id": "workflow-basics",
+      "chapter_file": "book/src/workflow-basics.md"
     },
-    {
-      "severity": "high",
-      "type": "missing_chapter",
-      "feature_category": "mapreduce_worktree_architecture",
-      "feature_description": "MapReduce worktree hierarchy, branch naming, merge flows, and debugging strategies",
-      "recommended_chapter_id": "mapreduce-worktree-architecture",
-      "recommended_title": "MapReduce Worktree Architecture",
-      "recommended_location": "book/src/mapreduce-worktree-architecture.md",
-      "reasoning": "Critical architectural feature covering worktree isolation, hierarchical structure, agent merge flows, and parent-to-master merges. Essential for understanding MapReduce execution model but not documented in existing MapReduce chapter which focuses on workflow syntax"
-    }
-  ],
-  "actions_taken": [
-    {
-      "action": "created_chapter_definition",
+    "mapreduce": {
+      "status": "documented",
+      "chapter_id": "mapreduce",
+      "chapter_file": "book/src/mapreduce.md"
+    },
+    "command_types": {
+      "status": "documented",
+      "chapter_id": "commands",
+      "chapter_file": "book/src/commands.md",
+      "subcategories_documented": ["shell", "claude", "goal_seek", "foreach", "write_file", "analyze", "validation"]
+    },
+    "variables": {
+      "status": "documented",
+      "chapter_id": "variables",
+      "chapter_file": "book/src/variables.md"
+    },
+    "environment": {
+      "status": "documented",
+      "chapter_id": "environment",
+      "chapter_file": "book/src/environment.md"
+    },
+    "advanced_features": {
+      "status": "documented",
+      "chapter_id": "advanced",
+      "chapter_file": "book/src/advanced.md"
+    },
+    "error_handling": {
+      "status": "documented",
+      "chapter_id": "error-handling",
+      "chapter_file": "book/src/error-handling.md",
+      "subcategories_documented": ["workflow_level", "command_level", "retry", "circuit_breaker", "dlq"]
+    },
+    "retry_configuration": {
+      "status": "documented",
+      "chapter_id": "retry-configuration",
+      "chapter_file": "book/src/retry-configuration.md",
+      "subcategories_documented": ["retry_defaults", "backoff_strategies", "retry_budget", "conditional_retry", "jitter"]
+    },
+    "workflow_composition": {
+      "status": "documented",
+      "chapter_id": "composition",
+      "chapter_file": "book/src/composition.md"
+    },
+    "configuration_system": {
+      "status": "documented",
+      "chapter_id": "configuration",
+      "chapter_file": "book/src/configuration.md"
+    },
+    "git_context_advanced": {
+      "status": "documented",
       "chapter_id": "git-context-advanced",
-      "file_path": "workflows/data/prodigy-chapters.json",
-      "timestamp": "2025-01-12T14:30:00Z"
+      "chapter_file": "book/src/git-context-advanced.md"
     },
-    {
-      "action": "created_chapter_definition",
+    "automated_documentation": {
+      "status": "documented",
+      "chapter_id": "automated-documentation",
+      "chapter_file": "book/src/automated-documentation.md"
+    },
+    "mapreduce_worktree_architecture": {
+      "status": "documented",
       "chapter_id": "mapreduce-worktree-architecture",
-      "file_path": "workflows/data/prodigy-chapters.json",
-      "timestamp": "2025-01-12T14:30:00Z"
-    },
-    {
-      "action": "created_stub_file",
-      "file_path": "book/src/git-context-advanced.md",
-      "chapter_id": "git-context-advanced",
-      "timestamp": "2025-01-12T14:30:00Z"
-    },
-    {
-      "action": "created_stub_file",
-      "file_path": "book/src/mapreduce-worktree-architecture.md",
-      "chapter_id": "mapreduce-worktree-architecture",
-      "timestamp": "2025-01-12T14:30:00Z"
-    },
-    {
-      "action": "updated_summary",
-      "file_path": "book/src/SUMMARY.md",
-      "chapters_added": 2,
-      "timestamp": "2025-01-12T14:30:00Z"
+      "chapter_file": "book/src/mapreduce-worktree-architecture.md"
     }
-  ],
-  "summary": {
-    "previously_documented": 11,
-    "gaps_detected": 2,
-    "chapters_created": 2,
-    "stubs_created": 2,
-    "summary_updated": true
-  }
+  },
+  "recommendations": [
+    "Continue to monitor feature additions in future releases",
+    "Update gap detection to run periodically as codebase evolves",
+    "Consider adding more granular feature tracking for subcategories"
+  ]
 }

@@ -1,0 +1,115 @@
+{
+  "chapter_id": "git-context-advanced",
+  "chapter_title": "Advanced Git Context",
+  "chapter_file": "book/src/git-context-advanced.md",
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Chapter documents features that don't exist in the implementation. The git_context YAML configuration with include/exclude patterns is not implemented. Git context is actually provided through automatic tracking with step.* and workflow.* variables.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Entire Chapter",
+      "description": "Chapter documents a 'git_context:' YAML configuration option that doesn't exist in the codebase",
+      "current_content": "The chapter shows examples like:\n- claude: \"/analyze-changes\"\n  git_context:\n    include:\n      - \"**/*.rs\"\n    exclude:\n      - \"**/tests/**\"",
+      "should_be": "Git context is automatically tracked and exposed through variables:\n- step.files_added\n- step.files_modified\n- step.files_deleted\n- step.files_changed\n- workflow.files_added\n- workflow.files_modified\n- workflow.files_deleted\n- workflow.files_changed",
+      "fix_suggestion": "Rewrite chapter to document actual git context variables (step.* and workflow.*) and explain automatic tracking. Remove all references to git_context YAML configuration.",
+      "source_reference": "src/cook/workflow/git_context.rs:GitChangeTracker, src/cook/workflow/executor/context.rs:56-135"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Pattern Filtering",
+      "description": "Chapter documents include/exclude patterns, but actual implementation supports filtering through variable modifiers",
+      "current_content": "git_context:\n  include:\n    - \"**/*.rs\"\n  exclude:\n    - \"**/tests/**\"",
+      "should_be": "Pattern filtering is done via variable modifiers:\n${step.files_added:*.rs}\n${workflow.files_changed:src/**/*.rs}",
+      "fix_suggestion": "Document variable modifier syntax for pattern filtering: variable:pattern (e.g., step.files_added:*.md)",
+      "source_reference": "src/cook/workflow/git_context.rs:352-405 (resolve_variable method)"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "critical",
+      "section": "Format Modifiers",
+      "description": "Chapter shows format modifiers like :unified, :oneline, :short which don't exist",
+      "current_content": "- shell: \"echo ${git.diff:unified}\"\n- shell: \"echo ${git.log:oneline}\"\n- shell: \"echo ${git.status:short}\"",
+      "should_be": "Format modifiers that actually exist:\n- :json - JSON array format\n- :lines or :newline - Newline-separated\n- :csv or :comma - Comma-separated\n- (default) - Space-separated",
+      "fix_suggestion": "Replace documented modifiers with actual implementation: :json, :lines, :csv, and default space-separated",
+      "source_reference": "src/cook/workflow/git_context.rs:100-111 (VariableFormat enum), src/cook/workflow/git_context.rs:377-383"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Git Context Variables",
+      "description": "Chapter doesn't document actual git context variables available",
+      "should_add": "Document all available variables:\n- step.files_added, step.files_modified, step.files_deleted, step.files_changed\n- step.commits, step.commit_count\n- step.insertions, step.deletions\n- workflow.files_added, workflow.files_modified, workflow.files_deleted, workflow.files_changed\n- workflow.commits, workflow.commit_count\n- workflow.insertions, workflow.deletions",
+      "fix_suggestion": "Add section documenting all git context variables with examples showing usage in shell and claude commands",
+      "source_reference": "src/cook/workflow/executor/context.rs:56-135 (build_interpolation_context)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Use Cases",
+      "description": "All use case examples show non-existent git_context YAML syntax",
+      "current_content": "Examples use git_context:\n  include:\n  exclude:",
+      "should_be": "Examples should use variable references:\n- claude: \"/review-changes $(echo ${step.files_changed:*.rs})\"",
+      "fix_suggestion": "Rewrite all use case examples to show variable interpolation instead of YAML configuration",
+      "source_reference": "Variables are interpolated automatically in commands"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Pattern Syntax",
+      "description": "Chapter correctly documents glob pattern syntax (*, **, ?, {}, []) but doesn't explain how to use them with variables",
+      "should_add": "Pattern syntax works with variable modifiers:\n${step.files_added:**/*.{rs,toml}}\n${workflow.files_changed:src/**/mod.rs}",
+      "fix_suggestion": "Keep glob pattern documentation but show it in context of variable modifiers, not YAML config",
+      "source_reference": "src/cook/workflow/git_context.rs:83-97 (filter_files method uses glob::Pattern)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Automatic Tracking",
+      "description": "Chapter doesn't explain that git context tracking is automatic",
+      "should_add": "Git context is automatically tracked:\n- GitChangeTracker is initialized at workflow start\n- Each step's changes are tracked between begin_step and complete_step\n- Variables are automatically available for interpolation\n- No configuration needed - works out of the box in git repositories",
+      "fix_suggestion": "Add section explaining automatic tracking mechanism and when it's active (only in git repositories)",
+      "source_reference": "src/cook/workflow/git_context.rs:113-141 (GitChangeTracker::new)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Combining Filters",
+      "description": "Chapter mentions combining include and exclude but this isn't how the implementation works",
+      "current_content": "Shows combining include/exclude in YAML",
+      "should_be": "Pattern filtering is single-pass via glob patterns in variable modifiers",
+      "fix_suggestion": "Explain that you can chain shell commands or use multiple variable references for complex filtering",
+      "source_reference": "src/cook/workflow/git_context.rs:386 (pattern filter is single glob pattern)"
+    }
+  ],
+  "positive_aspects": [
+    "Clear chapter structure and progression",
+    "Good use case examples (structure is good, just need to update syntax)",
+    "Comprehensive troubleshooting section",
+    "Good cross-references to related chapters",
+    "Glob pattern syntax documentation is accurate"
+  ],
+  "improvement_suggestions": [
+    "Add introduction explaining automatic git tracking vs manual configuration",
+    "Show examples of combining git context variables with other workflow variables",
+    "Add section on when git tracking is active vs inactive (non-git repos)",
+    "Include examples of using git variables in conditional execution (when:)",
+    "Add performance notes about git operations",
+    "Show how git context works across workflow phases (setup, map, reduce)",
+    "Document behavior in MapReduce workflows with child worktrees"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-12",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Pattern filtering (documented but wrong syntax)",
+      "Format modifiers (documented but wrong values)",
+      "File patterns (correct glob syntax)",
+      "Combined filters (not applicable to implementation)",
+      "Git context variables (missing from chapter)"
+    ],
+    "validation_focus": "Check that pattern filtering syntax, format modifiers, and file pattern options are documented"
+  }
+}

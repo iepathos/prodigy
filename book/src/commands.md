@@ -22,10 +22,6 @@
 # With conditional execution
 - shell: "cargo build --release"
   when: "${tests_passed}"
-
-# With custom working directory
-- shell: "npm install"
-  cwd: "${PROJECT_DIR}/frontend"
 ```
 
 ## 2. Claude Commands
@@ -253,10 +249,9 @@ All command types support these common fields:
 | `timeout` | number | Command timeout in seconds |
 | `commit_required` | boolean | Whether command should create a git commit |
 | `when` | string | Conditional execution expression |
-| `cwd` | string | Working directory for command execution (supports variable expansion) |
-| `capture` | string | Variable name to capture output (modern approach with explicit variable name) |
+| `capture` | string | Variable name to capture command output (replaces deprecated `capture_output: true`) |
 | `capture_format` | enum | Format: `string` (default), `number`, `json`, `lines`, `boolean` (see examples below) |
-| `capture_streams` | string | Reserved for future use - currently stored as string in YAML |
+| `capture_streams` | string | Reserved for future YAML syntax - not yet available in workflows |
 | `on_success` | object | Command to run on success |
 | `on_failure` | object | OnFailureConfig with nested command, max_attempts, fail_workflow, strategy |
 | `validate` | object | Validation configuration |
@@ -264,25 +259,28 @@ All command types support these common fields:
 
 ### CaptureStreams Configuration
 
-**Note:** The `capture_streams` field is reserved for future implementation and should not be used in workflows yet.
+**Note:** While `capture_streams` functionality is implemented internally in Prodigy's execution engine, it is not yet exposed in the YAML workflow syntax. The field exists in the configuration structs but is currently stored as a string placeholder.
 
-When implemented, `capture_streams` will provide fine-grained control over which output streams (stdout, stderr, exit_code, etc.) are captured to variables.
-
-**Current Workaround:** Use the `capture` and `capture_format` fields to control output capture:
+**Current Approach:** Use the `capture` and `capture_format` fields to control output capture:
 
 ```yaml
-# Capture stdout (current approach)
+# Capture stdout as string (most common use case)
 - shell: "cargo test"
   capture: "test_output"
   capture_format: "string"
 
-# Capture exit status
+# Capture exit status as boolean
 - shell: "cargo test"
   capture: "test_passed"
   capture_format: "boolean"
+
+# Capture and parse JSON output
+- shell: "cargo metadata --format-version 1"
+  capture: "project_info"
+  capture_format: "json"
 ```
 
-The `capture_streams` field will be implemented in a future version to provide more granular control over stream selection.
+**Future Enhancement:** A future version will expose `capture_streams` in YAML syntax to provide fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured. Until then, use the `capture` and `capture_format` fields which cover most common use cases.
 
 ### Capture Format Examples
 
@@ -369,3 +367,31 @@ The following fields are used internally during workflow execution but are NOT p
 These fields are documented here for reference when working on Prodigy's source code, but should not be used in workflow YAML files.
 
 </details>
+
+---
+
+## Cross-References
+
+For more information on related topics:
+- **Variable Interpolation**: See the Variables chapter for details on using captured outputs like `${variable_name}` in subsequent commands
+- **Error Handling**: See the Error Handling chapter for advanced `on_failure` strategies and retry patterns
+- **MapReduce Workflows**: See the MapReduce chapter for large-scale parallel command execution
+
+**Example: Using Captured Output in Subsequent Commands**
+
+```yaml
+# Capture build output and use it in later commands
+- shell: "cargo build --release 2>&1"
+  capture: "build_output"
+  capture_format: "string"
+
+# Use the captured output in Claude command
+- claude: "/analyze-warnings '${build_output}'"
+  when: "${build_output contains 'warning'}"
+
+# Store output to file for later analysis
+- write_file:
+    path: "logs/build-${workflow.iteration}.log"
+    content: "${build_output}"
+    create_dirs: true
+```
