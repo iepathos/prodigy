@@ -90,6 +90,24 @@
       "file": "book/src/configuration.md",
       "topics": ["Config file locations", "Precedence rules", "Claude settings", "Worktree settings", "Storage settings", "Retry defaults"],
       "validation": "Check configuration structure matches Settings struct and precedence is correctly documented"
+    },
+    {
+      "id": "git-context-advanced",
+      "title": "Advanced Git Context",
+      "file": "book/src/git-context-advanced.md",
+      "topics": ["Pattern filtering", "Format modifiers", "File patterns", "Combined filters", "Git context variables"],
+      "validation": "Check that pattern filtering syntax, format modifiers, and file pattern options are documented",
+      "auto_generated": true,
+      "source_feature": "git_context_advanced"
+    },
+    {
+      "id": "mapreduce-worktree-architecture",
+      "title": "MapReduce Worktree Architecture",
+      "file": "book/src/mapreduce-worktree-architecture.md",
+      "topics": ["Worktree hierarchy", "Branch naming", "Merge flow", "Agent merge", "MapReduce to parent merge", "Parent to master merge", "Debugging", "Verification"],
+      "validation": "Check that worktree isolation, branch naming conventions, merge flows, and debugging strategies are documented",
+      "auto_generated": true,
+      "source_feature": "mapreduce_worktree_architecture"
     }
   ]
 }

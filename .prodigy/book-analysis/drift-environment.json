@@ -1,0 +1,121 @@
+{
+  "chapter_id": "environment",
+  "chapter_title": "Environment Configuration",
+  "chapter_file": "book/src/environment.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Chapter is comprehensive and mostly accurate. Main issues: (1) Claims profile activation is not implemented but infrastructure exists, (2) Lacks clarity on which features are user-facing vs internal only, (3) Missing examples for combining environment features with MapReduce patterns.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Environment Profiles - Profile Activation",
+      "description": "Chapter states 'Profile activation is not currently implemented' (lines 237, 481), but this needs more nuance. The infrastructure exists (active_profile field in EnvironmentConfig), but there's no CLI flag to activate profiles.",
+      "current_content": "**Note:** Profile activation is not currently implemented in the CLI. You can define profiles in YAML, but there is no `--profile` flag or mechanism to activate them.",
+      "should_be": "Clarify that profile infrastructure exists internally (active_profile field), but no CLI interface (--profile flag) has been implemented yet. Users can define profiles but cannot activate them via command line.",
+      "fix_suggestion": "Update the note to be more precise: 'The profile infrastructure exists internally (EnvironmentConfig has an active_profile field), but there is currently no CLI flag (like --profile) to activate profiles at runtime. Profiles can be defined in YAML for future use, but cannot be activated in the current version.'",
+      "source_reference": "src/cook/environment/config.rs:33-34 (active_profile field exists)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Per-Command Environment Overrides",
+      "description": "Chapter correctly states WorkflowStepCommand has no env field, but doesn't mention that the older Command struct (via CommandMetadata) does have env field. This could confuse users who see env in some contexts.",
+      "current_content": "**IMPORTANT:** WorkflowStepCommand does NOT have an `env` field. All per-command environment changes must use shell syntax.",
+      "should_add": "Mention that the legacy Command struct (used in structured command format) has an env field via CommandMetadata, but the newer WorkflowStepCommand format used in most workflows does not support per-command env.",
+      "fix_suggestion": "Add clarification: 'Note: The legacy Command struct (structured format) has an env field via CommandMetadata, but the modern WorkflowStepCommand format does not. For workflows using the modern claude:/shell: syntax, use shell-level environment syntax (ENV=value command).'",
+      "source_reference": "src/config/command.rs:143-145 (CommandMetadata.env exists), src/config/command.rs:321-401 (WorkflowStepCommand has no env field)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Secret Providers",
+      "description": "Chapter lists 'custom' provider but doesn't explain how to implement or use custom secret providers.",
+      "current_content": "- `custom` - Custom provider (extensible for your own secret backends)",
+      "should_add": "Add brief explanation or note that custom providers are for advanced use cases and require extending Prodigy's secret resolution system.",
+      "fix_suggestion": "Expand the custom provider documentation: '`custom` - Custom provider for advanced use cases. Requires implementing custom secret resolution logic in Prodigy's environment manager. Contact maintainers for extension points.'",
+      "source_reference": "src/cook/environment/config.rs:110 (SecretProvider::Custom enum variant)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "MapReduce Environment Variables - Best Practices",
+      "description": "Chapter provides excellent MapReduce environment variable examples, but doesn't show how environment variables interact with work items (${item.*} variables).",
+      "should_add": "Add example showing environment variables used together with item variables in map phase.",
+      "fix_suggestion": "Add example in 'MapReduce Environment Variables' section:\n\n```yaml\nenv:\n  PROJECT_ROOT: \"/workspace\"\n  OUTPUT_FORMAT: \"json\"\n\nmap:\n  agent_template:\n    - claude: \"/analyze ${item.file} --root $PROJECT_ROOT --format $OUTPUT_FORMAT\"\n    - shell: \"mkdir -p $PROJECT_ROOT/results/${item.category}\"\n    - shell: \"cp ${item.file} $PROJECT_ROOT/results/${item.category}/\"\n```",
+      "source_reference": "Feature inventory shows both env and item variables are supported"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Environment Files - Loading Behavior",
+      "description": "Chapter explains precedence order but doesn't mention what happens if an env file is missing or has parse errors.",
+      "should_add": "Document error handling for missing or malformed env files.",
+      "fix_suggestion": "Add note in 'Environment Files' section: 'If an env file specified in env_files does not exist or contains invalid syntax, Prodigy will report an error and halt workflow execution. Use absolute paths or paths relative to the workflow file location.'",
+      "source_reference": "src/cook/environment/manager.rs (env file loading logic)"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Architecture Overview",
+      "description": "The distinction between WorkflowConfig and EnvironmentConfig is explained, but the relationship between 'user-facing' vs 'internal' could be clearer for new users.",
+      "current_content": "This chapter documents the user-facing WorkflowConfig layer - what you write in your workflow YAML files.",
+      "should_be": "Make it clearer that users only interact with WorkflowConfig fields (env, secrets, env_files, profiles) in YAML, and EnvironmentConfig is Prodigy's internal runtime representation that adds features like dynamic and conditional values.",
+      "fix_suggestion": "Reword to: 'This chapter documents the WorkflowConfig layer - the fields you write in workflow YAML files (env, secrets, env_files, profiles). The EnvironmentConfig is Prodigy's internal runtime that processes these YAML fields and adds internal-only features like dynamic command-based values and conditional expressions.'",
+      "source_reference": "src/config/workflow.rs:11-34 (WorkflowConfig struct), src/cook/environment/config.rs:9-35 (EnvironmentConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Secrets Management - Masking Coverage",
+      "description": "Chapter states secrets are 'masked in logs and output' but doesn't clarify if this applies to Claude JSON logs, MapReduce event logs, and checkpoint files.",
+      "current_content": "Secrets are automatically masked in:\n- Command output logs\n- Error messages\n- Event logs\n- Checkpoint files",
+      "should_be": "Clarify which specific log types have masking (stdout/stderr, Claude JSON logs, event JSONL files, DLQ items, checkpoint JSON).",
+      "fix_suggestion": "Expand the masking list to be more specific: '- Standard output/error streams\n- Claude JSON logs (~/.claude/projects/)\n- MapReduce event logs (~/.prodigy/events/)\n- Dead Letter Queue items (~/.prodigy/dlq/)\n- Checkpoint state files\n- Git commit messages (if secrets appear in output)'",
+      "source_reference": "Feature inventory mentions masking but implementation details in environment manager"
+    }
+  ],
+  "positive_aspects": [
+    "Extremely comprehensive coverage of environment configuration features",
+    "Clear distinction between user-facing (WorkflowConfig) and internal (EnvironmentConfig) capabilities",
+    "Excellent MapReduce-specific environment variable documentation with practical examples",
+    "Accurate documentation of WorkflowStepCommand not having env field",
+    "Good examples showing variable interpolation syntax ($VAR vs ${VAR})",
+    "Helpful best practices section with security and parameterization guidance",
+    "Correct precedence order documentation (shell > global env > env_files > parent)",
+    "Realistic note about profile activation not being implemented",
+    "Well-structured with logical progression from basic to advanced topics"
+  ],
+  "improvement_suggestions": [
+    "Add a 'Common Patterns' section showing environment variables with MapReduce work items",
+    "Include troubleshooting section for environment-related issues (variable not found, env file parse errors, secret masking failures)",
+    "Add diagram showing environment resolution flow (WorkflowConfig → EnvironmentConfig → Runtime)",
+    "Provide migration guide for users coming from other workflow systems (GitHub Actions, GitLab CI) showing equivalent patterns",
+    "Add examples of using env_files with different file locations (relative vs absolute paths)",
+    "Show how to debug environment issues (inspecting resolved values, checking precedence)",
+    "Include performance notes (impact of large env_files, dynamic env values)",
+    "Add section on environment variable naming conventions and best practices"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-10-13",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Global environment variables",
+      "MapReduce environment variables",
+      "Environment files (env_files)",
+      "Secrets management with providers",
+      "Environment profiles",
+      "Per-command environment (shell syntax only)",
+      "Variable interpolation ($VAR and ${VAR})",
+      "Environment precedence order",
+      "Best practices and common patterns"
+    ],
+    "validation_focus": "Environment configuration options and syntax accuracy",
+    "code_references_checked": [
+      "src/config/workflow.rs (WorkflowConfig struct)",
+      "src/cook/environment/config.rs (EnvironmentConfig, EnvValue, SecretValue, EnvProfile, StepEnvironment)",
+      "src/config/command.rs (WorkflowStepCommand, CommandMetadata)",
+      "Feature inventory environment section"
+    ]
+  }
+}

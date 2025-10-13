@@ -23,8 +23,9 @@
       echo "score: ${coverage%.*}"
     threshold: 80
     max_attempts: 5
-  commit_required: true
 ```
+
+**Note:** The `goal_seek` command will automatically commit changes made by the Claude command. Commit behavior is controlled by the command execution, not by the `goal_seek` configuration.
 
 ---
 
@@ -72,7 +73,7 @@ setup:
 
 map:
   input: items.json
-  json_path: "$[*]"  # Process all items
+  json_path: "$[*]"  # Process all items in root array
   agent_template:
     - claude: "/review-file ${item.path}"
       id: "review"
@@ -84,6 +85,8 @@ map:
 reduce:
   - claude: "/summarize-reviews ${map.results}"
 ```
+
+**Note:** JSONPath `"$[*]"` matches all items in the root array. Since the setup phase creates an array of `{path: ...}` objects, each map agent receives an `item` object with `item.path` available for use in commands.
 
 ---
 
@@ -135,25 +138,23 @@ env:
   NODE_ENV: production
   API_URL: https://api.production.com
 
+# Secrets (masked in logs)
+secrets:
+  API_KEY:
+    value: "${SECRET_API_KEY}"
+    secret: true
+
 # Environment profiles for different contexts
 profiles:
   production:
     env:
       API_URL: https://api.production.com
       LOG_LEVEL: error
-    description: "Production environment"
 
   staging:
     env:
       API_URL: https://api.staging.com
       LOG_LEVEL: warn
-    description: "Staging environment"
-
-# Secrets (masked in logs)
-secrets:
-  API_KEY:
-    value: "${SECRET_API_KEY}"
-    secret: true
 
 # Load additional variables from .env files
 # Note: Paths are relative to workflow file location
@@ -173,7 +174,7 @@ env_files:
     LOG_LEVEL: debug
 ```
 
-**Note:** Profile activation with `active_profile` is managed internally and not currently exposed in WorkflowConfig YAML. Use `--profile` CLI flag to activate profiles.
+**Note:** Profiles are activated using the `--profile <name>` CLI flag when running workflows. For example: `prodigy run workflow.yml --profile production`
 
 ---
 
@@ -212,6 +213,8 @@ error_policy:
   failure_threshold: 0.3
   error_collection: aggregate  # Options: aggregate, immediate, batched:{size}
 ```
+
+**Note:** The `error_policy` configuration is optional. If not specified, sensible defaults are used: `on_item_failure: dlq` (failed items go to Dead Letter Queue), `continue_on_failure: true` (workflow continues despite failures), and `error_collection: aggregate` (errors are collected and reported at the end).
 
 ---
 
@@ -259,3 +262,71 @@ error_policy:
       API URL: ${API_URL}
       Timestamp: $(date)
 ```
+
+---
+
+## Example 10: Advanced Features
+
+```yaml
+# Nested error handling with retry configuration
+- shell: "cargo build --release"
+  on_failure:
+    shell: "cargo clean"
+    on_success:
+      shell: "cargo build --release"
+      max_attempts: 2
+  on_success:
+    shell: "cargo test --release"
+
+# Working directory control
+- shell: "npm install"
+  cwd: "frontend/"
+
+- shell: "npm run build"
+  cwd: "frontend/"
+
+# Git context variables (available after git operations)
+- shell: "git add ."
+- shell: "git commit -m 'Update implementation'"
+  id: "commit"
+
+# Access git context from previous step
+- shell: "echo 'Modified files: ${step.commit.files_modified}'"
+- shell: "echo 'Files added: ${step.commit.files_added}'"
+- shell: "echo 'Rust files changed: ${step.commit.files_modified:*.rs}'"
+
+# Git context with pattern filtering
+- shell: |
+    for file in ${step.commit.files_modified:*.rs}; do
+      echo "Running clippy on $file"
+      cargo clippy --file "$file"
+    done
+
+# Format modifiers for output capture
+- claude: "/analyze-codebase"
+  id: "analysis"
+  capture: "analysis_result"
+  capture_format: "json"
+
+# Use captured output with format modifiers
+- shell: "echo 'Issues found: ${analysis_result:json:.issues | length}'"
+- shell: "echo 'File list:' && echo '${analysis_result:lines}'"
+- shell: "echo '${analysis_result:csv}' > report.csv"
+
+# Complex conditional execution
+- shell: "cargo test"
+  id: "test"
+  capture: "test_output"
+
+- claude: "/fix-tests"
+  when: "${test_output} contains 'FAILED'"
+  max_attempts: 3
+```
+
+**Note:** Advanced features include:
+- **Nested handlers**: Chain `on_failure` and `on_success` handlers for complex error recovery
+- **Working directory**: Use `cwd` to run commands in specific directories
+- **Git context**: Access `files_modified`, `files_added`, `files_deleted` from git operations
+- **Pattern filtering**: Use `:*.rs` syntax to filter file lists by pattern
+- **Format modifiers**: Apply `:json`, `:lines`, `:csv` modifiers to captured output
+- **Max attempts**: Combine with conditional execution for retry logic

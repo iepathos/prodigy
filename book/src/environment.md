@@ -9,7 +9,7 @@ Prodigy uses a two-layer architecture for environment management:
 1. **WorkflowConfig**: User-facing YAML configuration with `env`, `secrets`, `profiles`, and `env_files` fields
 2. **EnvironmentConfig**: Internal runtime configuration that extends workflow config with additional features
 
-This chapter documents the user-facing WorkflowConfig layer - what you write in your workflow YAML files.
+This chapter documents the WorkflowConfig layer - the fields you write in workflow YAML files (`env`, `secrets`, `env_files`, `profiles`). The EnvironmentConfig is Prodigy's internal runtime that processes these YAML fields and adds internal-only features like dynamic command-based values and conditional expressions.
 
 **Internal vs. User-Facing Capabilities:**
 
@@ -131,19 +131,23 @@ setup:
 
 #### Map Phase
 
-Variables are available in agent templates:
+Variables are available in agent templates and can be combined with work item variables:
 
 ```yaml
 env:
-  PROJECT_ROOT: "/path/to/project"
+  PROJECT_ROOT: "/workspace"
+  OUTPUT_FORMAT: "json"
   CONFIG_PATH: "config/settings.yml"
 
 map:
   agent_template:
-    - claude: "/analyze ${item.file} --config $CONFIG_PATH"
+    - claude: "/analyze ${item.file} --root $PROJECT_ROOT --format $OUTPUT_FORMAT"
     - shell: "test -f $PROJECT_ROOT/${item.file}"
-    - shell: "cp ${item.file} $OUTPUT_DIR/"
+    - shell: "mkdir -p $PROJECT_ROOT/results/${item.category}"
+    - shell: "cp ${item.file} $PROJECT_ROOT/results/${item.category}/"
 ```
+
+This example shows how environment variables (`PROJECT_ROOT`, `OUTPUT_FORMAT`) work together with work item variables (`${item.file}`, `${item.category}`) in the map phase.
 
 #### Reduce Phase
 
@@ -202,10 +206,12 @@ map:
 ```
 
 Secrets are automatically masked in:
-- Command output logs
-- Error messages
-- Event logs
-- Checkpoint files
+- Standard output/error streams
+- Claude JSON logs (`~/.claude/projects/`)
+- MapReduce event logs (`~/.prodigy/events/`)
+- Dead Letter Queue items (`~/.prodigy/dlq/`)
+- Checkpoint state files
+- Git commit messages (if secrets appear in output)
 
 ### Profile Support in MapReduce
 
@@ -234,7 +240,7 @@ map:
     - shell: "timeout ${TIMEOUT_SECONDS}s ./process.sh"
 ```
 
-**Note:** Profile activation is not currently implemented in the CLI. You can define profiles in YAML, but there is no `--profile` flag or mechanism to activate them. The infrastructure exists for future use, but profiles cannot be activated in the current version.
+**Note:** The profile infrastructure exists internally (EnvironmentConfig has an `active_profile` field), but there is currently no CLI flag (like `--profile`) to activate profiles at runtime. Profiles can be defined in YAML for future use, but cannot be activated in the current version.
 
 ### Reusable Workflows with Environment Variables
 
@@ -385,6 +391,10 @@ Precedence order (highest to lowest):
 3. Earlier files in `env_files` list
 4. Parent process environment
 
+**Error Handling:**
+
+If an env file specified in `env_files` does not exist or contains invalid syntax, Prodigy will report an error and halt workflow execution. Use absolute paths or paths relative to the workflow file location.
+
 ---
 
 ## Secrets Management
@@ -428,7 +438,7 @@ commands:
 - `file` - Read secret from a file
 - `vault` - HashiCorp Vault integration (requires Vault setup)
 - `aws` - AWS Secrets Manager (requires AWS credentials)
-- `custom` - Custom provider (extensible for your own secret backends)
+- `custom` - Custom provider for advanced use cases. Requires implementing custom secret resolution logic in Prodigy's environment manager. Contact maintainers for extension points.
 
 **Security Notes:**
 
@@ -478,13 +488,15 @@ profiles:
     DEBUG: "true"
 ```
 
-**Note:** Profile activation is not currently implemented. You can define profiles in YAML, but there is no mechanism to activate them via CLI or configuration. The `active_profile` field exists in the internal runtime, but there is no way to set it in the current version.
+**Note:** The profile infrastructure exists internally (EnvironmentConfig has an `active_profile` field), but there is currently no CLI flag (like `--profile`) to activate profiles at runtime. Profiles can be defined in YAML for future use, but cannot be activated in the current version.
 
 ---
 
 ## Per-Command Environment Overrides
 
 **IMPORTANT:** WorkflowStepCommand does NOT have an `env` field. All per-command environment changes must use shell syntax.
+
+**Note:** The legacy Command struct (structured format) has an `env` field via CommandMetadata, but the modern WorkflowStepCommand format does not. For workflows using the modern `claude:`/`shell:` syntax, use shell-level environment syntax (`ENV=value command`).
 
 You can override environment variables for individual commands using shell environment syntax:
 
@@ -523,7 +535,7 @@ Environment variables are resolved with the following precedence (highest to low
 3. **Environment files** - Loaded from `env_files` (later files override earlier)
 4. **Parent environment** - Always inherited from the parent process
 
-**Note:** The internal `EnvironmentConfig` runtime also supports profile-based precedence and step-level environment overrides, but these are not exposed in workflow YAML. Profile activation is not currently implemented, and WorkflowStepCommand has no `env` field.
+**Note:** The internal `EnvironmentConfig` runtime also supports profile-based precedence and step-level environment overrides, but these are not exposed in workflow YAML. The profile infrastructure exists internally (`active_profile` field), but there is no CLI flag to activate profiles. WorkflowStepCommand has no `env` field.
 
 Example demonstrating precedence:
 

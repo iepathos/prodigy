@@ -1,0 +1,115 @@
+{
+  "chapter_id": "troubleshooting",
+  "chapter_title": "Troubleshooting",
+  "chapter_file": "book/src/troubleshooting.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Chapter is comprehensive and well-aligned with codebase. Most troubleshooting advice is accurate and practical. Minor gaps in coverage of newer error types and debugging tools.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Common Error Messages - MapReduceError Types",
+      "description": "Chapter lists many MapReduceError types but misses some that are defined in the codebase",
+      "should_add": "Add missing error types: InvalidEnvironment, InvalidWorkflow, CheckpointVersionMismatch, WorktreeCleanupFailed",
+      "fix_suggestion": "Review src/errors.rs MapReduceError enum and ensure all variants are documented with recovery guidance",
+      "source_reference": "src/errors.rs:MapReduceError"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Debug Tips - Claude Log Commands",
+      "description": "Chapter shows manual cat/jq commands for Claude logs but doesn't mention the prodigy logs command",
+      "should_add": "Emphasize 'prodigy logs --latest' as the primary way to access Claude logs, with manual jq commands as advanced alternative",
+      "fix_suggestion": "Add prodigy logs command examples before the manual jq commands to guide users to the easier interface first",
+      "source_reference": "features.json:troubleshooting.debugging_techniques"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "FAQ",
+      "description": "No FAQ entry about worktree cleanup or session management",
+      "should_add": "Add FAQ: 'Q: How do I clean up old worktrees?' with answer about 'prodigy worktree clean'",
+      "fix_suggestion": "Add worktree cleanup FAQ entry to help users manage disk space",
+      "source_reference": "CLAUDE.md mentions 'prodigy worktree clean'"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Common Issues",
+      "description": "Missing troubleshooting for streaming output control",
+      "should_add": "Add section on 'Claude output not showing' or 'Too much Claude output' with verbosity flag guidance",
+      "fix_suggestion": "Add troubleshooting entry for controlling Claude streaming output via -v flag and PRODIGY_CLAUDE_CONSOLE_OUTPUT",
+      "source_reference": "features.json:command_types.claude.streaming_output"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Common Issues #9 - Error Policy Configuration",
+      "description": "Chapter mentions BackoffStrategy is not configurable but doesn't explain what controls backoff behavior",
+      "current_content": "BackoffStrategy is determined internally by the retry system and is not directly configurable in the workflow YAML.",
+      "should_be": "Explain that backoff is controlled via retry_config parameters (max_attempts, initial_delay, max_delay) and which backoff strategy is used by default",
+      "fix_suggestion": "Clarify that exponential backoff is the default and show how retry_config parameters affect the backoff behavior",
+      "source_reference": "features.json:retry_configuration.backoff_strategies"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Debug Tips",
+      "description": "Missing guidance on using checkpoint files for debugging",
+      "should_add": "Add tip on inspecting checkpoint files to understand job state: 'cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/checkpoint.json'",
+      "fix_suggestion": "Add checkpoint inspection to debug tips section",
+      "source_reference": "features.json:troubleshooting.debugging_techniques"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Common Issues #4 - MapReduce items not found",
+      "description": "JSONPath testing example uses jq but jq doesn't support JSONPath syntax directly",
+      "current_content": "Test JSONPath expression with actual data using `jq`:\n```bash\njq '$.items[*]' items.json\n```",
+      "should_be": "Clarify that jq uses its own filter syntax, not JSONPath, so users should test the equivalent jq expression",
+      "fix_suggestion": "Either show equivalent jq syntax (.items[]) or recommend using an online JSONPath tester instead",
+      "source_reference": "JSONPath and jq have different syntaxes"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of common user issues",
+    "Clear structure with symptoms, causes, and solutions",
+    "Good mix of conceptual explanations and concrete examples",
+    "Excellent debugging tips section with practical commands",
+    "Well-organized FAQ with direct answers",
+    "Accurate information about capture_streams, timeout formats, and merge configurations",
+    "Good coverage of MapReduceError types with recovery guidance",
+    "Helpful examples for debugging with jq, DLQ commands, and verbosity flags"
+  ],
+  "improvement_suggestions": [
+    "Add more cross-references to other chapters for deeper explanations",
+    "Include links to source code or architecture docs for advanced users",
+    "Add troubleshooting entry for checkpoint/resume issues",
+    "Consider adding a 'Quick Reference' section with common debug commands",
+    "Add visual diagrams for debugging workflow (e.g., 'Where to look when X fails')",
+    "Consider grouping errors by phase (setup, map, reduce) for easier navigation",
+    "Add examples of interpreting Claude JSON logs to debug specific failure patterns"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-10-12",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Variable interpolation issues",
+      "Capture configuration problems",
+      "Validation and goal_seek failures",
+      "MapReduce item selection",
+      "Timeout configuration",
+      "Environment variables",
+      "Merge workflow issues",
+      "Error handling patterns",
+      "Error policy configuration",
+      "Verbosity flags",
+      "Claude JSON logs",
+      "DLQ inspection and retry",
+      "MapReduce error types",
+      "Checkpoint and resume errors"
+    ],
+    "validation_focus": "Check troubleshooting covers common user issues"
+  }
+}

@@ -14,9 +14,11 @@
 # Advanced Topics
 
 - [Advanced Features](advanced.md)
+- [Advanced Git Context](git-context-advanced.md)
 - [Workflow Composition](composition.md)
 - [Retry Configuration](retry-configuration.md)
 - [Error Handling](error-handling.md)
+- [MapReduce Worktree Architecture](mapreduce-worktree-architecture.md)
 - [Automated Documentation](automated-documentation.md)
 
 # Reference

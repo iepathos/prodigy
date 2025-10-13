@@ -54,7 +54,7 @@ imports:
       - validate_schema
 ```
 
-This imports only the specified workflows, reducing unnecessary dependencies.
+Selective import configuration is validated and stored. The actual filtering of specific items during composition is planned for a future release (see `import_selective` in `composer.rs`).
 
 ### Multiple Imports
 
@@ -123,7 +123,7 @@ defaults:
   verbose: true  # Overrides base default
 ```
 
-The `production` workflow completely replaces the `commands` array and overrides the `verbose` default, while inheriting the `timeout` default.
+In inheritance, child values completely replace parent values at the field level. If the child has a `commands` array, it replaces the entire parent `commands` array (commands are not merged). Individual fields in `defaults` are merged, with child values overriding parent values only for those specific keys. In this example, the `production` workflow completely replaces the `commands` array and overrides the `verbose` default, while inheriting the `timeout` default.
 
 ## Template System
 
@@ -135,7 +135,7 @@ Templates can come from three sources:
 
 #### 1. Registry Templates
 
-Store templates in a central registry:
+Store templates in a central registry (fully implemented with `FileTemplateStorage`):
 
 ```yaml
 name: my-workflow
@@ -147,9 +147,11 @@ template:
     target: src/
 ```
 
+Templates are loaded from the registry using `TemplateRegistry` with `FileTemplateStorage` backend. Templates are cached in memory after first load for performance.
+
 #### 2. File Templates
 
-Load templates from local files:
+Load templates from local files (fully implemented via `TemplateSource::File` enum):
 
 ```yaml
 template:
@@ -169,7 +171,7 @@ template:
   source: https://example.com/templates/workflow.yml
 ```
 
-*Note: URL template sources are not yet implemented.*
+*Note: URL template sources are not yet implemented. The system returns an explicit error message if a URL source is attempted.*
 
 ### Template Parameters
 
@@ -185,7 +187,7 @@ template:
     target_dir: src/
 ```
 
-Parameters are substituted throughout the template workflow.
+Parameter validation and storage is fully implemented. The automatic substitution of parameters throughout template commands is planned for a future release (see `apply_template_params` in `composer.rs`).
 
 ### Template Overrides
 
@@ -326,7 +328,31 @@ parameters:
 
 ### Parameter Validation
 
-Add custom validation expressions:
+Prodigy supports two types of parameter validation:
+
+#### Type Validation (Fully Implemented)
+
+All parameter types are validated automatically:
+
+```yaml
+parameters:
+  required:
+    - name: count
+      type: number
+      description: Item count
+    - name: enabled
+      type: boolean
+      description: Feature flag
+    - name: files
+      type: array
+      description: File list
+```
+
+Type validation is fully implemented for all six parameter types (string, number, boolean, array, object, any) in the `validate_parameter_value` method.
+
+#### Custom Validation Expressions (Planned)
+
+Custom validation expressions can be defined but evaluation is not yet implemented:
 
 ```yaml
 parameters:
@@ -341,7 +367,7 @@ parameters:
       validation: "value >= 1 && value <= 100"
 ```
 
-*Note: Custom validation expression evaluation is planned but not fully implemented.*
+*Note: The validation field is stored but custom expression evaluation is not yet implemented. Type validation IS working for all parameter types.*
 
 ### Array and Object Parameters
 
@@ -408,7 +434,9 @@ defaults:
   environment: development
 ```
 
-Defaults are applied before parameter validation and can be overridden by:
+Default values are validated and stored in the workflow configuration. The automatic application of defaults to missing parameters is planned but not yet fully implemented (see `apply_defaults` in `composer.rs`).
+
+When implemented, defaults will be applied before parameter validation and can be overridden by:
 1. Values in the `parameters` section
 2. Values passed at workflow invocation time
 3. Template `override` fields
@@ -421,6 +449,8 @@ Defaults interact with parameters as follows:
 ## Sub-Workflows
 
 Execute child workflows as part of a parent workflow. Sub-workflows can run in parallel and have their own parameters and outputs.
+
+*Implementation Status: Sub-workflow configuration, composition, and context management are fully implemented. Integration with the main workflow executor is in progress (see `execute_composed` in `sub_workflow.rs`).*
 
 ### Basic Sub-Workflow
 
@@ -791,6 +821,19 @@ project/
 - Tag templates for discoverability (e.g., "refactor", "ci", "test")
 - Document required parameters in template descriptions
 - Test templates before registering them
+
+#### Template Registry Setup
+
+Place templates in a central `templates/` directory in your project. Use `FileTemplateStorage` with your project's template directory:
+
+```rust
+use prodigy::cook::workflow::composition::registry::{TemplateRegistry, FileTemplateStorage};
+
+let storage = FileTemplateStorage::new("./templates");
+let registry = TemplateRegistry::new_with_storage(storage);
+```
+
+Templates are cached in memory after first load for performance. The registry automatically scans the template directory and makes all templates available by name.
 
 ### Avoiding Circular Dependencies
 
