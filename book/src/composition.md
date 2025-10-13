@@ -123,7 +123,7 @@ defaults:
   verbose: true  # Overrides base default
 ```
 
-In inheritance, child values completely replace parent values at the field level. If the child has a `commands` array, it replaces the entire parent `commands` array (commands are not merged). Individual fields in `defaults` are merged, with child values overriding parent values only for those specific keys. In this example, the `production` workflow completely replaces the `commands` array and overrides the `verbose` default, while inheriting the `timeout` default.
+Child workflows override parent configuration at the field level. The child's `commands` array completely replaces the parent's commands (not merged). Similarly, if the child defines `defaults`, the entire defaults HashMap is replaced - individual defaults are not merged. In this example, the `production` workflow completely replaces the `commands` array. If `production` provides defaults with only `verbose: true`, it would NOT inherit the `timeout: 300` from base - it would need to re-specify both defaults to keep them.
 
 ## Template System
 
@@ -660,7 +660,7 @@ parameters:
     - name: environment
       type: string
       description: Deployment environment
-      validation: "^(dev|staging|prod)$"
+      # validation: "^(dev|staging|prod)$"  # Custom validation not yet implemented
     - name: version
       type: string
       description: Version to deploy
@@ -834,6 +834,20 @@ let registry = TemplateRegistry::new_with_storage(storage);
 ```
 
 Templates are cached in memory after first load for performance. The registry automatically scans the template directory and makes all templates available by name.
+
+**Template File Structure:**
+
+Templates must be `.yml` files in the base directory, with optional `.meta.json` files for metadata. For example:
+
+```
+templates/
+├── refactor-base.yml           # Template workflow definition
+├── refactor-base.meta.json     # Optional metadata (description, version, tags)
+├── ci-pipeline.yml
+└── ci-pipeline.meta.json
+```
+
+The registry loads the workflow definition from `.yml` files and metadata from the corresponding `.meta.json` sidecar files if present.
 
 ### Avoiding Circular Dependencies
 
