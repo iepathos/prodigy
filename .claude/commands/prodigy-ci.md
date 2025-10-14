@@ -1,5 +1,5 @@
 ---
-name: ci
+name: prodigy-ci
 description: Run CI checks and automatically fix any issues until all checks pass
 ---
 

@@ -36,7 +36,7 @@ merge:
   - claude: "/prodigy-merge-master"  # Handles merge conflicts if any
 
   # Step 2: Run CI checks and fix any issues
-  - claude: "/ci"
+  - claude: "/prodigy-ci"
 
   # Step 3: Merge worktree back to master
   - claude: "/prodigy-merge-worktree ${merge.source_branch}"
