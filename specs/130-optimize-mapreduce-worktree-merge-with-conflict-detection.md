@@ -1,6 +1,6 @@
 ---
 number: 130
-title: Optimize MapReduce Worktree Merge with Conflict Detection
+title: Optimize Worktree Merges with Conflict Detection
 category: optimization
 priority: medium
 status: draft
@@ -8,7 +8,7 @@ dependencies: [117]
 created: 2025-10-12
 ---
 
-# Specification 130: Optimize MapReduce Worktree Merge with Conflict Detection
+# Specification 130: Optimize Worktree Merges with Conflict Detection
 
 **Category**: optimization
 **Priority**: medium
@@ -17,17 +17,25 @@ created: 2025-10-12
 
 ## Context
 
-Currently, the MapReduce worktree merge process (implemented in commit 91803550) uses Claude's `/prodigy-merge-worktree` command for **all** agent worktree → parent worktree merges. This approach provides intelligent conflict resolution but has performance implications:
+Currently, Prodigy uses Claude's `/prodigy-merge-worktree` command for **all** worktree merges across the system:
+
+1. **MapReduce agent worktree → parent worktree merges** (in map phase)
+2. **Final session worktree → main branch merges** (workflow completion)
+
+This approach provides intelligent conflict resolution but has performance implications:
 
 - **Every merge invokes Claude**: Even clean merges that would succeed with a simple `git merge --no-ff` go through the full Claude command execution pipeline
-- **Unnecessary overhead**: Clean merges (no conflicts) don't benefit from Claude's intelligence but still pay the execution cost
-- **Serial bottleneck**: The merge queue serializes all merges, and the Claude execution time compounds across many agents
+- **Unnecessary overhead**: Clean merges (no conflicts) don't benefit from Claude's intelligence but still pay the execution cost (5-30s vs <1s)
+- **Serial bottleneck**: Especially in MapReduce, where the merge queue serializes all agent merges, the Claude execution time compounds across many agents
 
 The optimization opportunity: **Check if a merge would conflict before deciding whether to use Claude**. For clean merges (majority case), use fast `git merge` directly. For conflicted merges, fall back to Claude's intelligent conflict resolution.
 
 ## Objective
 
-Optimize the MapReduce agent worktree merge process by implementing conflict detection before merge execution, using fast git merges for clean cases and Claude only when conflicts are detected.
+Optimize all worktree merge operations by implementing conflict detection before merge execution, using fast git merges for clean cases and Claude only when conflicts are detected. This applies to:
+- MapReduce agent worktree merges
+- Final session worktree merges
+- Any custom merge workflows (unless user overrides with explicit Claude command)
 
 ## Requirements
 
@@ -35,26 +43,35 @@ Optimize the MapReduce agent worktree merge process by implementing conflict det
 
 1. **Pre-merge Conflict Detection**
    - Before attempting any merge, check if the merge would create conflicts
-   - Use `git merge --no-commit --no-ff` in a test scenario to detect conflicts
+   - Use `git merge-tree` (preferred) or `git merge --no-commit --no-ff` to detect conflicts
    - Determine merge strategy (fast git vs Claude) based on conflict detection result
+   - Apply to both MapReduce agent merges and final session merges
 
-2. **Fast Path for Clean Merges**
-   - When no conflicts detected: Execute `git merge --no-ff` directly in parent worktree
+2. **Fast Path for Clean Merges (Default Behavior)**
+   - When no conflicts detected: Execute `git merge --no-ff` directly
    - Skip Claude invocation entirely for these cases
-   - Maintain all existing merge semantics (no-ff, branch tracking, etc.)
+   - Maintain all existing merge semantics (no-ff, branch tracking, merge messages)
+   - Log the fast merge path for observability
 
 3. **Claude Fallback for Conflicted Merges**
    - When conflicts detected: Use existing `/prodigy-merge-worktree` Claude command
    - Preserve all intelligent conflict resolution capabilities
+   - Pass conflict information (file paths) to Claude for context
    - Log the conflict reason for debugging
 
-4. **Merge Queue Integration**
-   - Maintain serialized merge processing via `MergeQueue`
+4. **Custom Merge Workflow Override**
+   - If user specifies a custom merge workflow (via `merge:` block in YAML), honor it completely
+   - Custom workflows bypass the conflict detection optimization
+   - User can explicitly use `/prodigy-merge-worktree` in their workflow if desired
+   - Document that custom workflows override the default smart merge behavior
+
+5. **MapReduce Merge Queue Integration**
+   - Maintain serialized merge processing via `MergeQueue` for agent merges
    - Both fast and Claude merge paths execute within the queue
    - Ensure thread safety and proper error handling
 
-5. **Metrics and Observability**
-   - Log which merge path was taken (fast vs Claude)
+6. **Metrics and Observability**
+   - Log which merge path was taken (fast_git, claude, or custom_workflow)
    - Track merge performance metrics (duration, conflict rate)
    - Include metrics in event logs for analysis
 
@@ -79,15 +96,17 @@ Optimize the MapReduce agent worktree merge process by implementing conflict det
 
 - [ ] `GitOperations` has new method `detect_merge_conflicts()` that checks for conflicts without modifying worktrees
 - [ ] Conflict detection returns result indicating: clean merge possible, conflicts exist, or detection failed
-- [ ] `merge_agent_to_parent()` in `lifecycle.rs` checks for conflicts before merge
+- [ ] `merge_agent_to_parent()` in MapReduce lifecycle checks for conflicts before merge
+- [ ] `WorktreeManager::merge_session()` checks for conflicts before merge (when no custom workflow specified)
 - [ ] Clean merges execute `git merge --no-ff` directly without Claude invocation
 - [ ] Conflicted merges fall back to `/prodigy-merge-worktree` Claude command
+- [ ] Custom merge workflows bypass conflict detection (user has full control)
 - [ ] Detection failures fall back to Claude command (safe default)
-- [ ] Merge events include merge path used (fast_git vs claude vs fallback)
+- [ ] Merge events include merge path used (fast_git, claude, custom_workflow, or fallback)
 - [ ] Metrics logged: merge_duration, conflict_detected, merge_strategy
 - [ ] Unit tests for conflict detection (clean, conflicted, edge cases)
-- [ ] Integration tests demonstrating performance improvement
-- [ ] Documentation updated in CLAUDE.md and module docs
+- [ ] Integration tests for both MapReduce and session merges demonstrating performance improvement
+- [ ] Documentation updated in CLAUDE.md and module docs explaining the smart merge behavior
 - [ ] No existing tests break (backward compatibility)
 
 ## Technical Details
@@ -122,14 +141,28 @@ Optimize the MapReduce agent worktree merge process by implementing conflict det
 ### Architecture Changes
 
 **Modified Components**:
-- `src/cook/execution/mapreduce/resources/git.rs`: Add `detect_merge_conflicts()`
+- `src/cook/execution/mapreduce/resources/git.rs`: Add `detect_merge_conflicts()` method
 - `src/cook/execution/mapreduce/agent/lifecycle.rs`: Update `merge_agent_to_parent()` with conflict detection
+- `src/worktree/manager.rs`: Update `execute_merge_workflow()` to check for conflicts when no custom workflow
 - `src/cook/execution/events/event_types.rs`: Add merge strategy field to events
 - `src/cook/execution/mapreduce/merge_queue.rs`: Update to track merge path
+
+**Merge Decision Flow**:
+```
+Worktree Merge Requested
+    ↓
+Custom Workflow Specified?
+    ├─→ Yes → Execute Custom Workflow (bypass optimization)
+    └─→ No → Detect Conflicts
+                ├─→ Clean → Fast Git Merge
+                ├─→ Conflicted → Claude Merge
+                └─→ Detection Failed → Claude Merge (safe fallback)
+```
 
 **No Breaking Changes**:
 - External API unchanged
 - Existing workflows continue to work
+- Custom merge workflows have full control (no behavior change)
 - Backward compatible with existing tests
 
 ### Data Structures
@@ -216,7 +249,7 @@ pub async fn detect_merge_conflicts(
 ) -> MapReduceResult<MergeConflictStatus>
 ```
 
-**Modified Method**: `AgentLifecycleManager::merge_agent_to_parent()`
+**Modified Method**: `AgentLifecycleManager::merge_agent_to_parent()` (MapReduce)
 ```rust
 async fn merge_agent_to_parent(
     &self,
@@ -252,15 +285,60 @@ async fn merge_agent_to_parent(
 }
 ```
 
+**Modified Method**: `WorktreeManager::execute_merge_workflow()` (Session Merges)
+```rust
+async fn execute_merge_workflow(
+    &self,
+    name: &str,
+    worktree_branch: &str,
+    target_branch: &str,
+) -> Result<String> {
+    match &self.custom_merge_workflow {
+        Some(merge_workflow) => {
+            // User specified custom workflow - honor it completely
+            println!("🔄 Executing custom merge workflow for '{name}' into '{target_branch}'...");
+            self.execute_custom_merge_workflow(
+                merge_workflow,
+                name,
+                worktree_branch,
+                target_branch,
+            )
+            .await
+        }
+        None => {
+            // No custom workflow - use smart merge with conflict detection
+            println!("🔄 Merging worktree '{name}' into '{target_branch}'...");
+
+            // Detect conflicts first
+            let conflict_status = self.detect_merge_conflicts(worktree_branch, target_branch).await?;
+
+            match conflict_status {
+                MergeConflictStatus::Clean => {
+                    // Fast path: direct git merge
+                    println!("✨ Clean merge detected, using fast git merge");
+                    self.execute_fast_git_merge(worktree_branch, target_branch).await
+                }
+                MergeConflictStatus::Conflicted(_files) | MergeConflictStatus::DetectionFailed(_) => {
+                    // Claude path: intelligent conflict resolution
+                    println!("⚠️  Conflicts detected, using Claude-assisted merge...");
+                    self.execute_claude_merge(worktree_branch).await
+                }
+            }
+        }
+    }
+}
+```
+
 ## Dependencies
 
 **Prerequisites**:
-- Spec 117 (MapReduce Custom Merge Workflows) - Provides the Claude merge command infrastructure
+- Spec 117 (MapReduce Custom Merge Workflows) - Provides the custom merge workflow infrastructure
 
 **Affected Components**:
 - GitOperations service (add conflict detection)
-- AgentLifecycleManager (modify merge logic)
-- MergeQueue (track merge strategy)
+- AgentLifecycleManager (modify MapReduce agent merge logic)
+- WorktreeManager (modify session merge logic)
+- MergeQueue (track merge strategy for MapReduce)
 - MapReduce event logging
 
 **External Dependencies**: None (uses existing git commands)
@@ -316,6 +394,8 @@ async fn merge_agent_to_parent(
 
 ### Integration Tests
 
+**MapReduce Tests**:
+
 1. **End-to-End MapReduce with Clean Merges**
    - Run MapReduce workflow with 10 agents, all clean merges
    - Verify all agents use fast git merge path
@@ -330,6 +410,27 @@ async fn merge_agent_to_parent(
    - Simulate conflict detection failure scenarios
    - Verify graceful fallback to Claude path
    - Verify no data loss or corruption
+
+**Session Merge Tests**:
+
+4. **Session Merge with Clean Repository**
+   - Create session, make non-conflicting changes
+   - Merge back to main branch
+   - Verify fast git merge path used (<1s)
+   - Verify changes correctly merged
+
+5. **Session Merge with Conflicts**
+   - Create session, make conflicting changes to same files
+   - Modify same files in main branch
+   - Merge back to main branch
+   - Verify Claude merge path used
+   - Verify conflicts resolved correctly
+
+6. **Custom Merge Workflow Override**
+   - Define custom merge workflow in YAML
+   - Verify conflict detection is bypassed
+   - Verify custom workflow commands execute in order
+   - Verify user has full control over merge process
 
 ### Performance Tests
 
@@ -359,22 +460,41 @@ async fn merge_agent_to_parent(
 **Update CLAUDE.md**:
 
 ```markdown
-## MapReduce Merge Optimization
+## Smart Merge with Conflict Detection
 
-Prodigy optimizes MapReduce agent merges using conflict detection:
+Prodigy automatically optimizes all worktree merges using conflict detection:
 
 ### How It Works
 
-1. **Conflict Detection**: Before merging an agent worktree to the parent, Prodigy checks if the merge would create conflicts
-2. **Fast Path**: Clean merges (no conflicts) use direct git merge (~1s)
+1. **Conflict Detection**: Before merging, Prodigy checks if the merge would create conflicts
+2. **Fast Path**: Clean merges (no conflicts) use direct `git merge --no-ff` (~1s)
 3. **Claude Path**: Conflicted merges use Claude for intelligent resolution (~5-30s)
 4. **Safe Fallback**: If detection fails, Claude is used to ensure correctness
+
+This optimization applies to:
+- MapReduce agent worktree → parent worktree merges
+- Final session worktree → main branch merges
+- Any merge without a custom merge workflow
 
 ### Performance Impact
 
 - **Clean merge rate**: Typically 80-95% in most workflows
-- **Time savings**: 10-20x faster for clean merges
-- **Overall improvement**: 30-80% reduction in MapReduce job time
+- **Time savings**: 10-20x faster for clean merges (~1s vs 5-30s)
+- **Overall improvement**: 30-80% reduction in total merge time
+
+### Custom Merge Workflows
+
+If you define a custom merge workflow (via `merge:` block in YAML), it **completely overrides** the smart merge behavior:
+
+```yaml
+# Custom workflow bypasses conflict detection
+merge:
+  commands:
+    - shell: "cargo test"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+```
+
+This gives you full control - you can still use Claude explicitly, or handle merges entirely differently.
 
 ### Observability
 
@@ -384,21 +504,37 @@ Merge strategy is logged in events and visible in verbose mode:
 # View merge strategies used
 prodigy events show <job_id> | grep merge_strategy
 
-# Common output:
+# Output:
 # - merge_strategy: fast_git (clean merge, <1s)
 # - merge_strategy: claude (conflicts detected, ~10s)
+# - merge_strategy: custom_workflow (user-defined)
 # - merge_strategy: fallback_claude (detection failed, ~10s)
+```
+
+For session merges:
+```bash
+prodigy worktree merge my-session -v
+# Output shows which path was taken:
+# ✨ Clean merge detected, using fast git merge
+# OR
+# ⚠️  Conflicts detected, using Claude-assisted merge...
 ```
 
 ### Configuration
 
-No configuration needed - optimization is automatic. Disable if needed:
+No configuration needed - optimization is automatic. To force Claude for all merges:
 
 ```yaml
 # Workflow configuration (future enhancement)
-mapreduce:
-  optimization:
-    conflict_detection: false  # Force Claude for all merges
+merge:
+  commands:
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+```
+
+Or disable globally (future):
+```yaml
+prodigy:
+  merge_optimization: false  # Force Claude for all merges
 ```
 ```
 
