@@ -116,15 +116,29 @@
     {
       "area": "workflow_composition",
       "source_files": [
-        "src/config/workflow.rs",
-        "src/config/template.rs"
+        "src/cook/workflow/composition/mod.rs",
+        "src/cook/workflow/composition/registry.rs",
+        "src/cook/workflow/composition/composer.rs",
+        "src/cook/workflow/composition/sub_workflow.rs",
+        "tests/workflow_composition_test.rs",
+        "specs/131-workflow-template-execution-layer.md",
+        "specs/132-workflow-template-cli-interface.md",
+        "specs/133-workflow-template-integration-polish.md"
       ],
       "feature_categories": [
+        "template_system_architecture",
+        "composable_workflows",
+        "template_registry",
+        "template_storage",
+        "workflow_composer",
         "imports",
-        "templates",
-        "extends",
+        "inheritance_extends",
         "parameters",
-        "template_usage"
+        "sub_workflows",
+        "template_metadata",
+        "cli_integration",
+        "execution_integration",
+        "implementation_status"
       ]
     },
     {
