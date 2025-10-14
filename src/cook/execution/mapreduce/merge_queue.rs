@@ -80,11 +80,11 @@ impl MergeQueue {
                     .merge_agent_to_parent(&request.branch_name, &request.env)
                     .await;
 
-                // If merge failed and we have Claude, check if it's a conflict
+                // If merge failed and we have Claude, check if it's a conflict that Claude can resolve
+                // Match on any error message that indicates merge conflicts or dirty worktree requiring Claude assistance
                 let final_result = match (&result, &claude_executor) {
                     (Err(MapReduceError::General { message, .. }), Some(executor))
-                        if message.contains("Merge conflict detected")
-                            && message.contains("Claude-assisted merge required") =>
+                        if message.contains("Claude-assisted merge required") =>
                     {
                         info!(
                             "Attempting Claude-assisted merge for agent {} (item {})",

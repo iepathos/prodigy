@@ -250,16 +250,19 @@ impl GitOperations {
             .map_err(|msg| self.create_git_error("merge_to_parent", msg))?;
 
         // Check if working directory is dirty BEFORE recovering incomplete merge
-        // This catches leftovers from previous agent merges
+        // This catches leftovers from previous agent merges or conflicts from prior operations
         let had_incomplete_merge = Self::has_incomplete_merge(parent_path);
         if !had_incomplete_merge && self.has_uncommitted_changes(parent_path).await? {
             warn!(
-                "Working directory has uncommitted changes before merging {}. Claude-assisted merge required.",
+                "Working directory has uncommitted changes before merging {}. This indicates previous merge conflicts or incomplete operations.",
                 agent_branch
             );
+
+            // Return error that will trigger Claude-assisted merge in the merge queue
+            // The merge queue looks for "Claude-assisted merge required" in the error message
             return Err(MapReduceError::General {
                 message: format!(
-                    "Merge conflict detected for agent branch '{}'. Claude-assisted merge required.",
+                    "Merge conflict detected: Working directory has uncommitted changes from previous operations. Claude-assisted merge required for agent branch '{}'.",
                     agent_branch
                 ),
                 source: None,
