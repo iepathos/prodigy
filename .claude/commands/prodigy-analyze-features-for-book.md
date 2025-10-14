@@ -55,6 +55,8 @@ Instead of hardcoding "Prodigy workflow" or "Prodigy features":
 
 ### Phase 3: Create Feature Inventory
 
+**IMPORTANT: You MUST create a JSON file using the Write tool. This is NOT optional.**
+
 **Determine Output Path:**
 Based on the project configuration:
 - Extract `book_dir` from config (defaults to "book")
@@ -62,7 +64,8 @@ Based on the project configuration:
 - For Prodigy: `.prodigy/book-analysis/features.json`
 - For Debtmap: `.debtmap/book-analysis/features.json`
 
-Create a JSON file at the determined path with this structure:
+**Action Required:**
+Use the Write tool to create a JSON file at the determined path with this structure:
 
 ```json
 {
@@ -248,39 +251,19 @@ The features.json file should:
 6. Be user-focused, not developer-focused
 7. Be project-agnostic (work for any codebase with proper configuration)
 
-### Phase 7: Commit Changes
+### Phase 7: Commit the Changes
 
-**CRITICAL: You MUST create a git commit at the end of this command.**
+**CRITICAL: This step requires a commit to be created.**
 
-1. **Count feature areas:**
-   Count the number of top-level keys in the generated features.json (excluding metadata like "version_info", "analysis_metadata")
-
-2. **Stage the features.json file:**
-   ```bash
-   git add .prodigy/book-analysis/features.json
+After creating the features.json file:
+1. Add the file to git: `git add .{project_lowercase}/book-analysis/features.json`
+2. Create a commit with a descriptive message:
    ```
+   chore: analyze {project_name} features for book documentation
 
-3. **Create commit with actual feature count:**
-   ```bash
-   git commit -m "docs: analyze features for Prodigy book documentation
+   Generated comprehensive feature inventory covering:
+   - [List key areas analyzed]
 
-   - Analyzed {actual-count} feature areas
-   - Generated features.json for drift detection
-   - Ready for gap detection phase"
+   This analysis will be used to detect documentation drift.
    ```
-   Replace `{actual-count}` with the number of feature areas you counted.
-
-4. **Verify commit was created:**
-   ```bash
-   git log -1 --oneline
-   ```
-
-5. **Display success message with actual count:**
-   ```
-   ✅ Committed feature analysis
-      • {actual-count} feature areas analyzed
-      • Saved to .prodigy/book-analysis/features.json
-      • Ready for gap detection phase
-   ```
-
-**IMPORTANT:** This command is used in workflows with `commit_required: true`, which means you MUST create a commit. The workflow will fail if no commit is created.
+3. Verify the commit was created successfully with `git log -1`
