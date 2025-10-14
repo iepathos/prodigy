@@ -27,7 +27,8 @@ Examples:
 
 3. **Attempt Standard Merge**
    - Execute `git merge --no-ff $ARGUMENTS` to preserve commit history
-   - If successful, create merge commit and exit
+   - If successful (no conflicts), the merge commit is automatically created - verify with `git status` and exit
+   - If conflicts occur, proceed to step 4
 
 4. **Handle Merge Conflicts** (if any)
    - Detect and analyze all conflicted files
@@ -44,6 +45,8 @@ Examples:
    - Run basic validation (syntax checks, etc.)
    - Ensure no conflict markers remain
    - Commit the merge with comprehensive message
+   - **CRITICAL**: Verify working directory is clean with `git status --porcelain`
+   - If any uncommitted changes remain, stage and commit them with message: "chore: finalize merge cleanup"
 
 ## Conflict Resolution Strategy
 

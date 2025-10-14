@@ -212,6 +212,33 @@ impl GitOperations {
         Ok(())
     }
 
+    /// Check if working directory has uncommitted changes (excluding worktree directories)
+    ///
+    /// This indicates the working directory is dirty and needs cleanup before merge.
+    /// We ignore untracked worktree directories (??  path/) since they're managed by git.
+    async fn has_uncommitted_changes(&self, repo_path: &Path) -> MapReduceResult<bool> {
+        let status = self.check_git_status(repo_path).await?;
+
+        // Filter out worktree directories from status
+        // Format: "?? worktree-name/"
+        let meaningful_changes = status
+            .lines()
+            .filter(|line| {
+                // Keep all staged/modified/deleted files
+                // Skip untracked directories (potential worktrees)
+                if let Some(rest) = line.strip_prefix("?? ") {
+                    // If it ends with "/" it's an untracked directory - might be a worktree
+                    !rest.trim().ends_with('/')
+                } else {
+                    // Keep all tracked changes (M , A , D , etc.)
+                    true
+                }
+            })
+            .collect::<Vec<_>>();
+
+        Ok(!meaningful_changes.is_empty())
+    }
+
     /// Merge an agent's branch back to the parent
     pub async fn merge_agent_to_parent(
         &self,
@@ -222,8 +249,25 @@ impl GitOperations {
         let parent_path = Self::validate_worktree_context(env)
             .map_err(|msg| self.create_git_error("merge_to_parent", msg))?;
 
+        // Check if working directory is dirty BEFORE recovering incomplete merge
+        // This catches leftovers from previous agent merges
+        let had_incomplete_merge = Self::has_incomplete_merge(parent_path);
+        if !had_incomplete_merge && self.has_uncommitted_changes(parent_path).await? {
+            warn!(
+                "Working directory has uncommitted changes before merging {}. Claude-assisted merge required.",
+                agent_branch
+            );
+            return Err(MapReduceError::General {
+                message: format!(
+                    "Merge conflict detected for agent branch '{}'. Claude-assisted merge required.",
+                    agent_branch
+                ),
+                source: None,
+            });
+        }
+
         // Recover from incomplete merge if needed (extracted function)
-        if Self::has_incomplete_merge(parent_path) {
+        if had_incomplete_merge {
             self.recover_incomplete_merge(parent_path, agent_branch)
                 .await?;
         }
