@@ -121,13 +121,7 @@ mod tests {
         variables.insert("map.successful".to_string(), "10".to_string());
         variables.insert("map.failed".to_string(), "2".to_string());
 
-        ReducePhaseCheckpoint::new(
-            total,
-            completed,
-            step_results,
-            variables,
-            vec![],
-        )
+        ReducePhaseCheckpoint::new(total, completed, step_results, variables, vec![])
     }
 
     #[test]
@@ -188,17 +182,20 @@ mod tests {
         let checkpoint = create_test_checkpoint(3, 5);
 
         // Serialize to JSON
-        let json = serde_json::to_string_pretty(&checkpoint)
-            .expect("Failed to serialize checkpoint");
+        let json =
+            serde_json::to_string_pretty(&checkpoint).expect("Failed to serialize checkpoint");
 
         // Deserialize back
-        let deserialized: ReducePhaseCheckpoint = serde_json::from_str(&json)
-            .expect("Failed to deserialize checkpoint");
+        let deserialized: ReducePhaseCheckpoint =
+            serde_json::from_str(&json).expect("Failed to deserialize checkpoint");
 
         assert_eq!(deserialized.version, checkpoint.version);
         assert_eq!(deserialized.completed_steps, checkpoint.completed_steps);
         assert_eq!(deserialized.total_steps, checkpoint.total_steps);
-        assert_eq!(deserialized.step_results.len(), checkpoint.step_results.len());
+        assert_eq!(
+            deserialized.step_results.len(),
+            checkpoint.step_results.len()
+        );
         assert_eq!(deserialized.variables.len(), checkpoint.variables.len());
     }
 

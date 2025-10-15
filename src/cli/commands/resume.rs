@@ -122,8 +122,8 @@ async fn try_resume_regular_workflow(
         .context("Failed to determine Prodigy storage directory")?;
 
     // Check if session exists and is resumable by loading session metadata
-    let storage = crate::storage::GlobalStorage::new()
-        .context("Failed to create global storage")?;
+    let storage =
+        crate::storage::GlobalStorage::new().context("Failed to create global storage")?;
     let session_manager = crate::unified_session::SessionManager::new(storage)
         .await
         .context("Failed to create session manager")?;
@@ -303,8 +303,8 @@ async fn try_resume_mapreduce_job(job_id: &str) -> Result<()> {
 /// Try to find and resume a MapReduce job associated with a session ID
 async fn try_resume_mapreduce_from_session(session_id: &str) -> Result<()> {
     // Check if session exists and is resumable by loading session metadata
-    let storage = crate::storage::GlobalStorage::new()
-        .context("Failed to create global storage")?;
+    let storage =
+        crate::storage::GlobalStorage::new().context("Failed to create global storage")?;
     let session_manager = crate::unified_session::SessionManager::new(storage)
         .await
         .context("Failed to create session manager")?;
@@ -476,7 +476,10 @@ pub async fn run_resume_job_command(
     println!("  3. Determine which phase to resume from (setup/map/reduce)");
     println!("  4. Call MapReduceExecutor to continue execution");
     println!("\n📂 Checkpoint location: {}", job_dir.display());
-    println!("\n💡 Use 'prodigy resume {}' to retry once implementation is complete", job_id);
+    println!(
+        "\n💡 Use 'prodigy resume {}' to retry once implementation is complete",
+        job_id
+    );
 
     Ok(())
 }

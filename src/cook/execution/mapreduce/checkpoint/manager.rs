@@ -793,7 +793,7 @@ impl CheckpointManager {
                                 .as_ref()
                                 .and_then(|(_, m)| m.modified().ok())
                     {
-                        latest_checkpoint = Some((path.clone(), metadata.into()));
+                        latest_checkpoint = Some((path.clone(), metadata));
                     }
                 }
             }
@@ -801,8 +801,8 @@ impl CheckpointManager {
 
         if let Some((checkpoint_file, _)) = latest_checkpoint {
             let data = fs::read(&checkpoint_file).await?;
-            let checkpoint: super::reduce::ReducePhaseCheckpoint = serde_json::from_slice(&data)
-                .context("Failed to deserialize reduce checkpoint")?;
+            let checkpoint: super::reduce::ReducePhaseCheckpoint =
+                serde_json::from_slice(&data).context("Failed to deserialize reduce checkpoint")?;
 
             info!("Loaded reduce checkpoint from {:?}", checkpoint_file);
             Ok(Some(checkpoint))

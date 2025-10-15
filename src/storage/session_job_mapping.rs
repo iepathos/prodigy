@@ -6,7 +6,7 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::Path;
 use tokio::fs;
 
 /// Bidirectional mapping between session IDs and MapReduce job IDs
@@ -37,7 +37,7 @@ impl SessionJobMapping {
     }
 
     /// Store this mapping to disk
-    pub async fn store(&self, storage_dir: &PathBuf) -> Result<()> {
+    pub async fn store(&self, storage_dir: &Path) -> Result<()> {
         let mapping_dir = storage_dir.join("mappings");
         fs::create_dir_all(&mapping_dir).await?;
 
@@ -54,40 +54,41 @@ impl SessionJobMapping {
     }
 
     /// Load a mapping by session ID
-    pub async fn load_by_session(
-        session_id: &str,
-        storage_dir: &PathBuf,
-    ) -> Result<Option<Self>> {
-        let mapping_file = storage_dir.join("mappings").join(format!("{}.json", session_id));
+    pub async fn load_by_session(session_id: &str, storage_dir: &Path) -> Result<Option<Self>> {
+        let mapping_file = storage_dir
+            .join("mappings")
+            .join(format!("{}.json", session_id));
 
         if !mapping_file.exists() {
             return Ok(None);
         }
 
         let data = fs::read(&mapping_file).await?;
-        let mapping: Self = serde_json::from_slice(&data)
-            .context("Failed to deserialize session-job mapping")?;
+        let mapping: Self =
+            serde_json::from_slice(&data).context("Failed to deserialize session-job mapping")?;
 
         Ok(Some(mapping))
     }
 
     /// Load a mapping by job ID
-    pub async fn load_by_job(job_id: &str, storage_dir: &PathBuf) -> Result<Option<Self>> {
-        let mapping_file = storage_dir.join("mappings").join(format!("{}.json", job_id));
+    pub async fn load_by_job(job_id: &str, storage_dir: &Path) -> Result<Option<Self>> {
+        let mapping_file = storage_dir
+            .join("mappings")
+            .join(format!("{}.json", job_id));
 
         if !mapping_file.exists() {
             return Ok(None);
         }
 
         let data = fs::read(&mapping_file).await?;
-        let mapping: Self = serde_json::from_slice(&data)
-            .context("Failed to deserialize session-job mapping")?;
+        let mapping: Self =
+            serde_json::from_slice(&data).context("Failed to deserialize session-job mapping")?;
 
         Ok(Some(mapping))
     }
 
     /// Check if a mapping exists for a session ID
-    pub async fn exists_for_session(session_id: &str, storage_dir: &PathBuf) -> bool {
+    pub async fn exists_for_session(session_id: &str, storage_dir: &Path) -> bool {
         storage_dir
             .join("mappings")
             .join(format!("{}.json", session_id))
@@ -95,7 +96,7 @@ impl SessionJobMapping {
     }
 
     /// Check if a mapping exists for a job ID
-    pub async fn exists_for_job(job_id: &str, storage_dir: &PathBuf) -> bool {
+    pub async fn exists_for_job(job_id: &str, storage_dir: &Path) -> bool {
         storage_dir
             .join("mappings")
             .join(format!("{}.json", job_id))
@@ -111,7 +112,7 @@ mod tests {
     #[tokio::test]
     async fn test_session_job_mapping_storage() {
         let temp_dir = TempDir::new().unwrap();
-        let storage_dir = temp_dir.path().to_path_buf();
+        let storage_dir = temp_dir.path();
 
         let mapping = SessionJobMapping::new(
             "session-123".to_string(),
@@ -146,7 +147,7 @@ mod tests {
     #[tokio::test]
     async fn test_mapping_existence_checks() {
         let temp_dir = TempDir::new().unwrap();
-        let storage_dir = temp_dir.path().to_path_buf();
+        let storage_dir = temp_dir.path();
 
         // Initially should not exist
         assert!(!SessionJobMapping::exists_for_session("session-123", &storage_dir).await);
@@ -168,7 +169,7 @@ mod tests {
     #[tokio::test]
     async fn test_load_nonexistent_mapping() {
         let temp_dir = TempDir::new().unwrap();
-        let storage_dir = temp_dir.path().to_path_buf();
+        let storage_dir = temp_dir.path();
 
         let result = SessionJobMapping::load_by_session("nonexistent", &storage_dir)
             .await

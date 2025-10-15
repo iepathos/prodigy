@@ -11,8 +11,8 @@ pub use manager::{
     CheckpointMetadata, CheckpointReason, CheckpointStorage, CompletedWorkItem,
     CompressionAlgorithm, DlqItem, ErrorState, ExecutionState, FailedWorkItem,
     FileCheckpointStorage, MapPhaseResults, MapReduceCheckpoint, PhaseResult, PhaseType,
-    ResourceAllocation, ResourceState, ResumeState, ResumeStrategy, RetentionPolicy,
-    VariableState, WorkItem, WorkItemBatch, WorkItemProgress, WorkItemState,
+    ResourceAllocation, ResourceState, ResumeState, ResumeStrategy, RetentionPolicy, VariableState,
+    WorkItem, WorkItemBatch, WorkItemProgress, WorkItemState,
 };
 
 // Re-export types from reduce
