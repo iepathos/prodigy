@@ -320,13 +320,11 @@ impl std::fmt::Display for CapturedValue {
             CapturedValue::Number(n) => write!(f, "{}", n),
             CapturedValue::Boolean(b) => write!(f, "{}", b),
             CapturedValue::Json(j) => write!(f, "{}", j),
-            CapturedValue::Array(arr) => {
-                let strings: Vec<String> = arr.iter().map(|v| v.to_string()).collect();
-                write!(f, "[{}]", strings.join(", "))
-            }
-            CapturedValue::Object(map) => {
-                let pairs: Vec<String> = map.iter().map(|(k, v)| format!("{}: {}", k, v)).collect();
-                write!(f, "{{{}}}", pairs.join(", "))
+            CapturedValue::Array(_) | CapturedValue::Object(_) => {
+                // Convert to JSON for proper formatting when used in string interpolation
+                // This ensures that ${map.results} produces valid JSON for write_file
+                let json_value = self.to_json();
+                write!(f, "{}", json_value)
             }
         }
     }
@@ -1106,5 +1104,59 @@ mod tests {
             parent.get("shared_var").await.unwrap().to_string(),
             "parent_value"
         );
+    }
+
+    #[test]
+    fn test_captured_value_array_display_outputs_valid_json() {
+        // Create an array captured value (simulating map.results)
+        let items = vec![
+            CapturedValue::Json(json!({"item_id": "item_0", "status": "Success"})),
+            CapturedValue::Json(json!({"item_id": "item_1", "status": "Success"})),
+            CapturedValue::Json(json!({"item_id": "item_2", "status": "Success"})),
+        ];
+        let captured_array = CapturedValue::Array(items);
+
+        // Convert to string (this is what happens during interpolation)
+        let interpolated = captured_array.to_string();
+
+        // Verify it's valid JSON
+        let parsed_result: Result<Value, _> = serde_json::from_str(&interpolated);
+        assert!(
+            parsed_result.is_ok(),
+            "Interpolated string should be valid JSON. Got: {}",
+            interpolated
+        );
+
+        let parsed = parsed_result.unwrap();
+        assert!(parsed.is_array());
+        assert_eq!(parsed.as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn test_captured_value_object_display_outputs_valid_json() {
+        // Create an object captured value
+        let mut map = HashMap::new();
+        map.insert("successful".to_string(), CapturedValue::Number(10.0));
+        map.insert("failed".to_string(), CapturedValue::Number(0.0));
+        map.insert("total".to_string(), CapturedValue::Number(10.0));
+        let captured_object = CapturedValue::Object(map);
+
+        // Convert to string (this is what happens during interpolation)
+        let interpolated = captured_object.to_string();
+
+        // Verify it's valid JSON
+        let parsed_result: Result<Value, _> = serde_json::from_str(&interpolated);
+        assert!(
+            parsed_result.is_ok(),
+            "Interpolated string should be valid JSON. Got: {}",
+            interpolated
+        );
+
+        let parsed = parsed_result.unwrap();
+        assert!(parsed.is_object());
+        let obj = parsed.as_object().unwrap();
+        assert_eq!(obj.get("successful").unwrap(), &json!(10.0));
+        assert_eq!(obj.get("failed").unwrap(), &json!(0.0));
+        assert_eq!(obj.get("total").unwrap(), &json!(10.0));
     }
 }
