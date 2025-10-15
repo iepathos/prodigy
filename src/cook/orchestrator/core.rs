@@ -118,6 +118,7 @@ pub struct DefaultCookOrchestrator {
     /// Session operations
     session_ops: super::session_ops::SessionOperations,
     /// Workflow executor
+    #[allow(dead_code)]
     workflow_executor: super::workflow_execution::WorkflowExecutor,
     /// Health metrics
     health_metrics: super::health_metrics::HealthMetrics,
@@ -166,6 +167,7 @@ impl DefaultCookOrchestrator {
         let execution_pipeline = super::execution_pipeline::ExecutionPipeline::new(
             Arc::clone(&session_manager),
             Arc::clone(&user_interaction),
+            Arc::clone(&claude_executor),
             Arc::clone(&git_operations),
             subprocess.clone(),
             session_ops.clone(),
@@ -227,6 +229,7 @@ impl DefaultCookOrchestrator {
         let execution_pipeline = super::execution_pipeline::ExecutionPipeline::new(
             Arc::clone(&session_manager),
             Arc::clone(&user_interaction),
+            Arc::clone(&claude_executor),
             Arc::clone(&git_operations),
             subprocess.clone(),
             session_ops.clone(),
@@ -316,6 +319,7 @@ impl DefaultCookOrchestrator {
         let execution_pipeline = super::execution_pipeline::ExecutionPipeline::new(
             Arc::clone(&session_manager),
             Arc::clone(&user_interaction),
+            Arc::clone(&claude_executor),
             Arc::clone(&git_operations),
             subprocess.clone(),
             session_ops.clone(),
@@ -350,60 +354,18 @@ impl DefaultCookOrchestrator {
             .await
     }
 
-    /// Calculate workflow hash for validation
-    pub(crate) fn calculate_workflow_hash(workflow: &WorkflowConfig) -> String {
-        super::session_ops::SessionOperations::calculate_workflow_hash(workflow)
-    }
-
     /// Resume an interrupted workflow
     async fn resume_workflow(&self, session_id: &str, config: CookConfig) -> Result<()> {
         // Delegate the main resume logic to ExecutionPipeline
         // But handle cleanup here since it requires orchestrator-specific knowledge
-        let result = self.execution_pipeline.resume_workflow(session_id, config.clone()).await;
+        let result = self
+            .execution_pipeline
+            .resume_workflow(session_id, config.clone())
+            .await;
 
         // If resume was successful or failed, handle cleanup if we have environment info
         // For now, ExecutionPipeline handles the full resume including cleanup internally
         result
-    }
-
-
-    /// Execute standard workflow from a specific point
-    async fn execute_standard_workflow_from(
-        &self,
-        env: &ExecutionEnvironment,
-        config: &CookConfig,
-        _start_iteration: usize,
-        start_step: usize,
-    ) -> Result<()> {
-        self.workflow_executor
-            .execute_standard_workflow_from(env, config, _start_iteration, start_step)
-            .await
-    }
-
-    /// Execute iterative workflow from a specific point
-    async fn execute_iterative_workflow_from(
-        &self,
-        env: &ExecutionEnvironment,
-        config: &CookConfig,
-        start_iteration: usize,
-        start_step: usize,
-    ) -> Result<()> {
-        self.workflow_executor
-            .execute_iterative_workflow_from(env, config, start_iteration, start_step)
-            .await
-    }
-
-    /// Execute structured workflow from a specific point
-    async fn execute_structured_workflow_from(
-        &self,
-        env: &ExecutionEnvironment,
-        config: &CookConfig,
-        _start_iteration: usize,
-        start_step: usize,
-    ) -> Result<()> {
-        self.workflow_executor
-            .execute_structured_workflow_from(env, config, _start_iteration, start_step)
-            .await
     }
 
     /// Convert a workflow command to a workflow step
@@ -724,220 +686,9 @@ impl DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
-        use std::collections::HashMap;
-
-        // Analysis will be run per-command as needed based on their configuration
-
-        // Track outputs from previous commands
-        let mut command_outputs: HashMap<String, HashMap<String, String>> = HashMap::new();
-
-        // Execute iterations if configured
-        let max_iterations = config.command.max_iterations;
-        for iteration in 1..=max_iterations {
-            if iteration > 1 {
-                self.user_interaction
-                    .display_progress(&format!("Starting iteration {iteration}/{max_iterations}"));
-            }
-
-            // Increment iteration counter once per iteration, not per command
-            self.session_manager
-                .update_session(SessionUpdate::IncrementIteration)
-                .await?;
-
-            // Execute each command in sequence
-            for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
-                let mut command = cmd.to_command();
-                // Apply defaults from the command registry
-                crate::config::apply_command_defaults(&mut command);
-
-                // Display step start with description
-                let step_description = format!(
-                    "{}: {}",
-                    command.name,
-                    command
-                        .args
-                        .iter()
-                        .map(|a| a.resolve(&HashMap::new()))
-                        .filter(|s| !s.is_empty())
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                );
-                self.user_interaction.step_start(
-                    (step_index + 1) as u32,
-                    config.workflow.commands.len() as u32,
-                    &step_description,
-                );
-
-                // Analysis functionality has been removed in v0.3.0
-
-                // Resolve variables from command outputs for use in variable expansion
-                let mut resolved_variables = HashMap::new();
-
-                // Collect all available outputs as variables
-                for (cmd_id, outputs) in &command_outputs {
-                    for (output_name, value) in outputs {
-                        let var_name = format!("{cmd_id}.{output_name}");
-                        resolved_variables.insert(var_name, value.clone());
-                    }
-                }
-
-                // The command args already contain variable references that will be
-                // expanded by the command parser
-                let final_args = command.args.clone();
-
-                // Build final command string with resolved arguments
-                let mut cmd_parts = vec![format!("/{}", command.name)];
-                for arg in &final_args {
-                    let resolved_arg = arg.resolve(&resolved_variables);
-                    if !resolved_arg.is_empty() {
-                        cmd_parts.push(resolved_arg);
-                    }
-                }
-                let final_command = cmd_parts.join(" ");
-
-                self.user_interaction
-                    .display_action(&format!("Executing command: {final_command}"));
-
-                // Execute the command
-                let mut env_vars = HashMap::new();
-                env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-
-                let result = self
-                    .claude_executor
-                    .execute_claude_command(&final_command, &env.working_dir, env_vars)
-                    .await?;
-
-                if !result.success {
-                    anyhow::bail!(
-                        "Command '{}' failed with exit code {:?}. Error: {}",
-                        command.name,
-                        result.exit_code,
-                        result.stderr
-                    );
-                } else {
-                    // Track file changes when command succeeds
-                    self.session_manager
-                        .update_session(SessionUpdate::AddFilesChanged(1))
-                        .await?;
-                }
-
-                // Handle outputs if specified
-                if let Some(ref outputs) = command.outputs {
-                    let mut cmd_output_map = HashMap::new();
-
-                    for (output_name, output_decl) in outputs {
-                        self.user_interaction.display_info(&format!(
-                            "🔍 Looking for output '{}' with pattern: {}",
-                            output_name, output_decl.file_pattern
-                        ));
-
-                        // Find files matching the pattern in git commits
-                        let pattern_result = self
-                            .find_files_matching_pattern(
-                                &output_decl.file_pattern,
-                                &env.working_dir,
-                            )
-                            .await;
-
-                        match pattern_result {
-                            Ok(file_path) => {
-                                self.user_interaction
-                                    .display_success(&format!("Found output file: {file_path}"));
-                                cmd_output_map.insert(output_name.clone(), file_path);
-                            }
-                            Err(e) => {
-                                self.user_interaction.display_warning(&format!(
-                                    "Failed to find output '{output_name}': {e}"
-                                ));
-                                return Err(e);
-                            }
-                        }
-                    }
-
-                    // Store outputs for this command
-                    if let Some(ref id) = command.id {
-                        command_outputs.insert(id.clone(), cmd_output_map);
-                        self.user_interaction
-                            .display_success(&format!("💾 Stored outputs for command '{id}'"));
-                    }
-                }
-            }
-
-            // Check if we should continue iterations
-            if iteration < max_iterations {
-                // Could add logic here to check if improvements were made
-                // For now, continue with all iterations as requested
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Find files matching a pattern in the last git commit
-    async fn find_files_matching_pattern(
-        &self,
-        pattern: &str,
-        working_dir: &std::path::Path,
-    ) -> Result<String> {
-        use tokio::process::Command;
-
-        self.user_interaction.display_info(&format!(
-            "🔎 Searching for files matching '{pattern}' in last commit"
-        ));
-
-        // Get list of files changed in the last commit
-        let output = Command::new("git")
-            .args(["diff", "--name-only", "HEAD~1", "HEAD"])
-            .current_dir(working_dir)
-            .output()
-            .await?;
-
-        if !output.status.success() {
-            return Err(anyhow!(
-                "Failed to get git diff: {}",
-                String::from_utf8_lossy(&output.stderr)
-            ));
-        }
-
-        let files = String::from_utf8(output.stdout)?;
-
-        // Check each file in the diff against the pattern
-        for file in files.lines() {
-            let file = file.trim();
-            if file.is_empty() {
-                continue;
-            }
-
-            // Match based on pattern type
-            let matches = if let Some(suffix) = pattern.strip_prefix('*') {
-                // Wildcard pattern - match suffix
-                file.ends_with(suffix)
-            } else if pattern.contains('*') {
-                // Glob-style pattern
-                self.matches_glob_pattern(file, pattern)
-            } else {
-                // Simple substring match - just check if filename contains pattern
-                file.split('/')
-                    .next_back()
-                    .unwrap_or(file)
-                    .contains(pattern)
-            };
-
-            if matches {
-                let full_path = working_dir.join(file);
-                return Ok(full_path.to_string_lossy().to_string());
-            }
-        }
-
-        Err(anyhow!(
-            "No files found matching pattern '{}' in last commit",
-            pattern
-        ))
-    }
-
-    /// Helper to match glob-style patterns
-    fn matches_glob_pattern(&self, file: &str, pattern: &str) -> bool {
-        super::workflow_classifier::matches_glob_pattern(file, pattern)
+        self.execution_pipeline
+            .execute_structured_workflow(env, config)
+            .await
     }
 
     /* REMOVED: Analysis functionality has been removed in v0.3.0
@@ -1186,120 +937,15 @@ impl DefaultCookOrchestrator {
         config: &CookConfig,
         mapreduce_config: &crate::config::MapReduceWorkflowConfig,
     ) -> Result<()> {
-        // Display MapReduce-specific message
-        self.user_interaction.display_info(&format!(
-            "Executing MapReduce workflow: {}",
-            mapreduce_config.name
-        ));
-
-        // Set environment variables for MapReduce execution
-        // This ensures auto-merge works when -y flag is provided
-        if config.command.auto_accept {
-            std::env::set_var("PRODIGY_AUTO_MERGE", "true");
-            std::env::set_var("PRODIGY_AUTO_CONFIRM", "true");
-        }
-
-        // Convert MapReduce config to ExtendedWorkflowConfig
-        // Extract setup commands if they exist
-        let setup_steps = mapreduce_config
-            .setup
-            .as_ref()
-            .map(|setup| setup.commands.clone())
-            .unwrap_or_default();
-
-        let extended_workflow = ExtendedWorkflowConfig {
-            name: mapreduce_config.name.clone(),
-            mode: crate::cook::workflow::WorkflowMode::MapReduce,
-            steps: setup_steps,
-            setup_phase: mapreduce_config.to_setup_phase().context(
-                "Failed to resolve setup phase configuration. Check that environment variables are properly defined."
-            )?,
-            map_phase: Some(mapreduce_config.to_map_phase().context(
-                "Failed to resolve MapReduce configuration. Check that environment variables are properly defined."
-            )?),
-            reduce_phase: mapreduce_config.to_reduce_phase(),
-            max_iterations: 1, // MapReduce runs once
-            iterate: false,
-            retry_defaults: None,
-            environment: None,
-            // collect_metrics removed - MMM focuses on orchestration
-        };
-
         // Create workflow executor
-        let mut executor = self
+        let executor = self
             .create_workflow_executor_internal(config)
             .with_dry_run(config.command.dry_run);
 
-        // Set global environment configuration if present in MapReduce workflow
-        if mapreduce_config.env.is_some()
-            || mapreduce_config.secrets.is_some()
-            || mapreduce_config.env_files.is_some()
-            || mapreduce_config.profiles.is_some()
-        {
-            let global_env_config = crate::cook::environment::EnvironmentConfig {
-                global_env: mapreduce_config
-                    .env
-                    .as_ref()
-                    .map(|env| {
-                        env.iter()
-                            .map(|(k, v)| {
-                                (
-                                    k.clone(),
-                                    crate::cook::environment::EnvValue::Static(v.clone()),
-                                )
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                secrets: mapreduce_config.secrets.clone().unwrap_or_default(),
-                env_files: mapreduce_config.env_files.clone().unwrap_or_default(),
-                inherit: true,
-                profiles: mapreduce_config.profiles.clone().unwrap_or_default(),
-                active_profile: None,
-            };
-            executor = executor.with_environment_config(global_env_config)?;
-        }
-        // Also check standard workflow env (for backward compatibility with workflows that use both)
-        else if config.workflow.env.is_some()
-            || config.workflow.secrets.is_some()
-            || config.workflow.env_files.is_some()
-            || config.workflow.profiles.is_some()
-        {
-            let global_env_config = crate::cook::environment::EnvironmentConfig {
-                global_env: config
-                    .workflow
-                    .env
-                    .as_ref()
-                    .map(|env| {
-                        env.iter()
-                            .map(|(k, v)| {
-                                (
-                                    k.clone(),
-                                    crate::cook::environment::EnvValue::Static(v.clone()),
-                                )
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                secrets: config.workflow.secrets.clone().unwrap_or_default(),
-                env_files: config.workflow.env_files.clone().unwrap_or_default(),
-                inherit: true,
-                profiles: config.workflow.profiles.clone().unwrap_or_default(),
-                active_profile: None,
-            };
-            executor = executor.with_environment_config(global_env_config)?;
-        }
-
-        // Execute the MapReduce workflow
-        let result = executor.execute(&extended_workflow, env).await;
-
-        // Clean up environment variables
-        if config.command.auto_accept {
-            std::env::remove_var("PRODIGY_AUTO_MERGE");
-            std::env::remove_var("PRODIGY_AUTO_CONFIRM");
-        }
-
-        result
+        // Delegate to execution pipeline
+        self.execution_pipeline
+            .execute_mapreduce_workflow_with_executor(env, config, mapreduce_config, executor)
+            .await
     }
 
     /// Execute a single workflow command
@@ -2274,6 +1920,7 @@ mod tests {
                 crate::cook::orchestrator::execution_pipeline::ExecutionPipeline::new(
                     session_manager.clone() as Arc<dyn SessionManager>,
                     user_interaction.clone() as Arc<dyn UserInteraction>,
+                    claude_executor.clone() as Arc<dyn ClaudeExecutor>,
                     git_operations.clone(),
                     subprocess.clone(),
                     session_ops.clone(),
@@ -2517,6 +2164,7 @@ mod tests {
                 crate::cook::orchestrator::execution_pipeline::ExecutionPipeline::new(
                     session_manager.clone() as Arc<dyn SessionManager>,
                     user_interaction.clone() as Arc<dyn UserInteraction>,
+                    claude_executor.clone() as Arc<dyn ClaudeExecutor>,
                     git_operations.clone(),
                     subprocess.clone(),
                     session_ops.clone(),
@@ -2879,6 +2527,7 @@ mod tests {
                 crate::cook::orchestrator::execution_pipeline::ExecutionPipeline::new(
                     session_manager.clone() as Arc<dyn SessionManager>,
                     user_interaction.clone() as Arc<dyn UserInteraction>,
+                    claude_executor.clone() as Arc<dyn ClaudeExecutor>,
                     git_operations.clone(),
                     subprocess.clone(),
                     session_ops.clone(),
