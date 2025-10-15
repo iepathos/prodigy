@@ -2761,6 +2761,13 @@ mod tests {
                 user_interaction.clone() as Arc<dyn UserInteraction>,
             );
 
+            let argument_processor = crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                session_manager.clone() as Arc<dyn SessionManager>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                None,
+            );
+
             let command_executor =
                 Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
 
@@ -2775,6 +2782,7 @@ mod tests {
                 session_ops,
                 workflow_executor,
                 health_metrics,
+                argument_processor,
             };
 
             (
@@ -2983,6 +2991,13 @@ mod tests {
                 user_interaction.clone() as Arc<dyn UserInteraction>,
             );
 
+            let argument_processor = crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                session_manager.clone() as Arc<dyn SessionManager>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                None,
+            );
+
             // Create test config with skip_commit_validation
             let test_config = Some(Arc::new(TestConfiguration {
                 test_mode: true,
@@ -3004,6 +3019,7 @@ mod tests {
                 session_ops,
                 workflow_executor,
                 health_metrics,
+                argument_processor,
             };
 
             // Setup mock response
@@ -3324,6 +3340,13 @@ mod tests {
                 user_interaction.clone() as Arc<dyn UserInteraction>,
             );
 
+            let argument_processor = crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                session_manager.clone() as Arc<dyn SessionManager>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                None,
+            );
+
             // Create test config with no_changes_commands
             let test_config = Some(Arc::new(TestConfiguration {
                 test_mode: true,
@@ -3346,6 +3369,7 @@ mod tests {
                 session_ops,
                 workflow_executor,
                 health_metrics,
+                argument_processor,
             };
 
             // Setup mock response
