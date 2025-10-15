@@ -266,21 +266,6 @@ impl DefaultCookOrchestrator {
         self.health_metrics.display_health_score(config).await
     }
 
-    /// Get test coverage from the project
-    async fn get_test_coverage(&self, project_path: &std::path::Path) -> Result<f64> {
-        super::health_metrics::HealthMetrics::get_test_coverage(project_path).await
-    }
-
-    /// Get lint warnings count
-    async fn get_lint_warnings(&self, project_path: &std::path::Path) -> Result<u32> {
-        super::health_metrics::HealthMetrics::get_lint_warnings(project_path).await
-    }
-
-    /// Get code duplication percentage
-    async fn get_code_duplication(&self, _project_path: &std::path::Path) -> Result<f32> {
-        super::health_metrics::HealthMetrics::get_code_duplication(_project_path).await
-    }
-
     /// Create a new orchestrator with test configuration
     #[allow(clippy::too_many_arguments)]
     pub fn with_test_config(
@@ -636,18 +621,6 @@ impl DefaultCookOrchestrator {
     ) -> Result<()> {
         self.workflow_executor
             .execute_structured_workflow_from(env, config, _start_iteration, start_step)
-            .await
-    }
-
-    /// Execute a single workflow step
-    async fn execute_step(
-        &self,
-        env: &ExecutionEnvironment,
-        step: &WorkflowStep,
-        _config: &CookConfig,
-    ) -> Result<()> {
-        self.workflow_executor
-            .execute_step(env, step, _config)
             .await
     }
 

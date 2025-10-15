@@ -223,9 +223,4 @@ impl WorkflowExecutor {
     pub fn convert_command_to_step(cmd: &WorkflowCommand) -> WorkflowStep {
         super::normalization::convert_command_to_step(cmd)
     }
-
-    /// Helper to match glob-style patterns (delegates to workflow_classifier)
-    pub fn matches_glob_pattern(&self, file: &str, pattern: &str) -> bool {
-        super::workflow_classifier::matches_glob_pattern(file, pattern)
-    }
 }
