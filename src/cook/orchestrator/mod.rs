@@ -5,6 +5,7 @@
 pub mod builder;
 pub mod construction;
 mod core;
+mod health_metrics;
 mod normalization;
 mod session_ops;
 mod workflow_execution;

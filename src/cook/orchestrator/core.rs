@@ -121,6 +121,8 @@ pub struct DefaultCookOrchestrator {
     session_ops: super::session_ops::SessionOperations,
     /// Workflow executor
     workflow_executor: super::workflow_execution::WorkflowExecutor,
+    /// Health metrics
+    health_metrics: super::health_metrics::HealthMetrics,
 }
 
 impl DefaultCookOrchestrator {
@@ -149,6 +151,10 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
+        let health_metrics = super::health_metrics::HealthMetrics::new(
+            Arc::clone(&user_interaction),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -159,6 +165,7 @@ impl DefaultCookOrchestrator {
             test_config: None,
             session_ops,
             workflow_executor,
+            health_metrics,
         }
     }
 
@@ -188,6 +195,10 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
+        let health_metrics = super::health_metrics::HealthMetrics::new(
+            Arc::clone(&user_interaction),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -198,6 +209,7 @@ impl DefaultCookOrchestrator {
             test_config,
             session_ops,
             workflow_executor,
+            health_metrics,
         }
     }
 
@@ -234,82 +246,22 @@ impl DefaultCookOrchestrator {
 
     /// Display health score for the project
     async fn display_health_score(&self, config: &CookConfig) -> Result<()> {
-        use crate::scoring::{display_health_score, BasicMetrics, ProjectHealthScore};
-
-        // Create basic metrics from available data
-        // For now, we'll use placeholder values - in a real implementation,
-        // these would be collected from the actual project analysis
-        let metrics = BasicMetrics {
-            test_coverage: self.get_test_coverage(&config.project_path).await.ok(),
-            lint_warnings: self.get_lint_warnings(&config.project_path).await.ok(),
-            code_duplication: self.get_code_duplication(&config.project_path).await.ok(),
-            doc_coverage: None,       // Not readily available
-            type_coverage: None,      // Not readily available
-            complexity_average: None, // Not readily available
-        };
-
-        // Calculate and display the score
-        let score = ProjectHealthScore::from_metrics(&metrics);
-        let score_display = display_health_score(&score);
-
-        self.user_interaction.display_info(&score_display);
-
-        Ok(())
+        self.health_metrics.display_health_score(config).await
     }
 
     /// Get test coverage from the project
     async fn get_test_coverage(&self, project_path: &std::path::Path) -> Result<f64> {
-        // Try to read coverage from common locations
-        let coverage_file = project_path.join("target/coverage/info.lcov");
-        if coverage_file.exists() {
-            // Parse LCOV file (simplified - real implementation would be more thorough)
-            let content = tokio::fs::read_to_string(&coverage_file).await?;
-            let mut lines_hit = 0;
-            let mut lines_total = 0;
-
-            for line in content.lines() {
-                if line.starts_with("LH:") {
-                    lines_hit += line.trim_start_matches("LH:").parse::<i32>().unwrap_or(0);
-                } else if line.starts_with("LF:") {
-                    lines_total += line.trim_start_matches("LF:").parse::<i32>().unwrap_or(0);
-                }
-            }
-
-            if lines_total > 0 {
-                return Ok((lines_hit as f64 / lines_total as f64) * 100.0);
-            }
-        }
-
-        // Default to 0 if no coverage data
-        Ok(0.0)
+        super::health_metrics::HealthMetrics::get_test_coverage(project_path).await
     }
 
     /// Get lint warnings count
     async fn get_lint_warnings(&self, project_path: &std::path::Path) -> Result<u32> {
-        // Try to run clippy and count warnings (simplified)
-        let output = std::process::Command::new("cargo")
-            .arg("clippy")
-            .arg("--message-format=json")
-            .current_dir(project_path)
-            .output()?;
-
-        let mut warning_count = 0;
-        for line in String::from_utf8_lossy(&output.stdout).lines() {
-            if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
-                if msg.get("level").and_then(|l| l.as_str()) == Some("warning") {
-                    warning_count += 1;
-                }
-            }
-        }
-
-        Ok(warning_count)
+        super::health_metrics::HealthMetrics::get_lint_warnings(project_path).await
     }
 
     /// Get code duplication percentage
     async fn get_code_duplication(&self, _project_path: &std::path::Path) -> Result<f32> {
-        // This would integrate with a tool like rust-code-analysis or similar
-        // For now, return a placeholder
-        Ok(0.0)
+        super::health_metrics::HealthMetrics::get_code_duplication(_project_path).await
     }
 
     /// Create a new orchestrator with test configuration
@@ -338,6 +290,10 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
+        let health_metrics = super::health_metrics::HealthMetrics::new(
+            Arc::clone(&user_interaction),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -348,6 +304,7 @@ impl DefaultCookOrchestrator {
             test_config: Some(test_config),
             session_ops,
             workflow_executor,
+            health_metrics,
         }
     }
 
@@ -3028,6 +2985,10 @@ mod tests {
                 subprocess.clone(),
             );
 
+            let health_metrics = crate::cook::orchestrator::health_metrics::HealthMetrics::new(
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+            );
+
             let command_executor =
                 Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
 
@@ -3041,6 +3002,7 @@ mod tests {
                 test_config: None,
                 session_ops,
                 workflow_executor,
+                health_metrics,
             };
 
             (
@@ -3245,6 +3207,10 @@ mod tests {
                 subprocess.clone(),
             );
 
+            let health_metrics = crate::cook::orchestrator::health_metrics::HealthMetrics::new(
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+            );
+
             // Create test config with skip_commit_validation
             let test_config = Some(Arc::new(TestConfiguration {
                 test_mode: true,
@@ -3265,6 +3231,7 @@ mod tests {
                 test_config,
                 session_ops,
                 workflow_executor,
+                health_metrics,
             };
 
             // Setup mock response
@@ -3581,6 +3548,10 @@ mod tests {
                 subprocess.clone(),
             );
 
+            let health_metrics = crate::cook::orchestrator::health_metrics::HealthMetrics::new(
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+            );
+
             // Create test config with no_changes_commands
             let test_config = Some(Arc::new(TestConfiguration {
                 test_mode: true,
@@ -3602,6 +3573,7 @@ mod tests {
                 test_config,
                 session_ops,
                 workflow_executor,
+                health_metrics,
             };
 
             // Setup mock response
