@@ -152,9 +152,8 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
-        let health_metrics = super::health_metrics::HealthMetrics::new(
-            Arc::clone(&user_interaction),
-        );
+        let health_metrics =
+            super::health_metrics::HealthMetrics::new(Arc::clone(&user_interaction));
 
         let argument_processor = super::argument_processing::ArgumentProcessor::new(
             Arc::clone(&claude_executor),
@@ -204,9 +203,8 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
-        let health_metrics = super::health_metrics::HealthMetrics::new(
-            Arc::clone(&user_interaction),
-        );
+        let health_metrics =
+            super::health_metrics::HealthMetrics::new(Arc::clone(&user_interaction));
 
         let argument_processor = super::argument_processing::ArgumentProcessor::new(
             Arc::clone(&claude_executor),
@@ -292,9 +290,8 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
-        let health_metrics = super::health_metrics::HealthMetrics::new(
-            Arc::clone(&user_interaction),
-        );
+        let health_metrics =
+            super::health_metrics::HealthMetrics::new(Arc::clone(&user_interaction));
 
         let argument_processor = super::argument_processing::ArgumentProcessor::new(
             Arc::clone(&claude_executor),
@@ -1543,7 +1540,9 @@ impl DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
-        self.argument_processor.execute_workflow_with_args(env, config).await
+        self.argument_processor
+            .execute_workflow_with_args(env, config)
+            .await
     }
 
     /// Get current git HEAD
@@ -1556,7 +1555,6 @@ impl DefaultCookOrchestrator {
             .context("Failed to get git HEAD")?;
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
-
 
     /// Execute a MapReduce workflow
     /// Execute workflow through the unified normalization path
@@ -2723,23 +2721,25 @@ mod tests {
                 subprocess.clone(),
             );
 
-            let workflow_executor = crate::cook::orchestrator::workflow_execution::WorkflowExecutor::new(
-                session_manager.clone() as Arc<dyn SessionManager>,
-                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
-                user_interaction.clone() as Arc<dyn UserInteraction>,
-                subprocess.clone(),
-            );
+            let workflow_executor =
+                crate::cook::orchestrator::workflow_execution::WorkflowExecutor::new(
+                    session_manager.clone() as Arc<dyn SessionManager>,
+                    claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                    user_interaction.clone() as Arc<dyn UserInteraction>,
+                    subprocess.clone(),
+                );
 
             let health_metrics = crate::cook::orchestrator::health_metrics::HealthMetrics::new(
                 user_interaction.clone() as Arc<dyn UserInteraction>,
             );
 
-            let argument_processor = crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
-                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
-                session_manager.clone() as Arc<dyn SessionManager>,
-                user_interaction.clone() as Arc<dyn UserInteraction>,
-                None,
-            );
+            let argument_processor =
+                crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
+                    claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                    session_manager.clone() as Arc<dyn SessionManager>,
+                    user_interaction.clone() as Arc<dyn UserInteraction>,
+                    None,
+                );
 
             let command_executor =
                 Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
@@ -2953,23 +2953,25 @@ mod tests {
                 subprocess.clone(),
             );
 
-            let workflow_executor = crate::cook::orchestrator::workflow_execution::WorkflowExecutor::new(
-                session_manager.clone() as Arc<dyn SessionManager>,
-                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
-                user_interaction.clone() as Arc<dyn UserInteraction>,
-                subprocess.clone(),
-            );
+            let workflow_executor =
+                crate::cook::orchestrator::workflow_execution::WorkflowExecutor::new(
+                    session_manager.clone() as Arc<dyn SessionManager>,
+                    claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                    user_interaction.clone() as Arc<dyn UserInteraction>,
+                    subprocess.clone(),
+                );
 
             let health_metrics = crate::cook::orchestrator::health_metrics::HealthMetrics::new(
                 user_interaction.clone() as Arc<dyn UserInteraction>,
             );
 
-            let argument_processor = crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
-                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
-                session_manager.clone() as Arc<dyn SessionManager>,
-                user_interaction.clone() as Arc<dyn UserInteraction>,
-                None,
-            );
+            let argument_processor =
+                crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
+                    claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                    session_manager.clone() as Arc<dyn SessionManager>,
+                    user_interaction.clone() as Arc<dyn UserInteraction>,
+                    None,
+                );
 
             // Create test config with skip_commit_validation
             let test_config = Some(Arc::new(TestConfiguration {
@@ -3302,23 +3304,25 @@ mod tests {
                 subprocess.clone(),
             );
 
-            let workflow_executor = crate::cook::orchestrator::workflow_execution::WorkflowExecutor::new(
-                session_manager.clone() as Arc<dyn SessionManager>,
-                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
-                user_interaction.clone() as Arc<dyn UserInteraction>,
-                subprocess.clone(),
-            );
+            let workflow_executor =
+                crate::cook::orchestrator::workflow_execution::WorkflowExecutor::new(
+                    session_manager.clone() as Arc<dyn SessionManager>,
+                    claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                    user_interaction.clone() as Arc<dyn UserInteraction>,
+                    subprocess.clone(),
+                );
 
             let health_metrics = crate::cook::orchestrator::health_metrics::HealthMetrics::new(
                 user_interaction.clone() as Arc<dyn UserInteraction>,
             );
 
-            let argument_processor = crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
-                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
-                session_manager.clone() as Arc<dyn SessionManager>,
-                user_interaction.clone() as Arc<dyn UserInteraction>,
-                None,
-            );
+            let argument_processor =
+                crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
+                    claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                    session_manager.clone() as Arc<dyn SessionManager>,
+                    user_interaction.clone() as Arc<dyn UserInteraction>,
+                    None,
+                );
 
             // Create test config with no_changes_commands
             let test_config = Some(Arc::new(TestConfiguration {

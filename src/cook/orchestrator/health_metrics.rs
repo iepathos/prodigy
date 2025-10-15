@@ -15,9 +15,7 @@ pub struct HealthMetrics {
 impl HealthMetrics {
     /// Create a new HealthMetrics instance
     pub fn new(user_interaction: Arc<dyn UserInteraction>) -> Self {
-        Self {
-            user_interaction,
-        }
+        Self { user_interaction }
     }
 
     /// Display health score for the project

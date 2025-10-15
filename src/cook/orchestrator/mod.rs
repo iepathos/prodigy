@@ -2,15 +2,15 @@
 //!
 //! Coordinates all cook operations using specialized components.
 
+mod argument_processing;
 pub mod builder;
 pub mod construction;
-mod argument_processing;
 mod core;
 mod health_metrics;
 mod normalization;
 mod session_ops;
-mod workflow_execution;
 pub mod workflow_classifier;
+mod workflow_execution;
 
 // Re-export public types and traits from core
 pub use core::{CookConfig, CookOrchestrator, DefaultCookOrchestrator, ExecutionEnvironment};
