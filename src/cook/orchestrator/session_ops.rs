@@ -14,6 +14,7 @@ use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
 /// Session operations for managing cook sessions
+#[derive(Clone)]
 pub struct SessionOperations {
     #[allow(dead_code)] // Will be used in resume_workflow and resume_workflow_execution
     session_manager: Arc<dyn SessionManager>,

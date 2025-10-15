@@ -12,6 +12,7 @@ use anyhow::{anyhow, Result};
 use std::sync::Arc;
 
 /// Workflow executor for managing workflow execution
+#[derive(Clone)]
 pub struct WorkflowExecutor {
     session_manager: Arc<dyn SessionManager>,
     claude_executor: Arc<dyn ClaudeExecutor>,
