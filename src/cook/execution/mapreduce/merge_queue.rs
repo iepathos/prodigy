@@ -80,14 +80,12 @@ impl MergeQueue {
                     .merge_agent_to_parent(&request.branch_name, &request.env)
                     .await;
 
-                // If merge failed and we have Claude, check if it's a conflict that Claude can resolve
-                // Match on any error message that indicates merge conflicts or dirty worktree requiring Claude assistance
+                // If merge failed and we have Claude, ALWAYS try Claude-assisted merge as fallback
+                // This ensures bulletproof merge handling for any type of conflict or edge case
                 let final_result = match (&result, &claude_executor) {
-                    (Err(MapReduceError::General { message, .. }), Some(executor))
-                        if message.contains("Claude-assisted merge required") =>
-                    {
+                    (Err(_), Some(executor)) => {
                         info!(
-                            "Attempting Claude-assisted merge for agent {} (item {})",
+                            "Git merge failed for agent {} (item {}), attempting Claude-assisted merge fallback",
                             request.agent_id, request.item_id
                         );
 
@@ -105,14 +103,14 @@ impl MergeQueue {
                         {
                             Ok(claude_result) if claude_result.success => {
                                 info!(
-                                    "Claude successfully resolved merge conflicts for agent {} (item {})",
+                                    "Claude successfully resolved merge for agent {} (item {})",
                                     request.agent_id, request.item_id
                                 );
                                 Ok(())
                             }
                             Ok(claude_result) => {
                                 warn!(
-                                    "Claude failed to resolve merge conflicts for agent {} (item {}): {}",
+                                    "Claude failed to resolve merge for agent {} (item {}): {}",
                                     request.agent_id, request.item_id, claude_result.stderr
                                 );
                                 Err(MapReduceError::ProcessingError(format!(

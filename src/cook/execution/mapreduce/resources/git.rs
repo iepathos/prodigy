@@ -171,8 +171,8 @@ impl GitOperations {
     /// Execute a git merge
     ///
     /// Performs the actual merge with --no-ff to always create a merge commit.
-    /// If the merge encounters conflicts, returns a specific error indicating
-    /// that Claude-assisted merge should be attempted.
+    /// If the merge fails for ANY reason, triggers Claude-assisted merge as a fallback.
+    /// This ensures bulletproof merge handling even in complex conflict scenarios.
     async fn execute_merge(&self, parent_path: &Path, agent_branch: &str) -> MapReduceResult<()> {
         let output = Command::new("git")
             .args([
@@ -190,23 +190,24 @@ impl GitOperations {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
 
-            // Check if this is a merge conflict
-            if stderr.contains("CONFLICT") || stderr.contains("conflict") {
-                // Abort the failed merge to leave worktree in clean state
-                warn!(
-                    "Merge conflict detected for {}, aborting merge",
-                    agent_branch
-                );
-                self.abort_merge(parent_path).await;
+            // ANY merge failure should trigger Claude-assisted merge as fallback
+            // This handles: conflicts, unmerged paths, partial merges, and any edge cases
+            warn!(
+                "Git merge failed for {}, triggering Claude-assisted merge fallback",
+                agent_branch
+            );
 
-                // Return a specific error indicating conflict that needs Claude assistance
-                return Err(MapReduceError::General {
-                    message: format!("Merge conflict detected for agent branch '{}'. Claude-assisted merge required.", agent_branch),
-                    source: None,
-                });
-            }
+            // Abort the failed merge to leave worktree in clean state
+            self.abort_merge(parent_path).await;
 
-            return Err(self.create_git_error("merge_agent_branch", &stderr));
+            // Return the magic error string that triggers Claude-assisted merge in merge queue
+            return Err(MapReduceError::General {
+                message: format!(
+                    "Git merge failed for agent branch '{}'. Claude-assisted merge required. Original error: {}",
+                    agent_branch, stderr.trim()
+                ),
+                source: None,
+            });
         }
 
         Ok(())
@@ -683,7 +684,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_merge_agent_to_parent_invalid_branch() {
+    async fn test_merge_agent_to_parent_invalid_branch_triggers_claude_fallback() {
         let (_temp_dir, parent_path) = create_test_repo().await;
 
         let env = ExecutionEnvironment {
@@ -704,9 +705,83 @@ mod tests {
         let err = result.unwrap_err();
         match err {
             MapReduceError::General { message, .. } => {
-                assert!(message.contains("merge_agent_branch"));
+                // Should now trigger Claude-assisted merge fallback
+                assert!(message.contains("Claude-assisted merge required"));
+                assert!(message.contains("non-existent-branch"));
             }
-            _ => panic!("Expected General error"),
+            _ => panic!("Expected General error with Claude-assisted merge required"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_merge_conflict_triggers_claude_fallback() {
+        let (_temp_dir, parent_path) = create_test_repo().await;
+
+        // Create two worktrees from the same initial commit
+        let worktree1 = create_test_worktree(&parent_path, "agent-1").await;
+        let worktree2 = create_test_worktree(&parent_path, "agent-2").await;
+
+        // Both modify the same file in conflicting ways
+        fs::write(worktree1.join("README.md"), "# Changed by agent 1")
+            .expect("Failed to write file");
+        TokioCommand::new("git")
+            .args(["add", "."])
+            .current_dir(&worktree1)
+            .output()
+            .await
+            .expect("Failed to git add");
+        TokioCommand::new("git")
+            .args(["commit", "-m", "Change by agent 1"])
+            .current_dir(&worktree1)
+            .output()
+            .await
+            .expect("Failed to commit");
+
+        fs::write(worktree2.join("README.md"), "# Changed by agent 2")
+            .expect("Failed to write file");
+        TokioCommand::new("git")
+            .args(["add", "."])
+            .current_dir(&worktree2)
+            .output()
+            .await
+            .expect("Failed to git add");
+        TokioCommand::new("git")
+            .args(["commit", "-m", "Conflicting change"])
+            .current_dir(&worktree2)
+            .output()
+            .await
+            .expect("Failed to commit");
+
+        // Merge first agent to parent - should succeed
+        let env1 = ExecutionEnvironment {
+            working_dir: Arc::new(parent_path.clone()),
+            project_dir: Arc::new(parent_path.clone()),
+            worktree_name: Some(Arc::from("agent-1")),
+            session_id: Arc::from("test-session"),
+        };
+
+        let git_ops = GitOperations::new();
+        let result1 = git_ops.merge_agent_to_parent("agent-1", &env1).await;
+        assert!(result1.is_ok(), "First merge should succeed");
+
+        // Try to merge second agent - should trigger Claude fallback due to conflict
+        let env2 = ExecutionEnvironment {
+            working_dir: Arc::new(parent_path.clone()),
+            project_dir: Arc::new(parent_path.clone()),
+            worktree_name: Some(Arc::from("agent-2")),
+            session_id: Arc::from("test-session"),
+        };
+
+        let result2 = git_ops.merge_agent_to_parent("agent-2", &env2).await;
+        assert!(result2.is_err(), "Second merge should fail with conflict");
+
+        let err = result2.unwrap_err();
+        match err {
+            MapReduceError::General { message, .. } => {
+                assert!(message.contains("Claude-assisted merge required"));
+                assert!(message.contains("agent-2"));
+            }
+            _ => panic!("Expected General error with Claude-assisted merge required"),
         }
     }
 }

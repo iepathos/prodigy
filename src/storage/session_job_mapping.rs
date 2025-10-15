@@ -121,10 +121,10 @@ mod tests {
         );
 
         // Store the mapping
-        mapping.store(&storage_dir).await.unwrap();
+        mapping.store(storage_dir).await.unwrap();
 
         // Load by session ID
-        let loaded_by_session = SessionJobMapping::load_by_session("session-123", &storage_dir)
+        let loaded_by_session = SessionJobMapping::load_by_session("session-123", storage_dir)
             .await
             .unwrap()
             .unwrap();
@@ -134,7 +134,7 @@ mod tests {
         assert_eq!(loaded_by_session.workflow_name, "test-workflow");
 
         // Load by job ID
-        let loaded_by_job = SessionJobMapping::load_by_job("mapreduce-456", &storage_dir)
+        let loaded_by_job = SessionJobMapping::load_by_job("mapreduce-456", storage_dir)
             .await
             .unwrap()
             .unwrap();
@@ -150,8 +150,8 @@ mod tests {
         let storage_dir = temp_dir.path();
 
         // Initially should not exist
-        assert!(!SessionJobMapping::exists_for_session("session-123", &storage_dir).await);
-        assert!(!SessionJobMapping::exists_for_job("mapreduce-456", &storage_dir).await);
+        assert!(!SessionJobMapping::exists_for_session("session-123", storage_dir).await);
+        assert!(!SessionJobMapping::exists_for_job("mapreduce-456", storage_dir).await);
 
         // Store a mapping
         let mapping = SessionJobMapping::new(
@@ -159,11 +159,11 @@ mod tests {
             "mapreduce-456".to_string(),
             "test-workflow".to_string(),
         );
-        mapping.store(&storage_dir).await.unwrap();
+        mapping.store(storage_dir).await.unwrap();
 
         // Now should exist
-        assert!(SessionJobMapping::exists_for_session("session-123", &storage_dir).await);
-        assert!(SessionJobMapping::exists_for_job("mapreduce-456", &storage_dir).await);
+        assert!(SessionJobMapping::exists_for_session("session-123", storage_dir).await);
+        assert!(SessionJobMapping::exists_for_job("mapreduce-456", storage_dir).await);
     }
 
     #[tokio::test]
@@ -171,12 +171,12 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let storage_dir = temp_dir.path();
 
-        let result = SessionJobMapping::load_by_session("nonexistent", &storage_dir)
+        let result = SessionJobMapping::load_by_session("nonexistent", storage_dir)
             .await
             .unwrap();
         assert!(result.is_none());
 
-        let result = SessionJobMapping::load_by_job("nonexistent", &storage_dir)
+        let result = SessionJobMapping::load_by_job("nonexistent", storage_dir)
             .await
             .unwrap();
         assert!(result.is_none());
