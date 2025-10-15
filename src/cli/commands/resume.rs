@@ -77,7 +77,18 @@ async fn try_unified_resume(id: &str, from_checkpoint: Option<String>) -> Result
             // Try both: regular first, then MapReduce
             match try_resume_regular_workflow(id, from_checkpoint.clone()).await {
                 Ok(()) => Ok(()),
-                Err(_) => try_resume_mapreduce_job(id).await,
+                Err(e) => {
+                    // Check if the error is about a completed/cancelled session
+                    // These are definitive errors that should not be overridden
+                    let error_msg = e.to_string();
+                    if error_msg.contains("already completed")
+                        || error_msg.contains("was cancelled")
+                    {
+                        return Err(e);
+                    }
+                    // Otherwise, try MapReduce as fallback
+                    try_resume_mapreduce_job(id).await
+                }
             }
         }
     }
@@ -109,6 +120,39 @@ async fn try_resume_regular_workflow(
     // Find checkpoint directory for this session using storage abstraction
     let prodigy_home = crate::storage::get_default_storage_dir()
         .context("Failed to determine Prodigy storage directory")?;
+
+    // Check if session exists and is resumable by loading session metadata
+    let storage = crate::storage::GlobalStorage::new()
+        .context("Failed to create global storage")?;
+    let session_manager = crate::unified_session::SessionManager::new(storage)
+        .await
+        .context("Failed to create session manager")?;
+    let session_id_obj = crate::unified_session::SessionId::from_string(session_id.to_string());
+
+    // Try to load the session to check its status
+    if let Ok(session) = session_manager.load_session(&session_id_obj).await {
+        use crate::unified_session::SessionStatus;
+
+        // Check if session is in a non-resumable state
+        match session.status {
+            SessionStatus::Completed => {
+                return Err(anyhow!(
+                    "Session {} has already completed and cannot be resumed.\n\
+                     There is nothing to resume for this session.",
+                    session_id
+                ));
+            }
+            SessionStatus::Cancelled => {
+                return Err(anyhow!(
+                    "Session {} was cancelled and cannot be resumed.",
+                    session_id
+                ));
+            }
+            _ => {
+                // Session is resumable (Paused, Running, Failed, etc.)
+            }
+        }
+    }
 
     let checkpoint_dir = prodigy_home
         .join("state")
@@ -258,6 +302,39 @@ async fn try_resume_mapreduce_job(job_id: &str) -> Result<()> {
 
 /// Try to find and resume a MapReduce job associated with a session ID
 async fn try_resume_mapreduce_from_session(session_id: &str) -> Result<()> {
+    // Check if session exists and is resumable by loading session metadata
+    let storage = crate::storage::GlobalStorage::new()
+        .context("Failed to create global storage")?;
+    let session_manager = crate::unified_session::SessionManager::new(storage)
+        .await
+        .context("Failed to create session manager")?;
+    let session_id_obj = crate::unified_session::SessionId::from_string(session_id.to_string());
+
+    // Try to load the session to check its status
+    if let Ok(session) = session_manager.load_session(&session_id_obj).await {
+        use crate::unified_session::SessionStatus;
+
+        // Check if session is in a non-resumable state
+        match session.status {
+            SessionStatus::Completed => {
+                return Err(anyhow!(
+                    "Session {} has already completed and cannot be resumed.\n\
+                     There is nothing to resume for this session.",
+                    session_id
+                ));
+            }
+            SessionStatus::Cancelled => {
+                return Err(anyhow!(
+                    "Session {} was cancelled and cannot be resumed.",
+                    session_id
+                ));
+            }
+            _ => {
+                // Session is resumable (Paused, Running, Failed, etc.)
+            }
+        }
+    }
+
     // Look for MapReduce jobs in the global storage
     let prodigy_home = crate::storage::get_default_storage_dir()
         .context("Failed to determine Prodigy storage directory")?;
