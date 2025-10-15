@@ -6,6 +6,7 @@ mod argument_processing;
 pub mod builder;
 pub mod construction;
 mod core;
+mod execution_pipeline;
 mod health_metrics;
 mod normalization;
 mod session_ops;

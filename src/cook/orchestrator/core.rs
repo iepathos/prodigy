@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::debug;
 
 use crate::cook::command::CookCommand;
 use crate::cook::execution::{ClaudeExecutor, CommandExecutor};
@@ -124,6 +123,8 @@ pub struct DefaultCookOrchestrator {
     health_metrics: super::health_metrics::HealthMetrics,
     /// Argument processor
     argument_processor: super::argument_processing::ArgumentProcessor,
+    /// Execution pipeline
+    execution_pipeline: super::execution_pipeline::ExecutionPipeline,
 }
 
 impl DefaultCookOrchestrator {
@@ -162,6 +163,13 @@ impl DefaultCookOrchestrator {
             None,
         );
 
+        let execution_pipeline = super::execution_pipeline::ExecutionPipeline::new(
+            Arc::clone(&session_manager),
+            Arc::clone(&user_interaction),
+            Arc::clone(&git_operations),
+            subprocess.clone(),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -174,6 +182,7 @@ impl DefaultCookOrchestrator {
             workflow_executor,
             health_metrics,
             argument_processor,
+            execution_pipeline,
         }
     }
 
@@ -213,6 +222,13 @@ impl DefaultCookOrchestrator {
             test_config.clone(),
         );
 
+        let execution_pipeline = super::execution_pipeline::ExecutionPipeline::new(
+            Arc::clone(&session_manager),
+            Arc::clone(&user_interaction),
+            Arc::clone(&git_operations),
+            subprocess.clone(),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -225,6 +241,7 @@ impl DefaultCookOrchestrator {
             workflow_executor,
             health_metrics,
             argument_processor,
+            execution_pipeline,
         }
     }
 
@@ -300,6 +317,13 @@ impl DefaultCookOrchestrator {
             Some(test_config.clone()),
         );
 
+        let execution_pipeline = super::execution_pipeline::ExecutionPipeline::new(
+            Arc::clone(&session_manager),
+            Arc::clone(&user_interaction),
+            Arc::clone(&git_operations),
+            subprocess.clone(),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -312,6 +336,7 @@ impl DefaultCookOrchestrator {
             workflow_executor,
             health_metrics,
             argument_processor,
+            execution_pipeline,
         }
     }
 
@@ -328,245 +353,8 @@ impl DefaultCookOrchestrator {
     }
 
     /// Calculate workflow hash for validation
-    fn calculate_workflow_hash(workflow: &WorkflowConfig) -> String {
+    pub(crate) fn calculate_workflow_hash(workflow: &WorkflowConfig) -> String {
         super::session_ops::SessionOperations::calculate_workflow_hash(workflow)
-    }
-
-    /// Initialize session metadata with workflow hash and type
-    async fn initialize_session_metadata(
-        &self,
-        session_id: &str,
-        config: &CookConfig,
-    ) -> Result<()> {
-        debug!("About to start session");
-        self.session_manager.start_session(session_id).await?;
-        debug!("Session started successfully");
-        self.user_interaction
-            .display_info(&format!("Starting session: {}", session_id));
-        debug!("Session message displayed");
-
-        // Calculate and store workflow hash
-        debug!("Calculating workflow hash");
-        let workflow_hash = Self::calculate_workflow_hash(&config.workflow);
-        debug!("Workflow hash calculated: {}", workflow_hash);
-
-        debug!("Classifying workflow type");
-        let workflow_type = Self::classify_workflow_type(config);
-        debug!("Workflow type classified: {:?}", workflow_type);
-
-        // Update session with workflow metadata
-        debug!("Updating session with workflow hash");
-        debug!("About to call update_session");
-        let result = self
-            .session_manager
-            .update_session(SessionUpdate::SetWorkflowHash(workflow_hash))
-            .await;
-        debug!("update_session call returned");
-        result?;
-        debug!("Workflow hash updated");
-
-        debug!("Updating session with workflow type");
-        self.session_manager
-            .update_session(SessionUpdate::SetWorkflowType(workflow_type.into()))
-            .await?;
-        debug!("Workflow type updated");
-
-        Ok(())
-    }
-
-    /// Setup signal handlers for graceful interruption
-    fn setup_signal_handlers(
-        &self,
-        config: &CookConfig,
-        session_id: &str,
-        worktree_name: Option<Arc<str>>,
-    ) -> Result<tokio::task::JoinHandle<()>> {
-        log::debug!("Setting up signal handlers");
-
-        // Get merge config from workflow or mapreduce config
-        let merge_config = config.workflow.merge.clone().or_else(|| {
-            config
-                .mapreduce_config
-                .as_ref()
-                .and_then(|m| m.merge.clone())
-        });
-
-        // Get workflow environment variables
-        let workflow_env = config.workflow.env.clone().unwrap_or_default();
-
-        let worktree_manager = Arc::new(WorktreeManager::with_config(
-            config.project_path.to_path_buf(),
-            self.subprocess.clone(),
-            config.command.verbosity,
-            merge_config,
-            workflow_env,
-        )?);
-
-        crate::cook::signal_handler::setup_interrupt_handlers(
-            worktree_manager,
-            session_id.to_string(),
-        )?;
-
-        log::debug!("Signal handlers set up successfully");
-
-        let session_manager = self.session_manager.clone();
-        let worktree_name = worktree_name.clone();
-        let project_path = Arc::clone(&config.project_path);
-        let subprocess = self.subprocess.clone();
-
-        let interrupt_handler = tokio::spawn(async move {
-            tokio::signal::ctrl_c().await.ok();
-            // Mark session as interrupted when Ctrl+C is pressed
-            session_manager
-                .update_session(SessionUpdate::MarkInterrupted)
-                .await
-                .ok();
-
-            // Also update worktree state if using a worktree
-            if let Some(ref name) = worktree_name {
-                if let Ok(worktree_manager) =
-                    WorktreeManager::new(project_path.to_path_buf(), subprocess.clone())
-                {
-                    let _ = worktree_manager.update_session_state(name.as_ref(), |state| {
-                        state.status = crate::worktree::WorktreeStatus::Interrupted;
-                        state.interrupted_at = Some(chrono::Utc::now());
-                        state.interruption_type =
-                            Some(crate::worktree::InterruptionType::UserInterrupt);
-                        state.resumable = true;
-                    });
-                }
-            }
-        });
-
-        Ok(interrupt_handler)
-    }
-
-    /// Coordinate workflow execution with error handling
-    async fn coordinate_workflow_execution(
-        &self,
-        env: &ExecutionEnvironment,
-        config: &CookConfig,
-    ) -> Result<Result<(), anyhow::Error>> {
-        log::debug!("About to execute workflow");
-        let result = self.execute_workflow(env, config).await;
-        log::debug!(
-            "Workflow execution completed with result: {:?}",
-            result.is_ok()
-        );
-        Ok(result)
-    }
-
-    /// Finalize session with appropriate status and messaging
-    async fn finalize_session(
-        &self,
-        env: &ExecutionEnvironment,
-        config: &CookConfig,
-        execution_result: Result<(), anyhow::Error>,
-    ) -> Result<()> {
-        match execution_result {
-            Ok(_) => {
-                self.session_manager
-                    .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
-                    .await?;
-                self.user_interaction
-                    .display_success("Cook session completed successfully!");
-            }
-            Err(e) => {
-                // Check if session was interrupted
-                let state = self
-                    .session_manager
-                    .get_state()
-                    .context("Failed to get session state after cook error")?;
-                if state.status == SessionStatus::Interrupted {
-                    self.user_interaction.display_warning(&format!(
-                        "\nSession interrupted. Resume with: prodigy run {} --resume {}",
-                        config
-                            .workflow
-                            .commands
-                            .first()
-                            .map(|_| config.command.playbook.display().to_string())
-                            .unwrap_or_else(|| "<workflow>".to_string()),
-                        env.session_id
-                    ));
-                    // Save checkpoint for resume
-                    let checkpoint_path =
-                        env.working_dir.join(".prodigy").join("session_state.json");
-                    self.session_manager.save_state(&checkpoint_path).await?;
-
-                    // Also update worktree state if using a worktree
-                    if let Some(ref name) = env.worktree_name {
-                        // Get merge config from workflow or mapreduce config
-                        let merge_config = config.workflow.merge.clone().or_else(|| {
-                            config
-                                .mapreduce_config
-                                .as_ref()
-                                .and_then(|m| m.merge.clone())
-                        });
-
-                        // Get workflow environment variables
-                        let workflow_env = config.workflow.env.clone().unwrap_or_default();
-
-                        let worktree_manager = WorktreeManager::with_config(
-                            config.project_path.to_path_buf(),
-                            self.subprocess.clone(),
-                            config.command.verbosity,
-                            merge_config,
-                            workflow_env,
-                        )?;
-                        worktree_manager.update_session_state(name.as_ref(), |state| {
-                            state.status = crate::worktree::WorktreeStatus::Interrupted;
-                            state.interrupted_at = Some(chrono::Utc::now());
-                            state.interruption_type =
-                                Some(crate::worktree::InterruptionType::Unknown);
-                            state.resumable = true;
-                        })?;
-                    }
-                } else {
-                    self.session_manager
-                        .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
-                        .await?;
-                    self.session_manager
-                        .update_session(SessionUpdate::AddError(e.to_string()))
-                        .await?;
-                    self.user_interaction
-                        .display_error(&format!("Session failed: {e}"));
-
-                    // Display how to resume the session
-                    let state = self
-                        .session_manager
-                        .get_state()
-                        .context("Failed to get session state for resume info")?;
-                    if state.workflow_state.is_some() {
-                        self.user_interaction.display_info(&format!(
-                            "\n💡 To resume from last checkpoint, run: prodigy resume {}",
-                            env.session_id
-                        ));
-                    }
-                }
-                return Err(e);
-            }
-        }
-
-        // Cleanup
-        self.cleanup(env, config).await?;
-
-        // Complete session
-        let summary = self.session_manager.complete_session().await?;
-
-        // Don't display session stats in dry-run mode
-        if !config.command.dry_run {
-            self.user_interaction.display_info(&format!(
-                "Session complete: {} iterations, {} files changed",
-                summary.iterations, summary.files_changed
-            ));
-        }
-
-        // Display health score if metrics flag is set
-        if config.command.metrics {
-            self.display_health_score(config).await?;
-        }
-
-        Ok(())
     }
 
     /// Resume an interrupted workflow
@@ -903,7 +691,7 @@ impl DefaultCookOrchestrator {
     }
 
     /// Classify the workflow type based on configuration
-    fn classify_workflow_type(config: &CookConfig) -> WorkflowType {
+    pub(crate) fn classify_workflow_type(config: &CookConfig) -> WorkflowType {
         super::workflow_classifier::classify_workflow_type(config)
     }
 
@@ -948,24 +736,38 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         let env = self.setup_environment(&config).await?;
 
         // Initialize session metadata
-        self.initialize_session_metadata(&env.session_id, &config)
+        self.execution_pipeline
+            .initialize_session_metadata(&env.session_id, &config)
             .await?;
 
         // Setup signal handlers for graceful interruption
-        let interrupt_handler = self.setup_signal_handlers(
+        let interrupt_handler = self.execution_pipeline.setup_signal_handlers(
             &config,
             &env.session_id,
             env.worktree_name.as_ref().map(Arc::clone),
         )?;
 
         // Execute workflow
-        let execution_result = self.coordinate_workflow_execution(&env, &config).await?;
+        log::debug!("About to execute workflow");
+        let execution_result = self.execute_workflow(&env, &config).await;
+        log::debug!(
+            "Workflow execution completed with result: {:?}",
+            execution_result.is_ok()
+        );
 
         // Cancel the interrupt handler
         interrupt_handler.abort();
 
         // Finalize session with appropriate status
-        self.finalize_session(&env, &config, execution_result).await
+        self.execution_pipeline
+            .finalize_session(
+                &env,
+                &config,
+                execution_result,
+                self.cleanup(&env, &config),
+                self.display_health_score(&config),
+            )
+            .await
     }
 
     async fn check_prerequisites(&self) -> Result<()> {
@@ -2791,6 +2593,14 @@ mod tests {
                     None,
                 );
 
+            let execution_pipeline =
+                crate::cook::orchestrator::execution_pipeline::ExecutionPipeline::new(
+                    session_manager.clone() as Arc<dyn SessionManager>,
+                    user_interaction.clone() as Arc<dyn UserInteraction>,
+                    git_operations.clone(),
+                    subprocess.clone(),
+                );
+
             let command_executor =
                 Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
 
@@ -2806,6 +2616,7 @@ mod tests {
                 workflow_executor,
                 health_metrics,
                 argument_processor,
+                execution_pipeline,
             };
 
             (
@@ -3023,6 +2834,14 @@ mod tests {
                     None,
                 );
 
+            let execution_pipeline =
+                crate::cook::orchestrator::execution_pipeline::ExecutionPipeline::new(
+                    session_manager.clone() as Arc<dyn SessionManager>,
+                    user_interaction.clone() as Arc<dyn UserInteraction>,
+                    git_operations.clone(),
+                    subprocess.clone(),
+                );
+
             // Create test config with skip_commit_validation
             let test_config = Some(Arc::new(TestConfiguration {
                 test_mode: true,
@@ -3045,6 +2864,7 @@ mod tests {
                 workflow_executor,
                 health_metrics,
                 argument_processor,
+                execution_pipeline,
             };
 
             // Setup mock response
@@ -3374,6 +3194,14 @@ mod tests {
                     None,
                 );
 
+            let execution_pipeline =
+                crate::cook::orchestrator::execution_pipeline::ExecutionPipeline::new(
+                    session_manager.clone() as Arc<dyn SessionManager>,
+                    user_interaction.clone() as Arc<dyn UserInteraction>,
+                    git_operations.clone(),
+                    subprocess.clone(),
+                );
+
             // Create test config with no_changes_commands
             let test_config = Some(Arc::new(TestConfiguration {
                 test_mode: true,
@@ -3397,6 +3225,7 @@ mod tests {
                 workflow_executor,
                 health_metrics,
                 argument_processor,
+                execution_pipeline,
             };
 
             // Setup mock response
