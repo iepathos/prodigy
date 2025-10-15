@@ -119,6 +119,8 @@ pub struct DefaultCookOrchestrator {
     test_config: Option<Arc<TestConfiguration>>,
     /// Session operations
     session_ops: super::session_ops::SessionOperations,
+    /// Workflow executor
+    workflow_executor: super::workflow_execution::WorkflowExecutor,
 }
 
 impl DefaultCookOrchestrator {
@@ -140,6 +142,13 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
+        let workflow_executor = super::workflow_execution::WorkflowExecutor::new(
+            Arc::clone(&session_manager),
+            Arc::clone(&claude_executor),
+            Arc::clone(&user_interaction),
+            subprocess.clone(),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -149,6 +158,7 @@ impl DefaultCookOrchestrator {
             subprocess,
             test_config: None,
             session_ops,
+            workflow_executor,
         }
     }
 
@@ -171,6 +181,13 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
+        let workflow_executor = super::workflow_execution::WorkflowExecutor::new(
+            Arc::clone(&session_manager),
+            Arc::clone(&claude_executor),
+            Arc::clone(&user_interaction),
+            subprocess.clone(),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -180,6 +197,7 @@ impl DefaultCookOrchestrator {
             subprocess,
             test_config,
             session_ops,
+            workflow_executor,
         }
     }
 
@@ -313,6 +331,13 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
+        let workflow_executor = super::workflow_execution::WorkflowExecutor::new(
+            Arc::clone(&session_manager),
+            Arc::clone(&claude_executor),
+            Arc::clone(&user_interaction),
+            subprocess.clone(),
+        );
+
         Self {
             session_manager,
             command_executor,
@@ -322,6 +347,7 @@ impl DefaultCookOrchestrator {
             subprocess,
             test_config: Some(test_config),
             session_ops,
+            workflow_executor,
         }
     }
 
@@ -600,62 +626,9 @@ impl DefaultCookOrchestrator {
         _start_iteration: usize,
         start_step: usize,
     ) -> Result<()> {
-        // Standard workflow only has one iteration
-        let steps: Vec<WorkflowStep> = config
-            .workflow
-            .commands
-            .iter()
-            .map(Self::convert_command_to_step)
-            .collect();
-
-        // Execute steps starting from start_step
-        for (index, step) in steps.iter().enumerate().skip(start_step) {
-            self.user_interaction.display_info(&format!(
-                "Executing step {}/{}",
-                index + 1,
-                steps.len()
-            ));
-
-            // Save checkpoint before executing
-            let mut workflow_state = crate::cook::session::WorkflowState {
-                current_iteration: 0,
-                current_step: index,
-                completed_steps: Vec::new(),
-                workflow_path: config.command.playbook.clone(),
-                input_args: config.command.args.clone(),
-                map_patterns: config.command.map.clone(),
-                using_worktree: true,
-            };
-
-            self.session_manager
-                .update_session(SessionUpdate::UpdateWorkflowState(workflow_state.clone()))
-                .await?;
-
-            // Execute the step
-            self.execute_step(env, step, config).await?;
-
-            // Update completed steps
-            workflow_state
-                .completed_steps
-                .push(crate::cook::session::StepResult {
-                    step_index: index,
-                    command: format!("{:?}", step),
-                    success: true,
-                    output: None,
-                    duration: std::time::Duration::from_secs(0),
-                    error: None,
-                    started_at: chrono::Utc::now(),
-                    completed_at: chrono::Utc::now(),
-                    exit_code: Some(0),
-                });
-
-            // Save checkpoint after successful execution
-            self.session_manager
-                .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
-                .await?;
-        }
-
-        Ok(())
+        self.workflow_executor
+            .execute_standard_workflow_from(env, config, _start_iteration, start_step)
+            .await
     }
 
     /// Execute iterative workflow from a specific point
@@ -666,61 +639,9 @@ impl DefaultCookOrchestrator {
         start_iteration: usize,
         start_step: usize,
     ) -> Result<()> {
-        // Similar to standard workflow but with iteration support
-        let max_iterations = config.command.max_iterations as usize;
-
-        for iteration in start_iteration..max_iterations {
-            self.user_interaction.display_info(&format!(
-                "Iteration {}/{}",
-                iteration + 1,
-                max_iterations
-            ));
-
-            self.session_manager
-                .update_session(SessionUpdate::StartIteration((iteration + 1) as u32))
-                .await?;
-
-            let steps: Vec<WorkflowStep> = config
-                .workflow
-                .commands
-                .iter()
-                .map(Self::convert_command_to_step)
-                .collect();
-
-            let step_start = if iteration == start_iteration {
-                start_step
-            } else {
-                0
-            };
-
-            for (index, step) in steps.iter().enumerate().skip(step_start) {
-                // Save checkpoint and execute step
-                let workflow_state = crate::cook::session::WorkflowState {
-                    current_iteration: iteration,
-                    current_step: index,
-                    completed_steps: Vec::new(),
-                    workflow_path: config.command.playbook.clone(),
-                    input_args: config.command.args.clone(),
-                    map_patterns: config.command.map.clone(),
-                    using_worktree: true,
-                };
-
-                self.session_manager
-                    .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
-                    .await?;
-
-                self.execute_step(env, step, config).await?;
-            }
-
-            self.session_manager
-                .update_session(SessionUpdate::CompleteIteration)
-                .await?;
-            self.session_manager
-                .update_session(SessionUpdate::IncrementIteration)
-                .await?;
-        }
-
-        Ok(())
+        self.workflow_executor
+            .execute_iterative_workflow_from(env, config, start_iteration, start_step)
+            .await
     }
 
     /// Execute structured workflow from a specific point
@@ -731,8 +652,8 @@ impl DefaultCookOrchestrator {
         _start_iteration: usize,
         start_step: usize,
     ) -> Result<()> {
-        // Similar to standard workflow but preserves output handling
-        self.execute_standard_workflow_from(env, config, 0, start_step)
+        self.workflow_executor
+            .execute_structured_workflow_from(env, config, _start_iteration, start_step)
             .await
     }
 
@@ -743,42 +664,14 @@ impl DefaultCookOrchestrator {
         step: &WorkflowStep,
         _config: &CookConfig,
     ) -> Result<()> {
-        // Execute based on step type
-        if let Some(ref claude_cmd) = step.claude {
-            // Execute Claude command using the correct method
-            let env_vars = std::collections::HashMap::new();
-            self.claude_executor
-                .execute_claude_command(claude_cmd, &env.working_dir, env_vars)
-                .await?;
-        } else if let Some(ref shell_cmd) = step.shell {
-            // Execute shell command using subprocess runner
-            use crate::subprocess::{ProcessCommand, ProcessError};
-            let command = ProcessCommand {
-                program: "sh".to_string(),
-                args: vec!["-c".to_string(), shell_cmd.clone()],
-                working_dir: Some(env.working_dir.to_path_buf()),
-                env: std::collections::HashMap::new(),
-                timeout: None,
-                stdin: None,
-                suppress_stderr: false,
-            };
-            let output = self
-                .subprocess
-                .runner()
-                .run(command)
-                .await
-                .map_err(|e: ProcessError| anyhow!("Shell command failed: {}", e))?;
-            if !output.status.success() {
-                return Err(anyhow!("Shell command failed: {}", shell_cmd));
-            }
-        }
-
-        Ok(())
+        self.workflow_executor
+            .execute_step(env, step, _config)
+            .await
     }
 
     /// Convert a workflow command to a workflow step
     fn convert_command_to_step(cmd: &WorkflowCommand) -> WorkflowStep {
-        super::normalization::convert_command_to_step(cmd)
+        super::workflow_execution::WorkflowExecutor::convert_command_to_step(cmd)
     }
 
     #[allow(dead_code)]
@@ -3128,6 +3021,13 @@ mod tests {
                 subprocess.clone(),
             );
 
+            let workflow_executor = crate::cook::orchestrator::workflow_execution::WorkflowExecutor::new(
+                session_manager.clone() as Arc<dyn SessionManager>,
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                subprocess.clone(),
+            );
+
             let command_executor =
                 Arc::new(crate::testing::mocks::subprocess::CommandExecutorMock::new());
 
@@ -3140,6 +3040,7 @@ mod tests {
                 subprocess,
                 test_config: None,
                 session_ops,
+                workflow_executor,
             };
 
             (
@@ -3337,6 +3238,13 @@ mod tests {
                 subprocess.clone(),
             );
 
+            let workflow_executor = crate::cook::orchestrator::workflow_execution::WorkflowExecutor::new(
+                session_manager.clone() as Arc<dyn SessionManager>,
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                subprocess.clone(),
+            );
+
             // Create test config with skip_commit_validation
             let test_config = Some(Arc::new(TestConfiguration {
                 test_mode: true,
@@ -3356,6 +3264,7 @@ mod tests {
                 subprocess,
                 test_config,
                 session_ops,
+                workflow_executor,
             };
 
             // Setup mock response
@@ -3665,6 +3574,13 @@ mod tests {
                 subprocess.clone(),
             );
 
+            let workflow_executor = crate::cook::orchestrator::workflow_execution::WorkflowExecutor::new(
+                session_manager.clone() as Arc<dyn SessionManager>,
+                claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+                user_interaction.clone() as Arc<dyn UserInteraction>,
+                subprocess.clone(),
+            );
+
             // Create test config with no_changes_commands
             let test_config = Some(Arc::new(TestConfiguration {
                 test_mode: true,
@@ -3685,6 +3601,7 @@ mod tests {
                 subprocess,
                 test_config,
                 session_ops,
+                workflow_executor,
             };
 
             // Setup mock response
