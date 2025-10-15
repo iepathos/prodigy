@@ -3,7 +3,7 @@
 use super::{CommandExecutor, CommandRunner, ExecutionContext, ExecutionResult};
 use crate::cook::execution::events::EventLogger;
 use crate::testing::config::TestConfiguration;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::Path;
@@ -216,9 +216,9 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         env_vars: HashMap<String, String>,
     ) -> Result<ExecutionResult> {
         // Generate log file path that Prodigy will save the streaming JSON to
-        // Use temp directory in test environments (when RUST_TEST_THREADS is set)
+        // Use temp directory in test environments (when RUST_TEST_THREADS is set or in cfg(test))
         // This avoids permission issues in CI
-        let use_temp_dir = std::env::var("RUST_TEST_THREADS").is_ok();
+        let use_temp_dir = cfg!(test) || std::env::var("RUST_TEST_THREADS").is_ok();
         let log_path = if use_temp_dir {
             generate_streaming_log_path_temp()?
         } else {
@@ -369,7 +369,8 @@ fn generate_streaming_log_path_home() -> Result<std::path::PathBuf> {
     let log_dir = home.join(".prodigy/logs/claude-streaming");
 
     // Create directory if it doesn't exist
-    std::fs::create_dir_all(&log_dir)?;
+    std::fs::create_dir_all(&log_dir)
+        .with_context(|| format!("Failed to create log directory: {}", log_dir.display()))?;
 
     // Generate unique filename with timestamp and UUID
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
@@ -389,7 +390,8 @@ fn generate_streaming_log_path_temp() -> Result<std::path::PathBuf> {
     let log_dir = temp_dir.join(".prodigy-test/logs/claude-streaming");
 
     // Create directory if it doesn't exist
-    std::fs::create_dir_all(&log_dir)?;
+    std::fs::create_dir_all(&log_dir)
+        .with_context(|| format!("Failed to create test log directory: {}", log_dir.display()))?;
 
     // Generate unique filename with timestamp and UUID
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");

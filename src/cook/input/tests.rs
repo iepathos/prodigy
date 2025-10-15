@@ -825,7 +825,9 @@ async fn test_file_pattern_with_exclusions() {
         if let Some(parent) = file_path.parent() {
             create_dir_all(parent).unwrap();
         }
-        std::fs::File::create(file_path).unwrap();
+        let f = std::fs::File::create(file_path).unwrap();
+        // Ensure file is synced to filesystem to avoid timing issues
+        f.sync_all().unwrap();
     }
 
     let provider = file_pattern::FilePatternInputProvider::new();
