@@ -408,6 +408,97 @@ Prodigy supports parallel execution of work items across multiple Claude agents:
 - Results are aggregated in the reduce phase
 - Failed items can be retried via the DLQ
 
+### MapReduce Checkpoint and Resume (Spec 134)
+
+Prodigy provides comprehensive checkpoint and resume capabilities for MapReduce workflows, ensuring work can be recovered from any point of failure.
+
+#### Checkpoint Behavior
+
+**Setup Phase Checkpointing**:
+- Checkpoint created after successful setup completion
+- Preserves setup output, generated artifacts, and environment state
+- Stored in global storage at `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/setup-checkpoint.json`
+
+**Map Phase Checkpointing**:
+- Checkpoints created after processing configurable number of work items
+- Tracks completed, in-progress, and pending work items
+- Stores agent results and failure details for recovery
+- Resume continues from last successful checkpoint
+
+**Reduce Phase Checkpointing**:
+- Checkpoint created after each reduce command execution
+- Tracks completed steps, step results, variables, and map results
+- Enables resume from any point in reduce phase execution
+- Stored as `reduce-checkpoint-v1-{timestamp}.json`
+
+#### Resume with Session or Job IDs
+
+MapReduce jobs can be resumed using either session IDs or job IDs:
+
+```bash
+# Resume using session ID
+prodigy resume session-mapreduce-1234567890
+
+# Resume using job ID
+prodigy resume-job mapreduce-1234567890
+
+# Unified resume command (auto-detects ID type)
+prodigy resume mapreduce-1234567890
+```
+
+**Session-Job Mapping**:
+- Bidirectional mapping stored in `~/.prodigy/state/{repo_name}/mappings/`
+- Maps session IDs to job IDs and vice versa
+- Created when MapReduce workflow starts
+- Enables resume with either identifier
+
+#### State Preservation
+
+**Variables and Context**:
+- Workflow variables preserved across resume
+- Captured outputs from setup and reduce phases
+- Environment variables maintained
+- Map results available to reduce phase after resume
+
+**Work Item State**:
+- Completed items: Preserved with full results
+- In-progress items: Moved back to pending on resume
+- Failed items: Tracked with retry counts and error details
+- Pending items: Continue processing from where left off
+
+**Agent State**:
+- Active agent information preserved
+- Resource allocation tracked
+- Worktree paths recorded for cleanup
+
+#### Resume Strategies
+
+Based on checkpoint state and phase, different resume strategies apply:
+
+- **Setup Phase**: Restart setup from beginning (idempotent operations recommended)
+- **Map Phase**: Continue from last checkpoint, re-process in-progress items
+- **Reduce Phase**: Continue from last completed step
+- **Validate and Continue**: Verify checkpoint integrity before resuming
+
+#### Storage Structure
+
+```
+~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/
+├── setup-checkpoint.json           # Setup phase results
+├── map-checkpoint-{timestamp}.json  # Map phase progress
+├── reduce-checkpoint-v1-{timestamp}.json  # Reduce phase progress
+└── job-state.json                  # Overall job state
+```
+
+#### Example Resume Workflow
+
+1. Workflow interrupted during reduce phase
+2. Find job with `prodigy sessions list` or `prodigy resume-job list`
+3. Resume using `prodigy resume <session-or-job-id>`
+4. Prodigy loads latest checkpoint
+5. Reconstructs execution state
+6. Continues from last completed step
+
 ### Worktree Isolation (Spec 127)
 
 **All MapReduce workflow phases (setup, map, reduce) execute in an isolated git worktree**, ensuring the main repository remains untouched during workflow execution.

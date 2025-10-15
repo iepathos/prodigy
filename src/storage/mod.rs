@@ -8,6 +8,7 @@ pub mod error;
 pub mod factory;
 pub mod global;
 pub mod lock;
+pub mod session_job_mapping;
 pub mod types;
 
 #[cfg(test)]
@@ -18,6 +19,7 @@ pub use error::{StorageError, StorageResult};
 pub use factory::StorageFactory;
 pub use global::GlobalStorage;
 pub use lock::{StorageLock, StorageLockGuard};
+pub use session_job_mapping::SessionJobMapping;
 pub use types::{
     CheckpointFilter, DLQFilter, EventFilter, EventStats, EventStream, EventSubscription,
     HealthStatus, SessionFilter, SessionId, SessionState, WorkflowFilter,

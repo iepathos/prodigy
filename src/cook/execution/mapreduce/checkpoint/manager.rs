@@ -735,6 +735,101 @@ impl CheckpointManager {
         info!("Successfully imported checkpoint with ID {}", new_id);
         Ok(new_id)
     }
+
+    /// Save a reduce phase checkpoint
+    pub async fn save_reduce_checkpoint(
+        &self,
+        reduce_checkpoint: &super::reduce::ReducePhaseCheckpoint,
+    ) -> Result<PathBuf> {
+        let checkpoint_dir = self.get_reduce_checkpoint_dir().await?;
+        let checkpoint_file = checkpoint_dir.join(format!(
+            "reduce-checkpoint-v{}-{}.json",
+            reduce_checkpoint.version,
+            reduce_checkpoint.timestamp.format("%Y%m%d_%H%M%S")
+        ));
+
+        // Ensure directory exists
+        fs::create_dir_all(&checkpoint_dir).await?;
+
+        // Serialize and write checkpoint
+        let json = serde_json::to_vec_pretty(reduce_checkpoint)
+            .context("Failed to serialize reduce checkpoint")?;
+
+        // Write atomically
+        let temp_file = checkpoint_file.with_extension("tmp");
+        fs::write(&temp_file, &json).await?;
+        fs::rename(&temp_file, &checkpoint_file).await?;
+
+        info!("Saved reduce checkpoint to {:?}", checkpoint_file);
+        Ok(checkpoint_file)
+    }
+
+    /// Load the latest reduce phase checkpoint
+    pub async fn load_reduce_checkpoint(
+        &self,
+    ) -> Result<Option<super::reduce::ReducePhaseCheckpoint>> {
+        let checkpoint_dir = self.get_reduce_checkpoint_dir().await?;
+
+        if !checkpoint_dir.exists() {
+            return Ok(None);
+        }
+
+        // Find the latest reduce checkpoint file
+        let mut entries = fs::read_dir(&checkpoint_dir).await?;
+        let mut latest_checkpoint: Option<(PathBuf, std::fs::Metadata)> = None;
+
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .map(|s| s.starts_with("reduce-checkpoint-") && s.ends_with(".json"))
+                .unwrap_or(false)
+            {
+                if let Ok(metadata) = tokio::fs::metadata(&path).await {
+                    if latest_checkpoint.is_none()
+                        || metadata.modified().ok()
+                            > latest_checkpoint
+                                .as_ref()
+                                .and_then(|(_, m)| m.modified().ok())
+                    {
+                        latest_checkpoint = Some((path.clone(), metadata.into()));
+                    }
+                }
+            }
+        }
+
+        if let Some((checkpoint_file, _)) = latest_checkpoint {
+            let data = fs::read(&checkpoint_file).await?;
+            let checkpoint: super::reduce::ReducePhaseCheckpoint = serde_json::from_slice(&data)
+                .context("Failed to deserialize reduce checkpoint")?;
+
+            info!("Loaded reduce checkpoint from {:?}", checkpoint_file);
+            Ok(Some(checkpoint))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Check if reduce phase can be resumed
+    pub async fn can_resume_reduce(&self) -> Result<bool> {
+        let checkpoint = self.load_reduce_checkpoint().await?;
+        Ok(checkpoint.map(|c| c.can_resume()).unwrap_or(false))
+    }
+
+    /// Get the reduce checkpoint directory
+    async fn get_reduce_checkpoint_dir(&self) -> Result<PathBuf> {
+        // Get the base storage directory
+        let storage_dir = crate::storage::get_default_storage_dir()
+            .context("Failed to determine storage directory")?;
+
+        let checkpoint_dir = storage_dir
+            .join("state")
+            .join("reduce_checkpoints")
+            .join(&self.job_id);
+
+        Ok(checkpoint_dir)
+    }
 }
 
 /// State for resuming execution
