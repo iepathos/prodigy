@@ -233,6 +233,8 @@ Before writing the plan, ensure:
 
 ### Step 6: Write the Plan
 
+**CRITICAL**: This file will be used throughout the workflow. Do NOT delete it after creation or at any point during the workflow execution.
+
 Write the complete implementation plan to `$ARG_output`:
 
 ```bash

@@ -242,6 +242,8 @@ fn process_data(input: &Data) -> Result<Output> {
 
 ### Step 3: Complete Remaining Plan Items
 
+**CRITICAL**: **NEVER DELETE IMPLEMENTATION_PLAN.md** - The workflow requires this file for validation. Even if you complete all plan items, the workflow still needs this file. Do not remove it.
+
 **Read IMPLEMENTATION_PLAN.md** and identify incomplete items:
 
 Example plan structure:
@@ -439,12 +441,13 @@ The command succeeds when:
 
 ## Important Notes
 
-1. **Always apply functional programming principles** when fixing technical debt
-2. **Preserve existing functionality** during refactoring
-3. **Focus on pure functions** - easier to test and reason about
-4. **Use immutable data structures** where possible
-5. **Separate I/O from business logic** - core principle for maintainable code
-6. **Create composable functions** - build complex behavior from simple parts
-7. **Output valid JSON** for workflow parsing
-8. **MUST create git commit** - Prodigy requires this to verify fixes were made
-9. **Document functional patterns used** in commit messages
+1. **NEVER DELETE IMPLEMENTATION_PLAN.md** - The workflow requires this file throughout execution
+2. **Always apply functional programming principles** when fixing technical debt
+3. **Preserve existing functionality** during refactoring
+4. **Focus on pure functions** - easier to test and reason about
+5. **Use immutable data structures** where possible
+6. **Separate I/O from business logic** - core principle for maintainable code
+7. **Create composable functions** - build complex behavior from simple parts
+8. **Output valid JSON** for workflow parsing
+9. **MUST create git commit** - Prodigy requires this to verify fixes were made
+10. **Document functional patterns used** in commit messages
