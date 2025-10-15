@@ -250,14 +250,6 @@ impl DefaultCookOrchestrator {
     }
 
     /// Create environment configuration from workflow config - avoids cloning
-    #[allow(dead_code)]
-    fn create_env_config(
-        &self,
-        workflow: &WorkflowConfig,
-    ) -> crate::cook::environment::EnvironmentConfig {
-        super::construction::create_env_config(workflow)
-    }
-
     /// Create workflow executor - avoids repeated Arc cloning
     pub(super) fn create_workflow_executor_internal(
         &self,
@@ -419,73 +411,9 @@ impl DefaultCookOrchestrator {
         super::workflow_execution::WorkflowExecutor::convert_command_to_step(cmd)
     }
 
-    #[allow(dead_code)]
-    fn determine_commit_required_old(
-        cmd: &WorkflowCommand,
-        command: &crate::config::command::Command,
-    ) -> bool {
-        match cmd {
-            WorkflowCommand::SimpleObject(simple) => {
-                // If explicitly set in YAML, use that value
-                if let Some(cr) = simple.commit_required {
-                    cr
-                } else if crate::config::command_validator::COMMAND_REGISTRY
-                    .get(&command.name)
-                    .is_some()
-                {
-                    // Command is in registry, use its configured default
-                    command.metadata.commit_required
-                } else {
-                    // Command not in registry, use WorkflowStep's default
-                    true
-                }
-            }
-            WorkflowCommand::Structured(_) => {
-                // Structured commands already have metadata
-                command.metadata.commit_required
-            }
-            _ => {
-                // For string commands, check registry or use WorkflowStep default
-                if crate::config::command_validator::COMMAND_REGISTRY
-                    .get(&command.name)
-                    .is_some()
-                {
-                    command.metadata.commit_required
-                } else {
-                    true
-                }
-            }
-        }
-    }
-
     /// Classify the workflow type based on configuration
     pub(crate) fn classify_workflow_type(config: &CookConfig) -> WorkflowType {
         super::workflow_classifier::classify_workflow_type(config)
-    }
-
-    #[allow(dead_code)]
-    fn classify_workflow_type_old(config: &CookConfig) -> WorkflowType {
-        // MapReduce takes precedence
-        if config.mapreduce_config.is_some() {
-            return WorkflowType::MapReduce;
-        }
-
-        // Check for structured commands with outputs
-        let has_structured_outputs = config.workflow.commands.iter().any(|cmd| {
-            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
-                if c.outputs.is_some())
-        });
-
-        if has_structured_outputs {
-            return WorkflowType::StructuredWithOutputs;
-        }
-
-        // Check for args or map parameters
-        if !config.command.args.is_empty() || !config.command.map.is_empty() {
-            return WorkflowType::WithArguments;
-        }
-
-        WorkflowType::Standard
     }
 }
 
@@ -1010,25 +938,6 @@ impl DefaultCookOrchestrator {
     /// Helper to match glob-style patterns
     fn matches_glob_pattern(&self, file: &str, pattern: &str) -> bool {
         super::workflow_classifier::matches_glob_pattern(file, pattern)
-    }
-
-    #[allow(dead_code)]
-    fn matches_glob_pattern_old(&self, file: &str, pattern: &str) -> bool {
-        // Simple glob matching for common cases
-        if pattern == "*" {
-            return true;
-        }
-
-        // Handle patterns like "*.md" or "*test*"
-        let parts: Vec<&str> = pattern.split('*').collect();
-        if parts.len() == 2 {
-            let prefix = parts[0];
-            let suffix = parts[1];
-            let filename = file.split('/').next_back().unwrap_or(file);
-            return filename.starts_with(prefix) && filename.ends_with(suffix);
-        }
-
-        false
     }
 
     /* REMOVED: Analysis functionality has been removed in v0.3.0
