@@ -287,7 +287,10 @@ impl ExecutionPipeline {
             Err(_) => {
                 // Session not found in unified storage, try loading from worktree
                 // The config.project_path should already be the worktree path when resuming
-                let session_file = config.project_path.join(".prodigy").join("session_state.json");
+                let session_file = config
+                    .project_path
+                    .join(".prodigy")
+                    .join("session_state.json");
 
                 if !session_file.exists() {
                     return Err(anyhow!(

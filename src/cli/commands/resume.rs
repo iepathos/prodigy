@@ -303,7 +303,7 @@ async fn try_resume_regular_workflow(
     let workflow_pathbuf = PathBuf::from(workflow_path);
     let cook_cmd = crate::cook::command::CookCommand {
         playbook: workflow_pathbuf,
-        path: Some(worktree_path.clone()),  // Use worktree path, not current dir
+        path: Some(worktree_path.clone()), // Use worktree path, not current dir
         max_iterations: 1,
         map: vec![],
         args: vec![],
