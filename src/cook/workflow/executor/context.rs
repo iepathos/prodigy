@@ -410,9 +410,9 @@ impl WorkflowExecutor {
 
 #[cfg(test)]
 mod tests {
-    use crate::cook::workflow::variables::{CapturedValue, VariableStore};
-    use crate::cook::workflow::executor::WorkflowContext;
     use crate::cook::execution::interpolation::InterpolationEngine;
+    use crate::cook::workflow::executor::WorkflowContext;
+    use crate::cook::workflow::variables::{CapturedValue, VariableStore};
     use serde_json::json;
     use std::sync::Arc;
 
@@ -435,7 +435,9 @@ mod tests {
                 "commits": ["def456"]
             })),
         ];
-        store.set("map.results", CapturedValue::Array(map_results)).await;
+        store
+            .set("map.results", CapturedValue::Array(map_results))
+            .await;
 
         // Create a WorkflowContext with the variable store
         let mut ctx = WorkflowContext::default();
@@ -446,7 +448,8 @@ mod tests {
 
         // Interpolate ${map.results}
         let mut engine = InterpolationEngine::new(false);
-        let interpolated = engine.interpolate("${map.results}", &interpolation_context)
+        let interpolated = engine
+            .interpolate("${map.results}", &interpolation_context)
             .expect("Interpolation should succeed");
 
         // Verify that the interpolated string is valid JSON
@@ -467,7 +470,9 @@ mod tests {
     async fn test_map_summary_stats_interpolation() {
         // Test that map.successful, map.failed, map.total work correctly
         let store = VariableStore::new();
-        store.set("map.successful", CapturedValue::Number(8.0)).await;
+        store
+            .set("map.successful", CapturedValue::Number(8.0))
+            .await;
         store.set("map.failed", CapturedValue::Number(2.0)).await;
         store.set("map.total", CapturedValue::Number(10.0)).await;
 
@@ -478,7 +483,8 @@ mod tests {
         let mut engine = InterpolationEngine::new(false);
 
         let template = "Processed ${map.total}: ${map.successful} ok, ${map.failed} failed";
-        let result = engine.interpolate(template, &interpolation_context)
+        let result = engine
+            .interpolate(template, &interpolation_context)
             .expect("Interpolation should succeed");
 
         assert_eq!(result, "Processed 10.0: 8.0 ok, 2.0 failed");

@@ -568,6 +568,7 @@ impl ResumeExecutor {
             session_manager.clone(),
             user_interaction.clone(),
         )
+        .with_workflow_path(workflow_path.clone())
         .with_checkpoint_manager(self.checkpoint_manager.clone(), workflow_id.to_string());
 
         // Execute remaining steps

@@ -308,7 +308,16 @@ async fn try_resume_regular_workflow(
     let workflow_path = checkpoint
         .get("workflow_path")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow!("Checkpoint does not contain workflow_path field"))?;
+        .ok_or_else(|| {
+            anyhow!(
+                "Checkpoint does not contain workflow_path field.\n\n\
+                This checkpoint was created with an older version of Prodigy that didn't save\n\
+                the workflow file path. You can resume this session using:\n\n\
+                  prodigy run <workflow-file>.yml --resume {}\n\n\
+                Where <workflow-file>.yml is the original workflow file you used.",
+                session_id
+            )
+        })?;
 
     println!("🔄 Resuming session: {}", session_id);
     println!("📄 Workflow: {}", workflow_path);

@@ -321,6 +321,7 @@ impl ArgumentProcessor {
             self.session_manager.clone(),
             self.user_interaction.clone(),
         )
+        .with_workflow_path(config.command.playbook.clone())
         .with_dry_run(config.command.dry_run)
     }
 }
