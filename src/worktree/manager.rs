@@ -400,7 +400,9 @@ impl WorktreeManager {
 
     /// Execute Claude merge - I/O operation
     async fn execute_claude_merge(&self, worktree_branch: &str) -> Result<String> {
-        eprintln!("Running claude /prodigy-merge-worktree with branch: {worktree_branch}");
+        if self.verbosity >= 1 {
+            eprintln!("Running claude /prodigy-merge-worktree with branch: {worktree_branch}");
+        }
 
         let env_vars = self.build_claude_environment_variables();
         let claude_executor = self.create_claude_executor();
@@ -415,7 +417,10 @@ impl WorktreeManager {
             .context("Failed to execute claude /prodigy-merge-worktree")?;
 
         Self::validate_claude_result(&result)?;
-        println!("{}", result.stdout);
+        if self.verbosity == 0 {
+            // Clean output - only show the final result message
+            println!("{}", result.stdout);
+        }
         Ok(result.stdout)
     }
 
