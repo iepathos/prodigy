@@ -51,16 +51,21 @@ impl MergeQueue {
     /// The worker task will process merge requests sequentially until
     /// the queue is dropped and all senders are closed.
     pub fn new(git_ops: Arc<GitOperations>) -> Self {
-        Self::new_with_claude(git_ops, None)
+        Self::new_with_claude(git_ops, None, 0)
     }
 
     /// Create a new merge queue with Claude support for conflict resolution
     ///
     /// When a Claude executor is provided, the queue will automatically attempt
     /// to resolve merge conflicts using Claude-assisted merge commands.
+    ///
+    /// The verbosity parameter controls Claude console output behavior:
+    /// - verbosity >= 1: Claude streaming JSON output is displayed
+    /// - verbosity == 0: Clean output with streaming JSON confined to log files
     pub fn new_with_claude(
         git_ops: Arc<GitOperations>,
         claude_executor: Option<Arc<dyn ClaudeExecutor>>,
+        verbosity: u8,
     ) -> Self {
         let (tx, mut rx) = mpsc::unbounded_channel::<MergeRequest>();
 
@@ -92,6 +97,22 @@ impl MergeQueue {
                         // Execute Claude merge command in parent worktree
                         let mut env_vars = HashMap::new();
                         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+
+                        // Only set PRODIGY_CLAUDE_STREAMING if verbosity >= 1
+                        if verbosity >= 1 {
+                            env_vars
+                                .insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
+                        }
+
+                        // Respect PRODIGY_CLAUDE_CONSOLE_OUTPUT override
+                        if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default()
+                            == "true"
+                        {
+                            env_vars.insert(
+                                "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+                                "true".to_string(),
+                            );
+                        }
 
                         match executor
                             .execute_claude_command(

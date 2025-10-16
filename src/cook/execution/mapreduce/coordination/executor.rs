@@ -60,6 +60,8 @@ pub struct MapReduceCoordinator {
     timeout_enforcer: Arc<Mutex<Option<Arc<TimeoutEnforcer>>>>,
     /// Merge queue for serializing agent merges
     merge_queue: Arc<MergeQueue>,
+    /// Verbosity level for controlling output
+    verbosity: u8,
 }
 
 impl MapReduceCoordinator {
@@ -78,6 +80,7 @@ impl MapReduceCoordinator {
             subprocess,
             project_root,
             crate::cook::execution::mapreduce::dry_run::ExecutionMode::Normal,
+            0, // Default verbosity
         )
     }
 
@@ -89,6 +92,7 @@ impl MapReduceCoordinator {
         subprocess: Arc<SubprocessManager>,
         project_root: PathBuf,
         execution_mode: crate::cook::execution::mapreduce::dry_run::ExecutionMode,
+        verbosity: u8,
     ) -> Self {
         let result_collector = Arc::new(ResultCollector::new(CollectionStrategy::InMemory));
         let job_id = format!("mapreduce-{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
@@ -107,6 +111,7 @@ impl MapReduceCoordinator {
         let merge_queue = Arc::new(MergeQueue::new_with_claude(
             git_ops,
             Some(claude_executor.clone()),
+            verbosity,
         ));
 
         Self {
@@ -123,6 +128,7 @@ impl MapReduceCoordinator {
             execution_mode,
             timeout_enforcer: Arc::new(Mutex::new(None)),
             merge_queue,
+            verbosity,
         }
     }
 
@@ -336,6 +342,19 @@ impl MapReduceCoordinator {
 
         let mut env_vars = HashMap::new();
         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+
+        // Only set PRODIGY_CLAUDE_STREAMING if verbosity >= 1
+        if self.verbosity >= 1 {
+            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
+        }
+
+        // Respect PRODIGY_CLAUDE_CONSOLE_OUTPUT override
+        if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
+            env_vars.insert(
+                "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+                "true".to_string(),
+            );
+        }
 
         // Execute Claude merge command in the parent worktree context
         let merge_result = self

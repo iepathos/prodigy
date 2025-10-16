@@ -1950,12 +1950,22 @@ impl WorkflowExecutor {
 
         // Create MapReduce executor
         // Use the worktree as the base for map phase agent worktrees
-        let mut mapreduce_executor = MapReduceExecutor::new(
+        // Convert VerbosityLevel to u8 for merge operation verbosity control
+        let verbosity_u8 = match self.user_interaction.verbosity() {
+            crate::cook::interaction::VerbosityLevel::Quiet => 0,
+            crate::cook::interaction::VerbosityLevel::Normal => 0,
+            crate::cook::interaction::VerbosityLevel::Verbose => 1,
+            crate::cook::interaction::VerbosityLevel::Debug => 2,
+            crate::cook::interaction::VerbosityLevel::Trace => 3,
+        };
+
+        let mut mapreduce_executor = MapReduceExecutor::new_with_verbosity(
             self.claude_executor.clone(),
             self.session_manager.clone(),
             self.user_interaction.clone(),
             worktree_manager.clone(),
             worktree_result.path.clone(), // Use worktree path as base for agents
+            verbosity_u8,
         )
         .await;
 

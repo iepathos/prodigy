@@ -89,6 +89,7 @@ pub struct MapReduceExecutor {
     correlation_id: String,
     enable_web_dashboard: bool,
     setup_variables: HashMap<String, String>,
+    verbosity: u8,
 
     // Command execution
     interpolation_engine: Arc<Mutex<InterpolationEngine>>,
@@ -134,6 +135,26 @@ impl MapReduceExecutor {
         worktree_manager: Arc<WorktreeManager>,
         project_root: PathBuf,
     ) -> Self {
+        Self::new_with_verbosity(
+            claude_executor,
+            session_manager,
+            user_interaction,
+            worktree_manager,
+            project_root,
+            0,
+        )
+        .await
+    }
+
+    /// Create a new MapReduce executor with verbosity level
+    pub async fn new_with_verbosity(
+        claude_executor: Arc<dyn ClaudeExecutor>,
+        session_manager: Arc<dyn SessionManager>,
+        user_interaction: Arc<dyn UserInteraction>,
+        worktree_manager: Arc<WorktreeManager>,
+        project_root: PathBuf,
+        verbosity: u8,
+    ) -> Self {
         // Initialize state management
         let state_manager = Self::initialize_state_manager(&project_root).await;
 
@@ -174,6 +195,7 @@ impl MapReduceExecutor {
             correlation_id: Uuid::new_v4().to_string(),
             enable_web_dashboard: Self::check_web_dashboard_env(),
             setup_variables: HashMap::new(),
+            verbosity,
             interpolation_engine,
             command_registry,
             command_router,
@@ -356,6 +378,7 @@ impl MapReduceExecutor {
                 self.subprocess.clone(),
                 self.project_root.clone(),
                 self.execution_mode.clone(),
+                self.verbosity,
             )));
         }
 
