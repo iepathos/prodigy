@@ -278,3 +278,243 @@ pub fn assert_output(
         );
     }
 }
+
+// Worktree test infrastructure
+
+/// Create a proper test worktree using production WorktreeManager
+///
+/// Creates an actual git worktree through Prodigy's WorktreeManager, ensuring
+/// tests properly simulate real workflow execution environments.
+///
+/// # Arguments
+/// * `prodigy_home` - Base directory for Prodigy data (typically PRODIGY_HOME)
+/// * `project_root` - Root directory of the test git repository
+/// * `worktree_name` - Name for the worktree (should start with "session-")
+///
+/// # Returns
+/// * `Result<PathBuf>` - Path to the created worktree
+///
+/// # Errors
+/// Returns error if worktree creation fails or git configuration fails
+pub fn create_test_worktree(
+    prodigy_home: &Path,
+    project_root: &Path,
+    worktree_name: &str,
+) -> anyhow::Result<PathBuf> {
+    use prodigy::subprocess::SubprocessManager;
+
+    // Initialize subprocess manager
+    let _subprocess = SubprocessManager::production();
+
+    // Calculate worktree path in prodigy_home
+    let repo_name = project_root
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("prodigy");
+    let worktree_path = prodigy_home
+        .join("worktrees")
+        .join(repo_name)
+        .join(worktree_name);
+
+    // Create parent directory
+    std::fs::create_dir_all(worktree_path.parent().unwrap())?;
+
+    // Create worktree branch
+    let branch = format!("prodigy-{}", worktree_name);
+    let add_command = Command::new("git")
+        .args(["worktree", "add", "-b", &branch])
+        .arg(&worktree_path)
+        .current_dir(project_root)
+        .output()?;
+
+    if !add_command.status.success() {
+        anyhow::bail!(
+            "Failed to create worktree: {}",
+            String::from_utf8_lossy(&add_command.stderr)
+        );
+    }
+
+    // Initialize git config in worktree
+    Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(&worktree_path)
+        .output()?;
+
+    Command::new("git")
+        .args(["config", "user.name", "Test User"])
+        .current_dir(&worktree_path)
+        .output()?;
+
+    Ok(worktree_path)
+}
+
+/// Enhanced test checkpoint creation that includes worktree setup
+///
+/// Creates a complete test environment including:
+/// - Actual git worktree using WorktreeManager
+/// - Checkpoint in proper location
+/// - Session state in UnifiedSessionManager location
+///
+/// This helper ensures tests properly simulate interrupted workflows that
+/// can be resumed through Prodigy's resume command.
+///
+/// # Arguments
+/// * `prodigy_home` - Base directory for Prodigy data (from PRODIGY_HOME env var)
+/// * `project_root` - Root directory of the test git repository
+/// * `workflow_id` - Session/workflow ID (should start with "session-")
+/// * `commands_executed` - Number of commands executed before interruption
+/// * `total_commands` - Total commands in the workflow
+/// * `variables` - Variable state to preserve in checkpoint
+///
+/// # Returns
+/// * `Result<PathBuf>` - Path to the created worktree
+///
+/// # Errors
+/// Returns error if worktree or checkpoint creation fails
+pub fn create_test_checkpoint_with_worktree(
+    prodigy_home: &Path,
+    project_root: &Path,
+    workflow_id: &str,
+    commands_executed: usize,
+    total_commands: usize,
+    variables: serde_json::Value,
+) -> anyhow::Result<PathBuf> {
+    use serde_json::json;
+
+    // 1. Create actual worktree using production WorktreeManager
+    let worktree_path = create_test_worktree(prodigy_home, project_root, workflow_id)?;
+
+    // 2. Create checkpoint in proper location
+    let checkpoint_dir = prodigy_home
+        .join("state")
+        .join(workflow_id)
+        .join("checkpoints");
+    std::fs::create_dir_all(&checkpoint_dir)?;
+
+    // 3. Create checkpoint JSON with proper structure
+    let now = chrono::Utc::now();
+    let checkpoint = json!({
+        "workflow_id": workflow_id,
+        "execution_state": {
+            "current_step_index": commands_executed,
+            "total_steps": total_commands,
+            "status": "Interrupted",
+            "start_time": now.to_rfc3339(),
+            "last_checkpoint": now.to_rfc3339(),
+            "current_iteration": null,
+            "total_iterations": null
+        },
+        "completed_steps": (0..commands_executed).map(|i| {
+            json!({
+                "step_index": i,
+                "command": format!("shell: echo 'Command {}'", i + 1),
+                "success": true,
+                "output": format!("Command {} output", i + 1),
+                "captured_variables": {},
+                "duration": {
+                    "secs": 1,
+                    "nanos": 0
+                },
+                "completed_at": now.to_rfc3339(),
+                "retry_state": null
+            })
+        }).collect::<Vec<_>>(),
+        "variable_state": variables,
+        "mapreduce_state": null,
+        "timestamp": now.to_rfc3339(),
+        "version": 1,
+        "workflow_hash": "test-hash-12345",
+        "total_steps": total_commands,
+        "workflow_name": "test-resume-workflow",
+        "workflow_path": "test-resume-workflow.yaml"
+    });
+
+    let checkpoint_file = checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
+    std::fs::write(&checkpoint_file, serde_json::to_string_pretty(&checkpoint)?)?;
+
+    // 4. Create UnifiedSession state
+    let unified_session = json!({
+        "id": workflow_id,
+        "session_type": "Workflow",
+        "status": "Paused",  // Paused status is resumable
+        "started_at": now.to_rfc3339(),
+        "updated_at": now.to_rfc3339(),
+        "completed_at": null,
+        "metadata": {},
+        "checkpoints": [],
+        "timings": {},
+        "error": null,
+        "workflow_data": {
+            "workflow_id": workflow_id,
+            "workflow_name": "test-resume-workflow",
+            "current_step": commands_executed,
+            "total_steps": total_commands,
+            "completed_steps": (0..commands_executed).collect::<Vec<_>>(),
+            "variables": {},
+            "iterations_completed": 0,
+            "files_changed": 0,
+            "worktree_name": workflow_id
+        },
+        "mapreduce_data": null
+    });
+
+    // Save in UnifiedSessionManager location (PRODIGY_HOME/sessions/)
+    let sessions_dir = prodigy_home.join("sessions");
+    std::fs::create_dir_all(&sessions_dir)?;
+    std::fs::write(
+        sessions_dir.join(format!("{}.json", workflow_id)),
+        serde_json::to_string_pretty(&unified_session)?,
+    )?;
+
+    Ok(worktree_path)
+}
+
+/// Cleanup test worktrees after test completion
+///
+/// Removes worktree and associated metadata. Should be called in test
+/// cleanup to avoid leaking worktrees.
+///
+/// # Arguments
+/// * `prodigy_home` - Base directory for Prodigy data
+/// * `project_root` - Root directory of the test git repository
+/// * `worktree_name` - Name of the worktree to clean up
+///
+/// # Errors
+/// Returns error if cleanup fails
+#[allow(dead_code)]
+pub fn cleanup_test_worktree(
+    prodigy_home: &Path,
+    project_root: &Path,
+    worktree_name: &str,
+) -> anyhow::Result<()> {
+    let repo_name = project_root
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("prodigy");
+    let worktree_path = prodigy_home
+        .join("worktrees")
+        .join(repo_name)
+        .join(worktree_name);
+
+    // Remove worktree using git
+    let remove_command = Command::new("git")
+        .args(["worktree", "remove", "--force"])
+        .arg(&worktree_path)
+        .current_dir(project_root)
+        .output()?;
+
+    if !remove_command.status.success() {
+        // Log error but don't fail - worktree might already be gone
+        eprintln!(
+            "Warning: Failed to remove worktree: {}",
+            String::from_utf8_lossy(&remove_command.stderr)
+        );
+    }
+
+    // Clean up any remaining worktree directory
+    if worktree_path.exists() {
+        std::fs::remove_dir_all(&worktree_path).ok();
+    }
+
+    Ok(())
+}

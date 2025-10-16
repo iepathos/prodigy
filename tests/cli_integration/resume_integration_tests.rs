@@ -175,7 +175,6 @@ commands:
 }
 
 #[test]
-#[ignore = "Requires worktree creation infrastructure - test architecture issue"]
 fn test_resume_from_early_interruption() {
     // Setup isolated PRODIGY_HOME for this test
     let (_env, _prodigy_home) = setup_test_prodigy_home();
@@ -183,12 +182,11 @@ fn test_resume_from_early_interruption() {
     // Create CliTest first to get its temp directory
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
 
     // Create workflow file - use a name that matches what the checkpoint expects
     let _workflow_path = create_test_workflow(&test_dir, "test-resume-workflow.yaml");
 
-    // Create checkpoint after 1 command
+    // Create checkpoint with actual worktree
     let workflow_id = "session-resume-early-12345";
     let variables = json!({
         "variable1": "test-value",
@@ -196,24 +194,29 @@ fn test_resume_from_early_interruption() {
             "output": "Command 1 output"
         }
     });
-    create_test_checkpoint(&checkpoint_dir, workflow_id, 1, 5, variables);
 
-    // Verify the checkpoint file was created in PRODIGY_HOME
-    let prodigy_home = std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set");
-    let actual_checkpoint_dir = PathBuf::from(prodigy_home)
+    let prodigy_home =
+        PathBuf::from(std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set"));
+    let _worktree_path = create_test_checkpoint_with_worktree(
+        &prodigy_home,
+        &test_dir,
+        workflow_id,
+        1, // commands_executed
+        5, // total_commands
+        variables,
+    )
+    .expect("Failed to create test checkpoint with worktree");
+
+    // Verify the checkpoint file was created
+    let checkpoint_dir = prodigy_home
         .join("state")
         .join(workflow_id)
         .join("checkpoints");
-    let checkpoint_file = actual_checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
+    let checkpoint_file = checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
     assert!(
         checkpoint_file.exists(),
         "Checkpoint file should exist at {:?}",
         checkpoint_file
-    );
-    assert!(
-        actual_checkpoint_dir.exists(),
-        "Checkpoint directory should exist at {:?}",
-        actual_checkpoint_dir
     );
 
     // Resume the workflow
@@ -257,7 +260,6 @@ fn test_resume_from_early_interruption() {
 }
 
 #[test]
-#[ignore = "Requires worktree creation infrastructure - test architecture issue"]
 fn test_resume_from_middle_interruption() {
     // Setup isolated PRODIGY_HOME for this test
     let (_env, _prodigy_home) = setup_test_prodigy_home();
@@ -265,12 +267,11 @@ fn test_resume_from_middle_interruption() {
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
 
     // Create workflow file - use a name that matches what the checkpoint expects
     let _workflow_path = create_test_workflow(&test_dir, "test-resume-workflow.yaml");
 
-    // Create checkpoint after 3 commands
+    // Create checkpoint after 3 commands with actual worktree
     let workflow_id = "session-resume-middle-67890";
     let variables = json!({
         "variable1": "test-value",
@@ -280,7 +281,18 @@ fn test_resume_from_middle_interruption() {
         "cmd1_output": "Command 1 completed",
         "cmd2_output": "Command 2 completed"
     });
-    create_test_checkpoint(&checkpoint_dir, workflow_id, 3, 5, variables);
+
+    let prodigy_home =
+        PathBuf::from(std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set"));
+    let _worktree_path = create_test_checkpoint_with_worktree(
+        &prodigy_home,
+        &test_dir,
+        workflow_id,
+        3, // commands_executed
+        5, // total_commands
+        variables,
+    )
+    .expect("Failed to create test checkpoint with worktree");
 
     // Resume the workflow
     test = test
