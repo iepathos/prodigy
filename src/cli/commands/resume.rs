@@ -60,8 +60,8 @@ enum SessionType {
 
 /// Check the session type by loading it from UnifiedSessionManager
 async fn check_session_type(id: &str) -> Result<SessionType> {
-    let storage = crate::storage::GlobalStorage::new()
-        .context("Failed to create global storage")?;
+    let storage =
+        crate::storage::GlobalStorage::new().context("Failed to create global storage")?;
     let session_manager = crate::unified_session::SessionManager::new(storage)
         .await
         .context("Failed to create session manager")?;
