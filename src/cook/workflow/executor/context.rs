@@ -440,8 +440,10 @@ mod tests {
             .await;
 
         // Create a WorkflowContext with the variable store
-        let mut ctx = WorkflowContext::default();
-        ctx.variable_store = Arc::new(store);
+        let ctx = WorkflowContext {
+            variable_store: Arc::new(store),
+            ..Default::default()
+        };
 
         // Build interpolation context (this is where the bug was)
         let interpolation_context = ctx.build_interpolation_context();
@@ -476,8 +478,10 @@ mod tests {
         store.set("map.failed", CapturedValue::Number(2.0)).await;
         store.set("map.total", CapturedValue::Number(10.0)).await;
 
-        let mut ctx = WorkflowContext::default();
-        ctx.variable_store = Arc::new(store);
+        let ctx = WorkflowContext {
+            variable_store: Arc::new(store),
+            ..Default::default()
+        };
 
         let interpolation_context = ctx.build_interpolation_context();
         let mut engine = InterpolationEngine::new(false);
