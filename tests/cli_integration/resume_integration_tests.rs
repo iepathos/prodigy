@@ -56,6 +56,13 @@ fn create_test_checkpoint(
         .join(workflow_id);
     fs::create_dir_all(&worktree_dir).expect("Failed to create worktree directory");
 
+    // Initialize as a git repository (resume command runs git commands in the worktree)
+    std::process::Command::new("git")
+        .arg("init")
+        .current_dir(&worktree_dir)
+        .output()
+        .expect("Failed to initialize git repository in worktree");
+
     // Note: Workflow file should be created in the project root by the test
     // The checkpoint will reference it, and resume will look for it in the --path location
 
@@ -448,6 +455,13 @@ fn test_resume_completed_workflow() {
         .join("prodigy")
         .join(workflow_id);
     fs::create_dir_all(&worktree_dir).expect("Failed to create worktree directory");
+
+    // Initialize as a git repository (resume command runs git commands in the worktree)
+    std::process::Command::new("git")
+        .arg("init")
+        .current_dir(&worktree_dir)
+        .output()
+        .expect("Failed to initialize git repository in worktree");
 
     // Create unified session in UnifiedSession format (status: Completed means not resumable)
     let unified_session = json!({
@@ -1070,6 +1084,13 @@ commands:
         .join("prodigy")
         .join(workflow_id);
     fs::create_dir_all(&worktree_dir).expect("Failed to create worktree directory");
+
+    // Initialize as a git repository (resume command runs git commands in the worktree)
+    std::process::Command::new("git")
+        .arg("init")
+        .current_dir(&worktree_dir)
+        .output()
+        .expect("Failed to initialize git repository in worktree");
 
     let checkpoint = json!({
         "workflow_id": workflow_id,

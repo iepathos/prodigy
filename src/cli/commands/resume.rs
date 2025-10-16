@@ -52,6 +52,33 @@ pub async fn run_resume_workflow(
     }
 }
 
+/// Enum representing the session type
+enum SessionType {
+    Workflow,
+    MapReduce,
+}
+
+/// Check the session type by loading it from UnifiedSessionManager
+async fn check_session_type(id: &str) -> Result<SessionType> {
+    let storage = crate::storage::GlobalStorage::new()
+        .context("Failed to create global storage")?;
+    let session_manager = crate::unified_session::SessionManager::new(storage)
+        .await
+        .context("Failed to create session manager")?;
+    let session_id = crate::unified_session::SessionId::from_string(id.to_string());
+
+    let session = session_manager
+        .load_session(&session_id)
+        .await
+        .context("Session not found in UnifiedSessionManager")?;
+
+    // Determine session type from session_type field
+    match session.session_type {
+        crate::unified_session::SessionType::MapReduce => Ok(SessionType::MapReduce),
+        crate::unified_session::SessionType::Workflow => Ok(SessionType::Workflow),
+    }
+}
+
 /// Try to resume using a unified approach that handles both session and job IDs
 async fn try_unified_resume(id: &str, from_checkpoint: Option<String>) -> Result<()> {
     // Determine the ID type and try appropriate resume strategies
@@ -74,20 +101,33 @@ async fn try_unified_resume(id: &str, from_checkpoint: Option<String>) -> Result
             try_resume_mapreduce_job(id).await
         }
         IdType::Ambiguous => {
-            // Try both: regular first, then MapReduce
-            match try_resume_regular_workflow(id, from_checkpoint.clone()).await {
-                Ok(()) => Ok(()),
-                Err(e) => {
-                    // Check if the error is about a completed/cancelled session
-                    // These are definitive errors that should not be overridden
-                    let error_msg = e.to_string();
-                    if error_msg.contains("already completed")
-                        || error_msg.contains("was cancelled")
-                    {
-                        return Err(e);
-                    }
-                    // Otherwise, try MapReduce as fallback
+            // For ambiguous IDs, check the session type first
+            match check_session_type(id).await {
+                Ok(SessionType::Workflow) => {
+                    // It's a workflow session, use workflow resume
+                    try_resume_regular_workflow(id, from_checkpoint.clone()).await
+                }
+                Ok(SessionType::MapReduce) => {
+                    // It's a MapReduce session, use MapReduce resume
                     try_resume_mapreduce_job(id).await
+                }
+                Err(_) => {
+                    // Session not found in UnifiedSessionManager, try workflow first
+                    match try_resume_regular_workflow(id, from_checkpoint.clone()).await {
+                        Ok(()) => Ok(()),
+                        Err(e) => {
+                            // Check if the error is about a completed/cancelled session
+                            // These are definitive errors that should not be overridden
+                            let error_msg = e.to_string();
+                            if error_msg.contains("already completed")
+                                || error_msg.contains("was cancelled")
+                            {
+                                return Err(e);
+                            }
+                            // Otherwise, try MapReduce as fallback
+                            try_resume_mapreduce_job(id).await
+                        }
+                    }
                 }
             }
         }
