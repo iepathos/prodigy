@@ -30,9 +30,14 @@ impl WorkflowContext {
         }
 
         // Add variables from variable store
-        let store_vars = futures::executor::block_on(self.variable_store.to_hashmap());
-        for (key, value) in store_vars {
-            context.set(key, Value::String(value));
+        // Use get_all() to get CapturedValue objects, then convert to JSON values
+        // This preserves complex types like arrays and objects instead of stringifying them
+        let store_vars = futures::executor::block_on(self.variable_store.get_all());
+        for (key, captured_value) in store_vars {
+            // Convert CapturedValue to JSON Value using to_json()
+            // This ensures arrays/objects are properly represented as JSON, not strings
+            let json_value = captured_value.to_json();
+            context.set(key, json_value);
         }
 
         // Add iteration variables
@@ -400,5 +405,82 @@ impl WorkflowExecutor {
         }
 
         env_vars
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::cook::workflow::variables::{CapturedValue, VariableStore};
+    use crate::cook::workflow::executor::WorkflowContext;
+    use crate::cook::execution::interpolation::InterpolationEngine;
+    use serde_json::json;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn test_map_results_interpolation_produces_valid_json() {
+        // This test reproduces the exact scenario from the bug report
+        // where ${map.results} was producing invalid JSON during interpolation
+
+        // Create a variable store and add map.results as an array
+        let store = VariableStore::new();
+        let map_results = vec![
+            CapturedValue::Json(json!({
+                "item_id": "item_0",
+                "status": "Success",
+                "commits": ["abc123"]
+            })),
+            CapturedValue::Json(json!({
+                "item_id": "item_1",
+                "status": "Success",
+                "commits": ["def456"]
+            })),
+        ];
+        store.set("map.results", CapturedValue::Array(map_results)).await;
+
+        // Create a WorkflowContext with the variable store
+        let mut ctx = WorkflowContext::default();
+        ctx.variable_store = Arc::new(store);
+
+        // Build interpolation context (this is where the bug was)
+        let interpolation_context = ctx.build_interpolation_context();
+
+        // Interpolate ${map.results}
+        let mut engine = InterpolationEngine::new(false);
+        let interpolated = engine.interpolate("${map.results}", &interpolation_context)
+            .expect("Interpolation should succeed");
+
+        // Verify that the interpolated string is valid JSON
+        let parsed: serde_json::Value = serde_json::from_str(&interpolated)
+            .expect("Interpolated map.results should be valid JSON");
+
+        // Verify it's an array with 2 items
+        assert!(parsed.is_array(), "map.results should be an array");
+        let arr = parsed.as_array().unwrap();
+        assert_eq!(arr.len(), 2, "map.results should have 2 items");
+
+        // Verify the structure of the first item
+        assert_eq!(arr[0]["item_id"], "item_0");
+        assert_eq!(arr[0]["status"], "Success");
+    }
+
+    #[tokio::test]
+    async fn test_map_summary_stats_interpolation() {
+        // Test that map.successful, map.failed, map.total work correctly
+        let store = VariableStore::new();
+        store.set("map.successful", CapturedValue::Number(8.0)).await;
+        store.set("map.failed", CapturedValue::Number(2.0)).await;
+        store.set("map.total", CapturedValue::Number(10.0)).await;
+
+        let mut ctx = WorkflowContext::default();
+        ctx.variable_store = Arc::new(store);
+
+        let interpolation_context = ctx.build_interpolation_context();
+        let mut engine = InterpolationEngine::new(false);
+
+        let template = "Processed ${map.total}: ${map.successful} ok, ${map.failed} failed";
+        let result = engine.interpolate(template, &interpolation_context)
+            .expect("Interpolation should succeed");
+
+        assert_eq!(result, "Processed 10.0: 8.0 ok, 2.0 failed");
     }
 }
