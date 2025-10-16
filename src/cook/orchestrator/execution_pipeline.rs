@@ -286,18 +286,8 @@ impl ExecutionPipeline {
             Ok(s) => s,
             Err(_) => {
                 // Session not found in unified storage, try loading from worktree
-                let home = directories::BaseDirs::new()
-                    .ok_or_else(|| anyhow!("Could not determine home directory"))?
-                    .home_dir()
-                    .to_path_buf();
-
-                let worktree_path = home
-                    .join(".prodigy")
-                    .join("worktrees")
-                    .join(config.project_path.file_name().unwrap_or_default())
-                    .join(session_id);
-
-                let session_file = worktree_path.join(".prodigy").join("session_state.json");
+                // The config.project_path should already be the worktree path when resuming
+                let session_file = config.project_path.join(".prodigy").join("session_state.json");
 
                 if !session_file.exists() {
                     return Err(anyhow!(

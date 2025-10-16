@@ -101,6 +101,45 @@ enum IdType {
     Ambiguous,      // Unknown pattern, try both
 }
 
+/// Find the worktree directory for a given session ID
+///
+/// Searches through all repo subdirectories in the worktrees directory
+/// to find the worktree matching the session ID.
+async fn find_worktree_for_session(worktrees_dir: &PathBuf, session_id: &str) -> Result<PathBuf> {
+    if !worktrees_dir.exists() {
+        return Err(anyhow!(
+            "Worktrees directory does not exist: {}",
+            worktrees_dir.display()
+        ));
+    }
+
+    // Iterate through all repo subdirectories
+    let mut repo_dirs = fs::read_dir(worktrees_dir)
+        .await
+        .context("Failed to read worktrees directory")?;
+
+    while let Some(repo_entry) = repo_dirs.next_entry().await? {
+        if !repo_entry.path().is_dir() {
+            continue;
+        }
+
+        // Check if this repo has the worktree
+        let potential_worktree = repo_entry.path().join(session_id);
+        if potential_worktree.exists() {
+            return Ok(potential_worktree);
+        }
+    }
+
+    // Not found - provide helpful error
+    Err(anyhow!(
+        "Worktree not found for session: {}\n\
+         Searched in: {}\n\
+         The worktree may have been cleaned up. You cannot resume this session.",
+        session_id,
+        worktrees_dir.display()
+    ))
+}
+
 /// Detect the type of ID based on its format
 fn detect_id_type(id: &str) -> IdType {
     if id.starts_with("session-mapreduce-") || id.starts_with("mapreduce-") {
@@ -238,21 +277,10 @@ async fn try_resume_regular_workflow(
         checkpoint_file.file_name().unwrap().to_string_lossy()
     );
 
-    // Get worktree path for this session
-    let worktree_path = prodigy_home
-        .join("worktrees")
-        .join("prodigy") // TODO: Get actual repo name
-        .join(session_id);
+    // Find the worktree for this session by searching in the worktrees directory
+    let worktrees_dir = prodigy_home.join("worktrees");
 
-    if !worktree_path.exists() {
-        return Err(anyhow!(
-            "Worktree not found for session: {}\n\
-             Expected at: {}\n\
-             The worktree may have been cleaned up. You cannot resume this session.",
-            session_id,
-            worktree_path.display()
-        ));
-    }
+    let worktree_path = find_worktree_for_session(&worktrees_dir, session_id).await?;
 
     println!();
     println!("Note: Resuming from worktree: {}", worktree_path.display());
@@ -265,12 +293,9 @@ async fn try_resume_regular_workflow(
         println!("      Using latest checkpoint");
     }
 
-    // For now, use the current directory as the project root
-    // In the future, we could extract the original project path from the checkpoint
-    // by analyzing the PROJECT_ROOT variable which points to the worktree
-    let current_dir = std::env::current_dir()?;
-
-    println!("      Project root: {}", current_dir.display());
+    // Use the worktree path as the project root for resuming
+    // This ensures the orchestrator can find the correct session files
+    println!("      Project root: {}", worktree_path.display());
     println!();
 
     // Execute prodigy run with --resume flag
@@ -278,7 +303,7 @@ async fn try_resume_regular_workflow(
     let workflow_pathbuf = PathBuf::from(workflow_path);
     let cook_cmd = crate::cook::command::CookCommand {
         playbook: workflow_pathbuf,
-        path: Some(current_dir),
+        path: Some(worktree_path.clone()),  // Use worktree path, not current dir
         max_iterations: 1,
         map: vec![],
         args: vec![],
