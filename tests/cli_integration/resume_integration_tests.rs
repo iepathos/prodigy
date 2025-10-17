@@ -327,16 +327,13 @@ fn test_resume_from_middle_interruption() {
 }
 
 #[test]
-#[ignore = "Requires worktree creation infrastructure - test architecture issue"]
 fn test_resume_with_variable_preservation() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let (_env, prodigy_home_dir) = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
-    let workflow_dir = test_dir.clone();
 
     // Create a workflow that uses variables
     let workflow_content = r#"
@@ -352,10 +349,10 @@ commands:
 "#;
 
     // Create workflow file with the expected name from checkpoint
-    let workflow_path = workflow_dir.join("test-resume-workflow.yaml");
+    let workflow_path = test_dir.join("test-resume-workflow.yaml");
     fs::write(&workflow_path, workflow_content).unwrap();
 
-    // Create checkpoint with variables
+    // Create checkpoint with variables and actual worktree
     let workflow_id = "session-resume-vars-11111";
     let variables = json!({
         "var1": "First variable value",
@@ -364,10 +361,21 @@ commands:
             "output": "Previous command output"
         }
     });
-    create_test_checkpoint(&checkpoint_dir, workflow_id, 2, 3, variables.clone());
+
+    let prodigy_home = prodigy_home_dir.path().to_path_buf();
+    let _worktree_path = create_test_checkpoint_with_worktree(
+        &prodigy_home,
+        &test_dir,
+        workflow_id,
+        2, // commands_executed
+        3, // total_commands
+        variables,
+    )
+    .expect("Failed to create test checkpoint with worktree");
 
     // Resume the workflow
     test = test
+        .env("PRODIGY_HOME", prodigy_home.to_str().unwrap())
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
@@ -394,16 +402,13 @@ commands:
 }
 
 #[test]
-#[ignore = "Requires worktree creation infrastructure - test architecture issue"]
 fn test_resume_with_retry_state() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let (_env, prodigy_home_dir) = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
-    let workflow_dir = test_dir.clone();
 
     // Create workflow with retry logic
     let workflow_content = r#"
@@ -419,18 +424,28 @@ commands:
 "#;
 
     // Create workflow file with the expected name from checkpoint
-    let workflow_path = workflow_dir.join("test-resume-workflow.yaml");
+    let workflow_path = test_dir.join("test-resume-workflow.yaml");
     fs::write(&workflow_path, workflow_content).unwrap();
 
-    // Create checkpoint using helper
+    // Create checkpoint with actual worktree
     let workflow_id = "session-resume-retry-22222";
-    create_test_checkpoint(&checkpoint_dir, workflow_id, 1, 3, json!({}));
+    let prodigy_home = prodigy_home_dir.path().to_path_buf();
+    let _worktree_path = create_test_checkpoint_with_worktree(
+        &prodigy_home,
+        &test_dir,
+        workflow_id,
+        1, // commands_executed
+        3, // total_commands
+        json!({}),
+    )
+    .expect("Failed to create test checkpoint with worktree");
 
     // Create the marker file so retry succeeds
     fs::write("/tmp/retry-test-marker", "test").ok();
 
     // Resume the workflow
     test = test
+        .env("PRODIGY_HOME", prodigy_home.to_str().unwrap())
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
@@ -539,24 +554,32 @@ fn test_resume_completed_workflow() {
 }
 
 #[test]
-#[ignore = "Requires worktree creation infrastructure - test architecture issue"]
 fn test_resume_with_force_restart() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let (_env, prodigy_home_dir) = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
 
     // Create workflow and checkpoint - use standard name
     let _workflow_path = create_test_workflow(&test_dir, "test-resume-workflow.yaml");
     let workflow_id = "session-resume-force-44444";
 
-    create_test_checkpoint(&checkpoint_dir, workflow_id, 3, 5, json!({}));
+    let prodigy_home = prodigy_home_dir.path().to_path_buf();
+    let _worktree_path = create_test_checkpoint_with_worktree(
+        &prodigy_home,
+        &test_dir,
+        workflow_id,
+        3, // commands_executed
+        5, // total_commands
+        json!({}),
+    )
+    .expect("Failed to create test checkpoint with worktree");
 
     // Resume with --force flag
     test = test
+        .env("PRODIGY_HOME", prodigy_home.to_str().unwrap())
         .arg("resume")
         .arg(workflow_id)
         .arg("--force")
@@ -584,7 +607,6 @@ fn test_resume_with_force_restart() {
 }
 
 #[test]
-#[ignore = "Requires worktree creation infrastructure - test architecture issue"]
 fn test_resume_parallel_workflow() {
     // Setup isolated PRODIGY_HOME for this test
     let (_env, _prodigy_home) = setup_test_prodigy_home();
@@ -592,8 +614,6 @@ fn test_resume_parallel_workflow() {
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
-    let workflow_dir = test_dir.clone();
 
     // Create a parallel workflow
     let workflow_content = r#"
@@ -617,14 +637,22 @@ commands:
 "#;
 
     // Use standard test workflow name that checkpoint helper expects
-    let workflow_path = workflow_dir.join("test-resume-workflow.yaml");
+    let workflow_path = test_dir.join("test-resume-workflow.yaml");
     fs::write(&workflow_path, workflow_content).unwrap();
 
-    // Create checkpoint with partial parallel execution
+    // Create checkpoint with partial parallel execution and actual worktree
     let workflow_id = "session-resume-parallel-55555";
-
-    // Use the helper to create checkpoint, worktree, and session properly
-    create_test_checkpoint(&checkpoint_dir, workflow_id, 0, 5, json!({}));
+    let prodigy_home =
+        PathBuf::from(std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set"));
+    let _worktree_path = create_test_checkpoint_with_worktree(
+        &prodigy_home,
+        &test_dir,
+        workflow_id,
+        0, // commands_executed
+        5, // total_commands
+        json!({}),
+    )
+    .expect("Failed to create test checkpoint with worktree");
 
     // Resume the workflow
     test = test
@@ -657,7 +685,6 @@ commands:
 }
 
 #[test]
-#[ignore = "Requires worktree creation infrastructure - test architecture issue"]
 fn test_resume_with_checkpoint_cleanup() {
     // Setup isolated PRODIGY_HOME for this test
     let (_env, _prodigy_home) = setup_test_prodigy_home();
@@ -665,18 +692,26 @@ fn test_resume_with_checkpoint_cleanup() {
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
 
     // Create workflow - use name that matches checkpoint
     let _workflow_path = create_test_workflow(&test_dir, "test-resume-workflow.yaml");
     let workflow_id = "session-resume-cleanup-66666";
 
-    // Create checkpoint
-    create_test_checkpoint(&checkpoint_dir, workflow_id, 4, 5, json!({}));
+    // Create checkpoint with actual worktree
+    let prodigy_home =
+        PathBuf::from(std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set"));
+    let _worktree_path = create_test_checkpoint_with_worktree(
+        &prodigy_home,
+        &test_dir,
+        workflow_id,
+        4, // commands_executed
+        5, // total_commands
+        json!({}),
+    )
+    .expect("Failed to create test checkpoint with worktree");
 
     // Checkpoint files are saved in PRODIGY_HOME
-    let prodigy_home = std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set");
-    let checkpoint_file = PathBuf::from(prodigy_home)
+    let checkpoint_file = prodigy_home
         .join("state")
         .join(workflow_id)
         .join("checkpoints")
@@ -891,18 +926,15 @@ reduce:
 }
 
 #[test]
-#[ignore = "Requires worktree creation infrastructure - test architecture issue"]
 fn test_resume_workflow_with_on_failure_handlers() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let (_env, prodigy_home_dir) = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
-    let workflow_dir = test_dir.clone();
 
-    // Create a workflow with on_failure handlers at different steps
+    // Create a workflow with on_failure_handlers at different steps
     let workflow_content = r#"name: test-resume-workflow
 description: Test resuming workflow with on_failure handlers
 
@@ -926,18 +958,28 @@ commands:
 "#;
 
     // Save workflow file - name must match what create_test_checkpoint expects
-    let workflow_path = workflow_dir.join("test-resume-workflow.yaml");
+    let workflow_path = test_dir.join("test-resume-workflow.yaml");
     fs::write(&workflow_path, workflow_content).unwrap();
 
-    // Create checkpoint using helper
+    // Create checkpoint with actual worktree
     let workflow_id = "session-on-failure-resume-test";
-    create_test_checkpoint(&checkpoint_dir, workflow_id, 2, 5, json!({}));
+    let prodigy_home = prodigy_home_dir.path().to_path_buf();
+    let _worktree_path = create_test_checkpoint_with_worktree(
+        &prodigy_home,
+        &test_dir,
+        workflow_id,
+        2, // commands_executed
+        5, // total_commands
+        json!({}),
+    )
+    .expect("Failed to create test checkpoint with worktree");
 
     // Create trigger file to cause step 3 to fail initially (if needed)
     fs::write(test_dir.join("trigger-failure.txt"), "trigger").unwrap();
 
     // Resume the workflow
     test = test
+        .env("PRODIGY_HOME", prodigy_home.to_str().unwrap())
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
@@ -1046,7 +1088,6 @@ fn test_checkpoint_with_error_recovery_state_serialization() {
 }
 
 #[test]
-#[ignore = "Requires worktree creation infrastructure - test architecture issue"]
 fn test_end_to_end_error_handler_execution_after_resume() {
     // Setup isolated PRODIGY_HOME for this test
     let (_env, _prodigy_home) = setup_test_prodigy_home();
@@ -1054,7 +1095,6 @@ fn test_end_to_end_error_handler_execution_after_resume() {
     // Comprehensive end-to-end test that verifies error handlers execute correctly after resume
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let workflow_dir = test_dir.clone();
 
     // Create a simpler workflow that will fail at a specific step and has error handlers
     let workflow_content = r#"
@@ -1081,141 +1121,46 @@ commands:
 "#;
 
     // Save workflow file - using standard name expected by checkpoint system
-    let workflow_path = workflow_dir.join("test-resume-workflow.yaml");
+    let workflow_path = test_dir.join("test-resume-workflow.yaml");
     fs::write(&workflow_path, workflow_content).unwrap();
 
-    // Create a checkpoint simulating an interrupted workflow at step 3
-    // This simulates a workflow that executed steps 1 and 2, then failed at step 3
-    let now = chrono::Utc::now();
+    // Create checkpoint with actual worktree and error recovery state
     let workflow_id = "session-end-to-end-error-handler-test";
+    let prodigy_home =
+        PathBuf::from(std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set"));
 
-    // Create a mock worktree directory (resume expects this to exist)
-    let prodigy_home = std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set");
-    let worktree_dir = PathBuf::from(&prodigy_home)
-        .join("worktrees")
-        .join("prodigy")
-        .join(workflow_id);
-    fs::create_dir_all(&worktree_dir).expect("Failed to create worktree directory");
-
-    // Initialize as a git repository (resume command runs git commands in the worktree)
-    std::process::Command::new("git")
-        .arg("init")
-        .current_dir(&worktree_dir)
-        .output()
-        .expect("Failed to initialize git repository in worktree");
-
-    let checkpoint = json!({
-        "workflow_id": workflow_id,
-        "execution_state": {
-            "current_step_index": 2,  // Failed at step 3 (index 2)
-            "total_steps": 5,
-            "status": "Interrupted",
-            "start_time": now.to_rfc3339(),
-            "last_checkpoint": now.to_rfc3339(),
-            "current_iteration": null,
-            "total_iterations": null
-        },
-        "completed_steps": [
-            {
-                "step_index": 0,
-                "command": "shell: echo 'Step 1: Initialize'",
-                "success": true,
-                "output": "Step 1: Initialize",
-                "captured_variables": {},
-                "duration": { "secs": 1, "nanos": 0 },
-                "completed_at": now.to_rfc3339(),
-                "retry_state": null
-            },
-            {
-                "step_index": 1,
-                "command": "shell: echo 'Step 2: Pre-error setup'",
-                "success": true,
-                "output": "Step 2: Pre-error setup",
-                "captured_variables": {},
-                "duration": { "secs": 1, "nanos": 0 },
-                "completed_at": now.to_rfc3339(),
-                "retry_state": null
-            }
-        ],
-        "variable_state": {
-            // Store error recovery state to indicate error handlers need to run
-            "__error_recovery_state": json!({
-                "active_handlers": [{
-                    "id": "step3-error-handler",
-                    "command": {
-                        "claude": "/fix-error --output 'Error handler executed'"
-                    },
-                    "strategy": "retry"
-                }],
-                "correlation_id": "test-correlation-123",
-                "recovery_attempts": 1,
-                "max_recovery_attempts": 3
-            })
-        },
-        "mapreduce_state": null,
-        "timestamp": now.to_rfc3339(),
-        "version": 1,
-        "workflow_hash": "test-hash-with-handlers",
-        "total_steps": 5,
-        "workflow_name": "test-resume-workflow",
-        "workflow_path": workflow_path.to_str()
+    // Create variables with error recovery state
+    let variables = json!({
+        "__error_recovery_state": {
+            "active_handlers": [{
+                "id": "step3-error-handler",
+                "command": {
+                    "claude": "/fix-error --output 'Error handler executed'"
+                },
+                "strategy": "retry"
+            }],
+            "correlation_id": "test-correlation-123",
+            "recovery_attempts": 1,
+            "max_recovery_attempts": 3
+        }
     });
 
-    // Save checkpoint in PRODIGY_HOME location (like create_test_checkpoint does)
-    let checkpoint_state_dir = PathBuf::from(&prodigy_home)
-        .join("state")
-        .join(workflow_id)
-        .join("checkpoints");
-    fs::create_dir_all(&checkpoint_state_dir).unwrap();
-    let checkpoint_file = checkpoint_state_dir.join(format!("{}.checkpoint.json", workflow_id));
-    fs::write(
-        &checkpoint_file,
-        serde_json::to_string_pretty(&checkpoint).unwrap(),
+    let _worktree_path = create_test_checkpoint_with_worktree(
+        &prodigy_home,
+        &test_dir,
+        workflow_id,
+        2, // commands_executed (steps 1 and 2 completed, failed at step 3)
+        5, // total_commands
+        variables,
     )
-    .unwrap();
-
-    // Create a UnifiedSession in UnifiedSessionManager location
-    let unified_session = json!({
-        "id": workflow_id,
-        "session_type": "Workflow",
-        "status": "Paused",  // Paused status is resumable
-        "started_at": now.to_rfc3339(),
-        "updated_at": now.to_rfc3339(),
-        "completed_at": null,
-        "metadata": {},
-        "checkpoints": [],
-        "timings": {},
-        "error": null,
-        "workflow_data": {
-            "workflow_id": workflow_id,
-            "workflow_name": "test-resume-workflow",
-            "current_step": 2,
-            "total_steps": 5,
-            "completed_steps": [0, 1],
-            "variables": {},
-            "iterations_completed": 0,
-            "files_changed": 0,
-            "worktree_name": workflow_id
-        },
-        "mapreduce_data": null
-    });
-
-    // Save in UnifiedSessionManager location (PRODIGY_HOME/sessions/)
-    let sessions_dir = PathBuf::from(&prodigy_home).join("sessions");
-    fs::create_dir_all(&sessions_dir).unwrap();
-    fs::write(
-        sessions_dir.join(format!("{}.json", workflow_id)),
-        serde_json::to_string_pretty(&unified_session).unwrap(),
-    )
-    .unwrap();
+    .expect("Failed to create test checkpoint with worktree");
 
     // Resume the workflow - error handlers should execute
     test = test
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
-        .arg(test_dir.to_str().unwrap())
-        .env("PRODIGY_HOME", &prodigy_home);
+        .arg(test_dir.to_str().unwrap());
 
     let resume_output = test.run();
 
