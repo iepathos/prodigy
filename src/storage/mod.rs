@@ -3,6 +3,7 @@
 //! This module provides a unified storage interface for managing
 //! Prodigy's data in a global ~/.prodigy directory structure.
 
+pub mod cleanup;
 pub mod config;
 pub mod error;
 pub mod factory;
@@ -14,6 +15,9 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
+pub use cleanup::{
+    parse_duration, CleanupConfig, CleanupStats, StorageCleanupManager, StorageStats,
+};
 pub use config::{BackendConfig, BackendType};
 pub use error::{StorageError, StorageResult};
 pub use factory::StorageFactory;

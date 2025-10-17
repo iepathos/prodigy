@@ -316,6 +316,12 @@ pub enum Commands {
         #[arg(long)]
         summary: bool,
     },
+    /// Clean up Prodigy storage
+    #[command(name = "clean")]
+    Clean {
+        #[command(subcommand)]
+        command: CleanCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -699,5 +705,99 @@ pub enum WorktreeCommands {
         /// Specific job ID to clean
         #[arg(long)]
         job_id: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum CleanCommands {
+    /// Clean all storage types
+    All {
+        /// Only clean storage older than duration (e.g., "7d", "30d")
+        #[arg(long)]
+        older_than: Option<String>,
+        /// Clean across all repositories
+        #[arg(long)]
+        all_repos: bool,
+        /// Preview what would be cleaned without actually cleaning
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip all confirmations
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Clean worktrees only
+    Worktrees {
+        /// Only clean worktrees older than duration
+        #[arg(long)]
+        older_than: Option<String>,
+        /// Clean MapReduce worktrees
+        #[arg(long)]
+        mapreduce: bool,
+        /// Preview what would be cleaned
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip confirmations
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Clean session state
+    Sessions {
+        /// Only clean sessions older than duration
+        #[arg(long)]
+        older_than: Option<String>,
+        /// Preview what would be cleaned
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip confirmations
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Clean Claude execution logs
+    Logs {
+        /// Only clean logs older than duration
+        #[arg(long)]
+        older_than: Option<String>,
+        /// Preview what would be cleaned
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip confirmations
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Clean MapReduce job state
+    State {
+        /// Only clean state older than duration
+        #[arg(long)]
+        older_than: Option<String>,
+        /// Preview what would be cleaned
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip confirmations
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Clean event logs
+    Events {
+        /// Only clean events older than duration
+        #[arg(long)]
+        older_than: Option<String>,
+        /// Preview what would be cleaned
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip confirmations
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Clean Dead Letter Queue data
+    Dlq {
+        /// Only clean DLQ data older than duration
+        #[arg(long)]
+        older_than: Option<String>,
+        /// Preview what would be cleaned
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip confirmations
+        #[arg(short, long)]
+        force: bool,
     },
 }

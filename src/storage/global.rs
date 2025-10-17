@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use tokio::fs;
 
 /// Global storage implementation using file system
+#[derive(Clone)]
 pub struct GlobalStorage {
     /// Base directory for all storage (default: ~/.prodigy)
     base_dir: PathBuf,
@@ -118,6 +119,85 @@ impl GlobalStorage {
             message: Some("Global file storage is operational".to_string()),
             details: None,
         })
+    }
+
+    /// Get the worktrees directory for a repository
+    pub async fn get_worktrees_dir(&self, repo_name: &str) -> Result<PathBuf> {
+        let path = self.base_dir.join("worktrees").join(repo_name);
+
+        fs::create_dir_all(&path)
+            .await
+            .context("Failed to create worktrees directory")?;
+
+        Ok(path)
+    }
+
+    /// Get the base state directory for a repository (includes sessions)
+    pub async fn get_state_base_dir(&self, repo_name: &str) -> Result<PathBuf> {
+        let path = self.base_dir.join("state").join(repo_name);
+
+        fs::create_dir_all(&path)
+            .await
+            .context("Failed to create state directory")?;
+
+        Ok(path)
+    }
+
+    /// Get the logs directory for a repository
+    pub async fn get_logs_dir(&self, repo_name: &str) -> Result<PathBuf> {
+        let path = self.base_dir.join("logs").join(repo_name);
+
+        fs::create_dir_all(&path)
+            .await
+            .context("Failed to create logs directory")?;
+
+        Ok(path)
+    }
+
+    /// Get the base events directory for a repository
+    pub async fn get_events_base_dir(&self, repo_name: &str) -> Result<PathBuf> {
+        let path = self.base_dir.join("events").join(repo_name);
+
+        fs::create_dir_all(&path)
+            .await
+            .context("Failed to create events directory")?;
+
+        Ok(path)
+    }
+
+    /// Get the base DLQ directory for a repository
+    pub async fn get_dlq_base_dir(&self, repo_name: &str) -> Result<PathBuf> {
+        let path = self.base_dir.join("dlq").join(repo_name);
+
+        fs::create_dir_all(&path)
+            .await
+            .context("Failed to create DLQ directory")?;
+
+        Ok(path)
+    }
+
+    /// List all repositories with stored data
+    pub async fn list_all_repositories(&self) -> Result<Vec<String>> {
+        let mut repos = std::collections::HashSet::new();
+
+        // Check each storage type directory
+        for storage_type in &["worktrees", "events", "dlq", "state", "logs"] {
+            let type_dir = self.base_dir.join(storage_type);
+            if type_dir.exists() {
+                let mut entries = fs::read_dir(&type_dir).await?;
+                while let Some(entry) = entries.next_entry().await? {
+                    if entry.file_type().await?.is_dir() {
+                        if let Some(repo_name) = entry.file_name().to_str() {
+                            repos.insert(repo_name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut repo_list: Vec<String> = repos.into_iter().collect();
+        repo_list.sort();
+        Ok(repo_list)
     }
 
     // Storage interface methods have been removed as part of the unified session refactor.

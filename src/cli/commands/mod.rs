@@ -4,6 +4,7 @@
 //! Each command is implemented as a separate module for better organization.
 
 pub mod checkpoints;
+pub mod clean;
 pub mod dlq;
 pub mod events;
 pub mod exec;

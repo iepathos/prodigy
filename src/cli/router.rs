@@ -175,6 +175,10 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
             tail,
             summary,
         }) => run_logs_command(session_id, latest, tail, summary).await,
+        Some(Commands::Clean { command }) => {
+            let repo_path = std::env::current_dir()?;
+            clean::execute(command, &repo_path).await
+        }
         None => {
             // No command provided, show help
             use crate::cli::help::generate_help;
