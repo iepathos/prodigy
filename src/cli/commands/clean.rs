@@ -151,7 +151,8 @@ async fn clean_all_repos(
     println!("Found {} repositories with storage data", repos.len());
     println!();
 
-    if !force && !dry_run
+    if !force
+        && !dry_run
         && !confirm_cleanup(&format!("all storage for {} repositories", repos.len()))?
     {
         println!("Cleanup cancelled");
