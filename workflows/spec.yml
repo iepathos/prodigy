@@ -1,7 +1,7 @@
 # spec.yml - Workflow for generating complete, focused specifications
 
 # Generate a new specification with validation and refinement
-# Usage: prodigy cook spec --args "Description of feature to implement"
+# Usage: prodigy run workflows/spec.md --args "Description of feature to implement"
 
 # Step 1: Generate initial specification(s)
 - claude: "/prodigy-add-spec $ARG"
