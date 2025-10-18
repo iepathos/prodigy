@@ -1060,14 +1060,16 @@ impl WorktreeManager {
         let mut env_vars = HashMap::new();
         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
-        if self.verbosity >= 1 {
-            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
-        }
-
-        if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
+        // Explicitly set console output based on verbosity unless overridden by environment
+        let console_output_override = std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").ok();
+        if let Some(override_value) = console_output_override {
+            // Environment variable takes precedence
+            env_vars.insert("PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(), override_value);
+        } else {
+            // Default: only show console output when verbosity >= 1
             env_vars.insert(
                 "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
-                "true".to_string(),
+                (self.verbosity >= 1).to_string(),
             );
         }
 

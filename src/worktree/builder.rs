@@ -322,14 +322,16 @@ impl WorktreeManager {
         let mut env_vars = HashMap::new();
         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
-        if self.verbosity >= 1 {
-            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
-        }
-
-        if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
+        // Explicitly set console output based on verbosity unless overridden by environment
+        let console_output_override = std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").ok();
+        if let Some(override_value) = console_output_override {
+            // Environment variable takes precedence
+            env_vars.insert("PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(), override_value);
+        } else {
+            // Default: only show console output when verbosity >= 1
             env_vars.insert(
                 "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
-                "true".to_string(),
+                (self.verbosity >= 1).to_string(),
             );
         }
 
@@ -580,5 +582,97 @@ pub(crate) mod test_helpers {
         std::fs::write(&session_state_file, serde_json::to_string(session_state)?)?;
 
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod env_var_tests {
+        use super::*;
+        use tempfile::TempDir;
+
+        #[test]
+        fn test_build_claude_env_vars_verbosity_0() {
+            // Ensure environment variable is not set (to avoid test pollution)
+            std::env::remove_var("PRODIGY_CLAUDE_CONSOLE_OUTPUT");
+
+            // Test that verbosity 0 sets PRODIGY_CLAUDE_CONSOLE_OUTPUT to "false"
+            let temp_dir = TempDir::new().unwrap();
+            let subprocess = SubprocessManager::production();
+
+            let manager = WorktreeManager::with_config(
+                temp_dir.path().to_path_buf(),
+                subprocess,
+                0, // verbosity = 0
+                None,
+                std::collections::HashMap::new(),
+            )
+            .unwrap();
+
+            let env_vars = manager.build_claude_environment_variables();
+
+            // Verify PRODIGY_CLAUDE_CONSOLE_OUTPUT is set to "false"
+            assert_eq!(
+                env_vars.get("PRODIGY_CLAUDE_CONSOLE_OUTPUT"),
+                Some(&"false".to_string()),
+                "With verbosity 0, PRODIGY_CLAUDE_CONSOLE_OUTPUT should be 'false'"
+            );
+        }
+
+        #[test]
+        fn test_build_claude_env_vars_verbosity_1() {
+            // Ensure environment variable is not set (to avoid test pollution)
+            std::env::remove_var("PRODIGY_CLAUDE_CONSOLE_OUTPUT");
+
+            // Test that verbosity 1 sets PRODIGY_CLAUDE_CONSOLE_OUTPUT to "true"
+            let temp_dir = TempDir::new().unwrap();
+            let subprocess = SubprocessManager::production();
+
+            let manager = WorktreeManager::with_config(
+                temp_dir.path().to_path_buf(),
+                subprocess,
+                1, // verbosity = 1
+                None,
+                std::collections::HashMap::new(),
+            )
+            .unwrap();
+
+            let env_vars = manager.build_claude_environment_variables();
+
+            // Verify PRODIGY_CLAUDE_CONSOLE_OUTPUT is set to "true"
+            assert_eq!(
+                env_vars.get("PRODIGY_CLAUDE_CONSOLE_OUTPUT"),
+                Some(&"true".to_string()),
+                "With verbosity 1, PRODIGY_CLAUDE_CONSOLE_OUTPUT should be 'true'"
+            );
+        }
+
+        #[test]
+        fn test_build_claude_env_vars_env_override() {
+            // Test that environment variable override works
+            std::env::set_var("PRODIGY_CLAUDE_CONSOLE_OUTPUT", "true");
+
+            let temp_dir = TempDir::new().unwrap();
+            let subprocess = SubprocessManager::production();
+
+            let manager = WorktreeManager::with_config(
+                temp_dir.path().to_path_buf(),
+                subprocess,
+                0, // verbosity = 0, but env var should override
+                None,
+                std::collections::HashMap::new(),
+            )
+            .unwrap();
+
+            let env_vars = manager.build_claude_environment_variables();
+
+            // Verify environment variable takes precedence
+            assert_eq!(
+                env_vars.get("PRODIGY_CLAUDE_CONSOLE_OUTPUT"),
+                Some(&"true".to_string()),
+                "Environment variable should override verbosity setting"
+            );
+
+            // Clean up
+            std::env::remove_var("PRODIGY_CLAUDE_CONSOLE_OUTPUT");
+        }
     }
 }
