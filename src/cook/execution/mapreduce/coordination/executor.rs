@@ -7,6 +7,7 @@ use crate::cook::execution::claude::ClaudeExecutorImpl;
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
 use crate::cook::execution::input_source::InputSource;
+use crate::cook::execution::interpolation::InterpolationContext;
 use crate::cook::execution::mapreduce::{
     agent::{AgentConfig, AgentLifecycleManager, AgentResult, AgentStatus},
     aggregation::{AggregationSummary, CollectionStrategy, ResultCollector},
@@ -1014,6 +1015,7 @@ impl MapReduceCoordinator {
                     handle.worktree_path(),
                     step,
                     &variables,
+                    None, // Map phase doesn't need full context
                     env,
                     claude_executor,
                     subprocess,
@@ -1171,11 +1173,26 @@ impl MapReduceCoordinator {
         Ok(agent_result)
     }
 
-    /// Execute a step in an agent's worktree
+    /// Execute a step in an agent's worktree with variable interpolation
+    ///
+    /// # Arguments
+    ///
+    /// * `variables` - Limited scalar variables for environment variable export.
+    ///   Excludes large data like `map.results` to prevent E2BIG errors.
+    /// * `full_context` - Optional full interpolation context including large
+    ///   variables. Used for write_file commands to enable `${map.results}`.
+    ///   If None, falls back to building context from `variables` HashMap.
+    ///
+    /// # Variable Context Strategy
+    ///
+    /// - **Shell/Claude commands**: Use `variables` HashMap → converted to env vars
+    /// - **write_file commands**: Use `full_context` if provided for interpolation
+    /// - **Fallback**: If no `full_context`, build from `variables` (map phase)
     async fn execute_step_in_agent_worktree(
         worktree_path: &Path,
         step: &WorkflowStep,
         variables: &HashMap<String, String>,
+        full_context: Option<&InterpolationContext>,
         _env: &ExecutionEnvironment,
         claude_executor: &Arc<dyn ClaudeExecutor>,
         subprocess: &Arc<SubprocessManager>,
@@ -1185,34 +1202,44 @@ impl MapReduceCoordinator {
 
         // Create interpolation engine for variable substitution
         let mut engine = InterpolationEngine::default();
-        let mut interp_context = InterpolationContext::new();
 
-        // Build a nested JSON structure for item variables
-        let mut item_obj = serde_json::Map::new();
-        let mut other_vars = serde_json::Map::new();
+        // Build interpolation context with priority fallback
+        let interp_context = if let Some(full_ctx) = full_context {
+            // Use provided full context (for reduce phase with map.results)
+            full_ctx.clone()
+        } else {
+            // Build from limited variables HashMap (for map phase)
+            let mut ctx = InterpolationContext::new();
 
-        for (key, value) in variables {
-            if let Some(item_field) = key.strip_prefix("item.") {
-                // Add to item object
-                item_obj.insert(
-                    item_field.to_string(),
-                    serde_json::Value::String(value.clone()),
-                );
-            } else {
-                // Add as top-level variable
-                other_vars.insert(key.clone(), serde_json::Value::String(value.clone()));
+            // Build a nested JSON structure for item variables
+            let mut item_obj = serde_json::Map::new();
+            let mut other_vars = serde_json::Map::new();
+
+            for (key, value) in variables {
+                if let Some(item_field) = key.strip_prefix("item.") {
+                    // Add to item object
+                    item_obj.insert(
+                        item_field.to_string(),
+                        serde_json::Value::String(value.clone()),
+                    );
+                } else {
+                    // Add as top-level variable
+                    other_vars.insert(key.clone(), serde_json::Value::String(value.clone()));
+                }
             }
-        }
 
-        // Set the item object in context
-        if !item_obj.is_empty() {
-            interp_context.set("item", serde_json::Value::Object(item_obj));
-        }
+            // Set the item object in context
+            if !item_obj.is_empty() {
+                ctx.set("item", serde_json::Value::Object(item_obj));
+            }
 
-        // Set other variables
-        for (key, value) in other_vars {
-            interp_context.set(key, value);
-        }
+            // Set other variables
+            for (key, value) in other_vars {
+                ctx.set(key, value);
+            }
+
+            ctx
+        };
 
         // Execute based on step type
         if let Some(claude_cmd) = &step.claude {
@@ -1500,6 +1527,35 @@ impl MapReduceCoordinator {
         }
     }
 
+    /// Build full interpolation context for reduce phase
+    ///
+    /// Creates an InterpolationContext with all reduce phase variables including:
+    /// - Scalar summary values (map.successful, map.failed, map.total)
+    /// - Full map.results array (for write_file commands)
+    fn build_reduce_interpolation_context(
+        map_results: &[AgentResult],
+        summary: &AggregationSummary,
+    ) -> MapReduceResult<crate::cook::execution::interpolation::InterpolationContext> {
+        use crate::cook::execution::interpolation::InterpolationContext;
+
+        let mut context = InterpolationContext::new();
+
+        // Add scalar summary values
+        context.set("map.successful", serde_json::json!(summary.successful));
+        context.set("map.failed", serde_json::json!(summary.failed));
+        context.set("map.total", serde_json::json!(summary.total));
+
+        // Add full results as JSON value (for write_file interpolation)
+        // This can be >1MB with many agents, so it's excluded from env vars
+        // but available for interpolation in write_file commands
+        let results_value = serde_json::to_value(map_results).map_err(|e| {
+            MapReduceError::ProcessingError(format!("Failed to serialize map results: {}", e))
+        })?;
+        context.set("map.results", results_value);
+
+        Ok(context)
+    }
+
     /// Execute the reduce phase
     async fn execute_reduce_phase(
         &self,
@@ -1521,14 +1577,16 @@ impl MapReduceCoordinator {
             .await
             .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
 
-        // Create variables - ONLY scalar values to avoid E2BIG errors
-        // Large data (map.results) should be accessed via write_file + file references
-        // Passing large JSON as environment variables causes "Argument list too long" (os error 7)
-        // when total size exceeds ARG_MAX limit (~1MB on macOS)
+        // Create LIMITED variables for environment (prevent E2BIG errors)
+        // map.results excluded because it can be >1MB with many agents
         let mut variables = HashMap::new();
         variables.insert("map.successful".to_string(), summary.successful.to_string());
         variables.insert("map.failed".to_string(), summary.failed.to_string());
         variables.insert("map.total".to_string(), summary.total.to_string());
+
+        // Create FULL interpolation context for write_file commands
+        // Includes map.results since interpolation doesn't use env vars
+        let full_context = Self::build_reduce_interpolation_context(map_results, &summary)?;
 
         // Execute reduce commands
         for (index, step) in reduce.commands.iter().enumerate() {
@@ -1542,6 +1600,7 @@ impl MapReduceCoordinator {
                 &env.working_dir,
                 step,
                 &variables,
+                Some(&full_context), // Reduce phase provides full context
                 env,
                 &self.claude_executor,
                 &self.subprocess,
