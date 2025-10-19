@@ -2676,11 +2676,32 @@ mod reduce_interpolation_context_tests {
 
         // Verify scalar values
         assert_eq!(
-            context.variables.get("map.successful").unwrap().as_u64().unwrap(),
+            context
+                .variables
+                .get("map.successful")
+                .unwrap()
+                .as_u64()
+                .unwrap(),
             0
         );
-        assert_eq!(context.variables.get("map.failed").unwrap().as_u64().unwrap(), 0);
-        assert_eq!(context.variables.get("map.total").unwrap().as_u64().unwrap(), 0);
+        assert_eq!(
+            context
+                .variables
+                .get("map.failed")
+                .unwrap()
+                .as_u64()
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            context
+                .variables
+                .get("map.total")
+                .unwrap()
+                .as_u64()
+                .unwrap(),
+            0
+        );
 
         // Verify map.results is an empty array
         let map_results = context.variables.get("map.results").unwrap();
@@ -2726,11 +2747,32 @@ mod reduce_interpolation_context_tests {
 
         // Verify summary reflects mixed results
         assert_eq!(
-            context.variables.get("map.successful").unwrap().as_u64().unwrap(),
+            context
+                .variables
+                .get("map.successful")
+                .unwrap()
+                .as_u64()
+                .unwrap(),
             1
         );
-        assert_eq!(context.variables.get("map.failed").unwrap().as_u64().unwrap(), 1);
-        assert_eq!(context.variables.get("map.total").unwrap().as_u64().unwrap(), 2);
+        assert_eq!(
+            context
+                .variables
+                .get("map.failed")
+                .unwrap()
+                .as_u64()
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            context
+                .variables
+                .get("map.total")
+                .unwrap()
+                .as_u64()
+                .unwrap(),
+            2
+        );
 
         // Verify both results are present
         let map_results = context.variables.get("map.results").unwrap();
