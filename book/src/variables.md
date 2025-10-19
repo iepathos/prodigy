@@ -103,6 +103,112 @@ These variables are still supported but **deprecated** in favor of custom captur
 
 **Note**: `${item}` and related item variables are only available within the map phase. The aggregation variables (`${map.total}`, `${map.successful}`, `${map.failed}`, `${map.results}`) are only available in the reduce phase.
 
+#### Using map.results in Reduce Phase
+
+The `${map.results}` variable contains the complete aggregated results from all map agents as a JSON array. This variable can be very large (>1MB with many agents) and requires special handling.
+
+**Supported Commands:**
+
+✓ **write_file commands** - Fully supported with `${map.results}` interpolation
+```yaml
+reduce:
+  - write_file:
+      path: "results.json"
+      content: "${map.results}"
+      format: json
+```
+
+✗ **shell and Claude commands** - NOT supported for `${map.results}` (environment variable size limits)
+```yaml
+# DON'T DO THIS - Will fail with E2BIG error
+reduce:
+  - shell: "echo '${map.results}' > results.json"  # ✗ Fails
+  - claude: "/analyze ${map.results}"              # ✗ Fails
+```
+
+**Why the Difference?**
+
+- **write_file**: Uses direct interpolation without environment variables. Can handle multi-megabyte variables safely.
+- **shell/Claude**: Must pass variables via environment variables, which have OS limits (typically ~1MB). Large `${map.results}` exceeds these limits.
+
+**Best Practices:**
+
+1. **Write map.results to file first** using `write_file`:
+   ```yaml
+   reduce:
+     # Step 1: Write results to file using write_file
+     - write_file:
+         path: "map_results.json"
+         content: "${map.results}"
+         format: json
+
+     # Step 2: Process file in shell/Claude commands
+     - shell: "jq '.[] | select(.success == true)' map_results.json > successful.json"
+     - claude: "/analyze-results map_results.json"
+   ```
+
+2. **Use scalar variables for shell/Claude**:
+   ```yaml
+   reduce:
+     # Safe - scalar values are small
+     - shell: "echo 'Processed ${map.total} items'"
+     - shell: "echo 'Success rate: ${map.successful}/${map.total}'"
+     - claude: "/summarize-results --total ${map.total} --failed ${map.failed}"
+   ```
+
+3. **Format JSON properly** with write_file:
+   ```yaml
+   reduce:
+     # Prodigy will serialize map.results as valid JSON
+     - write_file:
+         path: "results.json"
+         content: "${map.results}"
+         format: json  # Ensures proper JSON formatting
+   ```
+
+**Example Workflow:**
+
+```yaml
+name: process-with-results
+mode: mapreduce
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+  agent_template:
+    - shell: "process ${item.id}"
+
+reduce:
+  # Write full results to JSON file
+  - write_file:
+      path: "all_results.json"
+      content: "${map.results}"
+      format: json
+
+  # Write summary using scalar variables
+  - write_file:
+      path: "summary.txt"
+      content: |
+        Total Items: ${map.total}
+        Successful: ${map.successful}
+        Failed: ${map.failed}
+      format: text
+
+  # Process results file in shell
+  - shell: "jq '[.[] | select(.success)] | length' all_results.json > success_count.txt"
+
+  # Analyze with Claude using file reference
+  - claude: "/analyze all_results.json"
+```
+
+**Error Messages:**
+
+If you try to use `${map.results}` in shell/Claude commands, you may see:
+- `E2BIG: Argument list too long` - Environment variable exceeded OS limits
+- `Failed to interpolate variable` - Variable too large for environment
+
+**Solution**: Always use `write_file` for `${map.results}`, then reference the file in subsequent commands.
+
 ### Merge Variables
 - `${merge.worktree}` - Worktree name
 - `${merge.source_branch}` - Source branch

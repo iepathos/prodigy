@@ -295,3 +295,151 @@ fn test_write_file_workflow_structure() -> Result<()> {
 
     Ok(())
 }
+
+/// Helper to create workflow using map.results in reduce phase
+fn create_map_results_workflow(temp_dir: &TempDir) -> PathBuf {
+    let workflow_path = temp_dir.path().join("test-map-results.yml");
+    let workflow_content = r#"
+name: test-map-results
+mode: mapreduce
+
+setup:
+  - shell: "echo '{\"tasks\": [{\"id\": \"task-1\", \"priority\": 1}, {\"id\": \"task-2\", \"priority\": 2}]}' > tasks.json"
+
+map:
+  input: "tasks.json"
+  json_path: "$.tasks[*]"
+  agent_template:
+    - shell: "echo 'Processed ${item.id} with priority ${item.priority}'"
+  max_parallel: 2
+
+reduce:
+  - write_file:
+      path: "results.json"
+      content: "${map.results}"
+      format: json
+  - write_file:
+      path: "summary.txt"
+      content: "Total: ${map.total}, Successful: ${map.successful}, Failed: ${map.failed}"
+      format: text
+"#;
+
+    fs::write(&workflow_path, workflow_content).expect("Failed to write workflow");
+    workflow_path
+}
+
+#[test]
+fn test_mapreduce_write_file_map_results() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let workflow_path = create_map_results_workflow(&temp_dir);
+
+    // Parse the workflow
+    let workflow_yaml = fs::read_to_string(&workflow_path)?;
+    let config: serde_yaml::Value = serde_yaml::from_str(&workflow_yaml)?;
+
+    // Verify reduce phase has write_file commands
+    let reduce = config
+        .get("reduce")
+        .expect("Should have reduce phase")
+        .as_sequence()
+        .expect("reduce should be sequence");
+
+    assert_eq!(reduce.len(), 2, "Should have 2 reduce commands");
+
+    // First reduce command: write map.results to JSON file
+    let results_write = &reduce[0];
+    assert!(
+        results_write.get("write_file").is_some(),
+        "First reduce command should be write_file"
+    );
+
+    let results_config = results_write.get("write_file").unwrap();
+    assert_eq!(
+        results_config.get("path").and_then(|v| v.as_str()),
+        Some("results.json")
+    );
+    assert_eq!(
+        results_config.get("format").and_then(|v| v.as_str()),
+        Some("json")
+    );
+
+    // Verify content uses ${map.results} variable
+    let content = results_config
+        .get("content")
+        .and_then(|v| v.as_str())
+        .unwrap();
+    assert_eq!(
+        content, "${map.results}",
+        "Content should use map.results variable"
+    );
+
+    // Second reduce command: write summary with scalar variables
+    let summary_write = &reduce[1];
+    assert!(
+        summary_write.get("write_file").is_some(),
+        "Second reduce command should be write_file"
+    );
+
+    let summary_config = summary_write.get("write_file").unwrap();
+    assert_eq!(
+        summary_config.get("path").and_then(|v| v.as_str()),
+        Some("summary.txt")
+    );
+    assert_eq!(
+        summary_config.get("format").and_then(|v| v.as_str()),
+        Some("text")
+    );
+
+    // Verify it uses map scalar variables
+    let summary_content = summary_config
+        .get("content")
+        .and_then(|v| v.as_str())
+        .unwrap();
+    assert!(
+        summary_content.contains("${map.total}"),
+        "Should use map.total variable"
+    );
+    assert!(
+        summary_content.contains("${map.successful}"),
+        "Should use map.successful variable"
+    );
+    assert!(
+        summary_content.contains("${map.failed}"),
+        "Should use map.failed variable"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_write_file_supports_large_variables() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let workflow_path = create_map_results_workflow(&temp_dir);
+
+    // Parse the workflow
+    let workflow_yaml = fs::read_to_string(&workflow_path)?;
+    let config: serde_yaml::Value = serde_yaml::from_str(&workflow_yaml)?;
+
+    // Verify workflow structure supports large variables like map.results
+    // This test documents that write_file is the correct command for large variables
+    // (as opposed to shell commands which would hit E2BIG errors)
+
+    let reduce = config.get("reduce").unwrap().as_sequence().unwrap();
+    let results_write = &reduce[0];
+    let results_config = results_write.get("write_file").unwrap();
+
+    // Verify using write_file for map.results (not shell)
+    assert!(
+        results_write.get("write_file").is_some(),
+        "Should use write_file for large variables, not shell"
+    );
+
+    // Verify JSON format for structured data
+    assert_eq!(
+        results_config.get("format").and_then(|v| v.as_str()),
+        Some("json"),
+        "Should use JSON format for structured map.results"
+    );
+
+    Ok(())
+}

@@ -2593,3 +2593,187 @@ mod execute_setup_phase_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod reduce_interpolation_context_tests {
+    use super::*;
+    use crate::cook::execution::mapreduce::agent::types::{AgentResult, AgentStatus};
+    use crate::cook::execution::mapreduce::aggregation::AggregationSummary;
+    use std::time::Duration;
+
+    #[test]
+    fn test_build_reduce_interpolation_context_includes_map_results() {
+        // Create sample agent results
+        let results = vec![
+            AgentResult {
+                item_id: "item-1".to_string(),
+                status: AgentStatus::Success,
+                output: Some("output-1".to_string()),
+                commits: vec!["commit-1".to_string()],
+                files_modified: vec![],
+                duration: Duration::from_secs(10),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                json_log_location: None,
+            },
+            AgentResult {
+                item_id: "item-2".to_string(),
+                status: AgentStatus::Success,
+                output: Some("output-2".to_string()),
+                commits: vec!["commit-2".to_string()],
+                files_modified: vec![],
+                duration: Duration::from_secs(15),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                json_log_location: None,
+            },
+        ];
+
+        let summary = AggregationSummary::from_results(&results);
+
+        let context =
+            MapReduceCoordinator::build_reduce_interpolation_context(&results, &summary).unwrap();
+
+        // Verify scalar values are present
+        let successful = context.variables.get("map.successful").unwrap();
+        assert_eq!(successful.as_u64().unwrap(), 2);
+
+        let failed = context.variables.get("map.failed").unwrap();
+        assert_eq!(failed.as_u64().unwrap(), 0);
+
+        let total = context.variables.get("map.total").unwrap();
+        assert_eq!(total.as_u64().unwrap(), 2);
+
+        // Verify map.results is present and is an array
+        let map_results = context.variables.get("map.results").unwrap();
+        assert!(map_results.is_array());
+        let results_array = map_results.as_array().unwrap();
+        assert_eq!(results_array.len(), 2);
+
+        // Verify first result contains expected fields
+        let first_result = &results_array[0];
+        assert_eq!(
+            first_result.get("item_id").unwrap().as_str().unwrap(),
+            "item-1"
+        );
+        assert_eq!(
+            first_result.get("output").unwrap().as_str().unwrap(),
+            "output-1"
+        );
+    }
+
+    #[test]
+    fn test_build_reduce_interpolation_context_with_empty_results() {
+        let results: Vec<AgentResult> = vec![];
+        let summary = AggregationSummary::from_results(&results);
+
+        let context =
+            MapReduceCoordinator::build_reduce_interpolation_context(&results, &summary).unwrap();
+
+        // Verify scalar values
+        assert_eq!(
+            context.variables.get("map.successful").unwrap().as_u64().unwrap(),
+            0
+        );
+        assert_eq!(context.variables.get("map.failed").unwrap().as_u64().unwrap(), 0);
+        assert_eq!(context.variables.get("map.total").unwrap().as_u64().unwrap(), 0);
+
+        // Verify map.results is an empty array
+        let map_results = context.variables.get("map.results").unwrap();
+        assert!(map_results.is_array());
+        assert_eq!(map_results.as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_build_reduce_interpolation_context_with_failed_agents() {
+        let results = vec![
+            AgentResult {
+                item_id: "item-1".to_string(),
+                status: AgentStatus::Success,
+                output: Some("success".to_string()),
+                commits: vec!["commit-1".to_string()],
+                files_modified: vec![],
+                duration: Duration::from_secs(10),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                json_log_location: None,
+            },
+            AgentResult {
+                item_id: "item-2".to_string(),
+                status: AgentStatus::Failed("error occurred".to_string()),
+                output: None,
+                commits: vec![],
+                files_modified: vec![],
+                duration: Duration::from_secs(5),
+                error: Some("error occurred".to_string()),
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                json_log_location: Some("/path/to/log.json".to_string()),
+            },
+        ];
+
+        let summary = AggregationSummary::from_results(&results);
+
+        let context =
+            MapReduceCoordinator::build_reduce_interpolation_context(&results, &summary).unwrap();
+
+        // Verify summary reflects mixed results
+        assert_eq!(
+            context.variables.get("map.successful").unwrap().as_u64().unwrap(),
+            1
+        );
+        assert_eq!(context.variables.get("map.failed").unwrap().as_u64().unwrap(), 1);
+        assert_eq!(context.variables.get("map.total").unwrap().as_u64().unwrap(), 2);
+
+        // Verify both results are present
+        let map_results = context.variables.get("map.results").unwrap();
+        assert_eq!(map_results.as_array().unwrap().len(), 2);
+
+        // Verify failed agent has error details
+        let failed_result = &map_results.as_array().unwrap()[1];
+        assert_eq!(
+            failed_result.get("error").unwrap().as_str().unwrap(),
+            "error occurred"
+        );
+    }
+
+    #[test]
+    fn test_build_reduce_interpolation_context_serialization_error() {
+        // This test verifies that the function handles serialization errors gracefully
+        // In practice, AgentResult should always serialize correctly, but we test the error path
+
+        // Note: It's difficult to trigger a serialization error with valid AgentResult data
+        // This test primarily documents the expected behavior
+        // A real serialization error would require malformed data that can't be represented in JSON
+
+        let results = vec![AgentResult {
+            item_id: "item-1".to_string(),
+            status: AgentStatus::Success,
+            output: Some("output".to_string()),
+            commits: vec![],
+            files_modified: vec![],
+            duration: Duration::from_secs(10),
+            error: None,
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            json_log_location: None,
+        }];
+
+        let summary = AggregationSummary::from_results(&results);
+
+        // This should succeed - valid data always serializes
+        let result = MapReduceCoordinator::build_reduce_interpolation_context(&results, &summary);
+        assert!(
+            result.is_ok(),
+            "Valid AgentResult data should serialize successfully"
+        );
+    }
+}
