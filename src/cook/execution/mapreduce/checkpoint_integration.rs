@@ -451,6 +451,7 @@ impl CheckpointedCoordinator {
                 worktree_session_id: None,
                 files_modified: vec![],
                 json_log_location: None,
+                cleanup_status: None,
             });
 
             *self.items_since_checkpoint.write().await += 1;
@@ -721,6 +722,7 @@ fn process_work_batch(batch: Vec<WorkItem>, base_duration_secs: u64) -> Vec<Agen
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         })
         .collect()
 }
@@ -1485,6 +1487,7 @@ mod tests {
                 worktree_session_id: None,
                 files_modified: vec![],
                 json_log_location: None,
+                cleanup_status: None,
             },
             AgentResult {
                 item_id: "item_2".to_string(),
@@ -1500,6 +1503,7 @@ mod tests {
                 worktree_session_id: None,
                 files_modified: vec![],
                 json_log_location: None,
+                cleanup_status: None,
             },
             AgentResult {
                 item_id: "item_3".to_string(),
@@ -1513,6 +1517,7 @@ mod tests {
                 worktree_session_id: None,
                 files_modified: vec![],
                 json_log_location: None,
+                cleanup_status: None,
             },
         ];
 
@@ -1543,6 +1548,7 @@ mod tests {
                 worktree_session_id: None,
                 files_modified: vec![],
                 json_log_location: None,
+                cleanup_status: None,
             },
             AgentResult {
                 item_id: "item_2".to_string(),
@@ -1558,6 +1564,7 @@ mod tests {
                 worktree_session_id: None,
                 files_modified: vec![],
                 json_log_location: None,
+                cleanup_status: None,
             },
             AgentResult {
                 item_id: "item_3".to_string(),
@@ -1571,6 +1578,7 @@ mod tests {
                 worktree_session_id: None,
                 files_modified: vec![],
                 json_log_location: None,
+                cleanup_status: None,
             },
         ];
 
@@ -1593,6 +1601,7 @@ mod tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         }];
 
         let no_change = update_checkpoint_progress(10, &failed_results);

@@ -563,6 +563,65 @@ git log
 # Expected: See setup phase changes and commits
 ```
 
+### Cleanup Failure Handling (Spec 136)
+
+MapReduce agent executions gracefully handle cleanup failures to ensure successful agent work is not lost.
+
+#### Behavior
+
+**Agent Success Preserved**:
+- Agent execution status is independent of cleanup status
+- If agent completes successfully but cleanup fails, agent is marked as successful
+- Work results (commits, files) are preserved regardless of cleanup outcome
+
+**Cleanup Status Tracking**:
+- Each `AgentResult` includes an optional `cleanup_status` field
+- Values: `Success`, `Failed(String)`, or `Skipped`
+- `AgentCompleted` events include cleanup status for observability
+
+**Orphaned Worktree Registry**:
+- When cleanup fails, worktree path is registered as orphaned
+- Registry stored in `~/.prodigy/orphaned_worktrees/{repo_name}/{job_id}.json`
+- Includes agent ID, item ID, timestamp, and error message
+
+#### Cleaning Orphaned Worktrees
+
+Use the `prodigy worktree clean-orphaned` command to clean up worktrees that failed cleanup:
+
+```bash
+# List orphaned worktrees
+prodigy worktree clean-orphaned <job_id>
+
+# Dry run to see what would be cleaned
+prodigy worktree clean-orphaned <job_id> --dry-run
+
+# Force cleanup without confirmation
+prodigy worktree clean-orphaned <job_id> --force
+```
+
+**Example Output**:
+```
+Found 2 orphaned worktree(s):
+  - /Users/user/.prodigy/worktrees/prodigy/agent-1 (agent: agent-1, item: item-1, error: permission denied)
+  - /Users/user/.prodigy/worktrees/prodigy/agent-2 (agent: agent-2, item: item-2, error: disk full)
+
+Proceed with cleanup? [y/N]
+```
+
+#### Troubleshooting Cleanup Failures
+
+**Common Causes**:
+- **Permission Denied**: Directory locked by process or insufficient permissions
+- **Disk Full**: Not enough space to perform cleanup operations
+- **Directory Busy**: Files open in editor or process using directory
+- **Git Locks**: Repository locked by concurrent git operation
+
+**Resolution**:
+1. Check for running processes using the worktree: `lsof | grep worktree-path`
+2. Ensure sufficient disk space: `df -h`
+3. Check directory permissions: `ls -ld worktree-path`
+4. Use `prodigy worktree clean-orphaned` to retry cleanup after resolving issue
+
 ### Event Tracking
 Events are logged to `~/.prodigy/events/{repo_name}/{job_id}/` for debugging:
 - Agent lifecycle events (started, completed, failed)

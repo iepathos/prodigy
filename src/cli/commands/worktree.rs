@@ -32,6 +32,11 @@ pub async fn run_worktree_command(command: WorktreeCommands) -> Result<()> {
             )
             .await
         }
+        WorktreeCommands::CleanOrphaned {
+            job_id,
+            dry_run,
+            force,
+        } => run_worktree_clean_orphaned(job_id, dry_run, force).await,
     }
 }
 
@@ -318,6 +323,141 @@ async fn run_mapreduce_cleanup(
                 .await?;
             println!("Cleaned {} orphaned MapReduce worktrees", count);
         }
+    }
+
+    Ok(())
+}
+
+/// Clean orphaned worktrees from cleanup failures
+async fn run_worktree_clean_orphaned(
+    job_id: Option<String>,
+    dry_run: bool,
+    force: bool,
+) -> Result<()> {
+    use std::path::PathBuf;
+
+    let home_dir =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Unable to determine home directory"))?;
+    let repo_path = std::env::current_dir()?;
+    let repo_name = repo_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown");
+
+    // Load orphaned worktrees registry
+    let registry_path = home_dir
+        .join(".prodigy")
+        .join("orphaned_worktrees")
+        .join(repo_name);
+
+    if !registry_path.exists() {
+        println!("No orphaned worktrees registry found.");
+        return Ok(());
+    }
+
+    // Read registry file
+    let registry_file = if let Some(ref jid) = job_id {
+        registry_path.join(format!("{}.json", jid))
+    } else {
+        // Find all registry files
+        let entries = std::fs::read_dir(&registry_path)?;
+        let mut files: Vec<PathBuf> = entries
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("json"))
+            .collect();
+
+        if files.is_empty() {
+            println!("No orphaned worktrees found.");
+            return Ok(());
+        }
+
+        if files.len() > 1 && !force {
+            println!("Multiple job registries found. Please specify a job_id:");
+            for file in &files {
+                if let Some(name) = file.file_stem().and_then(|s| s.to_str()) {
+                    println!("  - {}", name);
+                }
+            }
+            return Ok(());
+        }
+
+        files.remove(0)
+    };
+
+    if !registry_file.exists() {
+        println!("No orphaned worktrees found for the specified job.");
+        return Ok(());
+    }
+
+    // Read and parse the registry
+    let content = std::fs::read_to_string(&registry_file)?;
+    let orphaned_worktrees: Vec<
+        crate::cook::execution::mapreduce::coordination::executor::OrphanedWorktree,
+    > = serde_json::from_str(&content)?;
+
+    if orphaned_worktrees.is_empty() {
+        println!("No orphaned worktrees in registry.");
+        return Ok(());
+    }
+
+    println!("Found {} orphaned worktree(s):", orphaned_worktrees.len());
+    for orphaned in &orphaned_worktrees {
+        println!(
+            "  - {} (agent: {}, item: {}, error: {})",
+            orphaned.path.display(),
+            orphaned.agent_id,
+            orphaned.item_id,
+            orphaned.error
+        );
+    }
+
+    if dry_run {
+        println!(
+            "\nDry run: would clean {} worktree(s)",
+            orphaned_worktrees.len()
+        );
+        return Ok(());
+    }
+
+    if !force {
+        println!("\nProceed with cleanup? [y/N]");
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Cleanup cancelled.");
+            return Ok(());
+        }
+    }
+
+    // Clean each orphaned worktree
+    let mut cleaned = 0;
+    let mut failed = 0;
+
+    for orphaned in &orphaned_worktrees {
+        if orphaned.path.exists() {
+            match std::fs::remove_dir_all(&orphaned.path) {
+                Ok(_) => {
+                    println!("✅ Cleaned: {}", orphaned.path.display());
+                    cleaned += 1;
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to clean {}: {}", orphaned.path.display(), e);
+                    failed += 1;
+                }
+            }
+        } else {
+            println!("⚠️  Already removed: {}", orphaned.path.display());
+            cleaned += 1;
+        }
+    }
+
+    // If all cleaned successfully, remove the registry file
+    if failed == 0 {
+        std::fs::remove_file(&registry_file)?;
+        println!("\n✅ Cleaned {} orphaned worktree(s)", cleaned);
+    } else {
+        println!("\n⚠️  Cleaned {} worktree(s), {} failed", cleaned, failed);
     }
 
     Ok(())

@@ -90,6 +90,7 @@ impl AgentCommandExecutor {
             branch_name: Some(agent_context.worktree_name.clone()),
             worktree_session_id: None,
             json_log_location: None,
+            cleanup_status: None,
         };
 
         // Execute commands

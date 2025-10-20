@@ -270,6 +270,7 @@ impl AgentResultAggregator for DefaultResultAggregator {
             branch_name: Some(branch_name.to_string()),
             worktree_session_id: Some(worktree_session_id),
             json_log_location: None,
+            cleanup_status: None,
         })
     }
 

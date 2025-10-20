@@ -25,6 +25,7 @@ use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
 use crate::cook::workflow::{OnFailureConfig, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -32,6 +33,21 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, Semaphore};
 use tracing::{debug, info, warn};
+
+/// Information about an orphaned worktree from cleanup failure
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OrphanedWorktree {
+    /// Path to the worktree directory
+    pub path: PathBuf,
+    /// Agent ID that created the worktree
+    pub agent_id: String,
+    /// Work item ID that was being processed
+    pub item_id: String,
+    /// Timestamp when the cleanup failure occurred
+    pub failed_at: DateTime<Utc>,
+    /// Error message from the cleanup failure
+    pub error: String,
+}
 
 /// Main coordinator for MapReduce execution
 pub struct MapReduceCoordinator {
@@ -63,6 +79,8 @@ pub struct MapReduceCoordinator {
     merge_queue: Arc<MergeQueue>,
     /// Verbosity level for controlling output
     verbosity: u8,
+    /// Registry of orphaned worktrees from cleanup failures
+    orphaned_worktrees: Arc<Mutex<Vec<OrphanedWorktree>>>,
 }
 
 impl MapReduceCoordinator {
@@ -130,7 +148,25 @@ impl MapReduceCoordinator {
             timeout_enforcer: Arc::new(Mutex::new(None)),
             merge_queue,
             verbosity,
+            orphaned_worktrees: Arc::new(Mutex::new(Vec::new())),
         }
+    }
+
+    /// Get the list of orphaned worktrees
+    pub async fn get_orphaned_worktrees(&self) -> Vec<OrphanedWorktree> {
+        self.orphaned_worktrees.lock().await.clone()
+    }
+
+    /// Register an orphaned worktree when cleanup fails
+    pub async fn register_orphaned_worktree(&self, orphaned: OrphanedWorktree) {
+        warn!(
+            "Registered orphaned worktree: {} (agent: {}, item: {})",
+            orphaned.path.display(),
+            orphaned.agent_id,
+            orphaned.item_id
+        );
+        let mut registry = self.orphaned_worktrees.lock().await;
+        registry.push(orphaned);
     }
 
     /// Execute a complete MapReduce job
@@ -831,6 +867,7 @@ impl MapReduceCoordinator {
                                     item_id.clone(),
                                     chrono::Duration::from_std(duration)
                                         .unwrap_or(chrono::Duration::seconds(0)),
+                                    None,
                                 ))
                                 .await
                                 .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
@@ -859,6 +896,7 @@ impl MapReduceCoordinator {
                                 worktree_session_id: Some(agent_id),
                                 files_modified: vec![],
                                 json_log_location: None,
+                                cleanup_status: None,
                             }
                         }
                     };
@@ -1098,6 +1136,7 @@ impl MapReduceCoordinator {
                 worktree_session_id: Some(agent_id.to_string()),
                 files_modified: all_files_modified.clone(),
                 json_log_location: None,
+                cleanup_status: None,
             }
         };
 
@@ -1131,12 +1170,14 @@ impl MapReduceCoordinator {
                 Ok(()) => {
                     info!("Successfully merged agent {} (item {})", agent_id, item_id);
                     // Cleanup the worktree after successful merge
-                    agent_manager.cleanup_agent(handle).await.map_err(|e| {
-                        MapReduceError::ProcessingError(format!(
-                            "Failed to cleanup agent after merge: {}",
-                            e
-                        ))
-                    })?;
+                    // Note: Cleanup failures are non-critical since the work was successfully merged
+                    if let Err(e) = agent_manager.cleanup_agent(handle).await {
+                        warn!(
+                            "Failed to cleanup agent {} after successful merge: {}. \
+                             Work was successfully merged, worktree may need manual cleanup.",
+                            agent_id, e
+                        );
+                    }
                     true
                 }
                 Err(e) => {
@@ -1151,9 +1192,14 @@ impl MapReduceCoordinator {
             }
         } else {
             // No commits, just cleanup the worktree
-            agent_manager.cleanup_agent(handle).await.map_err(|e| {
-                MapReduceError::ProcessingError(format!("Failed to cleanup agent: {}", e))
-            })?;
+            // Note: Cleanup failures are non-critical, log but don't fail the agent
+            if let Err(e) = agent_manager.cleanup_agent(handle).await {
+                warn!(
+                    "Failed to cleanup agent {} (no commits made): {}. \
+                     Worktree may need manual cleanup.",
+                    agent_id, e
+                );
+            }
             false
         };
 
@@ -2617,6 +2663,7 @@ mod reduce_interpolation_context_tests {
                 branch_name: None,
                 worktree_session_id: None,
                 json_log_location: None,
+                cleanup_status: None,
             },
             AgentResult {
                 item_id: "item-2".to_string(),
@@ -2630,6 +2677,7 @@ mod reduce_interpolation_context_tests {
                 branch_name: None,
                 worktree_session_id: None,
                 json_log_location: None,
+                cleanup_status: None,
             },
         ];
 
@@ -2724,6 +2772,7 @@ mod reduce_interpolation_context_tests {
                 branch_name: None,
                 worktree_session_id: None,
                 json_log_location: None,
+                cleanup_status: None,
             },
             AgentResult {
                 item_id: "item-2".to_string(),
@@ -2737,6 +2786,7 @@ mod reduce_interpolation_context_tests {
                 branch_name: None,
                 worktree_session_id: None,
                 json_log_location: Some("/path/to/log.json".to_string()),
+                cleanup_status: None,
             },
         ];
 
@@ -2807,6 +2857,7 @@ mod reduce_interpolation_context_tests {
             branch_name: None,
             worktree_session_id: None,
             json_log_location: None,
+            cleanup_status: None,
         }];
 
         let summary = AggregationSummary::from_results(&results);

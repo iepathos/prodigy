@@ -480,6 +480,7 @@ fn bench_checkpoint_save_performance(c: &mut Criterion) {
                                 commits: vec![format!("commit_{}", i)],
                                 duration: Duration::from_secs(1),
                                 json_log_location: None,
+                                cleanup_status: None,
                                 error: if i % 10 == 0 {
                                     Some("Test error".to_string())
                                 } else {
@@ -554,6 +555,7 @@ fn bench_checkpoint_load_performance(c: &mut Criterion) {
                                 commits: vec![format!("commit_{}", i)],
                                 duration: Duration::from_secs(1),
                                 json_log_location: None,
+                                cleanup_status: None,
                                 error: None,
                                 worktree_path: None,
                                 branch_name: None,
@@ -638,6 +640,7 @@ fn bench_job_state_manager_with_checkpointing(c: &mut Criterion) {
                                         commits: vec![],
                                         duration: Duration::from_millis(100),
                                         json_log_location: None,
+                                        cleanup_status: None,
                                         error: None,
                                         worktree_path: None,
                                         branch_name: None,

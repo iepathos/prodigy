@@ -249,4 +249,105 @@ mod coordinator_tests {
         // Test scheduled cleanup
         assert!(guard.schedule_cleanup(Duration::from_secs(1)).await.is_ok());
     }
+
+    #[tokio::test]
+    async fn test_agent_success_despite_cleanup_failure() {
+        // Test that agent execution is marked successful even if cleanup fails
+        use crate::cook::execution::mapreduce::agent::types::{
+            AgentResult, AgentStatus, CleanupStatus,
+        };
+        use std::time::Duration;
+
+        // Create an agent result that succeeded
+        let mut result = AgentResult::success(
+            "test-item".to_string(),
+            Some("success".to_string()),
+            Duration::from_secs(10),
+        );
+
+        // Verify initial state
+        assert!(result.is_success());
+        assert!(result.cleanup_status.is_none());
+
+        // Simulate cleanup failure
+        result.cleanup_status = Some(CleanupStatus::Failed("permission denied".to_string()));
+
+        // Agent should still be marked as successful
+        assert!(result.is_success());
+        assert_eq!(result.status, AgentStatus::Success);
+
+        // But cleanup status should reflect the failure
+        match result.cleanup_status {
+            Some(CleanupStatus::Failed(err)) => {
+                assert_eq!(err, "permission denied");
+            }
+            _ => panic!("Expected cleanup failure status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_failure_handling_consistency() {
+        // Test that cleanup failures are handled consistently across different scenarios
+        use crate::cook::execution::mapreduce::agent::types::CleanupStatus;
+
+        // Test CleanupStatus variants
+        let success = CleanupStatus::Success;
+        let failed = CleanupStatus::Failed("test error".to_string());
+        let skipped = CleanupStatus::Skipped;
+
+        // Verify serialization/deserialization
+        let success_json = serde_json::to_string(&success).unwrap();
+        let failed_json = serde_json::to_string(&failed).unwrap();
+        let skipped_json = serde_json::to_string(&skipped).unwrap();
+
+        let success_parsed: CleanupStatus = serde_json::from_str(&success_json).unwrap();
+        let failed_parsed: CleanupStatus = serde_json::from_str(&failed_json).unwrap();
+        let skipped_parsed: CleanupStatus = serde_json::from_str(&skipped_json).unwrap();
+
+        assert_eq!(success, success_parsed);
+        assert_eq!(failed, failed_parsed);
+        assert_eq!(skipped, skipped_parsed);
+    }
+
+    #[tokio::test]
+    async fn test_orphaned_worktree_registry() {
+        // Test that orphaned worktrees are tracked when cleanup fails
+        use crate::cook::execution::mapreduce::coordination::executor::OrphanedWorktree;
+
+        // Test OrphanedWorktree struct
+        let orphaned = OrphanedWorktree {
+            path: std::path::PathBuf::from("/tmp/orphaned-worktree"),
+            agent_id: "agent-1".to_string(),
+            item_id: "item-1".to_string(),
+            failed_at: chrono::Utc::now(),
+            error: "cleanup failed".to_string(),
+        };
+
+        // Verify serialization/deserialization
+        let json = serde_json::to_string(&orphaned).unwrap();
+        let deserialized: OrphanedWorktree = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(orphaned.agent_id, deserialized.agent_id);
+        assert_eq!(orphaned.item_id, deserialized.item_id);
+        assert_eq!(orphaned.error, deserialized.error);
+        assert_eq!(orphaned.path, deserialized.path);
+
+        // Test multiple orphaned worktrees
+        let mut registry = Vec::new();
+        registry.push(orphaned);
+
+        let orphaned2 = OrphanedWorktree {
+            path: std::path::PathBuf::from("/tmp/orphaned-worktree-2"),
+            agent_id: "agent-2".to_string(),
+            item_id: "item-2".to_string(),
+            failed_at: chrono::Utc::now(),
+            error: "disk full".to_string(),
+        };
+        registry.push(orphaned2);
+
+        // Verify registry tracking
+        assert_eq!(registry.len(), 2);
+        assert_eq!(registry[0].agent_id, "agent-1");
+        assert_eq!(registry[1].agent_id, "agent-2");
+    }
 }

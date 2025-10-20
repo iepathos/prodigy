@@ -24,6 +24,7 @@ async fn test_aggregation_summary_counts_merge_failures() {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         },
         AgentResult {
             item_id: "item-1".to_string(),
@@ -39,6 +40,7 @@ async fn test_aggregation_summary_counts_merge_failures() {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         },
         AgentResult {
             item_id: "item-2".to_string(),
@@ -52,6 +54,7 @@ async fn test_aggregation_summary_counts_merge_failures() {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         },
     ];
 
@@ -81,6 +84,7 @@ async fn test_aggregation_summary_with_all_merge_failures() {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         },
         AgentResult {
             item_id: "item-1".to_string(),
@@ -94,6 +98,7 @@ async fn test_aggregation_summary_with_all_merge_failures() {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         },
     ];
 
@@ -124,6 +129,7 @@ async fn test_agent_result_status_updated_on_merge_failure() {
         worktree_session_id: Some("session-123".to_string()),
         files_modified: vec!["file1.rs".to_string()],
         json_log_location: None,
+        cleanup_status: None,
     };
 
     // Simulate what happens when merge fails
@@ -162,6 +168,7 @@ fn test_merge_failure_error_message_clarity() {
         worktree_session_id: None,
         files_modified: vec![],
         json_log_location: None,
+        cleanup_status: None,
     };
 
     if let AgentStatus::Failed(msg) = &result.status {
@@ -198,6 +205,7 @@ fn test_aggregation_with_mixed_failure_types() {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         },
         // Agent with merge failure
         AgentResult {
@@ -212,6 +220,7 @@ fn test_aggregation_with_mixed_failure_types() {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         },
         // Agent with execution failure
         AgentResult {
@@ -226,6 +235,7 @@ fn test_aggregation_with_mixed_failure_types() {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         },
         // Agent with timeout
         AgentResult {
@@ -240,6 +250,7 @@ fn test_aggregation_with_mixed_failure_types() {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         },
     ];
 
@@ -269,6 +280,7 @@ fn test_no_commits_no_merge_failure() {
         worktree_session_id: None,
         files_modified: vec![],
         json_log_location: None,
+        cleanup_status: None,
     }];
 
     let summary = AggregationSummary::from_results(&results);

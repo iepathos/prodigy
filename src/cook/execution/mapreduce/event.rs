@@ -5,6 +5,8 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use super::agent::types::CleanupStatus;
+
 /// Event logger for MapReduce job tracking
 pub struct EventLogger {
     _project_root: PathBuf,
@@ -56,6 +58,7 @@ pub enum MapReduceEvent {
         item_id: String,
         duration: Duration,
         timestamp: DateTime<Utc>,
+        cleanup_status: Option<CleanupStatus>,
     },
     /// Agent failed processing
     AgentFailed {
@@ -98,12 +101,18 @@ impl MapReduceEvent {
     }
 
     /// Create agent completed event
-    pub fn agent_completed(agent_id: String, item_id: String, duration: Duration) -> Self {
+    pub fn agent_completed(
+        agent_id: String,
+        item_id: String,
+        duration: Duration,
+        cleanup_status: Option<CleanupStatus>,
+    ) -> Self {
         Self::AgentCompleted {
             agent_id,
             item_id,
             duration,
             timestamp: Utc::now(),
+            cleanup_status,
         }
     }
 

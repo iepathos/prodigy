@@ -706,6 +706,17 @@ pub enum WorktreeCommands {
         #[arg(long)]
         job_id: Option<String>,
     },
+    /// Clean orphaned worktrees from cleanup failures
+    CleanOrphaned {
+        /// Job ID to clean orphaned worktrees for
+        job_id: Option<String>,
+        /// Show what would be cleaned without actually cleaning
+        #[arg(long)]
+        dry_run: bool,
+        /// Force removal without confirmation
+        #[arg(short = 'f', long)]
+        force: bool,
+    },
 }
 
 #[derive(Subcommand)]

@@ -134,6 +134,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -154,6 +155,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -205,6 +207,7 @@ mod tests {
             worktree_session_id: Some("session-1".to_string()),
             files_modified: vec!["file1.rs".to_string()],
             json_log_location: None,
+            cleanup_status: None,
         };
 
         state.update_agent_result(success_result.clone());
@@ -229,6 +232,7 @@ mod tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         };
 
         state.update_agent_result(failed_result);
@@ -280,6 +284,7 @@ mod tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         });
 
         state.update_agent_result(AgentResult {
@@ -294,6 +299,7 @@ mod tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         });
 
         // Save checkpoint
@@ -400,6 +406,7 @@ mod tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         };
 
         manager.update_agent_result(&job_id, result1).await.unwrap();
@@ -479,6 +486,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -499,6 +507,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -593,6 +602,7 @@ mod tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         });
 
         state.update_agent_result(AgentResult {
@@ -607,6 +617,7 @@ mod tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         });
 
         // Now map phase should be complete
@@ -766,6 +777,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -828,6 +840,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -897,6 +910,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec!["file1.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -917,6 +931,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -945,6 +960,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec!["file2.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -966,6 +982,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec!["file1_fixed.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -995,6 +1012,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec!["file3.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1015,6 +1033,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec!["file4.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1089,6 +1108,7 @@ mod tests {
                     worktree_session_id: Some("session-1".to_string()),
                     files_modified: vec!["file1.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1109,6 +1129,7 @@ mod tests {
                     worktree_session_id: Some("session-2".to_string()),
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1141,6 +1162,7 @@ mod tests {
                     worktree_session_id: Some("session-3".to_string()),
                     files_modified: vec!["file3.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1162,6 +1184,7 @@ mod tests {
                     worktree_session_id: Some("session-4".to_string()),
                     files_modified: vec!["file2.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1188,6 +1211,7 @@ mod tests {
                     worktree_session_id: Some("session-5".to_string()),
                     files_modified: vec!["file4.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1208,6 +1232,7 @@ mod tests {
                     worktree_session_id: Some("session-6".to_string()),
                     files_modified: vec!["file5.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1304,6 +1329,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1325,6 +1351,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1346,6 +1373,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1390,6 +1418,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1443,6 +1472,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec!["file1.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1469,6 +1499,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec!["file2.rs".to_string()],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1500,6 +1531,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1520,6 +1552,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1579,6 +1612,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1599,6 +1633,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1626,6 +1661,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1647,6 +1683,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1679,6 +1716,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1699,6 +1737,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await

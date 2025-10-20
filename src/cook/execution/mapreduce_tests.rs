@@ -67,6 +67,7 @@ fn test_resume_result_serialization() {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         }],
     };
 
@@ -221,6 +222,7 @@ fn test_agent_result_serialization() {
         worktree_session_id: Some("prodigy-session-123".to_string()),
         files_modified: vec!["src/main.rs".to_string()],
         json_log_location: None,
+        cleanup_status: None,
     };
 
     let json = serde_json::to_string(&result).unwrap();
@@ -1471,6 +1473,7 @@ mod concurrency_tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 };
 
                 res.lock().await.push(result);
@@ -1879,6 +1882,7 @@ mod additional_coverage_tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         };
 
         assert_eq!(minimal_result.item_id, "minimal");
@@ -1899,6 +1903,7 @@ mod additional_coverage_tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         };
 
         assert!(matches!(error_result.status, AgentStatus::Failed(_)));
@@ -1943,6 +1948,7 @@ mod additional_coverage_tests {
                 worktree_session_id: None,
                 files_modified: vec![],
                 json_log_location: None,
+                cleanup_status: None,
             });
         }
 

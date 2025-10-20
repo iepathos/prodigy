@@ -51,6 +51,7 @@ fn create_test_checkpoint(
                 branch_name: Some(format!("branch-{}", i)),
                 worktree_session_id: Some(format!("session-{}", i)),
                 json_log_location: None,
+                cleanup_status: None,
             },
             completed_at: Utc::now(),
         });

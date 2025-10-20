@@ -1066,6 +1066,7 @@ mod tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         });
 
         // Save checkpoint
@@ -1220,6 +1221,7 @@ mod tests {
             worktree_session_id: None,
             files_modified: vec![],
             json_log_location: None,
+            cleanup_status: None,
         };
 
         manager.update_agent_result(&job_id, result).await.unwrap();
@@ -1677,6 +1679,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
@@ -1697,6 +1700,7 @@ mod tests {
                     worktree_session_id: None,
                     files_modified: vec![],
                     json_log_location: None,
+                    cleanup_status: None,
                 },
             )
             .await
