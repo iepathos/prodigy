@@ -44,7 +44,7 @@ axum = { version = "0.8", features = ["ws"] }
 tower-http = { version = "0.6", features = ["cors"] }
 once_cell = "1.19"
 rand = "0.9"
-csv = "1.3"
+csv = "1.4"
 # atty removed - using std::io::IsTerminal instead
 signal-hook = "0.3"
 indicatif = "0.18"
