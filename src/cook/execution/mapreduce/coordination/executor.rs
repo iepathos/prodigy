@@ -1131,12 +1131,14 @@ impl MapReduceCoordinator {
                 Ok(()) => {
                     info!("Successfully merged agent {} (item {})", agent_id, item_id);
                     // Cleanup the worktree after successful merge
-                    agent_manager.cleanup_agent(handle).await.map_err(|e| {
-                        MapReduceError::ProcessingError(format!(
-                            "Failed to cleanup agent after merge: {}",
-                            e
-                        ))
-                    })?;
+                    // Note: Cleanup failures are non-critical since the work was successfully merged
+                    if let Err(e) = agent_manager.cleanup_agent(handle).await {
+                        warn!(
+                            "Failed to cleanup agent {} after successful merge: {}. \
+                             Work was successfully merged, worktree may need manual cleanup.",
+                            agent_id, e
+                        );
+                    }
                     true
                 }
                 Err(e) => {
@@ -1151,9 +1153,14 @@ impl MapReduceCoordinator {
             }
         } else {
             // No commits, just cleanup the worktree
-            agent_manager.cleanup_agent(handle).await.map_err(|e| {
-                MapReduceError::ProcessingError(format!("Failed to cleanup agent: {}", e))
-            })?;
+            // Note: Cleanup failures are non-critical, log but don't fail the agent
+            if let Err(e) = agent_manager.cleanup_agent(handle).await {
+                warn!(
+                    "Failed to cleanup agent {} (no commits made): {}. \
+                     Worktree may need manual cleanup.",
+                    agent_id, e
+                );
+            }
             false
         };
 
