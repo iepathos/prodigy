@@ -89,6 +89,7 @@ impl MapPhaseExecutor {
                 branch_name: Some(format!("agent-branch-{}", index)),
                 worktree_session_id: None,
                 json_log_location: None,
+                cleanup_status: None,
             });
         }
 

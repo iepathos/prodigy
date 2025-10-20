@@ -650,6 +650,7 @@ mod tests {
                     error: None,
                     worktree_path: Some(std::path::PathBuf::from("<test-worktree-path>")),
                     json_log_location: None,
+            cleanup_status: None,
                 },
             );
         }

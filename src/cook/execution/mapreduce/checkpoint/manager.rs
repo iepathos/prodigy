@@ -1187,6 +1187,7 @@ mod tests {
                     branch_name: None,
                     worktree_session_id: None,
                     json_log_location: None,
+            cleanup_status: None,
                 },
                 completed_at: Utc::now(),
             })
@@ -1593,6 +1594,7 @@ mod tests {
                         worktree_session_id: None,
                         files_modified: vec![],
                         json_log_location: None,
+            cleanup_status: None,
                     },
                     completed_at: Utc::now(),
                 }],

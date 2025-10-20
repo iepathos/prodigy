@@ -181,6 +181,7 @@ async fn create_partial_job_state(
                 branch_name: None,
                 worktree_session_id: None,
                 json_log_location: None,
+                cleanup_status: None,
             },
         );
     }
@@ -214,6 +215,7 @@ async fn create_partial_job_state(
                 branch_name: None,
                 worktree_session_id: None,
                 json_log_location: None,
+                cleanup_status: None,
             },
         );
     }
@@ -630,6 +632,7 @@ async fn test_cross_worktree_coordination() {
                 branch_name: None,
                 worktree_session_id: None,
                 json_log_location: None,
+                cleanup_status: None,
             },
         );
         state1.successful_count += 1;
@@ -663,6 +666,7 @@ async fn test_cross_worktree_coordination() {
                 branch_name: None,
                 worktree_session_id: None,
                 json_log_location: None,
+                cleanup_status: None,
             },
         );
         state2.successful_count += 1;

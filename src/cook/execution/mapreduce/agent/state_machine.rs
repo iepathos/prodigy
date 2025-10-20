@@ -169,6 +169,7 @@ pub fn state_to_result(state: &AgentLifecycleState) -> Option<AgentResult> {
             branch_name: None,
             worktree_session_id: None,
             json_log_location: None,
+            cleanup_status: None,
         }),
 
         AgentLifecycleState::Failed {
@@ -188,6 +189,7 @@ pub fn state_to_result(state: &AgentLifecycleState) -> Option<AgentResult> {
             branch_name: None,
             worktree_session_id: None,
             json_log_location: json_log_location.clone(),
+            cleanup_status: None,
         }),
 
         // Non-terminal states

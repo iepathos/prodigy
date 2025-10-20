@@ -12,6 +12,17 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
+/// Status of cleanup operations after agent execution
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum CleanupStatus {
+    /// Cleanup completed successfully
+    Success,
+    /// Cleanup failed with error
+    Failed(String),
+    /// Cleanup was skipped
+    Skipped,
+}
+
 /// Status of an agent's execution
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AgentStatus {
@@ -62,6 +73,9 @@ pub struct AgentResult {
     /// Path to Claude JSON log file for debugging
     #[serde(skip_serializing_if = "Option::is_none")]
     pub json_log_location: Option<String>,
+    /// Status of cleanup operations
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cleanup_status: Option<CleanupStatus>,
 }
 
 impl AgentResult {
@@ -79,6 +93,7 @@ impl AgentResult {
             branch_name: None,
             worktree_session_id: None,
             json_log_location: None,
+            cleanup_status: None,
         }
     }
 
@@ -96,6 +111,7 @@ impl AgentResult {
             branch_name: None,
             worktree_session_id: None,
             json_log_location: None,
+            cleanup_status: None,
         }
     }
 

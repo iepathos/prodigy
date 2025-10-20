@@ -46,6 +46,7 @@ mod spec_121_tests {
             branch_name: Some("feature-branch".to_string()),
             worktree_session_id: Some("session-123".to_string()),
             json_log_location: log_location.clone(),
+            cleanup_status: None,
         };
 
         assert_eq!(agent_result.json_log_location, log_location);
@@ -67,6 +68,7 @@ mod spec_121_tests {
             branch_name: Some("feature-branch".to_string()),
             worktree_session_id: Some("session-123".to_string()),
             json_log_location: None,
+            cleanup_status: None,
         };
 
         assert!(agent_result.json_log_location.is_none());
