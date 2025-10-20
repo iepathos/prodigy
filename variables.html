@@ -271,6 +271,102 @@
 <li><code>${map.results}</code> - Aggregated results from all map agents (JSON array)</li>
 </ul>
 <p><strong>Note</strong>: <code>${item}</code> and related item variables are only available within the map phase. The aggregation variables (<code>${map.total}</code>, <code>${map.successful}</code>, <code>${map.failed}</code>, <code>${map.results}</code>) are only available in the reduce phase.</p>
+<h4 id="using-mapresults-in-reduce-phase"><a class="header" href="#using-mapresults-in-reduce-phase">Using map.results in Reduce Phase</a></h4>
+<p>The <code>${map.results}</code> variable contains the complete aggregated results from all map agents as a JSON array. This variable can be very large (&gt;1MB with many agents) and requires special handling.</p>
+<p><strong>Supported Commands:</strong></p>
+<p>✓ <strong>write_file commands</strong> - Fully supported with <code>${map.results}</code> interpolation</p>
+<pre><code class="language-yaml">reduce:
+  - write_file:
+      path: "results.json"
+      content: "${map.results}"
+      format: json
+</code></pre>
+<p>✗ <strong>shell and Claude commands</strong> - NOT supported for <code>${map.results}</code> (environment variable size limits)</p>
+<pre><code class="language-yaml"># DON'T DO THIS - Will fail with E2BIG error
+reduce:
+  - shell: "echo '${map.results}' &gt; results.json"  # ✗ Fails
+  - claude: "/analyze ${map.results}"              # ✗ Fails
+</code></pre>
+<p><strong>Why the Difference?</strong></p>
+<ul>
+<li><strong>write_file</strong>: Uses direct interpolation without environment variables. Can handle multi-megabyte variables safely.</li>
+<li><strong>shell/Claude</strong>: Must pass variables via environment variables, which have OS limits (typically ~1MB). Large <code>${map.results}</code> exceeds these limits.</li>
+</ul>
+<p><strong>Best Practices:</strong></p>
+<ol>
+<li>
+<p><strong>Write map.results to file first</strong> using <code>write_file</code>:</p>
+<pre><code class="language-yaml">reduce:
+  # Step 1: Write results to file using write_file
+  - write_file:
+      path: "map_results.json"
+      content: "${map.results}"
+      format: json
+
+  # Step 2: Process file in shell/Claude commands
+  - shell: "jq '.[] | select(.success == true)' map_results.json &gt; successful.json"
+  - claude: "/analyze-results map_results.json"
+</code></pre>
+</li>
+<li>
+<p><strong>Use scalar variables for shell/Claude</strong>:</p>
+<pre><code class="language-yaml">reduce:
+  # Safe - scalar values are small
+  - shell: "echo 'Processed ${map.total} items'"
+  - shell: "echo 'Success rate: ${map.successful}/${map.total}'"
+  - claude: "/summarize-results --total ${map.total} --failed ${map.failed}"
+</code></pre>
+</li>
+<li>
+<p><strong>Format JSON properly</strong> with write_file:</p>
+<pre><code class="language-yaml">reduce:
+  # Prodigy will serialize map.results as valid JSON
+  - write_file:
+      path: "results.json"
+      content: "${map.results}"
+      format: json  # Ensures proper JSON formatting
+</code></pre>
+</li>
+</ol>
+<p><strong>Example Workflow:</strong></p>
+<pre><code class="language-yaml">name: process-with-results
+mode: mapreduce
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+  agent_template:
+    - shell: "process ${item.id}"
+
+reduce:
+  # Write full results to JSON file
+  - write_file:
+      path: "all_results.json"
+      content: "${map.results}"
+      format: json
+
+  # Write summary using scalar variables
+  - write_file:
+      path: "summary.txt"
+      content: |
+        Total Items: ${map.total}
+        Successful: ${map.successful}
+        Failed: ${map.failed}
+      format: text
+
+  # Process results file in shell
+  - shell: "jq '[.[] | select(.success)] | length' all_results.json &gt; success_count.txt"
+
+  # Analyze with Claude using file reference
+  - claude: "/analyze all_results.json"
+</code></pre>
+<p><strong>Error Messages:</strong></p>
+<p>If you try to use <code>${map.results}</code> in shell/Claude commands, you may see:</p>
+<ul>
+<li><code>E2BIG: Argument list too long</code> - Environment variable exceeded OS limits</li>
+<li><code>Failed to interpolate variable</code> - Variable too large for environment</li>
+</ul>
+<p><strong>Solution</strong>: Always use <code>write_file</code> for <code>${map.results}</code>, then reference the file in subsequent commands.</p>
 <h3 id="merge-variables"><a class="header" href="#merge-variables">Merge Variables</a></h3>
 <ul>
 <li><code>${merge.worktree}</code> - Worktree name</li>
