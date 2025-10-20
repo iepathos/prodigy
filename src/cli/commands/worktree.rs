@@ -336,7 +336,8 @@ async fn run_worktree_clean_orphaned(
 ) -> Result<()> {
     use std::path::PathBuf;
 
-    let home_dir = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Unable to determine home directory"))?;
+    let home_dir =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Unable to determine home directory"))?;
     let repo_path = std::env::current_dir()?;
     let repo_name = repo_path
         .file_name()
@@ -391,8 +392,9 @@ async fn run_worktree_clean_orphaned(
 
     // Read and parse the registry
     let content = std::fs::read_to_string(&registry_file)?;
-    let orphaned_worktrees: Vec<crate::cook::execution::mapreduce::coordination::executor::OrphanedWorktree> =
-        serde_json::from_str(&content)?;
+    let orphaned_worktrees: Vec<
+        crate::cook::execution::mapreduce::coordination::executor::OrphanedWorktree,
+    > = serde_json::from_str(&content)?;
 
     if orphaned_worktrees.is_empty() {
         println!("No orphaned worktrees in registry.");
@@ -411,7 +413,10 @@ async fn run_worktree_clean_orphaned(
     }
 
     if dry_run {
-        println!("\nDry run: would clean {} worktree(s)", orphaned_worktrees.len());
+        println!(
+            "\nDry run: would clean {} worktree(s)",
+            orphaned_worktrees.len()
+        );
         return Ok(());
     }
 
@@ -452,10 +457,7 @@ async fn run_worktree_clean_orphaned(
         std::fs::remove_file(&registry_file)?;
         println!("\n✅ Cleaned {} orphaned worktree(s)", cleaned);
     } else {
-        println!(
-            "\n⚠️  Cleaned {} worktree(s), {} failed",
-            cleaned, failed
-        );
+        println!("\n⚠️  Cleaned {} worktree(s), {} failed", cleaned, failed);
     }
 
     Ok(())

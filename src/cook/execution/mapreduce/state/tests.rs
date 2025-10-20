@@ -44,7 +44,7 @@ mod state_tests {
                             worktree_session_id: None,
                             files_modified: vec![],
                             json_log_location: None,
-                    cleanup_status: None,
+                            cleanup_status: None,
                         },
                     );
                 }
@@ -278,7 +278,7 @@ mod state_tests {
                             worktree_session_id: None,
                             files_modified: vec![],
                             json_log_location: None,
-                    cleanup_status: None,
+                            cleanup_status: None,
                         },
                     );
                 }

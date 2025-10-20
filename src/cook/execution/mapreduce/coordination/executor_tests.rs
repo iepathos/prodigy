@@ -129,7 +129,7 @@ async fn test_agent_result_status_updated_on_merge_failure() {
         worktree_session_id: Some("session-123".to_string()),
         files_modified: vec!["file1.rs".to_string()],
         json_log_location: None,
-            cleanup_status: None,
+        cleanup_status: None,
     };
 
     // Simulate what happens when merge fails
@@ -168,7 +168,7 @@ fn test_merge_failure_error_message_clarity() {
         worktree_session_id: None,
         files_modified: vec![],
         json_log_location: None,
-            cleanup_status: None,
+        cleanup_status: None,
     };
 
     if let AgentStatus::Failed(msg) = &result.status {
@@ -280,7 +280,7 @@ fn test_no_commits_no_merge_failure() {
         worktree_session_id: None,
         files_modified: vec![],
         json_log_location: None,
-            cleanup_status: None,
+        cleanup_status: None,
     }];
 
     let summary = AggregationSummary::from_results(&results);

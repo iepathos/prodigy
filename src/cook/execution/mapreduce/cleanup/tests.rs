@@ -253,7 +253,9 @@ mod coordinator_tests {
     #[tokio::test]
     async fn test_agent_success_despite_cleanup_failure() {
         // Test that agent execution is marked successful even if cleanup fails
-        use crate::cook::execution::mapreduce::agent::types::{AgentResult, AgentStatus, CleanupStatus};
+        use crate::cook::execution::mapreduce::agent::types::{
+            AgentResult, AgentStatus, CleanupStatus,
+        };
         use std::time::Duration;
 
         // Create an agent result that succeeded
