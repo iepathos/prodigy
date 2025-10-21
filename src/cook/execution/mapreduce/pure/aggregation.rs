@@ -48,6 +48,7 @@ pub struct AggregationStats {
 ///         worktree_session_id: None,
 ///         files_modified: vec![],
 ///         json_log_location: None,
+///         cleanup_status: None,
 ///     },
 ///     AgentResult {
 ///         item_id: "2".to_string(),
@@ -61,6 +62,7 @@ pub struct AggregationStats {
 ///         worktree_session_id: None,
 ///         files_modified: vec![],
 ///         json_log_location: None,
+///         cleanup_status: None,
 ///     },
 /// ];
 /// assert_eq!(calculate_success_rate(&results), 50.0);
