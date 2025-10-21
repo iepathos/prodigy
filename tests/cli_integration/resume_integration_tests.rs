@@ -9,7 +9,6 @@
 // addressed separately from test isolation.
 
 use super::test_utils::*;
-use prodigy::testing::fixtures::isolation::TestEnv;
 use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,31 +16,27 @@ use tempfile::TempDir;
 
 /// Helper to setup isolated PRODIGY_HOME for a test
 ///
-/// Returns a tuple of (TestEnv, TempDir) where TestEnv will restore the environment
-/// and TempDir will be automatically cleaned up when dropped.
-fn setup_test_prodigy_home() -> (TestEnv, TempDir) {
-    let temp_dir = TempDir::new().expect("Failed to create temp directory for PRODIGY_HOME");
-    let mut env = TestEnv::new();
-    env.set("PRODIGY_HOME", temp_dir.path().to_str().unwrap());
-    (env, temp_dir)
+/// Returns a TempDir that will be used as PRODIGY_HOME.
+/// IMPORTANT: Do NOT use TestEnv to set PRODIGY_HOME globally - it's not thread-safe
+/// and will cause race conditions in parallel tests. Instead, pass the path directly
+/// to subprocesses via CliTest::env().
+fn setup_test_prodigy_home() -> TempDir {
+    TempDir::new().expect("Failed to create temp directory for PRODIGY_HOME")
 }
 
 /// Helper to create a test checkpoint
 ///
-/// Creates checkpoints in the location specified by PRODIGY_HOME environment variable
-/// (which should be set by the test to a temp directory for isolation)
+/// Creates checkpoints in the specified prodigy_home directory.
+/// IMPORTANT: Pass the prodigy_home path directly, don't rely on global env vars.
 fn create_test_checkpoint(
-    _local_checkpoint_dir: &Path,
+    prodigy_home: &Path,
     workflow_id: &str,
     commands_executed: usize,
     total_commands: usize,
     variables: serde_json::Value,
 ) {
-    // Get PRODIGY_HOME from environment (set by test)
-    let prodigy_home =
-        std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME must be set in test environment");
 
-    let session_dir = PathBuf::from(&prodigy_home)
+    let session_dir = prodigy_home
         .join("state")
         .join(workflow_id)
         .join("checkpoints");
@@ -50,7 +45,7 @@ fn create_test_checkpoint(
     fs::create_dir_all(&session_dir).expect("Failed to create checkpoint directory");
 
     // Create a mock worktree directory (resume expects this to exist)
-    let worktree_dir = PathBuf::from(&prodigy_home)
+    let worktree_dir = prodigy_home
         .join("worktrees")
         .join("prodigy") // Default repo name used by resume command
         .join(workflow_id);
@@ -140,7 +135,7 @@ fn create_test_checkpoint(
     });
 
     // Save session in UnifiedSessionManager location (PRODIGY_HOME/sessions/)
-    let sessions_dir = PathBuf::from(&prodigy_home).join("sessions");
+    let sessions_dir = prodigy_home.join("sessions");
     fs::create_dir_all(&sessions_dir).expect("Failed to create sessions directory");
     fs::write(
         sessions_dir.join(format!("{}.json", workflow_id)),
@@ -176,8 +171,8 @@ commands:
 
 #[test]
 fn test_resume_from_early_interruption() {
-    // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    // Setup isolated PRODIGY_HOME for this test (no global env var modification)
+    let prodigy_home = setup_test_prodigy_home();
 
     // Create CliTest first to get its temp directory
     let mut test = CliTest::new();
@@ -194,11 +189,8 @@ fn test_resume_from_early_interruption() {
             "output": "Command 1 output"
         }
     });
-
-    let prodigy_home =
-        PathBuf::from(std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set"));
     let _worktree_path = create_test_checkpoint_with_worktree(
-        &prodigy_home,
+        prodigy_home.path(),
         &test_dir,
         workflow_id,
         1, // commands_executed
@@ -208,7 +200,7 @@ fn test_resume_from_early_interruption() {
     .expect("Failed to create test checkpoint with worktree");
 
     // Verify the checkpoint file was created
-    let checkpoint_dir = prodigy_home
+    let checkpoint_dir = prodigy_home.path()
         .join("state")
         .join(workflow_id)
         .join("checkpoints");
@@ -219,8 +211,9 @@ fn test_resume_from_early_interruption() {
         checkpoint_file
     );
 
-    // Resume the workflow
+    // Resume the workflow - explicitly pass PRODIGY_HOME to subprocess
     test = test
+        .env("PRODIGY_HOME", prodigy_home.path().to_str().unwrap())
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
@@ -261,8 +254,8 @@ fn test_resume_from_early_interruption() {
 
 #[test]
 fn test_resume_from_middle_interruption() {
-    // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    // Setup isolated PRODIGY_HOME for this test (no global env var modification)
+    let prodigy_home = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
@@ -282,10 +275,8 @@ fn test_resume_from_middle_interruption() {
         "cmd2_output": "Command 2 completed"
     });
 
-    let prodigy_home =
-        PathBuf::from(std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set"));
     let _worktree_path = create_test_checkpoint_with_worktree(
-        &prodigy_home,
+        prodigy_home.path(),
         &test_dir,
         workflow_id,
         3, // commands_executed
@@ -294,8 +285,9 @@ fn test_resume_from_middle_interruption() {
     )
     .expect("Failed to create test checkpoint with worktree");
 
-    // Resume the workflow
+    // Resume the workflow - explicitly pass PRODIGY_HOME to subprocess
     test = test
+        .env("PRODIGY_HOME", prodigy_home.path().to_str().unwrap())
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
@@ -329,7 +321,7 @@ fn test_resume_from_middle_interruption() {
 #[test]
 fn test_resume_with_variable_preservation() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, prodigy_home_dir) = setup_test_prodigy_home();
+    let prodigy_home_dir = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
@@ -404,7 +396,7 @@ commands:
 #[test]
 fn test_resume_with_retry_state() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, prodigy_home_dir) = setup_test_prodigy_home();
+    let prodigy_home_dir = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
@@ -465,7 +457,7 @@ commands:
 #[test]
 fn test_resume_completed_workflow() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let prodigy_home = setup_test_prodigy_home();
 
     // Create CliTest first to get its temp directory
     let mut test = CliTest::new();
@@ -476,8 +468,8 @@ fn test_resume_completed_workflow() {
     let now = chrono::Utc::now();
 
     // Create a mock worktree directory (resume expects this to exist)
-    let prodigy_home = std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set");
-    let worktree_dir = PathBuf::from(&prodigy_home)
+    // prodigy_home is already a TempDir from setup_test_prodigy_home()
+    let worktree_dir = prodigy_home.path().to_path_buf()
         .join("worktrees")
         .join("prodigy")
         .join(workflow_id);
@@ -517,7 +509,7 @@ fn test_resume_completed_workflow() {
     });
 
     // Save in UnifiedSessionManager location (PRODIGY_HOME/sessions/)
-    let sessions_dir = PathBuf::from(&prodigy_home).join("sessions");
+    let sessions_dir = prodigy_home.path().to_path_buf().join("sessions");
     fs::create_dir_all(&sessions_dir).unwrap();
     fs::write(
         sessions_dir.join(format!("{}.json", workflow_id)),
@@ -556,7 +548,7 @@ fn test_resume_completed_workflow() {
 #[test]
 fn test_resume_with_force_restart() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, prodigy_home_dir) = setup_test_prodigy_home();
+    let prodigy_home_dir = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
@@ -609,7 +601,7 @@ fn test_resume_with_force_restart() {
 #[test]
 fn test_resume_parallel_workflow() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let prodigy_home = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
@@ -643,7 +635,7 @@ commands:
     // Create checkpoint with partial parallel execution and actual worktree
     let workflow_id = "session-resume-parallel-55555";
     let prodigy_home =
-        PathBuf::from(std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set"));
+        prodigy_home.path().to_path_buf();
     let _worktree_path = create_test_checkpoint_with_worktree(
         &prodigy_home,
         &test_dir,
@@ -654,8 +646,9 @@ commands:
     )
     .expect("Failed to create test checkpoint with worktree");
 
-    // Resume the workflow
+    // Resume the workflow - explicitly pass PRODIGY_HOME to subprocess
     test = test
+        .env("PRODIGY_HOME", prodigy_home.to_str().unwrap())
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
@@ -687,7 +680,7 @@ commands:
 #[test]
 fn test_resume_with_checkpoint_cleanup() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let prodigy_home = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
@@ -699,7 +692,7 @@ fn test_resume_with_checkpoint_cleanup() {
 
     // Create checkpoint with actual worktree
     let prodigy_home =
-        PathBuf::from(std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set"));
+        prodigy_home.path().to_path_buf();
     let _worktree_path = create_test_checkpoint_with_worktree(
         &prodigy_home,
         &test_dir,
@@ -723,6 +716,7 @@ fn test_resume_with_checkpoint_cleanup() {
 
     // Resume and complete workflow
     test = test
+        .env("PRODIGY_HOME", prodigy_home.to_str().unwrap())
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
@@ -755,7 +749,7 @@ fn test_resume_with_checkpoint_cleanup() {
 #[ignore = "Error recovery during resume not fully implemented"]
 fn test_resume_with_error_recovery() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let prodigy_home = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
@@ -783,10 +777,11 @@ commands:
 
     // Create checkpoint before error
     let workflow_id = "resume-error-77777";
-    create_test_checkpoint(&checkpoint_dir, workflow_id, 2, 4, json!({}));
+    create_test_checkpoint(prodigy_home.path(), workflow_id, 2, 4, json!({}));
 
     // Resume the workflow
     test = test
+        .env("PRODIGY_HOME", prodigy_home.path().to_str().unwrap())
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
@@ -802,7 +797,7 @@ commands:
 #[test]
 fn test_resume_multiple_checkpoints() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let prodigy_home = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let test = CliTest::new();
@@ -812,18 +807,16 @@ fn test_resume_multiple_checkpoints() {
     // Create multiple checkpoints
     for i in 1..=3 {
         let workflow_id = format!("workflow-{}", i);
-        create_test_checkpoint(&checkpoint_dir, &workflow_id, i, 5, json!({}));
+        create_test_checkpoint(prodigy_home.path(), &workflow_id, i, 5, json!({}));
     }
 
     // List available checkpoints (when list command is implemented)
     // This test is a placeholder for when 'prodigy checkpoints list' is added
 
     // Verify checkpoint files exist in PRODIGY_HOME
-    let prodigy_home = std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set");
-    let prodigy_home_path = PathBuf::from(prodigy_home);
     for i in 1..=3 {
         let workflow_id = format!("workflow-{}", i);
-        let checkpoint_file = prodigy_home_path
+        let checkpoint_file = prodigy_home.path()
             .join("state")
             .join(&workflow_id)
             .join("checkpoints")
@@ -840,7 +833,7 @@ fn test_resume_multiple_checkpoints() {
 #[ignore = "MapReduce resume not fully implemented"]
 fn test_resume_with_mapreduce_state() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let prodigy_home = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
@@ -928,7 +921,7 @@ reduce:
 #[test]
 fn test_resume_workflow_with_on_failure_handlers() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, prodigy_home_dir) = setup_test_prodigy_home();
+    let prodigy_home_dir = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
@@ -1090,7 +1083,7 @@ fn test_checkpoint_with_error_recovery_state_serialization() {
 #[test]
 fn test_end_to_end_error_handler_execution_after_resume() {
     // Setup isolated PRODIGY_HOME for this test
-    let (_env, _prodigy_home) = setup_test_prodigy_home();
+    let prodigy_home = setup_test_prodigy_home();
 
     // Comprehensive end-to-end test that verifies error handlers execute correctly after resume
     let mut test = CliTest::new();
@@ -1127,7 +1120,7 @@ commands:
     // Create checkpoint with actual worktree and error recovery state
     let workflow_id = "session-end-to-end-error-handler-test";
     let prodigy_home =
-        PathBuf::from(std::env::var("PRODIGY_HOME").expect("PRODIGY_HOME should be set"));
+        prodigy_home.path().to_path_buf();
 
     // Create variables with error recovery state
     let variables = json!({
@@ -1155,8 +1148,9 @@ commands:
     )
     .expect("Failed to create test checkpoint with worktree");
 
-    // Resume the workflow - error handlers should execute
+    // Resume the workflow - error handlers should execute - explicitly pass PRODIGY_HOME to subprocess
     test = test
+        .env("PRODIGY_HOME", prodigy_home.to_str().unwrap())
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")

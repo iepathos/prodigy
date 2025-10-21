@@ -30,6 +30,9 @@ fn test_resume_command_with_nonexistent_workflow() {
         output.stderr_contains("not found")
             || output.stderr_contains("does not exist")
             || output.stderr_contains("No checkpoints")
+            || output.stderr_contains("Session not found"),
+        "Unexpected error message. stderr: {}",
+        output.stderr
     );
 }
 
