@@ -35,7 +35,6 @@ fn create_test_checkpoint(
     total_commands: usize,
     variables: serde_json::Value,
 ) {
-
     let session_dir = prodigy_home
         .join("state")
         .join(workflow_id)
@@ -200,7 +199,8 @@ fn test_resume_from_early_interruption() {
     .expect("Failed to create test checkpoint with worktree");
 
     // Verify the checkpoint file was created
-    let checkpoint_dir = prodigy_home.path()
+    let checkpoint_dir = prodigy_home
+        .path()
         .join("state")
         .join(workflow_id)
         .join("checkpoints");
@@ -469,7 +469,9 @@ fn test_resume_completed_workflow() {
 
     // Create a mock worktree directory (resume expects this to exist)
     // prodigy_home is already a TempDir from setup_test_prodigy_home()
-    let worktree_dir = prodigy_home.path().to_path_buf()
+    let worktree_dir = prodigy_home
+        .path()
+        .to_path_buf()
         .join("worktrees")
         .join("prodigy")
         .join(workflow_id);
@@ -634,8 +636,7 @@ commands:
 
     // Create checkpoint with partial parallel execution and actual worktree
     let workflow_id = "session-resume-parallel-55555";
-    let prodigy_home =
-        prodigy_home.path().to_path_buf();
+    let prodigy_home = prodigy_home.path().to_path_buf();
     let _worktree_path = create_test_checkpoint_with_worktree(
         &prodigy_home,
         &test_dir,
@@ -691,8 +692,7 @@ fn test_resume_with_checkpoint_cleanup() {
     let workflow_id = "session-resume-cleanup-66666";
 
     // Create checkpoint with actual worktree
-    let prodigy_home =
-        prodigy_home.path().to_path_buf();
+    let prodigy_home = prodigy_home.path().to_path_buf();
     let _worktree_path = create_test_checkpoint_with_worktree(
         &prodigy_home,
         &test_dir,
@@ -754,7 +754,7 @@ fn test_resume_with_error_recovery() {
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
+    let _checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
     let workflow_dir = test_dir.clone();
 
     // Create workflow with error handling
@@ -802,7 +802,7 @@ fn test_resume_multiple_checkpoints() {
     // Use CliTest to get a temp directory with git initialized
     let test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
+    let _checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
 
     // Create multiple checkpoints
     for i in 1..=3 {
@@ -816,7 +816,8 @@ fn test_resume_multiple_checkpoints() {
     // Verify checkpoint files exist in PRODIGY_HOME
     for i in 1..=3 {
         let workflow_id = format!("workflow-{}", i);
-        let checkpoint_file = prodigy_home.path()
+        let checkpoint_file = prodigy_home
+            .path()
             .join("state")
             .join(&workflow_id)
             .join("checkpoints")
@@ -833,7 +834,7 @@ fn test_resume_multiple_checkpoints() {
 #[ignore = "MapReduce resume not fully implemented"]
 fn test_resume_with_mapreduce_state() {
     // Setup isolated PRODIGY_HOME for this test
-    let prodigy_home = setup_test_prodigy_home();
+    let _prodigy_home = setup_test_prodigy_home();
 
     // Use CliTest to get a temp directory with git initialized
     let mut test = CliTest::new();
@@ -1119,8 +1120,7 @@ commands:
 
     // Create checkpoint with actual worktree and error recovery state
     let workflow_id = "session-end-to-end-error-handler-test";
-    let prodigy_home =
-        prodigy_home.path().to_path_buf();
+    let prodigy_home = prodigy_home.path().to_path_buf();
 
     // Create variables with error recovery state
     let variables = json!({
