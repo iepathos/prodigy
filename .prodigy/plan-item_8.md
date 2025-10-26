@@ -1,217 +1,227 @@
-# Implementation Plan: Extract Pure Functions from run_with_context
+# Implementation Plan: Improve Test Coverage and Reduce Complexity in resume_workflow
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/runner.rs:RealCommandRunner::run_with_context:137
-**Priority Score**: 27.925
-**Debt Type**: ComplexityHotspot (cognitive: 19, cyclomatic: 9)
+**Location**: ./src/cook/orchestrator/execution_pipeline.rs:ExecutionPipeline::resume_workflow:280
+**Priority Score**: 15.23
+**Debt Type**: TestingGap (cognitive: 78, cyclomatic: 23, coverage: 31.5%)
+
 **Current Metrics**:
-- Lines of Code: 69
-- Cyclomatic Complexity: 9
-- Cognitive Complexity: 19
-- Coverage: Not specified
-- Upstream Callers: 5
+- Function Length: 155 lines
+- Cyclomatic Complexity: 23
+- Cognitive Complexity: 78
+- Test Coverage: 31.5% (direct coverage)
+- Uncovered Lines: 37 lines across multiple code paths
 
-**Issue**: The function has manageable cyclomatic complexity (9) but high cognitive complexity (19). The function mixes command building logic, configuration logic, execution path selection, and result transformation. This makes it harder to test individual pieces and understand the control flow.
-
-The function handles:
-1. Building a ProcessCommand from ExecutionContext
-2. Applying environment variables, timeout, and stdin
-3. Deciding between streaming and batch execution modes
-4. Creating processors for streaming mode
-5. Executing the command via different runners
-6. Transforming output into ExecutionResult
+**Issue**: Complex business logic with significant testing gaps (69% coverage gap). The function has 23 decision branches requiring comprehensive test coverage. High cognitive complexity (78) indicates the function is doing too much and needs refactoring into smaller, focused functions.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 4.5
-- Coverage Improvement: 0.0
-- Risk Reduction: 9.77
+- Complexity Reduction: 6.9 (reduce from 23 to ~16)
+- Coverage Improvement: 34.3% (from 31.5% to ~65.8%)
+- Risk Reduction: 6.4
 
 **Success Criteria**:
-- [ ] Cognitive complexity reduced to ≤14 (target: 19 - 4.5 ≈ 14-15)
-- [ ] Pure functions extracted for command building and result transformation
-- [ ] Clear separation between decision logic and execution logic
+- [ ] Test coverage increases from 31.5% to at least 65%
+- [ ] Cyclomatic complexity reduces from 23 to 16 or lower
+- [ ] All uncovered error paths have test coverage
+- [ ] Extract at least 5-7 pure functions from complex logic
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Extract Command Building Logic
+### Phase 1: Add Tests for Uncovered Error Paths
 
-**Goal**: Extract the ProcessCommand building logic into a pure function that can be independently tested.
+**Goal**: Increase test coverage by adding tests for critical uncovered error paths, focusing on error handling branches.
 
 **Changes**:
-- Create a new pure function `build_command_from_context` that takes `cmd`, `args`, and `ExecutionContext` and returns a `ProcessCommand`
-- This function should handle:
-  - Base command and args
-  - Working directory
-  - Environment variables
-  - Timeout
-  - Stdin
-- Move lines 143-162 into this new function
-- Update `run_with_context` to call this new function
+- Add test for session not found in unified storage AND worktree file missing (lines 290-299)
+- Add test for non-resumable session status (lines 311-314)
+- Add test for workflow hash mismatch (lines 323-325)
+- Add test for missing workflow_state (lines 426-428)
+- Add test for session interrupted during resume (lines 385-396)
+- Add test for session failure during resume (lines 398-406)
 
 **Testing**:
-- Add unit tests for `build_command_from_context` covering:
-  - Basic command with args
-  - Command with environment variables
-  - Command with timeout
-  - Command with stdin
-  - Command with all options combined
-- Run `cargo test --lib` to verify existing tests pass
-- Run `cargo clippy` to check for warnings
+```bash
+# Run tests to verify new test cases pass
+cargo test --lib resume_workflow
+
+# Verify coverage improved
+cargo tarpaulin --out Stdout --packages prodigy --lib -- resume_workflow
+```
 
 **Success Criteria**:
-- [ ] `build_command_from_context` is a pure, testable function
-- [ ] All new tests pass
-- [ ] Existing tests continue to pass
+- [ ] 6 new test cases added covering error paths
+- [ ] Coverage increases to at least 50%
+- [ ] All existing tests still pass
+- [ ] Tests are in `tests/cli_integration/resume_integration_tests.rs`
+
+### Phase 2: Extract Session Loading Logic
+
+**Goal**: Extract session loading and fallback logic into a separate pure function to reduce complexity.
+
+**Changes**:
+- Create new function `load_session_with_fallback(session_id, config, session_manager)`
+- Extract lines 283-307 (session loading with worktree fallback)
+- Function should return `Result<SessionState>`
+- Reduces cyclomatic complexity by ~3
+
+**Testing**:
+```bash
+# Run tests to verify refactoring didn't break anything
+cargo test --lib resume_workflow
+
+# Verify no clippy warnings
+cargo clippy --package prodigy
+```
+
+**Success Criteria**:
+- [ ] New function `load_session_with_fallback` created
+- [ ] Original function calls new function
+- [ ] All existing tests pass
+- [ ] Complexity reduced (verify with metrics)
 - [ ] No clippy warnings
-- [ ] Ready to commit
 
-### Phase 2: Extract Result Transformation Logic
+### Phase 3: Extract Validation Logic
 
-**Goal**: Extract the ExecutionResult transformation logic into pure functions.
-
-**Changes**:
-- Create two pure functions:
-  - `streaming_output_to_result(output: StreamingOutput) -> ExecutionResult` for lines 180-186
-  - `batch_output_to_result(output: ProcessOutput) -> ExecutionResult` for lines 198-204
-- These functions should be pure transformations with no side effects
-- Update both execution paths to use these new functions
-
-**Testing**:
-- Add unit tests for both transformation functions:
-  - Test with successful output
-  - Test with failed output (non-zero exit code)
-  - Test with stdout/stderr content
-- Run `cargo test --lib` to verify all tests pass
-- Run `cargo clippy`
-
-**Success Criteria**:
-- [ ] Result transformation logic is extracted into pure functions
-- [ ] All new tests pass
-- [ ] Existing tests continue to pass
-- [ ] No clippy warnings
-- [ ] Ready to commit
-
-### Phase 3: Extract Execution Path Selection Logic
-
-**Goal**: Clarify the streaming vs batch mode decision logic.
+**Goal**: Extract session validation logic into separate pure functions.
 
 **Changes**:
-- Create a pure function `should_use_streaming(context: &ExecutionContext) -> bool` that encapsulates the logic from lines 165-167
-- This makes the decision logic explicit and testable
-- Update `run_with_context` to use this function
-- Consider extracting the streaming execution path into a separate method `execute_streaming` if it simplifies the main function
+- Create `validate_session_resumable(state)` - lines 310-316
+- Create `validate_workflow_unchanged(state, config)` - lines 319-328
+- Each function returns `Result<()>`
+- Reduces cyclomatic complexity by ~2-3
 
 **Testing**:
-- Add unit tests for `should_use_streaming`:
-  - No streaming config -> false
-  - Streaming config with enabled=false -> false
-  - Streaming config with enabled=true -> true
-- Run `cargo test --lib`
-- Run `cargo clippy`
+```bash
+# Add unit tests for new validation functions
+cargo test --lib validate_session_resumable
+cargo test --lib validate_workflow_unchanged
+
+# Verify integration still works
+cargo test --lib resume_workflow
+```
 
 **Success Criteria**:
-- [ ] Decision logic is extracted and clear
-- [ ] All new tests pass
-- [ ] Existing tests continue to pass
-- [ ] Cognitive complexity measurably reduced
-- [ ] No clippy warnings
-- [ ] Ready to commit
-
-### Phase 4: Add Test Coverage for Edge Cases
-
-**Goal**: Improve test coverage for the refactored function, especially error paths and edge cases.
-
-**Changes**:
-- Add integration tests for `run_with_context` that cover:
-  - Streaming mode with valid config
-  - Batch mode fallback
-  - Environment variable propagation
-  - Timeout handling
-  - Stdin handling
-  - Error cases (command not found, etc.)
-- Ensure the refactored code is thoroughly exercised
-
-**Testing**:
-- Run `cargo test` to verify all tests pass
-- Run `cargo tarpaulin` to check coverage improvement
-- Target: >80% coverage on the refactored functions
-
-**Success Criteria**:
-- [ ] Comprehensive test coverage added
+- [ ] 2 new validation functions created
+- [ ] Unit tests added for each validation function
+- [ ] Original function calls validation functions
 - [ ] All tests pass
-- [ ] Coverage improved for the module
-- [ ] No clippy warnings
-- [ ] Ready to commit
+- [ ] Complexity further reduced
 
-### Phase 5: Final Validation and Documentation
+### Phase 4: Extract Result Handling Logic
 
-**Goal**: Verify the complexity reduction and ensure the code is well-documented.
+**Goal**: Extract complex result handling logic into a separate function to reduce nesting and complexity.
 
 **Changes**:
-- Run `debtmap analyze` to verify complexity reduction
-- Add doc comments to the new pure functions explaining their purpose
-- Update any relevant module-level documentation
-- Ensure code follows project conventions
+- Create `handle_resume_result(result, session_manager, user_interaction, config, session_id)`
+- Extract lines 375-408 (result handling with error recovery)
+- Function should return `Result<()>`
+- Reduces cyclomatic complexity by ~4-5
 
 **Testing**:
-- Run `just ci` for full CI checks
-- Verify debtmap shows improvement in complexity scores
-- Check that cognitive complexity is reduced
+```bash
+# Add unit tests for result handling scenarios
+cargo test --lib handle_resume_result
+
+# Verify all integration tests pass
+cargo test --lib resume_workflow
+```
 
 **Success Criteria**:
-- [ ] Debtmap shows complexity reduction of ~4.5 points
-- [ ] All documentation is clear and accurate
-- [ ] Full CI passes
-- [ ] Code follows project conventions
-- [ ] Ready for final commit and merge
+- [ ] New function `handle_resume_result` created
+- [ ] Tests cover success, interruption, and failure paths
+- [ ] Original function simplified
+- [ ] All tests pass
+- [ ] Cyclomatic complexity now at or below 16
+
+### Phase 5: Add Tests for Remaining Uncovered Lines and Final Verification
+
+**Goal**: Achieve target coverage of 65%+ and verify all improvements.
+
+**Changes**:
+- Add tests for edge cases in environment restoration (lines 336, 345, 354)
+- Add tests for execution context restoration (lines 354-361)
+- Add tests for session completion and summary display (lines 419-423)
+- Verify all extracted functions have adequate test coverage
+
+**Testing**:
+```bash
+# Run full test suite
+cargo test --lib
+
+# Generate coverage report
+cargo tarpaulin --out Stdout --packages prodigy
+
+# Run clippy and formatting checks
+cargo clippy --package prodigy
+cargo fmt --check
+
+# Run full CI checks
+just ci
+```
+
+**Success Criteria**:
+- [ ] Coverage at or above 65%
+- [ ] All uncovered lines now have tests
+- [ ] Cyclomatic complexity at or below 16
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Code properly formatted
+- [ ] Ready to commit and complete
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Run `cargo fmt` to ensure consistent formatting
-4. Commit with a clear message describing the phase
+1. Run `cargo test --lib resume_workflow` to verify existing tests pass
+2. Run `cargo clippy --package prodigy` to check for warnings
+3. Run phase-specific tests as outlined above
+4. Commit after each successful phase
 
 **Final verification**:
 1. `just ci` - Full CI checks
-2. `cargo tarpaulin` - Regenerate coverage report
-3. `debtmap analyze` - Verify complexity improvement (target: -4.5 complexity points)
+2. `cargo tarpaulin --packages prodigy --lib` - Verify coverage improvement
+3. Compare metrics before/after to confirm improvements
 
 ## Rollback Plan
 
 If a phase fails:
-1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure in detail
-3. Adjust the implementation approach
-4. Retry with smaller increments if needed
+1. Review the error messages and test failures
+2. Use `git diff` to review changes
+3. If needed, revert with `git checkout -- <file>`
+4. Adjust the approach based on what failed
+5. Retry the phase with fixes
 
-If tests fail after refactoring:
-1. Check if the behavior changed unintentionally
-2. Fix the implementation to preserve existing behavior
-3. Add tests to prevent regression
+For test failures:
+- First verify the test is correct (not testing implementation details)
+- Then fix the code or test as appropriate
+- Never disable or skip tests - fix them
 
 ## Notes
 
-**Key Insights**:
-- The function is already reasonably structured, but extracting pure functions will make it more testable
-- The complexity comes from conditional logic (streaming vs batch) and sequential configuration steps
-- Extracting pure functions allows unit testing without async/subprocess complexity
-- The main function will become a thin orchestrator after refactoring
+**Key Considerations**:
+- The function deals with critical resume logic - changes must be thoroughly tested
+- Existing integration tests in `tests/cli_integration/resume_integration_tests.rs` provide good coverage patterns to follow
+- Focus on extracting pure functions that can be unit tested independently
+- Keep I/O operations (session loading, file operations) at the boundaries
+- Error handling logic should be explicit and testable
 
-**Gotchas**:
-- Preserve exact behavior during refactoring - the function is used by 5 upstream callers
-- Ensure error context is preserved when extracting functions
-- The streaming path creates processors, which should remain in the main function (side effects)
-- Don't over-abstract - keep the code readable and maintainable
+**Patterns to Follow**:
+- Session loading already has good patterns in existing tests
+- Use the `create_test_checkpoint_with_worktree` helper for test setup
+- Follow existing test structure for consistency
 
 **Dependencies**:
-- No external dependencies needed
-- All refactoring can be done within the existing module structure
-- Tests can use existing test utilities (MockCommandRunner, etc.)
+- `SessionManager` interface for session operations
+- `UserInteraction` interface for user feedback
+- Git worktree structure for session storage
+
+**Complexity Sources**:
+- Multiple error paths and fallbacks (session loading, validation)
+- Result handling with three different outcomes (success, interruption, failure)
+- Nested conditionals for state restoration
+- Integration with multiple subsystems (session manager, environment, workflow executor)
