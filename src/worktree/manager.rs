@@ -6,7 +6,7 @@ use chrono::Utc;
 use serde_json;
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{debug, info};
 
 use super::manager_queries::load_state_from_file;
@@ -393,15 +393,22 @@ impl WorktreeManager {
             }
             None => {
                 println!("🔄 Merging worktree '{name}' into '{target_branch}' using Claude-assisted merge...");
-                self.execute_claude_merge(worktree_branch).await
+                self.execute_claude_merge(name, worktree_branch).await
             }
         }
     }
 
     /// Execute Claude merge - I/O operation
-    async fn execute_claude_merge(&self, worktree_branch: &str) -> Result<String> {
+    async fn execute_claude_merge(&self, name: &str, worktree_branch: &str) -> Result<String> {
+        let worktree_path = self.base_dir.join(name);
+
+        if !worktree_path.exists() {
+            anyhow::bail!("Worktree path does not exist: {}", worktree_path.display());
+        }
+
         if self.verbosity >= 1 {
             eprintln!("Running claude /prodigy-merge-worktree with branch: {worktree_branch}");
+            eprintln!("Working directory: {}", worktree_path.display());
         }
 
         let env_vars = self.build_claude_environment_variables();
@@ -410,7 +417,7 @@ impl WorktreeManager {
         let result = claude_executor
             .execute_claude_command(
                 &format!("/prodigy-merge-worktree {worktree_branch}"),
-                &self.repo_path,
+                &worktree_path,
                 env_vars,
             )
             .await
@@ -1003,6 +1010,7 @@ impl WorktreeManager {
         variables: &HashMap<String, String>,
         step_index: usize,
         total_steps: usize,
+        worktree_path: &Path,
     ) -> Result<String> {
         let shell_cmd_interpolated = self.interpolate_merge_variables(shell_cmd, variables);
 
@@ -1014,13 +1022,13 @@ impl WorktreeManager {
             step_name
         );
 
-        self.log_execution_context(&step_name, variables);
+        self.log_execution_context(&step_name, variables, worktree_path);
 
         tracing::info!("Executing shell command: {}", shell_cmd_interpolated);
-        tracing::info!("Working directory: {}", self.repo_path.display());
+        tracing::info!("Working directory: {}", worktree_path.display());
 
         let shell_command = ProcessCommandBuilder::new("sh")
-            .current_dir(&self.repo_path)
+            .current_dir(worktree_path)
             .args(["-c", &shell_cmd_interpolated])
             .build();
 
@@ -1044,6 +1052,7 @@ impl WorktreeManager {
         variables: &HashMap<String, String>,
         step_index: usize,
         total_steps: usize,
+        worktree_path: &Path,
     ) -> Result<String> {
         let claude_cmd_interpolated = self.interpolate_merge_variables(claude_cmd, variables);
 
@@ -1055,7 +1064,7 @@ impl WorktreeManager {
             step_name
         );
 
-        self.log_execution_context(&step_name, variables);
+        self.log_execution_context(&step_name, variables, worktree_path);
 
         let mut env_vars = HashMap::new();
         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
@@ -1081,7 +1090,7 @@ impl WorktreeManager {
             ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity);
 
         let result = claude_executor
-            .execute_claude_command(&claude_cmd_interpolated, &self.repo_path, env_vars)
+            .execute_claude_command(&claude_cmd_interpolated, worktree_path, env_vars)
             .await?;
 
         if !result.success {
@@ -1108,10 +1117,16 @@ impl WorktreeManager {
     }
 
     /// Log execution context for debugging
-    fn log_execution_context(&self, step_name: &str, variables: &HashMap<String, String>) {
+    fn log_execution_context(
+        &self,
+        step_name: &str,
+        variables: &HashMap<String, String>,
+        worktree_path: &Path,
+    ) {
         tracing::debug!("=== Step Execution Context ===");
         tracing::debug!("Step: {}", step_name);
-        tracing::debug!("Working Directory: {}", self.repo_path.display());
+        tracing::debug!("Working Directory: {}", worktree_path.display());
+        tracing::debug!("Worktree Path: {}", worktree_path.display());
         tracing::debug!("Project Directory: {}", self.repo_path.display());
         tracing::debug!("Variables:");
         for (key, value) in variables {
@@ -1127,7 +1142,7 @@ impl WorktreeManager {
         if self.verbosity >= 1 {
             tracing::debug!("  PRODIGY_CLAUDE_STREAMING = true");
         }
-        tracing::debug!("Actual execution directory: {}", self.repo_path.display());
+        tracing::debug!("Actual execution directory: {}", worktree_path.display());
     }
 
     /// Log Claude-specific execution details
@@ -1201,6 +1216,14 @@ impl WorktreeManager {
     ) -> Result<String> {
         let mut output = String::new();
 
+        // Compute worktree path from session name
+        let worktree_path = self.base_dir.join(worktree_name);
+
+        // Verify worktree exists
+        if !worktree_path.exists() {
+            anyhow::bail!("Worktree path does not exist: {}", worktree_path.display());
+        }
+
         // Initialize merge variables and checkpoint manager
         let (variables, _session_id) = self
             .init_merge_variables(worktree_name, source_branch, target_branch)
@@ -1221,6 +1244,7 @@ impl WorktreeManager {
                             &variables,
                             step_index,
                             merge_workflow.commands.len(),
+                            &worktree_path,
                         )
                         .await?;
                     output.push_str(&cmd_output);
@@ -1249,6 +1273,7 @@ impl WorktreeManager {
                             &variables,
                             step_index,
                             merge_workflow.commands.len(),
+                            &worktree_path,
                         )
                         .await?;
                     output.push_str(&cmd_output);
