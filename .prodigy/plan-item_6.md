@@ -1,233 +1,324 @@
-# Implementation Plan: Refactor GenericResourcePool::acquire for Clarity
+# Implementation Plan: Test and Refactor resolve_variable_impl
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/mapreduce/resources/pool.rs:GenericResourcePool::acquire:121
-**Priority Score**: 28.5
-**Debt Type**: ComplexityHotspot (Cognitive: 32, Cyclomatic: 8)
+**Location**: src/cook/execution/variables.rs:VariableContext::resolve_variable_impl:491
+**Priority Score**: 15.71
+**Debt Type**: TestingGap (coverage: 45.45%, cyclomatic complexity: 31, cognitive complexity: 109)
+
 **Current Metrics**:
-- Lines of Code: 78 (function spans lines 121-198)
-- Cyclomatic Complexity: 8
-- Cognitive Complexity: 32
-- Test Coverage: Unknown (transitive_coverage: null)
-- Function Role: PureLogic (purity: 80%)
+- Function Length: 85 lines
+- Cyclomatic Complexity: 31
+- Cognitive Complexity: 109
+- Test Coverage: 45.45%
+- Nesting Depth: 6
+- Uncovered Lines: 18 ranges (lines 496, 505, 509, 513, 519, 524, 527, 529, 530, 534, 539, 542, 543, 544, 547, 549, 550, 557)
 
-**Issue**: Complexity 8 is manageable but at the threshold. The function has cognitive complexity of 32, suggesting it's doing too much. The function handles:
-1. Resource reuse from pool (lines 124-155)
-2. Semaphore acquisition (lines 157-165)
-3. New resource creation (lines 167-168)
-4. Metrics tracking (appears in both branches)
-5. ResourceGuard creation with cleanup closure (duplicated logic)
+**Issue**: Complex business logic with 55% coverage gap. The function handles 7 different variable resolution strategies (env, file, cmd, json with two formats, date, uuid, standard lookup) with nested error handling and caching logic. Cyclomatic complexity of 31 requires at least 31 test cases for full path coverage.
 
-**Recommendation**: Current structure is acceptable - prioritize test coverage. Consider extracting guard clauses for precondition checks.
+**Rationale**: This is pure logic code (PureLogic role) with high confidence (0.8) that it should be well-tested. The 55% coverage gap leaves critical error paths and edge cases untested. Testing before refactoring ensures no regressions when extracting pure functions.
 
 ## Target State
 
 **Expected Impact**:
-- Complexity Reduction: 4.0 points (from 8 to ~4)
-- Coverage Improvement: 0.0% (no coverage data available)
-- Risk Reduction: 9.975 points
+- Complexity Reduction: 9.3 (from 31 to ~22)
+- Coverage Improvement: 27.27% (from 45% to 72%+)
+- Risk Reduction: 6.60
 
 **Success Criteria**:
-- [ ] Cyclomatic complexity reduced from 8 to ≤4
-- [ ] Cognitive complexity reduced from 32 to ≤16
-- [ ] Duplicated logic (ResourceGuard creation) extracted to pure function
-- [ ] Metrics tracking logic extracted to pure function
+- [ ] Test coverage ≥ 72% for resolve_variable_impl and related functions
+- [ ] All 18 uncovered line ranges have test coverage
+- [ ] Cyclomatic complexity reduced to ≤22
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
+- [ ] Functions extracted have complexity ≤5
 
 ## Implementation Phases
 
-### Phase 1: Extract Metrics Update Logic
+### Phase 1: Add Tests for Uncovered Variable Resolution Paths
 
-**Goal**: Remove duplicated metrics tracking logic by extracting it to a pure function
-
-**Changes**:
-- Create `update_acquisition_metrics()` helper function that takes metrics, start time, and whether it's a reuse
-- Replace duplicated metrics update code in both branches (lines 126-136 and 170-179)
-- This reduces cognitive load and eliminates code duplication
-
-**Testing**:
-- Run `cargo test --lib` to ensure existing tests pass
-- Run `cargo clippy` to verify no warnings
-- Verify metrics are still tracked correctly (if tests exist)
-
-**Success Criteria**:
-- [ ] Metrics update logic extracted to single function
-- [ ] Both code paths use the extracted function
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 2: Extract ResourceGuard Creation Logic
-
-**Goal**: Remove duplicated ResourceGuard creation by extracting cleanup closure logic
+**Goal**: Achieve comprehensive test coverage for all variable resolution branches before refactoring
 
 **Changes**:
-- Create `create_resource_guard()` helper function that takes resource, weak pool reference, and cleanup function
-- Replace duplicated guard creation code in both branches (lines 140-154 and 183-197)
-- This eliminates the largest block of duplicated code
+1. Add tests for cache hit scenario (line 496)
+2. Add tests for environment variable resolution with various inputs (line 505)
+3. Add tests for file content variable resolution including error cases (line 509)
+4. Add tests for command output variable resolution including failures (line 513)
+5. Add tests for JSON path extraction with new `:from:` syntax (lines 519-539)
+6. Add tests for JSON path extraction with legacy syntax (lines 542-547)
+7. Add tests for date formatting with various format strings (line 557)
+8. Add tests for UUID generation (already covered but verify line 560)
+9. Add tests for caching logic (lines 567-571)
+10. Add tests for error conditions in each resolution strategy
 
 **Testing**:
-- Run `cargo test --lib` to ensure resource guards work correctly
-- Verify resources are properly returned to pool on drop
-- Check cleanup is called when pool is gone
+- Run `cargo test variables_test` to verify new tests pass
+- Run `cargo tarpaulin --out Stdout --skip-clean -- variables` to measure coverage improvement
+- Verify coverage increases from 45% to at least 72%
 
 **Success Criteria**:
-- [ ] ResourceGuard creation extracted to single function
-- [ ] Both code paths use the extracted function
-- [ ] Resource lifecycle works correctly (return to pool or cleanup)
-- [ ] All tests pass
+- [ ] All 18 uncovered line ranges are now covered
+- [ ] Coverage ≥ 72% for resolve_variable_impl
+- [ ] All new tests pass
+- [ ] All existing tests still pass
+- [ ] No clippy warnings
 - [ ] Ready to commit
 
-### Phase 3: Simplify Main Function Flow
-
-**Goal**: Reduce cognitive complexity by improving control flow clarity
-
-**Changes**:
-- Add early guard clause comment to clarify "try reuse first" intent
-- Consider extracting "create new resource" path to separate method if complexity is still high
-- Ensure function reads top-to-bottom: try reuse → acquire permit → create new
-
-**Testing**:
-- Run `cargo test --lib` for functional correctness
-- Review code for improved readability
-- Verify control flow is clear and linear
-
-**Success Criteria**:
-- [ ] Main function flow is clear and easy to follow
-- [ ] Cognitive complexity reduced significantly
-- [ ] No nested closures or complex logic in main function
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 4: Add Test Coverage (if needed)
-
-**Goal**: Improve test coverage for resource pool acquisition logic
-
-**Changes**:
-- Add unit tests for extracted helper functions
-- Add integration tests for:
-  - Resource reuse from pool
-  - New resource creation when pool is empty
-  - Semaphore limiting concurrent acquisitions
-  - Metrics tracking accuracy
-  - ResourceGuard cleanup behavior
-
-**Testing**:
-- Run `cargo test` to verify all new tests pass
-- Run `cargo tarpaulin` to measure coverage improvement
-- Ensure edge cases are covered
-
-**Success Criteria**:
-- [ ] Helper functions have unit tests
-- [ ] Main acquisition paths have integration tests
-- [ ] Edge cases (pool empty, semaphore exhausted, cleanup) tested
-- [ ] Coverage improved for this function
-- [ ] All tests pass
-- [ ] Ready to commit
-
-## Implementation Approach
-
-### Extracting Pure Functions
-
-For Phase 1 (Metrics Update):
+**Test Cases to Add**:
 ```rust
-fn update_acquisition_metrics(
-    metrics: &mut PoolMetrics,
-    start: Instant,
-    is_reuse: bool,
-) {
-    metrics.in_use += 1;
-    metrics.total_acquisitions += 1;
+// Cache hit path
+test_variable_cache_hit()
 
-    if is_reuse {
-        metrics.reuse_count += 1;
-        metrics.available = metrics.available.saturating_sub(1);
-    } else {
-        metrics.total_created += 1;
-    }
+// Environment variable paths
+test_env_variable_missing()
+test_env_variable_with_special_chars()
 
-    let wait_time = start.elapsed();
-    metrics.avg_wait_time_ms = ((metrics.avg_wait_time_ms
-        * (metrics.total_acquisitions - 1) as u64)
-        + wait_time.as_millis() as u64)
-        / metrics.total_acquisitions as u64;
-}
+// File content paths
+test_file_variable_missing_file()
+test_file_variable_empty_file()
+test_file_variable_binary_content()
+
+// Command output paths
+test_cmd_variable_command_failure()
+test_cmd_variable_empty_output()
+test_cmd_variable_multiline_output()
+
+// JSON path with :from: syntax
+test_json_from_syntax_with_string_source()
+test_json_from_syntax_with_structured_source()
+test_json_from_syntax_missing_path()
+test_json_from_syntax_invalid_json()
+
+// JSON path legacy syntax
+test_json_legacy_syntax_valid()
+test_json_legacy_syntax_invalid_format()
+test_json_legacy_syntax_missing_colon()
+
+// Date formatting
+test_date_variable_invalid_format()
+test_date_variable_various_formats()
+
+// Caching behavior
+test_should_cache_expensive_operations()
+test_should_not_cache_uuid()
 ```
 
-For Phase 2 (ResourceGuard Creation):
-```rust
-fn create_resource_guard<T>(
-    resource: T,
-    pool: Arc<Mutex<VecDeque<T>>>,
-    cleanup: Arc<dyn Fn(T) + Send + Sync>,
-) -> super::ResourceGuard<T>
-where
-    T: Send + 'static,
-{
-    let pool_weak = Arc::downgrade(&pool);
-    super::ResourceGuard::new(resource, move |r| {
-        if let Some(pool) = pool_weak.upgrade() {
-            tokio::spawn(async move {
-                let mut available = pool.lock().await;
-                available.push_back(r);
-            });
-        } else {
-            cleanup(r);
-        }
-    })
-}
-```
+### Phase 2: Extract Pure Functions for Variable Resolution Strategies
 
-### Key Principles
+**Goal**: Extract each variable resolution strategy (env, file, cmd, json, date) into separate pure functions to reduce complexity
 
-1. **Extract Pure Logic**: Metrics calculation is pure (given inputs → deterministic output)
-2. **Eliminate Duplication**: Both helper functions remove exact duplicates
-3. **Maintain Behavior**: No functional changes, only structural refactoring
-4. **Incremental Progress**: Each phase is independently testable and committable
+**Changes**:
+1. Extract `resolve_env_variable(var_name: &str) -> Result<Value>` (complexity ≤3)
+2. Extract `resolve_file_variable(path: &str) -> Result<Value>` (complexity ≤3)
+3. Extract `resolve_cmd_variable(command: &str) -> Result<Value>` (complexity ≤3)
+4. Extract `resolve_json_from_syntax(remainder: &str, depth: usize) -> BoxFuture<Result<Value>>` (complexity ≤5)
+5. Extract `resolve_json_legacy_syntax(remainder: &str, depth: usize) -> BoxFuture<Result<Value>>` (complexity ≤4)
+6. Extract `resolve_date_variable(format: &str) -> Result<Value>` (complexity ≤3)
+7. Refactor `resolve_variable_impl` to dispatch to these pure functions
+
+**Testing**:
+- Run `cargo test variables_test` to verify all tests still pass
+- Run `cargo clippy` to check for warnings
+- Run `cargo tarpaulin` to verify coverage maintained or improved
+- Verify cyclomatic complexity reduced (use `cargo clippy -- -W clippy::cognitive_complexity`)
+
+**Success Criteria**:
+- [ ] 6 new pure functions extracted with complexity ≤5 each
+- [ ] resolve_variable_impl complexity reduced from 31 to ≤15
+- [ ] All tests pass (existing + Phase 1 tests)
+- [ ] Coverage maintained at ≥72%
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 3: Add Tests for Extracted Pure Functions
+
+**Goal**: Add focused unit tests for each extracted pure function to improve overall coverage and ensure edge cases are handled
+
+**Changes**:
+1. Add 3-5 tests per extracted function:
+   - `test_resolve_env_variable_*` (3 tests)
+   - `test_resolve_file_variable_*` (4 tests)
+   - `test_resolve_cmd_variable_*` (4 tests)
+   - `test_resolve_json_from_syntax_*` (5 tests)
+   - `test_resolve_json_legacy_syntax_*` (4 tests)
+   - `test_resolve_date_variable_*` (3 tests)
+2. Focus on edge cases, error conditions, and boundary values
+3. Add property-based tests for complex logic (JSON parsing, path resolution)
+
+**Testing**:
+- Run `cargo test variables_test` to verify all new tests pass
+- Run `cargo tarpaulin` to measure final coverage
+- Target coverage ≥ 80% overall for the variables module
+
+**Success Criteria**:
+- [ ] 23+ new focused unit tests added (3-5 per extracted function)
+- [ ] Coverage improved to ≥80% for variables module
+- [ ] All edge cases and error conditions tested
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 4: Extract Cache Management Logic
+
+**Goal**: Extract caching logic into pure, testable functions to further reduce complexity
+
+**Changes**:
+1. Extract `should_cache_variable(expr: &str) -> bool` as a pure function
+2. Extract `get_cached_value(&self, expr: &str) -> Option<Value>`
+3. Extract `put_cached_value(&self, expr: &str, value: Value)`
+4. Refactor `resolve_variable_impl` to use these extracted functions
+5. Reduce remaining complexity in main resolution logic
+
+**Testing**:
+- Run `cargo test variables_test` to verify all tests pass
+- Run `cargo clippy` to check for warnings
+- Verify final cyclomatic complexity ≤10 for resolve_variable_impl
+
+**Success Criteria**:
+- [ ] 3 cache management functions extracted
+- [ ] resolve_variable_impl cyclomatic complexity ≤10
+- [ ] All tests pass
+- [ ] Coverage maintained at ≥80%
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 5: Final Verification and Optimization
+
+**Goal**: Verify all goals met, run full test suite, and measure final improvements
+
+**Changes**:
+1. Run full CI checks with `just ci`
+2. Generate final coverage report with `cargo tarpaulin --out Html`
+3. Verify complexity improvements with `cargo clippy`
+4. Review extracted functions for further optimization opportunities
+5. Add documentation comments to extracted functions
+
+**Testing**:
+- `just ci` - Full CI checks including tests, clippy, formatting
+- `cargo tarpaulin --out Html` - Generate coverage report
+- Review HTML coverage report to identify any remaining gaps
+- Manual review of code clarity and maintainability
+
+**Success Criteria**:
+- [ ] All CI checks pass (tests, clippy, formatting)
+- [ ] Coverage ≥80% (target met)
+- [ ] Cyclomatic complexity ≤10 for resolve_variable_impl (improved from 31)
+- [ ] All extracted functions have complexity ≤5
+- [ ] Documentation added to public functions
+- [ ] Code is more maintainable and testable
+- [ ] Ready for final commit and completion
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Run `cargo fmt` to ensure formatting
-4. Manual review of changes for correctness
+1. Run `cargo test --lib variables_test` to verify tests in the variables module
+2. Run `cargo clippy` to check for warnings and complexity issues
+3. Run `cargo tarpaulin --skip-clean -- variables` to measure coverage for variables module
+4. Commit working code after each phase completes
+
+**Coverage measurement commands**:
+```bash
+# Measure coverage for variables module
+cargo tarpaulin --skip-clean --out Stdout -- variables
+
+# Generate HTML report for detailed analysis
+cargo tarpaulin --skip-clean --out Html -- variables
+
+# Check cyclomatic complexity
+cargo clippy -- -W clippy::cognitive_complexity -W clippy::cyclomatic_complexity
+```
 
 **Final verification**:
-1. `just ci` - Full CI checks
-2. `cargo tarpaulin` - Regenerate coverage (if Phase 4 executed)
-3. `debtmap analyze` - Verify complexity reduction
+1. `just ci` - Full CI checks (tests, clippy, format)
+2. `cargo tarpaulin --out Html` - Final coverage report
+3. Manual review of extracted functions for clarity and correctness
+4. Verify all success criteria met across all phases
 
 ## Rollback Plan
 
 If a phase fails:
-1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure - likely cause:
-   - Incorrect function signature
-   - Missed parameter in extraction
-   - Lifetime or ownership issues
-3. Adjust the plan:
-   - May need to pass additional parameters
-   - May need different ownership model (Arc vs clone)
-4. Retry with fixes
+1. Review the test failures or errors carefully
+2. Revert the phase with `git reset --hard HEAD~1`
+3. Analyze why the phase failed:
+   - Were tests incorrectly written?
+   - Did refactoring break existing functionality?
+   - Were there unforeseen dependencies?
+4. Adjust the approach:
+   - For Phase 1: Review test coverage report to identify truly uncovered branches
+   - For Phase 2: Extract smaller, more focused functions
+   - For Phase 3: Add simpler tests first, then edge cases
+   - For Phase 4: Consider if caching logic can be simplified differently
+5. Retry the phase with adjusted approach
+6. If stuck after 3 attempts, STOP and document the issue
+
+**Critical safeguards**:
+- Never skip tests that fail
+- Never disable clippy warnings
+- Always verify existing tests pass before committing
+- Each commit should leave the codebase in a working state
 
 ## Notes
 
-**Why this approach works:**
-- The function has clear duplication (metrics update, guard creation) that can be extracted
-- Extractions are mechanical and low-risk
-- Each phase reduces both cyclomatic and cognitive complexity
-- No behavioral changes needed - pure refactoring
+**Key insights from analysis**:
 
-**Potential gotchas:**
-- Helper functions need proper lifetime annotations for generic T
-- Arc/weak reference patterns must be preserved in extracted guard creation
-- Metrics locking order must be maintained to avoid deadlocks
+1. **Function is pure logic**: Despite being marked `is_pure: false`, this function is primarily pure business logic with side effects isolated to caching and I/O operations. The caching can be extracted, and I/O is delegated to specialized variable types.
 
-**After this refactor:**
-- Main `acquire()` function will be ~30-40 lines instead of 78
-- Complexity should drop from 8 to ~4 (meeting target)
-- Code will be more testable and maintainable
-- Future changes to metrics or guard creation will be centralized
+2. **Seven distinct resolution strategies**: The function handles env, file, cmd, json (two formats), date, uuid, and standard lookup. Each strategy is independent and can be extracted.
+
+3. **Existing tests are good but incomplete**: The test file has 18 tests covering basic functionality, but they don't cover error conditions, edge cases, or all branch paths.
+
+4. **Complexity sources**:
+   - Multiple nested if-let statements (nesting depth 6)
+   - JSON path resolution with two different formats
+   - Error handling throughout
+   - Caching logic interleaved with resolution logic
+
+5. **Refactoring benefits**:
+   - Each extracted function will be easier to test (3-5 tests vs 31+ tests)
+   - Error handling will be more localized
+   - Caching logic separated from resolution logic
+   - Overall function becomes a simple dispatcher
+
+6. **Risk mitigation**:
+   - Phase 1 (testing) before Phase 2 (refactoring) ensures we catch regressions
+   - Incremental extraction reduces risk
+   - Each phase independently commits working code
+   - Existing test suite provides safety net
+
+**Pattern recognition**:
+- This is a classic "strategy pattern" opportunity
+- Each variable type (env, file, cmd, etc.) is a strategy
+- Main function becomes a strategy selector
+- Each strategy can be tested independently
+
+**Expected final structure**:
+```rust
+async fn resolve_variable_impl(&self, expr: &str, depth: usize) -> Result<Value> {
+    // Check cache
+    if let Some(cached) = self.get_cached_value(expr) {
+        return Ok(cached);
+    }
+
+    // Dispatch to appropriate strategy
+    let value = match parse_variable_type(expr) {
+        VarType::Env(name) => self.resolve_env_variable(name)?,
+        VarType::File(path) => self.resolve_file_variable(path)?,
+        VarType::Cmd(cmd) => self.resolve_cmd_variable(cmd)?,
+        VarType::JsonFrom(expr) => self.resolve_json_from_syntax(expr, depth).await?,
+        VarType::JsonLegacy(expr) => self.resolve_json_legacy_syntax(expr, depth).await?,
+        VarType::Date(fmt) => self.resolve_date_variable(fmt)?,
+        VarType::Uuid => self.resolve_uuid_variable()?,
+        VarType::Standard(path) => self.lookup_variable(path)?,
+    };
+
+    // Cache if appropriate
+    if self.should_cache_variable(expr) {
+        self.put_cached_value(expr, value.clone());
+    }
+
+    Ok(value)
+}
+```
+
+This structure reduces complexity from 31 to ~8, with each strategy function having complexity ≤5.

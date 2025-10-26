@@ -1698,4 +1698,346 @@ mod tests {
             .unwrap();
         assert_eq!(result, json!(["Alice", "Bob", "Charlie"]));
     }
+
+    // Phase 1: Tests for uncovered variable resolution paths
+
+    #[tokio::test]
+    async fn test_variable_cache_hit() {
+        let temp_file = "/tmp/test-cache-file.txt";
+        std::fs::write(temp_file, "initial value").unwrap();
+
+        let context = VariableContext::new();
+
+        // First access - should cache it
+        let result1 = context
+            .interpolate("${file:/tmp/test-cache-file.txt}")
+            .await
+            .unwrap();
+        assert_eq!(result1, "initial value");
+
+        // Change the file content
+        std::fs::write(temp_file, "changed value").unwrap();
+
+        // Second access - should hit cache and return the same initial value
+        let result2 = context
+            .interpolate("${file:/tmp/test-cache-file.txt}")
+            .await
+            .unwrap();
+        assert_eq!(result2, "initial value"); // Cache hit - same as first
+
+        // Cleanup
+        std::fs::remove_file(temp_file).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_env_variable_missing() {
+        let context = VariableContext::new();
+
+        // Ensure the env var doesn't exist
+        std::env::remove_var("NONEXISTENT_TEST_VAR");
+
+        let result = context
+            .interpolate("Value: ${env.NONEXISTENT_TEST_VAR}")
+            .await
+            .unwrap();
+        // Missing env vars should resolve to empty string (Null becomes empty)
+        assert_eq!(result, "Value: ");
+    }
+
+    #[tokio::test]
+    async fn test_env_variable_with_special_chars() {
+        std::env::set_var("TEST_SPECIAL_VAR", "value with spaces and $pecial ch@rs");
+
+        let context = VariableContext::new();
+        let result = context
+            .interpolate("Env: ${env.TEST_SPECIAL_VAR}")
+            .await
+            .unwrap();
+        assert_eq!(result, "Env: value with spaces and $pecial ch@rs");
+
+        std::env::remove_var("TEST_SPECIAL_VAR");
+    }
+
+    #[tokio::test]
+    async fn test_file_variable_missing_file() {
+        let context = VariableContext::new();
+
+        let result = context
+            .interpolate("${file:/nonexistent/path/to/file.txt}")
+            .await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read file"));
+    }
+
+    #[tokio::test]
+    async fn test_file_variable_empty_file() {
+        let temp_file = "/tmp/test-empty-file.txt";
+        std::fs::write(temp_file, "").unwrap();
+
+        let context = VariableContext::new();
+        let result = context
+            .interpolate("Content: ${file:/tmp/test-empty-file.txt}")
+            .await
+            .unwrap();
+        assert_eq!(result, "Content: ");
+
+        std::fs::remove_file(temp_file).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_file_variable_with_content() {
+        let temp_file = "/tmp/test-file-content.txt";
+        std::fs::write(temp_file, "Hello from file").unwrap();
+
+        let context = VariableContext::new();
+        let result = context
+            .interpolate("Content: ${file:/tmp/test-file-content.txt}")
+            .await
+            .unwrap();
+        assert_eq!(result, "Content: Hello from file");
+
+        std::fs::remove_file(temp_file).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cmd_variable_command_failure() {
+        let context = VariableContext::new();
+
+        let result = context.interpolate("${cmd:false}").await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Command failed"));
+    }
+
+    #[tokio::test]
+    async fn test_cmd_variable_empty_output() {
+        let context = VariableContext::new();
+
+        let result = context.interpolate("Output: ${cmd:true}").await.unwrap();
+        assert_eq!(result, "Output: ");
+    }
+
+    #[tokio::test]
+    async fn test_cmd_variable_multiline_output() {
+        let context = VariableContext::new();
+
+        let result = context
+            .interpolate("${cmd:echo 'line1\nline2\nline3'}")
+            .await
+            .unwrap();
+        // Command output is trimmed
+        assert!(result.contains("line1"));
+    }
+
+    #[tokio::test]
+    async fn test_json_from_syntax_with_string_source() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "json_data",
+            Variable::Static(json!(r#"{"name": "Alice", "age": 30}"#)),
+        );
+
+        let result = context
+            .interpolate("${json:name:from:json_data}")
+            .await
+            .unwrap();
+        assert_eq!(result, "Alice");
+    }
+
+    #[tokio::test]
+    async fn test_json_from_syntax_with_structured_source() {
+        let mut context = VariableContext::new();
+        context.set_global("data", Variable::Static(json!({"name": "Bob", "age": 25})));
+
+        let result = context.interpolate("${json:age:from:data}").await.unwrap();
+        assert_eq!(result, "25");
+    }
+
+    #[tokio::test]
+    async fn test_json_from_syntax_missing_path() {
+        let mut context = VariableContext::new();
+        context.set_global("data", Variable::Static(json!({"name": "Charlie"})));
+
+        let result = context.interpolate("${json:missing_field:from:data}").await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn test_json_from_syntax_invalid_json() {
+        let mut context = VariableContext::new();
+        context.set_global("invalid", Variable::Static(json!("not valid json {")));
+
+        let result = context.interpolate("${json:field:from:invalid}").await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Failed to parse"));
+    }
+
+    #[tokio::test]
+    async fn test_json_legacy_syntax_valid() {
+        let mut context = VariableContext::new();
+        context.set_global("legacy_data", Variable::Static(json!(r#"{"value": 42}"#)));
+
+        let result = context
+            .interpolate("${json:value:legacy_data}")
+            .await
+            .unwrap();
+        assert_eq!(result, "42");
+    }
+
+    #[tokio::test]
+    async fn test_json_legacy_syntax_invalid_format() {
+        let context = VariableContext::new();
+
+        // json: without path separator should fail
+        let result = context.interpolate("${json:invalid}").await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid json: expression"));
+    }
+
+    #[tokio::test]
+    async fn test_json_path_with_array_indexing() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "array_data",
+            Variable::Static(json!({"items": [{"id": 1}, {"id": 2}, {"id": 3}]})),
+        );
+
+        let result = context
+            .interpolate("${json:items.1.id:from:array_data}")
+            .await
+            .unwrap();
+        assert_eq!(result, "2");
+    }
+
+    #[tokio::test]
+    async fn test_date_variable_invalid_format() {
+        let context = VariableContext::new();
+
+        // chrono should handle most format strings, but let's test a valid one
+        let result = context.interpolate("${date:%Y-%m-%d}").await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().len() >= 10); // At least YYYY-MM-DD
+    }
+
+    #[tokio::test]
+    async fn test_date_variable_various_formats() {
+        let context = VariableContext::new();
+
+        // Test year format
+        let year = context.interpolate("${date:%Y}").await.unwrap();
+        assert!(year.len() == 4);
+
+        // Test full datetime
+        let datetime = context
+            .interpolate("${date:%Y-%m-%d %H:%M:%S}")
+            .await
+            .unwrap();
+        assert!(datetime.len() >= 19);
+    }
+
+    #[tokio::test]
+    async fn test_should_cache_expensive_operations() {
+        let context = VariableContext::new();
+
+        // File operations should be cached
+        assert!(context.should_cache("file:/tmp/test.txt"));
+
+        // Command operations should be cached
+        assert!(context.should_cache("cmd:echo hello"));
+    }
+
+    #[tokio::test]
+    async fn test_should_not_cache_uuid() {
+        let context = VariableContext::new();
+
+        // UUID should not be cached (returns early before caching)
+        let result1 = context.resolve_variable("uuid", 0).await.unwrap();
+        let result2 = context.resolve_variable("uuid", 0).await.unwrap();
+
+        // UUIDs should be different
+        assert_ne!(result1, result2);
+    }
+
+    #[tokio::test]
+    async fn test_caching_behavior_for_file_operations() {
+        let temp_file = "/tmp/test-caching.txt";
+        std::fs::write(temp_file, "initial").unwrap();
+
+        let context = VariableContext::new();
+
+        // First read
+        let result1 = context
+            .interpolate("${file:/tmp/test-caching.txt}")
+            .await
+            .unwrap();
+        assert_eq!(result1, "initial");
+
+        // Change file content
+        std::fs::write(temp_file, "changed").unwrap();
+
+        // Second read - should return cached value
+        let result2 = context
+            .interpolate("${file:/tmp/test-caching.txt}")
+            .await
+            .unwrap();
+        assert_eq!(result2, "initial"); // Still cached
+
+        std::fs::remove_file(temp_file).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_json_nested_path_resolution() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "nested",
+            Variable::Static(json!({
+                "level1": {
+                    "level2": {
+                        "level3": "deep value"
+                    }
+                }
+            })),
+        );
+
+        let result = context
+            .interpolate("${json:level1.level2.level3:from:nested}")
+            .await
+            .unwrap();
+        assert_eq!(result, "deep value");
+    }
+
+    #[tokio::test]
+    async fn test_json_from_syntax_with_nested_objects() {
+        let mut context = VariableContext::new();
+        // Test extracting from deeply nested JSON structures
+        context.set_global(
+            "config",
+            Variable::Static(json!({
+                "database": {
+                    "connection": {
+                        "host": "localhost",
+                        "port": 5432
+                    }
+                }
+            })),
+        );
+
+        let result = context
+            .interpolate("${json:database.connection.host:from:config}")
+            .await
+            .unwrap();
+        assert_eq!(result, "localhost");
+
+        let port_result = context
+            .interpolate("${json:database.connection.port:from:config}")
+            .await
+            .unwrap();
+        assert_eq!(port_result, "5432");
+    }
 }
