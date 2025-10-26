@@ -147,9 +147,7 @@ fn validate_clean_operation(workflow_id: Option<String>, all: bool) -> CleanOper
 ///
 /// # Returns
 /// * `CheckpointManager` - A configured checkpoint manager instance
-fn create_checkpoint_manager(
-    checkpoint_dir: PathBuf,
-) -> crate::cook::workflow::CheckpointManager {
+fn create_checkpoint_manager(checkpoint_dir: PathBuf) -> crate::cook::workflow::CheckpointManager {
     use crate::cook::workflow::checkpoint_path::CheckpointStorage;
     use crate::cook::workflow::CheckpointManager;
 
@@ -1281,8 +1279,8 @@ mod tests {
         let temp_path = temp_dir.path().to_path_buf();
 
         // Step 1: Resolve working directory
-        let working_dir = super::resolve_working_directory(Some(temp_path.clone()))
-            .expect("Failed to resolve");
+        let working_dir =
+            super::resolve_working_directory(Some(temp_path.clone())).expect("Failed to resolve");
         assert_eq!(working_dir, temp_path);
 
         // Step 2: Initialize storage
