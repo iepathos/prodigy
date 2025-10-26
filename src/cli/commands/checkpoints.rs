@@ -1225,6 +1225,83 @@ mod tests {
         }
     }
 
+    // ========================================================================
+    // Integration Tests for Entry Point
+    // ========================================================================
+
+    #[tokio::test]
+    async fn test_integration_resolve_and_initialize_storage() {
+        // Test the integration of resolve_working_directory and initialize_checkpoint_storage
+        let current_dir = std::env::current_dir().expect("Failed to get current dir");
+
+        // Resolve working directory with None (should use current dir)
+        let working_dir = super::resolve_working_directory(None).expect("Failed to resolve");
+        assert_eq!(working_dir, current_dir);
+
+        // Initialize storage with the resolved directory
+        let result = super::initialize_checkpoint_storage(&working_dir).await;
+        assert!(result.is_ok());
+
+        if let Ok((_, repo_name, checkpoint_dir)) = result {
+            assert!(!repo_name.is_empty());
+            assert!(checkpoint_dir.to_string_lossy().contains(&repo_name));
+        }
+    }
+
+    #[test]
+    fn test_integration_validate_and_execute_clean() {
+        // Test the integration of validate_clean_operation with expected execution paths
+        let test_cases = vec![
+            (Some("workflow-1".to_string()), false, "CleanSpecific"),
+            (None, true, "CleanAll"),
+            (None, false, "InvalidRequest"),
+            (Some("workflow-1".to_string()), true, "InvalidRequest"),
+        ];
+
+        for (workflow_id, all, expected_type) in test_cases {
+            let operation = super::validate_clean_operation(workflow_id.clone(), all);
+            match operation {
+                super::CleanOperation::CleanSpecific(_) => {
+                    assert_eq!(expected_type, "CleanSpecific");
+                }
+                super::CleanOperation::CleanAll => {
+                    assert_eq!(expected_type, "CleanAll");
+                }
+                super::CleanOperation::InvalidRequest => {
+                    assert_eq!(expected_type, "InvalidRequest");
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_integration_checkpoint_manager_workflow() {
+        // Test the full workflow: resolve -> initialize -> create manager
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_path = temp_dir.path().to_path_buf();
+
+        // Step 1: Resolve working directory
+        let working_dir = super::resolve_working_directory(Some(temp_path.clone()))
+            .expect("Failed to resolve");
+        assert_eq!(working_dir, temp_path);
+
+        // Step 2: Initialize storage
+        let (_storage, _repo_name, checkpoint_dir) =
+            super::initialize_checkpoint_storage(&working_dir)
+                .await
+                .expect("Failed to initialize storage");
+
+        // Step 3: Create checkpoint manager
+        let _manager = super::create_checkpoint_manager(checkpoint_dir);
+
+        // If we got here without panicking, the integration works
+        assert!(true);
+    }
+
+    // ========================================================================
+    // Existing Integration Tests for clean_all_checkpoints
+    // ========================================================================
+
     #[tokio::test]
     async fn test_clean_all_checkpoints_failed_status() {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
