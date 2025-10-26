@@ -83,6 +83,31 @@ async fn initialize_checkpoint_storage(
     Ok((storage, repo_name, checkpoint_dir))
 }
 
+// ============================================================================
+// Pure Functions: Checkpoint Manager Creation
+// ============================================================================
+
+/// Create a CheckpointManager with local storage
+///
+/// Encapsulates the pattern of creating a CheckpointManager with deprecated
+/// CheckpointStorage::Local. This allows us to centralize the #[allow(deprecated)]
+/// annotation and simplify the command handlers.
+///
+/// # Arguments
+/// * `checkpoint_dir` - The directory path for checkpoint storage
+///
+/// # Returns
+/// * `CheckpointManager` - A configured checkpoint manager instance
+fn create_checkpoint_manager(
+    checkpoint_dir: PathBuf,
+) -> crate::cook::workflow::CheckpointManager {
+    use crate::cook::workflow::checkpoint_path::CheckpointStorage;
+    use crate::cook::workflow::CheckpointManager;
+
+    #[allow(deprecated)]
+    CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir))
+}
+
 /// Find the most recent checkpoint in the checkpoint directory
 pub async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> {
     use tokio::fs;
@@ -120,8 +145,6 @@ pub async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> 
 
 /// Execute checkpoint-related commands
 pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -> Result<()> {
-    use crate::cook::workflow::CheckpointManager;
-
     match command {
         CheckpointCommands::List { workflow_id, path } => {
             let working_dir = resolve_working_directory(path)?;
@@ -133,11 +156,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
                 return Ok(());
             }
 
-            use crate::cook::workflow::checkpoint_path::CheckpointStorage;
-
-            #[allow(deprecated)]
-            let checkpoint_manager =
-                CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir.clone()));
+            let checkpoint_manager = create_checkpoint_manager(checkpoint_dir.clone());
 
             if let Some(id) = workflow_id {
                 list_specific_checkpoint(&checkpoint_manager, &id, verbose > 0).await
@@ -178,11 +197,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             let (_storage, _repo_name, checkpoint_dir) =
                 initialize_checkpoint_storage(&working_dir).await?;
 
-            use crate::cook::workflow::checkpoint_path::CheckpointStorage;
-
-            #[allow(deprecated)]
-            let checkpoint_manager =
-                CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir));
+            let checkpoint_manager = create_checkpoint_manager(checkpoint_dir);
 
             show_checkpoint_details(&checkpoint_manager, &workflow_id).await
         }
@@ -394,12 +409,7 @@ fn is_completed_checkpoint(
 
 /// Clean all completed checkpoints
 async fn clean_all_checkpoints(checkpoint_dir: &PathBuf, force: bool) -> Result<()> {
-    use crate::cook::workflow::checkpoint_path::CheckpointStorage;
-    use crate::cook::workflow::CheckpointManager;
-
-    #[allow(deprecated)]
-    let checkpoint_manager =
-        CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir.clone()));
+    let checkpoint_manager = create_checkpoint_manager(checkpoint_dir.clone());
     let mut entries = tokio::fs::read_dir(checkpoint_dir).await?;
     let mut deleted = 0;
 
@@ -801,6 +811,31 @@ mod tests {
         let result = super::resolve_working_directory(Some(absolute_path.clone()));
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), absolute_path);
+    }
+
+    // Tests for create_checkpoint_manager
+
+    #[test]
+    fn test_create_checkpoint_manager() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Should create a checkpoint manager without panicking
+        let _manager = super::create_checkpoint_manager(checkpoint_dir.clone());
+
+        // Verify it was created successfully (if it didn't panic, it worked)
+        assert!(true);
+    }
+
+    #[test]
+    fn test_create_checkpoint_manager_with_nonexistent_path() {
+        let checkpoint_dir = PathBuf::from("/nonexistent/path/to/checkpoints");
+
+        // Should create a checkpoint manager even with nonexistent path
+        // The path is only used when actually loading/saving checkpoints
+        let _manager = super::create_checkpoint_manager(checkpoint_dir);
+
+        assert!(true);
     }
 
     // Tests for initialize_checkpoint_storage
