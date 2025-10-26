@@ -17,29 +17,30 @@ created: 2025-10-26
 
 ## Context
 
-Custom merge workflows (introduced in spec 127) are currently executing commands in the wrong directory context. When a custom merge workflow is defined in a workflow YAML file (like `workflows/implement.yml`), the merge phase commands should execute within the parent worktree directory to operate on the worktree changes. However, they are currently executing in the original repository's main/master branch directory (`self.repo_path`).
+**Both custom merge workflows AND the default Claude merge** are currently executing commands in the wrong directory context. All merge operations should execute within the parent worktree directory to operate on the worktree changes being merged. However, they are currently executing in the original repository's main/master branch directory (`self.repo_path`).
 
 This issue was discovered when running:
 ```bash
 prodigy run workflows/implement.yml -y --args 130
 ```
 
-The workflow creates a worktree at `/Users/user/.prodigy/worktrees/debtmap/session-9c92f6fd-e9c1-41b8-b15a-70beedc9e508` and executes the main workflow steps correctly in that worktree. However, when the custom merge workflow executes (containing steps like `/prodigy-merge-master`, `/prodigy-ci`, etc.), those commands run in the original repository directory instead of the worktree.
+The workflow creates a worktree at `/Users/user/.prodigy/worktrees/debtmap/session-9c92f6fd-e9c1-41b8-b15a-70beedc9e508` and executes the main workflow steps correctly in that worktree. However, when merge operations execute (whether custom merge workflow steps like `/prodigy-merge-master`, `/prodigy-ci`, or the default `/prodigy-merge-worktree`), those commands run in the original repository directory instead of the worktree.
 
-This breaks the isolation guarantee that worktrees provide and causes merge workflow commands to operate on the wrong branch/context.
+This breaks the isolation guarantee that worktrees provide and causes merge operations to run against the wrong branch/context (main/master instead of the worktree branch).
 
 ## Objective
 
-Fix the execution context for custom merge workflow commands so they execute within the parent worktree directory, maintaining consistency with the main workflow execution and preserving worktree isolation.
+Fix the execution context for ALL merge operations (both custom merge workflows and default Claude merge) so they execute within the parent worktree directory, maintaining consistency with the main workflow execution and preserving worktree isolation.
 
 ## Requirements
 
 ### Functional Requirements
 
-1. **Merge workflow commands must execute in worktree context**
-   - Shell commands in merge workflows must run with `current_dir` set to worktree path
-   - Claude commands in merge workflows must execute with working directory set to worktree path
-   - Both `execute_merge_shell_command` and `execute_merge_claude_command` must use worktree path
+1. **All merge commands must execute in worktree context**
+   - Default Claude merge (`execute_claude_merge`) must execute in worktree path
+   - Shell commands in custom merge workflows must run with `current_dir` set to worktree path
+   - Claude commands in custom merge workflows must execute with working directory set to worktree path
+   - Methods affected: `execute_claude_merge`, `execute_merge_shell_command`, `execute_merge_claude_command`
 
 2. **Worktree path must be determinable from session name**
    - Given a worktree session name (e.g., `session-9c92f6fd-e9c1-41b8-b15a-70beedc9e508`), compute the full worktree path
@@ -70,9 +71,20 @@ Fix the execution context for custom merge workflow commands so they execute wit
 
 ### Root Cause Analysis
 
-The bug exists in two methods in `src/worktree/manager.rs`:
+The bug exists in THREE methods in `src/worktree/manager.rs`:
 
-1. **`execute_merge_shell_command` (line 1000-1038)**:
+1. **`execute_claude_merge` (line 402-425)** - Default merge path:
+   ```rust
+   let result = claude_executor
+       .execute_claude_command(
+           &format!("/prodigy-merge-worktree {worktree_branch}"),
+           &self.repo_path,  // ❌ WRONG - should be worktree path
+           env_vars,
+       )
+       .await?;
+   ```
+
+2. **`execute_merge_shell_command` (line 1000-1038)** - Custom merge workflow:
    ```rust
    let shell_command = ProcessCommandBuilder::new("sh")
        .current_dir(&self.repo_path)  // ❌ WRONG - should be worktree path
@@ -80,7 +92,7 @@ The bug exists in two methods in `src/worktree/manager.rs`:
        .build();
    ```
 
-2. **`execute_merge_claude_command` (line 1040-1094)**:
+3. **`execute_merge_claude_command` (line 1040-1094)** - Custom merge workflow:
    ```rust
    let result = claude_executor
        .execute_claude_command(&claude_cmd_interpolated, &self.repo_path, env_vars)
@@ -90,7 +102,31 @@ The bug exists in two methods in `src/worktree/manager.rs`:
 
 ### Implementation Approach
 
-**Step 1: Add worktree path parameter to merge command executors**
+**Step 1: Fix default Claude merge to use worktree path**
+
+The `execute_merge_workflow` method (line 374-399) calls either `execute_custom_merge_workflow` or `execute_claude_merge`. We need to pass the worktree name to `execute_claude_merge`:
+
+```rust
+async fn execute_claude_merge(&self, name: &str, worktree_branch: &str) -> Result<String> {
+    let worktree_path = self.base_dir.join(name);
+
+    if !worktree_path.exists() {
+        anyhow::bail!("Worktree path does not exist: {}", worktree_path.display());
+    }
+
+    // ... existing code ...
+
+    let result = claude_executor
+        .execute_claude_command(
+            &format!("/prodigy-merge-worktree {worktree_branch}"),
+            &worktree_path,  // ✅ FIXED
+            env_vars,
+        )
+        .await?;
+}
+```
+
+**Step 2: Add worktree path parameter to custom merge command executors**
 
 Modify method signatures to accept worktree path:
 ```rust
@@ -104,7 +140,7 @@ async fn execute_merge_shell_command(
 ) -> Result<String>
 ```
 
-**Step 2: Compute worktree path in `execute_custom_merge_workflow`**
+**Step 3: Compute worktree path in `execute_custom_merge_workflow`**
 
 At the beginning of `execute_custom_merge_workflow` (line 1195):
 ```rust
@@ -127,7 +163,7 @@ async fn execute_custom_merge_workflow(
 }
 ```
 
-**Step 3: Update command executors to use worktree path**
+**Step 4: Update command executors to use worktree path**
 
 Change `current_dir` and execution directory:
 ```rust
@@ -144,7 +180,7 @@ let result = claude_executor
     .await?;
 ```
 
-**Step 4: Update logging to reflect correct context**
+**Step 5: Update logging to reflect correct context**
 
 Modify `log_execution_context` to accept and log worktree path:
 ```rust
@@ -166,6 +202,8 @@ fn log_execution_context(
 ### Files to Modify
 
 1. **`src/worktree/manager.rs`**:
+   - Line 374-399: `execute_merge_workflow` - Pass `name` to `execute_claude_merge`
+   - Line 402-425: `execute_claude_merge` - Add `name` parameter, compute worktree path, use it for execution
    - Line 1000-1038: `execute_merge_shell_command` - Add `worktree_path` parameter, use it for `current_dir`
    - Line 1040-1094: `execute_merge_claude_command` - Add `worktree_path` parameter, pass to Claude executor
    - Line 1110-1131: `log_execution_context` - Add `worktree_path` parameter, log it correctly
@@ -282,11 +320,18 @@ No deprecations required.
 
 ## Related Issues
 
-This bug affects any workflow using custom merge workflows as defined in spec 127. The bug was introduced when custom merge workflow support was first added - the commands were set up to use `self.repo_path` (the main repository) instead of the worktree path.
+This bug affects **ALL merge operations** - both custom merge workflows and the default Claude merge. The bug was present from the initial implementation where merge commands were set up to use `self.repo_path` (the main repository) instead of the worktree path.
 
-Example affected workflows:
-- `workflows/implement.yml` - Uses custom merge with `/prodigy-merge-master`, `/prodigy-ci`, `/prodigy-merge-worktree`
-- Any workflow with `merge:` block that runs shell or Claude commands
+**Affected operations**:
+- Default merge (no custom merge workflow) - `/prodigy-merge-worktree` executes in main repo
+- Custom merge workflows - All commands execute in main repo
+- Example: `workflows/implement.yml` - Uses custom merge with `/prodigy-merge-master`, `/prodigy-ci`, `/prodigy-merge-worktree`
+
+**Impact**:
+- Merge commands run against main/master branch instead of worktree branch
+- CI checks in merge phase test wrong code
+- Git operations may commit to wrong branch
+- Breaks worktree isolation guarantee from spec 127
 
 ## Success Metrics
 
