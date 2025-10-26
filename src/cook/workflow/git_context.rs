@@ -10,6 +10,86 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
+/// Type of file change detected
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FileChangeType {
+    Added,
+    Modified,
+    Deleted,
+    Unknown,
+}
+
+/// Classify a git status into a file change type
+fn classify_file_status(status: Status) -> FileChangeType {
+    if should_track_as_added(status) {
+        FileChangeType::Added
+    } else if should_track_as_modified(status) {
+        FileChangeType::Modified
+    } else if should_track_as_deleted(status) {
+        FileChangeType::Deleted
+    } else {
+        FileChangeType::Unknown
+    }
+}
+
+/// Check if a status should be tracked as an addition
+fn should_track_as_added(status: Status) -> bool {
+    status.contains(Status::WT_NEW) || status.contains(Status::INDEX_NEW)
+}
+
+/// Check if a status should be tracked as a modification
+fn should_track_as_modified(status: Status) -> bool {
+    status.contains(Status::WT_MODIFIED) || status.contains(Status::INDEX_MODIFIED)
+}
+
+/// Check if a status should be tracked as a deletion
+fn should_track_as_deleted(status: Status) -> bool {
+    status.contains(Status::WT_DELETED) || status.contains(Status::INDEX_DELETED)
+}
+
+/// Classify a git delta status into a file change type
+fn classify_delta_status(delta: git2::Delta) -> FileChangeType {
+    match delta {
+        git2::Delta::Added => FileChangeType::Added,
+        git2::Delta::Modified => FileChangeType::Modified,
+        git2::Delta::Deleted => FileChangeType::Deleted,
+        _ => FileChangeType::Unknown,
+    }
+}
+
+/// Extract file path from a diff delta
+fn extract_file_path(delta: &git2::DiffDelta) -> Option<String> {
+    delta
+        .new_file()
+        .path()
+        .map(|p| p.to_string_lossy().to_string())
+}
+
+/// Check if a path should be added to the list (i.e., not already present)
+fn should_add_to_list(list: &[String], path: &str) -> bool {
+    !list.contains(&path.to_string())
+}
+
+/// Add a file path to the list if it's not already present
+fn add_unique_file(list: &mut Vec<String>, path: String) {
+    if should_add_to_list(list, &path) {
+        list.push(path);
+    }
+}
+
+/// Sort and deduplicate a file list
+fn normalize_file_list(list: &mut Vec<String>) {
+    list.sort();
+    list.dedup();
+}
+
+/// Normalize all file lists in step changes (sort and deduplicate)
+fn normalize_file_lists(changes: &mut StepChanges) {
+    normalize_file_list(&mut changes.files_added);
+    normalize_file_list(&mut changes.files_modified);
+    normalize_file_list(&mut changes.files_deleted);
+}
+
 /// Git change tracker for workflow execution
 #[derive(Debug, Clone)]
 pub struct GitChangeTracker {
@@ -222,15 +302,11 @@ impl GitChangeTracker {
             };
             let status = entry.status();
 
-            if status.contains(Status::WT_NEW) || status.contains(Status::INDEX_NEW) {
-                changes.files_added.push(path.to_string());
-            } else if status.contains(Status::WT_MODIFIED)
-                || status.contains(Status::INDEX_MODIFIED)
-            {
-                changes.files_modified.push(path.to_string());
-            } else if status.contains(Status::WT_DELETED) || status.contains(Status::INDEX_DELETED)
-            {
-                changes.files_deleted.push(path.to_string());
+            match classify_file_status(status) {
+                FileChangeType::Added => changes.files_added.push(path.to_string()),
+                FileChangeType::Modified => changes.files_modified.push(path.to_string()),
+                FileChangeType::Deleted => changes.files_deleted.push(path.to_string()),
+                FileChangeType::Unknown => {}
             }
         }
 
@@ -271,25 +347,18 @@ impl GitChangeTracker {
                         // Process diff to get file changes from commits
                         diff.foreach(
                             &mut |delta, _progress| {
-                                if let Some(path) = delta.new_file().path() {
-                                    let path_str = path.to_string_lossy().to_string();
-                                    match delta.status() {
-                                        git2::Delta::Added => {
-                                            if !changes.files_added.contains(&path_str) {
-                                                changes.files_added.push(path_str);
-                                            }
+                                if let Some(path_str) = extract_file_path(&delta) {
+                                    match classify_delta_status(delta.status()) {
+                                        FileChangeType::Added => {
+                                            add_unique_file(&mut changes.files_added, path_str)
                                         }
-                                        git2::Delta::Modified => {
-                                            if !changes.files_modified.contains(&path_str) {
-                                                changes.files_modified.push(path_str);
-                                            }
+                                        FileChangeType::Modified => {
+                                            add_unique_file(&mut changes.files_modified, path_str)
                                         }
-                                        git2::Delta::Deleted => {
-                                            if !changes.files_deleted.contains(&path_str) {
-                                                changes.files_deleted.push(path_str);
-                                            }
+                                        FileChangeType::Deleted => {
+                                            add_unique_file(&mut changes.files_deleted, path_str)
                                         }
-                                        _ => {}
+                                        FileChangeType::Unknown => {}
                                     }
                                 }
                                 true
@@ -304,12 +373,7 @@ impl GitChangeTracker {
         }
 
         // Remove duplicates and sort
-        changes.files_added.sort();
-        changes.files_added.dedup();
-        changes.files_modified.sort();
-        changes.files_modified.dedup();
-        changes.files_deleted.sort();
-        changes.files_deleted.dedup();
+        normalize_file_lists(&mut changes);
 
         debug!(
             "Step changes: {} added, {} modified, {} deleted, {} commits",
@@ -556,5 +620,1076 @@ mod tests {
         assert!(tracker.workflow_start_commit.is_none());
 
         Ok(())
+    }
+
+    // Phase 1 Tests: Uncommitted Changes Detection
+
+    #[test]
+    fn test_calculate_step_changes_with_new_file() -> Result<()> {
+        let dir = init_test_repo()?;
+        let tracker = GitChangeTracker::new(dir.path())?;
+
+        // Create a new file
+        std::fs::write(dir.path().join("new_file.txt"), "content")?;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes.files_added.contains(&"new_file.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_with_modified_file() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Create and commit a file first
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("existing.txt"), "original content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("existing.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Add existing file",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        let tracker = GitChangeTracker::new(dir.path())?;
+
+        // Modify the file
+        std::fs::write(dir.path().join("existing.txt"), "modified content")?;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes.files_modified.contains(&"existing.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_with_deleted_file() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Create and commit a file first
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("to_delete.txt"), "content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("to_delete.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Add file to delete",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        let tracker = GitChangeTracker::new(dir.path())?;
+
+        // Delete the file
+        std::fs::remove_file(dir.path().join("to_delete.txt"))?;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes.files_deleted.contains(&"to_delete.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_with_staged_new_file() -> Result<()> {
+        let dir = init_test_repo()?;
+        let tracker = GitChangeTracker::new(dir.path())?;
+
+        // Create and stage a new file
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("staged_new.txt"), "content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("staged_new.txt"))?;
+            index.write()?;
+        }
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes.files_added.contains(&"staged_new.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_with_staged_modification() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Create and commit a file first
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("to_modify.txt"), "original")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("to_modify.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Add file to modify",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        let tracker = GitChangeTracker::new(dir.path())?;
+
+        // Modify and stage the file
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("to_modify.txt"), "modified")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("to_modify.txt"))?;
+            index.write()?;
+        }
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes
+            .files_modified
+            .contains(&"to_modify.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_with_staged_deletion() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Create and commit a file first
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("staged_delete.txt"), "content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("staged_delete.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Add file for staged deletion",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        let tracker = GitChangeTracker::new(dir.path())?;
+
+        // Delete and stage the deletion
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::remove_file(dir.path().join("staged_delete.txt"))?;
+            let mut index = repo.index()?;
+            index.remove_path(Path::new("staged_delete.txt"))?;
+            index.write()?;
+        }
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes
+            .files_deleted
+            .contains(&"staged_delete.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_with_mixed_changes() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Setup: create and commit initial files
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("existing1.txt"), "content1")?;
+            std::fs::write(dir.path().join("existing2.txt"), "content2")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("existing1.txt"))?;
+            index.add_path(Path::new("existing2.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Add initial files",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        let tracker = GitChangeTracker::new(dir.path())?;
+
+        // Create mixed changes: new file, modified file (unstaged), deleted file (staged)
+        {
+            let repo = Repository::open(dir.path())?;
+
+            // New file (not staged)
+            std::fs::write(dir.path().join("new.txt"), "new content")?;
+
+            // Modified file (not staged)
+            std::fs::write(dir.path().join("existing1.txt"), "modified content")?;
+
+            // Deleted file (staged)
+            std::fs::remove_file(dir.path().join("existing2.txt"))?;
+            let mut index = repo.index()?;
+            index.remove_path(Path::new("existing2.txt"))?;
+            index.write()?;
+        }
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes.files_added.contains(&"new.txt".to_string()));
+        assert!(changes
+            .files_modified
+            .contains(&"existing1.txt".to_string()));
+        assert!(changes.files_deleted.contains(&"existing2.txt".to_string()));
+
+        Ok(())
+    }
+
+    // Phase 2 Tests: Commit History Walking
+
+    #[test]
+    fn test_calculate_step_changes_with_new_commit() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Create initial tracker to capture starting commit
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Create a new commit
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("new_commit.txt"), "content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("new_commit.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "New commit for test",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        // Update tracker's last_commit to simulate previous step
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert_eq!(changes.commits.len(), 1);
+        assert!(changes.files_added.contains(&"new_commit.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_with_multiple_commits() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Capture starting commit
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Create multiple commits
+        {
+            let repo = Repository::open(dir.path())?;
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+
+            // First commit
+            std::fs::write(dir.path().join("file1.txt"), "content1")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("file1.txt"))?;
+            index.write()?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(Some("HEAD"), &sig, &sig, "First commit", &tree, &[&parent])?;
+
+            // Second commit
+            std::fs::write(dir.path().join("file2.txt"), "content2")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("file2.txt"))?;
+            index.write()?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(Some("HEAD"), &sig, &sig, "Second commit", &tree, &[&parent])?;
+
+            // Third commit
+            std::fs::write(dir.path().join("file3.txt"), "content3")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("file3.txt"))?;
+            index.write()?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(Some("HEAD"), &sig, &sig, "Third commit", &tree, &[&parent])?;
+        }
+
+        // Update tracker's last_commit to simulate previous step
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert_eq!(changes.commits.len(), 3);
+        assert!(changes.files_added.contains(&"file1.txt".to_string()));
+        assert!(changes.files_added.contains(&"file2.txt".to_string()));
+        assert!(changes.files_added.contains(&"file3.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_with_commit_stats() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Capture starting commit
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Create a commit with known insertions
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(
+                dir.path().join("stats_test.txt"),
+                "line1\nline2\nline3\nline4\nline5\n",
+            )?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("stats_test.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Commit with stats",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        // Update tracker's last_commit
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes.insertions > 0);
+        assert_eq!(changes.deletions, 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_with_no_new_commits() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Create tracker and immediately check again (no new commits)
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let current_commit = tracker.workflow_start_commit.clone();
+        tracker.last_commit = current_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert_eq!(changes.commits.len(), 0);
+        assert_eq!(changes.insertions, 0);
+        assert_eq!(changes.deletions, 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_tracks_commit_shas() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Capture starting commit
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Create a commit
+        let new_commit_sha = {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("sha_test.txt"), "content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("sha_test.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            let commit_oid = repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "SHA tracking test",
+                &tree,
+                &[&parent],
+            )?;
+            commit_oid.to_string()
+        };
+
+        // Update tracker's last_commit
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert_eq!(changes.commits.len(), 1);
+        assert_eq!(changes.commits[0], new_commit_sha);
+
+        Ok(())
+    }
+
+    // Phase 3 Tests: Diff Statistics and File Changes
+
+    #[test]
+    fn test_calculate_step_changes_tracks_added_files_from_commits() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Capture starting commit
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Create a commit that adds files
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("added1.txt"), "content")?;
+            std::fs::write(dir.path().join("added2.txt"), "content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("added1.txt"))?;
+            index.add_path(Path::new("added2.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(Some("HEAD"), &sig, &sig, "Add files", &tree, &[&parent])?;
+        }
+
+        // Update tracker's last_commit
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes.files_added.contains(&"added1.txt".to_string()));
+        assert!(changes.files_added.contains(&"added2.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_tracks_modified_files_from_commits() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // First, create and commit a file
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("to_modify.txt"), "original")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("to_modify.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(Some("HEAD"), &sig, &sig, "Initial file", &tree, &[&parent])?;
+        }
+
+        // Capture commit after initial file
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Now modify and commit the file
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("to_modify.txt"), "modified content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("to_modify.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(Some("HEAD"), &sig, &sig, "Modify file", &tree, &[&parent])?;
+        }
+
+        // Update tracker's last_commit
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes
+            .files_modified
+            .contains(&"to_modify.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_tracks_deleted_files_from_commits() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // First, create and commit a file
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("to_delete.txt"), "content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("to_delete.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Add file to delete",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        // Capture commit after initial file
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Now delete and commit
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::remove_file(dir.path().join("to_delete.txt"))?;
+            let mut index = repo.index()?;
+            index.remove_path(Path::new("to_delete.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(Some("HEAD"), &sig, &sig, "Delete file", &tree, &[&parent])?;
+        }
+
+        // Update tracker's last_commit
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes.files_deleted.contains(&"to_delete.txt".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_deduplicates_files() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Capture starting commit
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Create a file, stage it (appears in index), then commit it
+        // This will cause the file to appear in both uncommitted and committed changes
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("dup_test.txt"), "content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("dup_test.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Commit for dedup test",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        // Update tracker's last_commit
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        // File should appear only once in files_added (deduplication working)
+        let count = changes
+            .files_added
+            .iter()
+            .filter(|f| *f == "dup_test.txt")
+            .count();
+        assert_eq!(count, 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_sorts_file_lists() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Capture starting commit
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Create files in non-alphabetical order
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("zebra.txt"), "z")?;
+            std::fs::write(dir.path().join("apple.txt"), "a")?;
+            std::fs::write(dir.path().join("middle.txt"), "m")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("zebra.txt"))?;
+            index.add_path(Path::new("apple.txt"))?;
+            index.add_path(Path::new("middle.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Add unsorted files",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        // Update tracker's last_commit
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        // Verify files are sorted
+        let mut sorted = changes.files_added.clone();
+        sorted.sort();
+        assert_eq!(changes.files_added, sorted);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_calculates_insertions_deletions() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // First, create a file with some content
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(dir.path().join("changes.txt"), "line1\nline2\nline3\n")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("changes.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Initial content",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        // Capture commit after initial file
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Now modify the file: remove 1 line, add 2 lines
+        {
+            let repo = Repository::open(dir.path())?;
+            std::fs::write(
+                dir.path().join("changes.txt"),
+                "line2\nline3\nnew line 1\nnew line 2\n",
+            )?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("changes.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Modify content",
+                &tree,
+                &[&parent],
+            )?;
+        }
+
+        // Update tracker's last_commit
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes.insertions > 0);
+        assert!(changes.deletions > 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculate_step_changes_handles_mixed_commit_and_uncommitted() -> Result<()> {
+        let dir = init_test_repo()?;
+
+        // Capture starting commit
+        let mut tracker = GitChangeTracker::new(dir.path())?;
+        let start_commit = tracker.workflow_start_commit.clone();
+
+        // Create a committed file and an uncommitted file
+        {
+            let repo = Repository::open(dir.path())?;
+
+            // Committed file
+            std::fs::write(dir.path().join("committed.txt"), "content")?;
+            let mut index = repo.index()?;
+            index.add_path(Path::new("committed.txt"))?;
+            index.write()?;
+
+            let sig = git2::Signature::now("Test", "test@example.com")?;
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let parent = repo.head()?.peel_to_commit()?;
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "Add committed file",
+                &tree,
+                &[&parent],
+            )?;
+
+            // Uncommitted file
+            std::fs::write(dir.path().join("uncommitted.txt"), "content")?;
+        }
+
+        // Update tracker's last_commit
+        tracker.last_commit = start_commit;
+
+        let changes = tracker.calculate_step_changes()?;
+        assert!(changes.files_added.contains(&"committed.txt".to_string()));
+        assert!(changes.files_added.contains(&"uncommitted.txt".to_string()));
+        assert_eq!(changes.commits.len(), 1);
+
+        Ok(())
+    }
+
+    // Phase 4 Tests: Pure Function Tests for Status Detection
+
+    #[test]
+    fn test_should_track_as_added_with_wt_new() {
+        assert!(should_track_as_added(Status::WT_NEW));
+    }
+
+    #[test]
+    fn test_should_track_as_added_with_index_new() {
+        assert!(should_track_as_added(Status::INDEX_NEW));
+    }
+
+    #[test]
+    fn test_should_track_as_added_with_combined_new() {
+        let status = Status::WT_NEW | Status::INDEX_NEW;
+        assert!(should_track_as_added(status));
+    }
+
+    #[test]
+    fn test_should_track_as_modified_with_wt_modified() {
+        assert!(should_track_as_modified(Status::WT_MODIFIED));
+    }
+
+    #[test]
+    fn test_should_track_as_modified_with_index_modified() {
+        assert!(should_track_as_modified(Status::INDEX_MODIFIED));
+    }
+
+    #[test]
+    fn test_should_track_as_modified_with_combined_modified() {
+        let status = Status::WT_MODIFIED | Status::INDEX_MODIFIED;
+        assert!(should_track_as_modified(status));
+    }
+
+    #[test]
+    fn test_should_track_as_deleted_with_wt_deleted() {
+        assert!(should_track_as_deleted(Status::WT_DELETED));
+    }
+
+    #[test]
+    fn test_should_track_as_deleted_with_index_deleted() {
+        assert!(should_track_as_deleted(Status::INDEX_DELETED));
+    }
+
+    #[test]
+    fn test_should_track_as_deleted_with_combined_deleted() {
+        let status = Status::WT_DELETED | Status::INDEX_DELETED;
+        assert!(should_track_as_deleted(status));
+    }
+
+    #[test]
+    fn test_classify_file_status_added() {
+        assert_eq!(classify_file_status(Status::WT_NEW), FileChangeType::Added);
+        assert_eq!(
+            classify_file_status(Status::INDEX_NEW),
+            FileChangeType::Added
+        );
+    }
+
+    #[test]
+    fn test_classify_file_status_modified() {
+        assert_eq!(
+            classify_file_status(Status::WT_MODIFIED),
+            FileChangeType::Modified
+        );
+        assert_eq!(
+            classify_file_status(Status::INDEX_MODIFIED),
+            FileChangeType::Modified
+        );
+    }
+
+    #[test]
+    fn test_classify_file_status_deleted() {
+        assert_eq!(
+            classify_file_status(Status::WT_DELETED),
+            FileChangeType::Deleted
+        );
+        assert_eq!(
+            classify_file_status(Status::INDEX_DELETED),
+            FileChangeType::Deleted
+        );
+    }
+
+    // Phase 5 Tests: Pure Function Tests for Diff Processing
+
+    #[test]
+    fn test_classify_delta_status_added() {
+        assert_eq!(
+            classify_delta_status(git2::Delta::Added),
+            FileChangeType::Added
+        );
+    }
+
+    #[test]
+    fn test_classify_delta_status_modified() {
+        assert_eq!(
+            classify_delta_status(git2::Delta::Modified),
+            FileChangeType::Modified
+        );
+    }
+
+    #[test]
+    fn test_classify_delta_status_deleted() {
+        assert_eq!(
+            classify_delta_status(git2::Delta::Deleted),
+            FileChangeType::Deleted
+        );
+    }
+
+    #[test]
+    fn test_classify_delta_status_unknown() {
+        assert_eq!(
+            classify_delta_status(git2::Delta::Unmodified),
+            FileChangeType::Unknown
+        );
+        assert_eq!(
+            classify_delta_status(git2::Delta::Renamed),
+            FileChangeType::Unknown
+        );
+        assert_eq!(
+            classify_delta_status(git2::Delta::Copied),
+            FileChangeType::Unknown
+        );
+    }
+
+    #[test]
+    fn test_should_add_to_list_empty() {
+        let list: Vec<String> = vec![];
+        assert!(should_add_to_list(&list, "test.txt"));
+    }
+
+    #[test]
+    fn test_should_add_to_list_not_present() {
+        let list = vec!["file1.txt".to_string(), "file2.txt".to_string()];
+        assert!(should_add_to_list(&list, "file3.txt"));
+    }
+
+    #[test]
+    fn test_should_add_to_list_already_present() {
+        let list = vec!["file1.txt".to_string(), "file2.txt".to_string()];
+        assert!(!should_add_to_list(&list, "file1.txt"));
+    }
+
+    #[test]
+    fn test_add_unique_file_to_empty_list() {
+        let mut list = vec![];
+        add_unique_file(&mut list, "test.txt".to_string());
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0], "test.txt");
+    }
+
+    #[test]
+    fn test_add_unique_file_new_file() {
+        let mut list = vec!["file1.txt".to_string()];
+        add_unique_file(&mut list, "file2.txt".to_string());
+        assert_eq!(list.len(), 2);
+        assert!(list.contains(&"file2.txt".to_string()));
+    }
+
+    #[test]
+    fn test_add_unique_file_duplicate() {
+        let mut list = vec!["file1.txt".to_string()];
+        add_unique_file(&mut list, "file1.txt".to_string());
+        assert_eq!(list.len(), 1);
+    }
+
+    #[test]
+    fn test_add_unique_file_multiple_duplicates() {
+        let mut list = vec!["file1.txt".to_string()];
+        add_unique_file(&mut list, "file1.txt".to_string());
+        add_unique_file(&mut list, "file2.txt".to_string());
+        add_unique_file(&mut list, "file1.txt".to_string());
+        assert_eq!(list.len(), 2);
+    }
+
+    // Phase 6 Tests: Pure Function Tests for Normalization
+
+    #[test]
+    fn test_normalize_file_list_empty() {
+        let mut list: Vec<String> = vec![];
+        normalize_file_list(&mut list);
+        assert!(list.is_empty());
+    }
+
+    #[test]
+    fn test_normalize_file_list_sorts() {
+        let mut list = vec![
+            "zebra.txt".to_string(),
+            "apple.txt".to_string(),
+            "middle.txt".to_string(),
+        ];
+        normalize_file_list(&mut list);
+        assert_eq!(list[0], "apple.txt");
+        assert_eq!(list[1], "middle.txt");
+        assert_eq!(list[2], "zebra.txt");
+    }
+
+    #[test]
+    fn test_normalize_file_list_deduplicates() {
+        let mut list = vec![
+            "file1.txt".to_string(),
+            "file2.txt".to_string(),
+            "file1.txt".to_string(),
+        ];
+        normalize_file_list(&mut list);
+        assert_eq!(list.len(), 2);
+        assert!(list.contains(&"file1.txt".to_string()));
+        assert!(list.contains(&"file2.txt".to_string()));
+    }
+
+    #[test]
+    fn test_normalize_file_list_sorts_and_deduplicates() {
+        let mut list = vec![
+            "zebra.txt".to_string(),
+            "apple.txt".to_string(),
+            "zebra.txt".to_string(),
+            "middle.txt".to_string(),
+            "apple.txt".to_string(),
+        ];
+        normalize_file_list(&mut list);
+        assert_eq!(list.len(), 3);
+        assert_eq!(list[0], "apple.txt");
+        assert_eq!(list[1], "middle.txt");
+        assert_eq!(list[2], "zebra.txt");
+    }
+
+    #[test]
+    fn test_normalize_file_lists_normalizes_all() {
+        let mut changes = StepChanges {
+            files_added: vec![
+                "z.txt".to_string(),
+                "a.txt".to_string(),
+                "a.txt".to_string(),
+            ],
+            files_modified: vec![
+                "y.txt".to_string(),
+                "b.txt".to_string(),
+                "b.txt".to_string(),
+            ],
+            files_deleted: vec![
+                "x.txt".to_string(),
+                "c.txt".to_string(),
+                "c.txt".to_string(),
+            ],
+            ..Default::default()
+        };
+
+        normalize_file_lists(&mut changes);
+
+        // Check all lists are sorted
+        assert_eq!(changes.files_added[0], "a.txt");
+        assert_eq!(changes.files_added[1], "z.txt");
+        assert_eq!(changes.files_modified[0], "b.txt");
+        assert_eq!(changes.files_modified[1], "y.txt");
+        assert_eq!(changes.files_deleted[0], "c.txt");
+        assert_eq!(changes.files_deleted[1], "x.txt");
+
+        // Check all lists are deduplicated
+        assert_eq!(changes.files_added.len(), 2);
+        assert_eq!(changes.files_modified.len(), 2);
+        assert_eq!(changes.files_deleted.len(), 2);
+    }
+
+    #[test]
+    fn test_normalize_file_lists_handles_empty() {
+        let mut changes = StepChanges::default();
+        normalize_file_lists(&mut changes);
+        assert!(changes.files_added.is_empty());
+        assert!(changes.files_modified.is_empty());
+        assert!(changes.files_deleted.is_empty());
     }
 }

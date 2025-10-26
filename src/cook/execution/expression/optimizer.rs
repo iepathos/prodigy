@@ -228,142 +228,60 @@ impl ExpressionOptimizer {
             Expression::Equal(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean((a - b).abs() < f64::EPSILON))
-                    }
-                    (Expression::String(a), Expression::String(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a == b))
-                    }
-                    (Expression::Boolean(a), Expression::Boolean(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a == b))
-                    }
-                    (Expression::Null, Expression::Null) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(true))
-                    }
-                    _ => {
-                        // Check if same expression
-                        if expressions_equal(&left, &right) {
-                            self.stats.algebraic_simplifications += 1;
-                            Ok(Expression::Boolean(true))
-                        } else {
-                            Ok(Expression::Equal(Box::new(left), Box::new(right)))
-                        }
-                    }
-                }
+                fold_equal_comparison(&mut self.stats, left, right)
             }
 
             Expression::NotEqual(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean((a - b).abs() >= f64::EPSILON))
-                    }
-                    (Expression::String(a), Expression::String(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a != b))
-                    }
-                    (Expression::Boolean(a), Expression::Boolean(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a != b))
-                    }
-                    _ => {
-                        // Check if same expression
-                        if expressions_equal(&left, &right) {
-                            self.stats.algebraic_simplifications += 1;
-                            Ok(Expression::Boolean(false))
-                        } else {
-                            Ok(Expression::NotEqual(Box::new(left), Box::new(right)))
-                        }
-                    }
-                }
+                fold_not_equal_comparison(&mut self.stats, left, right)
             }
+
             // Fold comparison operators
             Expression::GreaterThan(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a > b))
-                    }
-                    _ => Ok(Expression::GreaterThan(Box::new(left), Box::new(right))),
-                }
+                fold_numeric_comparison(
+                    &mut self.stats,
+                    NumericComparisonOp::GreaterThan,
+                    left,
+                    right,
+                )
             }
             Expression::LessThan(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a < b))
-                    }
-                    _ => Ok(Expression::LessThan(Box::new(left), Box::new(right))),
-                }
+                fold_numeric_comparison(&mut self.stats, NumericComparisonOp::LessThan, left, right)
             }
             Expression::GreaterEqual(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a >= b))
-                    }
-                    _ => Ok(Expression::GreaterEqual(Box::new(left), Box::new(right))),
-                }
+                fold_numeric_comparison(
+                    &mut self.stats,
+                    NumericComparisonOp::GreaterEqual,
+                    left,
+                    right,
+                )
             }
             Expression::LessEqual(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a <= b))
-                    }
-                    _ => Ok(Expression::LessEqual(Box::new(left), Box::new(right))),
-                }
+                fold_numeric_comparison(
+                    &mut self.stats,
+                    NumericComparisonOp::LessEqual,
+                    left,
+                    right,
+                )
             }
 
             // Type checks on constants
             Expression::IsNull(inner) => {
                 let inner = self.constant_folding(*inner)?;
-                match inner {
-                    Expression::Null => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(true))
-                    }
-                    Expression::Number(_) | Expression::String(_) | Expression::Boolean(_) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(false))
-                    }
-                    _ => Ok(Expression::IsNull(Box::new(inner))),
-                }
+                fold_is_null(&mut self.stats, inner)
             }
             Expression::IsNotNull(inner) => {
                 let inner = self.constant_folding(*inner)?;
-                match inner {
-                    Expression::Null => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(false))
-                    }
-                    Expression::Number(_) | Expression::String(_) | Expression::Boolean(_) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(true))
-                    }
-                    _ => Ok(Expression::IsNotNull(Box::new(inner))),
-                }
+                fold_is_not_null(&mut self.stats, inner)
             }
 
             // Recursively fold other expressions
@@ -674,6 +592,149 @@ impl Default for ExpressionOptimizer {
     }
 }
 
+/// Helper function to fold Equal comparisons
+fn fold_equal_comparison(
+    stats: &mut OptimizationStats,
+    left: Expression,
+    right: Expression,
+) -> Result<Expression> {
+    match (&left, &right) {
+        (Expression::Number(a), Expression::Number(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean((a - b).abs() < f64::EPSILON))
+        }
+        (Expression::String(a), Expression::String(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(a == b))
+        }
+        (Expression::Boolean(a), Expression::Boolean(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(a == b))
+        }
+        (Expression::Null, Expression::Null) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(true))
+        }
+        _ => {
+            // Check if same expression
+            if expressions_equal(&left, &right) {
+                stats.algebraic_simplifications += 1;
+                Ok(Expression::Boolean(true))
+            } else {
+                Ok(Expression::Equal(Box::new(left), Box::new(right)))
+            }
+        }
+    }
+}
+
+/// Helper function to fold NotEqual comparisons
+fn fold_not_equal_comparison(
+    stats: &mut OptimizationStats,
+    left: Expression,
+    right: Expression,
+) -> Result<Expression> {
+    match (&left, &right) {
+        (Expression::Number(a), Expression::Number(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean((a - b).abs() >= f64::EPSILON))
+        }
+        (Expression::String(a), Expression::String(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(a != b))
+        }
+        (Expression::Boolean(a), Expression::Boolean(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(a != b))
+        }
+        _ => {
+            // Check if same expression
+            if expressions_equal(&left, &right) {
+                stats.algebraic_simplifications += 1;
+                Ok(Expression::Boolean(false))
+            } else {
+                Ok(Expression::NotEqual(Box::new(left), Box::new(right)))
+            }
+        }
+    }
+}
+
+/// Numeric comparison operator types
+#[derive(Debug, Clone, Copy)]
+enum NumericComparisonOp {
+    GreaterThan,
+    LessThan,
+    GreaterEqual,
+    LessEqual,
+}
+
+/// Helper function to fold numeric comparisons
+fn fold_numeric_comparison(
+    stats: &mut OptimizationStats,
+    op: NumericComparisonOp,
+    left: Expression,
+    right: Expression,
+) -> Result<Expression> {
+    match (&left, &right) {
+        (Expression::Number(a), Expression::Number(b)) => {
+            stats.constants_folded += 1;
+            let result = match op {
+                NumericComparisonOp::GreaterThan => a > b,
+                NumericComparisonOp::LessThan => a < b,
+                NumericComparisonOp::GreaterEqual => a >= b,
+                NumericComparisonOp::LessEqual => a <= b,
+            };
+            Ok(Expression::Boolean(result))
+        }
+        _ => {
+            let expr = match op {
+                NumericComparisonOp::GreaterThan => {
+                    Expression::GreaterThan(Box::new(left), Box::new(right))
+                }
+                NumericComparisonOp::LessThan => {
+                    Expression::LessThan(Box::new(left), Box::new(right))
+                }
+                NumericComparisonOp::GreaterEqual => {
+                    Expression::GreaterEqual(Box::new(left), Box::new(right))
+                }
+                NumericComparisonOp::LessEqual => {
+                    Expression::LessEqual(Box::new(left), Box::new(right))
+                }
+            };
+            Ok(expr)
+        }
+    }
+}
+
+/// Helper function to fold IsNull type check
+fn fold_is_null(stats: &mut OptimizationStats, inner: Expression) -> Result<Expression> {
+    match inner {
+        Expression::Null => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(true))
+        }
+        Expression::Number(_) | Expression::String(_) | Expression::Boolean(_) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(false))
+        }
+        _ => Ok(Expression::IsNull(Box::new(inner))),
+    }
+}
+
+/// Helper function to fold IsNotNull type check
+fn fold_is_not_null(stats: &mut OptimizationStats, inner: Expression) -> Result<Expression> {
+    match inner {
+        Expression::Null => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(false))
+        }
+        Expression::Number(_) | Expression::String(_) | Expression::Boolean(_) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(true))
+        }
+        _ => Ok(Expression::IsNotNull(Box::new(inner))),
+    }
+}
+
 /// Hash an expression for CSE
 fn hash_expression(expr: &Expression) -> u64 {
     use std::collections::hash_map::DefaultHasher;
@@ -906,5 +967,735 @@ mod tests {
         let _result = result; // Verify optimization ran
         assert!(optimizer.stats.constants_folded > 0);
         assert!(optimizer.stats.expressions_optimized > 0);
+    }
+
+    // Phase 1: Tests for comparison operators (lines 228-337)
+
+    #[test]
+    fn test_constant_folding_equal_numbers() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Equal numbers
+        let expr = Expression::Equal(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Unequal numbers
+        let expr = Expression::Equal(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(43.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_equal_strings() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Equal strings
+        let expr = Expression::Equal(
+            Box::new(Expression::String("hello".to_string())),
+            Box::new(Expression::String("hello".to_string())),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Unequal strings
+        let expr = Expression::Equal(
+            Box::new(Expression::String("hello".to_string())),
+            Box::new(Expression::String("world".to_string())),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_equal_booleans() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Equal booleans (true)
+        let expr = Expression::Equal(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Boolean(true)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Equal booleans (false)
+        let expr = Expression::Equal(
+            Box::new(Expression::Boolean(false)),
+            Box::new(Expression::Boolean(false)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Unequal booleans
+        let expr = Expression::Equal(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Boolean(false)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_equal_null() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Both null
+        let expr = Expression::Equal(Box::new(Expression::Null), Box::new(Expression::Null));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    #[test]
+    fn test_constant_folding_equal_same_expression() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Same field expression
+        let field = Expression::Field(vec!["status".to_string()]);
+        let expr = Expression::Equal(Box::new(field.clone()), Box::new(field.clone()));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    #[test]
+    fn test_constant_folding_not_equal_numbers() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Unequal numbers
+        let expr = Expression::NotEqual(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(43.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Equal numbers
+        let expr = Expression::NotEqual(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_not_equal_strings() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Unequal strings
+        let expr = Expression::NotEqual(
+            Box::new(Expression::String("hello".to_string())),
+            Box::new(Expression::String("world".to_string())),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Equal strings
+        let expr = Expression::NotEqual(
+            Box::new(Expression::String("hello".to_string())),
+            Box::new(Expression::String("hello".to_string())),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_not_equal_booleans() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Unequal booleans
+        let expr = Expression::NotEqual(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Boolean(false)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Equal booleans
+        let expr = Expression::NotEqual(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Boolean(true)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_not_equal_same_expression() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Same field expression
+        let field = Expression::Field(vec!["status".to_string()]);
+        let expr = Expression::NotEqual(Box::new(field.clone()), Box::new(field.clone()));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_greater_than() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Greater than (true)
+        let expr = Expression::GreaterThan(
+            Box::new(Expression::Number(43.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Greater than (false - equal)
+        let expr = Expression::GreaterThan(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+
+        // Greater than (false - less)
+        let expr = Expression::GreaterThan(
+            Box::new(Expression::Number(41.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_less_than() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Less than (true)
+        let expr = Expression::LessThan(
+            Box::new(Expression::Number(41.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Less than (false - equal)
+        let expr = Expression::LessThan(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+
+        // Less than (false - greater)
+        let expr = Expression::LessThan(
+            Box::new(Expression::Number(43.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_greater_equal() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Greater or equal (true - greater)
+        let expr = Expression::GreaterEqual(
+            Box::new(Expression::Number(43.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Greater or equal (true - equal)
+        let expr = Expression::GreaterEqual(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Greater or equal (false)
+        let expr = Expression::GreaterEqual(
+            Box::new(Expression::Number(41.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_less_equal() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Less or equal (true - less)
+        let expr = Expression::LessEqual(
+            Box::new(Expression::Number(41.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Less or equal (true - equal)
+        let expr = Expression::LessEqual(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Less or equal (false)
+        let expr = Expression::LessEqual(
+            Box::new(Expression::Number(43.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    // Phase 2: Tests for type checking operators (lines 339-367)
+
+    #[test]
+    fn test_constant_folding_is_null_with_null() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNull(Null) => true
+        let expr = Expression::IsNull(Box::new(Expression::Null));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    #[test]
+    fn test_constant_folding_is_null_with_number() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNull(Number) => false
+        let expr = Expression::IsNull(Box::new(Expression::Number(42.0)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_is_null_with_string() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNull(String) => false
+        let expr = Expression::IsNull(Box::new(Expression::String("test".to_string())));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_is_null_with_boolean() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNull(Boolean) => false
+        let expr = Expression::IsNull(Box::new(Expression::Boolean(true)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+
+        let expr = Expression::IsNull(Box::new(Expression::Boolean(false)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_is_not_null_with_null() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNotNull(Null) => false
+        let expr = Expression::IsNotNull(Box::new(Expression::Null));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_is_not_null_with_number() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNotNull(Number) => true
+        let expr = Expression::IsNotNull(Box::new(Expression::Number(42.0)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    #[test]
+    fn test_constant_folding_is_not_null_with_string() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNotNull(String) => true
+        let expr = Expression::IsNotNull(Box::new(Expression::String("test".to_string())));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    #[test]
+    fn test_constant_folding_is_not_null_with_boolean() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNotNull(Boolean) => true
+        let expr = Expression::IsNotNull(Box::new(Expression::Boolean(true)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        let expr = Expression::IsNotNull(Box::new(Expression::Boolean(false)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    // Phase 3: Tests for string and pattern operators (lines 369-393)
+
+    #[test]
+    fn test_constant_folding_contains_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Contains with nested constant folding (And expression that folds to Boolean)
+        let expr = Expression::Contains(
+            Box::new(Expression::Field(vec!["text".to_string()])),
+            Box::new(Expression::And(
+                Box::new(Expression::Boolean(true)),
+                Box::new(Expression::String("search".to_string())),
+            )),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The And should fold to just the String
+        match result {
+            Expression::Contains(_, right) => {
+                assert!(matches!(*right, Expression::String(_)));
+            }
+            _ => panic!("Expected Contains expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_starts_with_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // StartsWith with nested Not(Not(x)) that simplifies
+        let expr = Expression::StartsWith(
+            Box::new(Expression::Field(vec!["name".to_string()])),
+            Box::new(Expression::Not(Box::new(Expression::Not(Box::new(
+                Expression::String("prefix".to_string()),
+            ))))),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The double negation should be eliminated
+        match result {
+            Expression::StartsWith(_, right) => {
+                assert!(matches!(*right, Expression::String(_)));
+            }
+            _ => panic!("Expected StartsWith expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_ends_with_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // EndsWith with nested comparison that folds
+        let expr = Expression::EndsWith(
+            Box::new(Expression::Equal(
+                Box::new(Expression::Number(1.0)),
+                Box::new(Expression::Number(1.0)),
+            )),
+            Box::new(Expression::Field(vec!["suffix".to_string()])),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Equal should fold to Boolean(true)
+        match result {
+            Expression::EndsWith(left, _) => {
+                assert!(matches!(*left, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected EndsWith expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_matches_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Matches with nested Or expression
+        let expr = Expression::Matches(
+            Box::new(Expression::Or(
+                Box::new(Expression::Boolean(false)),
+                Box::new(Expression::Field(vec!["text".to_string()])),
+            )),
+            Box::new(Expression::String("pattern.*".to_string())),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Or should fold to just the Field
+        match result {
+            Expression::Matches(left, _) => {
+                assert!(matches!(*left, Expression::Field(_)));
+            }
+            _ => panic!("Expected Matches expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_index_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Index with constant expressions that fold
+        let expr = Expression::Index(
+            Box::new(Expression::Field(vec!["array".to_string()])),
+            Box::new(Expression::Not(Box::new(Expression::Boolean(false)))),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Not(false) should fold to Boolean(true)
+        match result {
+            Expression::Index(_, idx) => {
+                assert!(matches!(*idx, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected Index expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_array_wildcard_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // ArrayWildcard with nested folding
+        let expr = Expression::ArrayWildcard(
+            Box::new(Expression::Or(
+                Box::new(Expression::Boolean(true)),
+                Box::new(Expression::Field(vec!["items".to_string()])),
+            )),
+            vec!["name".to_string()],
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Or should fold to Boolean(true)
+        match result {
+            Expression::ArrayWildcard(base, _) => {
+                assert!(matches!(*base, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected ArrayWildcard expression"),
+        }
+    }
+
+    // Phase 4: Tests for aggregate functions and type check functions (lines 395-422)
+
+    #[test]
+    fn test_constant_folding_length_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Length with nested constant folding
+        let expr = Expression::Length(Box::new(Expression::And(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Field(vec!["items".to_string()])),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The And should fold to just the Field
+        match result {
+            Expression::Length(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected Length expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_sum_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Sum with nested folding
+        let expr = Expression::Sum(Box::new(Expression::Or(
+            Box::new(Expression::Boolean(false)),
+            Box::new(Expression::Field(vec!["values".to_string()])),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Or should fold to just the Field
+        match result {
+            Expression::Sum(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected Sum expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_count_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Count with nested folding
+        let expr = Expression::Count(Box::new(Expression::Not(Box::new(Expression::Not(
+            Box::new(Expression::Field(vec!["items".to_string()])),
+        )))));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The double negation should be eliminated
+        match result {
+            Expression::Count(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected Count expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_min_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Min with nested folding
+        let expr = Expression::Min(Box::new(Expression::Equal(
+            Box::new(Expression::Number(5.0)),
+            Box::new(Expression::Number(5.0)),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Equal should fold to Boolean(true)
+        match result {
+            Expression::Min(inner) => {
+                assert!(matches!(*inner, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected Min expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_max_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Max with nested folding
+        let expr = Expression::Max(Box::new(Expression::LessThan(
+            Box::new(Expression::Number(3.0)),
+            Box::new(Expression::Number(5.0)),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The LessThan should fold to Boolean(true)
+        match result {
+            Expression::Max(inner) => {
+                assert!(matches!(*inner, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected Max expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_avg_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Avg with nested folding
+        let expr = Expression::Avg(Box::new(Expression::And(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Field(vec!["scores".to_string()])),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The And should fold to just the Field
+        match result {
+            Expression::Avg(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected Avg expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_is_number_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNumber with nested folding
+        let expr = Expression::IsNumber(Box::new(Expression::Or(
+            Box::new(Expression::Boolean(false)),
+            Box::new(Expression::Field(vec!["value".to_string()])),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Or should fold to just the Field
+        match result {
+            Expression::IsNumber(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected IsNumber expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_is_string_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsString with nested folding
+        let expr = Expression::IsString(Box::new(Expression::Not(Box::new(Expression::Boolean(
+            false,
+        )))));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Not(false) should fold to Boolean(true)
+        match result {
+            Expression::IsString(inner) => {
+                assert!(matches!(*inner, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected IsString expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_is_bool_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsBool with nested folding
+        let expr = Expression::IsBool(Box::new(Expression::And(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Field(vec!["flag".to_string()])),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The And should fold to just the Field
+        match result {
+            Expression::IsBool(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected IsBool expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_is_array_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsArray with nested folding
+        let expr = Expression::IsArray(Box::new(Expression::GreaterThan(
+            Box::new(Expression::Number(10.0)),
+            Box::new(Expression::Number(5.0)),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The GreaterThan should fold to Boolean(true)
+        match result {
+            Expression::IsArray(inner) => {
+                assert!(matches!(*inner, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected IsArray expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_is_object_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsObject with nested folding
+        let expr = Expression::IsObject(Box::new(Expression::Equal(
+            Box::new(Expression::String("a".to_string())),
+            Box::new(Expression::String("a".to_string())),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Equal should fold to Boolean(true)
+        match result {
+            Expression::IsObject(inner) => {
+                assert!(matches!(*inner, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected IsObject expression"),
+        }
     }
 }

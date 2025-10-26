@@ -8,6 +8,153 @@ use crate::storage::{extract_repo_name, GlobalStorage};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
+// ============================================================================
+// Pure Functions: Working Directory Resolution
+// ============================================================================
+
+/// Pure function: Resolve working directory from optional path
+///
+/// If a path is provided, returns it. Otherwise, returns the current working directory.
+/// This is a pure function that encapsulates the common pattern throughout the command handlers.
+///
+/// # Arguments
+/// * `path` - Optional path to use as working directory
+///
+/// # Returns
+/// * `Ok(PathBuf)` - The resolved working directory
+/// * `Err` - If current directory cannot be determined when path is None
+///
+/// # Examples
+/// ```
+/// # use std::path::PathBuf;
+/// # use anyhow::Result;
+/// # fn resolve_working_directory(path: Option<PathBuf>) -> Result<PathBuf> {
+/// #     match path {
+/// #         Some(p) => Ok(p),
+/// #         None => std::env::current_dir().map_err(|e| anyhow::anyhow!(e)),
+/// #     }
+/// # }
+/// let explicit = resolve_working_directory(Some(PathBuf::from("/tmp")));
+/// assert_eq!(explicit.unwrap(), PathBuf::from("/tmp"));
+///
+/// let current = resolve_working_directory(None);
+/// assert!(current.is_ok());
+/// ```
+fn resolve_working_directory(path: Option<PathBuf>) -> Result<PathBuf> {
+    match path {
+        Some(p) => Ok(p),
+        None => std::env::current_dir().context("Failed to get current directory"),
+    }
+}
+
+// ============================================================================
+// Pure Functions: Storage Initialization
+// ============================================================================
+
+/// Initialize checkpoint storage for a given working directory
+///
+/// Creates global storage, extracts the repository name, and retrieves
+/// the checkpoint directory. This encapsulates the common storage initialization
+/// pattern used across multiple checkpoint commands.
+///
+/// # Arguments
+/// * `working_dir` - The working directory path (typically a git repository)
+///
+/// # Returns
+/// * `Ok((storage, repo_name, checkpoint_dir))` - Tuple containing:
+///   - `GlobalStorage` - The initialized global storage instance
+///   - `String` - The extracted repository name
+///   - `PathBuf` - The checkpoint directory path
+/// * `Err` - If storage creation, repo name extraction, or directory retrieval fails
+///
+/// # Errors
+/// - `Failed to create global storage` - If GlobalStorage::new() fails
+/// - `Failed to extract repo name` - If the working directory is not a valid git repo
+/// - `Failed to get global checkpoints directory` - If checkpoint dir cannot be retrieved
+async fn initialize_checkpoint_storage(
+    working_dir: &Path,
+) -> Result<(GlobalStorage, String, PathBuf)> {
+    let storage = GlobalStorage::new().context("Failed to create global storage")?;
+    let repo_name = extract_repo_name(working_dir).context("Failed to extract repo name")?;
+    let checkpoint_dir = storage
+        .get_checkpoints_dir(&repo_name)
+        .await
+        .context("Failed to get global checkpoints directory")?;
+    Ok((storage, repo_name, checkpoint_dir))
+}
+
+// ============================================================================
+// Pure Functions: Checkpoint Manager Creation
+// ============================================================================
+
+/// Represents a validated clean operation
+#[derive(Debug, PartialEq, Eq)]
+enum CleanOperation {
+    /// Clean a specific workflow checkpoint
+    CleanSpecific(String),
+    /// Clean all completed checkpoints
+    CleanAll,
+    /// Invalid request (neither workflow_id nor all specified)
+    InvalidRequest,
+}
+
+/// Validate clean operation parameters
+///
+/// Pure function that validates the combination of workflow_id and all flags
+/// for the clean command. Returns an enum representing the validated operation.
+///
+/// # Arguments
+/// * `workflow_id` - Optional workflow ID to clean
+/// * `all` - Whether to clean all completed checkpoints
+///
+/// # Returns
+/// * `CleanOperation::CleanSpecific(id)` - Clean specific workflow
+/// * `CleanOperation::CleanAll` - Clean all completed checkpoints
+/// * `CleanOperation::InvalidRequest` - Neither or both parameters specified
+///
+/// # Examples
+/// ```
+/// # use std::path::PathBuf;
+/// # #[derive(Debug, PartialEq, Eq)]
+/// # enum CleanOperation { CleanSpecific(String), CleanAll, InvalidRequest }
+/// # fn validate_clean_operation(workflow_id: Option<String>, all: bool) -> CleanOperation {
+/// #     match (workflow_id, all) {
+/// #         (Some(id), false) => CleanOperation::CleanSpecific(id),
+/// #         (None, true) => CleanOperation::CleanAll,
+/// #         _ => CleanOperation::InvalidRequest,
+/// #     }
+/// # }
+/// assert_eq!(validate_clean_operation(Some("wf-123".to_string()), false), CleanOperation::CleanSpecific("wf-123".to_string()));
+/// assert_eq!(validate_clean_operation(None, true), CleanOperation::CleanAll);
+/// assert_eq!(validate_clean_operation(None, false), CleanOperation::InvalidRequest);
+/// ```
+fn validate_clean_operation(workflow_id: Option<String>, all: bool) -> CleanOperation {
+    match (workflow_id, all) {
+        (Some(id), false) => CleanOperation::CleanSpecific(id),
+        (None, true) => CleanOperation::CleanAll,
+        _ => CleanOperation::InvalidRequest,
+    }
+}
+
+/// Create a CheckpointManager with local storage
+///
+/// Encapsulates the pattern of creating a CheckpointManager with deprecated
+/// CheckpointStorage::Local. This allows us to centralize the #[allow(deprecated)]
+/// annotation and simplify the command handlers.
+///
+/// # Arguments
+/// * `checkpoint_dir` - The directory path for checkpoint storage
+///
+/// # Returns
+/// * `CheckpointManager` - A configured checkpoint manager instance
+fn create_checkpoint_manager(checkpoint_dir: PathBuf) -> crate::cook::workflow::CheckpointManager {
+    use crate::cook::workflow::checkpoint_path::CheckpointStorage;
+    use crate::cook::workflow::CheckpointManager;
+
+    #[allow(deprecated)]
+    CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir))
+}
+
 /// Find the most recent checkpoint in the checkpoint directory
 pub async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> {
     use tokio::fs;
@@ -45,34 +192,18 @@ pub async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> 
 
 /// Execute checkpoint-related commands
 pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -> Result<()> {
-    use crate::cook::workflow::CheckpointManager;
-
     match command {
         CheckpointCommands::List { workflow_id, path } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
-
-            // Use global storage for checkpoints
-            let storage = GlobalStorage::new().context("Failed to create global storage")?;
-            let repo_name =
-                extract_repo_name(&working_dir).context("Failed to extract repo name")?;
-            let checkpoint_dir = storage
-                .get_checkpoints_dir(&repo_name)
-                .await
-                .context("Failed to get global checkpoints directory")?;
+            let working_dir = resolve_working_directory(path)?;
+            let (_storage, _repo_name, checkpoint_dir) =
+                initialize_checkpoint_storage(&working_dir).await?;
 
             if !checkpoint_dir.exists() {
                 println!("No checkpoints found.");
                 return Ok(());
             }
 
-            use crate::cook::workflow::checkpoint_path::CheckpointStorage;
-
-            #[allow(deprecated)]
-            let checkpoint_manager =
-                CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir.clone()));
+            let checkpoint_manager = create_checkpoint_manager(checkpoint_dir.clone());
 
             if let Some(id) = workflow_id {
                 list_specific_checkpoint(&checkpoint_manager, &id, verbose > 0).await
@@ -86,32 +217,24 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             force,
             path,
         } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
-
-            // Use global storage for checkpoints
-            let storage = GlobalStorage::new().context("Failed to create global storage")?;
-            let repo_name =
-                extract_repo_name(&working_dir).context("Failed to extract repo name")?;
-            let checkpoint_dir = storage
-                .get_checkpoints_dir(&repo_name)
-                .await
-                .context("Failed to get global checkpoints directory")?;
+            let working_dir = resolve_working_directory(path)?;
+            let (_storage, _repo_name, checkpoint_dir) =
+                initialize_checkpoint_storage(&working_dir).await?;
 
             if !checkpoint_dir.exists() {
                 println!("No checkpoints to clean.");
                 return Ok(());
             }
 
-            if let Some(id) = workflow_id {
-                clean_specific_checkpoint(&checkpoint_dir, &id, force).await
-            } else if all {
-                clean_all_checkpoints(&checkpoint_dir, force).await
-            } else {
-                println!("Please specify --workflow-id or --all");
-                Ok(())
+            match validate_clean_operation(workflow_id, all) {
+                CleanOperation::CleanSpecific(id) => {
+                    clean_specific_checkpoint(&checkpoint_dir, &id, force).await
+                }
+                CleanOperation::CleanAll => clean_all_checkpoints(&checkpoint_dir, force).await,
+                CleanOperation::InvalidRequest => {
+                    println!("Please specify --workflow-id or --all");
+                    Ok(())
+                }
             }
         }
         CheckpointCommands::Show {
@@ -119,25 +242,11 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             version: _,
             path,
         } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
+            let working_dir = resolve_working_directory(path)?;
+            let (_storage, _repo_name, checkpoint_dir) =
+                initialize_checkpoint_storage(&working_dir).await?;
 
-            // Use global storage for checkpoints
-            let storage = GlobalStorage::new().context("Failed to create global storage")?;
-            let repo_name =
-                extract_repo_name(&working_dir).context("Failed to extract repo name")?;
-            let checkpoint_dir = storage
-                .get_checkpoints_dir(&repo_name)
-                .await
-                .context("Failed to get global checkpoints directory")?;
-
-            use crate::cook::workflow::checkpoint_path::CheckpointStorage;
-
-            #[allow(deprecated)]
-            let checkpoint_manager =
-                CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir));
+            let checkpoint_manager = create_checkpoint_manager(checkpoint_dir);
 
             show_checkpoint_details(&checkpoint_manager, &workflow_id).await
         }
@@ -146,10 +255,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             repair,
             path,
         } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
+            let working_dir = resolve_working_directory(path)?;
 
             validate_checkpoint(&working_dir, &checkpoint_id, repair).await
         }
@@ -158,10 +264,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             detailed,
             path,
         } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
+            let working_dir = resolve_working_directory(path)?;
 
             list_mapreduce_checkpoints(&working_dir, &job_id, detailed).await
         }
@@ -170,10 +273,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             force,
             path,
         } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
+            let working_dir = resolve_working_directory(path)?;
 
             delete_checkpoint(&working_dir, &checkpoint_id, force).await
         }
@@ -358,12 +458,7 @@ fn is_completed_checkpoint(
 
 /// Clean all completed checkpoints
 async fn clean_all_checkpoints(checkpoint_dir: &PathBuf, force: bool) -> Result<()> {
-    use crate::cook::workflow::checkpoint_path::CheckpointStorage;
-    use crate::cook::workflow::CheckpointManager;
-
-    #[allow(deprecated)]
-    let checkpoint_manager =
-        CheckpointManager::with_storage(CheckpointStorage::Local(checkpoint_dir.clone()));
+    let checkpoint_manager = create_checkpoint_manager(checkpoint_dir.clone());
     let mut entries = tokio::fs::read_dir(checkpoint_dir).await?;
     let mut deleted = 0;
 
@@ -733,6 +828,134 @@ mod tests {
     // Unit Tests for Pure Functions
     // ========================================================================
 
+    // Tests for resolve_working_directory
+
+    #[test]
+    fn test_resolve_working_directory_with_some_path() {
+        let test_path = PathBuf::from("/tmp/test");
+        let result = super::resolve_working_directory(Some(test_path.clone()));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), test_path);
+    }
+
+    #[test]
+    fn test_resolve_working_directory_with_none() {
+        let result = super::resolve_working_directory(None);
+        assert!(result.is_ok());
+        // Should return the current directory, which should be valid
+        assert!(result.unwrap().exists());
+    }
+
+    #[test]
+    fn test_resolve_working_directory_preserves_relative_path() {
+        let relative_path = PathBuf::from("./some/relative/path");
+        let result = super::resolve_working_directory(Some(relative_path.clone()));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), relative_path);
+    }
+
+    #[test]
+    fn test_resolve_working_directory_preserves_absolute_path() {
+        let absolute_path = PathBuf::from("/absolute/path/to/dir");
+        let result = super::resolve_working_directory(Some(absolute_path.clone()));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), absolute_path);
+    }
+
+    // Tests for validate_clean_operation
+
+    #[test]
+    fn test_validate_clean_operation_with_workflow_id() {
+        let result = super::validate_clean_operation(Some("workflow-123".to_string()), false);
+        assert_eq!(
+            result,
+            super::CleanOperation::CleanSpecific("workflow-123".to_string())
+        );
+    }
+
+    #[test]
+    fn test_validate_clean_operation_with_all_flag() {
+        let result = super::validate_clean_operation(None, true);
+        assert_eq!(result, super::CleanOperation::CleanAll);
+    }
+
+    #[test]
+    fn test_validate_clean_operation_neither_specified() {
+        let result = super::validate_clean_operation(None, false);
+        assert_eq!(result, super::CleanOperation::InvalidRequest);
+    }
+
+    #[test]
+    fn test_validate_clean_operation_both_specified() {
+        // Edge case: both workflow_id and all=true
+        let result = super::validate_clean_operation(Some("workflow-123".to_string()), true);
+        assert_eq!(result, super::CleanOperation::InvalidRequest);
+    }
+
+    // Tests for create_checkpoint_manager
+
+    #[test]
+    fn test_create_checkpoint_manager() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let checkpoint_dir = temp_dir.path().to_path_buf();
+
+        // Should create a checkpoint manager without panicking
+        let _manager = super::create_checkpoint_manager(checkpoint_dir.clone());
+
+        // Verify it was created successfully (if it didn't panic, it worked)
+        assert!(true);
+    }
+
+    #[test]
+    fn test_create_checkpoint_manager_with_nonexistent_path() {
+        let checkpoint_dir = PathBuf::from("/nonexistent/path/to/checkpoints");
+
+        // Should create a checkpoint manager even with nonexistent path
+        // The path is only used when actually loading/saving checkpoints
+        let _manager = super::create_checkpoint_manager(checkpoint_dir);
+
+        assert!(true);
+    }
+
+    // Tests for initialize_checkpoint_storage
+
+    #[tokio::test]
+    async fn test_initialize_checkpoint_storage_valid_repo() {
+        // This test requires a valid git repository
+        // We'll use the current directory which should be the prodigy repo
+        let current_dir = std::env::current_dir().expect("Failed to get current dir");
+        let result = super::initialize_checkpoint_storage(&current_dir).await;
+
+        // Should succeed for a valid git repository
+        assert!(result.is_ok());
+
+        if let Ok((_storage, repo_name, checkpoint_dir)) = result {
+            // Repo name should be extracted
+            assert!(!repo_name.is_empty());
+            // Checkpoint dir should be a valid path
+            assert!(checkpoint_dir.to_string_lossy().contains(&repo_name));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_initialize_checkpoint_storage_success() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_path = temp_dir.path();
+
+        let result = super::initialize_checkpoint_storage(temp_path).await;
+
+        // Should succeed - extract_repo_name doesn't require git repo
+        assert!(result.is_ok());
+        if let Ok((_storage, repo_name, checkpoint_dir)) = result {
+            // Repo name should be extracted (the temp dir name)
+            assert!(!repo_name.is_empty());
+            // Checkpoint dir should contain the repo name
+            assert!(checkpoint_dir.to_string_lossy().contains(&repo_name));
+        }
+    }
+
+    // Tests for checkpoint filtering
+
     #[test]
     fn test_is_checkpoint_json_file_valid() {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
@@ -999,6 +1222,83 @@ mod tests {
                 .exists());
         }
     }
+
+    // ========================================================================
+    // Integration Tests for Entry Point
+    // ========================================================================
+
+    #[tokio::test]
+    async fn test_integration_resolve_and_initialize_storage() {
+        // Test the integration of resolve_working_directory and initialize_checkpoint_storage
+        let current_dir = std::env::current_dir().expect("Failed to get current dir");
+
+        // Resolve working directory with None (should use current dir)
+        let working_dir = super::resolve_working_directory(None).expect("Failed to resolve");
+        assert_eq!(working_dir, current_dir);
+
+        // Initialize storage with the resolved directory
+        let result = super::initialize_checkpoint_storage(&working_dir).await;
+        assert!(result.is_ok());
+
+        if let Ok((_, repo_name, checkpoint_dir)) = result {
+            assert!(!repo_name.is_empty());
+            assert!(checkpoint_dir.to_string_lossy().contains(&repo_name));
+        }
+    }
+
+    #[test]
+    fn test_integration_validate_and_execute_clean() {
+        // Test the integration of validate_clean_operation with expected execution paths
+        let test_cases = vec![
+            (Some("workflow-1".to_string()), false, "CleanSpecific"),
+            (None, true, "CleanAll"),
+            (None, false, "InvalidRequest"),
+            (Some("workflow-1".to_string()), true, "InvalidRequest"),
+        ];
+
+        for (workflow_id, all, expected_type) in test_cases {
+            let operation = super::validate_clean_operation(workflow_id.clone(), all);
+            match operation {
+                super::CleanOperation::CleanSpecific(_) => {
+                    assert_eq!(expected_type, "CleanSpecific");
+                }
+                super::CleanOperation::CleanAll => {
+                    assert_eq!(expected_type, "CleanAll");
+                }
+                super::CleanOperation::InvalidRequest => {
+                    assert_eq!(expected_type, "InvalidRequest");
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_integration_checkpoint_manager_workflow() {
+        // Test the full workflow: resolve -> initialize -> create manager
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_path = temp_dir.path().to_path_buf();
+
+        // Step 1: Resolve working directory
+        let working_dir =
+            super::resolve_working_directory(Some(temp_path.clone())).expect("Failed to resolve");
+        assert_eq!(working_dir, temp_path);
+
+        // Step 2: Initialize storage
+        let (_storage, _repo_name, checkpoint_dir) =
+            super::initialize_checkpoint_storage(&working_dir)
+                .await
+                .expect("Failed to initialize storage");
+
+        // Step 3: Create checkpoint manager
+        let _manager = super::create_checkpoint_manager(checkpoint_dir);
+
+        // If we got here without panicking, the integration works
+        assert!(true);
+    }
+
+    // ========================================================================
+    // Existing Integration Tests for clean_all_checkpoints
+    // ========================================================================
 
     #[tokio::test]
     async fn test_clean_all_checkpoints_failed_status() {
