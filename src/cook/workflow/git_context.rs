@@ -77,6 +77,19 @@ fn add_unique_file(list: &mut Vec<String>, path: String) {
     }
 }
 
+/// Sort and deduplicate a file list
+fn normalize_file_list(list: &mut Vec<String>) {
+    list.sort();
+    list.dedup();
+}
+
+/// Normalize all file lists in step changes (sort and deduplicate)
+fn normalize_file_lists(changes: &mut StepChanges) {
+    normalize_file_list(&mut changes.files_added);
+    normalize_file_list(&mut changes.files_modified);
+    normalize_file_list(&mut changes.files_deleted);
+}
+
 /// Git change tracker for workflow execution
 #[derive(Debug, Clone)]
 pub struct GitChangeTracker {
@@ -360,12 +373,7 @@ impl GitChangeTracker {
         }
 
         // Remove duplicates and sort
-        changes.files_added.sort();
-        changes.files_added.dedup();
-        changes.files_modified.sort();
-        changes.files_modified.dedup();
-        changes.files_deleted.sort();
-        changes.files_deleted.dedup();
+        normalize_file_lists(&mut changes);
 
         debug!(
             "Step changes: {} added, {} modified, {} deleted, {} commits",
@@ -1586,5 +1594,102 @@ mod tests {
         add_unique_file(&mut list, "file2.txt".to_string());
         add_unique_file(&mut list, "file1.txt".to_string());
         assert_eq!(list.len(), 2);
+    }
+
+    // Phase 6 Tests: Pure Function Tests for Normalization
+
+    #[test]
+    fn test_normalize_file_list_empty() {
+        let mut list: Vec<String> = vec![];
+        normalize_file_list(&mut list);
+        assert!(list.is_empty());
+    }
+
+    #[test]
+    fn test_normalize_file_list_sorts() {
+        let mut list = vec![
+            "zebra.txt".to_string(),
+            "apple.txt".to_string(),
+            "middle.txt".to_string(),
+        ];
+        normalize_file_list(&mut list);
+        assert_eq!(list[0], "apple.txt");
+        assert_eq!(list[1], "middle.txt");
+        assert_eq!(list[2], "zebra.txt");
+    }
+
+    #[test]
+    fn test_normalize_file_list_deduplicates() {
+        let mut list = vec![
+            "file1.txt".to_string(),
+            "file2.txt".to_string(),
+            "file1.txt".to_string(),
+        ];
+        normalize_file_list(&mut list);
+        assert_eq!(list.len(), 2);
+        assert!(list.contains(&"file1.txt".to_string()));
+        assert!(list.contains(&"file2.txt".to_string()));
+    }
+
+    #[test]
+    fn test_normalize_file_list_sorts_and_deduplicates() {
+        let mut list = vec![
+            "zebra.txt".to_string(),
+            "apple.txt".to_string(),
+            "zebra.txt".to_string(),
+            "middle.txt".to_string(),
+            "apple.txt".to_string(),
+        ];
+        normalize_file_list(&mut list);
+        assert_eq!(list.len(), 3);
+        assert_eq!(list[0], "apple.txt");
+        assert_eq!(list[1], "middle.txt");
+        assert_eq!(list[2], "zebra.txt");
+    }
+
+    #[test]
+    fn test_normalize_file_lists_normalizes_all() {
+        let mut changes = StepChanges {
+            files_added: vec![
+                "z.txt".to_string(),
+                "a.txt".to_string(),
+                "a.txt".to_string(),
+            ],
+            files_modified: vec![
+                "y.txt".to_string(),
+                "b.txt".to_string(),
+                "b.txt".to_string(),
+            ],
+            files_deleted: vec![
+                "x.txt".to_string(),
+                "c.txt".to_string(),
+                "c.txt".to_string(),
+            ],
+            ..Default::default()
+        };
+
+        normalize_file_lists(&mut changes);
+
+        // Check all lists are sorted
+        assert_eq!(changes.files_added[0], "a.txt");
+        assert_eq!(changes.files_added[1], "z.txt");
+        assert_eq!(changes.files_modified[0], "b.txt");
+        assert_eq!(changes.files_modified[1], "y.txt");
+        assert_eq!(changes.files_deleted[0], "c.txt");
+        assert_eq!(changes.files_deleted[1], "x.txt");
+
+        // Check all lists are deduplicated
+        assert_eq!(changes.files_added.len(), 2);
+        assert_eq!(changes.files_modified.len(), 2);
+        assert_eq!(changes.files_deleted.len(), 2);
+    }
+
+    #[test]
+    fn test_normalize_file_lists_handles_empty() {
+        let mut changes = StepChanges::default();
+        normalize_file_lists(&mut changes);
+        assert!(changes.files_added.is_empty());
+        assert!(changes.files_modified.is_empty());
+        assert!(changes.files_deleted.is_empty());
     }
 }
