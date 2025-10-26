@@ -294,6 +294,82 @@ async fn load_workflow(
     load_playbook(&cmd.playbook).await
 }
 
+/// Format a detailed error message for YAML parsing failures
+fn format_yaml_parse_error(e: &serde_yaml::Error, content: &str, path: &Path) -> String {
+    let mut error_msg = format!("Failed to parse YAML playbook: {}\n", path.display());
+
+    // Extract line and column info if available
+    if let Some(location) = e.location() {
+        error_msg.push_str(&format!(
+            "Error at line {}, column {}\n",
+            location.line(),
+            location.column()
+        ));
+
+        // Try to show the problematic line
+        if let Some(line) = content.lines().nth(location.line().saturating_sub(1)) {
+            error_msg.push_str(&format!("Problematic line: {line}\n"));
+            if location.column() > 0 {
+                error_msg.push_str(&format!(
+                    "{}^\n",
+                    " ".repeat(location.column().saturating_sub(1))
+                ));
+            }
+        }
+    }
+
+    error_msg.push_str(&format!("\nOriginal error: {e}"));
+
+    // Add hints for common issues with context from file
+    error_msg.push_str("\n\n=== FILE CONTENT ===");
+    error_msg.push_str("\nShowing file structure (first 10 non-empty lines):");
+    let mut shown = 0;
+    for (idx, line) in content.lines().enumerate() {
+        if shown >= 10 {
+            break;
+        }
+        if !line.trim().is_empty() {
+            error_msg.push_str(&format!("\n  {:3} | {}", idx + 1, line));
+            shown += 1;
+        }
+    }
+
+    // Provide helpful structure hints
+    if content.contains("claude:") || content.contains("shell:") {
+        error_msg.push_str("\n\n=== SUPPORTED FORMATS ===");
+        error_msg.push_str("\nProdigy supports two workflow formats:");
+        error_msg.push_str("\n\n1. Direct array (no wrapper):");
+        error_msg.push_str("\n   - shell: \"command1\"");
+        error_msg.push_str("\n   - claude: \"/command2\"");
+        error_msg.push_str("\n\n2. Object with commands field:");
+        error_msg.push_str("\n   commands:");
+        error_msg.push_str("\n     - shell: \"command1\"");
+        error_msg.push_str("\n     - claude: \"/command2\"");
+        error_msg.push_str("\n\nThe parse error above indicates the YAML structure doesn't match either format.");
+        error_msg.push_str("\nCheck for: indentation errors, missing fields, or invalid YAML syntax.");
+    }
+
+    error_msg
+}
+
+/// Format a concise error message for MapReduce parsing failures
+fn format_mapreduce_parse_error(e: &serde_yaml::Error, path: &Path) -> String {
+    let mut error_msg = format!("Failed to parse MapReduce workflow: {}\n", path.display());
+    error_msg.push_str(&format!("\nOriginal error: {e}"));
+    error_msg.push_str("\n\nHint: Check that your MapReduce workflow follows the correct structure:");
+    error_msg.push_str("\n  - name, mode, map (required)");
+    error_msg.push_str("\n  - setup, reduce (optional)");
+    error_msg.push_str("\n  - map.agent_template.commands should be a list of WorkflowSteps");
+    error_msg
+}
+
+/// Format a simple error message for JSON parsing failures
+fn format_json_parse_error(e: &serde_json::Error, path: &Path) -> String {
+    let mut error_msg = format!("Failed to parse JSON playbook: {}\n", path.display());
+    error_msg.push_str(&format!("Error: {e}"));
+    error_msg
+}
+
 /// Load workflow configuration from a playbook file with MapReduce support
 async fn load_playbook_with_mapreduce(
     path: &Path,
@@ -328,15 +404,7 @@ async fn load_playbook_with_mapreduce(
                     ))
                 }
                 Err(e) => {
-                    let mut error_msg =
-                        format!("Failed to parse MapReduce workflow: {}\n", path.display());
-                    error_msg.push_str(&format!("\nOriginal error: {e}"));
-                    error_msg.push_str("\n\nHint: Check that your MapReduce workflow follows the correct structure:");
-                    error_msg.push_str("\n  - name, mode, map (required)");
-                    error_msg.push_str("\n  - setup, reduce (optional)");
-                    error_msg.push_str(
-                        "\n  - map.agent_template.commands should be a list of WorkflowSteps",
-                    );
+                    let error_msg = format_mapreduce_parse_error(&e, path);
                     Err(anyhow!(error_msg))
                 }
             }
@@ -345,61 +413,7 @@ async fn load_playbook_with_mapreduce(
             match serde_yaml::from_str::<WorkflowConfig>(&content) {
                 Ok(config) => Ok((config, None)),
                 Err(e) => {
-                    // Try to provide more helpful error messages
-                    let mut error_msg =
-                        format!("Failed to parse YAML playbook: {}\n", path.display());
-
-                    // Extract line and column info if available
-                    if let Some(location) = e.location() {
-                        error_msg.push_str(&format!(
-                            "Error at line {}, column {}\n",
-                            location.line(),
-                            location.column()
-                        ));
-
-                        // Try to show the problematic line
-                        if let Some(line) = content.lines().nth(location.line().saturating_sub(1)) {
-                            error_msg.push_str(&format!("Problematic line: {line}\n"));
-                            if location.column() > 0 {
-                                error_msg.push_str(&format!(
-                                    "{}^\n",
-                                    " ".repeat(location.column().saturating_sub(1))
-                                ));
-                            }
-                        }
-                    }
-
-                    error_msg.push_str(&format!("\nOriginal error: {e}"));
-
-                    // Add hints for common issues with context from file
-                    error_msg.push_str("\n\n=== FILE CONTENT ===");
-                    error_msg.push_str("\nShowing file structure (first 10 non-empty lines):");
-                    let mut shown = 0;
-                    for (idx, line) in content.lines().enumerate() {
-                        if shown >= 10 {
-                            break;
-                        }
-                        if !line.trim().is_empty() {
-                            error_msg.push_str(&format!("\n  {:3} | {}", idx + 1, line));
-                            shown += 1;
-                        }
-                    }
-
-                    // Provide helpful structure hints
-                    if content.contains("claude:") || content.contains("shell:") {
-                        error_msg.push_str("\n\n=== SUPPORTED FORMATS ===");
-                        error_msg.push_str("\nProdigy supports two workflow formats:");
-                        error_msg.push_str("\n\n1. Direct array (no wrapper):");
-                        error_msg.push_str("\n   - shell: \"command1\"");
-                        error_msg.push_str("\n   - claude: \"/command2\"");
-                        error_msg.push_str("\n\n2. Object with commands field:");
-                        error_msg.push_str("\n   commands:");
-                        error_msg.push_str("\n     - shell: \"command1\"");
-                        error_msg.push_str("\n     - claude: \"/command2\"");
-                        error_msg.push_str("\n\nThe parse error above indicates the YAML structure doesn't match either format.");
-                        error_msg.push_str("\nCheck for: indentation errors, missing fields, or invalid YAML syntax.");
-                    }
-
+                    let error_msg = format_yaml_parse_error(&e, &content, path);
                     Err(anyhow!(error_msg))
                 }
             }
@@ -409,11 +423,7 @@ async fn load_playbook_with_mapreduce(
         match serde_json::from_str::<WorkflowConfig>(&content) {
             Ok(config) => Ok((config, None)),
             Err(e) => {
-                let mut error_msg = format!("Failed to parse JSON playbook: {}\n", path.display());
-
-                // JSON errors usually include line/column info
-                error_msg.push_str(&format!("Error: {e}"));
-
+                let error_msg = format_json_parse_error(&e, path);
                 Err(anyhow!(error_msg))
             }
         }
@@ -1058,5 +1068,79 @@ mode: 123
                 "Error should mention parsing failure"
             );
         }
+    }
+
+    // Phase 3 Tests: Error Formatting Functions
+
+    #[test]
+    fn test_format_yaml_parse_error_basic() {
+        let content = "invalid: yaml:\n  - test";
+        let path = Path::new("test.yml");
+        let error = serde_yaml::from_str::<WorkflowConfig>(content).unwrap_err();
+
+        let error_msg = format_yaml_parse_error(&error, content, path);
+
+        assert!(error_msg.contains("Failed to parse YAML playbook"));
+        assert!(error_msg.contains("test.yml"));
+        assert!(error_msg.contains("Original error"));
+    }
+
+    #[test]
+    fn test_format_yaml_parse_error_with_location() {
+        let content = "commands:\n  - shell: test\ninvalid_line";
+        let path = Path::new("test.yml");
+        let error = serde_yaml::from_str::<WorkflowConfig>(content).unwrap_err();
+
+        let error_msg = format_yaml_parse_error(&error, content, path);
+
+        assert!(error_msg.contains("Failed to parse YAML playbook"));
+        // May contain line/column info if available
+        if error.location().is_some() {
+            assert!(error_msg.contains("Error at line"));
+        }
+    }
+
+    #[test]
+    fn test_format_yaml_parse_error_with_hints() {
+        let content = "commands:\n  - shell: echo test\n  - claude: /test";
+        let path = Path::new("test.yml");
+        // Create an error by parsing truly invalid YAML structure
+        let invalid_content = "commands:\n  - shell: test\n  bad: {missing_close";
+        let error = serde_yaml::from_str::<WorkflowConfig>(invalid_content).unwrap_err();
+
+        let error_msg = format_yaml_parse_error(&error, content, path);
+
+        assert!(error_msg.contains("=== SUPPORTED FORMATS ==="));
+        assert!(error_msg.contains("Direct array"));
+        assert!(error_msg.contains("Object with commands field"));
+    }
+
+    #[test]
+    fn test_format_mapreduce_parse_error() {
+        let path = Path::new("mapreduce.yml");
+        // Create a real MapReduce parsing error
+        let invalid_content = "name: test\nmode: mapreduce\n# missing map field";
+        let error = crate::config::parse_mapreduce_workflow(invalid_content).unwrap_err();
+
+        let error_msg = format_mapreduce_parse_error(&error, path);
+
+        assert!(error_msg.contains("Failed to parse MapReduce workflow"));
+        assert!(error_msg.contains("mapreduce.yml"));
+        assert!(error_msg.contains("Original error"));
+        assert!(error_msg.contains("name, mode, map (required)"));
+        assert!(error_msg.contains("setup, reduce (optional)"));
+    }
+
+    #[test]
+    fn test_format_json_parse_error() {
+        let path = Path::new("test.json");
+        let content = r#"{"commands": [{"shell": "test"},]}"#;
+        let error = serde_json::from_str::<WorkflowConfig>(content).unwrap_err();
+
+        let error_msg = format_json_parse_error(&error, path);
+
+        assert!(error_msg.contains("Failed to parse JSON playbook"));
+        assert!(error_msg.contains("test.json"));
+        assert!(error_msg.contains("Error:"));
     }
 }
