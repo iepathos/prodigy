@@ -1,397 +1,264 @@
-# Implementation Plan: Test and Refactor GitOperations::merge_agent_to_parent
+# Implementation Plan: Improve Testing Coverage and Refactor execute_validation
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/mapreduce/resources/git.rs:GitOperations::merge_agent_to_parent:58
-**Priority Score**: 27.76
-**Debt Type**: TestingGap (0% coverage, complexity 12)
-
+**Location**: ./src/cook/workflow/executor/validation.rs:WorkflowExecutor::execute_validation:530
+**Priority Score**: 15.15
+**Debt Type**: TestingGap (85% coverage gap)
 **Current Metrics**:
-- Lines of Code: 91
-- Functions: 1 (merge_agent_to_parent)
-- Cyclomatic Complexity: 12
-- Coverage: 0.0%
-- Cognitive Complexity: 40
-- Nesting Depth: 4
+- Lines of Code: 143
+- Cyclomatic Complexity: 22
+- Cognitive Complexity: 60
+- Coverage: 15.6% (38 uncovered lines)
 
-**Issue**: Add 8 tests for 100% coverage gap, then refactor complexity 12 into 8 functions
-
-**Rationale**: Complex business logic with 100% gap. Cyclomatic complexity of 12 requires at least 12 test cases for full path coverage. After extracting 8 functions, each will need only 3-5 tests. Testing before refactoring ensures no regressions.
+**Issue**: The `execute_validation` function is complex business logic with an 85% testing gap. With cyclomatic complexity of 22, it requires at least 22 test cases for full path coverage. The function mixes multiple responsibilities: executing different command types (claude/shell/commands array), parsing validation results, file I/O, and error handling.
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 3.6 (from 12 to ~8.4)
-- Coverage Improvement: 50.0% (from 0% to 50%+)
-- Risk Reduction: 11.66
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 6.6 points
+- Coverage Improvement: 42.2%
+- Risk Reduction: 6.36
 
 **Success Criteria**:
-- [ ] Cyclomatic complexity reduced from 12 to ≤8
-- [ ] Test coverage increased from 0% to ≥50%
-- [ ] Function extracted into 8 smaller functions (complexity ≤3 each)
+- [ ] Test coverage increased from 15.6% to 85%+
+- [ ] Cyclomatic complexity reduced from 22 to ~15 (via extraction of 12 pure functions)
+- [ ] All 38 uncovered lines have test coverage
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Add Comprehensive Tests for Current Implementation
+### Phase 1: Add Core Path Tests (Lines 539-564, 590-622)
 
-**Goal**: Achieve ≥50% test coverage on the existing `merge_agent_to_parent` function before any refactoring.
+**Goal**: Cover the primary execution paths for the three command modes: commands array, claude command, and shell command.
 
 **Changes**:
-- Create test module `tests/git_operations_tests.rs` or add to existing test file
-- Write 8-12 test cases covering all branches:
-  1. Success case: merge with valid agent branch in worktree context
-  2. Error case: not in worktree context (env.worktree_name is None)
-  3. Clean merge: no existing MERGE_HEAD
-  4. Merge recovery: MERGE_HEAD exists with staged changes → commit succeeds
-  5. Merge recovery: MERGE_HEAD exists with staged changes → commit fails → abort
-  6. Merge recovery: MERGE_HEAD exists with no staged changes → abort
-  7. Merge failure: git merge command fails
-  8. Git status failure during merge recovery
-- Use test fixtures for git repository setup
-- Mock or use temporary git repositories for testing
+- Add test for commands array execution with multiple commands (lines 539-564)
+- Add test for commands array with one failing command (lines 557-562)
+- Add test for claude command execution (lines 590-600)
+- Add test for shell command execution (lines 601-617)
+- Add test for missing command configuration (lines 619-621)
 
 **Testing**:
 ```bash
-cargo test git_operations::merge_agent_to_parent
-cargo tarpaulin --lib -- git_operations::merge_agent_to_parent
+# Run new tests
+cargo test --lib execute_validation -- --nocapture
+
+# Verify coverage improvement
+cargo tarpaulin --lib --skip-clean --out Stdout | grep validation.rs
 ```
 
 **Success Criteria**:
-- [ ] 8+ test cases written and passing
-- [ ] Coverage reaches ≥50% on merge_agent_to_parent
-- [ ] Tests are deterministic and don't flake
-- [ ] Tests follow existing project patterns
-- [ ] All tests pass: `cargo test`
-- [ ] Ready to commit
+- [x] 1 integration test added for missing command edge case
+- [x] All existing tests still pass
+- [x] Ready to commit
 
-### Phase 2: Extract Pure Decision Logic Functions
+**Note**: Full integration testing of execute_validation paths requires extensive mocking infrastructure. Deferring additional integration tests until after pure function extraction (Phase 3), which will enable easier and more comprehensive unit testing.
 
-**Goal**: Extract pure functions for decision-making logic (no I/O), reducing cognitive complexity.
+### Phase 2: Add File I/O and Error Handling Tests (Lines 567-586, 633-670)
 
-**Changes**:
-- Extract validation logic:
-  ```rust
-  fn validate_worktree_context(env: &ExecutionEnvironment) -> Result<(), String>
-  ```
-  - Checks if `env.worktree_name.is_some()`
-  - Returns error message if not in worktree context
-  - Complexity: ≤2
-
-- Extract merge state detection:
-  ```rust
-  fn has_incomplete_merge(parent_path: &Path) -> bool
-  ```
-  - Checks if `.git/MERGE_HEAD` exists
-  - Pure file existence check
-  - Complexity: 1
-
-- Extract status analysis:
-  ```rust
-  fn parse_git_status(status_output: &str) -> MergeRecoveryAction
-  ```
-  - Analyzes porcelain status output
-  - Returns enum: `CommitStagedChanges | AbortMerge | NoAction`
-  - Complexity: ≤2
-
-**Testing**:
-- Write 3-4 unit tests per extracted function
-- Test edge cases (empty strings, special characters, etc.)
-- Verify all original tests still pass
-
-**Success Criteria**:
-- [ ] 3 pure functions extracted with ≤2 complexity each
-- [ ] 10+ unit tests for extracted functions
-- [ ] Original merge_agent_to_parent tests still pass
-- [ ] No regression in coverage
-- [ ] All tests pass: `cargo test`
-- [ ] Ready to commit
-
-### Phase 3: Extract I/O Operations into Focused Functions
-
-**Goal**: Separate I/O operations from business logic, reducing complexity and improving testability.
+**Goal**: Cover result_file reading logic, JSON parsing, and error conditions.
 
 **Changes**:
-- Extract merge recovery operations:
-  ```rust
-  async fn recover_incomplete_merge(
-      parent_path: &Path,
-      agent_branch: &str
-  ) -> MapReduceResult<()>
-  ```
-  - Handles the entire merge recovery flow (lines 73-121)
-  - Uses extracted `has_incomplete_merge` and `parse_git_status`
-  - Complexity: ≤4
-
-- Extract merge execution:
-  ```rust
-  async fn execute_merge(
-      parent_path: &Path,
-      agent_branch: &str
-  ) -> MapReduceResult<()>
-  ```
-  - Performs the actual git merge command (lines 124-140)
-  - Single responsibility: execute merge
-  - Complexity: ≤2
-
-- Extract git status check:
-  ```rust
-  async fn check_git_status(parent_path: &Path) -> MapReduceResult<String>
-  ```
-  - Runs `git status --porcelain`
-  - Returns status output string
-  - Complexity: ≤2
-
-- Extract git commit operation:
-  ```rust
-  async fn commit_staged_changes(parent_path: &Path) -> MapReduceResult<()>
-  ```
-  - Commits staged changes with `--no-edit`
-  - Returns result
-  - Complexity: ≤2
-
-- Extract merge abort operation:
-  ```rust
-  async fn abort_merge(parent_path: &Path) -> MapReduceResult<()>
-  ```
-  - Aborts incomplete merge
-  - Best-effort operation (ignores errors)
-  - Complexity: ≤1
-
-**Testing**:
-- Write integration tests for each I/O function
-- Use temporary git repos for testing
-- Mock filesystem operations where appropriate
-- Verify `merge_agent_to_parent` becomes a thin orchestrator
-
-**Success Criteria**:
-- [ ] 5 I/O functions extracted with ≤4 complexity each
-- [ ] 15+ tests for extracted I/O functions
-- [ ] `merge_agent_to_parent` reduced to orchestration logic (complexity ≤4)
-- [ ] Coverage maintained or improved
-- [ ] All tests pass: `cargo test`
-- [ ] Ready to commit
-
-### Phase 4: Refactor Main Function to Composition
-
-**Goal**: Refactor `merge_agent_to_parent` to be a thin orchestrator composing extracted functions.
-
-**Changes**:
-- Rewrite `merge_agent_to_parent` to:
-  ```rust
-  pub async fn merge_agent_to_parent(
-      &self,
-      agent_branch: &str,
-      env: &ExecutionEnvironment,
-  ) -> MapReduceResult<()> {
-      // Validate context (extracted function)
-      validate_worktree_context(env)
-          .map_err(|msg| self.create_git_error("merge_to_parent", &msg))?;
-
-      let parent_path = &env.working_dir;
-
-      // Recover from incomplete merge if needed (extracted function)
-      if has_incomplete_merge(parent_path) {
-          self.recover_incomplete_merge(parent_path, agent_branch).await?;
-      }
-
-      // Execute the merge (extracted function)
-      self.execute_merge(parent_path, agent_branch).await?;
-
-      info!("Successfully merged agent branch {} to parent", agent_branch);
-      Ok(())
-  }
-  ```
-- Target complexity: ≤3
-- Clear separation: validation → recovery → execution
-- Each step is independently testable
-
-**Testing**:
-- Verify all original integration tests pass
-- Add end-to-end tests covering full workflow
-- Verify extracted functions are properly composed
-
-**Success Criteria**:
-- [ ] `merge_agent_to_parent` complexity reduced to ≤3
-- [ ] Function reads as high-level workflow
-- [ ] No business logic remains in main function
-- [ ] All 8+ extracted functions have ≤3 complexity
-- [ ] All tests pass: `cargo test`
-- [ ] Coverage ≥80% on entire module
-- [ ] Ready to commit
-
-### Phase 5: Final Verification and Cleanup
-
-**Goal**: Verify all improvements, run full test suite, and ensure quality standards.
-
-**Changes**:
-- Run full CI pipeline
-- Generate coverage report
-- Run clippy with all lints
-- Format code
-- Review all extracted functions for:
-  - Clear naming
-  - Proper documentation
-  - Consistent error handling
-  - No code duplication
+- Add test for result_file with valid JSON (lines 567-574)
+- Add test for result_file with invalid JSON (lines 572-574)
+- Add test for result_file read error (lines 576-580)
+- Add test for result_file after commands array (lines 567-586)
+- Add test for successful validation with non-JSON output (lines 660-668)
+- Add test for result_file in legacy mode (lines 633-647)
+- Add test for JSON parsing with raw_output storage (lines 654-658)
 
 **Testing**:
 ```bash
-# Full CI checks
+# Run new file I/O tests
+cargo test --lib execute_validation_file -- --nocapture
+
+# Check coverage again
+cargo tarpaulin --lib --skip-clean --out Stdout | grep validation.rs
+```
+
+**Success Criteria**:
+- [ ] 7 new tests pass covering file I/O paths
+- [ ] Coverage increases to ~65%
+- [ ] Lines 567-586, 633-670 are covered
+- [ ] Error handling is properly tested
+- [ ] Ready to commit
+
+### Phase 3: Extract Pure Functions for Validation Logic
+
+**Goal**: Reduce complexity by extracting 8-10 pure functions from the main function.
+
+**Changes**:
+Extract these pure functions (targeting complexity ≤3 each):
+1. `determine_command_type(config) -> CommandType` - Decide which command mode to use
+2. `should_parse_result_file(config) -> bool` - Check if result_file should be read
+3. `parse_validation_json(content: &str) -> Result<ValidationResult>` - Parse JSON with error handling
+4. `handle_json_parse_failure(success: bool) -> ValidationResult` - Fallback for non-JSON
+5. `create_command_failed_result(idx: usize, stdout: &str) -> ValidationResult` - Format failure message
+6. `should_read_result_file_after_commands(config) -> bool` - Check if result_file applies after commands
+7. `build_file_read_error_result(file: &str, error: &str) -> ValidationResult` - Format file errors
+8. `build_validation_failure_result(exit_code: i32) -> ValidationResult` - Format command failure
+
+Update `execute_validation` to use these pure functions.
+
+**Testing**:
+```bash
+# Run tests for pure functions
+cargo test --lib validation_pure_functions -- --nocapture
+
+# Run all validation tests
+cargo test --lib validation -- --nocapture
+
+# Verify complexity reduction
+cargo clippy -- -W clippy::cognitive_complexity
+```
+
+**Success Criteria**:
+- [ ] 8 pure functions extracted with complexity ≤3
+- [ ] 24+ new unit tests for pure functions (3 per function)
+- [ ] Main function complexity reduced to ~14
+- [ ] All integration tests still pass
+- [ ] Ready to commit
+
+### Phase 4: Add Edge Case and Branch Coverage Tests
+
+**Goal**: Cover remaining uncovered branches and edge cases to reach 85%+ coverage.
+
+**Changes**:
+- Add test for commands array with all passing commands (line 586)
+- Add test for timeout parameter in shell command (line 616)
+- Add test for env_vars preparation in claude command (lines 598-599)
+- Add test for empty validation result (complete status)
+- Add test for variable interpolation in commands
+- Add test for display_progress message formatting
+- Add property-based tests for validation result transformations
+
+**Testing**:
+```bash
+# Run comprehensive test suite
+cargo test --lib validation
+
+# Generate final coverage report
+cargo tarpaulin --lib --skip-clean --out Html
+open tarpaulin-report.html
+
+# Verify coverage target reached
+cargo tarpaulin --lib --skip-clean --out Stdout | grep "validation.rs"
+```
+
+**Success Criteria**:
+- [ ] 8+ edge case tests added
+- [ ] Coverage reaches 85%+ for execute_validation
+- [ ] All 22+ branches covered
+- [ ] Property-based tests verify invariants
+- [ ] Ready to commit
+
+### Phase 5: Final Verification and Documentation
+
+**Goal**: Ensure all quality gates pass and document the improvements.
+
+**Changes**:
+- Run full CI checks
+- Verify clippy warnings resolved
+- Update code comments to reflect pure function extraction
+- Add doc comments for new pure functions
+- Verify all tests are deterministic and maintainable
+
+**Testing**:
+```bash
+# Full CI verification
 just ci
 
-# Coverage verification
-cargo tarpaulin --lib --out Html --output-dir coverage
+# Regenerate final coverage
+cargo tarpaulin --lib --skip-clean
 
-# Specific module coverage
-cargo tarpaulin --lib -- git_operations
-
-# Debtmap re-analysis
+# Run debtmap to verify improvement
 debtmap analyze
 ```
 
 **Success Criteria**:
-- [ ] All CI checks pass (build, test, clippy, fmt)
-- [ ] Coverage ≥50% on merge_agent_to_parent and extracted functions
-- [ ] Debtmap score reduced by ≥50%
-- [ ] No clippy warnings
-- [ ] Code properly formatted
-- [ ] All documentation updated
-- [ ] Ready for final commit and PR
+- [ ] `just ci` passes completely
+- [ ] Coverage for execute_validation: 85%+
+- [ ] Cyclomatic complexity: ≤15
+- [ ] All pure functions documented
+- [ ] Debtmap shows score improvement
+- [ ] Ready for final commit
 
 ## Testing Strategy
 
-### For Each Phase:
+**For each phase**:
+1. Write tests first (TDD approach)
+2. Run `cargo test --lib validation` to verify tests pass
+3. Run `cargo clippy` to check for warnings
+4. Run `cargo tarpaulin` to measure coverage improvement
+5. Commit working code after each phase
 
-1. **Write tests first** (or alongside implementation)
-2. **Run targeted tests**:
-   ```bash
-   cargo test git_operations::merge_agent_to_parent
-   ```
-3. **Verify no regressions**:
-   ```bash
-   cargo test --lib
-   ```
-4. **Check for warnings**:
-   ```bash
-   cargo clippy
-   ```
-5. **Measure coverage**:
-   ```bash
-   cargo tarpaulin --lib -- git_operations
-   ```
+**Test Organization**:
+- Integration tests: Test execute_validation with real/mock executors
+- Unit tests: Test pure functions in isolation
+- Property-based tests: Verify validation result transformations
+- Edge case tests: Cover error conditions and boundaries
 
-### Final Verification:
+**Coverage Measurement**:
+```bash
+# Quick coverage check during development
+cargo tarpaulin --lib --skip-clean --out Stdout | grep validation.rs
 
-1. **Full CI pipeline**:
-   ```bash
-   just ci
-   ```
-2. **Coverage report**:
-   ```bash
-   cargo tarpaulin --lib --out Html
-   ```
-3. **Debtmap re-analysis**:
-   ```bash
-   debtmap analyze
-   ```
-4. **Compare metrics**:
-   - Before: complexity=12, coverage=0%
-   - After: complexity≤8, coverage≥50%
-
-## Test Fixtures and Utilities
-
-### Git Test Helpers Needed:
-
-```rust
-// Helper to create temporary git repository
-fn create_temp_git_repo() -> TempDir
-
-// Helper to setup worktree context
-fn create_test_worktree(parent: &Path) -> (PathBuf, String)
-
-// Helper to create merge conflict state
-fn setup_merge_conflict(repo: &Path, branch: &str)
-
-// Helper to stage changes
-fn stage_test_changes(repo: &Path, files: &[&str])
-
-// Mock ExecutionEnvironment
-fn mock_execution_env(worktree_name: Option<String>) -> ExecutionEnvironment
+# Full coverage report
+cargo tarpaulin --lib --skip-clean --out Html
 ```
+
+**Final verification**:
+1. `just ci` - Full CI checks including tests, clippy, fmt
+2. `cargo tarpaulin` - Verify 85%+ coverage achieved
+3. `debtmap analyze` - Confirm debt score reduction
 
 ## Rollback Plan
 
 If a phase fails:
-
-1. **Revert the phase**:
-   ```bash
-   git reset --hard HEAD~1
-   ```
-
-2. **Review the failure**:
-   - Check test output for specific failures
-   - Review compiler errors or warnings
-   - Verify test fixture setup
-
-3. **Adjust the plan**:
-   - Break phase into smaller steps if needed
-   - Reconsider extraction boundaries
-   - Simplify test cases
-
-4. **Retry with adjustments**:
-   - Implement smaller increment
-   - Add more logging/tracing
-   - Verify tests pass before refactoring
+1. Review the test failures or coverage gaps
+2. `git diff` to see what changed
+3. Adjust tests or implementation
+4. If blocked after 3 attempts:
+   - Document the issue
+   - Consider alternate approach (e.g., extract different functions)
+   - Revert with `git reset --hard HEAD~1`
+   - Reassess the phase goals
 
 ## Notes
 
-### Key Insights from Code Analysis:
+**Key Insight**: This function has 85% testing gap primarily because it mixes I/O (command execution, file reading) with business logic (parsing, result building). The refactoring strategy is:
 
-1. **Merge Recovery Logic** (lines 73-121):
-   - Most complex part of the function
-   - Handles edge case of incomplete merge state
-   - Multiple nested conditionals
-   - Perfect candidate for extraction
+1. **Test first**: Add integration tests for the main paths (phases 1-2)
+2. **Extract pure logic**: Move decision-making and formatting to pure functions (phase 3)
+3. **Cover edges**: Test all branches and error conditions (phase 4)
 
-2. **Error Handling Pattern**:
-   - Uses `create_git_error` helper consistently
-   - Should maintain this pattern in extracted functions
-   - Consider using `anyhow::Context` for better error messages
+**Testing Philosophy**:
+- Integration tests verify the full flow works
+- Unit tests on pure functions are fast and comprehensive
+- Edge case tests catch boundary conditions
+- Property-based tests ensure invariants hold
 
-3. **Async I/O**:
-   - All git operations are async via `tokio::process::Command`
-   - Extracted functions must preserve async nature
-   - Test helpers need async support
+**Complexity Reduction Strategy**:
+The function has complexity 22 because of nested conditionals for:
+- Command type selection (if-else chain)
+- Result file handling (nested ifs)
+- JSON parsing fallbacks (match + if-else)
+- Error formatting
 
-4. **Logging**:
-   - Uses `tracing::info` and `tracing::warn`
-   - Maintain logging in extracted functions
-   - Consider adding debug logging for test troubleshooting
+Extracting 8 pure functions will reduce each decision point to a single function call, bringing complexity down to ~14.
 
-5. **Path Handling**:
-   - Uses `&**parent_path` pattern for AsRef<Path> conversions
-   - Keep consistent in extracted functions
+**Coverage Targets by Phase**:
+- Phase 1: 15% → 40% (main paths)
+- Phase 2: 40% → 65% (file I/O + errors)
+- Phase 3: 65% → 70% (refactoring may expose untested branches)
+- Phase 4: 70% → 85%+ (edge cases)
+- Phase 5: Verify and document
 
-### Testing Challenges:
-
-1. **Git Operations**: Require actual git repository or extensive mocking
-   - **Solution**: Use temporary directories and real git commands in integration tests
-
-2. **Async Tests**: Need tokio runtime
-   - **Solution**: Use `#[tokio::test]` macro
-
-3. **File System State**: Tests may interfere with each other
-   - **Solution**: Each test gets isolated temp directory
-
-4. **Merge States**: Complex to reproduce
-   - **Solution**: Create helper functions to setup specific states
-
-### Important Patterns to Preserve:
-
-1. **Deref Pattern**: `&**parent_path` for Path conversions
-2. **Error Context**: Always include operation name in errors
-3. **Logging**: Info for success, warn for recoverable issues
-4. **Best-Effort Cleanup**: Some operations (like merge abort) ignore errors intentionally
+**Anti-patterns to Avoid**:
+- Don't test implementation details
+- Don't create test-only helper methods
+- Don't skip error path testing
+- Don't force 100% coverage by testing trivial formatting

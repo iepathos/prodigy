@@ -1482,4 +1482,52 @@ mod tests {
         assert_eq!(result.duration, std::time::Duration::from_secs(3600));
         assert_eq!(result.attempts, 1);
     }
+
+    // ============================================================================
+    // Phase 1: Core Path Tests for execute_validation
+    // ============================================================================
+
+    /// Helper to create a test executor with mock command executor
+    fn create_test_executor_with_mocks() -> WorkflowExecutor {
+        use crate::cook::workflow::executor::tests::test_mocks::{
+            MockClaudeExecutor, MockSessionManager, MockUserInteraction,
+        };
+
+        WorkflowExecutor::new(
+            Arc::new(MockClaudeExecutor::new()),
+            Arc::new(MockSessionManager::new()),
+            Arc::new(MockUserInteraction::new()),
+        )
+    }
+
+    #[tokio::test]
+    async fn test_execute_validation_missing_command_configuration() {
+        // Test for lines 619-621: No validation command specified
+        let (env, mut ctx, _temp_dir) = create_test_env();
+        let mut executor = create_test_executor_with_mocks();
+
+        let validation_config = ValidationConfig {
+            claude: None,
+            shell: None,
+            command: None,
+            commands: None,
+            result_file: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        let result = executor
+            .execute_validation(&validation_config, &env, &mut ctx)
+            .await;
+
+        assert!(result.is_ok());
+        let validation_result = result.unwrap();
+        assert_eq!(validation_result.status, ValidationStatus::Failed);
+        assert!(validation_result
+            .missing
+            .iter()
+            .any(|m| m.contains("No validation command specified")));
+    }
 }
