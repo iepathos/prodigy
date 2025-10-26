@@ -76,6 +76,97 @@ fn should_fail_workflow(is_complete: bool, fail_workflow_flag: bool, _attempts: 
 }
 
 // ============================================================================
+// Pure decision functions for execute_validation
+// ============================================================================
+
+/// Command mode for validation execution (renamed to avoid collision with step_validation::ValidationCommandType)
+#[derive(Debug, Clone, PartialEq)]
+enum ValidationExecutionMode {
+    CommandsArray,
+    Claude,
+    Shell,
+    NoCommand,
+}
+
+/// Determine which command mode to execute (lines 539-621)
+fn determine_validation_execution_mode(config: &super::super::validation::ValidationConfig) -> ValidationExecutionMode {
+    if config.commands.is_some() {
+        ValidationExecutionMode::CommandsArray
+    } else if config.claude.is_some() {
+        ValidationExecutionMode::Claude
+    } else if config.shell.is_some() || config.command.is_some() {
+        ValidationExecutionMode::Shell
+    } else {
+        ValidationExecutionMode::NoCommand
+    }
+}
+
+/// Check if result_file should be parsed after commands execution
+fn should_read_result_file_after_commands(config: &super::super::validation::ValidationConfig) -> bool {
+    config.commands.is_some() && config.result_file.is_some()
+}
+
+/// Check if result_file should be used instead of stdout (legacy mode)
+fn should_use_result_file(config: &super::super::validation::ValidationConfig) -> bool {
+    config.commands.is_none() && config.result_file.is_some()
+}
+
+/// Parse validation JSON with fallback to simple complete/failed result
+fn parse_validation_result_with_fallback(
+    json_content: &str,
+    command_success: bool,
+) -> super::super::validation::ValidationResult {
+    use super::super::validation::ValidationResult;
+
+    match ValidationResult::from_json(json_content) {
+        Ok(validation) => validation,
+        Err(_) => {
+            // If not JSON, treat as simple pass/fail based on command success
+            if command_success {
+                ValidationResult::complete()
+            } else {
+                ValidationResult::failed("Validation failed (non-JSON output)".to_string())
+            }
+        }
+    }
+}
+
+/// Create a failed validation result for a command step failure
+fn create_command_step_failure_result(step_idx: usize, stdout: &str) -> super::super::validation::ValidationResult {
+    super::super::validation::ValidationResult::failed(format!(
+        "Validation step {} failed: {}",
+        step_idx + 1,
+        stdout
+    ))
+}
+
+/// Create a failed validation result for file read errors
+fn create_file_read_error_result(file_path: &str, error: &str) -> super::super::validation::ValidationResult {
+    super::super::validation::ValidationResult::failed(format!(
+        "Failed to read validation result from {}: {}",
+        file_path, error
+    ))
+}
+
+/// Create a failed validation result for command execution failure
+fn create_command_execution_failure_result(exit_code: i32) -> super::super::validation::ValidationResult {
+    super::super::validation::ValidationResult::failed(format!(
+        "Validation command failed with exit code: {}",
+        exit_code
+    ))
+}
+
+/// Parse result file content with fallback to complete on non-JSON
+fn parse_result_file_content(content: &str) -> super::super::validation::ValidationResult {
+    use super::super::validation::ValidationResult;
+
+    match ValidationResult::from_json(content) {
+        Ok(validation) => validation,
+        Err(_) => ValidationResult::complete(),
+    }
+}
+
+// ============================================================================
 // Pure formatting functions for validation messages
 // ============================================================================
 
@@ -535,56 +626,84 @@ impl WorkflowExecutor {
     ) -> Result<ValidationResult> {
         use crate::cook::workflow::validation::ValidationResult;
 
-        // If commands array is specified, execute all commands in sequence
-        if let Some(commands) = &validation_config.commands {
+        // Determine which command mode to execute using pure function
+        match determine_validation_execution_mode(validation_config) {
+            ValidationExecutionMode::CommandsArray => {
+                self.execute_validation_commands_array(validation_config, env, ctx)
+                    .await
+            }
+            ValidationExecutionMode::Claude | ValidationExecutionMode::Shell => {
+                self.execute_validation_single_command(validation_config, env, ctx)
+                    .await
+            }
+            ValidationExecutionMode::NoCommand => Ok(ValidationResult::failed(
+                "No validation command specified".to_string(),
+            )),
+        }
+    }
+
+    /// Execute validation using commands array
+    async fn execute_validation_commands_array(
+        &mut self,
+        validation_config: &ValidationConfig,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<ValidationResult> {
+        use crate::cook::workflow::validation::ValidationResult;
+
+        let commands = validation_config.commands.as_ref().unwrap();
+
+        self.user_interaction.display_progress(&format!(
+            "Running validation with {} commands",
+            commands.len()
+        ));
+
+        for (idx, cmd) in commands.iter().enumerate() {
             self.user_interaction.display_progress(&format!(
-                "Running validation with {} commands",
+                "  Validation step {}/{}",
+                idx + 1,
                 commands.len()
             ));
 
-            for (idx, cmd) in commands.iter().enumerate() {
-                self.user_interaction.display_progress(&format!(
-                    "  Validation step {}/{}",
-                    idx + 1,
-                    commands.len()
-                ));
+            // Execute each command as a workflow step
+            let step = self.convert_workflow_command_to_step(cmd, ctx)?;
+            // Box the future to avoid recursion issues
+            let step_result = Box::pin(self.execute_step(&step, env, ctx)).await?;
 
-                // Execute each command as a workflow step
-                let step = self.convert_workflow_command_to_step(cmd, ctx)?;
-                // Box the future to avoid recursion issues
-                let step_result = Box::pin(self.execute_step(&step, env, ctx)).await?;
-
-                if !step_result.success {
-                    return Ok(ValidationResult::failed(format!(
-                        "Validation step {} failed: {}",
-                        idx + 1,
-                        step_result.stdout
-                    )));
-                }
+            if !step_result.success {
+                return Ok(create_command_step_failure_result(idx, &step_result.stdout));
             }
-
-            // After executing all commands, check for result_file
-            if let Some(result_file) = &validation_config.result_file {
-                let (interpolated_file, _) = ctx.interpolate_with_tracking(result_file);
-                let file_path = env.working_dir.join(&interpolated_file);
-
-                match tokio::fs::read_to_string(&file_path).await {
-                    Ok(content) => match ValidationResult::from_json(&content) {
-                        Ok(validation) => return Ok(validation),
-                        Err(_) => return Ok(ValidationResult::complete()),
-                    },
-                    Err(e) => {
-                        return Ok(ValidationResult::failed(format!(
-                            "Failed to read validation result from {}: {}",
-                            interpolated_file, e
-                        )));
-                    }
-                }
-            }
-
-            // All commands succeeded, return complete
-            return Ok(ValidationResult::complete());
         }
+
+        // After executing all commands, check for result_file using pure function
+        if should_read_result_file_after_commands(validation_config) {
+            let result_file = validation_config.result_file.as_ref().unwrap();
+            let (interpolated_file, _) = ctx.interpolate_with_tracking(result_file);
+            let file_path = env.working_dir.join(&interpolated_file);
+
+            match tokio::fs::read_to_string(&file_path).await {
+                Ok(content) => return Ok(parse_result_file_content(&content)),
+                Err(e) => {
+                    return Ok(create_file_read_error_result(
+                        &interpolated_file,
+                        &e.to_string(),
+                    ));
+                }
+            }
+        }
+
+        // All commands succeeded, return complete
+        Ok(ValidationResult::complete())
+    }
+
+    /// Execute validation using single command (Claude or Shell)
+    async fn execute_validation_single_command(
+        &mut self,
+        validation_config: &ValidationConfig,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<ValidationResult> {
+        use crate::cook::workflow::validation::ValidationResult;
 
         // Execute either claude or shell command (legacy single-command mode)
         let result = if let Some(claude_cmd) = &validation_config.claude {
@@ -616,58 +735,42 @@ impl WorkflowExecutor {
             self.execute_shell_command(&command, env, env_vars, validation_config.timeout)
                 .await?
         } else {
+            // This should not happen because determine_validation_command_type already checked
             return Ok(ValidationResult::failed(
                 "No validation command specified".to_string(),
             ));
         };
 
+        // Check if command execution failed using pure function
         if !result.success {
-            // Validation command failed
-            return Ok(ValidationResult::failed(format!(
-                "Validation command failed with exit code: {}",
-                result.exit_code.unwrap_or(-1)
-            )));
+            return Ok(create_command_execution_failure_result(
+                result.exit_code.unwrap_or(-1),
+            ));
         }
 
-        // If result_file is specified, read from file instead of stdout
-        let json_content = if let Some(result_file) = &validation_config.result_file {
+        // Get JSON content from result_file or stdout using pure function decision
+        let json_content = if should_use_result_file(validation_config) {
+            let result_file = validation_config.result_file.as_ref().unwrap();
             let (interpolated_file, _resolutions) = ctx.interpolate_with_tracking(result_file);
-            // No need to log resolutions for result file path
             let file_path = env.working_dir.join(&interpolated_file);
 
-            // Read the validation result from the file
             match tokio::fs::read_to_string(&file_path).await {
                 Ok(content) => content,
                 Err(e) => {
-                    return Ok(ValidationResult::failed(format!(
-                        "Failed to read validation result from {}: {}",
-                        interpolated_file, e
-                    )));
+                    return Ok(create_file_read_error_result(
+                        &interpolated_file,
+                        &e.to_string(),
+                    ));
                 }
             }
         } else {
-            // Use stdout as before
             result.stdout.clone()
         };
 
-        // Try to parse the JSON content
-        match ValidationResult::from_json(&json_content) {
-            Ok(mut validation) => {
-                // Store raw output
-                validation.raw_output = Some(result.stdout);
-                Ok(validation)
-            }
-            Err(_) => {
-                // If not JSON, treat as simple pass/fail based on exit code
-                if result.success {
-                    Ok(ValidationResult::complete())
-                } else {
-                    Ok(ValidationResult::failed(
-                        "Validation failed (non-JSON output)".to_string(),
-                    ))
-                }
-            }
-        }
+        // Parse JSON with fallback using pure function
+        let mut validation = parse_validation_result_with_fallback(&json_content, result.success);
+        validation.raw_output = Some(result.stdout);
+        Ok(validation)
     }
 
     // ============================================================================
@@ -1529,5 +1632,392 @@ mod tests {
             .missing
             .iter()
             .any(|m| m.contains("No validation command specified")));
+    }
+
+    // ============================================================================
+    // Phase 3: Unit Tests for Pure Functions in execute_validation
+    // ============================================================================
+
+    #[test]
+    fn test_determine_validation_execution_mode_commands_array() {
+        use crate::config::WorkflowCommand;
+
+        let config = ValidationConfig {
+            commands: Some(vec![WorkflowCommand::Simple("/test".to_string())]),
+            claude: None,
+            shell: None,
+            command: None,
+            result_file: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert_eq!(
+            determine_validation_execution_mode(&config),
+            ValidationExecutionMode::CommandsArray
+        );
+    }
+
+    #[test]
+    fn test_determine_validation_execution_mode_claude() {
+        let config = ValidationConfig {
+            commands: None,
+            claude: Some("/prodigy-validate".to_string()),
+            shell: None,
+            command: None,
+            result_file: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert_eq!(
+            determine_validation_execution_mode(&config),
+            ValidationExecutionMode::Claude
+        );
+    }
+
+    #[test]
+    fn test_determine_validation_execution_mode_shell() {
+        let config = ValidationConfig {
+            commands: None,
+            claude: None,
+            shell: Some("./validate.sh".to_string()),
+            command: None,
+            result_file: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert_eq!(
+            determine_validation_execution_mode(&config),
+            ValidationExecutionMode::Shell
+        );
+    }
+
+    #[test]
+    fn test_determine_validation_execution_mode_legacy_command() {
+        let config = ValidationConfig {
+            commands: None,
+            claude: None,
+            shell: None,
+            command: Some("./validate.sh".to_string()),
+            result_file: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert_eq!(
+            determine_validation_execution_mode(&config),
+            ValidationExecutionMode::Shell
+        );
+    }
+
+    #[test]
+    fn test_determine_validation_execution_mode_no_command() {
+        let config = ValidationConfig {
+            commands: None,
+            claude: None,
+            shell: None,
+            command: None,
+            result_file: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert_eq!(
+            determine_validation_execution_mode(&config),
+            ValidationExecutionMode::NoCommand
+        );
+    }
+
+    #[test]
+    fn test_determine_validation_execution_mode_priority() {
+        // Commands array takes priority over claude/shell
+        use crate::config::WorkflowCommand;
+
+        let config = ValidationConfig {
+            commands: Some(vec![WorkflowCommand::Simple("/test".to_string())]),
+            claude: Some("/other".to_string()),
+            shell: Some("./script.sh".to_string()),
+            command: None,
+            result_file: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert_eq!(
+            determine_validation_execution_mode(&config),
+            ValidationExecutionMode::CommandsArray
+        );
+    }
+
+    #[test]
+    fn test_should_read_result_file_after_commands_true() {
+        use crate::config::WorkflowCommand;
+
+        let config = ValidationConfig {
+            commands: Some(vec![WorkflowCommand::Simple("echo test".to_string())]),
+            result_file: Some("results.json".to_string()),
+            claude: None,
+            shell: None,
+            command: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert!(should_read_result_file_after_commands(&config));
+    }
+
+    #[test]
+    fn test_should_read_result_file_after_commands_false_no_commands() {
+        let config = ValidationConfig {
+            commands: None,
+            result_file: Some("results.json".to_string()),
+            claude: Some("/validate".to_string()),
+            shell: None,
+            command: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert!(!should_read_result_file_after_commands(&config));
+    }
+
+    #[test]
+    fn test_should_read_result_file_after_commands_false_no_result_file() {
+        use crate::config::WorkflowCommand;
+
+        let config = ValidationConfig {
+            commands: Some(vec![WorkflowCommand::Simple("echo test".to_string())]),
+            result_file: None,
+            claude: None,
+            shell: None,
+            command: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert!(!should_read_result_file_after_commands(&config));
+    }
+
+    #[test]
+    fn test_should_use_result_file_true() {
+        let config = ValidationConfig {
+            commands: None,
+            result_file: Some("results.json".to_string()),
+            claude: Some("/validate".to_string()),
+            shell: None,
+            command: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert!(should_use_result_file(&config));
+    }
+
+    #[test]
+    fn test_should_use_result_file_false_with_commands() {
+        use crate::config::WorkflowCommand;
+
+        let config = ValidationConfig {
+            commands: Some(vec![WorkflowCommand::Simple("echo test".to_string())]),
+            result_file: Some("results.json".to_string()),
+            claude: None,
+            shell: None,
+            command: None,
+            expected_schema: None,
+            threshold: 100.0,
+            on_incomplete: None,
+            timeout: None,
+        };
+
+        assert!(!should_use_result_file(&config));
+    }
+
+    #[test]
+    fn test_parse_validation_result_with_fallback_valid_json() {
+        let json = r#"{"status":"complete","completion_percentage":100.0,"implemented":["feature1"],"missing":[],"gaps":{}}"#;
+
+        let result = parse_validation_result_with_fallback(json, true);
+
+        assert_eq!(result.status, ValidationStatus::Complete);
+        assert_eq!(result.completion_percentage, 100.0);
+        assert_eq!(result.implemented.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_validation_result_with_fallback_invalid_json_success() {
+        let invalid_json = "This is not JSON";
+
+        let result = parse_validation_result_with_fallback(invalid_json, true);
+
+        assert_eq!(result.status, ValidationStatus::Complete);
+        assert_eq!(result.completion_percentage, 100.0);
+    }
+
+    #[test]
+    fn test_parse_validation_result_with_fallback_invalid_json_failure() {
+        let invalid_json = "This is not JSON";
+
+        let result = parse_validation_result_with_fallback(invalid_json, false);
+
+        assert_eq!(result.status, ValidationStatus::Failed);
+        assert!(result
+            .missing
+            .iter()
+            .any(|m| m.contains("Validation failed (non-JSON output)")));
+    }
+
+    #[test]
+    fn test_create_command_step_failure_result() {
+        let result = create_command_step_failure_result(0, "Error: test failed");
+
+        assert_eq!(result.status, ValidationStatus::Failed);
+        assert!(result
+            .missing
+            .iter()
+            .any(|m| m.contains("Validation step 1 failed")));
+        assert!(result.missing.iter().any(|m| m.contains("Error: test failed")));
+    }
+
+    #[test]
+    fn test_create_command_step_failure_result_multiple_steps() {
+        let result1 = create_command_step_failure_result(0, "First error");
+        let result2 = create_command_step_failure_result(1, "Second error");
+        let result3 = create_command_step_failure_result(2, "Third error");
+
+        assert!(result1
+            .missing
+            .iter()
+            .any(|m| m.contains("Validation step 1 failed")));
+        assert!(result2
+            .missing
+            .iter()
+            .any(|m| m.contains("Validation step 2 failed")));
+        assert!(result3
+            .missing
+            .iter()
+            .any(|m| m.contains("Validation step 3 failed")));
+    }
+
+    #[test]
+    fn test_create_file_read_error_result() {
+        let result = create_file_read_error_result("results.json", "No such file or directory");
+
+        assert_eq!(result.status, ValidationStatus::Failed);
+        assert!(result
+            .missing
+            .iter()
+            .any(|m| m.contains("Failed to read validation result from results.json")));
+        assert!(result
+            .missing
+            .iter()
+            .any(|m| m.contains("No such file or directory")));
+    }
+
+    #[test]
+    fn test_create_file_read_error_result_permission_denied() {
+        let result = create_file_read_error_result("/root/secret.json", "Permission denied");
+
+        assert_eq!(result.status, ValidationStatus::Failed);
+        assert!(result.missing.iter().any(|m| m.contains("/root/secret.json")));
+        assert!(result.missing.iter().any(|m| m.contains("Permission denied")));
+    }
+
+    #[test]
+    fn test_create_command_execution_failure_result() {
+        let result = create_command_execution_failure_result(1);
+
+        assert_eq!(result.status, ValidationStatus::Failed);
+        assert!(result
+            .missing
+            .iter()
+            .any(|m| m.contains("Validation command failed with exit code: 1")));
+    }
+
+    #[test]
+    fn test_create_command_execution_failure_result_various_codes() {
+        let result0 = create_command_execution_failure_result(0);
+        let result1 = create_command_execution_failure_result(1);
+        let result127 = create_command_execution_failure_result(127);
+        let result_neg1 = create_command_execution_failure_result(-1);
+
+        assert!(result0
+            .missing
+            .iter()
+            .any(|m| m.contains("exit code: 0")));
+        assert!(result1
+            .missing
+            .iter()
+            .any(|m| m.contains("exit code: 1")));
+        assert!(result127
+            .missing
+            .iter()
+            .any(|m| m.contains("exit code: 127")));
+        assert!(result_neg1
+            .missing
+            .iter()
+            .any(|m| m.contains("exit code: -1")));
+    }
+
+    #[test]
+    fn test_parse_result_file_content_valid_json() {
+        let json = r#"{"status":"complete","completion_percentage":100.0,"implemented":[],"missing":[],"gaps":{}}"#;
+
+        let result = parse_result_file_content(json);
+
+        assert_eq!(result.status, ValidationStatus::Complete);
+        assert_eq!(result.completion_percentage, 100.0);
+    }
+
+    #[test]
+    fn test_parse_result_file_content_invalid_json_returns_complete() {
+        let invalid = "Not JSON at all";
+
+        let result = parse_result_file_content(invalid);
+
+        // Should return complete when JSON parsing fails (after commands array)
+        assert_eq!(result.status, ValidationStatus::Complete);
+        assert_eq!(result.completion_percentage, 100.0);
+    }
+
+    #[test]
+    fn test_parse_result_file_content_empty_string() {
+        let result = parse_result_file_content("");
+
+        // Empty string is not valid JSON, should return complete
+        assert_eq!(result.status, ValidationStatus::Complete);
+    }
+
+    #[test]
+    fn test_parse_result_file_content_partial_implementation() {
+        let json = r#"{"status":"incomplete","completion_percentage":50.0,"implemented":["feature1"],"missing":["feature2"],"gaps":{}}"#;
+
+        let result = parse_result_file_content(json);
+
+        assert_eq!(result.status, ValidationStatus::Incomplete);
+        assert_eq!(result.completion_percentage, 50.0);
+        assert_eq!(result.implemented.len(), 1);
+        assert_eq!(result.missing.len(), 1);
     }
 }

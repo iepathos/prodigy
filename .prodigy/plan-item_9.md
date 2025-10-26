@@ -116,11 +116,22 @@ cargo clippy -- -W clippy::cognitive_complexity
 ```
 
 **Success Criteria**:
-- [ ] 8 pure functions extracted with complexity ≤3
-- [ ] 24+ new unit tests for pure functions (3 per function)
-- [ ] Main function complexity reduced to ~14
-- [ ] All integration tests still pass
-- [ ] Ready to commit
+- [x] 8 pure functions extracted with complexity ≤3
+- [x] 24 new unit tests for pure functions added
+- [x] execute_validation split into 3 methods (main + 2 helpers)
+- [x] All 146 validation tests passing
+- [x] No clippy warnings
+- [x] Ready to commit
+
+**Extracted Functions**:
+1. `determine_validation_execution_mode` - Determines command mode (4 variants)
+2. `should_read_result_file_after_commands` - Result file check after commands
+3. `should_use_result_file` - Result file check for legacy mode
+4. `parse_validation_result_with_fallback` - JSON parsing with fallback
+5. `create_command_step_failure_result` - Format step failure results
+6. `create_file_read_error_result` - Format file read errors
+7. `create_command_execution_failure_result` - Format execution failures
+8. `parse_result_file_content` - Parse result file with fallback
 
 ### Phase 4: Add Edge Case and Branch Coverage Tests
 
