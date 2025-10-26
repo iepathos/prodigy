@@ -631,6 +631,93 @@ mod cli_progress_viewer_tests {
         let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler_with_data)).await;
         assert!(matches!(strategy, RenderStrategy::Cached(_)));
     }
+
+    #[test]
+    fn test_is_job_complete_edge_case_zero_items() {
+        let metrics = ProgressMetrics {
+            pending_items: 0,
+            active_agents: 0,
+            completed_items: 0,
+            failed_items: 0,
+            throughput_current: 0.0,
+            throughput_average: 0.0,
+            success_rate: 0.0,
+            average_duration_ms: 0,
+            estimated_completion: None,
+            memory_usage_mb: 0,
+            cpu_usage_percent: 0.0,
+        };
+
+        assert!(CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[test]
+    fn test_is_job_complete_edge_case_large_numbers() {
+        let metrics = ProgressMetrics {
+            pending_items: 1000,
+            active_agents: 50,
+            completed_items: 10000,
+            failed_items: 500,
+            throughput_current: 100.0,
+            throughput_average: 95.5,
+            success_rate: 95.0,
+            average_duration_ms: 5000,
+            estimated_completion: None,
+            memory_usage_mb: 5000,
+            cpu_usage_percent: 95.0,
+        };
+
+        assert!(!CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[test]
+    fn test_is_job_complete_only_failed_items() {
+        let metrics = ProgressMetrics {
+            pending_items: 0,
+            active_agents: 0,
+            completed_items: 0,
+            failed_items: 100,
+            throughput_current: 0.0,
+            throughput_average: 10.0,
+            success_rate: 0.0,
+            average_duration_ms: 1000,
+            estimated_completion: None,
+            memory_usage_mb: 100,
+            cpu_usage_percent: 5.0,
+        };
+
+        // Job is complete even if all items failed
+        assert!(CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_sampler_transition() {
+        use std::sync::Arc;
+
+        // Test transition from Skip to Full when cache expires
+        let tracker = Arc::new(EnhancedProgressTracker::new("test-job".to_string(), 5));
+        let sampler = ProgressSampler::new(Duration::from_millis(50));
+
+        // Initially fresh, should skip (no cache data yet)
+        let strategy1 = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        assert_eq!(strategy1, RenderStrategy::Skip);
+
+        // Add cache data
+        let snapshot = tracker.create_snapshot().await;
+        let metrics = tracker.metrics.read().await;
+        sampler.update_cache(snapshot, metrics.clone()).await;
+
+        // Should use cached now
+        let strategy2 = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        assert!(matches!(strategy2, RenderStrategy::Cached(_)));
+
+        // Wait for cache to expire
+        sleep(Duration::from_millis(60)).await;
+
+        // Should render full now
+        let strategy3 = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        assert_eq!(strategy3, RenderStrategy::Full);
+    }
 }
 
 #[cfg(test)]
