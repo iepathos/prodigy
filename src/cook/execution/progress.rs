@@ -978,6 +978,16 @@ impl CLIProgressViewer {
         }
     }
 
+    /// Check if job is complete based on metrics
+    pub(crate) fn is_job_complete(metrics: &ProgressMetrics) -> bool {
+        metrics.pending_items == 0 && metrics.active_agents == 0
+    }
+
+    /// Determine if cached render should be used
+    pub(crate) async fn should_use_cached_render(sampler: &ProgressSampler) -> bool {
+        !sampler.should_sample().await
+    }
+
     /// Display progress in the terminal
     pub async fn display(&self) -> MapReduceResult<()> {
         let mut interval = interval(self.update_interval);
@@ -987,12 +997,7 @@ impl CLIProgressViewer {
 
             // Use sampler if available for performance
             let should_render = if let Some(ref sampler) = self.sampler {
-                if sampler.should_sample().await {
-                    let snapshot = self.tracker.create_snapshot().await;
-                    let metrics = self.tracker.metrics.read().await;
-                    sampler.update_cache(snapshot, metrics.clone()).await;
-                    true
-                } else {
+                if Self::should_use_cached_render(sampler).await {
                     // Use cached data for display
                     if let Some((_, metrics)) = sampler.get_cached().await {
                         self.clear_screen();
@@ -1000,6 +1005,11 @@ impl CLIProgressViewer {
                         self.render_cached_agents().await?;
                     }
                     false
+                } else {
+                    let snapshot = self.tracker.create_snapshot().await;
+                    let metrics = self.tracker.metrics.read().await;
+                    sampler.update_cache(snapshot, metrics.clone()).await;
+                    true
                 }
             } else {
                 true
@@ -1014,7 +1024,7 @@ impl CLIProgressViewer {
 
             // Check if job is complete
             let metrics = self.tracker.metrics.read().await;
-            if metrics.pending_items == 0 && metrics.active_agents == 0 {
+            if Self::is_job_complete(&metrics) {
                 println!("\n✅ Job completed!");
                 break;
             }

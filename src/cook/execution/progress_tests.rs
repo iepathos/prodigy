@@ -462,6 +462,99 @@ mod cli_progress_viewer_tests {
         assert_eq!(format_duration(Duration::from_secs(3665)), "1h 1m 5s");
         assert_eq!(format_duration(Duration::from_secs(7322)), "2h 2m 2s");
     }
+
+    #[test]
+    fn test_is_job_complete_when_no_pending_and_no_active() {
+        let metrics = ProgressMetrics {
+            pending_items: 0,
+            active_agents: 0,
+            completed_items: 10,
+            failed_items: 2,
+            throughput_current: 0.0,
+            throughput_average: 5.0,
+            success_rate: 83.3,
+            average_duration_ms: 1000,
+            estimated_completion: None,
+            memory_usage_mb: 100,
+            cpu_usage_percent: 10.0,
+        };
+
+        assert!(CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[test]
+    fn test_is_job_complete_when_pending_items_remain() {
+        let metrics = ProgressMetrics {
+            pending_items: 5,
+            active_agents: 0,
+            completed_items: 10,
+            failed_items: 2,
+            throughput_current: 0.0,
+            throughput_average: 5.0,
+            success_rate: 66.7,
+            average_duration_ms: 1000,
+            estimated_completion: None,
+            memory_usage_mb: 100,
+            cpu_usage_percent: 10.0,
+        };
+
+        assert!(!CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[test]
+    fn test_is_job_complete_when_active_agents_exist() {
+        let metrics = ProgressMetrics {
+            pending_items: 0,
+            active_agents: 3,
+            completed_items: 10,
+            failed_items: 2,
+            throughput_current: 2.0,
+            throughput_average: 5.0,
+            success_rate: 83.3,
+            average_duration_ms: 1000,
+            estimated_completion: None,
+            memory_usage_mb: 100,
+            cpu_usage_percent: 50.0,
+        };
+
+        assert!(!CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[test]
+    fn test_is_job_complete_when_both_pending_and_active() {
+        let metrics = ProgressMetrics {
+            pending_items: 5,
+            active_agents: 3,
+            completed_items: 10,
+            failed_items: 2,
+            throughput_current: 2.0,
+            throughput_average: 5.0,
+            success_rate: 50.0,
+            average_duration_ms: 1000,
+            estimated_completion: None,
+            memory_usage_mb: 100,
+            cpu_usage_percent: 75.0,
+        };
+
+        assert!(!CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[tokio::test]
+    async fn test_should_use_cached_render_when_should_not_sample() {
+        let sampler = ProgressSampler::new(Duration::from_secs(1));
+        // Immediately after creation, should not sample (cache is fresh)
+        let result = CLIProgressViewer::should_use_cached_render(&sampler).await;
+        assert!(result);
+    }
+
+    #[tokio::test]
+    async fn test_should_use_cached_render_when_should_sample() {
+        let sampler = ProgressSampler::new(Duration::from_millis(10));
+        // Wait for sample rate to expire
+        sleep(Duration::from_millis(20)).await;
+        let result = CLIProgressViewer::should_use_cached_render(&sampler).await;
+        assert!(!result);
+    }
 }
 
 #[cfg(test)]
