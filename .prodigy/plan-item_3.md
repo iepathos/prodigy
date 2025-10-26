@@ -1,170 +1,203 @@
-# Implementation Plan: Add Tests and Refactor execute_map_with_checkpoints
+# Implementation Plan: Extract Pure Functions from run_checkpoints_command
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/mapreduce/checkpoint_integration.rs:CheckpointedCoordinator::execute_map_with_checkpoints:215
-**Priority Score**: 31.26
-**Debt Type**: TestingGap (cognitive: 48, coverage: 0.0, cyclomatic: 11)
+**Location**: ./src/cli/commands/checkpoints.rs:run_checkpoints_command:47
+**Priority Score**: 20.475
+**Debt Type**: TestingGap (0% coverage with high complexity)
 **Current Metrics**:
-- Lines of Code: 51
-- Functions: 1
-- Cyclomatic Complexity: 11
+- Lines of Code: 136
+- Cyclomatic Complexity: 35
+- Cognitive Complexity: 113
 - Coverage: 0%
 
-**Issue**: Add 7 tests for 100% coverage gap, then refactor complexity 11 into 9 functions. Complex business logic with 100% gap. Cyclomatic complexity of 11 requires at least 11 test cases for full path coverage. After extracting 9 functions, each will need only 3-5 tests. Testing before refactoring ensures no regressions.
+**Issue**: Complex entry point with 100% coverage gap. The function has cyclomatic complexity of 35, requiring at least 35 test cases for full path coverage. This CLI command handler contains orchestration logic mixed with validation, execution, and output formatting. The function has 3 levels of nesting and handles 5 distinct subcommands, each with their own branching logic.
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 3.3
-- Coverage Improvement: 50.0%
-- Risk Reduction: 13.13
+**Expected Impact**:
+- Complexity Reduction: 10.5 (reduce cyclomatic complexity from 35 to ~24)
+- Coverage Improvement: 50% (from 0% to 50%+)
+- Risk Reduction: 8.5995
 
 **Success Criteria**:
-- [x] 100% test coverage for execute_map_with_checkpoints function
-- [x] Cyclomatic complexity reduced from 11 to ~3 per function
-- [x] Extract 9 pure functions from complex logic
-- [x] All existing tests continue to pass
-- [x] No clippy warnings
-- [x] Proper formatting
+- [ ] Extract 22 pure functions with complexity ≤3 each
+- [ ] Achieve 50%+ test coverage on the entry point
+- [ ] 80%+ coverage on extracted pure functions
+- [ ] All existing tests continue to pass
+- [ ] No clippy warnings
+- [ ] Proper formatting with `cargo fmt`
 
 ## Implementation Phases
 
-### Phase 1: Add Integration Tests for Happy Path Coverage ✓
+### Phase 1: Extract Working Directory Resolution Logic
 
-**Goal**: Create comprehensive integration tests that cover the main execution path and key state transitions.
-
-**Changes**:
-- Add test for successful map phase execution with empty work items
-- Add test for phase transition from Setup to Map
-- Add test for work items loading and checkpoint state update
-- Add test for batch processing loop with multiple items
-- Add test for checkpoint saving at proper intervals
-
-**Testing**:
-- Run `cargo test test_execute_map_with_checkpoints` to verify new tests pass
-- Verify coverage increases from 0% to ~40%
-
-**Success Criteria**:
-- [ ] 5 integration tests passing
-- [ ] Coverage for lines 220, 223-224, 228-234, 238-239, 244-250, 260-261
-- [ ] All existing tests still pass
-- [ ] Ready to commit
-
-### Phase 2: Add Tests for Checkpoint Decision Logic ✓
-
-**Goal**: Test the checkpoint triggering logic and items counter management.
+**Goal**: Extract the repeated "get working directory" pattern into a pure function that can be easily tested.
 
 **Changes**:
-- Add test for should_checkpoint logic with various item counts
-- Add test for items_since_checkpoint counter reset after checkpoint
-- Add test for checkpoint triggering at exact threshold
-- Add test for no checkpoint when below threshold
-- Add test for final checkpoint at phase end
+- Create pure function `resolve_working_directory(path: Option<PathBuf>) -> Result<PathBuf>`
+- Replace 5 instances of the `match path { Some(p) => p, None => std::env::current_dir()? }` pattern
+- Add unit tests for the extracted function
 
 **Testing**:
-- Run `cargo test test_checkpoint` to verify checkpoint tests pass
-- Verify coverage increases to ~60%
+- Test with `Some(path)` - should return the path
+- Test with `None` - should return current directory
+- Test error handling when current directory is unavailable
 
 **Success Criteria**:
-- [ ] 5 checkpoint-related tests passing
-- [ ] Coverage for lines 253-255, 263
-- [ ] Counter reset logic tested
-- [ ] Ready to commit
-
-### Phase 3: Extract Pure Functions for Testability ✓
-
-**Goal**: Extract complex logic into pure functions to reduce cyclomatic complexity.
-
-**Changes**:
-- Extract `validate_checkpoint_state` - validates checkpoint is in correct state
-- Extract `calculate_batch_size` - determines optimal batch size
-- Extract `should_save_checkpoint` - checkpoint decision logic
-- Extract `prepare_work_items` - transforms raw items into WorkItems
-- Extract `update_phase_metadata` - updates checkpoint phase information
-
-**Testing**:
-- Run `cargo test` to ensure no regressions
-- Add unit tests for each extracted pure function (3-5 tests each)
-
-**Success Criteria**:
-- [ ] 5 pure functions extracted
-- [ ] Each function has complexity ≤3
-- [ ] 15-25 unit tests for pure functions
-- [ ] Coverage increases to ~75%
-- [ ] Ready to commit
-
-### Phase 4: Extract Batch Processing Logic ✓
-
-**Goal**: Further reduce complexity by extracting batch processing and result handling.
-
-**Changes**:
-- Extract `process_work_batch` - handles single batch processing
-- Extract `aggregate_batch_results` - combines results from batches
-- Extract `update_checkpoint_progress` - updates checkpoint with batch progress
-- Extract `handle_batch_completion` - manages post-batch checkpoint logic
-
-**Testing**:
-- Add unit tests for batch processing functions
-- Test edge cases (empty batches, single item, large batches)
-- Verify error handling paths
-
-**Success Criteria**:
-- [ ] 4 additional pure functions extracted
-- [ ] Total of 9 pure functions as required
-- [ ] Coverage increases to ~90%
+- [ ] Function extracted and used in all 5 subcommands
+- [ ] 100% coverage on `resolve_working_directory`
+- [ ] Cyclomatic complexity reduced from 35 to ~30
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 5: Add Edge Case and Error Condition Tests ✓
+### Phase 2: Extract Storage Initialization Logic
 
-**Goal**: Achieve 100% test coverage by testing edge cases and error paths.
+**Goal**: Extract the repeated storage initialization pattern into a reusable function.
 
 **Changes**:
-- Add test for None checkpoint state handling
-- Add test for empty work items processing
-- Add test for maximum batch size limits
-- Add test for checkpoint save failure recovery
-- Add property-based tests for batch processing logic
+- Create function `initialize_checkpoint_storage(working_dir: &Path) -> Result<(GlobalStorage, String, PathBuf)>`
+- Returns tuple of (storage, repo_name, checkpoint_dir)
+- Replace 4 instances of the storage initialization pattern
+- Add unit tests for the extracted function
 
 **Testing**:
-- Run `cargo tarpaulin` to verify 100% coverage achieved
-- Run `cargo test --lib` for full test suite
-- Run `just ci` for complete validation
+- Test with valid repository directory
+- Test with invalid/non-git directory
+- Test error propagation from GlobalStorage
+- Mock filesystem for deterministic testing
 
 **Success Criteria**:
-- [ ] 100% test coverage for execute_map_with_checkpoints
-- [ ] All edge cases covered
-- [ ] Property-based tests passing
-- [ ] CI checks pass
+- [ ] Function extracted and used in 4 subcommands
+- [ ] 80%+ coverage on `initialize_checkpoint_storage`
+- [ ] Cyclomatic complexity reduced from ~30 to ~26
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 3: Extract Checkpoint Manager Creation Logic
+
+**Goal**: Simplify the repeated CheckpointManager initialization pattern.
+
+**Changes**:
+- Create function `create_checkpoint_manager(checkpoint_dir: PathBuf) -> CheckpointManager`
+- Encapsulates the `#[allow(deprecated)]` pattern and CheckpointStorage::Local usage
+- Replace 3 instances in List, Show, and Clean commands
+- Add unit tests for the extracted function
+
+**Testing**:
+- Test manager creation with valid directory
+- Test manager creation with non-existent directory
+- Verify correct CheckpointStorage type used
+
+**Success Criteria**:
+- [ ] Function extracted and used in 3 subcommands
+- [ ] 100% coverage on `create_checkpoint_manager`
+- [ ] Cyclomatic complexity reduced from ~26 to ~23
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 4: Extract Subcommand Dispatch Logic
+
+**Goal**: Separate command validation from execution for testability.
+
+**Changes**:
+- Create enum `CheckpointOperation` to represent validated operations
+- Create function `validate_clean_operation(workflow_id: Option<String>, all: bool) -> Result<CleanOperation>`
+  - Returns enum: `CleanSpecific(String)`, `CleanAll`, or `InvalidRequest`
+- Extract validation logic from Clean subcommand
+- Add comprehensive unit tests for validation logic
+
+**Testing**:
+- Test with workflow_id present -> CleanSpecific
+- Test with all=true -> CleanAll
+- Test with neither -> InvalidRequest
+- Test with both (edge case)
+
+**Success Criteria**:
+- [ ] Validation function extracted with 100% coverage
+- [ ] Command execution separated from validation
+- [ ] Cyclomatic complexity reduced from ~23 to ~20
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 5: Add Integration Tests for Entry Point
+
+**Goal**: Achieve 50%+ coverage on the main entry point function.
+
+**Changes**:
+- Add integration test for `run_checkpoints_command` with List subcommand
+- Add integration test for Clean subcommand (force mode)
+- Add integration test for Show subcommand
+- Add integration test for error paths (missing checkpoint)
+- Use tempdir for isolated test environments
+
+**Testing**:
+- Test each subcommand path through the entry point
+- Test error handling and propagation
+- Test verbose flag behavior
+- Test force flag behavior
+
+**Success Criteria**:
+- [ ] 50%+ coverage on `run_checkpoints_command`
+- [ ] At least 17 test cases covering critical branches
+- [ ] All tests pass independently and together
+- [ ] No test flakiness
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Run specific test pattern for phase: `cargo test test_<phase_focus>`
-4. Check coverage with `cargo tarpaulin --lib`
+1. Write tests first (TDD approach) for extracted functions
+2. Extract the function and verify tests pass
+3. Run `cargo test --lib` to verify existing tests pass
+4. Run `cargo clippy` to check for warnings
+5. Run `cargo fmt` to ensure proper formatting
 
 **Final verification**:
 1. `just ci` - Full CI checks
-2. `cargo tarpaulin` - Regenerate coverage and verify 100%
-3. `debtmap analyze` - Verify improvement in debt score
+2. `cargo tarpaulin --lib` - Verify coverage improvements
+3. Verify cyclomatic complexity reduction via `debtmap analyze`
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure - check test output and error messages
-3. Adjust the plan - may need different extraction boundaries
+2. Review the failure reason
+3. Adjust the approach:
+   - If tests are flaky, add better isolation
+   - If extraction breaks existing code, refine the function signature
+   - If complexity doesn't reduce, reconsider the extraction point
 4. Retry with adjusted approach
 
 ## Notes
 
-- The function has high complexity due to multiple checkpoint state updates and batch processing logic
-- Focus on extracting pure functions that can be easily unit tested
-- The existing tests in the file provide good patterns to follow (test_create_work_items, test_update_checkpoint_to_map_phase, etc.)
-- Some helper functions already exist (create_work_items, update_checkpoint_to_map_phase) showing the refactoring pattern
-- Ensure extracted functions maintain the same async boundaries where needed
-- Property-based testing will help ensure batch processing logic is robust
+### Context from Debtmap Analysis
+
+The debtmap analysis identified this as a CLI Handler with these specific patterns:
+- **Command pattern**: Use trait-based dispatch for each subcommand
+- **Strategy pattern**: Different output formats could use strategy pattern
+- **Separation of concerns**: Extract validation, execution, and output into separate functions
+
+### Complexity Sources
+
+Main contributors to cyclomatic complexity:
+1. 5 match arms for subcommands (5 branches)
+2. Repeated Option<PathBuf> handling (5 × 2 branches = 10)
+3. Conditional logic in Clean (workflow_id vs all) (2 branches)
+4. Verbose flag checks (2 branches)
+5. Error handling paths (multiple branches)
+
+### Future Refactoring Opportunities
+
+After this initial cleanup, consider:
+- Trait-based command dispatch (Spec pattern recommendation)
+- Separate output formatting functions
+- Command validation layer
+- However, these are out of scope for this focused debt fix
+
+### Testing Approach
+
+Following the recommendation to "test before refactoring":
+1. Phase 1-4: Extract and test pure functions immediately
+2. Phase 5: Add integration tests for the orchestration layer
+3. This ensures no regressions and provides safety net for future refactoring
