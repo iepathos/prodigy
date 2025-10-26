@@ -47,6 +47,42 @@ fn resolve_working_directory(path: Option<PathBuf>) -> Result<PathBuf> {
     }
 }
 
+// ============================================================================
+// Pure Functions: Storage Initialization
+// ============================================================================
+
+/// Initialize checkpoint storage for a given working directory
+///
+/// Creates global storage, extracts the repository name, and retrieves
+/// the checkpoint directory. This encapsulates the common storage initialization
+/// pattern used across multiple checkpoint commands.
+///
+/// # Arguments
+/// * `working_dir` - The working directory path (typically a git repository)
+///
+/// # Returns
+/// * `Ok((storage, repo_name, checkpoint_dir))` - Tuple containing:
+///   - `GlobalStorage` - The initialized global storage instance
+///   - `String` - The extracted repository name
+///   - `PathBuf` - The checkpoint directory path
+/// * `Err` - If storage creation, repo name extraction, or directory retrieval fails
+///
+/// # Errors
+/// - `Failed to create global storage` - If GlobalStorage::new() fails
+/// - `Failed to extract repo name` - If the working directory is not a valid git repo
+/// - `Failed to get global checkpoints directory` - If checkpoint dir cannot be retrieved
+async fn initialize_checkpoint_storage(
+    working_dir: &Path,
+) -> Result<(GlobalStorage, String, PathBuf)> {
+    let storage = GlobalStorage::new().context("Failed to create global storage")?;
+    let repo_name = extract_repo_name(working_dir).context("Failed to extract repo name")?;
+    let checkpoint_dir = storage
+        .get_checkpoints_dir(&repo_name)
+        .await
+        .context("Failed to get global checkpoints directory")?;
+    Ok((storage, repo_name, checkpoint_dir))
+}
+
 /// Find the most recent checkpoint in the checkpoint directory
 pub async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> {
     use tokio::fs;
@@ -89,15 +125,8 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
     match command {
         CheckpointCommands::List { workflow_id, path } => {
             let working_dir = resolve_working_directory(path)?;
-
-            // Use global storage for checkpoints
-            let storage = GlobalStorage::new().context("Failed to create global storage")?;
-            let repo_name =
-                extract_repo_name(&working_dir).context("Failed to extract repo name")?;
-            let checkpoint_dir = storage
-                .get_checkpoints_dir(&repo_name)
-                .await
-                .context("Failed to get global checkpoints directory")?;
+            let (_storage, _repo_name, checkpoint_dir) =
+                initialize_checkpoint_storage(&working_dir).await?;
 
             if !checkpoint_dir.exists() {
                 println!("No checkpoints found.");
@@ -123,15 +152,8 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             path,
         } => {
             let working_dir = resolve_working_directory(path)?;
-
-            // Use global storage for checkpoints
-            let storage = GlobalStorage::new().context("Failed to create global storage")?;
-            let repo_name =
-                extract_repo_name(&working_dir).context("Failed to extract repo name")?;
-            let checkpoint_dir = storage
-                .get_checkpoints_dir(&repo_name)
-                .await
-                .context("Failed to get global checkpoints directory")?;
+            let (_storage, _repo_name, checkpoint_dir) =
+                initialize_checkpoint_storage(&working_dir).await?;
 
             if !checkpoint_dir.exists() {
                 println!("No checkpoints to clean.");
@@ -153,15 +175,8 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             path,
         } => {
             let working_dir = resolve_working_directory(path)?;
-
-            // Use global storage for checkpoints
-            let storage = GlobalStorage::new().context("Failed to create global storage")?;
-            let repo_name =
-                extract_repo_name(&working_dir).context("Failed to extract repo name")?;
-            let checkpoint_dir = storage
-                .get_checkpoints_dir(&repo_name)
-                .await
-                .context("Failed to get global checkpoints directory")?;
+            let (_storage, _repo_name, checkpoint_dir) =
+                initialize_checkpoint_storage(&working_dir).await?;
 
             use crate::cook::workflow::checkpoint_path::CheckpointStorage;
 
@@ -786,6 +801,43 @@ mod tests {
         let result = super::resolve_working_directory(Some(absolute_path.clone()));
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), absolute_path);
+    }
+
+    // Tests for initialize_checkpoint_storage
+
+    #[tokio::test]
+    async fn test_initialize_checkpoint_storage_valid_repo() {
+        // This test requires a valid git repository
+        // We'll use the current directory which should be the prodigy repo
+        let current_dir = std::env::current_dir().expect("Failed to get current dir");
+        let result = super::initialize_checkpoint_storage(&current_dir).await;
+
+        // Should succeed for a valid git repository
+        assert!(result.is_ok());
+
+        if let Ok((_storage, repo_name, checkpoint_dir)) = result {
+            // Repo name should be extracted
+            assert!(!repo_name.is_empty());
+            // Checkpoint dir should be a valid path
+            assert!(checkpoint_dir.to_string_lossy().contains(&repo_name));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_initialize_checkpoint_storage_success() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_path = temp_dir.path();
+
+        let result = super::initialize_checkpoint_storage(temp_path).await;
+
+        // Should succeed - extract_repo_name doesn't require git repo
+        assert!(result.is_ok());
+        if let Ok((_storage, repo_name, checkpoint_dir)) = result {
+            // Repo name should be extracted (the temp dir name)
+            assert!(!repo_name.is_empty());
+            // Checkpoint dir should contain the repo name
+            assert!(checkpoint_dir.to_string_lossy().contains(&repo_name));
+        }
     }
 
     // Tests for checkpoint filtering
