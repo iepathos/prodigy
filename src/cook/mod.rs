@@ -834,4 +834,111 @@ reduce:
         // Should fail due to missing Claude API, but that's expected
         assert!(result.is_err());
     }
+
+    // Phase 1 Tests: Core Parsing Paths
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_yaml_mapreduce() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("test-mapreduce.yml");
+
+        let workflow_content = r#"name: test-mapreduce
+mode: mapreduce
+
+map:
+  input: test.json
+  json_path: "$.items[*]"
+  agent_template:
+    - claude: "/process ${item.id}"
+  max_parallel: 5
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_ok(), "Should parse MapReduce YAML successfully");
+
+        let (workflow, mapreduce_config) = result.unwrap();
+        assert_eq!(workflow.commands.len(), 0);
+        assert!(mapreduce_config.is_some());
+        let mr_config = mapreduce_config.unwrap();
+        assert_eq!(mr_config.name, "test-mapreduce");
+        assert_eq!(mr_config.mode, "mapreduce");
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_yaml_regular() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("test-regular.yml");
+
+        let workflow_content = r#"commands:
+  - shell: "echo test"
+  - claude: "/test-command"
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_ok(), "Should parse regular YAML successfully");
+
+        let (workflow, mapreduce_config) = result.unwrap();
+        assert_eq!(workflow.commands.len(), 2);
+        assert!(mapreduce_config.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_json() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("test.json");
+
+        let workflow_content = r#"{
+  "commands": [
+    {"shell": "echo test"},
+    {"claude": "/test-command"}
+  ]
+}"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_ok(), "Should parse JSON successfully");
+
+        let (workflow, mapreduce_config) = result.unwrap();
+        assert_eq!(workflow.commands.len(), 2);
+        assert!(mapreduce_config.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_extension_detection() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Test .yml extension
+        let yml_path = temp_dir.path().join("test.yml");
+        let workflow_content = r#"commands:
+  - shell: "echo test"
+"#;
+        tokio::fs::write(&yml_path, workflow_content)
+            .await
+            .unwrap();
+        let result = load_playbook_with_mapreduce(&yml_path).await;
+        assert!(result.is_ok(), "Should handle .yml extension");
+
+        // Test .yaml extension
+        let yaml_path = temp_dir.path().join("test.yaml");
+        tokio::fs::write(&yaml_path, workflow_content)
+            .await
+            .unwrap();
+        let result = load_playbook_with_mapreduce(&yaml_path).await;
+        assert!(result.is_ok(), "Should handle .yaml extension");
+
+        // Test .json extension
+        let json_path = temp_dir.path().join("test.json");
+        let json_content = r#"{"commands": [{"shell": "echo test"}]}"#;
+        tokio::fs::write(&json_path, json_content).await.unwrap();
+        let result = load_playbook_with_mapreduce(&json_path).await;
+        assert!(result.is_ok(), "Should handle .json extension");
+    }
 }

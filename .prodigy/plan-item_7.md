@@ -1,268 +1,203 @@
-# Implementation Plan: Test and Refactor PhaseCoordinator::execute_workflow
+# Implementation Plan: Improve Testing and Refactor load_playbook_with_mapreduce
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/mapreduce/phases/coordinator.rs:PhaseCoordinator::execute_workflow:156
-**Priority Score**: 28.025
-**Debt Type**: TestingGap (0% coverage, complexity 11)
-
+**Location**: ./src/cook/mod.rs:load_playbook_with_mapreduce:298
+**Priority Score**: 15.56
+**Debt Type**: TestingGap (coverage: 15%, cognitive complexity: 67, cyclomatic complexity: 16)
 **Current Metrics**:
-- Lines of Code: 105
-- Cyclomatic Complexity: 11
-- Cognitive Complexity: 37
-- Coverage: 0.0% (0% direct coverage, 25% transitive coverage)
-- Function Role: PureLogic
+- Lines of Code: 125
+- Cyclomatic Complexity: 16
+- Nesting Depth: 6
+- Coverage: 15.28%
 
-**Issue**: Add 7 tests for 100% coverage gap, then refactor complexity 11 into 7 functions
-
-**Rationale**: Complex business logic with 100% coverage gap. Cyclomatic complexity of 11 requires at least 11 test cases for full path coverage. After extracting 7 functions, each will need only 3-5 tests. Testing before refactoring ensures no regressions.
-
-**Uncovered Lines**: 156, 161, 165-170, 172-178, 185-187, 189-191, 194-196, 198-208, 214-221, 223-229, 234, 238-240
+**Issue**: Complex business logic with 85% coverage gap. Cyclomatic complexity of 16 requires at least 16 test cases for full path coverage. The function handles YAML/JSON parsing with extensive error handling and formatting logic, creating 60+ uncovered lines across multiple branches.
 
 ## Target State
 
 **Expected Impact**:
-- Complexity Reduction: 3.3 (from 11 to ~8)
-- Coverage Improvement: 50.0% (from 0% to 50%+)
-- Risk Reduction: 11.77
+- Complexity Reduction: 4.8 (from 16 to ~11)
+- Coverage Improvement: 42.36% (from 15% to ~57%)
+- Risk Reduction: 6.53
 
 **Success Criteria**:
-- [ ] Coverage increases from 0% to at least 50% (target: 80%+)
-- [ ] Cyclomatic complexity reduced from 11 to ≤8
-- [ ] At least 7 extracted pure functions with complexity ≤3 each
+- [ ] Coverage increases from 15% to at least 57% (42 point improvement)
+- [ ] At least 7-8 new test cases covering critical branches
+- [ ] Extract 3-5 pure functions to reduce complexity
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Add Core Integration Tests
+### Phase 1: Add Tests for Core Parsing Paths
 
-**Goal**: Cover the main execution paths and achieve baseline test coverage for the workflow state machine.
+**Goal**: Establish baseline test coverage for the main parsing branches (YAML MapReduce, YAML regular, JSON) to prevent regressions before refactoring.
 
 **Changes**:
-- Add test for successful workflow execution (setup → map → reduce)
-- Add test for workflow without setup phase (map → reduce)
-- Add test for workflow without reduce phase (setup → map)
-- Add test for minimal workflow (map only)
+- Add test for successful MapReduce YAML parsing
+- Add test for successful regular YAML parsing
+- Add test for successful JSON parsing
+- Add test for file extension detection (.yml, .yaml, .json)
 
 **Testing**:
 ```bash
-cargo test --lib coordinator::coordinator_test::test_execute_workflow
-cargo tarpaulin --skip-clean --out Stdout -- coordinator::execute_workflow
+cargo test --lib load_playbook_with_mapreduce
+cargo tarpaulin --lib --out Stdout | grep load_playbook_with_mapreduce
 ```
 
 **Success Criteria**:
-- [ ] 4 new tests covering happy paths
-- [ ] Coverage increases to ~30-40%
-- [ ] All tests pass
+- [ ] 4 new tests passing
+- [ ] Coverage increases to ~30%
+- [ ] All existing tests pass
 - [ ] Ready to commit
 
-### Phase 2: Add Error Handling Tests
+### Phase 2: Add Tests for Error Handling Paths
 
-**Goal**: Cover error scenarios and phase failure transitions.
+**Goal**: Cover error scenarios and edge cases to reach 50%+ coverage.
 
 **Changes**:
-- Add test for setup phase failure (should propagate error)
-- Add test for map phase failure (should stop workflow)
-- Add test for reduce phase failure (should propagate error)
-- Add test for custom transition handler overriding default error behavior
+- Add test for MapReduce parse error (invalid structure)
+- Add test for YAML parse error with location information
+- Add test for JSON parse error
+- Add test for file read failure (use non-existent path)
+- Add test for YAML with invalid mode field
 
 **Testing**:
 ```bash
-cargo test --lib coordinator::coordinator_test::test_execute_workflow_with_setup_failure
-cargo test --lib coordinator::coordinator_test::test_execute_workflow_with_map_failure
-cargo test --lib coordinator::coordinator_test::test_execute_workflow_with_reduce_failure
-cargo tarpaulin --skip-clean --out Stdout -- coordinator::execute_workflow
+cargo test --lib load_playbook_with_mapreduce
+cargo tarpaulin --lib --out Stdout | grep load_playbook_with_mapreduce
 ```
 
 **Success Criteria**:
-- [ ] 4 new tests covering error paths
-- [ ] Coverage increases to ~50-60%
-- [ ] All tests pass
+- [ ] 5 new tests passing (9 total)
+- [ ] Coverage increases to ~50%
+- [ ] Error messages validated in tests
+- [ ] All existing tests pass
 - [ ] Ready to commit
 
-### Phase 3: Extract Phase Execution Decision Logic
+### Phase 3: Extract Pure Error Formatting Functions
 
-**Goal**: Extract pure functions for phase execution decisions to reduce complexity and improve testability.
+**Goal**: Reduce complexity by extracting error message construction into pure functions.
 
 **Changes**:
-- Extract `should_skip_phase` function (checks transition handler + executor.can_skip)
-- Extract `should_execute_reduce` function (checks reduce executor exists + map results available)
-- Extract `create_skipped_result` function (creates PhaseResult for skipped phases)
-- Add unit tests for each extracted function
+- Extract `format_yaml_parse_error(e: &serde_yaml::Error, content: &str, path: &Path) -> String`
+- Extract `format_mapreduce_parse_error(e: &anyhow::Error, path: &Path) -> String`
+- Extract `format_json_parse_error(e: &serde_json::Error, path: &Path) -> String`
+- Update main function to use extracted functions
 
 **Testing**:
+- Add unit tests for each formatting function
+- Verify error messages still match expected format
 ```bash
-cargo test --lib coordinator::coordinator_test::test_should_skip_phase
-cargo test --lib coordinator::coordinator_test::test_should_execute_reduce
-cargo test --lib coordinator::coordinator_test::test_create_skipped_result
+cargo test --lib format_.*_error
 cargo clippy -- -D warnings
 ```
 
 **Success Criteria**:
-- [ ] 3 pure functions extracted
-- [ ] Each function has complexity ≤3
-- [ ] 3 new unit tests (one per function)
-- [ ] All tests pass
+- [ ] 3 formatting functions extracted
+- [ ] Each formatting function has 2-3 tests
+- [ ] Main function complexity reduced by ~3 points
+- [ ] All existing tests pass
+- [ ] No clippy warnings
 - [ ] Ready to commit
 
-### Phase 4: Extract Error Handling Logic
+### Phase 4: Extract File Type Detection Logic
 
-**Goal**: Extract pure functions for error handling and transition decision logic.
+**Goal**: Further reduce complexity by extracting file type detection into a pure function.
 
 **Changes**:
-- Extract `handle_phase_error` function (consolidates error logging + transition handling)
-- Extract `convert_transition_to_error` function (converts PhaseTransition to MapReduceError)
-- Add unit tests for extracted functions
+- Extract `detect_file_format(path: &Path) -> FileFormat` enum
+  - `FileFormat::YamlMapReduce`, `FileFormat::Yaml`, `FileFormat::Json`
+- Add helper `is_mapreduce_content(content: &str) -> bool`
+- Refactor main function to use detection logic
 
 **Testing**:
+- Add tests for file format detection (various extensions)
+- Add tests for MapReduce content detection
 ```bash
-cargo test --lib coordinator::coordinator_test::test_handle_phase_error
-cargo test --lib coordinator::coordinator_test::test_convert_transition_to_error
-cargo clippy -- -D warnings
+cargo test --lib detect_file_format
+cargo test --lib is_mapreduce_content
 ```
 
 **Success Criteria**:
-- [ ] 2 pure functions extracted
-- [ ] Each function has complexity ≤3
-- [ ] 2 new unit tests
-- [ ] Cyclomatic complexity of execute_workflow reduced to ~8
-- [ ] All tests pass
+- [ ] File format detection extracted
+- [ ] 4-5 tests for detection logic
+- [ ] Main function complexity reduced by ~2 points
+- [ ] All existing tests pass
 - [ ] Ready to commit
 
-### Phase 5: Extract Phase Result Processing Logic
+### Phase 5: Extract Parsing Strategy Functions
 
-**Goal**: Extract functions for processing phase results and updating workflow state.
+**Goal**: Separate parsing logic into strategy functions, achieving target complexity reduction.
 
 **Changes**:
-- Extract `process_phase_success` function (logs success + calls transition handler)
-- Extract `update_workflow_result` function (updates workflow_result based on phase)
-- Add unit tests for extracted functions
+- Extract `parse_mapreduce_yaml(content: &str, path: &Path) -> Result<...>`
+- Extract `parse_regular_yaml(content: &str, path: &Path) -> Result<...>`
+- Extract `parse_json(content: &str, path: &Path) -> Result<...>`
+- Refactor main function to delegate to strategy functions
 
 **Testing**:
+- Add integration tests for each parsing strategy
+- Verify all parsing paths work end-to-end
 ```bash
-cargo test --lib coordinator::coordinator_test::test_process_phase_success
-cargo test --lib coordinator::coordinator_test::test_update_workflow_result
-cargo clippy -- -D warnings
+cargo test --lib parse_mapreduce_yaml
+cargo test --lib parse_regular_yaml
+cargo test --lib parse_json
+cargo tarpaulin --lib --out Stdout | grep "load_playbook_with_mapreduce\|parse_.*_yaml\|parse_json"
 ```
 
 **Success Criteria**:
-- [ ] 2 pure functions extracted
-- [ ] Each function has complexity ≤3
-- [ ] 2 new unit tests
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 6: Final Verification and Edge Cases
-
-**Goal**: Ensure complete coverage and test edge cases.
-
-**Changes**:
-- Add test for workflow with no successful phases (should return error)
-- Add test for reduce phase skipped due to no map results
-- Add test for transition handler returning non-error transition on failure
-- Verify coverage metrics
-
-**Testing**:
-```bash
-cargo test --lib coordinator
-cargo tarpaulin --skip-clean --out Stdout -- coordinator::execute_workflow
-cargo clippy -- -D warnings
-just ci
-```
-
-**Success Criteria**:
-- [ ] 3 new edge case tests
-- [ ] Coverage ≥80% for execute_workflow
-- [ ] Cyclomatic complexity ≤8
-- [ ] All tests pass
+- [ ] 3 parsing strategy functions extracted
+- [ ] Each strategy has 2-3 tests
+- [ ] Main function complexity reduced to ~11 or less
+- [ ] Coverage reaches 57%+ target
+- [ ] All existing tests pass
 - [ ] No clippy warnings
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib coordinator` to verify existing tests pass
-2. Run `cargo clippy -- -D warnings` to check for warnings
-3. Run `cargo tarpaulin --skip-clean --out Stdout -- coordinator` to check coverage progress
-4. Review test output for any failures or unexpected behavior
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run `cargo clippy` to check for warnings
+3. Run `cargo tarpaulin --lib` to verify coverage improvement
+4. Check that error messages are preserved and helpful
 
 **Final verification**:
 1. `just ci` - Full CI checks
-2. `cargo tarpaulin --out Stdout` - Full coverage report
-3. `debtmap analyze` - Verify improvement in debt score
-
-**Coverage Targets by Phase**:
-- Phase 1: ~30-40% (happy paths)
-- Phase 2: ~50-60% (error handling)
-- Phase 3-5: ~60-75% (refactored logic with tests)
-- Phase 6: ≥80% (edge cases)
+2. `cargo tarpaulin --lib --out Stdout` - Verify 57%+ coverage
+3. Verify cyclomatic complexity reduced to ~11 (can check with cargo-complexity if available)
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure output
-3. Identify the root cause
-4. Adjust the plan if needed
-5. Retry the phase
-
-For test failures:
-- Check if existing tests are affected
-- Verify mock setup is correct
-- Review assertion expectations
-
-For refactoring issues:
-- Ensure extracted functions maintain original behavior
-- Check that function signatures are correct
-- Verify all call sites are updated
+2. Review the test failures or clippy warnings
+3. Adjust the implementation
+4. Retry the phase
 
 ## Notes
 
-### Key Insights from Code Analysis
+**Key Complexity Sources**:
+- Nested conditionals for file type detection (extension checks)
+- Three separate parsing paths (MapReduce YAML, regular YAML, JSON)
+- Extensive error formatting with context extraction
+- Line number and column number extraction for error messages
 
-1. **Workflow State Machine**: The function implements a clear state machine (Setup → Map → Reduce) with conditional phase execution
-2. **Error Handling Patterns**: Currently duplicates error handling logic for each phase (warn + transition handler + return)
-3. **Result Tracking**: Uses mutable `workflow_result` variable that gets updated after each successful phase
-4. **Skip Conditions**: Reduce phase has complex skip logic (check executor exists + map results available)
+**Refactoring Strategy**:
+- Test first to prevent regressions
+- Extract error formatting (most complex, most lines)
+- Extract file type detection (reduces nesting)
+- Extract parsing strategies (reduces branching)
 
-### Testing Approach
+**Preservation Requirements**:
+- Must maintain helpful error messages with line/column info
+- Must preserve file content display in errors
+- Must maintain backward compatibility with existing workflows
+- Must handle all current file formats (YAML, JSON)
 
-- **Use existing test utilities**: `create_test_environment()`, `create_test_*_phase()` functions
-- **Mock SubprocessManager**: Already using `SubprocessManager::production()` in tests
-- **Focus on behavior**: Test workflow transitions, not implementation details
-- **Property-based testing**: Could add property tests for phase ordering invariants (future enhancement)
-
-### Extraction Patterns
-
-**Phase execution decisions** → Pure predicates:
-- `should_skip_phase(handler, executor, context) -> bool`
-- `should_execute_reduce(reduce_executor, map_results) -> bool`
-
-**Error handling** → Pure transformations:
-- `handle_phase_error(handler, phase_type, error) -> Result<(), MapReduceError>`
-- `convert_transition_to_error(transition, fallback_error) -> MapReduceError`
-
-**Success handling** → Side-effect free operations:
-- `process_phase_success(handler, phase_type, result)`
-- `update_workflow_result(current_result, new_result) -> Option<PhaseResult>`
-
-### Complexity Reduction Strategy
-
-Current complexity sources:
-1. Setup phase presence check (if-let) → Keep as-is (single branch)
-2. Setup phase error handling (match) → Extract to `handle_phase_error`
-3. Map phase error handling (match) → Extract to `handle_phase_error`
-4. Reduce phase presence check (if-let) → Extract to `should_execute_reduce`
-5. Map results availability check (if) → Extract to `should_execute_reduce`
-6. Reduce phase error handling (match) → Extract to `handle_phase_error`
-
-By extracting these patterns, we reduce cyclomatic complexity from 11 to ~7-8, with each extracted function having complexity ≤3.
-
-### Future Enhancements (Out of Scope)
-
-- Add property-based tests for phase ordering invariants
-- Consider builder pattern for PhaseCoordinator to simplify test setup
-- Add tracing instrumentation for better observability
-- Consider refactoring to use a proper state machine library
+**Testing Priorities**:
+1. Core happy paths (Phase 1) - prevent basic regressions
+2. Error paths (Phase 2) - ensure errors are helpful
+3. Extracted functions (Phases 3-5) - verify pure logic works independently
