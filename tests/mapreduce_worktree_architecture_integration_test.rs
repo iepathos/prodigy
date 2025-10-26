@@ -203,7 +203,10 @@ async fn test_setup_and_reduce_execute_in_parent_worktree() -> Result<()> {
         .build();
 
     let reduce_result = subprocess.runner().run(reduce_cmd).await?;
-    assert!(reduce_result.status.success(), "Reduce phase should succeed");
+    assert!(
+        reduce_result.status.success(),
+        "Reduce phase should succeed"
+    );
 
     // Verify reduce output exists in parent worktree
     assert!(
@@ -244,7 +247,9 @@ async fn test_agent_worktrees_branch_from_parent() -> Result<()> {
     // Create parent worktree
     let subprocess = SubprocessManager::production();
     let parent_worktree_name = "prodigy-session-parent";
-    let parent_path = repo_path.join(".prodigy-worktrees").join(parent_worktree_name);
+    let parent_path = repo_path
+        .join(".prodigy-worktrees")
+        .join(parent_worktree_name);
 
     fs::create_dir_all(parent_path.parent().unwrap())?;
 
@@ -300,7 +305,8 @@ async fn test_agent_worktrees_branch_from_parent() -> Result<()> {
     assert!(
         worktree_count <= 3,
         "Should have at most 3 worktrees (main + parent + agent), found {}:\n{}",
-        worktree_count, worktree_list
+        worktree_count,
+        worktree_list
     );
 
     Ok(())
@@ -385,7 +391,9 @@ async fn test_original_branch_tracking() -> Result<()> {
         .output()
         .await?;
 
-    let current_branch = String::from_utf8_lossy(&branch_output.stdout).trim().to_string();
+    let current_branch = String::from_utf8_lossy(&branch_output.stdout)
+        .trim()
+        .to_string();
     assert_eq!(
         current_branch, "feature/my-feature",
         "Original branch should be tracked as feature/my-feature"
