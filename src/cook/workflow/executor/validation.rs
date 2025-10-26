@@ -89,7 +89,9 @@ enum ValidationExecutionMode {
 }
 
 /// Determine which command mode to execute (lines 539-621)
-fn determine_validation_execution_mode(config: &super::super::validation::ValidationConfig) -> ValidationExecutionMode {
+fn determine_validation_execution_mode(
+    config: &super::super::validation::ValidationConfig,
+) -> ValidationExecutionMode {
     if config.commands.is_some() {
         ValidationExecutionMode::CommandsArray
     } else if config.claude.is_some() {
@@ -102,7 +104,9 @@ fn determine_validation_execution_mode(config: &super::super::validation::Valida
 }
 
 /// Check if result_file should be parsed after commands execution
-fn should_read_result_file_after_commands(config: &super::super::validation::ValidationConfig) -> bool {
+fn should_read_result_file_after_commands(
+    config: &super::super::validation::ValidationConfig,
+) -> bool {
     config.commands.is_some() && config.result_file.is_some()
 }
 
@@ -132,7 +136,10 @@ fn parse_validation_result_with_fallback(
 }
 
 /// Create a failed validation result for a command step failure
-fn create_command_step_failure_result(step_idx: usize, stdout: &str) -> super::super::validation::ValidationResult {
+fn create_command_step_failure_result(
+    step_idx: usize,
+    stdout: &str,
+) -> super::super::validation::ValidationResult {
     super::super::validation::ValidationResult::failed(format!(
         "Validation step {} failed: {}",
         step_idx + 1,
@@ -141,7 +148,10 @@ fn create_command_step_failure_result(step_idx: usize, stdout: &str) -> super::s
 }
 
 /// Create a failed validation result for file read errors
-fn create_file_read_error_result(file_path: &str, error: &str) -> super::super::validation::ValidationResult {
+fn create_file_read_error_result(
+    file_path: &str,
+    error: &str,
+) -> super::super::validation::ValidationResult {
     super::super::validation::ValidationResult::failed(format!(
         "Failed to read validation result from {}: {}",
         file_path, error
@@ -149,7 +159,9 @@ fn create_file_read_error_result(file_path: &str, error: &str) -> super::super::
 }
 
 /// Create a failed validation result for command execution failure
-fn create_command_execution_failure_result(exit_code: i32) -> super::super::validation::ValidationResult {
+fn create_command_execution_failure_result(
+    exit_code: i32,
+) -> super::super::validation::ValidationResult {
     super::super::validation::ValidationResult::failed(format!(
         "Validation command failed with exit code: {}",
         exit_code
@@ -1897,7 +1909,10 @@ mod tests {
             .missing
             .iter()
             .any(|m| m.contains("Validation step 1 failed")));
-        assert!(result.missing.iter().any(|m| m.contains("Error: test failed")));
+        assert!(result
+            .missing
+            .iter()
+            .any(|m| m.contains("Error: test failed")));
     }
 
     #[test]
@@ -1940,8 +1955,14 @@ mod tests {
         let result = create_file_read_error_result("/root/secret.json", "Permission denied");
 
         assert_eq!(result.status, ValidationStatus::Failed);
-        assert!(result.missing.iter().any(|m| m.contains("/root/secret.json")));
-        assert!(result.missing.iter().any(|m| m.contains("Permission denied")));
+        assert!(result
+            .missing
+            .iter()
+            .any(|m| m.contains("/root/secret.json")));
+        assert!(result
+            .missing
+            .iter()
+            .any(|m| m.contains("Permission denied")));
     }
 
     #[test]
@@ -1962,14 +1983,8 @@ mod tests {
         let result127 = create_command_execution_failure_result(127);
         let result_neg1 = create_command_execution_failure_result(-1);
 
-        assert!(result0
-            .missing
-            .iter()
-            .any(|m| m.contains("exit code: 0")));
-        assert!(result1
-            .missing
-            .iter()
-            .any(|m| m.contains("exit code: 1")));
+        assert!(result0.missing.iter().any(|m| m.contains("exit code: 0")));
+        assert!(result1.missing.iter().any(|m| m.contains("exit code: 1")));
         assert!(result127
             .missing
             .iter()
