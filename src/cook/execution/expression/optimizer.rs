@@ -262,31 +262,11 @@ impl ExpressionOptimizer {
             // Type checks on constants
             Expression::IsNull(inner) => {
                 let inner = self.constant_folding(*inner)?;
-                match inner {
-                    Expression::Null => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(true))
-                    }
-                    Expression::Number(_) | Expression::String(_) | Expression::Boolean(_) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(false))
-                    }
-                    _ => Ok(Expression::IsNull(Box::new(inner))),
-                }
+                fold_is_null(&mut self.stats, inner)
             }
             Expression::IsNotNull(inner) => {
                 let inner = self.constant_folding(*inner)?;
-                match inner {
-                    Expression::Null => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(false))
-                    }
-                    Expression::Number(_) | Expression::String(_) | Expression::Boolean(_) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(true))
-                    }
-                    _ => Ok(Expression::IsNotNull(Box::new(inner))),
-                }
+                fold_is_not_null(&mut self.stats, inner)
             }
 
             // Recursively fold other expressions
@@ -707,6 +687,36 @@ fn fold_numeric_comparison(
             };
             Ok(expr)
         }
+    }
+}
+
+/// Helper function to fold IsNull type check
+fn fold_is_null(stats: &mut OptimizationStats, inner: Expression) -> Result<Expression> {
+    match inner {
+        Expression::Null => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(true))
+        }
+        Expression::Number(_) | Expression::String(_) | Expression::Boolean(_) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(false))
+        }
+        _ => Ok(Expression::IsNull(Box::new(inner))),
+    }
+}
+
+/// Helper function to fold IsNotNull type check
+fn fold_is_not_null(stats: &mut OptimizationStats, inner: Expression) -> Result<Expression> {
+    match inner {
+        Expression::Null => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(false))
+        }
+        Expression::Number(_) | Expression::String(_) | Expression::Boolean(_) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(true))
+        }
+        _ => Ok(Expression::IsNotNull(Box::new(inner))),
     }
 }
 
