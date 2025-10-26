@@ -499,30 +499,31 @@ Based on checkpoint state and phase, different resume strategies apply:
 5. Reconstructs execution state
 6. Continues from last completed step
 
-### Worktree Isolation (Spec 127)
+### Worktree Isolation (Spec 127, Spec 134)
 
 **All MapReduce workflow phases (setup, map, reduce) execute in an isolated git worktree**, ensuring the main repository remains untouched during workflow execution.
 
 #### Execution Flow
 
 ```
-Main Repository (untouched during execution)
+original_branch (e.g., master, feature-xyz, develop, etc.)
     ↓
-Worktree Created: ~/.prodigy/worktrees/{project}/session-mapreduce-{id}
-    ↓
-Setup Phase → Executes in parent worktree
-    ↓
-Map Phase → Each agent executes in child worktree (branched from parent)
-    ↓
-Reduce Phase → Executes in parent worktree
-    ↓
-Merge Phase → Merges parent worktree changes to main repo (user confirmed)
+parent worktree (session-xxx) ← Single worktree for all MapReduce phases
+    ├→ Setup phase executes here
+    ├→ Agent worktrees branch from parent
+    │  ├→ agent-1 → processes item, merges back to parent
+    │  ├→ agent-2 → processes item, merges back to parent
+    │  └→ agent-N → processes item, merges back to parent
+    ├→ Reduce phase executes here (aggregates agent results)
+    └→ User prompt: Merge to {original_branch}? [Y/n]
 ```
+
+**Branch Tracking**: The parent worktree is created from whatever branch the user was on when they started the workflow. This branch is stored as `original_branch` in `WorktreeState` and is used as the merge target. The system uses `get_merge_target()` to retrieve this branch, so merges always go back to where the user started, not hardcoded to "master".
 
 #### Isolation Guarantees
 
 1. **Setup Phase Isolation**
-   - Creates dedicated worktree before setup phase execution
+   - Executes in parent worktree (created by orchestrator)
    - All setup commands execute in the worktree directory
    - File modifications occur in worktree, not main repo
    - Git commits are created in worktree context
@@ -531,6 +532,7 @@ Merge Phase → Merges parent worktree changes to main repo (user confirmed)
 2. **Map Phase Isolation**
    - Each map agent runs in its own child worktree
    - Child worktrees branch from the parent worktree (setup results)
+   - Agent changes merge back to parent worktree
    - No cross-contamination between agents
    - Independent failure isolation
 
@@ -546,6 +548,7 @@ Merge Phase → Merges parent worktree changes to main repo (user confirmed)
 - **Reproducibility**: Clean state for each workflow run
 - **Debugging**: Worktrees preserve full execution history
 - **Recovery**: Failed workflows don't pollute main repo
+- **User Control**: Final merge to original branch requires user confirmation
 
 #### Example Verification
 
@@ -557,7 +560,7 @@ git status
 # Expected: nothing to commit, working tree clean
 
 # Verify worktree has changes
-cd ~/.prodigy/worktrees/prodigy/session-mapreduce-*/
+cd ~/.prodigy/worktrees/prodigy/session-xxx/
 git status
 git log
 # Expected: See setup phase changes and commits

@@ -77,8 +77,6 @@ pub struct MapReduceCoordinator {
     timeout_enforcer: Arc<Mutex<Option<Arc<TimeoutEnforcer>>>>,
     /// Merge queue for serializing agent merges
     merge_queue: Arc<MergeQueue>,
-    /// Verbosity level for controlling output
-    verbosity: u8,
     /// Registry of orphaned worktrees from cleanup failures
     orphaned_worktrees: Arc<Mutex<Vec<OrphanedWorktree>>>,
 }
@@ -147,7 +145,6 @@ impl MapReduceCoordinator {
             execution_mode,
             timeout_enforcer: Arc::new(Mutex::new(None)),
             merge_queue,
-            verbosity,
             orphaned_worktrees: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -233,195 +230,12 @@ impl MapReduceCoordinator {
                 .await?;
         }
 
-        // CRITICAL: Merge MapReduce worktree changes back to parent worktree
-        // The MapReduce workflow runs in a child worktree. Agent worktrees merge to this
-        // MapReduce worktree, but we must also merge the MapReduce worktree itself back
-        // to the parent worktree so changes propagate correctly to master.
-        self.merge_mapreduce_to_parent(env).await?;
+        // SPEC 134: Merge to original branch is handled by orchestrator cleanup with user confirmation
+        // No automatic merge happens here. The orchestrator will prompt the user to merge the parent
+        // worktree back to the original branch after the workflow completes.
+        tracing::info!("MapReduce reduce phase completed. Changes are in parent worktree.");
 
         Ok(map_results)
-    }
-
-    /// Merge MapReduce worktree changes back to parent worktree
-    ///
-    /// This function merges the MapReduce worktree branch back to the parent worktree.
-    /// The MapReduce workflow runs in a nested worktree hierarchy:
-    ///
-    /// ```text
-    /// master
-    ///   ↓
-    /// parent-worktree (session-xxx) on branch prodigy-session-xxx
-    ///   ↓
-    /// mapreduce-worktree (session-mapreduce-xxx) on branch prodigy-session-mapreduce-xxx ← We are here
-    ///   ↓
-    /// agent-worktrees (mapreduce-agent-xxx) → Merge to mapreduce-worktree (done in agent execution)
-    /// ```
-    ///
-    /// The MapReduce worktree has accumulated all agent merges on its branch (prodigy-session-mapreduce-xxx).
-    /// We need to merge this branch to the parent worktree so changes propagate to master.
-    async fn merge_mapreduce_to_parent(&self, env: &ExecutionEnvironment) -> MapReduceResult<()> {
-        // Only merge if we're in a MapReduce worktree context
-        let worktree_name = match &env.worktree_name {
-            Some(name) => name.as_ref(),
-            None => {
-                debug!("Not in a worktree context, skipping MapReduce to parent merge");
-                return Ok(());
-            }
-        };
-
-        // Check if this is a MapReduce worktree (contains "mapreduce" in the name)
-        if !worktree_name.contains("mapreduce") {
-            debug!("Not a MapReduce worktree, skipping parent merge");
-            return Ok(());
-        }
-
-        info!("Merging MapReduce worktree changes back to parent worktree");
-
-        // The MapReduce worktree's branch follows the pattern: prodigy-{worktree_name}
-        // This is the branch that contains all the agent merges and needs to be merged to parent
-        let mapreduce_branch = format!("prodigy-{}", worktree_name);
-
-        // Verify the branch exists
-        let branch_exists = self
-            .subprocess
-            .runner()
-            .run(
-                crate::subprocess::ProcessCommandBuilder::new("git")
-                    .args(["rev-parse", "--verify", &mapreduce_branch])
-                    .current_dir(&env.working_dir)
-                    .build(),
-            )
-            .await;
-
-        if branch_exists.is_err() {
-            return Err(MapReduceError::ProcessingError(format!(
-                "MapReduce branch '{}' does not exist. Cannot merge to parent.",
-                mapreduce_branch
-            )));
-        }
-
-        // Find parent worktree - it's actually at ~/.prodigy/worktrees/{project}/session-xxx
-        // The MapReduce worktree is at ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx
-        // where session-xxx is just a container directory, not the actual parent worktree
-
-        // Extract the session ID from the current worktree name
-        let session_id = match &env.session_id {
-            id if id.starts_with("session-") => id.as_ref(),
-            id => {
-                warn!("Unexpected session ID format: {}", id);
-                return Ok(());
-            }
-        };
-
-        // Try to find the parent worktree at the expected location
-        // Pattern: ~/.prodigy/worktrees/{project}/{session_id}
-        let worktrees_base = env
-            .working_dir
-            .parent() // Go up from session-mapreduce-xxx to session-xxx directory
-            .and_then(|p| p.parent()); // Go up from session-xxx to worktrees base
-
-        let parent_worktree = match worktrees_base {
-            Some(base) => {
-                // Look for the parent worktree at {base}/prodigy/{session_id}
-                let prodigy_parent = base.join("prodigy").join(session_id);
-                if prodigy_parent.exists() && prodigy_parent.join(".git").exists() {
-                    prodigy_parent
-                } else {
-                    // Fallback: try to find any directory at {base}/{project}/{session_id}
-                    // that contains a .git file/directory
-                    let mut found_parent = None;
-                    if let Ok(entries) = std::fs::read_dir(base) {
-                        for entry in entries.flatten() {
-                            let project_dir = entry.path();
-                            if project_dir.is_dir() {
-                                let potential_parent = project_dir.join(session_id);
-                                if potential_parent.exists()
-                                    && potential_parent.join(".git").exists()
-                                {
-                                    found_parent = Some(potential_parent);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    match found_parent {
-                        Some(parent) => parent,
-                        None => {
-                            warn!("Cannot find parent worktree for session {}", session_id);
-                            warn!("Looked in: {}/*/{}/.git", base.display(), session_id);
-                            return Ok(());
-                        }
-                    }
-                }
-            }
-            None => {
-                warn!(
-                    "Cannot determine worktrees base directory from {}",
-                    env.working_dir.display()
-                );
-                return Ok(());
-            }
-        };
-
-        info!(
-            "Merging MapReduce worktree {} to parent {}",
-            env.working_dir.display(),
-            parent_worktree.display()
-        );
-
-        // Use Claude to intelligently merge the MapReduce worktree to parent
-        // This is similar to how regular worktree merges work (manager.rs:402-420)
-        info!(
-            "Executing Claude-assisted merge: /prodigy-merge-worktree {}",
-            mapreduce_branch
-        );
-
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-
-        // Only set PRODIGY_CLAUDE_STREAMING if verbosity >= 1
-        if self.verbosity >= 1 {
-            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
-        }
-
-        // Respect PRODIGY_CLAUDE_CONSOLE_OUTPUT override
-        if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
-            env_vars.insert(
-                "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
-                "true".to_string(),
-            );
-        }
-
-        // Execute Claude merge command in the parent worktree context
-        let merge_result = self
-            .claude_executor
-            .execute_claude_command(
-                &format!("/prodigy-merge-worktree {}", mapreduce_branch),
-                &parent_worktree,
-                env_vars,
-            )
-            .await
-            .map_err(|e| {
-                MapReduceError::ProcessingError(format!(
-                    "Failed to execute Claude merge command: {}",
-                    e
-                ))
-            })?;
-
-        if !merge_result.success {
-            warn!("Claude merge failed for MapReduce worktree");
-            if !merge_result.stderr.is_empty() {
-                warn!("Error output: {}", merge_result.stderr);
-            }
-            return Err(MapReduceError::ProcessingError(
-                "Failed to merge MapReduce worktree to parent: Claude merge command failed"
-                    .to_string(),
-            ));
-        }
-
-        info!("Successfully merged MapReduce worktree to parent using Claude");
-        Ok(())
     }
 
     /// Execute in dry-run mode

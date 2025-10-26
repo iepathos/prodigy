@@ -1733,7 +1733,6 @@ impl WorkflowExecutor {
     ) -> Result<()> {
         use crate::cook::execution::setup_executor::SetupPhaseExecutor;
         use crate::cook::execution::{MapReduceExecutor, SetupPhase};
-        use crate::worktree::WorktreeManager;
 
         let workflow_start = Instant::now();
 
@@ -1800,42 +1799,25 @@ impl WorkflowExecutor {
 
         // Don't duplicate the message - it's already shown by the orchestrator
 
-        // Create worktree for MapReduce execution BEFORE setup phase
-        // This ensures all phases (setup, map, reduce) execute in the isolated worktree
-        let worktree_manager = Arc::new(WorktreeManager::new(
-            env.working_dir.to_path_buf(),
-            self.subprocess.clone(),
-        )?);
-
-        // Create session for the MapReduce workflow
-        let session_id = format!(
-            "session-mapreduce-{}",
-            chrono::Utc::now().format("%Y%m%d_%H%M%S")
-        );
-        let worktree_result = worktree_manager
-            .create_session_with_id(&session_id)
-            .await
-            .context("Failed to create worktree for MapReduce workflow")?;
-
+        // SPEC 134: MapReduce executes in the parent worktree (already created by orchestrator)
+        // No need to create an additional intermediate worktree. This ensures:
+        // 1. Setup phase runs in parent worktree
+        // 2. Agent worktrees branch from parent worktree
+        // 3. Reduce phase runs in parent worktree
+        // 4. User is prompted to merge parent worktree to original branch (via orchestrator cleanup)
         tracing::info!(
-            "Created worktree for MapReduce at: {}",
-            worktree_result.path.display()
+            "Executing MapReduce in parent worktree: {}",
+            env.working_dir.display()
         );
 
-        // Update environment to use the worktree directory
-        // This ensures setup, map, and reduce phases all execute in the worktree
-        let worktree_env = ExecutionEnvironment {
-            working_dir: Arc::new(worktree_result.path.clone()),
-            project_dir: env.project_dir.clone(),
-            worktree_name: Some(Arc::from(worktree_result.name.as_str())),
-            session_id: Arc::from(session_id.as_str()),
-        };
+        // Use the existing environment directly - it already points to parent worktree
+        let worktree_env = env.clone();
 
         // SPEC 128: Create immutable environment context for worktree execution
         // This context explicitly specifies the worktree directory and prevents
         // hidden state mutations. All environment configuration is immutable after creation.
         use crate::cook::environment::EnvironmentContextBuilder;
-        let _worktree_context = EnvironmentContextBuilder::new(worktree_result.path.clone())
+        let _worktree_context = EnvironmentContextBuilder::new(env.working_dir.to_path_buf())
             .with_config(
                 self.global_environment_config
                     .as_ref()
@@ -1949,7 +1931,7 @@ impl WorkflowExecutor {
         map_phase.config.input = interpolated_input;
 
         // Create MapReduce executor
-        // Use the worktree as the base for map phase agent worktrees
+        // Use the parent worktree as the base for map phase agent worktrees
         // Convert VerbosityLevel to u8 for merge operation verbosity control
         let verbosity_u8 = match self.user_interaction.verbosity() {
             crate::cook::interaction::VerbosityLevel::Quiet => 0,
@@ -1959,12 +1941,19 @@ impl WorkflowExecutor {
             crate::cook::interaction::VerbosityLevel::Trace => 3,
         };
 
+        // SPEC 134: Create WorktreeManager for agent worktrees using parent worktree as base
+        use crate::worktree::WorktreeManager;
+        let worktree_manager = Arc::new(WorktreeManager::new(
+            env.working_dir.to_path_buf(),
+            self.subprocess.clone(),
+        )?);
+
         let mut mapreduce_executor = MapReduceExecutor::new_with_verbosity(
             self.claude_executor.clone(),
             self.session_manager.clone(),
             self.user_interaction.clone(),
-            worktree_manager.clone(),
-            worktree_result.path.clone(), // Use worktree path as base for agents
+            worktree_manager,
+            env.working_dir.to_path_buf(), // Use parent worktree path as base for agents
             verbosity_u8,
         )
         .await;

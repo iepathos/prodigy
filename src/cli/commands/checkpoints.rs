@@ -903,7 +903,6 @@ mod tests {
         let _manager = super::create_checkpoint_manager(checkpoint_dir.clone());
 
         // Verify it was created successfully (if it didn't panic, it worked)
-        assert!(true);
     }
 
     #[test]
@@ -913,8 +912,6 @@ mod tests {
         // Should create a checkpoint manager even with nonexistent path
         // The path is only used when actually loading/saving checkpoints
         let _manager = super::create_checkpoint_manager(checkpoint_dir);
-
-        assert!(true);
     }
 
     // Tests for initialize_checkpoint_storage
@@ -1293,7 +1290,6 @@ mod tests {
         let _manager = super::create_checkpoint_manager(checkpoint_dir);
 
         // If we got here without panicking, the integration works
-        assert!(true);
     }
 
     // ========================================================================
