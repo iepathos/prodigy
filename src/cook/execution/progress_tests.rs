@@ -555,6 +555,82 @@ mod cli_progress_viewer_tests {
         let result = CLIProgressViewer::should_use_cached_render(&sampler).await;
         assert!(!result);
     }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_no_sampler() {
+        let strategy = CLIProgressViewer::determine_render_strategy(None).await;
+        assert_eq!(strategy, RenderStrategy::Full);
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_sampler_should_sample() {
+        let sampler = ProgressSampler::new(Duration::from_millis(10));
+        // Wait for sample rate to expire so it should sample
+        sleep(Duration::from_millis(20)).await;
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        assert_eq!(strategy, RenderStrategy::Full);
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_sampler_use_cache_no_data() {
+        let sampler = ProgressSampler::new(Duration::from_secs(10));
+        // Cache is fresh, should use cached but no data yet
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        assert_eq!(strategy, RenderStrategy::Skip);
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_sampler_use_cache_with_data() {
+        use std::sync::Arc;
+
+        let tracker = Arc::new(EnhancedProgressTracker::new("test-job".to_string(), 10));
+        let sampler = ProgressSampler::new(Duration::from_secs(10));
+
+        // Populate cache with data
+        let snapshot = tracker.create_snapshot().await;
+        let metrics = tracker.metrics.read().await;
+        sampler.update_cache(snapshot, metrics.clone()).await;
+
+        // Cache is fresh and has data, should use cached
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        match strategy {
+            RenderStrategy::Cached(cached_metrics) => {
+                assert_eq!(cached_metrics.pending_items, 10);
+                assert_eq!(cached_metrics.completed_items, 0);
+            }
+            _ => panic!("Expected Cached strategy, got {:?}", strategy),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_all_combinations() {
+        use std::sync::Arc;
+
+        // Test 1: No sampler -> Always Full
+        let strategy = CLIProgressViewer::determine_render_strategy(None).await;
+        assert_eq!(strategy, RenderStrategy::Full);
+
+        // Test 2: Sampler with expired cache (should sample) -> Full
+        let sampler_expired = ProgressSampler::new(Duration::from_millis(10));
+        sleep(Duration::from_millis(20)).await;
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler_expired)).await;
+        assert_eq!(strategy, RenderStrategy::Full);
+
+        // Test 3: Sampler with fresh cache but no data -> Skip
+        let sampler_fresh = ProgressSampler::new(Duration::from_secs(10));
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler_fresh)).await;
+        assert_eq!(strategy, RenderStrategy::Skip);
+
+        // Test 4: Sampler with fresh cache and data -> Cached
+        let tracker = Arc::new(EnhancedProgressTracker::new("test-job".to_string(), 5));
+        let sampler_with_data = ProgressSampler::new(Duration::from_secs(10));
+        let snapshot = tracker.create_snapshot().await;
+        let metrics = tracker.metrics.read().await;
+        sampler_with_data.update_cache(snapshot, metrics.clone()).await;
+
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler_with_data)).await;
+        assert!(matches!(strategy, RenderStrategy::Cached(_)));
+    }
 }
 
 #[cfg(test)]
