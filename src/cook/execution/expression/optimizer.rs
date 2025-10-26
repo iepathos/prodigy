@@ -241,7 +241,12 @@ impl ExpressionOptimizer {
             Expression::GreaterThan(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-                fold_numeric_comparison(&mut self.stats, NumericComparisonOp::GreaterThan, left, right)
+                fold_numeric_comparison(
+                    &mut self.stats,
+                    NumericComparisonOp::GreaterThan,
+                    left,
+                    right,
+                )
             }
             Expression::LessThan(left, right) => {
                 let left = self.constant_folding(*left)?;
@@ -251,12 +256,22 @@ impl ExpressionOptimizer {
             Expression::GreaterEqual(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-                fold_numeric_comparison(&mut self.stats, NumericComparisonOp::GreaterEqual, left, right)
+                fold_numeric_comparison(
+                    &mut self.stats,
+                    NumericComparisonOp::GreaterEqual,
+                    left,
+                    right,
+                )
             }
             Expression::LessEqual(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-                fold_numeric_comparison(&mut self.stats, NumericComparisonOp::LessEqual, left, right)
+                fold_numeric_comparison(
+                    &mut self.stats,
+                    NumericComparisonOp::LessEqual,
+                    left,
+                    right,
+                )
             }
 
             // Type checks on constants
@@ -1610,9 +1625,9 @@ mod tests {
         let mut optimizer = ExpressionOptimizer::new();
 
         // IsString with nested folding
-        let expr = Expression::IsString(Box::new(Expression::Not(Box::new(
-            Expression::Boolean(false),
-        ))));
+        let expr = Expression::IsString(Box::new(Expression::Not(Box::new(Expression::Boolean(
+            false,
+        )))));
         let result = optimizer.constant_folding(expr).unwrap();
 
         // The Not(false) should fold to Boolean(true)
