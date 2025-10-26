@@ -307,6 +307,54 @@ impl ExecutionPipeline {
         Ok(())
     }
 
+    /// Handle the result of a resumed workflow execution
+    ///
+    /// Processes success, interruption, and failure cases appropriately.
+    async fn handle_resume_result(
+        &self,
+        result: Result<()>,
+        session_file: &std::path::Path,
+        session_id: &str,
+        playbook_path: &std::path::Path,
+    ) -> Result<()> {
+        match result {
+            Ok(_) => {
+                self.session_manager
+                    .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
+                    .await?;
+                self.user_interaction
+                    .display_success("Resumed session completed successfully!");
+                Ok(())
+            }
+            Err(e) => {
+                // Check if session was interrupted again
+                let current_state = self
+                    .session_manager
+                    .get_state()
+                    .context("Failed to get session state after resume error")?;
+                if current_state.status == SessionStatus::Interrupted {
+                    self.user_interaction.display_warning(&format!(
+                        "\nSession interrupted again. Resume with: prodigy run {} --resume {}",
+                        playbook_path.display(),
+                        session_id
+                    ));
+                    // Save updated checkpoint
+                    self.session_manager.save_state(session_file).await?;
+                } else {
+                    self.session_manager
+                        .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
+                        .await?;
+                    self.session_manager
+                        .update_session(SessionUpdate::AddError(e.to_string()))
+                        .await?;
+                    self.user_interaction
+                        .display_error(&format!("Resumed session failed: {e}"));
+                }
+                Err(e)
+            }
+        }
+    }
+
     /// Load session state with fallback to worktree session file
     ///
     /// This function attempts to load the session state from UnifiedSessionManager first.
@@ -399,42 +447,9 @@ impl ExecutionPipeline {
                 )
                 .await;
 
-            // Handle result
-            match result {
-                Ok(_) => {
-                    self.session_manager
-                        .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
-                        .await?;
-                    self.user_interaction
-                        .display_success("Resumed session completed successfully!");
-                }
-                Err(e) => {
-                    // Check if session was interrupted again
-                    let current_state = self
-                        .session_manager
-                        .get_state()
-                        .context("Failed to get session state after resume error")?;
-                    if current_state.status == SessionStatus::Interrupted {
-                        self.user_interaction.display_warning(&format!(
-                            "\nSession interrupted again. Resume with: prodigy run {} --resume {}",
-                            config.command.playbook.display(),
-                            session_id
-                        ));
-                        // Save updated checkpoint
-                        self.session_manager.save_state(&session_file).await?;
-                    } else {
-                        self.session_manager
-                            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
-                            .await?;
-                        self.session_manager
-                            .update_session(SessionUpdate::AddError(e.to_string()))
-                            .await?;
-                        self.user_interaction
-                            .display_error(&format!("Resumed session failed: {e}"));
-                    }
-                    return Err(e);
-                }
-            }
+            // Handle the result (success, interruption, or failure)
+            self.handle_resume_result(result, &session_file, session_id, &config.command.playbook)
+                .await?;
 
             // Cleanup - need to call the cleanup function from the orchestrator
             // For now, we'll just complete the session without cleanup
