@@ -44,18 +44,20 @@ session-mapreduce-xxx ← EXTRA worktree created incorrectly (line 1811-1818 in 
 ### Intended (Correct) Architecture
 
 ```
-master
+original_branch (e.g., master, feature-xyz, etc.)
   ↓
 parent worktree (session-xxx) ← Single worktree for all MapReduce phases
   ├→ setup phase runs here
   ├→ agent-1, agent-2, agent-3... ← Multiple agent worktrees for map phase
   ├→ reduce phase runs here
-  └→ Merge to master WITH user confirmation (orchestrator cleanup)
+  └→ Merge back to original_branch WITH user confirmation (orchestrator cleanup)
 ```
+
+**Note**: The parent worktree branches from whatever branch the user was on when they started the workflow (`original_branch`). This is captured in `WorktreeState` and used as the merge target via `get_merge_target()`. The merge is NOT hardcoded to "master" - it merges back to the user's original branch.
 
 ## Objective
 
-Remove the unnecessary intermediate `session-mapreduce-xxx` worktree creation and ensure MapReduce workflows execute in the parent session worktree with proper user confirmation before merging to master.
+Remove the unnecessary intermediate `session-mapreduce-xxx` worktree creation and ensure MapReduce workflows execute in the parent session worktree with proper user confirmation before merging back to the original branch.
 
 ## Requirements
 
@@ -73,16 +75,17 @@ Remove the unnecessary intermediate `session-mapreduce-xxx` worktree creation an
    - No automatic merging should occur after reduce phase
 
 3. **User Confirmation for Merge**
-   - User must be prompted before merging worktree to master
+   - User must be prompted before merging worktree to original branch
    - Prompt should happen AFTER workflow completion
    - User can review changes before confirming merge
    - Orchestrator cleanup handles the merge with user confirmation (already implemented)
+   - Merge target determined via `get_merge_target()` which returns `original_branch` from state
 
 4. **Correct Execution Flow**
    - Setup phase → Executes in parent worktree
    - Map phase → Agents branch from parent, merge back to parent
    - Reduce phase → Executes in parent worktree
-   - Completion → User prompted to merge parent to master
+   - Completion → User prompted to merge parent to original branch
 
 ### Non-Functional Requirements
 
@@ -111,7 +114,8 @@ Remove the unnecessary intermediate `session-mapreduce-xxx` worktree creation an
 - [ ] Agent worktrees branch from parent worktree (verify branch parent)
 - [ ] Reduce phase executes in parent worktree (verify working directory)
 - [ ] No automatic merge happens after reduce phase
-- [ ] User is prompted to merge parent worktree to master
+- [ ] User is prompted to merge parent worktree to original branch
+- [ ] Prompt displays correct target branch (not hardcoded "master")
 - [ ] Prompt happens AFTER reduce phase completes
 - [ ] User can decline merge and review changes
 - [ ] Existing MapReduce tests pass without modification
@@ -209,7 +213,7 @@ Update `CLAUDE.md` MapReduce architecture section to reflect correct structure:
 MapReduce workflows execute in a single parent worktree with agent worktrees branching from it:
 
 ```
-master
+original_branch (e.g., master, feature-xyz, develop, etc.)
   ↓
 parent worktree (session-xxx)
   ├→ Setup phase executes here
@@ -218,8 +222,10 @@ parent worktree (session-xxx)
   │  ├→ agent-2 → processes item, merges back to parent
   │  └→ agent-N → processes item, merges back to parent
   ├→ Reduce phase executes here (aggregates agent results)
-  └→ User prompt: Merge to master? [Y/n]
+  └→ User prompt: Merge to {original_branch}? [Y/n]
 ```
+
+**Branch Tracking**: The parent worktree is created from whatever branch the user was on when they started the workflow. This branch is stored as `original_branch` in `WorktreeState` and is used as the merge target. The system uses `get_merge_target()` to retrieve this branch, so merges always go back to where the user started, not hardcoded to "master".
 
 **Isolation Guarantees:**
 - Setup and reduce phases execute in parent worktree
