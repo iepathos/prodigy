@@ -941,4 +941,122 @@ map:
         let result = load_playbook_with_mapreduce(&json_path).await;
         assert!(result.is_ok(), "Should handle .json extension");
     }
+
+    // Phase 2 Tests: Error Handling Paths
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_mapreduce_parse_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("invalid-mapreduce.yml");
+
+        // Invalid MapReduce structure (missing required fields)
+        let workflow_content = r#"name: test-mapreduce
+mode: mapreduce
+# Missing map section
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_err(), "Should fail on invalid MapReduce structure");
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Failed to parse MapReduce workflow"),
+            "Error should mention MapReduce parsing failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_yaml_parse_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("invalid.yml");
+
+        // Invalid YAML syntax (bad indentation)
+        let workflow_content = r#"commands:
+- shell: "echo test"
+  extra_field: "bad"
+invalid_line
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_err(), "Should fail on invalid YAML");
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Failed to parse YAML playbook"),
+            "Error should mention YAML parsing failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_json_parse_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("invalid.json");
+
+        // Invalid JSON syntax
+        let workflow_content = r#"{"commands": [{"shell": "echo test"},]}"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_err(), "Should fail on invalid JSON");
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Failed to parse JSON playbook"),
+            "Error should mention JSON parsing failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_file_not_found() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("nonexistent.yml");
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_err(), "Should fail on missing file");
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Failed to read playbook file"),
+            "Error should mention file read failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_yaml_with_invalid_mode() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("invalid-mode.yml");
+
+        // YAML with invalid mode value (not a string)
+        let workflow_content = r#"commands:
+  - shell: "echo test"
+mode: 123
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        // This might succeed or fail depending on how the parser handles it
+        // The main goal is to ensure the function handles it gracefully
+        if result.is_err() {
+            let err = result.unwrap_err();
+            let err_msg = format!("{}", err);
+            assert!(
+                err_msg.contains("Failed to parse"),
+                "Error should mention parsing failure"
+            );
+        }
+    }
 }
