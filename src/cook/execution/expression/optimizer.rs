@@ -1191,4 +1191,94 @@ mod tests {
         let result = optimizer.constant_folding(expr).unwrap();
         assert_eq!(result, Expression::Boolean(false));
     }
+
+    // Phase 2: Tests for type checking operators (lines 339-367)
+
+    #[test]
+    fn test_constant_folding_is_null_with_null() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNull(Null) => true
+        let expr = Expression::IsNull(Box::new(Expression::Null));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    #[test]
+    fn test_constant_folding_is_null_with_number() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNull(Number) => false
+        let expr = Expression::IsNull(Box::new(Expression::Number(42.0)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_is_null_with_string() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNull(String) => false
+        let expr = Expression::IsNull(Box::new(Expression::String("test".to_string())));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_is_null_with_boolean() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNull(Boolean) => false
+        let expr = Expression::IsNull(Box::new(Expression::Boolean(true)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+
+        let expr = Expression::IsNull(Box::new(Expression::Boolean(false)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_is_not_null_with_null() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNotNull(Null) => false
+        let expr = Expression::IsNotNull(Box::new(Expression::Null));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_is_not_null_with_number() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNotNull(Number) => true
+        let expr = Expression::IsNotNull(Box::new(Expression::Number(42.0)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    #[test]
+    fn test_constant_folding_is_not_null_with_string() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNotNull(String) => true
+        let expr = Expression::IsNotNull(Box::new(Expression::String("test".to_string())));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    #[test]
+    fn test_constant_folding_is_not_null_with_boolean() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNotNull(Boolean) => true
+        let expr = Expression::IsNotNull(Box::new(Expression::Boolean(true)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        let expr = Expression::IsNotNull(Box::new(Expression::Boolean(false)));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
 }
