@@ -276,6 +276,37 @@ impl ExecutionPipeline {
         Ok(())
     }
 
+    /// Validate that a session is in a resumable state
+    ///
+    /// Checks if the session status allows for resumption.
+    fn validate_session_resumable(&self, session_id: &str, state: &SessionState) -> Result<()> {
+        if !state.is_resumable() {
+            return Err(anyhow!(
+                "Session {} is not resumable (status: {:?})",
+                session_id,
+                state.status
+            ));
+        }
+        Ok(())
+    }
+
+    /// Validate that the workflow hasn't been modified since the session was interrupted
+    ///
+    /// Compares the stored workflow hash with the current workflow hash.
+    fn validate_workflow_unchanged(&self, state: &SessionState, config: &CookConfig) -> Result<()> {
+        if let Some(ref stored_hash) = state.workflow_hash {
+            let current_hash =
+                super::session_ops::SessionOperations::calculate_workflow_hash(&config.workflow);
+            if current_hash != *stored_hash {
+                return Err(anyhow!(
+                    "Workflow has been modified since interruption. \
+                     Use --force to override or start a new session."
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// Load session state with fallback to worktree session file
     ///
     /// This function attempts to load the session state from UnifiedSessionManager first.
@@ -319,25 +350,10 @@ impl ExecutionPipeline {
         let state = self.load_session_with_fallback(session_id, &config).await?;
 
         // Validate the session is resumable
-        if !state.is_resumable() {
-            return Err(anyhow!(
-                "Session {} is not resumable (status: {:?})",
-                session_id,
-                state.status
-            ));
-        }
+        self.validate_session_resumable(session_id, &state)?;
 
         // Validate workflow hasn't changed
-        if let Some(ref stored_hash) = state.workflow_hash {
-            let current_hash =
-                super::session_ops::SessionOperations::calculate_workflow_hash(&config.workflow);
-            if current_hash != *stored_hash {
-                return Err(anyhow!(
-                    "Workflow has been modified since interruption. \
-                     Use --force to override or start a new session."
-                ));
-            }
-        }
+        self.validate_workflow_unchanged(&state, &config)?;
 
         // Display resume information
         self.user_interaction.display_info(&format!(
