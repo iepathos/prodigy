@@ -87,6 +87,55 @@ async fn initialize_checkpoint_storage(
 // Pure Functions: Checkpoint Manager Creation
 // ============================================================================
 
+/// Represents a validated clean operation
+#[derive(Debug, PartialEq, Eq)]
+enum CleanOperation {
+    /// Clean a specific workflow checkpoint
+    CleanSpecific(String),
+    /// Clean all completed checkpoints
+    CleanAll,
+    /// Invalid request (neither workflow_id nor all specified)
+    InvalidRequest,
+}
+
+/// Validate clean operation parameters
+///
+/// Pure function that validates the combination of workflow_id and all flags
+/// for the clean command. Returns an enum representing the validated operation.
+///
+/// # Arguments
+/// * `workflow_id` - Optional workflow ID to clean
+/// * `all` - Whether to clean all completed checkpoints
+///
+/// # Returns
+/// * `CleanOperation::CleanSpecific(id)` - Clean specific workflow
+/// * `CleanOperation::CleanAll` - Clean all completed checkpoints
+/// * `CleanOperation::InvalidRequest` - Neither or both parameters specified
+///
+/// # Examples
+/// ```
+/// # use std::path::PathBuf;
+/// # #[derive(Debug, PartialEq, Eq)]
+/// # enum CleanOperation { CleanSpecific(String), CleanAll, InvalidRequest }
+/// # fn validate_clean_operation(workflow_id: Option<String>, all: bool) -> CleanOperation {
+/// #     match (workflow_id, all) {
+/// #         (Some(id), false) => CleanOperation::CleanSpecific(id),
+/// #         (None, true) => CleanOperation::CleanAll,
+/// #         _ => CleanOperation::InvalidRequest,
+/// #     }
+/// # }
+/// assert_eq!(validate_clean_operation(Some("wf-123".to_string()), false), CleanOperation::CleanSpecific("wf-123".to_string()));
+/// assert_eq!(validate_clean_operation(None, true), CleanOperation::CleanAll);
+/// assert_eq!(validate_clean_operation(None, false), CleanOperation::InvalidRequest);
+/// ```
+fn validate_clean_operation(workflow_id: Option<String>, all: bool) -> CleanOperation {
+    match (workflow_id, all) {
+        (Some(id), false) => CleanOperation::CleanSpecific(id),
+        (None, true) => CleanOperation::CleanAll,
+        _ => CleanOperation::InvalidRequest,
+    }
+}
+
 /// Create a CheckpointManager with local storage
 ///
 /// Encapsulates the pattern of creating a CheckpointManager with deprecated
@@ -179,13 +228,15 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
                 return Ok(());
             }
 
-            if let Some(id) = workflow_id {
-                clean_specific_checkpoint(&checkpoint_dir, &id, force).await
-            } else if all {
-                clean_all_checkpoints(&checkpoint_dir, force).await
-            } else {
-                println!("Please specify --workflow-id or --all");
-                Ok(())
+            match validate_clean_operation(workflow_id, all) {
+                CleanOperation::CleanSpecific(id) => {
+                    clean_specific_checkpoint(&checkpoint_dir, &id, force).await
+                }
+                CleanOperation::CleanAll => clean_all_checkpoints(&checkpoint_dir, force).await,
+                CleanOperation::InvalidRequest => {
+                    println!("Please specify --workflow-id or --all");
+                    Ok(())
+                }
             }
         }
         CheckpointCommands::Show {
@@ -811,6 +862,36 @@ mod tests {
         let result = super::resolve_working_directory(Some(absolute_path.clone()));
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), absolute_path);
+    }
+
+    // Tests for validate_clean_operation
+
+    #[test]
+    fn test_validate_clean_operation_with_workflow_id() {
+        let result = super::validate_clean_operation(Some("workflow-123".to_string()), false);
+        assert_eq!(
+            result,
+            super::CleanOperation::CleanSpecific("workflow-123".to_string())
+        );
+    }
+
+    #[test]
+    fn test_validate_clean_operation_with_all_flag() {
+        let result = super::validate_clean_operation(None, true);
+        assert_eq!(result, super::CleanOperation::CleanAll);
+    }
+
+    #[test]
+    fn test_validate_clean_operation_neither_specified() {
+        let result = super::validate_clean_operation(None, false);
+        assert_eq!(result, super::CleanOperation::InvalidRequest);
+    }
+
+    #[test]
+    fn test_validate_clean_operation_both_specified() {
+        // Edge case: both workflow_id and all=true
+        let result = super::validate_clean_operation(Some("workflow-123".to_string()), true);
+        assert_eq!(result, super::CleanOperation::InvalidRequest);
     }
 
     // Tests for create_checkpoint_manager
