@@ -294,6 +294,108 @@ async fn load_workflow(
     load_playbook(&cmd.playbook).await
 }
 
+/// File format types supported by the playbook loader
+#[derive(Debug, PartialEq)]
+enum FileFormat {
+    Yaml,
+    Json,
+}
+
+/// Detect file format based on file extension
+fn detect_file_format(path: &Path) -> FileFormat {
+    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+        if ext == "yml" || ext == "yaml" {
+            return FileFormat::Yaml;
+        }
+    }
+    FileFormat::Json
+}
+
+/// Check if content contains MapReduce workflow indicators
+fn is_mapreduce_content(content: &str) -> bool {
+    content.contains("mode: mapreduce") || content.contains("mode: \"mapreduce\"")
+}
+
+/// Format a detailed error message for YAML parsing failures
+fn format_yaml_parse_error(e: &serde_yaml::Error, content: &str, path: &Path) -> String {
+    let mut error_msg = format!("Failed to parse YAML playbook: {}\n", path.display());
+
+    // Extract line and column info if available
+    if let Some(location) = e.location() {
+        error_msg.push_str(&format!(
+            "Error at line {}, column {}\n",
+            location.line(),
+            location.column()
+        ));
+
+        // Try to show the problematic line
+        if let Some(line) = content.lines().nth(location.line().saturating_sub(1)) {
+            error_msg.push_str(&format!("Problematic line: {line}\n"));
+            if location.column() > 0 {
+                error_msg.push_str(&format!(
+                    "{}^\n",
+                    " ".repeat(location.column().saturating_sub(1))
+                ));
+            }
+        }
+    }
+
+    error_msg.push_str(&format!("\nOriginal error: {e}"));
+
+    // Add hints for common issues with context from file
+    error_msg.push_str("\n\n=== FILE CONTENT ===");
+    error_msg.push_str("\nShowing file structure (first 10 non-empty lines):");
+    let mut shown = 0;
+    for (idx, line) in content.lines().enumerate() {
+        if shown >= 10 {
+            break;
+        }
+        if !line.trim().is_empty() {
+            error_msg.push_str(&format!("\n  {:3} | {}", idx + 1, line));
+            shown += 1;
+        }
+    }
+
+    // Provide helpful structure hints
+    if content.contains("claude:") || content.contains("shell:") {
+        error_msg.push_str("\n\n=== SUPPORTED FORMATS ===");
+        error_msg.push_str("\nProdigy supports two workflow formats:");
+        error_msg.push_str("\n\n1. Direct array (no wrapper):");
+        error_msg.push_str("\n   - shell: \"command1\"");
+        error_msg.push_str("\n   - claude: \"/command2\"");
+        error_msg.push_str("\n\n2. Object with commands field:");
+        error_msg.push_str("\n   commands:");
+        error_msg.push_str("\n     - shell: \"command1\"");
+        error_msg.push_str("\n     - claude: \"/command2\"");
+        error_msg.push_str(
+            "\n\nThe parse error above indicates the YAML structure doesn't match either format.",
+        );
+        error_msg
+            .push_str("\nCheck for: indentation errors, missing fields, or invalid YAML syntax.");
+    }
+
+    error_msg
+}
+
+/// Format a concise error message for MapReduce parsing failures
+fn format_mapreduce_parse_error(e: &serde_yaml::Error, path: &Path) -> String {
+    let mut error_msg = format!("Failed to parse MapReduce workflow: {}\n", path.display());
+    error_msg.push_str(&format!("\nOriginal error: {e}"));
+    error_msg
+        .push_str("\n\nHint: Check that your MapReduce workflow follows the correct structure:");
+    error_msg.push_str("\n  - name, mode, map (required)");
+    error_msg.push_str("\n  - setup, reduce (optional)");
+    error_msg.push_str("\n  - map.agent_template.commands should be a list of WorkflowSteps");
+    error_msg
+}
+
+/// Format a simple error message for JSON parsing failures
+fn format_json_parse_error(e: &serde_json::Error, path: &Path) -> String {
+    let mut error_msg = format!("Failed to parse JSON playbook: {}\n", path.display());
+    error_msg.push_str(&format!("Error: {e}"));
+    error_msg
+}
+
 /// Load workflow configuration from a playbook file with MapReduce support
 async fn load_playbook_with_mapreduce(
     path: &Path,
@@ -305,116 +407,51 @@ async fn load_playbook_with_mapreduce(
         .await
         .context(format!("Failed to read playbook file: {}", path.display()))?;
 
-    // Try to parse as YAML first, then fall back to JSON
-    if path.extension().and_then(|s| s.to_str()) == Some("yml")
-        || path.extension().and_then(|s| s.to_str()) == Some("yaml")
-    {
-        // First check if it's a MapReduce workflow by looking for mode: mapreduce
-        if content.contains("mode: mapreduce") || content.contains("mode: \"mapreduce\"") {
-            // Try to parse as MapReduce workflow
-            match crate::config::parse_mapreduce_workflow(&content) {
-                Ok(mapreduce_config) => {
-                    // Return workflow config with environment variables and merge workflow from MapReduce config
-                    Ok((
-                        WorkflowConfig {
-                            commands: vec![],
-                            env: mapreduce_config.env.clone(),
-                            secrets: mapreduce_config.secrets.clone(),
-                            env_files: mapreduce_config.env_files.clone(),
-                            profiles: mapreduce_config.profiles.clone(),
-                            merge: mapreduce_config.merge.clone(),
-                        },
-                        Some(mapreduce_config),
-                    ))
+    let file_format = detect_file_format(path);
+
+    match file_format {
+        FileFormat::Yaml => {
+            if is_mapreduce_content(&content) {
+                // Try to parse as MapReduce workflow
+                match crate::config::parse_mapreduce_workflow(&content) {
+                    Ok(mapreduce_config) => {
+                        // Return workflow config with environment variables and merge workflow from MapReduce config
+                        Ok((
+                            WorkflowConfig {
+                                commands: vec![],
+                                env: mapreduce_config.env.clone(),
+                                secrets: mapreduce_config.secrets.clone(),
+                                env_files: mapreduce_config.env_files.clone(),
+                                profiles: mapreduce_config.profiles.clone(),
+                                merge: mapreduce_config.merge.clone(),
+                            },
+                            Some(mapreduce_config),
+                        ))
+                    }
+                    Err(e) => {
+                        let error_msg = format_mapreduce_parse_error(&e, path);
+                        Err(anyhow!(error_msg))
+                    }
                 }
-                Err(e) => {
-                    let mut error_msg =
-                        format!("Failed to parse MapReduce workflow: {}\n", path.display());
-                    error_msg.push_str(&format!("\nOriginal error: {e}"));
-                    error_msg.push_str("\n\nHint: Check that your MapReduce workflow follows the correct structure:");
-                    error_msg.push_str("\n  - name, mode, map (required)");
-                    error_msg.push_str("\n  - setup, reduce (optional)");
-                    error_msg.push_str(
-                        "\n  - map.agent_template.commands should be a list of WorkflowSteps",
-                    );
-                    Err(anyhow!(error_msg))
-                }
-            }
-        } else {
-            // Try to parse as regular workflow
-            match serde_yaml::from_str::<WorkflowConfig>(&content) {
-                Ok(config) => Ok((config, None)),
-                Err(e) => {
-                    // Try to provide more helpful error messages
-                    let mut error_msg =
-                        format!("Failed to parse YAML playbook: {}\n", path.display());
-
-                    // Extract line and column info if available
-                    if let Some(location) = e.location() {
-                        error_msg.push_str(&format!(
-                            "Error at line {}, column {}\n",
-                            location.line(),
-                            location.column()
-                        ));
-
-                        // Try to show the problematic line
-                        if let Some(line) = content.lines().nth(location.line().saturating_sub(1)) {
-                            error_msg.push_str(&format!("Problematic line: {line}\n"));
-                            if location.column() > 0 {
-                                error_msg.push_str(&format!(
-                                    "{}^\n",
-                                    " ".repeat(location.column().saturating_sub(1))
-                                ));
-                            }
-                        }
+            } else {
+                // Try to parse as regular workflow
+                match serde_yaml::from_str::<WorkflowConfig>(&content) {
+                    Ok(config) => Ok((config, None)),
+                    Err(e) => {
+                        let error_msg = format_yaml_parse_error(&e, &content, path);
+                        Err(anyhow!(error_msg))
                     }
-
-                    error_msg.push_str(&format!("\nOriginal error: {e}"));
-
-                    // Add hints for common issues with context from file
-                    error_msg.push_str("\n\n=== FILE CONTENT ===");
-                    error_msg.push_str("\nShowing file structure (first 10 non-empty lines):");
-                    let mut shown = 0;
-                    for (idx, line) in content.lines().enumerate() {
-                        if shown >= 10 {
-                            break;
-                        }
-                        if !line.trim().is_empty() {
-                            error_msg.push_str(&format!("\n  {:3} | {}", idx + 1, line));
-                            shown += 1;
-                        }
-                    }
-
-                    // Provide helpful structure hints
-                    if content.contains("claude:") || content.contains("shell:") {
-                        error_msg.push_str("\n\n=== SUPPORTED FORMATS ===");
-                        error_msg.push_str("\nProdigy supports two workflow formats:");
-                        error_msg.push_str("\n\n1. Direct array (no wrapper):");
-                        error_msg.push_str("\n   - shell: \"command1\"");
-                        error_msg.push_str("\n   - claude: \"/command2\"");
-                        error_msg.push_str("\n\n2. Object with commands field:");
-                        error_msg.push_str("\n   commands:");
-                        error_msg.push_str("\n     - shell: \"command1\"");
-                        error_msg.push_str("\n     - claude: \"/command2\"");
-                        error_msg.push_str("\n\nThe parse error above indicates the YAML structure doesn't match either format.");
-                        error_msg.push_str("\nCheck for: indentation errors, missing fields, or invalid YAML syntax.");
-                    }
-
-                    Err(anyhow!(error_msg))
                 }
             }
         }
-    } else {
-        // Default to JSON parsing
-        match serde_json::from_str::<WorkflowConfig>(&content) {
-            Ok(config) => Ok((config, None)),
-            Err(e) => {
-                let mut error_msg = format!("Failed to parse JSON playbook: {}\n", path.display());
-
-                // JSON errors usually include line/column info
-                error_msg.push_str(&format!("Error: {e}"));
-
-                Err(anyhow!(error_msg))
+        FileFormat::Json => {
+            // Parse as JSON
+            match serde_json::from_str::<WorkflowConfig>(&content) {
+                Ok(config) => Ok((config, None)),
+                Err(e) => {
+                    let error_msg = format_json_parse_error(&e, path);
+                    Err(anyhow!(error_msg))
+                }
             }
         }
     }
@@ -833,5 +870,361 @@ reduce:
 
         // Should fail due to missing Claude API, but that's expected
         assert!(result.is_err());
+    }
+
+    // Phase 1 Tests: Core Parsing Paths
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_yaml_mapreduce() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("test-mapreduce.yml");
+
+        let workflow_content = r#"name: test-mapreduce
+mode: mapreduce
+
+map:
+  input: test.json
+  json_path: "$.items[*]"
+  agent_template:
+    - claude: "/process ${item.id}"
+  max_parallel: 5
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_ok(), "Should parse MapReduce YAML successfully");
+
+        let (workflow, mapreduce_config) = result.unwrap();
+        assert_eq!(workflow.commands.len(), 0);
+        assert!(mapreduce_config.is_some());
+        let mr_config = mapreduce_config.unwrap();
+        assert_eq!(mr_config.name, "test-mapreduce");
+        assert_eq!(mr_config.mode, "mapreduce");
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_yaml_regular() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("test-regular.yml");
+
+        let workflow_content = r#"commands:
+  - shell: "echo test"
+  - claude: "/test-command"
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_ok(), "Should parse regular YAML successfully");
+
+        let (workflow, mapreduce_config) = result.unwrap();
+        assert_eq!(workflow.commands.len(), 2);
+        assert!(mapreduce_config.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_json() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("test.json");
+
+        let workflow_content = r#"{
+  "commands": [
+    {"shell": "echo test"},
+    {"claude": "/test-command"}
+  ]
+}"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_ok(), "Should parse JSON successfully");
+
+        let (workflow, mapreduce_config) = result.unwrap();
+        assert_eq!(workflow.commands.len(), 2);
+        assert!(mapreduce_config.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_extension_detection() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Test .yml extension
+        let yml_path = temp_dir.path().join("test.yml");
+        let workflow_content = r#"commands:
+  - shell: "echo test"
+"#;
+        tokio::fs::write(&yml_path, workflow_content).await.unwrap();
+        let result = load_playbook_with_mapreduce(&yml_path).await;
+        assert!(result.is_ok(), "Should handle .yml extension");
+
+        // Test .yaml extension
+        let yaml_path = temp_dir.path().join("test.yaml");
+        tokio::fs::write(&yaml_path, workflow_content)
+            .await
+            .unwrap();
+        let result = load_playbook_with_mapreduce(&yaml_path).await;
+        assert!(result.is_ok(), "Should handle .yaml extension");
+
+        // Test .json extension
+        let json_path = temp_dir.path().join("test.json");
+        let json_content = r#"{"commands": [{"shell": "echo test"}]}"#;
+        tokio::fs::write(&json_path, json_content).await.unwrap();
+        let result = load_playbook_with_mapreduce(&json_path).await;
+        assert!(result.is_ok(), "Should handle .json extension");
+    }
+
+    // Phase 2 Tests: Error Handling Paths
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_mapreduce_parse_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("invalid-mapreduce.yml");
+
+        // Invalid MapReduce structure (missing required fields)
+        let workflow_content = r#"name: test-mapreduce
+mode: mapreduce
+# Missing map section
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(
+            result.is_err(),
+            "Should fail on invalid MapReduce structure"
+        );
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Failed to parse MapReduce workflow"),
+            "Error should mention MapReduce parsing failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_yaml_parse_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("invalid.yml");
+
+        // Invalid YAML syntax (bad indentation)
+        let workflow_content = r#"commands:
+- shell: "echo test"
+  extra_field: "bad"
+invalid_line
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_err(), "Should fail on invalid YAML");
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Failed to parse YAML playbook"),
+            "Error should mention YAML parsing failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_json_parse_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("invalid.json");
+
+        // Invalid JSON syntax
+        let workflow_content = r#"{"commands": [{"shell": "echo test"},]}"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_err(), "Should fail on invalid JSON");
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Failed to parse JSON playbook"),
+            "Error should mention JSON parsing failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_file_not_found() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("nonexistent.yml");
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        assert!(result.is_err(), "Should fail on missing file");
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(
+            err_msg.contains("Failed to read playbook file"),
+            "Error should mention file read failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_load_playbook_with_mapreduce_yaml_with_invalid_mode() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("invalid-mode.yml");
+
+        // YAML with invalid mode value (not a string)
+        let workflow_content = r#"commands:
+  - shell: "echo test"
+mode: 123
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        // This might succeed or fail depending on how the parser handles it
+        // The main goal is to ensure the function handles it gracefully
+        if result.is_err() {
+            let err = result.unwrap_err();
+            let err_msg = format!("{}", err);
+            assert!(
+                err_msg.contains("Failed to parse"),
+                "Error should mention parsing failure"
+            );
+        }
+    }
+
+    // Phase 3 Tests: Error Formatting Functions
+
+    #[test]
+    fn test_format_yaml_parse_error_basic() {
+        let content = "invalid: yaml:\n  - test";
+        let path = Path::new("test.yml");
+        let error = serde_yaml::from_str::<WorkflowConfig>(content).unwrap_err();
+
+        let error_msg = format_yaml_parse_error(&error, content, path);
+
+        assert!(error_msg.contains("Failed to parse YAML playbook"));
+        assert!(error_msg.contains("test.yml"));
+        assert!(error_msg.contains("Original error"));
+    }
+
+    #[test]
+    fn test_format_yaml_parse_error_with_location() {
+        let content = "commands:\n  - shell: test\ninvalid_line";
+        let path = Path::new("test.yml");
+        let error = serde_yaml::from_str::<WorkflowConfig>(content).unwrap_err();
+
+        let error_msg = format_yaml_parse_error(&error, content, path);
+
+        assert!(error_msg.contains("Failed to parse YAML playbook"));
+        // May contain line/column info if available
+        if error.location().is_some() {
+            assert!(error_msg.contains("Error at line"));
+        }
+    }
+
+    #[test]
+    fn test_format_yaml_parse_error_with_hints() {
+        let content = "commands:\n  - shell: echo test\n  - claude: /test";
+        let path = Path::new("test.yml");
+        // Create an error by parsing truly invalid YAML structure
+        let invalid_content = "commands:\n  - shell: test\n  bad: {missing_close";
+        let error = serde_yaml::from_str::<WorkflowConfig>(invalid_content).unwrap_err();
+
+        let error_msg = format_yaml_parse_error(&error, content, path);
+
+        assert!(error_msg.contains("=== SUPPORTED FORMATS ==="));
+        assert!(error_msg.contains("Direct array"));
+        assert!(error_msg.contains("Object with commands field"));
+    }
+
+    #[test]
+    fn test_format_mapreduce_parse_error() {
+        let path = Path::new("mapreduce.yml");
+        // Create a real MapReduce parsing error
+        let invalid_content = "name: test\nmode: mapreduce\n# missing map field";
+        let error = crate::config::parse_mapreduce_workflow(invalid_content).unwrap_err();
+
+        let error_msg = format_mapreduce_parse_error(&error, path);
+
+        assert!(error_msg.contains("Failed to parse MapReduce workflow"));
+        assert!(error_msg.contains("mapreduce.yml"));
+        assert!(error_msg.contains("Original error"));
+        assert!(error_msg.contains("name, mode, map (required)"));
+        assert!(error_msg.contains("setup, reduce (optional)"));
+    }
+
+    #[test]
+    fn test_format_json_parse_error() {
+        let path = Path::new("test.json");
+        let content = r#"{"commands": [{"shell": "test"},]}"#;
+        let error = serde_json::from_str::<WorkflowConfig>(content).unwrap_err();
+
+        let error_msg = format_json_parse_error(&error, path);
+
+        assert!(error_msg.contains("Failed to parse JSON playbook"));
+        assert!(error_msg.contains("test.json"));
+        assert!(error_msg.contains("Error:"));
+    }
+
+    // Phase 4 Tests: File Type Detection Logic
+
+    #[test]
+    fn test_detect_file_format_yml() {
+        let path = Path::new("test.yml");
+        assert_eq!(detect_file_format(path), FileFormat::Yaml);
+    }
+
+    #[test]
+    fn test_detect_file_format_yaml() {
+        let path = Path::new("test.yaml");
+        assert_eq!(detect_file_format(path), FileFormat::Yaml);
+    }
+
+    #[test]
+    fn test_detect_file_format_json() {
+        let path = Path::new("test.json");
+        assert_eq!(detect_file_format(path), FileFormat::Json);
+    }
+
+    #[test]
+    fn test_detect_file_format_unknown() {
+        let path = Path::new("test.txt");
+        assert_eq!(detect_file_format(path), FileFormat::Json); // Default to JSON
+    }
+
+    #[test]
+    fn test_detect_file_format_no_extension() {
+        let path = Path::new("test");
+        assert_eq!(detect_file_format(path), FileFormat::Json); // Default to JSON
+    }
+
+    #[test]
+    fn test_is_mapreduce_content_true_unquoted() {
+        let content = "name: test\nmode: mapreduce\nmap:\n  input: test.json";
+        assert!(is_mapreduce_content(content));
+    }
+
+    #[test]
+    fn test_is_mapreduce_content_true_quoted() {
+        let content = "name: test\nmode: \"mapreduce\"\nmap:\n  input: test.json";
+        assert!(is_mapreduce_content(content));
+    }
+
+    #[test]
+    fn test_is_mapreduce_content_false() {
+        let content = "commands:\n  - shell: echo test";
+        assert!(!is_mapreduce_content(content));
+    }
+
+    #[test]
+    fn test_is_mapreduce_content_false_different_mode() {
+        let content = "name: test\nmode: regular\nmap:\n  input: test.json";
+        assert!(!is_mapreduce_content(content));
     }
 }
