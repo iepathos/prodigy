@@ -276,14 +276,127 @@ impl ExecutionPipeline {
         Ok(())
     }
 
-    /// Resume a workflow from a previously interrupted session
-    pub async fn resume_workflow(&self, session_id: &str, mut config: CookConfig) -> Result<()> {
+    /// Validate that a session is in a resumable state
+    ///
+    /// Checks if the session status allows for resumption.
+    fn validate_session_resumable(&self, session_id: &str, state: &SessionState) -> Result<()> {
+        if !state.is_resumable() {
+            return Err(anyhow!(
+                "Session {} is not resumable (status: {:?})",
+                session_id,
+                state.status
+            ));
+        }
+        Ok(())
+    }
+
+    /// Validate that the workflow hasn't been modified since the session was interrupted
+    ///
+    /// Compares the stored workflow hash with the current workflow hash.
+    fn validate_workflow_unchanged(&self, state: &SessionState, config: &CookConfig) -> Result<()> {
+        if let Some(ref stored_hash) = state.workflow_hash {
+            let current_hash =
+                super::session_ops::SessionOperations::calculate_workflow_hash(&config.workflow);
+            if current_hash != *stored_hash {
+                return Err(anyhow!(
+                    "Workflow has been modified since interruption. \
+                     Use --force to override or start a new session."
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Restore config from saved workflow state
+    ///
+    /// Updates the config with saved arguments and map patterns from the workflow state.
+    fn restore_config_from_workflow_state(
+        &self,
+        config: &mut CookConfig,
+        workflow_state: &super::super::session::WorkflowState,
+    ) {
+        config.command.args = workflow_state.input_args.clone();
+        config.command.map = workflow_state.map_patterns.clone();
+    }
+
+    /// Display session completion summary
+    ///
+    /// Shows session statistics unless in dry-run mode.
+    fn display_session_completion(
+        &self,
+        summary: &super::super::session::SessionSummary,
+        is_dry_run: bool,
+    ) {
+        if !is_dry_run {
+            self.user_interaction.display_info(&format!(
+                "Session complete: {} iterations, {} files changed",
+                summary.iterations, summary.files_changed
+            ));
+        }
+    }
+
+    /// Handle the result of a resumed workflow execution
+    ///
+    /// Processes success, interruption, and failure cases appropriately.
+    async fn handle_resume_result(
+        &self,
+        result: Result<()>,
+        session_file: &std::path::Path,
+        session_id: &str,
+        playbook_path: &std::path::Path,
+    ) -> Result<()> {
+        match result {
+            Ok(_) => {
+                self.session_manager
+                    .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
+                    .await?;
+                self.user_interaction
+                    .display_success("Resumed session completed successfully!");
+                Ok(())
+            }
+            Err(e) => {
+                // Check if session was interrupted again
+                let current_state = self
+                    .session_manager
+                    .get_state()
+                    .context("Failed to get session state after resume error")?;
+                if current_state.status == SessionStatus::Interrupted {
+                    self.user_interaction.display_warning(&format!(
+                        "\nSession interrupted again. Resume with: prodigy run {} --resume {}",
+                        playbook_path.display(),
+                        session_id
+                    ));
+                    // Save updated checkpoint
+                    self.session_manager.save_state(session_file).await?;
+                } else {
+                    self.session_manager
+                        .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
+                        .await?;
+                    self.session_manager
+                        .update_session(SessionUpdate::AddError(e.to_string()))
+                        .await?;
+                    self.user_interaction
+                        .display_error(&format!("Resumed session failed: {e}"));
+                }
+                Err(e)
+            }
+        }
+    }
+
+    /// Load session state with fallback to worktree session file
+    ///
+    /// This function attempts to load the session state from UnifiedSessionManager first.
+    /// If not found, it falls back to loading from the worktree session file.
+    async fn load_session_with_fallback(
+        &self,
+        session_id: &str,
+        config: &CookConfig,
+    ) -> Result<SessionState> {
         // Try to load the session state from UnifiedSessionManager
-        // If it doesn't exist, we'll fall back to loading from the worktree session file
         let state_result = self.session_manager.load_session(session_id).await;
 
-        let state = match state_result {
-            Ok(s) => s,
+        match state_result {
+            Ok(s) => Ok(s),
             Err(_) => {
                 // Session not found in unified storage, try loading from worktree
                 // The config.project_path should already be the worktree path when resuming
@@ -302,30 +415,21 @@ impl ExecutionPipeline {
 
                 // Load from worktree session file
                 self.session_manager.load_state(&session_file).await?;
-                self.session_manager.get_state()?
+                self.session_manager.get_state()
             }
-        };
+        }
+    }
+
+    /// Resume a workflow from a previously interrupted session
+    pub async fn resume_workflow(&self, session_id: &str, mut config: CookConfig) -> Result<()> {
+        // Load session state with fallback to worktree
+        let state = self.load_session_with_fallback(session_id, &config).await?;
 
         // Validate the session is resumable
-        if !state.is_resumable() {
-            return Err(anyhow!(
-                "Session {} is not resumable (status: {:?})",
-                session_id,
-                state.status
-            ));
-        }
+        self.validate_session_resumable(session_id, &state)?;
 
         // Validate workflow hasn't changed
-        if let Some(ref stored_hash) = state.workflow_hash {
-            let current_hash =
-                super::session_ops::SessionOperations::calculate_workflow_hash(&config.workflow);
-            if current_hash != *stored_hash {
-                return Err(anyhow!(
-                    "Workflow has been modified since interruption. \
-                     Use --force to override or start a new session."
-                ));
-            }
-        }
+        self.validate_workflow_unchanged(&state, &config)?;
 
         // Display resume information
         self.user_interaction.display_info(&format!(
@@ -346,9 +450,8 @@ impl ExecutionPipeline {
 
         // Resume the workflow execution from the saved state
         if let Some(ref workflow_state) = state.workflow_state {
-            // Update config with saved arguments
-            config.command.args = workflow_state.input_args.clone();
-            config.command.map = workflow_state.map_patterns.clone();
+            // Restore config from saved workflow state
+            self.restore_config_from_workflow_state(&mut config, workflow_state);
 
             // Restore execution context if available
             if let Some(ref exec_context) = state.execution_context {
@@ -371,57 +474,17 @@ impl ExecutionPipeline {
                 )
                 .await;
 
-            // Handle result
-            match result {
-                Ok(_) => {
-                    self.session_manager
-                        .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
-                        .await?;
-                    self.user_interaction
-                        .display_success("Resumed session completed successfully!");
-                }
-                Err(e) => {
-                    // Check if session was interrupted again
-                    let current_state = self
-                        .session_manager
-                        .get_state()
-                        .context("Failed to get session state after resume error")?;
-                    if current_state.status == SessionStatus::Interrupted {
-                        self.user_interaction.display_warning(&format!(
-                            "\nSession interrupted again. Resume with: prodigy run {} --resume {}",
-                            config.command.playbook.display(),
-                            session_id
-                        ));
-                        // Save updated checkpoint
-                        self.session_manager.save_state(&session_file).await?;
-                    } else {
-                        self.session_manager
-                            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
-                            .await?;
-                        self.session_manager
-                            .update_session(SessionUpdate::AddError(e.to_string()))
-                            .await?;
-                        self.user_interaction
-                            .display_error(&format!("Resumed session failed: {e}"));
-                    }
-                    return Err(e);
-                }
-            }
+            // Handle the result (success, interruption, or failure)
+            self.handle_resume_result(result, &session_file, session_id, &config.command.playbook)
+                .await?;
 
             // Cleanup - need to call the cleanup function from the orchestrator
             // For now, we'll just complete the session without cleanup
             // TODO: Pass cleanup function as a parameter or make it available
 
-            // Complete session
+            // Complete session and display summary
             let summary = self.session_manager.complete_session().await?;
-
-            // Don't display misleading session stats in dry-run mode
-            if !config.command.dry_run {
-                self.user_interaction.display_info(&format!(
-                    "Session complete: {} iterations, {} files changed",
-                    summary.iterations, summary.files_changed
-                ));
-            }
+            self.display_session_completion(&summary, config.command.dry_run);
         } else {
             return Err(anyhow!(
                 "Session {} has no workflow state to resume",
