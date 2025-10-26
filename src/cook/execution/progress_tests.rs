@@ -626,7 +626,9 @@ mod cli_progress_viewer_tests {
         let sampler_with_data = ProgressSampler::new(Duration::from_secs(10));
         let snapshot = tracker.create_snapshot().await;
         let metrics = tracker.metrics.read().await;
-        sampler_with_data.update_cache(snapshot, metrics.clone()).await;
+        sampler_with_data
+            .update_cache(snapshot, metrics.clone())
+            .await;
 
         let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler_with_data)).await;
         assert!(matches!(strategy, RenderStrategy::Cached(_)));
