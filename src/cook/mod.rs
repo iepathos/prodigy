@@ -367,8 +367,11 @@ fn format_yaml_parse_error(e: &serde_yaml::Error, content: &str, path: &Path) ->
         error_msg.push_str("\n   commands:");
         error_msg.push_str("\n     - shell: \"command1\"");
         error_msg.push_str("\n     - claude: \"/command2\"");
-        error_msg.push_str("\n\nThe parse error above indicates the YAML structure doesn't match either format.");
-        error_msg.push_str("\nCheck for: indentation errors, missing fields, or invalid YAML syntax.");
+        error_msg.push_str(
+            "\n\nThe parse error above indicates the YAML structure doesn't match either format.",
+        );
+        error_msg
+            .push_str("\nCheck for: indentation errors, missing fields, or invalid YAML syntax.");
     }
 
     error_msg
@@ -378,7 +381,8 @@ fn format_yaml_parse_error(e: &serde_yaml::Error, content: &str, path: &Path) ->
 fn format_mapreduce_parse_error(e: &serde_yaml::Error, path: &Path) -> String {
     let mut error_msg = format!("Failed to parse MapReduce workflow: {}\n", path.display());
     error_msg.push_str(&format!("\nOriginal error: {e}"));
-    error_msg.push_str("\n\nHint: Check that your MapReduce workflow follows the correct structure:");
+    error_msg
+        .push_str("\n\nHint: Check that your MapReduce workflow follows the correct structure:");
     error_msg.push_str("\n  - name, mode, map (required)");
     error_msg.push_str("\n  - setup, reduce (optional)");
     error_msg.push_str("\n  - map.agent_template.commands should be a list of WorkflowSteps");
@@ -953,9 +957,7 @@ map:
         let workflow_content = r#"commands:
   - shell: "echo test"
 "#;
-        tokio::fs::write(&yml_path, workflow_content)
-            .await
-            .unwrap();
+        tokio::fs::write(&yml_path, workflow_content).await.unwrap();
         let result = load_playbook_with_mapreduce(&yml_path).await;
         assert!(result.is_ok(), "Should handle .yml extension");
 
@@ -992,7 +994,10 @@ mode: mapreduce
             .unwrap();
 
         let result = load_playbook_with_mapreduce(&playbook_path).await;
-        assert!(result.is_err(), "Should fail on invalid MapReduce structure");
+        assert!(
+            result.is_err(),
+            "Should fail on invalid MapReduce structure"
+        );
 
         let err = result.unwrap_err();
         let err_msg = format!("{}", err);
