@@ -1417,4 +1417,224 @@ mod tests {
             _ => panic!("Expected ArrayWildcard expression"),
         }
     }
+
+    // Phase 4: Tests for aggregate functions and type check functions (lines 395-422)
+
+    #[test]
+    fn test_constant_folding_length_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Length with nested constant folding
+        let expr = Expression::Length(Box::new(Expression::And(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Field(vec!["items".to_string()])),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The And should fold to just the Field
+        match result {
+            Expression::Length(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected Length expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_sum_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Sum with nested folding
+        let expr = Expression::Sum(Box::new(Expression::Or(
+            Box::new(Expression::Boolean(false)),
+            Box::new(Expression::Field(vec!["values".to_string()])),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Or should fold to just the Field
+        match result {
+            Expression::Sum(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected Sum expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_count_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Count with nested folding
+        let expr = Expression::Count(Box::new(Expression::Not(Box::new(Expression::Not(
+            Box::new(Expression::Field(vec!["items".to_string()])),
+        )))));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The double negation should be eliminated
+        match result {
+            Expression::Count(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected Count expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_min_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Min with nested folding
+        let expr = Expression::Min(Box::new(Expression::Equal(
+            Box::new(Expression::Number(5.0)),
+            Box::new(Expression::Number(5.0)),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Equal should fold to Boolean(true)
+        match result {
+            Expression::Min(inner) => {
+                assert!(matches!(*inner, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected Min expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_max_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Max with nested folding
+        let expr = Expression::Max(Box::new(Expression::LessThan(
+            Box::new(Expression::Number(3.0)),
+            Box::new(Expression::Number(5.0)),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The LessThan should fold to Boolean(true)
+        match result {
+            Expression::Max(inner) => {
+                assert!(matches!(*inner, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected Max expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_avg_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Avg with nested folding
+        let expr = Expression::Avg(Box::new(Expression::And(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Field(vec!["scores".to_string()])),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The And should fold to just the Field
+        match result {
+            Expression::Avg(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected Avg expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_is_number_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsNumber with nested folding
+        let expr = Expression::IsNumber(Box::new(Expression::Or(
+            Box::new(Expression::Boolean(false)),
+            Box::new(Expression::Field(vec!["value".to_string()])),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Or should fold to just the Field
+        match result {
+            Expression::IsNumber(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected IsNumber expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_is_string_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsString with nested folding
+        let expr = Expression::IsString(Box::new(Expression::Not(Box::new(
+            Expression::Boolean(false),
+        ))));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Not(false) should fold to Boolean(true)
+        match result {
+            Expression::IsString(inner) => {
+                assert!(matches!(*inner, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected IsString expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_is_bool_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsBool with nested folding
+        let expr = Expression::IsBool(Box::new(Expression::And(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Field(vec!["flag".to_string()])),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The And should fold to just the Field
+        match result {
+            Expression::IsBool(inner) => {
+                assert!(matches!(*inner, Expression::Field(_)));
+            }
+            _ => panic!("Expected IsBool expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_is_array_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsArray with nested folding
+        let expr = Expression::IsArray(Box::new(Expression::GreaterThan(
+            Box::new(Expression::Number(10.0)),
+            Box::new(Expression::Number(5.0)),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The GreaterThan should fold to Boolean(true)
+        match result {
+            Expression::IsArray(inner) => {
+                assert!(matches!(*inner, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected IsArray expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_is_object_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // IsObject with nested folding
+        let expr = Expression::IsObject(Box::new(Expression::Equal(
+            Box::new(Expression::String("a".to_string())),
+            Box::new(Expression::String("a".to_string())),
+        )));
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Equal should fold to Boolean(true)
+        match result {
+            Expression::IsObject(inner) => {
+                assert!(matches!(*inner, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected IsObject expression"),
+        }
+    }
 }
