@@ -1281,4 +1281,140 @@ mod tests {
         let result = optimizer.constant_folding(expr).unwrap();
         assert_eq!(result, Expression::Boolean(true));
     }
+
+    // Phase 3: Tests for string and pattern operators (lines 369-393)
+
+    #[test]
+    fn test_constant_folding_contains_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Contains with nested constant folding (And expression that folds to Boolean)
+        let expr = Expression::Contains(
+            Box::new(Expression::Field(vec!["text".to_string()])),
+            Box::new(Expression::And(
+                Box::new(Expression::Boolean(true)),
+                Box::new(Expression::String("search".to_string())),
+            )),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The And should fold to just the String
+        match result {
+            Expression::Contains(_, right) => {
+                assert!(matches!(*right, Expression::String(_)));
+            }
+            _ => panic!("Expected Contains expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_starts_with_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // StartsWith with nested Not(Not(x)) that simplifies
+        let expr = Expression::StartsWith(
+            Box::new(Expression::Field(vec!["name".to_string()])),
+            Box::new(Expression::Not(Box::new(Expression::Not(Box::new(
+                Expression::String("prefix".to_string()),
+            ))))),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The double negation should be eliminated
+        match result {
+            Expression::StartsWith(_, right) => {
+                assert!(matches!(*right, Expression::String(_)));
+            }
+            _ => panic!("Expected StartsWith expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_ends_with_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // EndsWith with nested comparison that folds
+        let expr = Expression::EndsWith(
+            Box::new(Expression::Equal(
+                Box::new(Expression::Number(1.0)),
+                Box::new(Expression::Number(1.0)),
+            )),
+            Box::new(Expression::Field(vec!["suffix".to_string()])),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Equal should fold to Boolean(true)
+        match result {
+            Expression::EndsWith(left, _) => {
+                assert!(matches!(*left, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected EndsWith expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_matches_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Matches with nested Or expression
+        let expr = Expression::Matches(
+            Box::new(Expression::Or(
+                Box::new(Expression::Boolean(false)),
+                Box::new(Expression::Field(vec!["text".to_string()])),
+            )),
+            Box::new(Expression::String("pattern.*".to_string())),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Or should fold to just the Field
+        match result {
+            Expression::Matches(left, _) => {
+                assert!(matches!(*left, Expression::Field(_)));
+            }
+            _ => panic!("Expected Matches expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_index_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Index with constant expressions that fold
+        let expr = Expression::Index(
+            Box::new(Expression::Field(vec!["array".to_string()])),
+            Box::new(Expression::Not(Box::new(Expression::Boolean(false)))),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Not(false) should fold to Boolean(true)
+        match result {
+            Expression::Index(_, idx) => {
+                assert!(matches!(*idx, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected Index expression"),
+        }
+    }
+
+    #[test]
+    fn test_constant_folding_array_wildcard_recursive() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // ArrayWildcard with nested folding
+        let expr = Expression::ArrayWildcard(
+            Box::new(Expression::Or(
+                Box::new(Expression::Boolean(true)),
+                Box::new(Expression::Field(vec!["items".to_string()])),
+            )),
+            vec!["name".to_string()],
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+
+        // The Or should fold to Boolean(true)
+        match result {
+            Expression::ArrayWildcard(base, _) => {
+                assert!(matches!(*base, Expression::Boolean(true)));
+            }
+            _ => panic!("Expected ArrayWildcard expression"),
+        }
+    }
 }
