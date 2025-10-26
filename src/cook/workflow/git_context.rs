@@ -10,6 +10,43 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
+/// Type of file change detected
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FileChangeType {
+    Added,
+    Modified,
+    Deleted,
+    Unknown,
+}
+
+/// Classify a git status into a file change type
+fn classify_file_status(status: Status) -> FileChangeType {
+    if should_track_as_added(status) {
+        FileChangeType::Added
+    } else if should_track_as_modified(status) {
+        FileChangeType::Modified
+    } else if should_track_as_deleted(status) {
+        FileChangeType::Deleted
+    } else {
+        FileChangeType::Unknown
+    }
+}
+
+/// Check if a status should be tracked as an addition
+fn should_track_as_added(status: Status) -> bool {
+    status.contains(Status::WT_NEW) || status.contains(Status::INDEX_NEW)
+}
+
+/// Check if a status should be tracked as a modification
+fn should_track_as_modified(status: Status) -> bool {
+    status.contains(Status::WT_MODIFIED) || status.contains(Status::INDEX_MODIFIED)
+}
+
+/// Check if a status should be tracked as a deletion
+fn should_track_as_deleted(status: Status) -> bool {
+    status.contains(Status::WT_DELETED) || status.contains(Status::INDEX_DELETED)
+}
+
 /// Git change tracker for workflow execution
 #[derive(Debug, Clone)]
 pub struct GitChangeTracker {
@@ -222,15 +259,11 @@ impl GitChangeTracker {
             };
             let status = entry.status();
 
-            if status.contains(Status::WT_NEW) || status.contains(Status::INDEX_NEW) {
-                changes.files_added.push(path.to_string());
-            } else if status.contains(Status::WT_MODIFIED)
-                || status.contains(Status::INDEX_MODIFIED)
-            {
-                changes.files_modified.push(path.to_string());
-            } else if status.contains(Status::WT_DELETED) || status.contains(Status::INDEX_DELETED)
-            {
-                changes.files_deleted.push(path.to_string());
+            match classify_file_status(status) {
+                FileChangeType::Added => changes.files_added.push(path.to_string()),
+                FileChangeType::Modified => changes.files_modified.push(path.to_string()),
+                FileChangeType::Deleted => changes.files_deleted.push(path.to_string()),
+                FileChangeType::Unknown => {}
             }
         }
 
@@ -1355,5 +1388,88 @@ mod tests {
         assert_eq!(changes.commits.len(), 1);
 
         Ok(())
+    }
+
+    // Phase 4 Tests: Pure Function Tests for Status Detection
+
+    #[test]
+    fn test_should_track_as_added_with_wt_new() {
+        assert!(should_track_as_added(Status::WT_NEW));
+    }
+
+    #[test]
+    fn test_should_track_as_added_with_index_new() {
+        assert!(should_track_as_added(Status::INDEX_NEW));
+    }
+
+    #[test]
+    fn test_should_track_as_added_with_combined_new() {
+        let status = Status::WT_NEW | Status::INDEX_NEW;
+        assert!(should_track_as_added(status));
+    }
+
+    #[test]
+    fn test_should_track_as_modified_with_wt_modified() {
+        assert!(should_track_as_modified(Status::WT_MODIFIED));
+    }
+
+    #[test]
+    fn test_should_track_as_modified_with_index_modified() {
+        assert!(should_track_as_modified(Status::INDEX_MODIFIED));
+    }
+
+    #[test]
+    fn test_should_track_as_modified_with_combined_modified() {
+        let status = Status::WT_MODIFIED | Status::INDEX_MODIFIED;
+        assert!(should_track_as_modified(status));
+    }
+
+    #[test]
+    fn test_should_track_as_deleted_with_wt_deleted() {
+        assert!(should_track_as_deleted(Status::WT_DELETED));
+    }
+
+    #[test]
+    fn test_should_track_as_deleted_with_index_deleted() {
+        assert!(should_track_as_deleted(Status::INDEX_DELETED));
+    }
+
+    #[test]
+    fn test_should_track_as_deleted_with_combined_deleted() {
+        let status = Status::WT_DELETED | Status::INDEX_DELETED;
+        assert!(should_track_as_deleted(status));
+    }
+
+    #[test]
+    fn test_classify_file_status_added() {
+        assert_eq!(classify_file_status(Status::WT_NEW), FileChangeType::Added);
+        assert_eq!(
+            classify_file_status(Status::INDEX_NEW),
+            FileChangeType::Added
+        );
+    }
+
+    #[test]
+    fn test_classify_file_status_modified() {
+        assert_eq!(
+            classify_file_status(Status::WT_MODIFIED),
+            FileChangeType::Modified
+        );
+        assert_eq!(
+            classify_file_status(Status::INDEX_MODIFIED),
+            FileChangeType::Modified
+        );
+    }
+
+    #[test]
+    fn test_classify_file_status_deleted() {
+        assert_eq!(
+            classify_file_status(Status::WT_DELETED),
+            FileChangeType::Deleted
+        );
+        assert_eq!(
+            classify_file_status(Status::INDEX_DELETED),
+            FileChangeType::Deleted
+        );
     }
 }
