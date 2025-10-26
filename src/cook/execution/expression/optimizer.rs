@@ -907,4 +907,288 @@ mod tests {
         assert!(optimizer.stats.constants_folded > 0);
         assert!(optimizer.stats.expressions_optimized > 0);
     }
+
+    // Phase 1: Tests for comparison operators (lines 228-337)
+
+    #[test]
+    fn test_constant_folding_equal_numbers() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Equal numbers
+        let expr = Expression::Equal(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Unequal numbers
+        let expr = Expression::Equal(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(43.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_equal_strings() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Equal strings
+        let expr = Expression::Equal(
+            Box::new(Expression::String("hello".to_string())),
+            Box::new(Expression::String("hello".to_string())),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Unequal strings
+        let expr = Expression::Equal(
+            Box::new(Expression::String("hello".to_string())),
+            Box::new(Expression::String("world".to_string())),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_equal_booleans() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Equal booleans (true)
+        let expr = Expression::Equal(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Boolean(true)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Equal booleans (false)
+        let expr = Expression::Equal(
+            Box::new(Expression::Boolean(false)),
+            Box::new(Expression::Boolean(false)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Unequal booleans
+        let expr = Expression::Equal(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Boolean(false)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_equal_null() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Both null
+        let expr = Expression::Equal(Box::new(Expression::Null), Box::new(Expression::Null));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    #[test]
+    fn test_constant_folding_equal_same_expression() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Same field expression
+        let field = Expression::Field(vec!["status".to_string()]);
+        let expr = Expression::Equal(Box::new(field.clone()), Box::new(field.clone()));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+    }
+
+    #[test]
+    fn test_constant_folding_not_equal_numbers() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Unequal numbers
+        let expr = Expression::NotEqual(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(43.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Equal numbers
+        let expr = Expression::NotEqual(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_not_equal_strings() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Unequal strings
+        let expr = Expression::NotEqual(
+            Box::new(Expression::String("hello".to_string())),
+            Box::new(Expression::String("world".to_string())),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Equal strings
+        let expr = Expression::NotEqual(
+            Box::new(Expression::String("hello".to_string())),
+            Box::new(Expression::String("hello".to_string())),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_not_equal_booleans() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Unequal booleans
+        let expr = Expression::NotEqual(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Boolean(false)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Equal booleans
+        let expr = Expression::NotEqual(
+            Box::new(Expression::Boolean(true)),
+            Box::new(Expression::Boolean(true)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_not_equal_same_expression() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Same field expression
+        let field = Expression::Field(vec!["status".to_string()]);
+        let expr = Expression::NotEqual(Box::new(field.clone()), Box::new(field.clone()));
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_greater_than() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Greater than (true)
+        let expr = Expression::GreaterThan(
+            Box::new(Expression::Number(43.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Greater than (false - equal)
+        let expr = Expression::GreaterThan(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+
+        // Greater than (false - less)
+        let expr = Expression::GreaterThan(
+            Box::new(Expression::Number(41.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_less_than() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Less than (true)
+        let expr = Expression::LessThan(
+            Box::new(Expression::Number(41.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Less than (false - equal)
+        let expr = Expression::LessThan(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+
+        // Less than (false - greater)
+        let expr = Expression::LessThan(
+            Box::new(Expression::Number(43.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_greater_equal() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Greater or equal (true - greater)
+        let expr = Expression::GreaterEqual(
+            Box::new(Expression::Number(43.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Greater or equal (true - equal)
+        let expr = Expression::GreaterEqual(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Greater or equal (false)
+        let expr = Expression::GreaterEqual(
+            Box::new(Expression::Number(41.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
+
+    #[test]
+    fn test_constant_folding_less_equal() {
+        let mut optimizer = ExpressionOptimizer::new();
+
+        // Less or equal (true - less)
+        let expr = Expression::LessEqual(
+            Box::new(Expression::Number(41.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Less or equal (true - equal)
+        let expr = Expression::LessEqual(
+            Box::new(Expression::Number(42.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(true));
+
+        // Less or equal (false)
+        let expr = Expression::LessEqual(
+            Box::new(Expression::Number(43.0)),
+            Box::new(Expression::Number(42.0)),
+        );
+        let result = optimizer.constant_folding(expr).unwrap();
+        assert_eq!(result, Expression::Boolean(false));
+    }
 }
