@@ -294,6 +294,28 @@ async fn load_workflow(
     load_playbook(&cmd.playbook).await
 }
 
+/// File format types supported by the playbook loader
+#[derive(Debug, PartialEq)]
+enum FileFormat {
+    Yaml,
+    Json,
+}
+
+/// Detect file format based on file extension
+fn detect_file_format(path: &Path) -> FileFormat {
+    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+        if ext == "yml" || ext == "yaml" {
+            return FileFormat::Yaml;
+        }
+    }
+    FileFormat::Json
+}
+
+/// Check if content contains MapReduce workflow indicators
+fn is_mapreduce_content(content: &str) -> bool {
+    content.contains("mode: mapreduce") || content.contains("mode: \"mapreduce\"")
+}
+
 /// Format a detailed error message for YAML parsing failures
 fn format_yaml_parse_error(e: &serde_yaml::Error, content: &str, path: &Path) -> String {
     let mut error_msg = format!("Failed to parse YAML playbook: {}\n", path.display());
@@ -381,50 +403,51 @@ async fn load_playbook_with_mapreduce(
         .await
         .context(format!("Failed to read playbook file: {}", path.display()))?;
 
-    // Try to parse as YAML first, then fall back to JSON
-    if path.extension().and_then(|s| s.to_str()) == Some("yml")
-        || path.extension().and_then(|s| s.to_str()) == Some("yaml")
-    {
-        // First check if it's a MapReduce workflow by looking for mode: mapreduce
-        if content.contains("mode: mapreduce") || content.contains("mode: \"mapreduce\"") {
-            // Try to parse as MapReduce workflow
-            match crate::config::parse_mapreduce_workflow(&content) {
-                Ok(mapreduce_config) => {
-                    // Return workflow config with environment variables and merge workflow from MapReduce config
-                    Ok((
-                        WorkflowConfig {
-                            commands: vec![],
-                            env: mapreduce_config.env.clone(),
-                            secrets: mapreduce_config.secrets.clone(),
-                            env_files: mapreduce_config.env_files.clone(),
-                            profiles: mapreduce_config.profiles.clone(),
-                            merge: mapreduce_config.merge.clone(),
-                        },
-                        Some(mapreduce_config),
-                    ))
+    let file_format = detect_file_format(path);
+
+    match file_format {
+        FileFormat::Yaml => {
+            if is_mapreduce_content(&content) {
+                // Try to parse as MapReduce workflow
+                match crate::config::parse_mapreduce_workflow(&content) {
+                    Ok(mapreduce_config) => {
+                        // Return workflow config with environment variables and merge workflow from MapReduce config
+                        Ok((
+                            WorkflowConfig {
+                                commands: vec![],
+                                env: mapreduce_config.env.clone(),
+                                secrets: mapreduce_config.secrets.clone(),
+                                env_files: mapreduce_config.env_files.clone(),
+                                profiles: mapreduce_config.profiles.clone(),
+                                merge: mapreduce_config.merge.clone(),
+                            },
+                            Some(mapreduce_config),
+                        ))
+                    }
+                    Err(e) => {
+                        let error_msg = format_mapreduce_parse_error(&e, path);
+                        Err(anyhow!(error_msg))
+                    }
                 }
-                Err(e) => {
-                    let error_msg = format_mapreduce_parse_error(&e, path);
-                    Err(anyhow!(error_msg))
-                }
-            }
-        } else {
-            // Try to parse as regular workflow
-            match serde_yaml::from_str::<WorkflowConfig>(&content) {
-                Ok(config) => Ok((config, None)),
-                Err(e) => {
-                    let error_msg = format_yaml_parse_error(&e, &content, path);
-                    Err(anyhow!(error_msg))
+            } else {
+                // Try to parse as regular workflow
+                match serde_yaml::from_str::<WorkflowConfig>(&content) {
+                    Ok(config) => Ok((config, None)),
+                    Err(e) => {
+                        let error_msg = format_yaml_parse_error(&e, &content, path);
+                        Err(anyhow!(error_msg))
+                    }
                 }
             }
         }
-    } else {
-        // Default to JSON parsing
-        match serde_json::from_str::<WorkflowConfig>(&content) {
-            Ok(config) => Ok((config, None)),
-            Err(e) => {
-                let error_msg = format_json_parse_error(&e, path);
-                Err(anyhow!(error_msg))
+        FileFormat::Json => {
+            // Parse as JSON
+            match serde_json::from_str::<WorkflowConfig>(&content) {
+                Ok(config) => Ok((config, None)),
+                Err(e) => {
+                    let error_msg = format_json_parse_error(&e, path);
+                    Err(anyhow!(error_msg))
+                }
             }
         }
     }
@@ -1142,5 +1165,61 @@ mode: 123
         assert!(error_msg.contains("Failed to parse JSON playbook"));
         assert!(error_msg.contains("test.json"));
         assert!(error_msg.contains("Error:"));
+    }
+
+    // Phase 4 Tests: File Type Detection Logic
+
+    #[test]
+    fn test_detect_file_format_yml() {
+        let path = Path::new("test.yml");
+        assert_eq!(detect_file_format(path), FileFormat::Yaml);
+    }
+
+    #[test]
+    fn test_detect_file_format_yaml() {
+        let path = Path::new("test.yaml");
+        assert_eq!(detect_file_format(path), FileFormat::Yaml);
+    }
+
+    #[test]
+    fn test_detect_file_format_json() {
+        let path = Path::new("test.json");
+        assert_eq!(detect_file_format(path), FileFormat::Json);
+    }
+
+    #[test]
+    fn test_detect_file_format_unknown() {
+        let path = Path::new("test.txt");
+        assert_eq!(detect_file_format(path), FileFormat::Json); // Default to JSON
+    }
+
+    #[test]
+    fn test_detect_file_format_no_extension() {
+        let path = Path::new("test");
+        assert_eq!(detect_file_format(path), FileFormat::Json); // Default to JSON
+    }
+
+    #[test]
+    fn test_is_mapreduce_content_true_unquoted() {
+        let content = "name: test\nmode: mapreduce\nmap:\n  input: test.json";
+        assert!(is_mapreduce_content(content));
+    }
+
+    #[test]
+    fn test_is_mapreduce_content_true_quoted() {
+        let content = "name: test\nmode: \"mapreduce\"\nmap:\n  input: test.json";
+        assert!(is_mapreduce_content(content));
+    }
+
+    #[test]
+    fn test_is_mapreduce_content_false() {
+        let content = "commands:\n  - shell: echo test";
+        assert!(!is_mapreduce_content(content));
+    }
+
+    #[test]
+    fn test_is_mapreduce_content_false_different_mode() {
+        let content = "name: test\nmode: regular\nmap:\n  input: test.json";
+        assert!(!is_mapreduce_content(content));
     }
 }
