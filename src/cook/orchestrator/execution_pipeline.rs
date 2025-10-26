@@ -307,6 +307,34 @@ impl ExecutionPipeline {
         Ok(())
     }
 
+    /// Restore config from saved workflow state
+    ///
+    /// Updates the config with saved arguments and map patterns from the workflow state.
+    fn restore_config_from_workflow_state(
+        &self,
+        config: &mut CookConfig,
+        workflow_state: &super::super::session::WorkflowState,
+    ) {
+        config.command.args = workflow_state.input_args.clone();
+        config.command.map = workflow_state.map_patterns.clone();
+    }
+
+    /// Display session completion summary
+    ///
+    /// Shows session statistics unless in dry-run mode.
+    fn display_session_completion(
+        &self,
+        summary: &super::super::session::SessionSummary,
+        is_dry_run: bool,
+    ) {
+        if !is_dry_run {
+            self.user_interaction.display_info(&format!(
+                "Session complete: {} iterations, {} files changed",
+                summary.iterations, summary.files_changed
+            ));
+        }
+    }
+
     /// Handle the result of a resumed workflow execution
     ///
     /// Processes success, interruption, and failure cases appropriately.
@@ -422,9 +450,8 @@ impl ExecutionPipeline {
 
         // Resume the workflow execution from the saved state
         if let Some(ref workflow_state) = state.workflow_state {
-            // Update config with saved arguments
-            config.command.args = workflow_state.input_args.clone();
-            config.command.map = workflow_state.map_patterns.clone();
+            // Restore config from saved workflow state
+            self.restore_config_from_workflow_state(&mut config, workflow_state);
 
             // Restore execution context if available
             if let Some(ref exec_context) = state.execution_context {
@@ -455,16 +482,9 @@ impl ExecutionPipeline {
             // For now, we'll just complete the session without cleanup
             // TODO: Pass cleanup function as a parameter or make it available
 
-            // Complete session
+            // Complete session and display summary
             let summary = self.session_manager.complete_session().await?;
-
-            // Don't display misleading session stats in dry-run mode
-            if !config.command.dry_run {
-                self.user_interaction.display_info(&format!(
-                    "Session complete: {} iterations, {} files changed",
-                    summary.iterations, summary.files_changed
-                ));
-            }
+            self.display_session_completion(&summary, config.command.dry_run);
         } else {
             return Err(anyhow!(
                 "Session {} has no workflow state to resume",
