@@ -8,6 +8,45 @@ use crate::storage::{extract_repo_name, GlobalStorage};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
+// ============================================================================
+// Pure Functions: Working Directory Resolution
+// ============================================================================
+
+/// Pure function: Resolve working directory from optional path
+///
+/// If a path is provided, returns it. Otherwise, returns the current working directory.
+/// This is a pure function that encapsulates the common pattern throughout the command handlers.
+///
+/// # Arguments
+/// * `path` - Optional path to use as working directory
+///
+/// # Returns
+/// * `Ok(PathBuf)` - The resolved working directory
+/// * `Err` - If current directory cannot be determined when path is None
+///
+/// # Examples
+/// ```
+/// # use std::path::PathBuf;
+/// # use anyhow::Result;
+/// # fn resolve_working_directory(path: Option<PathBuf>) -> Result<PathBuf> {
+/// #     match path {
+/// #         Some(p) => Ok(p),
+/// #         None => std::env::current_dir().map_err(|e| anyhow::anyhow!(e)),
+/// #     }
+/// # }
+/// let explicit = resolve_working_directory(Some(PathBuf::from("/tmp")));
+/// assert_eq!(explicit.unwrap(), PathBuf::from("/tmp"));
+///
+/// let current = resolve_working_directory(None);
+/// assert!(current.is_ok());
+/// ```
+fn resolve_working_directory(path: Option<PathBuf>) -> Result<PathBuf> {
+    match path {
+        Some(p) => Ok(p),
+        None => std::env::current_dir().context("Failed to get current directory"),
+    }
+}
+
 /// Find the most recent checkpoint in the checkpoint directory
 pub async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> {
     use tokio::fs;
@@ -49,10 +88,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
 
     match command {
         CheckpointCommands::List { workflow_id, path } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
+            let working_dir = resolve_working_directory(path)?;
 
             // Use global storage for checkpoints
             let storage = GlobalStorage::new().context("Failed to create global storage")?;
@@ -86,10 +122,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             force,
             path,
         } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
+            let working_dir = resolve_working_directory(path)?;
 
             // Use global storage for checkpoints
             let storage = GlobalStorage::new().context("Failed to create global storage")?;
@@ -119,10 +152,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             version: _,
             path,
         } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
+            let working_dir = resolve_working_directory(path)?;
 
             // Use global storage for checkpoints
             let storage = GlobalStorage::new().context("Failed to create global storage")?;
@@ -146,10 +176,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             repair,
             path,
         } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
+            let working_dir = resolve_working_directory(path)?;
 
             validate_checkpoint(&working_dir, &checkpoint_id, repair).await
         }
@@ -158,10 +185,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             detailed,
             path,
         } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
+            let working_dir = resolve_working_directory(path)?;
 
             list_mapreduce_checkpoints(&working_dir, &job_id, detailed).await
         }
@@ -170,10 +194,7 @@ pub async fn run_checkpoints_command(command: CheckpointCommands, verbose: u8) -
             force,
             path,
         } => {
-            let working_dir = match path {
-                Some(p) => p,
-                None => std::env::current_dir().context("Failed to get current directory")?,
-            };
+            let working_dir = resolve_working_directory(path)?;
 
             delete_checkpoint(&working_dir, &checkpoint_id, force).await
         }
@@ -732,6 +753,42 @@ mod tests {
     // ========================================================================
     // Unit Tests for Pure Functions
     // ========================================================================
+
+    // Tests for resolve_working_directory
+
+    #[test]
+    fn test_resolve_working_directory_with_some_path() {
+        let test_path = PathBuf::from("/tmp/test");
+        let result = super::resolve_working_directory(Some(test_path.clone()));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), test_path);
+    }
+
+    #[test]
+    fn test_resolve_working_directory_with_none() {
+        let result = super::resolve_working_directory(None);
+        assert!(result.is_ok());
+        // Should return the current directory, which should be valid
+        assert!(result.unwrap().exists());
+    }
+
+    #[test]
+    fn test_resolve_working_directory_preserves_relative_path() {
+        let relative_path = PathBuf::from("./some/relative/path");
+        let result = super::resolve_working_directory(Some(relative_path.clone()));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), relative_path);
+    }
+
+    #[test]
+    fn test_resolve_working_directory_preserves_absolute_path() {
+        let absolute_path = PathBuf::from("/absolute/path/to/dir");
+        let result = super::resolve_working_directory(Some(absolute_path.clone()));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), absolute_path);
+    }
+
+    // Tests for checkpoint filtering
 
     #[test]
     fn test_is_checkpoint_json_file_valid() {
