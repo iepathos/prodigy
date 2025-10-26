@@ -952,6 +952,28 @@ impl ProgressWebServer {
     }
 }
 
+/// Render strategy for progress display
+#[derive(Debug, Clone)]
+pub(crate) enum RenderStrategy {
+    /// Render full progress with fresh data
+    Full,
+    /// Render with cached data from sampler
+    Cached(ProgressMetrics),
+    /// Skip rendering this cycle
+    Skip,
+}
+
+impl PartialEq for RenderStrategy {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (RenderStrategy::Full, RenderStrategy::Full)
+                | (RenderStrategy::Skip, RenderStrategy::Skip)
+                | (RenderStrategy::Cached(_), RenderStrategy::Cached(_))
+        )
+    }
+}
+
 /// CLI progress viewer
 pub struct CLIProgressViewer {
     tracker: Arc<EnhancedProgressTracker>,
@@ -978,6 +1000,36 @@ impl CLIProgressViewer {
         }
     }
 
+    /// Check if job is complete based on metrics
+    pub(crate) fn is_job_complete(metrics: &ProgressMetrics) -> bool {
+        metrics.pending_items == 0 && metrics.active_agents == 0
+    }
+
+    /// Determine if cached render should be used
+    pub(crate) async fn should_use_cached_render(sampler: &ProgressSampler) -> bool {
+        !sampler.should_sample().await
+    }
+
+    /// Determine the render strategy based on sampler state
+    pub(crate) async fn determine_render_strategy(
+        sampler: Option<&ProgressSampler>,
+    ) -> RenderStrategy {
+        if let Some(sampler) = sampler {
+            if Self::should_use_cached_render(sampler).await {
+                // Try to use cached data
+                if let Some((_, metrics)) = sampler.get_cached().await {
+                    RenderStrategy::Cached(metrics)
+                } else {
+                    RenderStrategy::Skip
+                }
+            } else {
+                RenderStrategy::Full
+            }
+        } else {
+            RenderStrategy::Full
+        }
+    }
+
     /// Display progress in the terminal
     pub async fn display(&self) -> MapReduceResult<()> {
         let mut interval = interval(self.update_interval);
@@ -985,36 +1037,37 @@ impl CLIProgressViewer {
         loop {
             interval.tick().await;
 
-            // Use sampler if available for performance
-            let should_render = if let Some(ref sampler) = self.sampler {
-                if sampler.should_sample().await {
-                    let snapshot = self.tracker.create_snapshot().await;
-                    let metrics = self.tracker.metrics.read().await;
-                    sampler.update_cache(snapshot, metrics.clone()).await;
-                    true
-                } else {
-                    // Use cached data for display
-                    if let Some((_, metrics)) = sampler.get_cached().await {
-                        self.clear_screen();
-                        self.render_header_with_metrics(&metrics).await?;
-                        self.render_cached_agents().await?;
-                    }
-                    false
-                }
-            } else {
-                true
-            };
+            // Determine render strategy
+            let strategy = Self::determine_render_strategy(self.sampler.as_ref()).await;
 
-            if should_render {
-                self.clear_screen();
-                self.render_header().await?;
-                self.render_metrics().await?;
-                self.render_agents().await?;
+            match strategy {
+                RenderStrategy::Full => {
+                    // Update cache if sampler exists
+                    if let Some(ref sampler) = self.sampler {
+                        let snapshot = self.tracker.create_snapshot().await;
+                        let metrics = self.tracker.metrics.read().await;
+                        sampler.update_cache(snapshot, metrics.clone()).await;
+                    }
+                    // Render full display
+                    self.clear_screen();
+                    self.render_header().await?;
+                    self.render_metrics().await?;
+                    self.render_agents().await?;
+                }
+                RenderStrategy::Cached(metrics) => {
+                    // Render with cached data
+                    self.clear_screen();
+                    self.render_header_with_metrics(&metrics).await?;
+                    self.render_cached_agents().await?;
+                }
+                RenderStrategy::Skip => {
+                    // No rendering needed this cycle
+                }
             }
 
             // Check if job is complete
             let metrics = self.tracker.metrics.read().await;
-            if metrics.pending_items == 0 && metrics.active_agents == 0 {
+            if Self::is_job_complete(&metrics) {
                 println!("\n✅ Job completed!");
                 break;
             }

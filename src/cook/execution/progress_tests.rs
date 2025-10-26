@@ -462,6 +462,264 @@ mod cli_progress_viewer_tests {
         assert_eq!(format_duration(Duration::from_secs(3665)), "1h 1m 5s");
         assert_eq!(format_duration(Duration::from_secs(7322)), "2h 2m 2s");
     }
+
+    #[test]
+    fn test_is_job_complete_when_no_pending_and_no_active() {
+        let metrics = ProgressMetrics {
+            pending_items: 0,
+            active_agents: 0,
+            completed_items: 10,
+            failed_items: 2,
+            throughput_current: 0.0,
+            throughput_average: 5.0,
+            success_rate: 83.3,
+            average_duration_ms: 1000,
+            estimated_completion: None,
+            memory_usage_mb: 100,
+            cpu_usage_percent: 10.0,
+        };
+
+        assert!(CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[test]
+    fn test_is_job_complete_when_pending_items_remain() {
+        let metrics = ProgressMetrics {
+            pending_items: 5,
+            active_agents: 0,
+            completed_items: 10,
+            failed_items: 2,
+            throughput_current: 0.0,
+            throughput_average: 5.0,
+            success_rate: 66.7,
+            average_duration_ms: 1000,
+            estimated_completion: None,
+            memory_usage_mb: 100,
+            cpu_usage_percent: 10.0,
+        };
+
+        assert!(!CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[test]
+    fn test_is_job_complete_when_active_agents_exist() {
+        let metrics = ProgressMetrics {
+            pending_items: 0,
+            active_agents: 3,
+            completed_items: 10,
+            failed_items: 2,
+            throughput_current: 2.0,
+            throughput_average: 5.0,
+            success_rate: 83.3,
+            average_duration_ms: 1000,
+            estimated_completion: None,
+            memory_usage_mb: 100,
+            cpu_usage_percent: 50.0,
+        };
+
+        assert!(!CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[test]
+    fn test_is_job_complete_when_both_pending_and_active() {
+        let metrics = ProgressMetrics {
+            pending_items: 5,
+            active_agents: 3,
+            completed_items: 10,
+            failed_items: 2,
+            throughput_current: 2.0,
+            throughput_average: 5.0,
+            success_rate: 50.0,
+            average_duration_ms: 1000,
+            estimated_completion: None,
+            memory_usage_mb: 100,
+            cpu_usage_percent: 75.0,
+        };
+
+        assert!(!CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[tokio::test]
+    async fn test_should_use_cached_render_when_should_not_sample() {
+        let sampler = ProgressSampler::new(Duration::from_secs(1));
+        // Immediately after creation, should not sample (cache is fresh)
+        let result = CLIProgressViewer::should_use_cached_render(&sampler).await;
+        assert!(result);
+    }
+
+    #[tokio::test]
+    async fn test_should_use_cached_render_when_should_sample() {
+        let sampler = ProgressSampler::new(Duration::from_millis(10));
+        // Wait for sample rate to expire
+        sleep(Duration::from_millis(20)).await;
+        let result = CLIProgressViewer::should_use_cached_render(&sampler).await;
+        assert!(!result);
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_no_sampler() {
+        let strategy = CLIProgressViewer::determine_render_strategy(None).await;
+        assert_eq!(strategy, RenderStrategy::Full);
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_sampler_should_sample() {
+        let sampler = ProgressSampler::new(Duration::from_millis(10));
+        // Wait for sample rate to expire so it should sample
+        sleep(Duration::from_millis(20)).await;
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        assert_eq!(strategy, RenderStrategy::Full);
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_sampler_use_cache_no_data() {
+        let sampler = ProgressSampler::new(Duration::from_secs(10));
+        // Cache is fresh, should use cached but no data yet
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        assert_eq!(strategy, RenderStrategy::Skip);
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_sampler_use_cache_with_data() {
+        use std::sync::Arc;
+
+        let tracker = Arc::new(EnhancedProgressTracker::new("test-job".to_string(), 10));
+        let sampler = ProgressSampler::new(Duration::from_secs(10));
+
+        // Populate cache with data
+        let snapshot = tracker.create_snapshot().await;
+        let metrics = tracker.metrics.read().await;
+        sampler.update_cache(snapshot, metrics.clone()).await;
+
+        // Cache is fresh and has data, should use cached
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        match strategy {
+            RenderStrategy::Cached(cached_metrics) => {
+                assert_eq!(cached_metrics.pending_items, 10);
+                assert_eq!(cached_metrics.completed_items, 0);
+            }
+            _ => panic!("Expected Cached strategy, got {:?}", strategy),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_all_combinations() {
+        use std::sync::Arc;
+
+        // Test 1: No sampler -> Always Full
+        let strategy = CLIProgressViewer::determine_render_strategy(None).await;
+        assert_eq!(strategy, RenderStrategy::Full);
+
+        // Test 2: Sampler with expired cache (should sample) -> Full
+        let sampler_expired = ProgressSampler::new(Duration::from_millis(10));
+        sleep(Duration::from_millis(20)).await;
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler_expired)).await;
+        assert_eq!(strategy, RenderStrategy::Full);
+
+        // Test 3: Sampler with fresh cache but no data -> Skip
+        let sampler_fresh = ProgressSampler::new(Duration::from_secs(10));
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler_fresh)).await;
+        assert_eq!(strategy, RenderStrategy::Skip);
+
+        // Test 4: Sampler with fresh cache and data -> Cached
+        let tracker = Arc::new(EnhancedProgressTracker::new("test-job".to_string(), 5));
+        let sampler_with_data = ProgressSampler::new(Duration::from_secs(10));
+        let snapshot = tracker.create_snapshot().await;
+        let metrics = tracker.metrics.read().await;
+        sampler_with_data
+            .update_cache(snapshot, metrics.clone())
+            .await;
+
+        let strategy = CLIProgressViewer::determine_render_strategy(Some(&sampler_with_data)).await;
+        assert!(matches!(strategy, RenderStrategy::Cached(_)));
+    }
+
+    #[test]
+    fn test_is_job_complete_edge_case_zero_items() {
+        let metrics = ProgressMetrics {
+            pending_items: 0,
+            active_agents: 0,
+            completed_items: 0,
+            failed_items: 0,
+            throughput_current: 0.0,
+            throughput_average: 0.0,
+            success_rate: 0.0,
+            average_duration_ms: 0,
+            estimated_completion: None,
+            memory_usage_mb: 0,
+            cpu_usage_percent: 0.0,
+        };
+
+        assert!(CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[test]
+    fn test_is_job_complete_edge_case_large_numbers() {
+        let metrics = ProgressMetrics {
+            pending_items: 1000,
+            active_agents: 50,
+            completed_items: 10000,
+            failed_items: 500,
+            throughput_current: 100.0,
+            throughput_average: 95.5,
+            success_rate: 95.0,
+            average_duration_ms: 5000,
+            estimated_completion: None,
+            memory_usage_mb: 5000,
+            cpu_usage_percent: 95.0,
+        };
+
+        assert!(!CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[test]
+    fn test_is_job_complete_only_failed_items() {
+        let metrics = ProgressMetrics {
+            pending_items: 0,
+            active_agents: 0,
+            completed_items: 0,
+            failed_items: 100,
+            throughput_current: 0.0,
+            throughput_average: 10.0,
+            success_rate: 0.0,
+            average_duration_ms: 1000,
+            estimated_completion: None,
+            memory_usage_mb: 100,
+            cpu_usage_percent: 5.0,
+        };
+
+        // Job is complete even if all items failed
+        assert!(CLIProgressViewer::is_job_complete(&metrics));
+    }
+
+    #[tokio::test]
+    async fn test_determine_render_strategy_sampler_transition() {
+        use std::sync::Arc;
+
+        // Test transition from Skip to Full when cache expires
+        let tracker = Arc::new(EnhancedProgressTracker::new("test-job".to_string(), 5));
+        let sampler = ProgressSampler::new(Duration::from_millis(50));
+
+        // Initially fresh, should skip (no cache data yet)
+        let strategy1 = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        assert_eq!(strategy1, RenderStrategy::Skip);
+
+        // Add cache data
+        let snapshot = tracker.create_snapshot().await;
+        let metrics = tracker.metrics.read().await;
+        sampler.update_cache(snapshot, metrics.clone()).await;
+
+        // Should use cached now
+        let strategy2 = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        assert!(matches!(strategy2, RenderStrategy::Cached(_)));
+
+        // Wait for cache to expire
+        sleep(Duration::from_millis(60)).await;
+
+        // Should render full now
+        let strategy3 = CLIProgressViewer::determine_render_strategy(Some(&sampler)).await;
+        assert_eq!(strategy3, RenderStrategy::Full);
+    }
 }
 
 #[cfg(test)]
