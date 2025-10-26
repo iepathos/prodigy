@@ -276,14 +276,20 @@ impl ExecutionPipeline {
         Ok(())
     }
 
-    /// Resume a workflow from a previously interrupted session
-    pub async fn resume_workflow(&self, session_id: &str, mut config: CookConfig) -> Result<()> {
+    /// Load session state with fallback to worktree session file
+    ///
+    /// This function attempts to load the session state from UnifiedSessionManager first.
+    /// If not found, it falls back to loading from the worktree session file.
+    async fn load_session_with_fallback(
+        &self,
+        session_id: &str,
+        config: &CookConfig,
+    ) -> Result<SessionState> {
         // Try to load the session state from UnifiedSessionManager
-        // If it doesn't exist, we'll fall back to loading from the worktree session file
         let state_result = self.session_manager.load_session(session_id).await;
 
-        let state = match state_result {
-            Ok(s) => s,
+        match state_result {
+            Ok(s) => Ok(s),
             Err(_) => {
                 // Session not found in unified storage, try loading from worktree
                 // The config.project_path should already be the worktree path when resuming
@@ -302,9 +308,15 @@ impl ExecutionPipeline {
 
                 // Load from worktree session file
                 self.session_manager.load_state(&session_file).await?;
-                self.session_manager.get_state()?
+                self.session_manager.get_state()
             }
-        };
+        }
+    }
+
+    /// Resume a workflow from a previously interrupted session
+    pub async fn resume_workflow(&self, session_id: &str, mut config: CookConfig) -> Result<()> {
+        // Load session state with fallback to worktree
+        let state = self.load_session_with_fallback(session_id, &config).await?;
 
         // Validate the session is resumable
         if !state.is_resumable() {
