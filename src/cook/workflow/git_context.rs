@@ -47,6 +47,36 @@ fn should_track_as_deleted(status: Status) -> bool {
     status.contains(Status::WT_DELETED) || status.contains(Status::INDEX_DELETED)
 }
 
+/// Classify a git delta status into a file change type
+fn classify_delta_status(delta: git2::Delta) -> FileChangeType {
+    match delta {
+        git2::Delta::Added => FileChangeType::Added,
+        git2::Delta::Modified => FileChangeType::Modified,
+        git2::Delta::Deleted => FileChangeType::Deleted,
+        _ => FileChangeType::Unknown,
+    }
+}
+
+/// Extract file path from a diff delta
+fn extract_file_path(delta: &git2::DiffDelta) -> Option<String> {
+    delta
+        .new_file()
+        .path()
+        .map(|p| p.to_string_lossy().to_string())
+}
+
+/// Check if a path should be added to the list (i.e., not already present)
+fn should_add_to_list(list: &[String], path: &str) -> bool {
+    !list.contains(&path.to_string())
+}
+
+/// Add a file path to the list if it's not already present
+fn add_unique_file(list: &mut Vec<String>, path: String) {
+    if should_add_to_list(list, &path) {
+        list.push(path);
+    }
+}
+
 /// Git change tracker for workflow execution
 #[derive(Debug, Clone)]
 pub struct GitChangeTracker {
@@ -304,25 +334,18 @@ impl GitChangeTracker {
                         // Process diff to get file changes from commits
                         diff.foreach(
                             &mut |delta, _progress| {
-                                if let Some(path) = delta.new_file().path() {
-                                    let path_str = path.to_string_lossy().to_string();
-                                    match delta.status() {
-                                        git2::Delta::Added => {
-                                            if !changes.files_added.contains(&path_str) {
-                                                changes.files_added.push(path_str);
-                                            }
+                                if let Some(path_str) = extract_file_path(&delta) {
+                                    match classify_delta_status(delta.status()) {
+                                        FileChangeType::Added => {
+                                            add_unique_file(&mut changes.files_added, path_str)
                                         }
-                                        git2::Delta::Modified => {
-                                            if !changes.files_modified.contains(&path_str) {
-                                                changes.files_modified.push(path_str);
-                                            }
+                                        FileChangeType::Modified => {
+                                            add_unique_file(&mut changes.files_modified, path_str)
                                         }
-                                        git2::Delta::Deleted => {
-                                            if !changes.files_deleted.contains(&path_str) {
-                                                changes.files_deleted.push(path_str);
-                                            }
+                                        FileChangeType::Deleted => {
+                                            add_unique_file(&mut changes.files_deleted, path_str)
                                         }
-                                        _ => {}
+                                        FileChangeType::Unknown => {}
                                     }
                                 }
                                 true
@@ -1471,5 +1494,97 @@ mod tests {
             classify_file_status(Status::INDEX_DELETED),
             FileChangeType::Deleted
         );
+    }
+
+    // Phase 5 Tests: Pure Function Tests for Diff Processing
+
+    #[test]
+    fn test_classify_delta_status_added() {
+        assert_eq!(
+            classify_delta_status(git2::Delta::Added),
+            FileChangeType::Added
+        );
+    }
+
+    #[test]
+    fn test_classify_delta_status_modified() {
+        assert_eq!(
+            classify_delta_status(git2::Delta::Modified),
+            FileChangeType::Modified
+        );
+    }
+
+    #[test]
+    fn test_classify_delta_status_deleted() {
+        assert_eq!(
+            classify_delta_status(git2::Delta::Deleted),
+            FileChangeType::Deleted
+        );
+    }
+
+    #[test]
+    fn test_classify_delta_status_unknown() {
+        assert_eq!(
+            classify_delta_status(git2::Delta::Unmodified),
+            FileChangeType::Unknown
+        );
+        assert_eq!(
+            classify_delta_status(git2::Delta::Renamed),
+            FileChangeType::Unknown
+        );
+        assert_eq!(
+            classify_delta_status(git2::Delta::Copied),
+            FileChangeType::Unknown
+        );
+    }
+
+    #[test]
+    fn test_should_add_to_list_empty() {
+        let list: Vec<String> = vec![];
+        assert!(should_add_to_list(&list, "test.txt"));
+    }
+
+    #[test]
+    fn test_should_add_to_list_not_present() {
+        let list = vec!["file1.txt".to_string(), "file2.txt".to_string()];
+        assert!(should_add_to_list(&list, "file3.txt"));
+    }
+
+    #[test]
+    fn test_should_add_to_list_already_present() {
+        let list = vec!["file1.txt".to_string(), "file2.txt".to_string()];
+        assert!(!should_add_to_list(&list, "file1.txt"));
+    }
+
+    #[test]
+    fn test_add_unique_file_to_empty_list() {
+        let mut list = vec![];
+        add_unique_file(&mut list, "test.txt".to_string());
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0], "test.txt");
+    }
+
+    #[test]
+    fn test_add_unique_file_new_file() {
+        let mut list = vec!["file1.txt".to_string()];
+        add_unique_file(&mut list, "file2.txt".to_string());
+        assert_eq!(list.len(), 2);
+        assert!(list.contains(&"file2.txt".to_string()));
+    }
+
+    #[test]
+    fn test_add_unique_file_duplicate() {
+        let mut list = vec!["file1.txt".to_string()];
+        add_unique_file(&mut list, "file1.txt".to_string());
+        assert_eq!(list.len(), 1);
+    }
+
+    #[test]
+    fn test_add_unique_file_multiple_duplicates() {
+        let mut list = vec!["file1.txt".to_string()];
+        add_unique_file(&mut list, "file1.txt".to_string());
+        add_unique_file(&mut list, "file2.txt".to_string());
+        add_unique_file(&mut list, "file1.txt".to_string());
+        assert_eq!(list.len(), 2);
     }
 }
