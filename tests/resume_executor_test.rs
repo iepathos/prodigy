@@ -12,9 +12,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use prodigy::cook::execution::{ClaudeExecutor, ExecutionResult};
 use prodigy::cook::interaction::{SpinnerHandle, UserInteraction, VerbosityLevel};
-use prodigy::cook::session::{SessionInfo, SessionManager, SessionUpdate};
 use prodigy::cook::session::state::SessionState;
 use prodigy::cook::session::summary::SessionSummary;
+use prodigy::cook::session::{SessionInfo, SessionManager, SessionUpdate};
 use prodigy::cook::workflow::checkpoint::{
     CheckpointManager, CompletedStep, ExecutionState, ResumeOptions, WorkflowCheckpoint,
     WorkflowStatus, CHECKPOINT_VERSION,
@@ -102,7 +102,10 @@ impl SessionManager for TestSessionManager {
     }
 
     fn get_state(&self) -> Result<SessionState> {
-        Ok(SessionState::new("test-session".to_string(), PathBuf::from("/tmp")))
+        Ok(SessionState::new(
+            "test-session".to_string(),
+            PathBuf::from("/tmp"),
+        ))
     }
 
     async fn save_state(&self, _path: &Path) -> Result<()> {
@@ -114,7 +117,10 @@ impl SessionManager for TestSessionManager {
     }
 
     async fn load_session(&self, _session_id: &str) -> Result<SessionState> {
-        Ok(SessionState::new("test-session".to_string(), PathBuf::from("/tmp")))
+        Ok(SessionState::new(
+            "test-session".to_string(),
+            PathBuf::from("/tmp"),
+        ))
     }
 
     async fn save_checkpoint(&self, _state: &SessionState) -> Result<()> {
@@ -298,8 +304,11 @@ async fn test_execute_from_checkpoint_already_completed() -> Result<()> {
     let session_manager = Arc::new(TestSessionManager::new());
     let user_interaction = Arc::new(TestUserInteraction);
 
-    let mut executor = ResumeExecutor::new(checkpoint_manager)
-        .with_executors(claude_executor, session_manager, user_interaction);
+    let mut executor = ResumeExecutor::new(checkpoint_manager).with_executors(
+        claude_executor,
+        session_manager,
+        user_interaction,
+    );
 
     let options = ResumeOptions {
         skip_validation: false,
@@ -351,8 +360,11 @@ async fn test_execute_from_checkpoint_workflow_file_yaml_parsing() -> Result<()>
         metadata: HashMap::new(),
     });
 
-    let mut executor = ResumeExecutor::new(checkpoint_manager)
-        .with_executors(claude_executor, session_manager, user_interaction);
+    let mut executor = ResumeExecutor::new(checkpoint_manager).with_executors(
+        claude_executor,
+        session_manager,
+        user_interaction,
+    );
 
     let options = ResumeOptions {
         skip_validation: false,
@@ -411,8 +423,11 @@ async fn test_execute_from_checkpoint_workflow_file_json_parsing() -> Result<()>
         metadata: HashMap::new(),
     });
 
-    let mut executor = ResumeExecutor::new(checkpoint_manager)
-        .with_executors(claude_executor, session_manager, user_interaction);
+    let mut executor = ResumeExecutor::new(checkpoint_manager).with_executors(
+        claude_executor,
+        session_manager,
+        user_interaction,
+    );
 
     let options = ResumeOptions {
         skip_validation: false,
@@ -453,8 +468,11 @@ async fn test_execute_from_checkpoint_invalid_workflow_format() -> Result<()> {
     let session_manager = Arc::new(TestSessionManager::new());
     let user_interaction = Arc::new(TestUserInteraction);
 
-    let mut executor = ResumeExecutor::new(checkpoint_manager)
-        .with_executors(claude_executor, session_manager, user_interaction);
+    let mut executor = ResumeExecutor::new(checkpoint_manager).with_executors(
+        claude_executor,
+        session_manager,
+        user_interaction,
+    );
 
     let options = ResumeOptions {
         skip_validation: false,
@@ -485,10 +503,9 @@ async fn test_execute_from_checkpoint_restore_context() -> Result<()> {
 
     // Create checkpoint with some variable state
     let mut checkpoint = create_test_checkpoint("test-workflow", workflow_path.clone());
-    checkpoint.variable_state.insert(
-        "test_var".to_string(),
-        serde_json::json!("test_value"),
-    );
+    checkpoint
+        .variable_state
+        .insert("test_var".to_string(), serde_json::json!("test_value"));
     checkpoint.completed_steps.push(CompletedStep {
         step_index: 0,
         command: "shell: echo step1".to_string(),
@@ -518,8 +535,11 @@ async fn test_execute_from_checkpoint_restore_context() -> Result<()> {
         metadata: HashMap::new(),
     });
 
-    let mut executor = ResumeExecutor::new(checkpoint_manager)
-        .with_executors(claude_executor, session_manager, user_interaction);
+    let mut executor = ResumeExecutor::new(checkpoint_manager).with_executors(
+        claude_executor,
+        session_manager,
+        user_interaction,
+    );
 
     let options = ResumeOptions {
         skip_validation: false,
