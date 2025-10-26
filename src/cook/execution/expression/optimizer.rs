@@ -228,112 +228,35 @@ impl ExpressionOptimizer {
             Expression::Equal(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean((a - b).abs() < f64::EPSILON))
-                    }
-                    (Expression::String(a), Expression::String(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a == b))
-                    }
-                    (Expression::Boolean(a), Expression::Boolean(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a == b))
-                    }
-                    (Expression::Null, Expression::Null) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(true))
-                    }
-                    _ => {
-                        // Check if same expression
-                        if expressions_equal(&left, &right) {
-                            self.stats.algebraic_simplifications += 1;
-                            Ok(Expression::Boolean(true))
-                        } else {
-                            Ok(Expression::Equal(Box::new(left), Box::new(right)))
-                        }
-                    }
-                }
+                fold_equal_comparison(&mut self.stats, left, right)
             }
 
             Expression::NotEqual(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean((a - b).abs() >= f64::EPSILON))
-                    }
-                    (Expression::String(a), Expression::String(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a != b))
-                    }
-                    (Expression::Boolean(a), Expression::Boolean(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a != b))
-                    }
-                    _ => {
-                        // Check if same expression
-                        if expressions_equal(&left, &right) {
-                            self.stats.algebraic_simplifications += 1;
-                            Ok(Expression::Boolean(false))
-                        } else {
-                            Ok(Expression::NotEqual(Box::new(left), Box::new(right)))
-                        }
-                    }
-                }
+                fold_not_equal_comparison(&mut self.stats, left, right)
             }
+
             // Fold comparison operators
             Expression::GreaterThan(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a > b))
-                    }
-                    _ => Ok(Expression::GreaterThan(Box::new(left), Box::new(right))),
-                }
+                fold_numeric_comparison(&mut self.stats, NumericComparisonOp::GreaterThan, left, right)
             }
             Expression::LessThan(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a < b))
-                    }
-                    _ => Ok(Expression::LessThan(Box::new(left), Box::new(right))),
-                }
+                fold_numeric_comparison(&mut self.stats, NumericComparisonOp::LessThan, left, right)
             }
             Expression::GreaterEqual(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a >= b))
-                    }
-                    _ => Ok(Expression::GreaterEqual(Box::new(left), Box::new(right))),
-                }
+                fold_numeric_comparison(&mut self.stats, NumericComparisonOp::GreaterEqual, left, right)
             }
             Expression::LessEqual(left, right) => {
                 let left = self.constant_folding(*left)?;
                 let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(a <= b))
-                    }
-                    _ => Ok(Expression::LessEqual(Box::new(left), Box::new(right))),
-                }
+                fold_numeric_comparison(&mut self.stats, NumericComparisonOp::LessEqual, left, right)
             }
 
             // Type checks on constants
@@ -671,6 +594,119 @@ impl ExpressionOptimizer {
 impl Default for ExpressionOptimizer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Helper function to fold Equal comparisons
+fn fold_equal_comparison(
+    stats: &mut OptimizationStats,
+    left: Expression,
+    right: Expression,
+) -> Result<Expression> {
+    match (&left, &right) {
+        (Expression::Number(a), Expression::Number(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean((a - b).abs() < f64::EPSILON))
+        }
+        (Expression::String(a), Expression::String(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(a == b))
+        }
+        (Expression::Boolean(a), Expression::Boolean(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(a == b))
+        }
+        (Expression::Null, Expression::Null) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(true))
+        }
+        _ => {
+            // Check if same expression
+            if expressions_equal(&left, &right) {
+                stats.algebraic_simplifications += 1;
+                Ok(Expression::Boolean(true))
+            } else {
+                Ok(Expression::Equal(Box::new(left), Box::new(right)))
+            }
+        }
+    }
+}
+
+/// Helper function to fold NotEqual comparisons
+fn fold_not_equal_comparison(
+    stats: &mut OptimizationStats,
+    left: Expression,
+    right: Expression,
+) -> Result<Expression> {
+    match (&left, &right) {
+        (Expression::Number(a), Expression::Number(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean((a - b).abs() >= f64::EPSILON))
+        }
+        (Expression::String(a), Expression::String(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(a != b))
+        }
+        (Expression::Boolean(a), Expression::Boolean(b)) => {
+            stats.constants_folded += 1;
+            Ok(Expression::Boolean(a != b))
+        }
+        _ => {
+            // Check if same expression
+            if expressions_equal(&left, &right) {
+                stats.algebraic_simplifications += 1;
+                Ok(Expression::Boolean(false))
+            } else {
+                Ok(Expression::NotEqual(Box::new(left), Box::new(right)))
+            }
+        }
+    }
+}
+
+/// Numeric comparison operator types
+#[derive(Debug, Clone, Copy)]
+enum NumericComparisonOp {
+    GreaterThan,
+    LessThan,
+    GreaterEqual,
+    LessEqual,
+}
+
+/// Helper function to fold numeric comparisons
+fn fold_numeric_comparison(
+    stats: &mut OptimizationStats,
+    op: NumericComparisonOp,
+    left: Expression,
+    right: Expression,
+) -> Result<Expression> {
+    match (&left, &right) {
+        (Expression::Number(a), Expression::Number(b)) => {
+            stats.constants_folded += 1;
+            let result = match op {
+                NumericComparisonOp::GreaterThan => a > b,
+                NumericComparisonOp::LessThan => a < b,
+                NumericComparisonOp::GreaterEqual => a >= b,
+                NumericComparisonOp::LessEqual => a <= b,
+            };
+            Ok(Expression::Boolean(result))
+        }
+        _ => {
+            let expr = match op {
+                NumericComparisonOp::GreaterThan => {
+                    Expression::GreaterThan(Box::new(left), Box::new(right))
+                }
+                NumericComparisonOp::LessThan => {
+                    Expression::LessThan(Box::new(left), Box::new(right))
+                }
+                NumericComparisonOp::GreaterEqual => {
+                    Expression::GreaterEqual(Box::new(left), Box::new(right))
+                }
+                NumericComparisonOp::LessEqual => {
+                    Expression::LessEqual(Box::new(left), Box::new(right))
+                }
+            };
+            Ok(expr)
+        }
     }
 }
 
