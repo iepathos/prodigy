@@ -48,7 +48,7 @@ csv = "1.4"
 # atty removed - using std::io::IsTerminal instead
 signal-hook = "0.3"
 indicatif = "0.18"
-flate2 = "1.0"
+flate2 = "1.1"
 zstd = "0.13"
 lz4 = "1.28"
 tokio-stream = "0.1"
@@ -64,7 +64,7 @@ vendored-openssl = ["git2/vendored-openssl"]
 [build-dependencies]
 clap = { version = "4.5", features = ["derive"] }
 chrono = "0.4"
-flate2 = "1.0"
+flate2 = "1.1"
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports", "async_tokio"] }
