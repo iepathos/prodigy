@@ -26,10 +26,8 @@ Read the configuration file specified by `--config` to get:
 ### Phase 1: Aggregate Drift Reports
 
 **Determine Analysis Directory:**
-Based on the project name from `--project` parameter:
-- For Prodigy: `.prodigy/book-analysis/`
-- For Debtmap: `.debtmap/book-analysis/`
-- Pattern: `.{project_lowercase}/book-analysis/`
+
+- Pattern: `.prodigy/book-analysis/`
 
 Collect all drift reports from map phase:
 
