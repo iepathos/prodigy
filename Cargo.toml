@@ -70,7 +70,7 @@ flate2 = "1.0"
 criterion = { version = "0.7", features = ["html_reports", "async_tokio"] }
 tempfile = "3.23"
 libc = "0.2"
-proptest = "1.8.0"
+proptest = "1.9.0"
 
 # Benchmark configurations
 [[bench]]
