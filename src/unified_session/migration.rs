@@ -133,6 +133,7 @@ impl SessionMigrator {
         let config = SessionConfig {
             session_type: SessionType::Workflow,
             workflow_id: Some(legacy_session.session_id.clone()),
+            workflow_name: None,
             job_id: None,
             metadata,
         };

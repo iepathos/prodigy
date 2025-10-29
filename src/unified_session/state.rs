@@ -471,6 +471,7 @@ mod tests {
         let config = SessionConfig {
             session_type: SessionType::Workflow,
             workflow_id: Some("workflow-1".to_string()),
+            workflow_name: None,
             job_id: None,
             metadata: metadata.clone(),
         };

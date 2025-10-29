@@ -453,6 +453,7 @@ mod tests {
             SessionConfig {
                 session_type: super::super::state::SessionType::Workflow,
                 workflow_id: Some(id.to_string()),
+                workflow_name: None,
                 job_id: None,
                 metadata: HashMap::new(),
             }
@@ -461,6 +462,7 @@ mod tests {
         fn mapreduce_config(&self, id: &str) -> SessionConfig {
             SessionConfig {
                 session_type: super::super::state::SessionType::MapReduce,
+                workflow_name: None,
                 job_id: Some(id.to_string()),
                 workflow_id: None,
                 metadata: HashMap::new(),
@@ -505,7 +507,8 @@ mod tests {
         let config = SessionConfig {
             session_type: super::super::state::SessionType::Workflow,
             workflow_id: None,
-            job_id: None,
+            workflow_name: None,
+                job_id: None,
             metadata: HashMap::new(),
         };
 
@@ -523,7 +526,8 @@ mod tests {
         let config = SessionConfig {
             session_type: super::super::state::SessionType::MapReduce,
             workflow_id: None,
-            job_id: None,
+            workflow_name: None,
+                job_id: None,
             metadata: HashMap::new(),
         };
 
@@ -821,6 +825,7 @@ mod tests {
             let config = SessionConfig {
                 session_type: super::super::state::SessionType::Workflow,
                 workflow_id: Some("persistence-test".to_string()),
+                workflow_name: None,
                 job_id: None,
                 metadata: HashMap::new(),
             };

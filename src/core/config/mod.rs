@@ -118,6 +118,7 @@ auto_commit: false
         assert!(config.project.is_none());
 
         let workflow = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,

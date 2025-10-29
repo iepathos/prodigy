@@ -117,6 +117,7 @@ mod tests {
             },
             project_path: Arc::new(PathBuf::from("/test")),
             workflow: Arc::new(WorkflowConfig {
+                name: None,
                 commands,
                 env: None,
                 secrets: None,

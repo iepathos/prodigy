@@ -174,6 +174,7 @@ mod tests {
         env1.insert("TEST".to_string(), "value".to_string());
 
         let workflow = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: Some(env1),
             secrets: None,
@@ -199,6 +200,7 @@ mod tests {
         env2.insert("TEST2".to_string(), "value2".to_string());
 
         let workflow1 = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: Some(env1),
             secrets: None,
@@ -208,6 +210,7 @@ mod tests {
         };
 
         let workflow2 = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: Some(env2),
             secrets: None,

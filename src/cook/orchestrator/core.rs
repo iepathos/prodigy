@@ -1517,6 +1517,7 @@ mod tests {
     fn test_classify_workflow_type_structured_with_outputs() {
         // Create mutable workflow first
         let mut workflow = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,
@@ -1562,6 +1563,7 @@ mod tests {
             command,
             project_path: Arc::new(PathBuf::from("/test")),
             workflow: Arc::new(WorkflowConfig {
+                name: None,
                 commands: vec![],
                 env: None,
                 secrets: None,
@@ -1587,6 +1589,7 @@ mod tests {
             command,
             project_path: Arc::new(PathBuf::from("/test")),
             workflow: Arc::new(WorkflowConfig {
+                name: None,
                 commands: vec![],
                 env: None,
                 secrets: None,
@@ -1609,6 +1612,7 @@ mod tests {
             command: create_test_cook_command(),
             project_path: Arc::new(PathBuf::from("/test")),
             workflow: Arc::new(WorkflowConfig {
+                name: None,
                 commands: vec![],
                 env: None,
                 secrets: None,
@@ -2123,6 +2127,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2176,6 +2181,7 @@ mod tests {
                 command: create_test_cook_command(true, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2229,6 +2235,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2357,6 +2364,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2414,6 +2422,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2476,6 +2485,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2536,6 +2546,7 @@ mod tests {
                 command: create_test_cook_command(false, true), // dry_run = true
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2598,6 +2609,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2722,6 +2734,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2783,6 +2796,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,

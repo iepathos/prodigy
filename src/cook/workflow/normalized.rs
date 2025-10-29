@@ -573,6 +573,7 @@ mod tests {
     #[test]
     fn test_normalize_simple_workflow() {
         let config = WorkflowConfig {
+            name: None,
             commands: vec![WorkflowCommand::Simple("echo hello".to_string())],
             env: None,
             secrets: None,
@@ -627,6 +628,7 @@ mod tests {
         };
 
         let config = WorkflowConfig {
+            name: None,
             commands: vec![WorkflowCommand::WorkflowStep(Box::new(step_cmd))],
             env: None,
             secrets: None,
@@ -651,6 +653,7 @@ mod tests {
     fn test_classify_workflow_types() {
         // Standard workflow
         let standard = WorkflowConfig {
+            name: None,
             commands: vec![WorkflowCommand::Simple("echo test".to_string())],
             env: None,
             secrets: None,
@@ -665,6 +668,7 @@ mod tests {
 
         // Workflow with outputs
         let with_outputs = WorkflowConfig {
+            name: None,
             commands: vec![WorkflowCommand::Structured(Box::new(Command {
                 name: "test".to_string(),
                 args: vec![],

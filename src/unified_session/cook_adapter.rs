@@ -189,6 +189,7 @@ impl CookSessionManager for CookSessionAdapter {
             let config = SessionConfig {
                 session_type: SessionType::Workflow,
                 workflow_id: Some(session_id.to_string()),
+                workflow_name: None,
                 job_id: None,
                 metadata: Default::default(),
             };
