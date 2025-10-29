@@ -66,7 +66,7 @@ commands:
         .unwrap()
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
-        .filter(|path| path.extension().map_or(false, |ext| ext == "json"))
+        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
         .collect();
 
     assert_eq!(
@@ -155,7 +155,7 @@ commands:
         .unwrap()
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
-        .filter(|path| path.extension().map_or(false, |ext| ext == "json"))
+        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
         .collect();
 
     assert_eq!(session_files.len(), 1, "Expected one session file");
@@ -348,7 +348,7 @@ commands:
         .unwrap()
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
-        .filter(|path| path.extension().map_or(false, |ext| ext == "json"))
+        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
         .collect();
 
     assert_eq!(
