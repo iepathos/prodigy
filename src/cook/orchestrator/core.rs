@@ -534,18 +534,12 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 "execution_start_time".to_string(),
                 serde_json::json!(chrono::Utc::now().to_rfc3339()),
             );
-            metadata.insert(
-                "workflow_type".to_string(),
-                serde_json::json!("standard"),
-            );
+            metadata.insert("workflow_type".to_string(), serde_json::json!("standard"));
             metadata.insert(
                 "total_steps".to_string(),
                 serde_json::json!(config.workflow.commands.len()),
             );
-            metadata.insert(
-                "current_step".to_string(),
-                serde_json::json!(0),
-            );
+            metadata.insert("current_step".to_string(), serde_json::json!(0));
 
             let session_config = crate::unified_session::SessionConfig {
                 session_type: crate::unified_session::SessionType::Workflow,

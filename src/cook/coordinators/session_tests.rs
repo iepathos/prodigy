@@ -199,7 +199,10 @@ mod tests {
 
         // Full lifecycle test
         // 1. Start
-        coordinator.start_session("session-lifecycle-test").await.unwrap();
+        coordinator
+            .start_session("session-lifecycle-test")
+            .await
+            .unwrap();
 
         // 2. Update status to in progress
         coordinator

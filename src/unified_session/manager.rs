@@ -508,7 +508,7 @@ mod tests {
             session_type: super::super::state::SessionType::Workflow,
             workflow_id: None,
             workflow_name: None,
-                job_id: None,
+            job_id: None,
             metadata: HashMap::new(),
         };
 
@@ -527,7 +527,7 @@ mod tests {
             session_type: super::super::state::SessionType::MapReduce,
             workflow_id: None,
             workflow_name: None,
-                job_id: None,
+            job_id: None,
             metadata: HashMap::new(),
         };
 

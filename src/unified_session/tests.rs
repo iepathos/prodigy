@@ -40,8 +40,8 @@ async fn test_session_lifecycle() {
     let config = SessionConfig {
         session_type: SessionType::Workflow,
         workflow_id: Some("test-workflow".to_string()),
-            workflow_name: None,
-            job_id: None,
+        workflow_name: None,
+        job_id: None,
         metadata,
     };
 
@@ -86,8 +86,8 @@ async fn test_session_progress_tracking() {
     let config = SessionConfig {
         session_type: SessionType::Workflow,
         workflow_id: Some("test-workflow".to_string()),
-            workflow_name: None,
-            job_id: None,
+        workflow_name: None,
+        job_id: None,
         metadata,
     };
 
@@ -246,8 +246,8 @@ async fn test_session_checkpointing() {
     let config = SessionConfig {
         session_type: SessionType::Workflow,
         workflow_id: Some("test-workflow".to_string()),
-            workflow_name: None,
-            job_id: None,
+        workflow_name: None,
+        job_id: None,
         metadata,
     };
 
@@ -292,8 +292,8 @@ async fn test_mapreduce_session() {
     let config = SessionConfig {
         session_type: SessionType::MapReduce,
         workflow_id: None,
-            workflow_name: None,
-            job_id: Some("mapreduce-job".to_string()),
+        workflow_name: None,
+        job_id: Some("mapreduce-job".to_string()),
         metadata,
     };
 
@@ -391,8 +391,8 @@ async fn test_session_metadata_update() {
     let config = SessionConfig {
         session_type: SessionType::Workflow,
         workflow_id: Some("test-workflow".to_string()),
-            workflow_name: None,
-            job_id: None,
+        workflow_name: None,
+        job_id: None,
         metadata,
     };
 

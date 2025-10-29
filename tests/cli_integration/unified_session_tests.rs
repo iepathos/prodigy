@@ -517,8 +517,7 @@ commands:
 
     // 3. Total steps should be consistent
     assert_eq!(
-        checkpoint["execution_state"]["total_steps"],
-        session["workflow_data"]["total_steps"],
+        checkpoint["execution_state"]["total_steps"], session["workflow_data"]["total_steps"],
         "Total steps should match between checkpoint and session"
     );
 
