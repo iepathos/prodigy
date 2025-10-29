@@ -19,15 +19,16 @@ mod tests {
         let working_dir = PathBuf::from("/test");
         let coordinator = DefaultSessionCoordinator::new(session_manager.clone(), working_dir);
 
-        // Test
-        let result = coordinator.start_session("test-session-123").await;
+        // Test - Use proper session ID format
+        let result = coordinator.start_session("session-test-123").await;
 
         // Verify
         assert!(result.is_ok());
 
-        // Verify session ID is stored (will be a generated ID)
+        // Verify session ID is stored (should match workflow_id)
         let info = coordinator.get_session_info().await.unwrap();
         assert!(info.session_id.starts_with("session-"));
+        assert_eq!(info.session_id, "session-test-123");
     }
 
     // Removing test_start_session_failure as it requires mocking which isn't available
@@ -43,7 +44,7 @@ mod tests {
         let coordinator = DefaultSessionCoordinator::new(session_manager.clone(), working_dir);
 
         // Start session first
-        coordinator.start_session("test-session").await.unwrap();
+        coordinator.start_session("session-test-456").await.unwrap();
 
         // Test different status updates
         let statuses = vec![
@@ -72,7 +73,7 @@ mod tests {
         let coordinator = DefaultSessionCoordinator::new(session_manager.clone(), working_dir);
 
         // Start session first
-        coordinator.start_session("test-session").await.unwrap();
+        coordinator.start_session("session-test-456").await.unwrap();
 
         // Test tracking multiple iterations
         for i in 1..=5 {
@@ -143,7 +144,7 @@ mod tests {
         assert_eq!(info.status, SessionStatus::InProgress);
 
         // Start session and test again
-        coordinator.start_session("my-session").await.unwrap();
+        coordinator.start_session("session-my-test").await.unwrap();
         coordinator
             .update_status(SessionStatus::InProgress)
             .await
@@ -165,7 +166,7 @@ mod tests {
 
         // Start session and track iterations
         coordinator
-            .start_session("resumable-session")
+            .start_session("session-resumable-test")
             .await
             .unwrap();
         coordinator.track_iteration(1).await.unwrap();
@@ -198,7 +199,10 @@ mod tests {
 
         // Full lifecycle test
         // 1. Start
-        coordinator.start_session("lifecycle-test").await.unwrap();
+        coordinator
+            .start_session("session-lifecycle-test")
+            .await
+            .unwrap();
 
         // 2. Update status to in progress
         coordinator

@@ -95,6 +95,7 @@ mod tests {
         use crate::config::workflow::WorkflowConfig;
 
         let workflow = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,

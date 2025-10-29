@@ -418,6 +418,7 @@ async fn load_playbook_with_mapreduce(
                         // Return workflow config with environment variables and merge workflow from MapReduce config
                         Ok((
                             WorkflowConfig {
+                                name: Some(mapreduce_config.name.clone()),
                                 commands: vec![],
                                 env: mapreduce_config.env.clone(),
                                 secrets: mapreduce_config.secrets.clone(),

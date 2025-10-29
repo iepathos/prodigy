@@ -286,6 +286,7 @@ mod tests {
     #[test]
     fn test_composable_workflow_creation() {
         let config = crate::config::WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,
@@ -301,6 +302,7 @@ mod tests {
     #[test]
     fn test_parameter_validation() {
         let mut workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,

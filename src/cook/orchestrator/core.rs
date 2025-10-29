@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::cook::command::CookCommand;
 use crate::cook::execution::{ClaudeExecutor, CommandExecutor};
@@ -100,8 +100,10 @@ impl Clone for ExecutionEnvironment {
 
 /// Default implementation of cook orchestrator
 pub struct DefaultCookOrchestrator {
-    /// Session manager
+    /// Session manager (legacy)
     session_manager: Arc<dyn SessionManager>,
+    /// Unified session manager (lazily initialized, thread-safe)
+    unified_session_manager: Arc<Mutex<Option<Arc<crate::unified_session::SessionManager>>>>,
     /// Command executor
     #[allow(dead_code)]
     command_executor: Arc<dyn CommandExecutor>,
@@ -176,6 +178,7 @@ impl DefaultCookOrchestrator {
 
         Self {
             session_manager,
+            unified_session_manager: Arc::new(Mutex::new(None)),
             command_executor,
             claude_executor,
             user_interaction,
@@ -238,6 +241,7 @@ impl DefaultCookOrchestrator {
 
         Self {
             session_manager,
+            unified_session_manager: Arc::new(Mutex::new(None)),
             command_executor,
             claude_executor,
             user_interaction,
@@ -328,6 +332,7 @@ impl DefaultCookOrchestrator {
 
         Self {
             session_manager,
+            unified_session_manager: Arc::new(Mutex::new(None)),
             command_executor,
             claude_executor,
             user_interaction,
@@ -345,6 +350,77 @@ impl DefaultCookOrchestrator {
     /// Generate session ID using unified format
     fn generate_session_id(&self) -> String {
         self.session_ops.generate_session_id()
+    }
+
+    /// Get or initialize the unified session manager
+    async fn get_unified_session_manager(
+        &self,
+    ) -> Result<Arc<crate::unified_session::SessionManager>> {
+        // Check if already initialized
+        {
+            let guard = self
+                .unified_session_manager
+                .lock()
+                .map_err(|e| anyhow!("Failed to lock unified session manager: {}", e))?;
+            if let Some(manager) = guard.as_ref() {
+                return Ok(Arc::clone(manager));
+            }
+        }
+
+        // Initialize the manager
+        let storage =
+            crate::storage::GlobalStorage::new().context("Failed to create global storage")?;
+        let manager = Arc::new(
+            crate::unified_session::SessionManager::new(storage)
+                .await
+                .context("Failed to create unified session manager")?,
+        );
+
+        // Store it
+        {
+            let mut guard = self
+                .unified_session_manager
+                .lock()
+                .map_err(|e| anyhow!("Failed to lock unified session manager: {}", e))?;
+            *guard = Some(Arc::clone(&manager));
+        }
+
+        Ok(manager)
+    }
+
+    /// Update unified session status (best effort, don't fail workflow on error)
+    async fn update_unified_session_status(&self, session_id: &str, success: bool) {
+        // Get session manager (if initialized)
+        let manager = match self.get_unified_session_manager().await {
+            Ok(m) => m,
+            Err(e) => {
+                log::warn!(
+                    "Failed to get unified session manager for status update: {}",
+                    e
+                );
+                return;
+            }
+        };
+
+        // Convert session_id string to SessionId
+        let session_id_obj = crate::unified_session::SessionId::from_string(session_id.to_string());
+
+        // Try to load the session first to check if it exists
+        match manager.load_session(&session_id_obj).await {
+            Ok(_) => {
+                // Session exists, update its status
+                if let Err(e) = manager.complete_session(&session_id_obj, success).await {
+                    log::warn!("Failed to update unified session status: {}", e);
+                }
+            }
+            Err(_) => {
+                // Session doesn't exist (might be MapReduce or dry-run), skip update
+                log::debug!(
+                    "Unified session {} not found, skipping status update",
+                    session_id
+                );
+            }
+        }
     }
 
     /// Check prerequisites with config-aware git checking
@@ -416,6 +492,11 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         // Cancel the interrupt handler
         interrupt_handler.abort();
 
+        // Update unified session status based on execution result
+        let execution_succeeded = execution_result.is_ok();
+        self.update_unified_session_status(&env.session_id, execution_succeeded)
+            .await;
+
         // Finalize session with appropriate status
         self.execution_pipeline
             .finalize_session(
@@ -433,9 +514,61 @@ impl CookOrchestrator for DefaultCookOrchestrator {
     }
 
     async fn setup_environment(&self, config: &CookConfig) -> Result<ExecutionEnvironment> {
-        let session_id = Arc::from(self.generate_session_id().as_str());
+        // For MapReduce or dry-run, generate a session ID; otherwise, use unified session ID
+        let mut session_id = Arc::from(self.generate_session_id().as_str());
         let mut working_dir = Arc::clone(&config.project_path);
         let mut worktree_name: Option<Arc<str>> = None;
+
+        // Create UnifiedSession for this workflow (skip for MapReduce workflows as they handle their own sessions)
+        if config.mapreduce_config.is_none() && !config.command.dry_run {
+            let unified_session_manager = self
+                .get_unified_session_manager()
+                .await
+                .context("Failed to get unified session manager")?;
+
+            let workflow_id = format!("workflow-{}", chrono::Utc::now().timestamp_millis());
+
+            // Populate metadata with execution information
+            let mut metadata = std::collections::HashMap::new();
+            metadata.insert(
+                "execution_start_time".to_string(),
+                serde_json::json!(chrono::Utc::now().to_rfc3339()),
+            );
+            metadata.insert("workflow_type".to_string(), serde_json::json!("standard"));
+            metadata.insert(
+                "total_steps".to_string(),
+                serde_json::json!(config.workflow.commands.len()),
+            );
+            metadata.insert("current_step".to_string(), serde_json::json!(0));
+
+            let session_config = crate::unified_session::SessionConfig {
+                session_type: crate::unified_session::SessionType::Workflow,
+                workflow_id: Some(workflow_id.clone()),
+                workflow_name: config.workflow.name.clone(),
+                job_id: None,
+                metadata,
+            };
+
+            let unified_session_id = unified_session_manager
+                .create_session(session_config)
+                .await
+                .context("Failed to create unified session")?;
+
+            // Start the session
+            unified_session_manager
+                .start_session(&unified_session_id)
+                .await
+                .context("Failed to start unified session")?;
+
+            log::info!(
+                "Created unified session: {} (workflow_id: {})",
+                unified_session_id,
+                workflow_id
+            );
+
+            // Use the unified session ID as the session ID
+            session_id = Arc::from(unified_session_id.as_str());
+        }
 
         // Always setup worktree (but not in dry-run mode)
         if !config.command.dry_run {
@@ -1378,6 +1511,7 @@ mod tests {
     fn test_classify_workflow_type_structured_with_outputs() {
         // Create mutable workflow first
         let mut workflow = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,
@@ -1423,6 +1557,7 @@ mod tests {
             command,
             project_path: Arc::new(PathBuf::from("/test")),
             workflow: Arc::new(WorkflowConfig {
+                name: None,
                 commands: vec![],
                 env: None,
                 secrets: None,
@@ -1448,6 +1583,7 @@ mod tests {
             command,
             project_path: Arc::new(PathBuf::from("/test")),
             workflow: Arc::new(WorkflowConfig {
+                name: None,
                 commands: vec![],
                 env: None,
                 secrets: None,
@@ -1470,6 +1606,7 @@ mod tests {
             command: create_test_cook_command(),
             project_path: Arc::new(PathBuf::from("/test")),
             workflow: Arc::new(WorkflowConfig {
+                name: None,
                 commands: vec![],
                 env: None,
                 secrets: None,
@@ -1932,6 +2069,7 @@ mod tests {
 
             let orchestrator = DefaultCookOrchestrator {
                 session_manager: session_manager.clone() as Arc<dyn SessionManager>,
+                unified_session_manager: Arc::new(Mutex::new(None)),
                 command_executor,
                 claude_executor: claude_executor.clone() as Arc<dyn ClaudeExecutor>,
                 user_interaction: user_interaction.clone() as Arc<dyn UserInteraction>,
@@ -1983,6 +2121,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2036,6 +2175,7 @@ mod tests {
                 command: create_test_cook_command(true, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2089,6 +2229,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2183,6 +2324,7 @@ mod tests {
 
             let orchestrator = DefaultCookOrchestrator {
                 session_manager: session_manager.clone() as Arc<dyn SessionManager>,
+                unified_session_manager: Arc::new(Mutex::new(None)),
                 command_executor,
                 claude_executor: claude_executor.clone() as Arc<dyn ClaudeExecutor>,
                 user_interaction: user_interaction.clone() as Arc<dyn UserInteraction>,
@@ -2216,6 +2358,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2273,6 +2416,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2335,6 +2479,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2395,6 +2540,7 @@ mod tests {
                 command: create_test_cook_command(false, true), // dry_run = true
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2457,6 +2603,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2547,6 +2694,7 @@ mod tests {
 
             let orchestrator = DefaultCookOrchestrator {
                 session_manager: session_manager.clone() as Arc<dyn SessionManager>,
+                unified_session_manager: Arc::new(Mutex::new(None)),
                 command_executor,
                 claude_executor: claude_executor.clone() as Arc<dyn ClaudeExecutor>,
                 user_interaction: user_interaction.clone() as Arc<dyn UserInteraction>,
@@ -2580,6 +2728,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,
@@ -2641,6 +2790,7 @@ mod tests {
                 command: create_test_cook_command(false, false),
                 project_path: Arc::new(PathBuf::from("/test")),
                 workflow: Arc::new(crate::config::WorkflowConfig {
+                    name: None,
                     commands: vec![],
                     env: None,
                     secrets: None,

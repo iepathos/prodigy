@@ -367,8 +367,82 @@ reduce:
 
 ## Session Management
 
-### Session State (`session_state.json`)
-Tracks the current cooking session:
+Prodigy uses a unified session management system that tracks all workflow and MapReduce executions through `UnifiedSession` objects stored in `~/.prodigy/sessions/`.
+
+### UnifiedSession Structure
+
+Every workflow execution creates a UnifiedSession file that contains:
+
+```json
+{
+  "id": "session-abc123",
+  "session_type": "Workflow",
+  "status": "Running|Paused|Completed|Failed|Cancelled",
+  "started_at": "2024-01-01T12:00:00Z",
+  "updated_at": "2024-01-01T12:05:00Z",
+  "completed_at": null,
+  "metadata": {
+    "execution_start_time": "2024-01-01T12:00:00Z",
+    "workflow_type": "standard",
+    "total_steps": 5,
+    "current_step": 2
+  },
+  "checkpoints": [],
+  "timings": {
+    "step1": {"secs": 10, "nanos": 0},
+    "step2": {"secs": 15, "nanos": 0}
+  },
+  "error": null,
+  "workflow_data": {
+    "workflow_id": "workflow-1234567890",
+    "workflow_name": "my-workflow",
+    "current_step": 2,
+    "total_steps": 5,
+    "completed_steps": [0, 1],
+    "variables": {},
+    "iterations_completed": 0,
+    "files_changed": 0,
+    "worktree_name": "session-abc123"
+  },
+  "mapreduce_data": null
+}
+```
+
+### Session Lifecycle
+
+1. **Creation**: When a workflow starts, a UnifiedSession is created in `~/.prodigy/sessions/{session-id}.json`
+2. **Active Execution**: Status is set to `Running`, metadata is populated with execution timing
+3. **Interruption**: If interrupted, status changes to `Paused` and checkpoint is created
+4. **Resume**: `prodigy resume` loads the UnifiedSession and continues from the checkpoint
+5. **Completion**: Status changes to `Completed` (or `Failed`), `completed_at` timestamp is set
+
+### Session Metadata
+
+The `metadata` field contains execution timing and progress information:
+- `execution_start_time`: ISO 8601 timestamp when workflow started
+- `workflow_type`: Type of workflow (e.g., "standard", "mapreduce")
+- `total_steps`: Total number of steps in the workflow
+- `current_step`: Index of the currently executing step (0-based)
+
+### Session Checkpoints
+
+UnifiedSession works in conjunction with checkpoints stored in `~/.prodigy/state/{session-id}/checkpoints/`:
+- Each checkpoint captures the full execution state at a point in time
+- Checkpoints are used by the resume system to continue interrupted workflows
+- Session state and checkpoint state remain consistent throughout execution
+
+### Resume with UnifiedSessionManager
+
+The `prodigy resume` command uses the UnifiedSessionManager to:
+1. Load the UnifiedSession file from `~/.prodigy/sessions/`
+2. Verify the session is in a resumable state (Paused status)
+3. Load the corresponding checkpoint from `~/.prodigy/state/`
+4. Continue execution from where it left off
+5. Update the UnifiedSession as execution progresses
+
+### Legacy Session State (`session_state.json`)
+
+**Note**: The legacy `session_state.json` format is deprecated in favor of UnifiedSession. Old workflows may still reference this format:
 ```json
 {
   "session_id": "cook-1234567890",

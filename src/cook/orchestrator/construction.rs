@@ -132,6 +132,7 @@ mod tests {
     #[test]
     fn test_create_env_config_empty() {
         let workflow = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,
@@ -156,6 +157,7 @@ mod tests {
         env.insert("KEY2".to_string(), "value2".to_string());
 
         let workflow = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: Some(env),
             secrets: None,

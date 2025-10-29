@@ -49,7 +49,8 @@ impl SessionManager {
                 let workflow_id = config
                     .workflow_id
                     .ok_or_else(|| anyhow!("Workflow ID required for workflow session"))?;
-                UnifiedSession::new_workflow(workflow_id, String::new())
+                let workflow_name = config.workflow_name.unwrap_or_default();
+                UnifiedSession::new_workflow(workflow_id, workflow_name)
             }
             super::state::SessionType::MapReduce => {
                 let job_id = config
@@ -452,6 +453,7 @@ mod tests {
             SessionConfig {
                 session_type: super::super::state::SessionType::Workflow,
                 workflow_id: Some(id.to_string()),
+                workflow_name: None,
                 job_id: None,
                 metadata: HashMap::new(),
             }
@@ -460,6 +462,7 @@ mod tests {
         fn mapreduce_config(&self, id: &str) -> SessionConfig {
             SessionConfig {
                 session_type: super::super::state::SessionType::MapReduce,
+                workflow_name: None,
                 job_id: Some(id.to_string()),
                 workflow_id: None,
                 metadata: HashMap::new(),
@@ -504,6 +507,7 @@ mod tests {
         let config = SessionConfig {
             session_type: super::super::state::SessionType::Workflow,
             workflow_id: None,
+            workflow_name: None,
             job_id: None,
             metadata: HashMap::new(),
         };
@@ -522,6 +526,7 @@ mod tests {
         let config = SessionConfig {
             session_type: super::super::state::SessionType::MapReduce,
             workflow_id: None,
+            workflow_name: None,
             job_id: None,
             metadata: HashMap::new(),
         };
@@ -820,6 +825,7 @@ mod tests {
             let config = SessionConfig {
                 session_type: super::super::state::SessionType::Workflow,
                 workflow_id: Some("persistence-test".to_string()),
+                workflow_name: None,
                 job_id: None,
                 metadata: HashMap::new(),
             };

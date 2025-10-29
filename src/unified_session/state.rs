@@ -147,6 +147,7 @@ pub struct Checkpoint {
 pub struct SessionConfig {
     pub session_type: SessionType,
     pub workflow_id: Option<String>,
+    pub workflow_name: Option<String>,
     pub job_id: Option<String>,
     pub metadata: HashMap<String, serde_json::Value>,
 }
@@ -184,8 +185,10 @@ impl UnifiedSession {
     /// Create a new workflow session
     pub fn new_workflow(workflow_id: String, workflow_name: String) -> Self {
         let now = Utc::now();
+        // Use workflow_id as session id for consistency
+        let session_id = SessionId::from_string(workflow_id.clone());
         Self {
-            id: SessionId::new(),
+            id: session_id,
             session_type: SessionType::Workflow,
             status: SessionStatus::Initializing,
             started_at: now,
@@ -470,6 +473,7 @@ mod tests {
         let config = SessionConfig {
             session_type: SessionType::Workflow,
             workflow_id: Some("workflow-1".to_string()),
+            workflow_name: None,
             job_id: None,
             metadata: metadata.clone(),
         };

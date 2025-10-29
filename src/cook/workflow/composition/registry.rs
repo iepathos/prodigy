@@ -536,6 +536,7 @@ mod tests {
         let registry = TemplateRegistry::with_storage(storage);
 
         let workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,
@@ -581,6 +582,7 @@ mod tests {
         let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
 
         let workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,
@@ -626,6 +628,7 @@ mod tests {
         let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
 
         let workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,
@@ -699,6 +702,7 @@ mod tests {
         let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
 
         let workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,
@@ -739,6 +743,7 @@ mod tests {
         let storage = FileTemplateStorage::new(temp_dir.path().to_path_buf());
 
         let workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,

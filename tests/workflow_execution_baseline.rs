@@ -41,6 +41,7 @@ mod standard_workflow {
     fn test_standard_workflow_with_validation() {
         // Document that validation works in standard workflows
         let workflow = WorkflowConfig {
+            name: None,
             env: None,
             secrets: None,
             env_files: None,
@@ -60,6 +61,7 @@ mod standard_workflow {
     fn test_standard_workflow_with_handlers() {
         // Document that handlers work in standard workflows
         let workflow = WorkflowConfig {
+            name: None,
             env: None,
             secrets: None,
             env_files: None,
@@ -79,6 +81,7 @@ mod standard_workflow {
     fn test_standard_workflow_with_timeouts() {
         // Document that timeouts work in standard workflows
         let workflow = WorkflowConfig {
+            name: None,
             env: None,
             secrets: None,
             env_files: None,
@@ -102,6 +105,7 @@ mod structured_workflow {
     fn test_structured_workflow_type_classification() {
         // Document that structured workflows are those with outputs
         let workflow = WorkflowConfig {
+            name: None,
             env: None,
             secrets: None,
             env_files: None,
@@ -127,6 +131,7 @@ mod args_workflow {
     fn test_args_workflow_type_classification() {
         // Document that args workflows use the args field
         let workflow = WorkflowConfig {
+            name: None,
             env: None,
             secrets: None,
             env_files: None,
@@ -150,6 +155,7 @@ mod mapreduce_workflow {
     fn test_mapreduce_workflow_type_exists() {
         // Document that MapReduce workflows exist
         let workflow = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,
@@ -209,6 +215,7 @@ mod feature_matrix {
 
         // Standard workflow
         let standard = WorkflowConfig {
+            name: None,
             env: None,
             secrets: None,
             env_files: None,
@@ -233,6 +240,7 @@ mod migration_tests {
 
         // All existing workflow configs must continue to work
         let workflow = WorkflowConfig {
+            name: None,
             commands: vec![],
             env: None,
             secrets: None,
