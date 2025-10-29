@@ -49,7 +49,8 @@ impl SessionManager {
                 let workflow_id = config
                     .workflow_id
                     .ok_or_else(|| anyhow!("Workflow ID required for workflow session"))?;
-                UnifiedSession::new_workflow(workflow_id, String::new())
+                let workflow_name = config.workflow_name.unwrap_or_default();
+                UnifiedSession::new_workflow(workflow_id, workflow_name)
             }
             super::state::SessionType::MapReduce => {
                 let job_id = config

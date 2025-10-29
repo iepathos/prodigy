@@ -514,7 +514,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
     }
 
     async fn setup_environment(&self, config: &CookConfig) -> Result<ExecutionEnvironment> {
-        let session_id = Arc::from(self.generate_session_id().as_str());
+        // For MapReduce or dry-run, generate a session ID; otherwise, use unified session ID
+        let mut session_id = Arc::from(self.generate_session_id().as_str());
         let mut working_dir = Arc::clone(&config.project_path);
         let mut worktree_name: Option<Arc<str>> = None;
 
@@ -549,6 +550,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             let session_config = crate::unified_session::SessionConfig {
                 session_type: crate::unified_session::SessionType::Workflow,
                 workflow_id: Some(workflow_id.clone()),
+                workflow_name: config.workflow.name.clone(),
                 job_id: None,
                 metadata,
             };
@@ -569,6 +571,9 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 unified_session_id,
                 workflow_id
             );
+
+            // Use the unified session ID as the session ID
+            session_id = Arc::from(unified_session_id.as_str());
         }
 
         // Always setup worktree (but not in dry-run mode)

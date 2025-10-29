@@ -10,6 +10,10 @@ use std::path::PathBuf;
 /// Contains a list of commands to execute in sequence for a workflow
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkflowConfig {
+    /// Workflow name (optional, defaults to "default")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+
     /// Commands to execute in order
     pub commands: Vec<WorkflowCommand>,
 
@@ -47,6 +51,8 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
             Commands(Vec<WorkflowCommand>),
             // Full format: object with commands and environment fields
             Full {
+                #[serde(default)]
+                name: Option<String>,
                 commands: Vec<WorkflowCommand>,
                 #[serde(default)]
                 env: Option<HashMap<String, String>>,
@@ -61,6 +67,8 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
             },
             // Old format: object with commands field only
             WithCommandsField {
+                #[serde(default)]
+                name: Option<String>,
                 commands: Vec<WorkflowCommand>,
             },
         }
@@ -68,6 +76,7 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
         let helper = WorkflowConfigHelper::deserialize(deserializer)?;
         match helper {
             WorkflowConfigHelper::Commands(cmds) => Ok(WorkflowConfig {
+                name: None,
                 commands: cmds,
                 env: None,
                 secrets: None,
@@ -76,6 +85,7 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
                 merge: None,
             }),
             WorkflowConfigHelper::Full {
+                name,
                 commands,
                 env,
                 secrets,
@@ -83,6 +93,7 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
                 profiles,
                 merge,
             } => Ok(WorkflowConfig {
+                name,
                 commands,
                 env,
                 secrets,
@@ -90,7 +101,8 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
                 profiles,
                 merge,
             }),
-            WorkflowConfigHelper::WithCommandsField { commands } => Ok(WorkflowConfig {
+            WorkflowConfigHelper::WithCommandsField { name, commands } => Ok(WorkflowConfig {
+                name,
                 commands,
                 env: None,
                 secrets: None,

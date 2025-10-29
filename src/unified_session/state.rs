@@ -147,6 +147,7 @@ pub struct Checkpoint {
 pub struct SessionConfig {
     pub session_type: SessionType,
     pub workflow_id: Option<String>,
+    pub workflow_name: Option<String>,
     pub job_id: Option<String>,
     pub metadata: HashMap<String, serde_json::Value>,
 }

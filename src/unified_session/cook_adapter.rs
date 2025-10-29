@@ -177,16 +177,26 @@ impl CookSessionAdapter {
 #[async_trait]
 impl CookSessionManager for CookSessionAdapter {
     async fn start_session(&self, session_id: &str) -> Result<()> {
-        let config = SessionConfig {
-            session_type: SessionType::Workflow,
-            workflow_id: Some(session_id.to_string()),
-            job_id: None,
-            metadata: Default::default(),
+        // Try to load existing session first (orchestrator may have already created it)
+        let id = SessionId::from_string(session_id.to_string());
+        let session_exists = self.unified_manager.load_session(&id).await.is_ok();
+
+        let final_id = if session_exists {
+            // Session already exists, just use it
+            id
+        } else {
+            // Create new session if it doesn't exist
+            let config = SessionConfig {
+                session_type: SessionType::Workflow,
+                workflow_id: Some(session_id.to_string()),
+                job_id: None,
+                metadata: Default::default(),
+            };
+            self.unified_manager.create_session(config).await?
         };
 
-        let id = self.unified_manager.create_session(config).await?;
-        *self.current_session.lock().await = Some(id.clone());
-        self.unified_manager.start_session(&id).await?;
+        *self.current_session.lock().await = Some(final_id.clone());
+        self.unified_manager.start_session(&final_id).await?;
 
         // Update cached state
         self.update_cached_state().await?;
