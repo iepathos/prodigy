@@ -15,5 +15,6 @@ pub mod resume_command_tests;
 pub mod resume_integration_tests;
 pub mod signal_handling_tests;
 pub mod test_utils;
+pub mod unified_session_tests;
 pub mod verbose_output_tests;
 pub mod worktree_command_tests;

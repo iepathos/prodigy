@@ -526,11 +526,31 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 .context("Failed to get unified session manager")?;
 
             let workflow_id = format!("workflow-{}", chrono::Utc::now().timestamp_millis());
+
+            // Populate metadata with execution information
+            let mut metadata = std::collections::HashMap::new();
+            metadata.insert(
+                "execution_start_time".to_string(),
+                serde_json::json!(chrono::Utc::now().to_rfc3339()),
+            );
+            metadata.insert(
+                "workflow_type".to_string(),
+                serde_json::json!("standard"),
+            );
+            metadata.insert(
+                "total_steps".to_string(),
+                serde_json::json!(config.workflow.commands.len()),
+            );
+            metadata.insert(
+                "current_step".to_string(),
+                serde_json::json!(0),
+            );
+
             let session_config = crate::unified_session::SessionConfig {
                 session_type: crate::unified_session::SessionType::Workflow,
                 workflow_id: Some(workflow_id.clone()),
                 job_id: None,
-                metadata: std::collections::HashMap::new(),
+                metadata,
             };
 
             let unified_session_id = unified_session_manager
