@@ -185,8 +185,10 @@ impl UnifiedSession {
     /// Create a new workflow session
     pub fn new_workflow(workflow_id: String, workflow_name: String) -> Self {
         let now = Utc::now();
+        // Use workflow_id as session id for consistency
+        let session_id = SessionId::from_string(workflow_id.clone());
         Self {
-            id: SessionId::new(),
+            id: session_id,
             session_type: SessionType::Workflow,
             status: SessionStatus::Initializing,
             started_at: now,
