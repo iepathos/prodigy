@@ -96,37 +96,77 @@ fn get_field<'a>(item: &'a Value, field_path: &str) -> Option<&'a Value> {
 }
 
 /// Sort work items based on a sort expression
+/// Supports multi-field sorting: "field1 DESC, field2 ASC"
 pub fn sort_work_items(mut items: Vec<Value>, sort_expr: Option<&str>) -> Vec<Value> {
     if let Some(expr) = sort_expr {
-        let parts: Vec<&str> = expr.split_whitespace().collect();
-        if !parts.is_empty() {
-            let field = parts[0];
-            let descending = parts.len() > 1 && parts[1].to_uppercase() == "DESC";
-
-            items.sort_by(|a, b| {
-                let a_val = get_field(a, field);
-                let b_val = get_field(b, field);
-
-                match (a_val, b_val) {
-                    (Some(a), Some(b)) => {
-                        let cmp = if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64()) {
-                            a_num
-                                .partial_cmp(&b_num)
-                                .unwrap_or(std::cmp::Ordering::Equal)
-                        } else if let (Some(a_str), Some(b_str)) = (a.as_str(), b.as_str()) {
-                            a_str.cmp(b_str)
-                        } else {
-                            std::cmp::Ordering::Equal
-                        };
-
-                        if descending {
-                            cmp.reverse()
-                        } else {
-                            cmp
-                        }
-                    }
-                    _ => std::cmp::Ordering::Equal,
+        // Parse comma-separated sort fields
+        let sort_keys: Vec<(String, bool)> = expr
+            .split(',')
+            .filter_map(|field_expr| {
+                let parts: Vec<&str> = field_expr.split_whitespace().collect();
+                if parts.is_empty() {
+                    return None;
                 }
+                let field = parts[0].to_string();
+                let descending = parts.len() > 1 && parts[1].to_uppercase() == "DESC";
+                Some((field, descending))
+            })
+            .collect();
+
+        if !sort_keys.is_empty() {
+            items.sort_by(|a, b| {
+                // Try each sort key in order until we find a non-equal comparison
+                for (field, descending) in &sort_keys {
+                    let a_val = get_field(a, field);
+                    let b_val = get_field(b, field);
+
+                    let cmp = match (a_val, b_val) {
+                        (Some(a_json), Some(b_json)) => {
+                            // Both values present, compare them
+                            let value_cmp = if let (Some(a_num), Some(b_num)) =
+                                (a_json.as_f64(), b_json.as_f64())
+                            {
+                                a_num
+                                    .partial_cmp(&b_num)
+                                    .unwrap_or(std::cmp::Ordering::Equal)
+                            } else if let (Some(a_str), Some(b_str)) =
+                                (a_json.as_str(), b_json.as_str())
+                            {
+                                a_str.cmp(b_str)
+                            } else {
+                                std::cmp::Ordering::Equal
+                            };
+                            // Apply DESC to value comparison
+                            if *descending {
+                                value_cmp.reverse()
+                            } else {
+                                value_cmp
+                            }
+                        }
+                        (Some(_), None) => {
+                            // a has value, b doesn't - a always comes first regardless of DESC/ASC
+                            // (non-null values always sorted before nulls)
+                            std::cmp::Ordering::Less
+                        }
+                        (None, Some(_)) => {
+                            // b has value, a doesn't - b always comes first
+                            std::cmp::Ordering::Greater
+                        }
+                        (None, None) => {
+                            // Both null, equal - try next sort key
+                            std::cmp::Ordering::Equal
+                        }
+                    };
+
+                    // If this comparison is not equal, use it
+                    if cmp != std::cmp::Ordering::Equal {
+                        return cmp;
+                    }
+                    // Otherwise, continue to next sort key
+                }
+
+                // All sort keys were equal
+                std::cmp::Ordering::Equal
             });
         }
     }

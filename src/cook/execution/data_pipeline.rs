@@ -1342,12 +1342,8 @@ impl Sorter {
             let a_value = Self::get_nested_field_value(a, &field.path);
             let b_value = Self::get_nested_field_value(b, &field.path);
 
-            let ordering = self.compare_values(a_value, b_value, &field.null_position);
-
-            let ordering = match field.order {
-                SortOrder::Ascending => ordering,
-                SortOrder::Descending => ordering.reverse(),
-            };
+            let ordering =
+                self.compare_values(a_value, b_value, &field.null_position, &field.order);
 
             if ordering != Ordering::Equal {
                 return ordering;
@@ -1373,14 +1369,19 @@ impl Sorter {
     }
 
     /// Compare two JSON values for sorting
+    ///
+    /// CRITICAL: null_position is independent of sort order (ASC/DESC)
+    /// DESC reverses ONLY the value comparisons, NOT the null positioning
     fn compare_values(
         &self,
         a: Option<&Value>,
         b: Option<&Value>,
         null_position: &NullPosition,
+        order: &SortOrder,
     ) -> Ordering {
         match (a, b) {
             (None, None) | (Some(Value::Null), Some(Value::Null)) => Ordering::Equal,
+            // Null vs non-null: position is independent of ASC/DESC
             (None, Some(v)) | (Some(Value::Null), Some(v)) if !v.is_null() => match null_position {
                 NullPosition::First => Ordering::Less,
                 NullPosition::Last => Ordering::Greater,
@@ -1389,7 +1390,14 @@ impl Sorter {
                 NullPosition::First => Ordering::Greater,
                 NullPosition::Last => Ordering::Less,
             },
-            (Some(a), Some(b)) => self.compare_json_values(a, b),
+            // Both values present: apply ASC/DESC to the comparison
+            (Some(a), Some(b)) => {
+                let value_cmp = self.compare_json_values(a, b);
+                match order {
+                    SortOrder::Ascending => value_cmp,
+                    SortOrder::Descending => value_cmp.reverse(),
+                }
+            }
             _ => Ordering::Equal,
         }
     }
@@ -1584,6 +1592,44 @@ mod tests {
         assert_eq!(items[0]["priority"], 1); // high with priority 1
         assert_eq!(items[1]["priority"], 3); // high with priority 3
         assert_eq!(items[2]["priority"], 5); // critical with priority 5
+    }
+
+    #[test]
+    fn test_enum_wrapped_sorting_with_nulls_last() {
+        // Test case from debtmap: Files and Functions wrapped in enum variants
+        // Files have File.score, Functions have Function.unified_score.final_score
+        // When sorting by File.score DESC NULLS LAST, all Files should come before Functions
+        let sorter = Sorter::parse(
+            "File.score DESC NULLS LAST, Function.unified_score.final_score DESC NULLS LAST",
+        )
+        .unwrap();
+
+        let mut items = vec![
+            json!({"File": {"score": 192}}),
+            json!({"Function": {"unified_score": {"final_score": 18}}}),
+            json!({"File": {"score": 112}}),
+            json!({"Function": {"unified_score": {"final_score": 11}}}),
+            json!({"File": {"score": 108}}),
+            json!({"Function": {"unified_score": {"final_score": 9}}}),
+        ];
+
+        sorter.sort(&mut items);
+
+        // All Files should be first (sorted by score DESC)
+        assert!(items[0].get("File").is_some());
+        assert_eq!(items[0]["File"]["score"], 192);
+        assert!(items[1].get("File").is_some());
+        assert_eq!(items[1]["File"]["score"], 112);
+        assert!(items[2].get("File").is_some());
+        assert_eq!(items[2]["File"]["score"], 108);
+
+        // Then all Functions (sorted by unified_score.final_score DESC)
+        assert!(items[3].get("Function").is_some());
+        assert_eq!(items[3]["Function"]["unified_score"]["final_score"], 18);
+        assert!(items[4].get("Function").is_some());
+        assert_eq!(items[4]["Function"]["unified_score"]["final_score"], 11);
+        assert!(items[5].get("Function").is_some());
+        assert_eq!(items[5]["Function"]["unified_score"]["final_score"], 9);
     }
 
     #[test]
@@ -1963,8 +2009,7 @@ mod tests {
 
     #[test]
     fn test_sort_with_null_position() {
-        // Test sorting with DESC - nulls end up first because DESC reverses the order
-        // and nulls are considered "greater" (sort last in ASC, first in DESC)
+        // Test that NULLS LAST is the default behavior (nulls sort last regardless of ASC/DESC)
         let sorter = Sorter::parse("score DESC").unwrap();
 
         let mut items = vec![
@@ -1976,11 +2021,28 @@ mod tests {
 
         sorter.sort(&mut items);
 
-        // With DESC, the order is: null first, then 10, 5, 3
-        assert_eq!(items[0]["score"], Value::Null); // Null comes first in DESC
-        assert_eq!(items[1]["score"], 10); // Highest non-null score
-        assert_eq!(items[2]["score"], 5); // Middle score
-        assert_eq!(items[3]["score"], 3); // Lowest score
+        // With DESC and default NULLS LAST: 10, 5, 3, then null
+        assert_eq!(items[0]["score"], 10); // Highest non-null score
+        assert_eq!(items[1]["score"], 5); // Middle score
+        assert_eq!(items[2]["score"], 3); // Lowest score
+        assert_eq!(items[3]["score"], Value::Null); // Null comes last
+
+        // Test explicit NULLS FIRST to get old behavior
+        let sorter_nulls_first = Sorter::parse("score DESC NULLS FIRST").unwrap();
+        let mut items2 = vec![
+            json!({"id": 1, "score": 5}),
+            json!({"id": 2, "score": 3}),
+            json!({"id": 3, "score": null}),
+            json!({"id": 4, "score": 10}),
+        ];
+
+        sorter_nulls_first.sort(&mut items2);
+
+        // With DESC NULLS FIRST: null first, then 10, 5, 3
+        assert_eq!(items2[0]["score"], Value::Null); // Null comes first
+        assert_eq!(items2[1]["score"], 10); // Highest non-null score
+        assert_eq!(items2[2]["score"], 5); // Middle score
+        assert_eq!(items2[3]["score"], 3); // Lowest score
     }
 
     #[test]
@@ -2183,7 +2245,7 @@ mod tests {
     #[test]
     fn test_complex_multifield_sorting() {
         // Test multi-field sorting with different directions
-        // Note: NULLS FIRST/LAST parsing is implemented but behavior needs refinement
+        // Default behavior: NULLS LAST regardless of ASC/DESC
         let sorter = Sorter::parse("category ASC, priority DESC, name ASC").unwrap();
 
         let mut items = vec![
@@ -2197,12 +2259,12 @@ mod tests {
         sorter.sort(&mut items);
 
         // Check sorting: first by category ASC (normal < urgent),
-        // then by priority DESC (nulls come first in DESC), then by name ASC
+        // then by priority DESC (with NULLS LAST default), then by name ASC
         assert_eq!(items[0]["category"], "normal");
-        assert_eq!(items[0]["priority"], Value::Null); // Null comes first in DESC
+        assert_eq!(items[0]["priority"], 8); // Highest non-null priority in "normal"
 
         assert_eq!(items[1]["category"], "normal");
-        assert_eq!(items[1]["priority"], 8); // Highest non-null priority in "normal"
+        assert_eq!(items[1]["priority"], Value::Null); // Null comes last with default NULLS LAST
 
         assert_eq!(items[2]["category"], "urgent");
         assert_eq!(items[2]["priority"], 10); // Highest priority in "urgent"
