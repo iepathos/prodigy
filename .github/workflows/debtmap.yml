@@ -31,8 +31,6 @@ jobs:
 
     - name: Generate coverage data
       run: just coverage-lcov
-      env:
-        PRODIGY_TEST_MODE: "true"
 
     - name: Analyze tech debt with coverage correlation
       uses: iepathos/debtmap-action@v1

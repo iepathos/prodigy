@@ -29,8 +29,6 @@ jobs:
 
     - name: Generate code coverage
       run: just coverage
-      env:
-        PRODIGY_TEST_MODE: "true"
 
     - name: Archive code coverage results
       uses: actions/upload-artifact@v5
@@ -40,5 +38,3 @@ jobs:
 
     - name: Check coverage threshold
       run: just coverage-check
-      env:
-        PRODIGY_TEST_MODE: "true"
