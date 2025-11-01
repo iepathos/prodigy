@@ -578,9 +578,17 @@ async fn test_file_pattern_glob_expansion() {
         if let Some(parent) = file_path.parent() {
             std::fs::create_dir_all(parent).unwrap();
         }
-        let f = std::fs::File::create(&file_path).unwrap();
-        // Ensure file is written to disk to avoid timing issues
-        f.sync_all().unwrap();
+        std::fs::write(&file_path, b"test content").unwrap();
+        // Verify file exists and is accessible
+        assert!(file_path.exists(), "File should exist: {:?}", file_path);
+        assert!(std::fs::metadata(&file_path).is_ok(), "File should be accessible: {:?}", file_path);
+    }
+
+    // Extra sync to ensure filesystem consistency on slower CI systems
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+        let _ = Command::new("sync").status();
     }
 
     let provider = file_pattern::FilePatternInputProvider::new();
