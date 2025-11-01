@@ -581,7 +581,11 @@ async fn test_file_pattern_glob_expansion() {
         std::fs::write(&file_path, b"test content").unwrap();
         // Verify file exists and is accessible
         assert!(file_path.exists(), "File should exist: {:?}", file_path);
-        assert!(std::fs::metadata(&file_path).is_ok(), "File should be accessible: {:?}", file_path);
+        assert!(
+            std::fs::metadata(&file_path).is_ok(),
+            "File should be accessible: {:?}",
+            file_path
+        );
     }
 
     // Extra sync to ensure filesystem consistency on slower CI systems
