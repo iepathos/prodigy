@@ -26,13 +26,18 @@ jobs:
     - name: Install cargo-llvm-cov
       uses: taiki-e/install-action@cargo-llvm-cov
 
+    - name: Install just
+      uses: extractions/setup-just@v2
+
     - name: Generate coverage data
-      run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+      run: just coverage-lcov
+      env:
+        PRODIGY_TEST_MODE: "true"
 
     - name: Analyze tech debt with coverage correlation
       uses: iepathos/debtmap-action@v1
       with:
-        coverage-file: lcov.info
+        coverage-file: target/coverage/lcov.info
         command: analyze
         format: markdown
 
@@ -40,7 +45,7 @@ jobs:
     # - name: Validate tech debt thresholds
     #   uses: iepathos/debtmap-action@v1
     #   with:
-    #     coverage-file: lcov.info
+    #     coverage-file: target/coverage/lcov.info
     #     command: validate
     #     format: json
     #     fail-on-threshold: true

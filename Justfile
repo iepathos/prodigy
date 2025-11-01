@@ -69,32 +69,52 @@ test-pattern PATTERN:
 test-watch:
     cargo watch -x 'nextest run'
 
-# Run tests with coverage using optimized tarpaulin with LLVM engine and nextest
+# Run tests with coverage using llvm-cov
 coverage:
     #!/usr/bin/env bash
+    # Ensure rustup's cargo is in PATH (needed for llvm-tools-preview)
+    export PATH="$HOME/.cargo/bin:$PATH"
     echo "Building prodigy binary for integration tests..."
     cargo build --bin prodigy
-    echo "Generating code coverage report with tarpaulin (LLVM engine + nextest)..."
-    cargo tarpaulin --config .tarpaulin.toml
-    echo "Coverage report generated at target/coverage/tarpaulin-report.html"
+    echo "Cleaning previous coverage data..."
+    cargo llvm-cov clean
+    echo "Generating code coverage report with llvm-cov..."
+    cargo llvm-cov --all-features --workspace --html --output-dir target/coverage
+    echo "Coverage report generated at target/coverage/html/index.html"
 
 # Run tests with coverage (lcov format)
 coverage-lcov:
     #!/usr/bin/env bash
+    set -euo pipefail  # Exit on error, undefined variables, and pipe failures
+    # Ensure rustup's cargo is in PATH (needed for llvm-tools-preview)
+    export PATH="$HOME/.cargo/bin:$PATH"
     echo "Building prodigy binary for integration tests..."
     cargo build --bin prodigy
-    echo "Generating code coverage report with tarpaulin (lcov format)..."
-    cargo tarpaulin --config .tarpaulin.toml --out Lcov
+    echo "Cleaning previous coverage data..."
+    cargo llvm-cov clean
+    # Ensure target/coverage directory exists
+    mkdir -p target/coverage
+    echo "Generating code coverage report with llvm-cov (lcov format)..."
+    cargo llvm-cov --all-features --workspace --lcov --output-path target/coverage/lcov.info
     echo "Coverage report generated at target/coverage/lcov.info"
+    # Verify the file was actually created
+    if [ ! -f target/coverage/lcov.info ]; then
+        echo "ERROR: Coverage file was not generated at target/coverage/lcov.info"
+        exit 1
+    fi
 
 # Run tests with coverage and check threshold
 coverage-check:
     #!/usr/bin/env bash
+    # Ensure rustup's cargo is in PATH (needed for llvm-tools-preview)
+    export PATH="$HOME/.cargo/bin:$PATH"
     echo "Building prodigy binary for integration tests..."
     cargo build --bin prodigy
     echo "Checking code coverage threshold..."
-    cargo tarpaulin --config .tarpaulin.toml --out Json --quiet
-    COVERAGE=$(cat target/coverage/tarpaulin-report.json | jq -r '.files | to_entries | map(.value.coverage) | add / length')
+    cargo llvm-cov clean
+    mkdir -p target/coverage
+    cargo llvm-cov --all-features --workspace --json --output-path target/coverage/coverage.json
+    COVERAGE=$(cat target/coverage/coverage.json | jq -r '.data[0].totals.lines.percent')
     echo "Current coverage: ${COVERAGE}%"
     if (( $(echo "$COVERAGE < 80" | bc -l) )); then
         echo "⚠️  Coverage is below 80%: $COVERAGE%"
@@ -105,15 +125,19 @@ coverage-check:
 
 # Open coverage report in browser
 coverage-open: coverage
-    open target/coverage/tarpaulin-report.html
+    open target/coverage/html/index.html
 
 # Analyze the current repository with debtmap using coverage data
 analyze-self:
     #!/usr/bin/env bash
-    echo "Building prodigy in release mode..."
-    cargo build --release --bin prodigy
+    # Ensure rustup's cargo is in PATH (needed for llvm-tools-preview)
+    export PATH="$HOME/.cargo/bin:$PATH"
+    echo "Building prodigy..."
+    cargo build --bin prodigy
     echo "Generating code coverage (lcov format)..."
-    cargo tarpaulin --config .tarpaulin.toml --out Lcov
+    cargo llvm-cov clean
+    mkdir -p target/coverage
+    cargo llvm-cov --all-features --workspace --lcov --output-path target/coverage/lcov.info
     echo "Analyzing current repository with debtmap..."
     debtmap analyze . --lcov target/coverage/lcov.info -vv
     echo "Analysis complete!"
@@ -298,8 +322,8 @@ full-check: clean build test lint doc audit
 
 # Install development tools
 install-tools:
-    rustup component add rustfmt clippy
-    cargo install cargo-watch cargo-tarpaulin cargo-audit cargo-outdated cargo-nextest
+    rustup component add rustfmt clippy llvm-tools-preview
+    cargo install cargo-watch cargo-llvm-cov cargo-audit cargo-outdated cargo-nextest
 
 # Install additional development tools
 install-extras:
