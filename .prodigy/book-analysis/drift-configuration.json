@@ -4,37 +4,37 @@
   "chapter_file": "book/src/configuration.md",
   "drift_detected": true,
   "severity": "low",
-  "quality_assessment": "Chapter is comprehensive, well-structured, and accurate. The documentation correctly explains configuration precedence including environment variable merging. Only minor issues with internal implementation details (MemoryConfig default) and some terminology that could be clearer.",
+  "quality_assessment": "Chapter is comprehensive, well-structured, and highly accurate. The documentation correctly explains configuration precedence including environment variable merging. Only very minor issues with implementation details that are actually correctly documented. Overall excellent documentation quality.",
   "issues": [
     {
-      "type": "incorrect_example",
-      "severity": "medium",
-      "section": "Storage Configuration - MemoryConfig max_memory default",
-      "description": "Chapter states max_memory default is 100MB for MemoryConfig, but code actually defaults to 100MB in MemoryConfig::default() while helper function default_memory_limit() returns 1GB",
-      "current_content": "Line 327: '| `max_memory` | Number | `104857600` | Maximum memory usage (100MB) |'\nLine 350: 'assert_eq!(config.max_memory, 100 * 1024 * 1024); // 100 MB'",
-      "should_be": "The chapter is correct - MemoryConfig::default() does set max_memory to 100MB (100 * 1024 * 1024). However, there's a helper function default_memory_limit() that returns 1GB which is not used by MemoryConfig::default()",
-      "fix_suggestion": "No change needed in chapter. The code has an unused helper function default_memory_limit() that returns 1GB, but MemoryConfig::default() correctly uses 100MB as documented",
-      "source_reference": "src/storage/config.rs:103-111 (MemoryConfig::default uses 100MB), src/storage/config.rs:200-202 (unused default_memory_limit returns 1GB)"
+      "type": "correct_but_confusing",
+      "severity": "low",
+      "section": "Storage Configuration - MemoryConfig default note",
+      "description": "Chapter note on line 304 says 'Note: MemoryConfig also has a max_memory field with the same 100MB default' but this could be interpreted as comparing two different defaults when they're actually the same",
+      "current_content": "Line 304: 'Max file size before rotation (100MB). Note: MemoryConfig also has a max_memory field with the same 100MB default.'",
+      "should_be": "The note is factually correct but might confuse readers into thinking there's a discrepancy. Both FileConfig.max_file_size and MemoryConfig.max_memory default to 100MB",
+      "fix_suggestion": "Rephrase to be clearer: 'Max file size before rotation (100MB, same as MemoryConfig.max_memory default)'",
+      "source_reference": "src/storage/config.rs:103-111 (MemoryConfig::default uses 100MB), src/storage/config.rs:196-198 (default_max_file_size)"
     },
     {
-      "type": "incomplete_explanation",
+      "type": "implementation_detail_exposed",
       "severity": "low",
       "section": "Project Configuration - variables field type",
-      "description": "Chapter describes variables field type as 'Map' but mentions it's stored as 'toml::Table' for backward compatibility. Could clarify the YAML perspective more clearly.",
-      "current_content": "Line 169: '| `variables` | Map | No | None | Custom project variables (YAML map, stored internally as toml::Table for backward compatibility) |'",
-      "should_be": "Description is accurate but could emphasize users should just think of this as a standard YAML map/dictionary",
-      "fix_suggestion": "Consider rephrasing to: 'Custom project variables as YAML map (internally stored as toml::Table for backward compatibility - users can ignore this detail)'",
+      "description": "Chapter exposes internal implementation detail (toml::Table) which users don't need to know",
+      "current_content": "Line 169: 'Custom project variables as YAML map (internally stored as toml::Table for backward compatibility - users can ignore this detail)'",
+      "should_be": "Users should just see this as a YAML map. The toml::Table detail is an implementation artifact",
+      "fix_suggestion": "Simplify to: 'Custom project variables as YAML map' - remove the internal storage detail entirely",
       "source_reference": "src/config/mod.rs:73 (variables: Option<toml::Table>)"
     },
     {
-      "type": "unclear_content",
+      "type": "no_issue_code_comment_only",
       "severity": "low",
-      "section": "Configuration File Locations - Legacy references",
-      "description": "Some struct documentation comments in code still reference .toml files, but chapter correctly documents .yml format requirement",
-      "current_content": "Code comments at src/config/mod.rs:49 and :64 mention 'config.toml' file locations",
-      "should_be": "Chapter is correct - only YAML supported. Code comments should be updated to say .yml",
-      "fix_suggestion": "No change needed in chapter. This is a code documentation issue, not a book issue.",
-      "source_reference": "src/config/mod.rs:49 and :64 - comments say '.toml' but validation rejects it"
+      "section": "Configuration File Locations - Legacy TOML references in code",
+      "description": "Code comments still reference .toml files, but chapter correctly documents only YAML is supported",
+      "current_content": "Chapter correctly documents YAML-only requirement on lines 59-66",
+      "should_be": "Chapter is correct. Code comments at src/config/mod.rs:49, :64 should be updated to .yml",
+      "fix_suggestion": "No change needed in chapter. This is a code documentation issue. Chapter correctly documents YAML requirement.",
+      "source_reference": "src/config/mod.rs:49, :64 (comments say 'config.toml' but should say 'config.yml')"
     }
   ],
   "positive_aspects": [
