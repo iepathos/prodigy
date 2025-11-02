@@ -288,8 +288,12 @@ error_policy:
   error_collection: aggregate
 
 # Configuration parameters:
-# - max_parallel: 3 chapters processed concurrently
+# - max_parallel: 3 chapters processed concurrently (can be a number or environment variable like $MAX_WORKERS)
 # - agent_timeout_secs: 900 sets a 15-minute timeout per agent (900 seconds = 15 minutes)
+#   Timeout configuration supports multiple formats:
+#   * Numeric values in seconds (900)
+#   * String format with units ("15m", "1h")
+#   * Environment variables ($AGENT_TIMEOUT)
 #   This prevents any single chapter from hanging the entire workflow
 #   Adjust this value based on your expected chapter processing time
 #
@@ -331,6 +335,33 @@ merge:
 - `PROJECT_CONFIG`: Path to your book-config.json
 - `FEATURES_PATH`: Where feature inventory is stored
 
+**Advanced Map Options**:
+
+Beyond the basic configuration shown above, the map phase supports advanced item processing options:
+
+- **`filter`**: Expression to filter items before processing (e.g., `'item.priority > 5'`) - useful for processing only high-priority items
+- **`sort_by`**: Sort items by field with direction (e.g., `'item.priority DESC'`) - control processing order
+- **`max_items`**: Limit number of items to process (useful for testing or partial updates)
+- **`offset`**: Skip first N items (pagination support for large item sets)
+- **`distinct`**: Deduplicate items by field (ensure uniqueness when item source might have duplicates)
+
+Example with advanced options:
+
+```yaml
+map:
+  input: "workflows/data/chapters.json"
+  json_path: "$.chapters[*]"
+  filter: "item.priority >= 5"  # Only process high-priority chapters
+  sort_by: "item.priority DESC"  # Process highest priority first
+  max_items: 10                  # Limit to first 10 items
+
+  agent_template:
+    - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
+      commit_required: true
+```
+
+Note: This workflow uses the modern direct array syntax for `agent_template` and `reduce`. The nested `{commands: [...]}` format is deprecated and will generate warnings. Always prefer the direct array syntax shown above.
+
 ### Step 8: Run the Workflow
 
 ```bash
@@ -348,7 +379,7 @@ prodigy run workflows/book-docs-drift.yml
 
 ## Understanding the Workflow
 
-> **Note**: All workflow phases (setup, map, reduce, merge) execute in an isolated git worktree, ensuring the main repository remains untouched during execution. This isolation is a key feature of Prodigy's MapReduce implementation (Spec 127).
+> **Note**: All workflow phases execute in isolated git worktrees using a parent/child architecture. A single parent worktree hosts setup, reduce, and merge phases, while each map agent runs in a child worktree branched from the parent. Agents automatically merge back to the parent upon completion. The parent is merged to the original branch only with user confirmation at the end. This isolation ensures the main repository remains untouched during execution (Spec 127).
 
 ### Phase 1: Setup - Feature Analysis
 
@@ -382,6 +413,21 @@ This generates `.myproject/book-analysis/features.json`:
 }
 ```
 
+**Advanced Setup Options:**
+
+The setup phase optionally supports:
+- **`timeout`**: Phase-level timeout (number in seconds, string with units like "15m", or environment variable like $SETUP_TIMEOUT)
+- **`capture_outputs`**: Capture setup results into variables for use in later phases
+
+These are useful for complex setup operations that need explicit time bounds or when setup results need to be referenced in map/reduce phases. For example:
+
+```yaml
+setup:
+  timeout: "10m"  # 10-minute timeout for entire setup phase
+  - shell: "mkdir -p .myproject/book-analysis"
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
+```
+
 ### Phase 2: Map - Chapter Drift Detection and Fixing
 
 **Execution Model**: The map phase processes chapters with controlled parallelism (max_parallel: 3 chapters at a time). For each chapter, two steps execute sequentially in the same isolated agent worktree:
@@ -389,7 +435,7 @@ This generates `.myproject/book-analysis/features.json`:
 1. **Analyze** - Detect drift and create a drift report
 2. **Fix** - Read the drift report and update the chapter
 
-Each agent runs in its own isolated git worktree, allowing multiple chapters to be processed concurrently without interference. This sequential execution within each agent ensures the drift report from step 1 is available to step 2. Meanwhile, multiple chapters are processed in parallel across different agent worktrees.
+Each agent runs in its own isolated git worktree (child worktree branched from the parent worktree), allowing multiple chapters to be processed concurrently without interference. When an agent completes successfully, its changes are automatically merged back to the parent worktree using a fast-forward merge. This enables the reduce phase to access all agent results in the parent worktree. This sequential execution within each agent ensures the drift report from step 1 is available to step 2. Meanwhile, multiple chapters are processed in parallel across different agent worktrees.
 
 ```yaml
 map:
@@ -423,7 +469,7 @@ Both steps run sequentially for each chapter, and chapters are processed in para
 
 **Why commit_required: true is Critical**
 
-Each map agent runs in its own isolated git worktree. The `commit_required: true` flag ensures the drift report is committed to git in that worktree. This is critical because without the commit, the drift report file created by step 1 would not be accessible to step 2, even though they run sequentially in the same agent worktree.
+Each map agent runs in its own isolated git worktree. The `commit_required: true` flag ensures the drift report is committed to git in that worktree. This is critical because without the commit, the drift report file created by step 1 would not be accessible to step 2, even though they run sequentially in the same agent worktree. The commit also enables the reduce phase to access drift reports from all agents, as agent worktrees merge back to the parent worktree after completion.
 
 ### Phase 3: Reduce - Validate Book Build
 
@@ -445,6 +491,16 @@ Since chapter fixes happen in the map phase, the reduce phase focuses on:
 3. Fixing build errors if they occur (via Claude command)
 
 This ensures that all chapters work together correctly after parallel updates.
+
+**Optional Reduce Timeout:**
+
+The reduce phase optionally supports `timeout_secs` to limit total reduce execution time. This is useful for workflows where reduce operations might take unpredictably long (e.g., generating large reports). Example:
+
+```yaml
+reduce:
+  timeout_secs: 600  # 10-minute timeout for reduce phase
+  - shell: "(cd book && mdbook build)"
+```
 
 ## Automatic Gap Detection
 
