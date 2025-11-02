@@ -15,6 +15,7 @@ pub mod checkpoint_integration;
 pub mod cleanup;
 pub mod command;
 pub mod coordination;
+pub mod dlq_integration;
 pub mod dry_run;
 pub mod event;
 pub mod map_phase;

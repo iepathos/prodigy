@@ -5,12 +5,14 @@
 
 use crate::cook::execution::claude::ClaudeExecutorImpl;
 use crate::cook::execution::data_pipeline::DataPipeline;
+use crate::cook::execution::dlq::DeadLetterQueue;
 use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
 use crate::cook::execution::input_source::InputSource;
 use crate::cook::execution::interpolation::InterpolationContext;
 use crate::cook::execution::mapreduce::{
     agent::{AgentConfig, AgentLifecycleManager, AgentResult, AgentStatus},
     aggregation::{AggregationSummary, CollectionStrategy, ResultCollector},
+    dlq_integration,
     event::{EventLogger, MapReduceEvent},
     merge_queue::MergeQueue,
     resources::git::GitOperations,
@@ -79,6 +81,8 @@ pub struct MapReduceCoordinator {
     merge_queue: Arc<MergeQueue>,
     /// Registry of orphaned worktrees from cleanup failures
     orphaned_worktrees: Arc<Mutex<Vec<OrphanedWorktree>>>,
+    /// Dead Letter Queue for failed items
+    dlq: Arc<DeadLetterQueue>,
 }
 
 impl MapReduceCoordinator {
@@ -131,6 +135,26 @@ impl MapReduceCoordinator {
             verbosity,
         ));
 
+        // Initialize DLQ for failed items tracking
+        let dlq = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                crate::storage::create_global_dlq(&project_root, &job_id, None)
+                    .await
+                    .unwrap_or_else(|e| {
+                        warn!("Failed to create global DLQ: {}, using fallback", e);
+                        // Create fallback DLQ with temp path
+                        let temp_path = std::env::temp_dir().join("prodigy_dlq");
+                        tokio::task::block_in_place(|| {
+                            tokio::runtime::Handle::current().block_on(async {
+                                DeadLetterQueue::new(job_id.clone(), temp_path, 1000, 30, None)
+                                    .await
+                                    .expect("Failed to create fallback DLQ")
+                            })
+                        })
+                    })
+            })
+        });
+
         Self {
             agent_manager,
             _state_manager: state_manager,
@@ -146,6 +170,7 @@ impl MapReduceCoordinator {
             timeout_enforcer: Arc::new(Mutex::new(None)),
             merge_queue,
             orphaned_worktrees: Arc::new(Mutex::new(Vec::new())),
+            dlq: Arc::new(dlq),
         }
     }
 
@@ -624,6 +649,7 @@ impl MapReduceCoordinator {
                 let user_interaction = Arc::clone(&self.user_interaction);
                 let claude_executor = Arc::clone(&self.claude_executor);
                 let subprocess = Arc::clone(&self.subprocess);
+                let dlq = Arc::clone(&self.dlq);
                 let map_phase = map_phase.clone();
                 let env = env.clone();
                 let job_id = self.job_id.clone();
@@ -651,6 +677,9 @@ impl MapReduceCoordinator {
                         .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
 
                     let start_time = Instant::now();
+
+                    // Clone item for DLQ tracking in case of failure
+                    let item_for_dlq = item.clone();
 
                     // Execute agent with item
                     let result = Self::execute_agent_for_item(
@@ -717,6 +746,23 @@ impl MapReduceCoordinator {
 
                     // Add result to collector
                     result_collector.add_result(agent_result.clone()).await;
+
+                    // Add failed items to DLQ (graceful failure - don't break workflow)
+                    if let Some(dlq_item) =
+                        dlq_integration::agent_result_to_dlq_item(&agent_result, &item_for_dlq, 1)
+                    {
+                        if let Err(e) = dlq.add(dlq_item).await {
+                            warn!(
+                                "Failed to add item {} to DLQ: {}. Item tracking may be incomplete.",
+                                agent_result.item_id, e
+                            );
+                        } else {
+                            info!(
+                                "Added failed item {} to DLQ for potential retry",
+                                agent_result.item_id
+                            );
+                        }
+                    }
 
                     Ok::<AgentResult, MapReduceError>(agent_result)
                 })
