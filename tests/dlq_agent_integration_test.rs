@@ -399,7 +399,10 @@ async fn test_resume_manager_dlq_integration() {
     // Verify DLQ items have necessary metadata for retry
     for item in dlq_items.iter() {
         assert!(!item.item_id.is_empty(), "Item ID should not be empty");
-        assert!(!item.failure_history.is_empty(), "Should have failure history");
+        assert!(
+            !item.failure_history.is_empty(),
+            "Should have failure history"
+        );
         assert!(
             item.failure_history[0].json_log_location.is_some(),
             "Should have JSON log location for debugging"
@@ -600,10 +603,7 @@ async fn test_dlq_retry_reprocesses_failed_items() {
     // Verify retry-eligible items
     for item in reprocessable_items.iter() {
         assert!(item.reprocess_eligible, "Should be reprocess eligible");
-        assert!(
-            item.failure_count < 3,
-            "Should have less than max retries"
-        );
+        assert!(item.failure_count < 3, "Should have less than max retries");
         assert!(
             !item.manual_review_required,
             "Should not require manual review"
@@ -660,10 +660,7 @@ async fn test_dlq_retry_reprocesses_failed_items() {
         .find(|item| item.item_id == "reprocess-item-1")
         .unwrap();
 
-    assert_eq!(
-        updated_item_1.failure_count, 3,
-        "Should have 3 failures"
-    );
+    assert_eq!(updated_item_1.failure_count, 3, "Should have 3 failures");
     assert_eq!(
         updated_item_1.failure_history.len(),
         3,
@@ -807,7 +804,10 @@ async fn test_dlq_concurrent_operations() {
 
     // Verify items have correct structure
     for item in all_items.iter() {
-        assert!(!item.failure_history.is_empty(), "Should have failure history");
+        assert!(
+            !item.failure_history.is_empty(),
+            "Should have failure history"
+        );
         assert_eq!(item.failure_count, 1, "Should have failure count of 1");
         assert!(
             item.failure_history[0].json_log_location.is_some(),
@@ -932,11 +932,7 @@ async fn test_dlq_filtering_capabilities() {
         })
         .await
         .unwrap();
-    assert_eq!(
-        reprocessable.len(),
-        3,
-        "Should have 3 reprocessable items"
-    );
+    assert_eq!(reprocessable.len(), 3, "Should have 3 reprocessable items");
 
     // Test filter: manual review items (reprocess_eligible = false)
     let manual_review = dlq
@@ -1107,10 +1103,7 @@ async fn test_dlq_metadata_completeness() {
             failure.stack_trace.is_some(),
             "Stack trace should be present"
         );
-        assert!(
-            !failure.agent_id.is_empty(),
-            "Agent ID should not be empty"
-        );
+        assert!(!failure.agent_id.is_empty(), "Agent ID should not be empty");
         assert!(
             !failure.step_failed.is_empty(),
             "Step failed should not be empty"
