@@ -177,7 +177,7 @@ With `jitter_factor: 0.5`:
 
 The jitter is applied as: `delay + random(-delay * factor / 2, +delay * factor / 2)`
 
-For example, with a 10s delay and factor 0.5: `10s + random(-2.5s, +2.5s)` = 7.5s to 12.5s
+The implementation uses Rust's `random_range` with inclusive bounds on both ends. For example, with a 10s delay and factor 0.5: `10s + random(-2.5s, +2.5s)` = 7.5s to 12.5s
 
 **When to use jitter**:
 - Multiple clients accessing the same service
@@ -251,6 +251,8 @@ retry:
     - pattern: "database connection|pool exhausted"
     - pattern: "ECONNRESET"
 ```
+
+**Note**: Pattern matchers use Rust regex syntax. If the pattern is not valid regex, it will silently fail to match any errors (returns false on regex compilation error). Always test your patterns to ensure they're valid.
 
 ### Multiple Error Types
 
@@ -387,7 +389,7 @@ retry:
 
 ### Retry with Circuit Breaker
 
-The `RetryExecutor` supports circuit breakers to prevent cascading failures:
+The `RetryExecutor` supports circuit breakers to prevent cascading failures. This example shows the **programmatic Rust API** for advanced use cases. For workflow-level circuit breaker configuration using YAML, see the [Error Handling](./error-handling.md) chapter which covers `error_policy` circuit breaker settings.
 
 ```rust
 use prodigy::cook::retry_v2::{RetryConfig, RetryExecutor};

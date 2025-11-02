@@ -2,77 +2,69 @@
   "chapter_id": "retry-configuration",
   "chapter_title": "Retry Configuration",
   "chapter_file": "book/src/retry-configuration.md",
-  "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "Chapter is comprehensive and mostly accurate but has one potentially incorrect YAML example for Custom backoff strategy that needs verification. The chapter does an excellent job explaining the two retry systems and their differences.",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent documentation with accurate implementation details, comprehensive examples, and clear explanations. The chapter correctly distinguishes between retry_v2::RetryConfig and error_policy::RetryConfig with their field name differences. The Custom backoff format is correctly documented with explicit note about secs/nanos format. Only minor improvements suggested.",
   "issues": [
     {
-      "type": "incorrect_example",
-      "severity": "medium",
-      "section": "Custom Backoff (line 129-134)",
-      "description": "Chapter shows Custom backoff with humantime string format in YAML, but the implementation does NOT have humantime_serde annotation on the delays field",
-      "current_content": "```yaml\nretry:\n  attempts: 4\n  backoff:\n    custom:\n      delays: [1s, 2s, 5s, 10s]\n```",
-      "should_be": "The Custom backoff variant lacks #[serde(with = \"humantime_serde\")] on the delays field. This YAML format may not deserialize correctly. Need to either: (1) Add humantime_serde annotation to the code, OR (2) Update chapter to show correct format if humantime strings don't work by default",
-      "fix_suggestion": "Verify if Vec<Duration> can deserialize humantime strings by default in serde. If not, add #[serde(with = \"humantime_serde\")] to BackoffStrategy::Custom delays field, or update documentation to show numeric format",
-      "source_reference": "src/cook/retry_v2.rs:89 - Custom { delays: Vec<Duration> } lacks humantime_serde annotation unlike other Duration fields in the struct"
-    },
-    {
-      "type": "inconsistent_content",
+      "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Custom Backoff Note (line 140)",
-      "description": "Chapter explicitly states delays use humantime_serde library, but the code doesn't annotate the field with humantime_serde",
-      "current_content": "**Note**: The delays use humantime format (e.g., '1s', '2s', '5m', '100ms') and are automatically parsed to Duration objects by the `humantime_serde` library.",
-      "should_be": "This note is inconsistent with the code. The delays field lacks humantime_serde annotation unlike initial_delay, max_delay, and retry_budget which all have #[serde(with = \"humantime_serde\")]",
-      "fix_suggestion": "Either fix the code to match the documentation by adding the annotation, or test if this actually works and document why",
-      "source_reference": "src/cook/retry_v2.rs:89 vs lines 26, 30, 46 which all use humantime_serde"
+      "section": "Jitter Calculation",
+      "description": "The jitter calculation explanation could be slightly clearer about the implementation details",
+      "current_content": "The jitter is applied as: `delay + random(-delay * factor / 2, +delay * factor / 2)`",
+      "should_be": "Matches implementation: rng.random_range(-jitter_range / 2.0..=jitter_range / 2.0) where jitter_range = delay * factor",
+      "fix_suggestion": "The current explanation is correct but could note that the implementation uses Rust's random_range with inclusive bounds",
+      "source_reference": "src/cook/retry_v2.rs:308-317"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Custom Backoff Testing",
-      "description": "Chapter documents Custom backoff but there's no test_backoff_custom in the test suite to verify it works as documented",
-      "should_add": "Add test_backoff_custom to verify the Custom backoff strategy works correctly, especially with YAML serialization",
-      "fix_suggestion": "Add test case:\n```rust\n#[test]\nfn test_backoff_custom() {\n    let config = RetryConfig {\n        backoff: BackoffStrategy::Custom {\n            delays: vec![Duration::from_secs(1), Duration::from_secs(2), Duration::from_secs(5)]\n        },\n        ..Default::default()\n    };\n    let executor = RetryExecutor::new(config);\n    assert_eq!(executor.calculate_delay(1), Duration::from_secs(1));\n    assert_eq!(executor.calculate_delay(2), Duration::from_secs(2));\n    assert_eq!(executor.calculate_delay(3), Duration::from_secs(5));\n    assert_eq!(executor.calculate_delay(4), Duration::from_secs(30)); // uses max_delay\n}\n```",
-      "source_reference": "src/cook/retry_v2.rs:513-642 - tests for Fixed, Linear, Exponential, Fibonacci but not Custom"
+      "section": "Error Matcher Pattern Validation",
+      "description": "Could mention that Pattern matcher validates regex and invalid patterns silently fail",
+      "should_add": "Note that custom patterns use regex syntax and invalid regex patterns will silently fail to match (returns false on regex compilation error)",
+      "fix_suggestion": "Add a note in the 'Custom Error Patterns' section at line 245: 'Note: Pattern matchers use Rust regex syntax. If the pattern is not valid regex, it will silently fail to match any errors.'",
+      "source_reference": "src/cook/retry_v2.rs:142-150"
     },
     {
-      "type": "missing_content",
+      "type": "unclear_content",
       "severity": "low",
-      "section": "Error Matchers (line 183)",
-      "description": "Chapter documents error matchers but doesn't mention that matching is case-insensitive",
-      "should_add": "Note that all error matching is case-insensitive. Error messages are normalized to lowercase before pattern comparison.",
-      "fix_suggestion": "Add this note at line 183 before the first error matcher example:\n\n**Note**: All error matching is case-insensitive. Error messages are normalized to lowercase before pattern comparison.",
-      "source_reference": "src/cook/retry_v2.rs:119 - let error_lower = error_msg.to_lowercase();"
+      "section": "Circuit Breaker Example",
+      "description": "Circuit breaker example is in Rust code, not YAML workflow configuration",
+      "current_content": "Shows Rust API usage with RetryExecutor::new().with_circuit_breaker()",
+      "should_be": "Either show YAML configuration for workflow-level circuit breaker or clarify this is programmatic API usage",
+      "fix_suggestion": "Add a note at line 388 that circuit breakers in workflows are configured via error_policy (see error-handling.md), and the Rust example shows programmatic API usage for advanced scenarios",
+      "source_reference": "src/cook/workflow/error_policy.rs:73-88"
     }
   ],
   "positive_aspects": [
-    "Excellent comprehensive coverage of retry configuration options",
-    "Clear explanation of the two retry systems (retry_v2 vs error_policy) with field comparison table (lines 416-426)",
-    "Accurate field comparison table between the two systems showing max_attempts vs attempts",
-    "All RetryConfig struct fields documented with correct types and defaults (lines 18-28)",
-    "Good examples for all error matchers (Network, Timeout, ServerError, RateLimit, Pattern)",
-    "Accurate explanation of jitter formula and application (lines 166-172)",
-    "Circuit breaker documentation matches implementation perfectly (lines 382-411)",
-    "Retry budget explanation is clear and accurate (lines 263-282)",
-    "ErrorMatcher patterns accurately documented (lines 186-260)",
-    "FailureAction variants match implementation exactly (lines 286-318)",
-    "Retry metrics section matches the actual RetryMetrics struct (lines 493-513)",
-    "Best practices section provides valuable guidance (lines 515-569)",
-    "Troubleshooting section addresses common issues (lines 571-625)",
-    "Implementation references at bottom are accurate and helpful (lines 633-641)",
-    "Backoff strategy comparison table is excellent (lines 143-149)"
+    "Accurately documents all RetryConfig struct fields with correct types and defaults",
+    "Comprehensive coverage of all five backoff strategies (Fixed, Linear, Exponential, Fibonacci, Custom)",
+    "Correctly explains the dual retry systems (retry_v2::RetryConfig vs error_policy::RetryConfig)",
+    "Excellent field name difference table showing attempts vs max_attempts, backoff config differences",
+    "Accurate error matcher documentation with correct keyword lists for each type",
+    "Clear examples for each backoff strategy with correct delay sequences",
+    "Proper documentation of jitter formula and use cases",
+    "Accurate retry budget explanation with timeout semantics",
+    "Comprehensive troubleshooting section with practical solutions",
+    "Correct explanation of conditional retry with retry_on error matchers",
+    "Accurate case-insensitive matching note for error patterns (line 192)",
+    "Good best practices section with actionable advice",
+    "Proper source code references to implementation files",
+    "Correctly documents Custom backoff using explicit Duration format (secs/nanos) not humantime (line 148)",
+    "Retry metrics section accurately matches RetryMetrics struct implementation",
+    "Circuit breaker states and behavior correctly documented",
+    "FailureAction variants (Stop, Continue, Fallback) match implementation exactly"
   ],
   "improvement_suggestions": [
-    "Verify and fix the Custom backoff YAML serialization issue - this is the main concern",
-    "Add a working example or test for Custom backoff strategy to validate the YAML format",
-    "Consider adding a note explaining why Fixed backoff doesn't need an inner struct unlike Linear",
-    "Could add example showing the actual log output from info! statements during retries",
-    "Consider adding diagram showing retry flow: check attempts -> check matchers -> calculate delay -> check budget -> retry",
-    "Could expand on the circuit breaker state transitions with a state diagram",
-    "Add note about thread safety of RetryExecutor (uses Arc<RwLock> internally)"
+    "Add a brief note about regex validation in custom error patterns (pattern compilation errors result in no match)",
+    "Clarify that the circuit breaker Rust example shows programmatic API usage, not YAML workflow config",
+    "Consider adding a workflow YAML example for circuit breaker configuration via error_policy",
+    "Add explicit reminder that Custom backoff is already correctly documented with secs/nanos format",
+    "Consider adding a section on combining multiple retry features (e.g., retry_budget + jitter + conditional retry)",
+    "Add reference to command metadata retry override location in code"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-12",
+    "analyzed_at": "2025-11-02",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Retry defaults",
@@ -92,24 +84,11 @@
       "Two retry systems comparison"
     ],
     "validation_focus": "Check retry configuration options match RetryConfig struct and backoff strategies are documented",
-    "structs_verified": [
-      "retry_v2::RetryConfig",
-      "retry_v2::BackoffStrategy",
-      "retry_v2::ErrorMatcher",
-      "retry_v2::FailureAction",
-      "retry_v2::CircuitBreaker",
-      "retry_v2::RetryMetrics",
-      "error_policy::RetryConfig",
-      "error_policy::BackoffStrategy"
-    ],
-    "code_locations_verified": {
-      "RetryConfig": "src/cook/retry_v2.rs:16-52",
-      "BackoffStrategy": "src/cook/retry_v2.rs:71-90",
-      "ErrorMatcher": "src/cook/retry_v2.rs:101-151",
-      "FailureAction": "src/cook/retry_v2.rs:154-165",
-      "CircuitBreaker": "src/cook/retry_v2.rs:257-328",
-      "RetryMetrics": "src/cook/retry_v2.rs:331-353",
-      "error_policy::RetryConfig": "src/cook/workflow/error_policy.rs:91-99"
-    }
+    "validation_result": "All RetryConfig fields accurately documented. All backoff strategies (Fixed, Linear, Exponential, Fibonacci, Custom) properly explained with correct configuration syntax. Field name differences between retry_v2 and error_policy correctly documented. Custom backoff correctly documented with secs/nanos format note.",
+    "code_references_validated": [
+      "src/cook/retry_v2.rs:14-461 (Enhanced retry system)",
+      "src/cook/workflow/error_policy.rs:91-129 (Workflow retry config)",
+      "src/config/command.rs:135 (Command metadata override)"
+    ]
   }
 }
