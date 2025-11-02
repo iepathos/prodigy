@@ -1,0 +1,589 @@
+{
+  "documentation_map": {
+    "chapters": [
+      {
+        "id": "workflow-basics",
+        "title": "Workflow Basics",
+        "file": "book/src/workflow-basics.md",
+        "sections": [
+          {
+            "heading": "Overview",
+            "topics": ["Workflow types", "Standard workflows", "MapReduce workflows"]
+          },
+          {
+            "heading": "Simple Workflows",
+            "topics": ["Array format", "Sequential execution"]
+          },
+          {
+            "heading": "Full Workflow Structure",
+            "topics": ["Commands field", "Environment variables", "Secrets", "Env files", "Profiles", "Merge workflows"]
+          },
+          {
+            "heading": "Available Fields",
+            "topics": ["commands", "env", "secrets", "env_files", "profiles", "merge"]
+          },
+          {
+            "heading": "Command Types",
+            "topics": ["shell", "claude", "goal_seek", "foreach", "validate", "write_file", "analyze"]
+          },
+          {
+            "heading": "Command-Level Options",
+            "topics": ["id", "commit_required", "timeout", "cwd/working_dir", "output_file", "when", "on_failure", "on_success", "capture_output", "capture_format", "capture_streams"]
+          },
+          {
+            "heading": "Environment Configuration",
+            "topics": ["Global env", "Secret variables", "Environment files", "Profiles", "Step-level overrides"]
+          },
+          {
+            "heading": "Merge Workflows",
+            "topics": ["merge variables", "merge.worktree", "merge.source_branch", "merge.target_branch", "merge.session_id", "merge timeout"]
+          }
+        ],
+        "features_documented": [
+          "Workflow structure",
+          "Simple vs full format",
+          "Command types overview",
+          "Environment configuration",
+          "Merge workflows"
+        ]
+      },
+      {
+        "id": "mapreduce",
+        "title": "MapReduce Workflows",
+        "file": "book/src/mapreduce.md",
+        "sections": [
+          {
+            "heading": "Quick Start",
+            "topics": ["Minimal example", "Setup phase", "Map phase", "Reduce phase"]
+          },
+          {
+            "heading": "Complete Structure",
+            "topics": ["name", "mode: mapreduce", "setup", "map", "reduce", "merge", "error_policy"]
+          },
+          {
+            "heading": "Map Phase Configuration",
+            "topics": ["input", "json_path", "agent_template", "max_parallel", "filter", "sort_by", "max_items", "offset", "distinct", "agent_timeout_secs"]
+          },
+          {
+            "heading": "Backoff Strategies",
+            "topics": ["Fixed backoff", "Linear backoff", "Exponential backoff", "Fibonacci backoff", "Duration format", "humantime"]
+          },
+          {
+            "heading": "Error Collection Strategies",
+            "topics": ["aggregate", "immediate", "batched:N"]
+          },
+          {
+            "heading": "Setup Phase (Advanced)",
+            "topics": ["Simple array format", "Full configuration", "timeout", "capture_outputs"]
+          },
+          {
+            "heading": "Global Storage Architecture",
+            "topics": ["~/.prodigy/events/", "~/.prodigy/dlq/", "~/.prodigy/state/"]
+          },
+          {
+            "heading": "Event Tracking",
+            "topics": ["Agent lifecycle events", "Work item status", "Checkpoint saves", "JSONL format"]
+          },
+          {
+            "heading": "Checkpoint and Resume",
+            "topics": ["Checkpoint structure", "Resume behavior", "prodigy resume-job", "Work item recovery"]
+          },
+          {
+            "heading": "Dead Letter Queue (DLQ)",
+            "topics": ["DLQ storage", "DLQ retry", "prodigy dlq retry", "DLQ commands"]
+          },
+          {
+            "heading": "Common Pitfalls",
+            "topics": ["CaptureConfig fields", "Backoff enum syntax", "Duration format errors", "Variable references", "max_delay field", "Nested commands syntax"]
+          },
+          {
+            "heading": "Troubleshooting",
+            "topics": ["Workflow validation errors", "Error messages", "Performance issues", "Resume not working"]
+          },
+          {
+            "heading": "Performance Tuning",
+            "topics": ["max_parallel tuning", "Timeout configuration", "Circuit breaker tuning"]
+          },
+          {
+            "heading": "Real-World Use Cases",
+            "topics": ["PR review", "Multi-file refactoring", "Documentation drift analysis", "Test parallelization"]
+          },
+          {
+            "heading": "Workflow Format Comparison",
+            "topics": ["Simple vs full format", "When to use each"]
+          }
+        ],
+        "features_documented": [
+          "MapReduce mode",
+          "Setup phase with capture_outputs",
+          "Map phase with parallelism",
+          "Reduce phase aggregation",
+          "Error policies and circuit breakers",
+          "Retry configuration with backoff strategies",
+          "DLQ and resume functionality",
+          "Global storage",
+          "Event tracking"
+        ]
+      },
+      {
+        "id": "commands",
+        "title": "Command Types",
+        "file": "book/src/commands.md",
+        "sections": [
+          {
+            "heading": "Shell Commands",
+            "topics": ["Simple execution", "Output capture", "Failure handling", "Timeout", "Conditional execution"]
+          },
+          {
+            "heading": "Claude Commands",
+            "topics": ["Simple command", "Arguments", "commit_required", "Output capture"]
+          },
+          {
+            "heading": "Goal-Seeking Commands",
+            "topics": ["Iterative refinement", "goal", "claude/shell", "validate", "threshold", "max_attempts", "timeout_seconds", "fail_on_incomplete"]
+          },
+          {
+            "heading": "Foreach Commands",
+            "topics": ["Iteration", "input source", "parallel execution", "do block", "continue_on_error", "max_items", "${item} variable"]
+          },
+          {
+            "heading": "Write File Commands",
+            "topics": ["Plain text", "JSON", "YAML", "format validation", "mode", "create_dirs"]
+          },
+          {
+            "heading": "Validation Commands",
+            "topics": ["shell/claude validation", "result_file", "threshold", "expected_schema", "on_incomplete handler"]
+          },
+          {
+            "heading": "Command Reference",
+            "topics": ["Common fields", "id", "timeout", "commit_required", "when", "capture", "capture_format", "on_success", "on_failure", "validate", "output_file"]
+          },
+          {
+            "heading": "CaptureStreams Configuration",
+            "topics": ["capture", "capture_format", "future enhancements"]
+          },
+          {
+            "heading": "Capture Format Examples",
+            "topics": ["string", "number", "json", "lines", "boolean"]
+          },
+          {
+            "heading": "Deprecated Fields",
+            "topics": ["test:", "command: in validation", "Nested commands", "Legacy variable aliases"]
+          }
+        ],
+        "features_documented": [
+          "Shell commands",
+          "Claude commands",
+          "Goal-seeking with validation",
+          "Foreach iteration",
+          "Write file with format validation",
+          "Validation commands",
+          "Capture formats",
+          "On failure/success handlers"
+        ]
+      },
+      {
+        "id": "variables",
+        "title": "Variable Interpolation",
+        "file": "book/src/variables.md",
+        "sections": [
+          {
+            "heading": "Overview",
+            "topics": ["Built-in variables", "Custom captured variables", "Interpolation syntax"]
+          },
+          {
+            "heading": "Variable Availability by Phase",
+            "topics": ["Phase-specific variables", "Standard variables", "Output variables", "Item variables", "Map aggregation", "Merge variables"]
+          },
+          {
+            "heading": "Available Variables",
+            "topics": ["Standard variables", "System variables", "Output variables", "MapReduce variables", "Merge variables", "Validation variables", "Git context variables", "Legacy aliases"]
+          },
+          {
+            "heading": "MapReduce Variables",
+            "topics": ["${item}", "${item.*}", "${item_index}", "${item_total}", "${map.total}", "${map.successful}", "${map.failed}", "${map.results}", "${worker.id}"]
+          },
+          {
+            "heading": "Using map.results in Reduce Phase",
+            "topics": ["Supported commands", "write_file support", "Environment variable limits", "Best practices"]
+          },
+          {
+            "heading": "Custom Variable Capture",
+            "topics": ["capture field", "capture_format", "Capture streams", "Nested JSON field access", "Variable scope", "Precedence"]
+          },
+          {
+            "heading": "Troubleshooting",
+            "topics": ["Variable not found", "Invalid syntax", "Phase mismatches", "Empty values", "Best practices"]
+          }
+        ],
+        "features_documented": [
+          "Standard variables",
+          "System variables",
+          "Output variables",
+          "MapReduce variables",
+          "Merge variables",
+          "Validation variables",
+          "Git context variables",
+          "Custom capture",
+          "Variable scope and precedence"
+        ]
+      },
+      {
+        "id": "environment",
+        "title": "Environment Configuration",
+        "file": "book/src/environment.md",
+        "sections": [
+          {
+            "heading": "Architecture Overview",
+            "topics": ["WorkflowConfig", "EnvironmentConfig", "Internal vs user-facing"]
+          },
+          {
+            "heading": "Global Environment Variables",
+            "topics": ["Static env", "Environment inheritance", "Parent environment"]
+          },
+          {
+            "heading": "MapReduce Environment Variables",
+            "topics": ["Defining variables", "Variable interpolation", "Setup phase", "Map phase", "Reduce phase", "Merge phase"]
+          },
+          {
+            "heading": "Environment Files",
+            "topics": [".env format", "Loading order", "Precedence", "Override behavior"]
+          },
+          {
+            "heading": "Secrets Management",
+            "topics": ["Secret providers", "aws", "vault", "env", "file", "custom", "Masking in logs"]
+          },
+          {
+            "heading": "Environment Profiles",
+            "topics": ["Profile definition", "description field", "Multiple profiles", "Profile selection"]
+          },
+          {
+            "heading": "Per-Command Environment Overrides",
+            "topics": ["Shell syntax", "ENV=value command", "Single/multiple overrides"]
+          },
+          {
+            "heading": "Environment Precedence",
+            "topics": ["Precedence hierarchy", "Shell overrides", "Global env", "Env files", "Parent environment"]
+          },
+          {
+            "heading": "Best Practices",
+            "topics": ["Configuration files", "Secrets", "Profiles", "Shell overrides", "Documentation"]
+          },
+          {
+            "heading": "Common Patterns",
+            "topics": ["Multi-environment workflows", "Provider-based secrets", "Build matrix", "Temporary changes"]
+          }
+        ],
+        "features_documented": [
+          "Global environment variables",
+          "Environment files (.env)",
+          "Secrets management",
+          "Environment profiles",
+          "Variable interpolation",
+          "Precedence rules",
+          "MapReduce environment variables"
+        ]
+      },
+      {
+        "id": "advanced",
+        "title": "Advanced Features",
+        "file": "book/src/advanced.md",
+        "sections": [
+          {
+            "heading": "Conditional Execution",
+            "topics": ["when clause", "Expression syntax", "Comparison operators", "Logical operators", "Type coercion"]
+          },
+          {
+            "heading": "On Success Handlers",
+            "topics": ["Follow-up commands", "Handler features"]
+          },
+          {
+            "heading": "On Failure Handlers",
+            "topics": ["Failure recovery", "max_attempts", "fail_workflow", "commit_required"]
+          },
+          {
+            "heading": "Nested Conditionals",
+            "topics": ["Chained execution", "Complex control flow"]
+          }
+        ],
+        "features_documented": [
+          "Conditional execution with when clauses",
+          "Expression syntax for conditions",
+          "On success handlers",
+          "On failure handlers with retry",
+          "Nested conditionals"
+        ]
+      },
+      {
+        "id": "error-handling",
+        "title": "Error Handling",
+        "file": "book/src/error-handling.md",
+        "sections": [
+          {
+            "heading": "Command-Level Error Handling",
+            "topics": ["on_failure configuration", "Simple forms", "Advanced configuration"]
+          },
+          {
+            "heading": "Failure Handler Configuration",
+            "topics": ["strategy", "timeout", "handler_failure_fatal", "fail_workflow", "capture", "commands"]
+          },
+          {
+            "heading": "Handler Strategies",
+            "topics": ["recovery", "fallback", "cleanup", "custom"]
+          }
+        ],
+        "features_documented": [
+          "Command-level error handling",
+          "on_failure handlers",
+          "Handler strategies",
+          "Retry configuration",
+          "Timeout configuration"
+        ]
+      },
+      {
+        "id": "examples",
+        "title": "Examples",
+        "file": "book/src/examples.md",
+        "sections": [
+          {
+            "heading": "Example 1: Simple Build and Test",
+            "topics": ["Basic workflow", "on_failure handler"]
+          },
+          {
+            "heading": "Example 2: Coverage Improvement with Goal Seeking",
+            "topics": ["goal_seek command", "validate script", "threshold", "max_attempts"]
+          },
+          {
+            "heading": "Example 3: Foreach Iteration",
+            "topics": ["Sequential foreach", "Parallel foreach", "Complex item structure"]
+          },
+          {
+            "heading": "Example 4: Parallel Code Review",
+            "topics": ["MapReduce workflow", "JSONPath", "Parallel agents", "Results aggregation"]
+          },
+          {
+            "heading": "Example 5: Conditional Deployment",
+            "topics": ["Conditional execution", "when clause", "capture_output"]
+          }
+        ],
+        "features_documented": [
+          "Practical workflow examples",
+          "Goal-seeking workflow",
+          "Foreach examples",
+          "MapReduce examples",
+          "Conditional deployment"
+        ]
+      },
+      {
+        "id": "retry-configuration",
+        "title": "Retry Configuration",
+        "file": "book/src/retry-configuration.md",
+        "sections": [
+          {
+            "heading": "Overview",
+            "topics": ["Enhanced retry system", "Workflow-level retry", "RetryConfig structure"]
+          },
+          {
+            "heading": "RetryConfig Structure",
+            "topics": ["attempts", "backoff", "initial_delay", "max_delay", "jitter", "jitter_factor", "retry_on", "retry_budget", "on_failure"]
+          },
+          {
+            "heading": "Basic Retry Configuration",
+            "topics": ["Default values", "Exponential backoff", "Duration format"]
+          },
+          {
+            "heading": "Backoff Strategies",
+            "topics": ["Fixed backoff", "Linear backoff", "Exponential backoff", "Delay sequences"]
+          }
+        ],
+        "features_documented": [
+          "Retry configuration",
+          "Backoff strategies",
+          "Duration format",
+          "Retry budget",
+          "Jitter configuration"
+        ]
+      },
+      {
+        "id": "composition",
+        "title": "Workflow Composition",
+        "file": "book/src/composition.md",
+        "sections": [
+          {
+            "heading": "Overview",
+            "topics": ["Import workflows", "Extend base workflows", "Templates", "Parameters", "Sub-workflows"]
+          },
+          {
+            "heading": "Workflow Imports",
+            "topics": ["Basic import", "Import with alias", "Selective import", "Multiple imports"]
+          },
+          {
+            "heading": "Workflow Extension (Inheritance)",
+            "topics": ["Basic extension", "Base resolution paths", "Child workflow overrides"]
+          }
+        ],
+        "features_documented": [
+          "Workflow imports",
+          "Selective imports",
+          "Workflow extension",
+          "Base resolution"
+        ]
+      },
+      {
+        "id": "configuration",
+        "title": "Configuration",
+        "file": "book/src/configuration.md",
+        "sections": [
+          {
+            "heading": "Quick Start",
+            "topics": ["Minimal project config", "Minimal workflow config"]
+          },
+          {
+            "heading": "Configuration File Locations",
+            "topics": ["Workflow configuration", "Project configuration", "Global configuration", "Format support"]
+          },
+          {
+            "heading": "Configuration Precedence Rules",
+            "topics": ["Overall precedence", "Environment variables", "Project config", "Global config", "Defaults"]
+          }
+        ],
+        "features_documented": [
+          "Configuration file locations",
+          "Project configuration",
+          "Global configuration",
+          "Format support",
+          "Precedence rules"
+        ]
+      },
+      {
+        "id": "git-context-advanced",
+        "title": "Advanced Git Context",
+        "file": "book/src/git-context-advanced.md",
+        "sections": [
+          {
+            "heading": "Overview",
+            "topics": ["Automatic tracking", "Pattern filtering", "Format modifiers"]
+          },
+          {
+            "heading": "How Git Tracking Works",
+            "topics": ["GitChangeTracker", "Automatic tracking", "When tracking is active"]
+          },
+          {
+            "heading": "Git Context Variables",
+            "topics": ["Step-level variables", "Workflow-level variables", "Variable reference"]
+          }
+        ],
+        "features_documented": [
+          "Automatic git tracking",
+          "Step-level file tracking",
+          "Workflow-level file tracking",
+          "Commit tracking",
+          "Modification statistics"
+        ]
+      },
+      {
+        "id": "mapreduce-worktree-architecture",
+        "title": "MapReduce Worktree Architecture",
+        "file": "book/src/mapreduce-worktree-architecture.md",
+        "sections": [
+          {
+            "heading": "Overview",
+            "topics": ["Worktree hierarchy", "Parent worktree", "Child worktrees"]
+          },
+          {
+            "heading": "Worktree Hierarchy",
+            "topics": ["Parent worktree location", "Parent worktree purpose", "Child worktree location", "Child worktree purpose"]
+          },
+          {
+            "heading": "Branch Naming Conventions",
+            "topics": ["Parent branch format", "Agent branch format", "Components"]
+          },
+          {
+            "heading": "Merge Flow",
+            "topics": ["Agent merge", "Parent to master merge"]
+          }
+        ],
+        "features_documented": [
+          "Worktree hierarchy",
+          "Branch naming conventions",
+          "Merge flows",
+          "Agent isolation",
+          "Parent worktree isolation"
+        ]
+      },
+      {
+        "id": "troubleshooting",
+        "title": "Troubleshooting",
+        "file": "book/src/troubleshooting.md",
+        "sections": [
+          {
+            "heading": "Common Issues",
+            "topics": ["Variables not interpolating", "Capture not working", "Validation failing"]
+          }
+        ],
+        "features_documented": [
+          "Variable interpolation issues",
+          "Capture format issues",
+          "Validation issues"
+        ]
+      },
+      {
+        "id": "automated-documentation",
+        "title": "Automated Documentation",
+        "file": "book/src/automated-documentation.md",
+        "sections": [
+          {
+            "heading": "Overview",
+            "topics": ["Feature analysis", "Drift detection", "Documentation updates", "mdBook integration"]
+          },
+          {
+            "heading": "Prerequisites",
+            "topics": ["Prodigy installation", "mdBook installation", "Claude Code CLI", "Git setup"]
+          },
+          {
+            "heading": "Quick Start",
+            "topics": ["Initialize commands", "Initialize mdBook", "Project configuration"]
+          }
+        ],
+        "features_documented": [
+          "Automated documentation",
+          "Feature analysis",
+          "Drift detection",
+          "Documentation updates",
+          "mdBook integration"
+        ]
+      }
+    ],
+    "summary": {
+      "total_chapters": 16,
+      "documentation_coverage": {
+        "core_features": [
+          "Workflow basics (structure, commands, environment)",
+          "MapReduce mode (parallel processing)",
+          "Command types (shell, claude, goal-seek, foreach, validation, write_file)",
+          "Variable interpolation (standard, custom, git context)",
+          "Environment configuration (global, files, secrets, profiles)",
+          "Advanced features (conditionals, error handling, retry)",
+          "Workflow composition (imports, extension)",
+          "Configuration management",
+          "Git context and tracking",
+          "Automated documentation"
+        ],
+        "well_documented_areas": [
+          "Basic workflow structure",
+          "MapReduce configuration with all options",
+          "Error handling and retry strategies",
+          "Variable types and scope",
+          "Environment configuration with multiple providers",
+          "Command types and their options"
+        ],
+        "partially_documented_areas": [
+          "Advanced composition features (templates, parameters)",
+          "Custom handlers and strategies",
+          "Profile activation at runtime",
+          "Per-command environment in modern syntax"
+        ]
+      }
+    }
+  }
+}
