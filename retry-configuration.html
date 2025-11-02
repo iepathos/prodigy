@@ -312,7 +312,7 @@
 <li>A 20s delay becomes a random delay between <strong>15s and 25s</strong></li>
 </ul>
 <p>The jitter is applied as: <code>delay + random(-delay * factor / 2, +delay * factor / 2)</code></p>
-<p>For example, with a 10s delay and factor 0.5: <code>10s + random(-2.5s, +2.5s)</code> = 7.5s to 12.5s</p>
+<p>The implementation uses Rust’s <code>random_range</code> with inclusive bounds on both ends. For example, with a 10s delay and factor 0.5: <code>10s + random(-2.5s, +2.5s)</code> = 7.5s to 12.5s</p>
 <p><strong>When to use jitter</strong>:</p>
 <ul>
 <li>Multiple clients accessing the same service</li>
@@ -364,6 +364,7 @@
     - pattern: "database connection|pool exhausted"
     - pattern: "ECONNRESET"
 </code></pre>
+<p><strong>Note</strong>: Pattern matchers use Rust regex syntax. If the pattern is not valid regex, it will silently fail to match any errors (returns false on regex compilation error). Always test your patterns to ensure they’re valid.</p>
 <h3 id="multiple-error-types"><a class="header" href="#multiple-error-types">Multiple Error Types</a></h3>
 <p>Retry on any matching error type:</p>
 <pre><code class="language-yaml">retry:
@@ -469,7 +470,7 @@
 <li>Continues workflow even if test fails 3 times</li>
 </ul>
 <h3 id="retry-with-circuit-breaker"><a class="header" href="#retry-with-circuit-breaker">Retry with Circuit Breaker</a></h3>
-<p>The <code>RetryExecutor</code> supports circuit breakers to prevent cascading failures:</p>
+<p>The <code>RetryExecutor</code> supports circuit breakers to prevent cascading failures. This example shows the <strong>programmatic Rust API</strong> for advanced use cases. For workflow-level circuit breaker configuration using YAML, see the <a href="./error-handling.html">Error Handling</a> chapter which covers <code>error_policy</code> circuit breaker settings.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use prodigy::cook::retry_v2::{RetryConfig, RetryExecutor};

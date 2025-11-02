@@ -218,7 +218,7 @@ imports:
       - validate_output
       - validate_schema
 </code></pre>
-<p>Selective import configuration is validated and stored. The actual filtering of specific items during composition is planned for a future release (see <code>import_selective</code> in <code>composer.rs</code>).</p>
+<p>Selective import configuration is validated and stored correctly (see <code>mod.rs:63-64</code>). The filtering logic for applying selective imports is implemented but currently logs items without full integration into the merge process (see <code>composer.rs:321-334</code>).</p>
 <h3 id="multiple-imports"><a class="header" href="#multiple-imports">Multiple Imports</a></h3>
 <p>You can import from multiple files:</p>
 <pre><code class="language-yaml">imports:
@@ -313,7 +313,7 @@ template:
     max_complexity: 5
     target_dir: src/
 </code></pre>
-<p>Parameter validation and storage is fully implemented. The automatic substitution of parameters throughout template commands is planned for a future release (see <code>apply_template_params</code> in <code>composer.rs</code>).</p>
+<p>Parameter validation is fully implemented with type checking for all six parameter types (string, number, boolean, array, object, any) via <code>validate_parameter_value</code> (<code>mod.rs:252-279</code>). Parameters are stored and applied to workflow metadata. Template-specific parameter substitution throughout commands is logged but not fully integrated (see <code>apply_template_params</code> in <code>composer.rs:336-347</code>).</p>
 <h3 id="template-overrides"><a class="header" href="#template-overrides">Template Overrides</a></h3>
 <p>Override specific template values:</p>
 <pre><code class="language-yaml">template:
@@ -455,7 +455,7 @@ registry.register_template_with_metadata(
       description: Item count
       validation: "value &gt;= 1 &amp;&amp; value &lt;= 100"
 </code></pre>
-<p><em>Note: The validation field is stored but custom expression evaluation is not yet implemented. Type validation IS working for all parameter types.</em></p>
+<p><em>Note: Custom validation expressions are stored and logged when present (see <code>validate_parameter_value</code>, <code>mod.rs:269-276</code>), but the actual expression evaluation engine is not yet implemented. This means validation fields are preserved in the configuration but not enforced during parameter validation. Type validation IS fully enforced for all parameter types.</em></p>
 <h3 id="array-and-object-parameters"><a class="header" href="#array-and-object-parameters">Array and Object Parameters</a></h3>
 <p>Define complex parameter types:</p>
 <pre><code class="language-yaml">parameters:
@@ -505,7 +505,7 @@ commands:
   verbose: false
   environment: development
 </code></pre>
-<p>Default values are validated and stored in the workflow configuration. The automatic application of defaults to missing parameters is planned but not yet fully implemented (see <code>apply_defaults</code> in <code>composer.rs</code>).</p>
+<p>Default values are validated, stored, and integrated into the composition flow (<code>composer.rs:85-87</code>). The function <code>apply_defaults</code> is called during composition but the actual application logic to merge defaults with parameters has a TODO (<code>composer.rs:210-221</code>). The infrastructure is in place but the merge logic needs implementation.</p>
 <p>When implemented, defaults will be applied before parameter validation and can be overridden by:</p>
 <ol>
 <li>Values in the <code>parameters</code> section</li>
@@ -520,7 +520,7 @@ commands:
 </ul>
 <h2 id="sub-workflows"><a class="header" href="#sub-workflows">Sub-Workflows</a></h2>
 <p>Execute child workflows as part of a parent workflow. Sub-workflows can run in parallel and have their own parameters and outputs.</p>
-<p><em>Implementation Status: Sub-workflow configuration, composition, and context management are fully implemented. Integration with the main workflow executor is in progress (see <code>execute_composed</code> in <code>sub_workflow.rs</code>).</em></p>
+<p><em>Implementation Status: Sub-workflow configuration, validation (<code>validate_sub_workflows</code> in <code>composer.rs:381-395</code>), and composition are fully implemented. Sub-workflow definitions work correctly and are validated. The <code>SubWorkflowExecutor</code> structure exists (<code>sub_workflow.rs:181-227</code>) but execution integration with the main workflow executor runtime is in progress.</em></p>
 <h3 id="basic-sub-workflow"><a class="header" href="#basic-sub-workflow">Basic Sub-Workflow</a></h3>
 <pre><code class="language-yaml">workflows:
   process_files:
@@ -624,7 +624,7 @@ extends: workflow-b
 name: workflow-b
 extends: workflow-a  # Error: circular dependency detected
 </code></pre>
-<p>This prevents infinite loops during composition.</p>
+<p>The composer uses a DFS-based cycle detection algorithm that maintains visited nodes and a recursion stack. If a node is encountered that’s already in the recursion stack, a circular dependency is detected and composition fails with a clear error message (see <code>DependencyResolver::has_cycle</code> in <code>composer.rs:471-494</code>). This prevents infinite loops during composition.</p>
 <h2 id="complete-examples"><a class="header" href="#complete-examples">Complete Examples</a></h2>
 <h3 id="example-1-basic-import-with-alias"><a class="header" href="#example-1-basic-import-with-alias">Example 1: Basic Import with Alias</a></h3>
 <pre><code class="language-yaml">name: integration-test
@@ -682,6 +682,8 @@ parameters:
       type: string
       description: Deployment environment
       # validation: "^(dev|staging|prod)$"  # Custom validation not yet implemented
+      # Note: Type validation is fully working - the type: string declaration ensures
+      # only strings are accepted, rejecting numbers or booleans
     - name: version
       type: string
       description: Version to deploy
@@ -837,7 +839,7 @@ commands:
 let storage = FileTemplateStorage::new("./templates");
 let registry = TemplateRegistry::new_with_storage(storage);
 <span class="boring">}</span></code></pre></pre>
-<p>Templates are cached in memory after first load for performance. The registry automatically scans the template directory and makes all templates available by name.</p>
+<p>Templates are cached in memory after first load for performance. The registry automatically discovers templates by scanning for <code>.yml</code> files in the template directory. Metadata files (<code>.meta.json</code>) are detected and filtered out during discovery. Templates are loaded on-demand and cached (see <code>is_template_file</code> and <code>extract_template_name</code> helper functions in <code>registry.rs:303-324</code>).</p>
 <p><strong>Template File Structure:</strong></p>
 <p>Templates must be <code>.yml</code> files in the base directory, with optional <code>.meta.json</code> files for metadata. For example:</p>
 <pre><code>templates/
@@ -861,6 +863,9 @@ let registry = TemplateRegistry::new_with_storage(storage);
 <li><strong>Integration level</strong>: Test workflows with imports</li>
 <li><strong>Composition level</strong>: Test fully composed workflows with all features</li>
 </ol>
+<h3 id="performance-considerations"><a class="header" href="#performance-considerations">Performance Considerations</a></h3>
+<p><strong>Workflow Loader Caching:</strong></p>
+<p>The workflow loader caches parsed workflows in memory to avoid re-parsing the same files during composition. This means importing the same workflow multiple times has minimal overhead (see <code>WorkflowLoader</code> cache in <code>composer.rs:399-435</code>). The cache is maintained in a <code>Mutex&lt;HashMap&gt;</code> for thread-safe access during parallel composition operations.</p>
 <h3 id="naming-conventions"><a class="header" href="#naming-conventions">Naming Conventions</a></h3>
 <p>Use consistent naming:</p>
 <ul>

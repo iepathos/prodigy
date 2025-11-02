@@ -245,7 +245,7 @@ map:
     - claude: "/review-file ${item.path}"
       id: "review"
       capture_output: "review_result"
-      capture_format: "json"
+      capture_format: "json"  # Formats: string, json, lines, number, boolean - see Example 5
     - shell: "cargo check ${item.path}"
   max_parallel: 5
 
@@ -277,6 +277,15 @@ reduce:
 <li><code>number</code> - Parse output as numeric value</li>
 <li><code>boolean</code> - Parse as true/false based on exit code or output text</li>
 </ul>
+<p><strong>Advanced capture options:</strong></p>
+<pre><code class="language-yaml"># Capture specific streams (stdout, stderr, exit_code, success, duration)
+- shell: "cargo build 2&gt;&amp;1"
+  capture_output: "build_output"
+  capture_streams: "stdout,stderr,exit_code"  # Capture multiple streams
+
+# Access captured values
+- shell: "echo 'Exit code was ${build_output.exit_code}'"
+</code></pre>
 <hr />
 <h2 id="example-6-multi-step-validation"><a class="header" href="#example-6-multi-step-validation">Example 6: Multi-Step Validation</a></h2>
 <pre><code class="language-yaml">- claude: "/implement-feature auth"
@@ -339,7 +348,14 @@ env_files:
   env:
     LOG_LEVEL: debug
 </code></pre>
-<p><strong>Note:</strong> Profiles are activated using the <code>--profile &lt;name&gt;</code> CLI flag when running workflows. For example: <code>prodigy run workflow.yml --profile production</code></p>
+<p><strong>Note:</strong> Profiles are activated using the <code>--profile &lt;name&gt;</code> CLI flag when running workflows. For example:</p>
+<pre><code class="language-bash"># Use production profile
+prodigy run workflow.yml --profile production
+
+# Use staging profile
+prodigy run workflow.yml --profile staging
+</code></pre>
+<p>Variables go directly under the profile name (not nested under ‘env’) because profiles use flattened serialization.</p>
 <hr />
 <h2 id="example-8-complex-mapreduce-with-error-handling"><a class="header" href="#example-8-complex-mapreduce-with-error-handling">Example 8: Complex MapReduce with Error Handling</a></h2>
 <pre><code class="language-yaml">name: tech-debt-elimination
@@ -453,10 +469,21 @@ error_policy:
 <li><strong>Max attempts</strong>: Combine with conditional execution for automatic retry logic</li>
 <li><strong>Conditional execution</strong>: Use <code>when</code> clauses with captured output or variables</li>
 <li><strong>Complex conditionals</strong>: Combine multiple conditions with <code>and</code>/<code>or</code> operators</li>
+<li><strong>Working directory</strong>: Per-command directory control using <code>working_dir</code> field in step environment</li>
 </ul>
+<p><strong>Example of working_dir usage:</strong></p>
+<pre><code class="language-yaml"># Run command in specific directory
+- shell: "cargo test"
+  working_dir: "subproject/"  # Execute in subproject/ directory
+
+# Or set for multiple commands
+- shell: "npm install"
+  env:
+    NODE_ENV: production
+  working_dir: "frontend/"
+</code></pre>
 <p><strong>Future capabilities</strong> (not yet implemented, but planned):</p>
 <ul>
-<li><strong>Working directory</strong>: <code>cwd</code> field for running commands in specific directories</li>
 <li><strong>Git context variables</strong>: Access <code>files_modified</code>, <code>files_added</code> from git operations</li>
 <li><strong>Pattern filtering</strong>: Filter file lists with <code>:*.rs</code> syntax</li>
 <li><strong>Format modifiers</strong>: Advanced output transformation with <code>:json</code>, <code>:lines</code>, <code>:csv</code></li>

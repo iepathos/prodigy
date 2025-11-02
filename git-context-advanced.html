@@ -283,6 +283,7 @@
 <li><code>{a,b}</code> - Match either <code>a</code> or <code>b</code></li>
 <li><code>[abc]</code> - Match character class</li>
 </ul>
+<p><strong>Note</strong>: Prodigy uses glob patterns only. Regular expressions (regex) are not supported for pattern filtering. Use glob syntax for all file matching operations.</p>
 <p><strong>Examples:</strong></p>
 <pre><code class="language-yaml"># Match Rust and TOML files
 - shell: "echo ${step.files_changed:**/*.{rs,toml}}"
@@ -339,7 +340,7 @@
 # Output: src/main.rs,src/lib.rs,tests/test.rs
 </code></pre>
 <h3 id="combining-format-and-pattern"><a class="header" href="#combining-format-and-pattern">Combining Format and Pattern</a></h3>
-<p>Apply both pattern filtering and format modifiers:</p>
+<p>Apply both pattern filtering and format modifiers using the <code>:pattern:format</code> syntax:</p>
 <pre><code class="language-yaml"># JSON array of Rust files
 - shell: "echo ${step.files_changed:*.rs:json}"
 
@@ -349,6 +350,7 @@
 # CSV of modified test files
 - shell: "echo ${step.files_modified:**/*_test.rs:csv}"
 </code></pre>
+<p><strong>Note</strong>: The syntax supports exactly one pattern and one format modifier per variable reference. You cannot chain multiple patterns or formats. For more complex filtering, use shell commands to post-process the output.</p>
 <h2 id="use-cases"><a class="header" href="#use-cases">Use Cases</a></h2>
 <h3 id="code-review-workflows"><a class="header" href="#code-review-workflows">Code Review Workflows</a></h3>
 <p>Review only source code changes:</p>
@@ -443,7 +445,17 @@ reduce:
 - shell: "echo All files: ${step.files_changed}"
 - shell: "echo Filtered: ${step.files_changed:*.rs}"
 </code></pre>
-<p><strong>Solution</strong>: Use <code>git ls-files</code> to verify file paths match your pattern</p>
+<p><strong>What happens</strong>: When a pattern matches no files, the variable resolves to an empty string. This is not an error—it’s expected behavior when no files match the pattern.</p>
+<pre><code class="language-yaml"># Example: No Python files in a Rust project
+- shell: "echo Python files: ${step.files_changed:*.py}"
+# Output: Python files:
+# (empty - no error)
+
+# Use conditionals to handle empty results
+- when: "${step.files_changed:*.rs}"
+  shell: "cargo fmt"  # Only runs if Rust files changed
+</code></pre>
+<p><strong>Solution</strong>: Use <code>git ls-files</code> to verify file paths match your pattern, or use conditionals to handle empty results gracefully</p>
 <h3 id="empty-variables"><a class="header" href="#empty-variables">Empty Variables</a></h3>
 <p><strong>Issue</strong>: Git context variables are empty</p>
 <p><strong>Possible causes:</strong></p>

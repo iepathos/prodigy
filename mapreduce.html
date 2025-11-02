@@ -237,8 +237,8 @@ map:
   #   commands:
   #     - claude: "/process '${item}'"
 
-  # Maximum parallel agents
-  max_parallel: 10
+  # Maximum parallel agents (can use environment variables)
+  max_parallel: 10  # or max_parallel: "$MAX_WORKERS"
 
   # Optional: Filter items
   filter: "item.score &gt;= 5"
@@ -257,6 +257,11 @@ map:
 
   # Optional: Agent timeout in seconds
   agent_timeout_secs: 300
+
+  # Optional: Advanced timeout configuration (alternative to agent_timeout_secs)
+  # timeout_config:
+  #   default: "5m"
+  #   per_command: "2m"
 
 # Reduce phase: Aggregate results
 # Modern syntax: Commands directly under reduce
@@ -313,6 +318,46 @@ on_item_failure: dlq
 continue_on_failure: true
 max_failures: 5
 </code></pre>
+<h2 id="environment-variables-in-configuration"><a class="header" href="#environment-variables-in-configuration">Environment Variables in Configuration</a></h2>
+<p>Many MapReduce configuration fields support environment variable interpolation, allowing you to parameterize workflows:</p>
+<p><strong>Supported Fields:</strong></p>
+<ul>
+<li><code>max_parallel</code> - Control parallelism dynamically</li>
+<li><code>agent_timeout_secs</code> - Adjust timeouts per environment</li>
+<li><code>setup.timeout</code> - Configure setup phase timeouts</li>
+<li><code>merge.timeout</code> - Control merge operation timeouts</li>
+<li>Any string field in your workflow</li>
+</ul>
+<p><strong>Usage Example:</strong></p>
+<pre><code class="language-yaml">name: configurable-mapreduce
+mode: mapreduce
+
+# Define environment variables (see Variables chapter for details)
+env:
+  MAX_WORKERS: "10"
+  AGENT_TIMEOUT: "300"
+
+map:
+  input: "items.json"
+  json_path: "$[*]"
+  max_parallel: "$MAX_WORKERS"      # Use environment variable
+  agent_timeout_secs: "$AGENT_TIMEOUT"
+  agent_template:
+    - claude: "/process ${item}"
+
+setup:
+  timeout: "$SETUP_TIMEOUT"  # Can also reference env vars
+  commands:
+    - shell: "prepare-data.sh"
+</code></pre>
+<p><strong>Running with Different Values:</strong></p>
+<pre><code class="language-bash"># Development: Lower parallelism
+MAX_WORKERS=5 AGENT_TIMEOUT=600 prodigy run workflow.yml
+
+# Production: Higher parallelism
+MAX_WORKERS=20 AGENT_TIMEOUT=300 prodigy run workflow.yml
+</code></pre>
+<p>See the <a href="./variables.html">Variables chapter</a> for comprehensive environment variable documentation including profiles, secrets, and advanced usage.</p>
 <h2 id="backoff-strategies"><a class="header" href="#backoff-strategies">Backoff Strategies</a></h2>
 <p>The <code>retry_config.backoff</code> field uses an enum-based configuration. Choose ONE of the following strategies:</p>
 <h3 id="fixed-delay"><a class="header" href="#fixed-delay">Fixed Delay</a></h3>
@@ -413,8 +458,8 @@ setup:
     - shell: "prepare-data.sh"
     - shell: "analyze-codebase.sh"
 
-  # Timeout for entire setup phase (seconds)
-  timeout: 300
+  # Timeout for entire setup phase (seconds, can use environment variables)
+  timeout: 300  # or timeout: "$SETUP_TIMEOUT"
 
   # Capture outputs from setup commands
   capture_outputs:
@@ -717,6 +762,7 @@ backoff:
 <li>Combined units: <code>"1h30m"</code>, <code>"2m30s"</code></li>
 <li>Decimal values: <code>"1.5s"</code>, <code>"0.5m"</code></li>
 </ul>
+<p><strong>humantime_serde Format:</strong> Throughout this chapter, any field with a Duration type (such as <code>timeout</code>, <code>delay</code>, <code>initial</code>, <code>increment</code>) uses humantime_serde, allowing you to write durations in human-readable format instead of raw numbers. This makes configuration more intuitive and less error-prone.</p>
 <h3 id="confusing-simple-vs-detailed-capture"><a class="header" href="#confusing-simple-vs-detailed-capture">Confusing Simple vs Detailed Capture</a></h3>
 <p><strong>Problem:</strong> Treating simple capture format as “legacy” or not knowing when to use it.</p>
 <p><strong>Solution:</strong></p>

@@ -208,6 +208,11 @@
 <ul>
 <li><code>==</code> - Equality comparison (e.g., <code>${status == 'success'}</code>)</li>
 <li><code>!=</code> - Inequality comparison (e.g., <code>${exit_code != 0}</code>)</li>
+<li><code>&gt;</code> - Greater than (e.g., <code>${score &gt; 80}</code>)</li>
+<li><code>&lt;</code> - Less than (e.g., <code>${errors &lt; 5}</code>)</li>
+<li><code>&gt;=</code> - Greater than or equal to (e.g., <code>${coverage &gt;= 90}</code>)</li>
+<li><code>&lt;=</code> - Less than or equal to (e.g., <code>${warnings &lt;= 10}</code>)</li>
+<li><code>contains</code> - String matching (e.g., <code>${output contains 'success'}</code>)</li>
 </ul>
 <p><strong>Logical Operators:</strong></p>
 <ul>
@@ -240,6 +245,17 @@
     shell: "cargo bench"
 </code></pre>
 <p><strong>Note</strong>: The <code>on_success</code> field supports any workflow step command with all its features, including nested conditionals, output capture, validation, and error handlers. You can create complex success workflows by combining multiple handlers or using <code>when</code> clauses for sophisticated control flow.</p>
+<p><strong>Complex On Success Example:</strong></p>
+<pre><code class="language-yaml">- shell: "cargo build --release"
+  on_success:
+    claude: "/verify-build-artifacts"
+    validate:
+      shell: "check-binary-size.sh"
+      threshold: 100
+    on_failure:
+      claude: "/optimize-binary-size"
+      max_attempts: 2
+</code></pre>
 <h3 id="on-failure-handlers"><a class="header" href="#on-failure-handlers">On Failure Handlers</a></h3>
 <p>Handle failures with automatic remediation:</p>
 <pre><code class="language-yaml">- shell: "cargo clippy"
@@ -256,6 +272,27 @@
 <li><code>commit_required</code>: Whether the remediation command should create a git commit (default: true)</li>
 </ul>
 <p><strong>Note</strong>: These defaults come from the <code>TestDebugConfig</code> which provides sensible defaults for error recovery workflows.</p>
+<p><strong>Multi-Step Remediation:</strong></p>
+<p>For complex error recovery, use the <code>commands</code> array to execute multiple remediation steps in sequence:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  on_failure:
+    commands:
+      - claude: "/analyze-test-failures"
+      - shell: "cargo fmt"
+      - claude: "/verify-fixes"
+    max_attempts: 3
+    fail_workflow: true
+</code></pre>
+<h3 id="exit-code-handlers"><a class="header" href="#exit-code-handlers">Exit Code Handlers</a></h3>
+<p>Map specific exit codes to different actions using <code>on_exit_code</code>:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  on_exit_code:
+    1: {claude: "/fix-test-failures"}
+    2: {shell: "retry-flaky-tests.sh"}
+    101: {claude: "/fix-compilation-errors"}
+    255: {fail_workflow: true}
+</code></pre>
+<p>This allows fine-grained control over error handling based on the specific exit code returned by a command.</p>
 <h3 id="nested-conditionals"><a class="header" href="#nested-conditionals">Nested Conditionals</a></h3>
 <p>Chain multiple levels of conditional execution:</p>
 <pre><code class="language-yaml">- shell: "cargo check"
@@ -341,7 +378,7 @@
 <li><code>duration</code>: Capture how long the command took to execute</li>
 </ul>
 <p>This is particularly useful for validation workflows where you need to make decisions based on command success or timing information.</p>
-<p><strong>Format Flexibility</strong>: The <code>capture_streams</code> field is flexible—you can choose either format based on your needs. Use the simple string format (<code>"stdout"</code>, <code>"stderr"</code>, <code>"both"</code>) when you only need basic stream selection, or the struct format when you need metadata like <code>exit_code</code>, <code>success</code>, and <code>duration</code> alongside the output. Both formats are supported via Rust’s untagged enum deserialization.</p>
+<p><strong>Format Flexibility</strong>: The <code>capture_streams</code> field is flexible—you can choose either format based on your needs. Use the simple string format (<code>"stdout"</code>, <code>"stderr"</code>, <code>"both"</code>) when you only need basic stream selection, or the struct format when you need metadata like <code>exit_code</code>, <code>success</code>, and <code>duration</code> alongside the output. Prodigy uses Rust’s untagged enum deserialization, allowing you to choose either format based on your needs without any special syntax.</p>
 <h3 id="output-file-redirection"><a class="header" href="#output-file-redirection">Output File Redirection</a></h3>
 <p>Write command output directly to a file:</p>
 <pre><code class="language-yaml"># Redirect output to file
@@ -373,9 +410,43 @@
 <li><strong>Subproject operations</strong>: Working with nested projects without changing global context</li>
 </ul>
 <p><strong>Note</strong>: The <code>working_dir</code> field is also available with the alias <code>cwd</code> for compatibility with other tools.</p>
+<h3 id="step-level-environment-overrides"><a class="header" href="#step-level-environment-overrides">Step-Level Environment Overrides</a></h3>
+<p>Configure environment variables and settings for individual steps using the step environment configuration:</p>
+<pre><code class="language-yaml"># Set environment variables for a specific command
+- shell: "npm test"
+  env:
+    NODE_ENV: test
+    DEBUG: "*"
+  working_dir: "./frontend"
+  clear_env: false  # Keep parent environment variables
+  inherit: true     # Inherit workflow-level environment
+</code></pre>
+<p><strong>Step Environment Fields:</strong></p>
+<ul>
+<li><code>env</code>: Key-value pairs of environment variables to set</li>
+<li><code>working_dir</code>: Directory to execute the command in</li>
+<li><code>clear_env</code>: Whether to clear all parent environment variables (default: false)</li>
+<li><code>inherit</code>: Whether to inherit workflow-level environment variables (default: true)</li>
+</ul>
+<p><strong>Use Cases:</strong></p>
+<ul>
+<li>Set test-specific environment variables without affecting other steps</li>
+<li>Configure tool-specific settings (DEBUG, LOG_LEVEL, etc.)</li>
+<li>Run commands with isolated environments for reproducibility</li>
+<li>Override workflow-level environment for specific operations</li>
+</ul>
 <hr />
 <h2 id="step-identification"><a class="header" href="#step-identification">Step Identification</a></h2>
 <p>Assign unique IDs to steps for explicit output referencing. This is particularly useful in complex workflows where multiple steps produce outputs and you need to reference specific results.</p>
+<h3 id="available-step-reference-fields"><a class="header" href="#available-step-reference-fields">Available Step Reference Fields</a></h3>
+<p>When you assign an ID to a step, you can reference multiple fields from that step’s execution:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Example</th></tr></thead><tbody>
+<tr><td><code>${step-id.output}</code></td><td>string</td><td>Captured output</td><td><code>${test-step.output}</code></td></tr>
+<tr><td><code>${step-id.exit_code}</code></td><td>number</td><td>Exit code</td><td><code>${build.exit_code}</code></td></tr>
+<tr><td><code>${step-id.success}</code></td><td>boolean</td><td>Success status</td><td><code>${lint.success}</code></td></tr>
+<tr><td><code>${step-id.duration}</code></td><td>number</td><td>Execution time (seconds)</td><td><code>${bench.duration}</code></td></tr>
+</tbody></table>
+</div>
 <h3 id="basic-step-ids"><a class="header" href="#basic-step-ids">Basic Step IDs</a></h3>
 <pre><code class="language-yaml">- shell: "cargo test"
   id: "test-step"
@@ -383,6 +454,9 @@
 
 # Reference step output by ID
 - shell: "echo 'Tests: ${test-step.output}'"
+
+# Reference step exit code
+- shell: "echo 'Exit code: ${test-step.exit_code}'"
 </code></pre>
 <h3 id="when-to-use-step-ids"><a class="header" href="#when-to-use-step-ids">When to Use Step IDs</a></h3>
 <p><strong>1. Complex Workflows with Multiple Parallel Paths</strong></p>
@@ -467,6 +541,20 @@
 - claude: "/analyze-codebase"
   timeout: 1800  # 30 minutes
 </code></pre>
+<h3 id="timeout-with-environment-variables"><a class="header" href="#timeout-with-environment-variables">Timeout with Environment Variables</a></h3>
+<p>Timeout fields support environment variable references for flexible configuration:</p>
+<pre><code class="language-yaml"># Use environment variable for timeout
+- shell: "cargo bench"
+  timeout: $BENCH_TIMEOUT
+
+# With default value
+- claude: "/analyze-codebase"
+  timeout: ${ANALYSIS_TIMEOUT:-1800}
+
+# Different timeouts per environment
+- shell: "run-tests.sh"
+  timeout: ${TEST_TIMEOUT:-300}  # 5 minutes default
+</code></pre>
 <p><strong>Note</strong>: Timeouts are only supported at the individual command level, not for MapReduce agents.</p>
 <hr />
 <h2 id="implementation-validation"><a class="header" href="#implementation-validation">Implementation Validation</a></h2>
@@ -510,8 +598,27 @@
     result_file: "validation-results.json"
     threshold: 95
 </code></pre>
+<p><strong>When to Use result_file:</strong></p>
+<p>The <code>result_file</code> option is useful when you need to separate validation output from command logs:</p>
+<ul>
+<li><strong>Complex JSON Output</strong>: Validation produces structured JSON that shouldn’t be mixed with logs</li>
+<li><strong>Separate Concerns</strong>: Keep validation results separate from command stdout/stderr</li>
+<li><strong>Additional Logging</strong>: Validation command produces diagnostic output alongside results</li>
+<li><strong>Debugging</strong>: Preserve validation output in a file for later inspection</li>
+</ul>
+<p>The file should contain JSON matching the validation result schema with fields like <code>completion_percentage</code>, <code>status</code>, <code>gaps</code>, etc.</p>
 <h3 id="handling-incomplete-implementations"><a class="header" href="#handling-incomplete-implementations">Handling Incomplete Implementations</a></h3>
 <p>Automatically remediate when validation fails:</p>
+<p><strong>Convenience Array Syntax</strong> - For simple remediation workflows:</p>
+<pre><code class="language-yaml">- claude: "/implement-spec"
+  validate:
+    shell: "check-completeness.sh"
+    threshold: 100
+    on_incomplete:
+      - claude: "/fill-gaps"
+      - shell: "cargo fmt"
+</code></pre>
+<p><strong>Verbose Configuration</strong> - For complex cases requiring additional control:</p>
 <pre><code class="language-yaml">- claude: "/implement-spec"
   validate:
     shell: "check-completeness.sh"
@@ -520,6 +627,7 @@
       claude: "/fill-gaps"
       max_attempts: 3
       fail_workflow: true
+      commit_required: true
 </code></pre>
 <p>The <code>on_incomplete</code> configuration supports:</p>
 <ul>
@@ -530,15 +638,6 @@
 <li><code>fail_workflow</code>: Whether to fail workflow if remediation fails (default: true)</li>
 <li><code>commit_required</code>: Whether remediation command should create a commit (default: false)</li>
 </ul>
-<p><strong>Convenience Syntax</strong>: For simple cases, you can use an array format directly:</p>
-<pre><code class="language-yaml">- claude: "/implement-spec"
-  validate:
-    shell: "check-completeness.sh"
-    threshold: 100
-    on_incomplete:
-      - claude: "/fill-gaps"
-      - shell: "cargo fmt"
-</code></pre>
 <hr />
 <h2 id="parallel-iteration-with-foreach"><a class="header" href="#parallel-iteration-with-foreach">Parallel Iteration with Foreach</a></h2>
 <p>Process multiple items in parallel using the <code>foreach</code> command.</p>
@@ -557,13 +656,22 @@
       - shell: "rustfmt ${item}"
 </code></pre>
 <h3 id="parallel-execution"><a class="header" href="#parallel-execution">Parallel Execution</a></h3>
-<p>Control parallelism with the <code>parallel</code> field:</p>
+<p>Control parallelism with the <code>parallel</code> field. It accepts both boolean and numeric values:</p>
+<p><strong>Boolean - Automatic Parallelism:</strong></p>
+<pre><code class="language-yaml">- foreach:
+    foreach: "ls *.txt"
+    parallel: true  # Use all available cores
+    do:
+      - shell: "analyze ${item}"
+</code></pre>
+<p><strong>Number - Explicit Concurrency Limit:</strong></p>
 <pre><code class="language-yaml">- foreach:
     foreach: "ls *.txt"
     parallel: 5  # Process 5 items concurrently
     do:
       - shell: "analyze ${item}"
 </code></pre>
+<p>Use <code>true</code> for automatic parallelism based on available resources, or specify a number to limit concurrent execution.</p>
 <h3 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h3>
 <p>Continue processing remaining items on failure:</p>
 <pre><code class="language-yaml">- foreach:
@@ -584,16 +692,24 @@
 <h2 id="goal-seeking-operations"><a class="header" href="#goal-seeking-operations">Goal-Seeking Operations</a></h2>
 <p>Iteratively refine implementations until they meet validation criteria.</p>
 <h3 id="basic-goal-seek"><a class="header" href="#basic-goal-seek">Basic Goal Seek</a></h3>
-<p>Define a goal and validation command:</p>
-<pre><code class="language-yaml">- goal_seek:
+<p>Define a goal and validation command using either <code>shell</code> or <code>claude</code>:</p>
+<pre><code class="language-yaml"># Using shell command
+- goal_seek:
     goal: "All tests pass"
-    command: "cargo fix"
+    shell: "cargo fix"
     validate: "cargo test"
     threshold: 100
 </code></pre>
+<pre><code class="language-yaml"># Using Claude command
+- goal_seek:
+    goal: "Code quality improved"
+    claude: "/fix-issues"
+    validate: "quality-check.sh"
+    threshold: 95
+</code></pre>
 <p>The goal-seeking operation will:</p>
 <ol>
-<li>Run the command</li>
+<li>Run the command (shell or claude)</li>
 <li>Run the validation</li>
 <li>Retry if validation threshold not met</li>
 <li>Stop when goal achieved or max attempts reached</li>
@@ -602,11 +718,11 @@
 <p>Control iteration behavior:</p>
 <pre><code class="language-yaml">- goal_seek:
     goal: "Code passes all quality checks"
-    command: "auto-fix.sh"
+    shell: "auto-fix.sh"
     validate: "quality-check.sh"
     threshold: 95
     max_attempts: 5
-    timeout: 300
+    timeout_seconds: 300
     fail_on_incomplete: true
 </code></pre>
 <hr />
@@ -680,7 +796,7 @@
 <h3 id="gradual-quality-improvement"><a class="header" href="#gradual-quality-improvement">Gradual Quality Improvement</a></h3>
 <pre><code class="language-yaml">- goal_seek:
     goal: "Code quality score above 90"
-    command: "auto-improve.sh"
+    shell: "auto-improve.sh"
     validate: "quality-check.sh"
     threshold: 90
     max_attempts: 5

@@ -215,7 +215,7 @@
 <p>These variables are automatically available in all workflow contexts:</p>
 <ul>
 <li><code>${PROJECT_ROOT}</code> - Absolute path to the working directory (repository root)</li>
-<li><code>${WORKTREE}</code> - Name of the current worktree (if running in a Prodigy worktree session)</li>
+<li><code>${WORKTREE}</code> - Name of current worktree (automatically set by Prodigy when running in isolated worktree, e.g., session-abc123)</li>
 <li><code>${git.branch}</code> - Current git branch name</li>
 <li><code>${git.commit}</code> - Current git commit hash (short SHA)</li>
 </ul>
@@ -233,7 +233,7 @@
 <li><code>${last.output}</code> - Output from last executed command (any type)</li>
 <li><code>${last.exit_code}</code> - Exit code from last command</li>
 </ul>
-<p><strong>Note</strong>: <code>${shell.output}</code> is the correct variable name for shell command output. The code uses <code>shell.output</code>, not <code>shell.stdout</code>.</p>
+<p><strong>Note</strong>: Shell command output is captured in <code>${shell.output}</code>, providing the complete stdout from the last shell command executed.</p>
 <p><strong>Legacy/Specialized Output Variables (Deprecated):</strong></p>
 <p>These variables are still supported but <strong>deprecated</strong> in favor of custom capture:</p>
 <ul>
@@ -384,7 +384,7 @@ reduce:
 <li><code>${validation.gaps}</code> - Gap details</li>
 <li><code>${validation.status}</code> - Status (complete/incomplete/failed)</li>
 </ul>
-<p><strong>Note</strong>: <code>validation.completion</code> and <code>validation.completion_percentage</code> are equivalent - both return the numeric completion percentage value.</p>
+<p><strong>Note</strong>: Use <code>validation.completion_percentage</code> in new workflows for clarity. <code>validation.completion</code> is supported as a shorter alias.</p>
 <h3 id="git-context-variables"><a class="header" href="#git-context-variables">Git Context Variables</a></h3>
 <p><strong>Commit Tracking:</strong></p>
 <ul>
@@ -392,6 +392,15 @@ reduce:
 <li><code>${workflow.commits}</code> - Space-separated commit hashes from entire workflow</li>
 </ul>
 <p><strong>Note</strong>: These are space-separated strings of commit hashes (e.g., “abc123 def456 ghi789”), not arrays. Use in shell commands that accept commit lists.</p>
+<p><strong>Git Status Variables:</strong></p>
+<p>These variables reflect the current git repository status (populated by <code>git diff</code>):</p>
+<ul>
+<li><code>${git.files.modified}</code> - Files with uncommitted changes in working directory</li>
+<li><code>${git.files.added}</code> - Files staged for commit</li>
+<li><code>${git.files.deleted}</code> - Files deleted in working directory</li>
+<li><code>${git.changed_files}</code> - All files with any changes (modified, added, or deleted)</li>
+</ul>
+<p><strong>Note</strong>: These show repository state, while <code>step.*</code> and <code>workflow.*</code> variables below track changes made during workflow execution.</p>
 <p><strong>File Change Tracking:</strong></p>
 <ul>
 <li><code>${step.files_added}</code> - Space-separated list of files added in current step</li>
@@ -479,8 +488,15 @@ reduce:
 # Access: ${markdown_files} → array of filenames
 </code></pre>
 <h3 id="capture-streams"><a class="header" href="#capture-streams">Capture Streams</a></h3>
-<p>Control which output streams to capture (useful for detailed command analysis):</p>
-<pre><code class="language-yaml"># Capture specific streams
+<p>Control which output streams to capture (useful for detailed command analysis).</p>
+<p><strong>Default Behavior</strong>: By default, <code>stdout</code>, <code>exit_code</code>, <code>success</code>, and <code>duration</code> are captured. To customize:</p>
+<pre><code class="language-yaml"># Add stderr to default captures
+- shell: "cargo test 2&gt;&amp;1"
+  capture: "test_results"
+  capture_streams:
+    stderr: true  # Add stderr to defaults (stdout, exit_code, success, duration)
+
+# Or configure all streams explicitly
 - shell: "cargo test 2&gt;&amp;1"
   capture: "test_results"
   capture_streams:
@@ -495,7 +511,6 @@ reduce:
 - shell: "echo 'Success: ${test_results.success}'"
 - shell: "echo 'Duration: ${test_results.duration}s'"
 </code></pre>
-<p><strong>Default Behavior</strong>: By default, <code>stdout</code>, <code>exit_code</code>, <code>success</code>, and <code>duration</code> are captured (all <code>true</code>). Set <code>stderr: true</code> to also capture error output.</p>
 <h3 id="nested-json-field-access"><a class="header" href="#nested-json-field-access">Nested JSON Field Access</a></h3>
 <p>For JSON-formatted captures, use dot notation to access nested fields:</p>
 <pre><code class="language-yaml"># Example: API response with nested data

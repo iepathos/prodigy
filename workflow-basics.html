@@ -353,16 +353,71 @@ merge:
 <h2 id="environment-configuration"><a class="header" href="#environment-configuration">Environment Configuration</a></h2>
 <p>Environment variables can be configured at multiple levels:</p>
 <h3 id="global-environment-variables"><a class="header" href="#global-environment-variables">Global Environment Variables</a></h3>
+<p><strong>Basic (Static) Variables:</strong></p>
 <pre><code class="language-yaml">env:
   NODE_ENV: production
   DATABASE_URL: postgres://localhost/mydb
 </code></pre>
+<p><strong>Advanced Variable Types:</strong></p>
+<p>Prodigy supports three types of environment variable values:</p>
+<ol>
+<li><strong>Static</strong> - Plain string values (shown above)</li>
+<li><strong>Dynamic</strong> - Execute commands to compute values (with caching support)</li>
+<li><strong>Conditional</strong> - Use expressions to compute values based on conditions</li>
+</ol>
+<p><strong>Dynamic Variables:</strong></p>
+<p>Execute shell commands to generate values:</p>
+<pre><code class="language-yaml">env:
+  GIT_COMMIT:
+    command: "git rev-parse HEAD"
+    cache: true  # Cache result for performance
+  BUILD_TIME:
+    command: "date -u +%Y-%m-%dT%H:%M:%SZ"
+    cache: false  # Recompute each time
+</code></pre>
+<p><strong>Conditional Variables:</strong></p>
+<p>Use expressions to set values based on conditions:</p>
+<pre><code class="language-yaml">env:
+  LOG_LEVEL:
+    condition: "${CI} == 'true'"
+    if_true: "debug"
+    if_false: "info"
+  API_URL:
+    condition: "${NODE_ENV} == 'production'"
+    if_true: "https://api.example.com"
+    if_false: "http://localhost:3000"
+</code></pre>
 <h3 id="secret-variables"><a class="header" href="#secret-variables">Secret Variables</a></h3>
-<p>Secret variables are masked in logs for security:</p>
+<p>Secret variables are masked in logs for security. Prodigy supports multiple secret providers:</p>
+<p><strong>Environment Variable Provider:</strong></p>
 <pre><code class="language-yaml">secrets:
   API_KEY: "${env:SECRET_API_KEY}"
   DB_PASSWORD: "${env:DATABASE_PASSWORD}"
 </code></pre>
+<p><strong>File Provider:</strong></p>
+<p>Read secrets from files:</p>
+<pre><code class="language-yaml">secrets:
+  SSH_KEY: "${file:/path/to/ssh/key}"
+  TLS_CERT: "${file:~/.config/certs/client.pem}"
+</code></pre>
+<p><strong>Vault Provider:</strong></p>
+<p>Retrieve secrets from HashiCorp Vault:</p>
+<pre><code class="language-yaml">secrets:
+  DATABASE_PASSWORD: "${vault:secret/data/myapp/db}"
+  API_TOKEN: "${vault:auth/token/myapp}"
+</code></pre>
+<p><strong>AWS Secrets Manager Provider:</strong></p>
+<p>Fetch secrets from AWS:</p>
+<pre><code class="language-yaml">secrets:
+  RDS_PASSWORD: "${aws:prod/database/password}"
+  API_KEY: "${aws:prod/api/key}"
+</code></pre>
+<p><strong>Custom Provider:</strong></p>
+<p>Use custom secret providers:</p>
+<pre><code class="language-yaml">secrets:
+  CUSTOM_SECRET: "${custom:my-provider:secret-name}"
+</code></pre>
+<p>All secret values are masked in logs, error messages, and output regardless of provider type.</p>
 <h3 id="environment-files"><a class="header" href="#environment-files">Environment Files</a></h3>
 <p>Load variables from .env files:</p>
 <pre><code class="language-yaml">env_files:
@@ -395,6 +450,14 @@ merge:
     RUST_BACKTRACE: full
 </code></pre>
 <p>Step-level environment variables override global variables for that command only.</p>
+<p><strong>Clearing Parent Environment:</strong></p>
+<p>Use <code>clear_env</code> to start with a clean environment (no inherited global variables):</p>
+<pre><code class="language-yaml">- shell: "isolated-command"
+  env:
+    ONLY_VAR: "value"
+    clear_env: true  # Start fresh, ignore global env
+</code></pre>
+<p>This is useful for commands that need complete isolation from the global environment. When <code>clear_env: true</code>, only the step-level environment variables are available to the command. Default is <code>false</code> (inherit global environment).</p>
 <p>For more details, see the <a href="environment.html">Environment Variables chapter</a>.</p>
 <h2 id="merge-workflows"><a class="header" href="#merge-workflows">Merge Workflows</a></h2>
 <p>Merge workflows execute when merging worktree changes back to the main branch. This feature enables custom validation, testing, and conflict resolution before integrating changes.</p>

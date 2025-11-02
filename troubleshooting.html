@@ -439,14 +439,14 @@ jq '.items[] | select(.score &gt;= 5)' items.json
     failure_threshold: 5
 </code></pre>
 </li>
-<li><strong>Backoff Strategy:</strong> Prodigy uses exponential backoff by default (base 2.0), which is not directly configurable in the workflow YAML. However, you CAN control the backoff behavior through the retry_config parameters:
+<li><strong>Backoff Strategy:</strong> Prodigy uses exponential backoff with base 2.0 by default. While you cannot change the backoff algorithm itself (it’s always exponential), you CAN control the backoff behavior through the retry_config parameters:
 <ul>
 <li><code>max_attempts</code> - Number of retry attempts before giving up</li>
 <li><code>initial_delay</code> - Starting delay between retries (e.g., “1s”)</li>
 <li><code>max_delay</code> - Maximum delay between retries (e.g., “30s”)</li>
 <li>The delay doubles with each retry (exponential backoff with base 2.0) up to max_delay</li>
 <li>Example: With <code>initial_delay: "1s"</code> and <code>max_delay: "30s"</code>, retries occur at 1s, 2s, 4s, 8s, 16s, 30s, 30s…</li>
-<li>These parameters shape the exponential backoff curve to match your needs</li>
+<li>These parameters shape the exponential backoff curve to match your needs - adjust <code>initial_delay</code> to control how aggressively retries start, and <code>max_delay</code> to cap the maximum wait time</li>
 </ul>
 </li>
 <li>Circuit breaker requires both timeout and failure_threshold</li>
@@ -485,10 +485,10 @@ prodigy run workflow.yml -vvv  # Trace logs
 </ul>
 <p><strong>When to Use Each Mode:</strong></p>
 <ul>
-<li><strong>Use streaming (default)</strong>: For debugging Claude interactions, maintaining an audit trail, and local development</li>
-<li><strong>Disable streaming (<code>PRODIGY_CLAUDE_STREAMING=false</code>)</strong>: In CI/CD environments where disk space is constrained or when streaming logs aren’t needed</li>
+<li><strong>Use streaming (default)</strong>: For debugging Claude interactions, maintaining an audit trail, and local development. Streaming logs provide a complete record of Claude’s execution and are valuable for post-execution analysis.</li>
+<li><strong>Disable streaming (<code>PRODIGY_CLAUDE_STREAMING=false</code>)</strong>: In CI/CD environments where disk space is constrained, in high-frequency workflows where log storage becomes costly, or when streaming logs aren’t needed for debugging.</li>
 </ul>
-<p><strong>Streaming logs are saved to:</strong> <code>~/.prodigy/logs/claude-streaming/</code> with format <code>{timestamp}-{uuid}.jsonl</code>. The log path is displayed before execution starts with a 📁 emoji for easy reference.</p>
+<p><strong>Streaming logs are saved to:</strong> <code>~/.prodigy/logs/claude-streaming/</code> with format <code>{timestamp}-{uuid}.jsonl</code>. The log path is displayed before execution starts with a 📁 emoji for easy reference. These logs persist after execution for later analysis and debugging.</p>
 <hr />
 <h2 id="debug-tips"><a class="header" href="#debug-tips">Debug Tips</a></h2>
 <h3 id="use-verbosity-flags-for-debugging"><a class="header" href="#use-verbosity-flags-for-debugging">Use verbosity flags for debugging</a></h3>
@@ -560,7 +560,9 @@ cat .prodigy/validation-result.json
 <li>Real-time streaming output during command execution</li>
 <li>One JSON object per line (JSONL format)</li>
 <li>Log path displayed before execution with 📁 emoji</li>
-<li>Controlled by <code>PRODIGY_CLAUDE_STREAMING</code> environment variable</li>
+<li>Controlled by <code>PRODIGY_CLAUDE_STREAMING</code> environment variable (default: enabled)</li>
+<li>Persists after execution for post-execution analysis</li>
+<li>Useful for debugging specific execution patterns and failures</li>
 </ul>
 </li>
 <li>
@@ -570,9 +572,15 @@ cat .prodigy/validation-result.json
 <li>Full message history and tool invocations</li>
 <li>Token usage statistics and error details</li>
 <li>Location displayed with verbose mode (<code>-v</code>)</li>
+<li>Contains complete conversation context and API interactions</li>
 </ul>
 </li>
 </ol>
+<p><strong>When to use each log type:</strong></p>
+<ul>
+<li><strong>Streaming logs</strong>: Debugging Prodigy-specific issues, tracking real-time execution, analyzing workflow behavior</li>
+<li><strong>Native session logs</strong>: Deep debugging of Claude’s reasoning, analyzing tool usage patterns, investigating API errors</li>
+</ul>
 <p><strong>Primary method - Use the <code>prodigy logs</code> command:</strong></p>
 <pre><code class="language-bash"># View the most recent Claude log
 prodigy logs --latest
@@ -623,7 +631,7 @@ cat /path/from/above/session-xyz.json | jq '.messages[-3:]'
 <pre><code class="language-bash"># List failed items
 prodigy dlq list &lt;job_id&gt;
 
-# View failure details (inspect/show are aliases)
+# View failure details (inspect and show are aliases - both commands work identically)
 prodigy dlq inspect &lt;job_id&gt;
 prodigy dlq show &lt;job_id&gt;
 
