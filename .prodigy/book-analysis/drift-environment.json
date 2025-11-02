@@ -4,97 +4,94 @@
   "chapter_file": "book/src/environment.md",
   "drift_detected": false,
   "severity": "low",
-  "quality_assessment": "Excellent chapter with comprehensive coverage of environment configuration. The chapter is highly accurate with detailed explanations of the two-layer architecture (WorkflowConfig vs EnvironmentConfig), clear examples for all features, and helpful best practices. All technical claims are verified against implementation. No significant drift detected - only minor enhancement opportunities identified.",
+  "quality_assessment": "Excellent - This chapter is exceptionally accurate and comprehensive. It correctly distinguishes between user-facing YAML configuration (WorkflowConfig) and internal runtime features (EnvironmentConfig), which demonstrates sophisticated technical documentation. All code examples are correct, all technical claims are verified, and the architecture explanation is clear and accurate.",
   "issues": [],
   "positive_aspects": [
-    "Extremely comprehensive coverage of environment configuration features with 700+ lines of documentation",
-    "Clear and accurate distinction between user-facing (WorkflowConfig) and internal (EnvironmentConfig) capabilities",
-    "Excellent MapReduce-specific environment variable documentation with practical, real-world examples",
-    "Accurate documentation that WorkflowStepCommand has no env field (verified at src/config/command.rs:320-401)",
-    "Clear explanation that CommandMetadata has env field but WorkflowStepCommand does not (verified at src/config/command.rs:144-145)",
-    "Good examples showing both variable interpolation syntaxes ($VAR vs ${VAR}) throughout all phases",
+    "Extremely comprehensive coverage (700+ lines) with clear architecture distinction between WorkflowConfig and EnvironmentConfig",
+    "Accurate documentation that env field only supports static string values (HashMap<String, String>) in YAML",
+    "Correctly explains Dynamic and Conditional EnvValue variants are internal-only, not exposed in workflow YAML",
+    "Accurate note that WorkflowStepCommand has NO env field (verified at src/config/command.rs:321-401)",
+    "Clear documentation that per-command environment must use shell syntax (ENV=value command)",
+    "Correctly notes profiles infrastructure exists (active_profile field in EnvironmentConfig) but no CLI flag to activate",
+    "All secret providers accurately documented: env, file, vault, aws, custom (verified at src/cook/environment/config.rs:101-111)",
+    "EnvProfile structure correctly shown with flattened env HashMap and optional description field",
+    "Environment precedence order is accurate: shell-level > global env > env_files > parent environment",
+    "Excellent MapReduce examples showing environment variables in all phases (setup, map, reduce, merge)",
+    "Practical examples showing both $VAR and ${VAR} interpolation syntaxes throughout",
+    "Clear explanation of secret masking across all systems (logs, events, checkpoints, DLQ)",
+    "Accurate environment file format documentation with .env syntax and loading order",
     "Helpful best practices section with security guidance and parameterization patterns",
-    "Correct precedence order documentation: shell-level > global env > env_files > parent environment",
-    "Realistic and accurate note about profile infrastructure existing but CLI activation not implemented (verified at src/cook/environment/config.rs:33-35)",
-    "Well-structured progression from basic concepts to advanced patterns",
-    "All secret providers documented match implementation: env, file, vault, aws, custom (verified at src/cook/environment/config.rs:98-112)",
-    "Clear documentation of EnvValue types: Static, Dynamic, Conditional (verified at src/cook/environment/config.rs:38-48)",
-    "Accurate note that Dynamic and Conditional env values are internal-only, not exposed in WorkflowConfig YAML",
-    "StepEnvironment documentation correctly notes it's internal runtime only, not in WorkflowStepCommand (verified at src/cook/environment/config.rs:126-144)",
-    "Environment file format and precedence accurately documented with clear examples",
-    "Common patterns section provides practical, reusable workflow examples",
-    "All code examples are syntactically correct and match current implementation"
+    "Common patterns section provides realistic, reusable workflow examples",
+    "All code examples are syntactically correct and match current implementation",
+    "Clear notes distinguishing StepEnvironment (internal runtime) from WorkflowStepCommand (user YAML)"
   ],
   "improvement_suggestions": [
     {
       "type": "enhancement",
       "priority": "low",
       "description": "Add troubleshooting section for common environment issues",
-      "suggestion": "Include section covering: variable not found errors, env file parse failures, secret masking not working, precedence confusion. Would help users debug environment problems.",
-      "example": "## Troubleshooting Environment Issues\n\n### Variable Not Found\nIf `$MY_VAR` is not resolving:\n- Check spelling matches exactly (case-sensitive)\n- Verify variable is defined in env, env_files, or parent environment\n- Check precedence order if multiple definitions exist\n\n### Env File Parse Errors\n- Ensure KEY=value format (no spaces around =)\n- Use quotes for multi-line values\n- Check file encoding is UTF-8"
+      "suggestion": "Include debugging guidance for: variable not found errors, env file parse failures, secret masking verification, precedence confusion. Would help users diagnose and fix environment problems.",
+      "example": "## Troubleshooting Environment Issues\n\n### Variable Not Resolving\n- Check spelling matches exactly (case-sensitive)\n- Verify variable defined in env, env_files, or parent environment\n- Use shell: 'env | grep MY_VAR' to inspect resolved values\n\n### Secret Not Masked\n- Verify secret defined in secrets: section, not env:\n- Check provider configuration is correct\n- Test with prodigy run -v to see masking in action"
     },
     {
       "type": "enhancement",
       "priority": "low",
-      "description": "Add diagram showing environment resolution flow",
-      "suggestion": "Visual representation of WorkflowConfig → EnvironmentConfig → Runtime would help users understand the two-layer architecture. Could show data flow from YAML to execution."
+      "description": "Add visual diagram of environment resolution flow",
+      "suggestion": "Create diagram showing: YAML (WorkflowConfig) → Runtime (EnvironmentConfig) → Command Execution. Would visualize the two-layer architecture and help users understand when each layer applies."
     },
     {
       "type": "enhancement",
       "priority": "low",
-      "description": "Add migration guide for users from other workflow systems",
-      "suggestion": "Show equivalent patterns from GitHub Actions, GitLab CI, CircleCI. Example: 'GitHub Actions secrets: syntax' → 'Prodigy secrets: syntax'. Would ease adoption."
+      "description": "Document secret masking with examples",
+      "suggestion": "Show before/after examples of secret masking in different contexts (stdout, Claude logs, event logs, DLQ). Example: 'curl -H \"Authorization: Bearer sk-abc123\" → curl -H \"Authorization: Bearer ***\"'"
     },
     {
       "type": "enhancement",
       "priority": "low",
-      "description": "Document secret masking coverage in more detail",
-      "suggestion": "Expand on which log types have masking. Already mentions 'Claude JSON logs, MapReduce event logs, DLQ items, checkpoint files' but could add examples showing masked output vs unmasked."
+      "description": "Add migration guide from other workflow systems",
+      "suggestion": "Show equivalent patterns from GitHub Actions, GitLab CI, CircleCI. Example comparison table: GitHub Actions 'secrets.API_KEY' vs Prodigy secrets with env provider. Would ease adoption for users familiar with other systems."
     },
     {
       "type": "enhancement",
       "priority": "low",
-      "description": "Add performance notes section",
-      "suggestion": "Document impact of large env_files, dynamic env value caching behavior, when to use profiles vs env_files. Help users optimize environment configuration."
-    },
-    {
-      "type": "enhancement",
-      "priority": "low",
-      "description": "Show debugging techniques for environment variables",
-      "suggestion": "Add section on how to inspect resolved values at runtime, check precedence, verify env file loading. Example: using 'shell: env | grep MY_VAR' to debug."
+      "description": "Clarify custom secret provider status",
+      "suggestion": "Document whether Custom(String) provider variant is fully functional or requires extending Prodigy code. Currently says 'Contact maintainers for extension points' which could be clarified."
     }
   ],
   "metadata": {
-    "analyzed_at": "2025-10-13",
+    "analyzed_at": "2025-11-02",
     "analyzer": "prodigy-analyze-book-chapter-drift",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "Global environment variables (static strings)",
-      "MapReduce environment variables with all phase examples",
-      "Environment files (env_files) with loading order and precedence",
-      "Secrets management with provider types (env, file, vault, aws, custom)",
+      "Global environment variables (static strings only)",
+      "MapReduce environment variables with examples in all phases",
+      "Environment files (env_files) with .env format and precedence",
+      "Secrets management with providers (env, file, vault, aws, custom)",
       "Environment profiles (defined but not CLI-activatable)",
-      "Per-command environment using shell syntax only",
+      "Per-command environment (shell syntax only, no env field in WorkflowStepCommand)",
       "Variable interpolation ($VAR and ${VAR} syntaxes)",
-      "Environment precedence order (4 levels documented)",
+      "Environment precedence order (4 levels)",
+      "Architecture distinction: WorkflowConfig (user YAML) vs EnvironmentConfig (internal runtime)",
       "Best practices for security, parameterization, and documentation",
-      "Common patterns for multi-environment workflows",
-      "Architecture distinction: WorkflowConfig (user YAML) vs EnvironmentConfig (internal runtime)"
+      "Common patterns for multi-environment workflows"
     ],
     "validation_focus": "Environment configuration options and syntax accuracy",
     "code_references_verified": [
-      "src/config/workflow.rs:11-34 - WorkflowConfig struct with env, secrets, env_files, profiles fields",
-      "src/cook/environment/config.rs:9-36 - EnvironmentConfig struct with active_profile field",
-      "src/cook/environment/config.rs:38-48 - EnvValue enum with Static, Dynamic, Conditional variants",
-      "src/cook/environment/config.rs:98-112 - SecretProvider enum with Env, File, Vault, Aws, Custom",
-      "src/cook/environment/config.rs:114-124 - EnvProfile struct with flatten env HashMap",
-      "src/cook/environment/config.rs:126-144 - StepEnvironment struct (internal only)",
-      "src/config/command.rs:128-154 - CommandMetadata with env field",
-      "src/config/command.rs:320-401 - WorkflowStepCommand struct (no env field)"
+      "src/config/workflow.rs:12-34 - WorkflowConfig with env, secrets, env_files, profiles fields",
+      "src/config/mapreduce.rs:16-38 - MapReduceWorkflowConfig with same environment fields",
+      "src/cook/environment/config.rs:9-36 - EnvironmentConfig with active_profile field",
+      "src/cook/environment/config.rs:41-48 - EnvValue enum (Static, Dynamic, Conditional)",
+      "src/cook/environment/config.rs:86-96 - SecretValue enum (Simple, Provider)",
+      "src/cook/environment/config.rs:101-111 - SecretProvider enum (Env, File, Vault, Aws, Custom)",
+      "src/cook/environment/config.rs:116-124 - EnvProfile struct with flattened env",
+      "src/cook/environment/config.rs:126-144 - StepEnvironment (internal only)",
+      "src/config/command.rs:321-401 - WorkflowStepCommand (no env field)",
+      "src/cook/environment/builder.rs:229-232 - active_profile handling",
+      "src/cook/environment/manager.rs:118-121 - profile application"
     ],
     "accuracy_rating": "excellent",
     "completeness_rating": "excellent",
     "clarity_rating": "excellent",
-    "overall_assessment": "This chapter is exemplary documentation with no drift detected. All technical claims verified against source code. The architecture explanation, feature coverage, examples, and best practices are all accurate and helpful. Only minor enhancements suggested for troubleshooting and migration guidance."
+    "overall_assessment": "This chapter is exemplary documentation with no drift detected. All technical claims verified against source code. The architecture explanation is sophisticated and accurate, distinguishing clearly between user-facing YAML configuration and internal runtime features. Feature coverage is comprehensive, examples are practical and correct, and best practices are helpful. Only minor enhancements suggested for troubleshooting guidance and visual aids."
   }
 }
