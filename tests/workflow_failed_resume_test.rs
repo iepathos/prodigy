@@ -37,7 +37,10 @@ async fn test_failed_session_is_now_resumable() -> Result<()> {
 
     // FIXED: Failed sessions with checkpoint data ARE now resumable
     assert_eq!(state.status, SessionStatus::Failed);
-    assert!(state.workflow_state.is_some(), "Session has checkpoint data");
+    assert!(
+        state.workflow_state.is_some(),
+        "Session has checkpoint data"
+    );
 
     // This assertion now passes - failed sessions with checkpoint data are resumable
     assert!(
@@ -235,13 +238,19 @@ async fn test_is_resumable_logic_after_fix() -> Result<()> {
         map_patterns: vec![],
         using_worktree: true,
     });
-    assert!(failed_with_checkpoint.is_resumable(), "Failed with checkpoint should be resumable");
+    assert!(
+        failed_with_checkpoint.is_resumable(),
+        "Failed with checkpoint should be resumable"
+    );
 
     // Test 2: Failed WITHOUT checkpoint data = not resumable
     let mut failed_without_checkpoint = SessionState::new("test2".to_string(), working_dir.clone());
     failed_without_checkpoint.status = SessionStatus::Failed;
     failed_without_checkpoint.workflow_state = None;
-    assert!(!failed_without_checkpoint.is_resumable(), "Failed without checkpoint should not be resumable");
+    assert!(
+        !failed_without_checkpoint.is_resumable(),
+        "Failed without checkpoint should not be resumable"
+    );
 
     // Test 3: Completed = not resumable (even with checkpoint)
     let mut completed = SessionState::new("test3".to_string(), working_dir.clone());
@@ -255,7 +264,10 @@ async fn test_is_resumable_logic_after_fix() -> Result<()> {
         map_patterns: vec![],
         using_worktree: true,
     });
-    assert!(!completed.is_resumable(), "Completed should not be resumable");
+    assert!(
+        !completed.is_resumable(),
+        "Completed should not be resumable"
+    );
 
     Ok(())
 }
