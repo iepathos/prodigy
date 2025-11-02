@@ -3,8 +3,8 @@
   "chapter_title": "Error Handling",
   "chapter_file": "book/src/error-handling.md",
   "drift_detected": true,
-  "severity": "low",
-  "quality_assessment": "Excellent comprehensive chapter with accurate coverage of both command-level and workflow-level error handling. Documentation closely matches implementation with only minor clarifications needed around serialization formats and deprecated fields. Strong examples and best practices throughout.",
+  "severity": "medium",
+  "quality_assessment": "Chapter is comprehensive and mostly accurate, but contains some outdated field names and missing details about recent implementations. The overall structure and explanations are strong, with good examples and clear organization. Main issues are minor terminology inconsistencies and incomplete explanations of certain features.",
   "issues": [
     {
       "type": "inconsistent_documentation",
@@ -40,21 +40,41 @@
       "type": "incomplete_explanation",
       "severity": "low",
       "section": "Error Metrics",
-      "description": "Chapter documents ErrorMetrics fields but doesn't explain pattern detection threshold or suggest_action algorithm",
-      "current_content": "Lists ErrorMetrics fields including failure_patterns with suggested_action",
-      "should_add": "Explain pattern detection triggers at 3 occurrences and show examples of suggested actions",
-      "fix_suggestion": "Add subsection: 'Pattern Detection: Prodigy detects recurring patterns when error type occurs 3+ times. Examples: Timeout → \"Consider increasing timeout_per_agent\", Network → \"Check network connectivity\", Permission → \"Verify file permissions\"'",
-      "source_reference": "src/cook/workflow/error_policy.rs:456-489 (detect_patterns method with threshold of 3, suggest_action method)"
+      "description": "Chapter documents ErrorMetrics fields but pattern detection section on line 275 mentions example remediations that don't fully match implementation",
+      "current_content": "Pattern Detection section lists: Timeout errors, Network errors, Permission errors, Out of memory errors with remediations",
+      "should_be": "Implementation only has specific suggestions for Timeout, Network, and Permission. OOM falls under generic suggestion.",
+      "fix_suggestion": "Update line 281: Remove 'Out of memory errors' or note it as planned. Current suggest_action only checks for Timeout, Network, and Permission in error_type string. Add: 'Other error types receive generic suggestion: Review error logs for more details'",
+      "source_reference": "src/cook/workflow/error_policy.rs:478-489 (suggest_action method only handles Timeout, Network, Permission specifically)"
+    },
+    {
+      "type": "inconsistent_terminology",
+      "severity": "medium",
+      "section": "Error Metrics Pattern Detection (Line 278)",
+      "description": "Suggested remediation uses 'timeout_per_agent' but this field doesn't exist in MapReduceWorkflowConfig",
+      "current_content": "**Timeout errors** → \"Consider increasing timeout_per_agent\"",
+      "should_be": "**Timeout errors** → \"Consider increasing agent_timeout_secs\"",
+      "fix_suggestion": "Update line 278 to use correct field name 'agent_timeout_secs' from MapPhaseYaml config. This matches the actual suggestion in error_policy.rs:481",
+      "source_reference": "src/config/mapreduce.rs (MapPhaseYaml has agent_timeout_secs field, not timeout_per_agent)"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Detailed Handler Configuration",
-      "description": "Chapter documents capture field in handler config but example shows it at wrong level",
-      "current_content": "capture:\n  error_log: \"handler_output\"\n  rollback_status: \"rollback_result\"",
-      "should_be": "Example is correct - capture is at FailureHandlerConfig level, not HandlerCommand level",
-      "fix_suggestion": "Current documentation is accurate. Consider adding note that capture applies to handler's combined output, not individual commands.",
-      "source_reference": "src/cook/workflow/on_failure.rs:38-40 (capture field in FailureHandlerConfig)"
+      "section": "Circuit Breaker",
+      "description": "Chapter doesn't document the circuit breaker state machine and transitions",
+      "current_content": "Shows circuit breaker configuration fields but not state transitions",
+      "should_add": "Document the three states: Closed (normal operation), Open (rejecting requests), HalfOpen (testing recovery with limited requests)",
+      "fix_suggestion": "Add subsection after configuration example: 'Circuit Breaker States: Closed → Open (after failure_threshold consecutive failures) → HalfOpen (after timeout expires) → Closed (after success_threshold successes) or back to Open (if half_open_requests fail)'",
+      "source_reference": "src/cook/workflow/error_policy.rs:240-343 (CircuitState enum and CircuitBreaker state transitions)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Success Handling (Line 101-125)",
+      "description": "on_success section is technically accurate but could use more practical examples",
+      "current_content": "Shows simple and advanced form with field examples",
+      "should_add": "Add practical use cases: notifications, metrics updates, deployment triggers, artifact archiving",
+      "fix_suggestion": "Add paragraph: 'Common use cases for on_success: sending success notifications, updating deployment metrics, triggering downstream workflows, archiving build artifacts, or updating external systems. The handler receives access to step outputs via capture.'",
+      "source_reference": "book/src/error-handling.md:101-125 (section is technically complete but could be more practical)"
     }
   ],
   "positive_aspects": [
@@ -72,17 +92,18 @@
     "Success handling section shows both simple and advanced forms correctly"
   ],
   "improvement_suggestions": [
-    "Add comparison table: command-level vs workflow-level error handling to help users choose",
-    "Include troubleshooting section with common error handling mistakes",
-    "Add examples showing error handler variable access beyond ${shell.output} (e.g., ${shell.exit_code})",
-    "Show how to combine multiple strategies (e.g., on_failure with circuit breaker)",
-    "Add visual flow diagram: step fails → handler executes → retry logic → DLQ",
-    "Include example of circuit breaker state transitions with metrics",
-    "Clarify serialization format differences between BackoffStrategy and CircuitBreakerConfig durations",
-    "Add worked examples for each backoff strategy calculation"
+    "Add visual diagram showing error handling flow: failure detection → handler → retry → DLQ → circuit breaker decision",
+    "Include troubleshooting section for error handling issues (handler not executing, circuit breaker stuck open, DLQ items not retrying)",
+    "Add comparison table showing when to use command-level vs workflow-level error handling",
+    "Show examples of combining multiple error handling features (circuit breaker + retry + DLQ)",
+    "Add cross-references to MapReduce chapter when discussing workflow-level error policy",
+    "Include practical examples of viewing error metrics during execution (via CLI or events)",
+    "Add section on debugging failed handlers and understanding handler execution context",
+    "Clarify the note about BackoffStrategy serialization - simplify for end users",
+    "Add more real-world scenarios in Common Patterns section showing combined error handling strategies"
   ],
   "metadata": {
-    "analyzed_at": "2025-10-12",
+    "analyzed_at": "2025-11-02",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Command-level error handling (on_failure with simple, advanced, and detailed forms)",
@@ -95,6 +116,12 @@
       "Commit requirements",
       "Error collection strategies"
     ],
-    "validation_focus": "Check error handling policies and configurations"
+    "validation_focus": "Check error handling policies and configurations",
+    "implementation_files_reviewed": [
+      "src/cook/workflow/error_policy.rs",
+      "src/cook/workflow/on_failure.rs",
+      "src/config/command.rs",
+      "src/config/mapreduce.rs"
+    ]
   }
 }
