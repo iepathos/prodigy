@@ -26,6 +26,8 @@ pub mod progress;
 pub mod pure;
 pub mod reduce_phase;
 pub mod resources;
+pub mod resume_collection;
+pub mod resume_deduplication;
 pub mod state;
 pub mod timeout;
 #[cfg(test)]

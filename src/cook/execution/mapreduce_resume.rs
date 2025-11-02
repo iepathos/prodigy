@@ -359,33 +359,51 @@ impl MapReduceResumeManager {
         state: &mut MapReduceJobState,
         options: &EnhancedResumeOptions,
     ) -> MRResult<Vec<Value>> {
-        let mut remaining = Vec::new();
+        use super::mapreduce::resume_collection::{
+            collect_failed_items, collect_pending_items, combine_work_items,
+        };
+        use super::mapreduce::resume_deduplication::{count_duplicates, deduplicate_work_items};
 
-        // Add pending items from state
-        for item_id in &state.pending_items {
-            if let Some(item) = state.find_work_item(item_id) {
-                remaining.push(item);
-            }
+        // Collect from all sources (pure functions)
+        let pending = collect_pending_items(state);
+
+        let failed = if options.reset_failed_agents {
+            collect_failed_items(state, options.max_additional_retries)
+        } else {
+            Vec::new()
+        };
+
+        let dlq = if options.include_dlq_items {
+            self.load_dlq_items(&state.job_id).await?
+        } else {
+            Vec::new()
+        };
+
+        // Combine in priority order
+        let combined = combine_work_items(pending.clone(), failed.clone(), dlq.clone());
+
+        // Check for duplicates before deduplication (observability)
+        let duplicate_count = count_duplicates(&combined);
+        if duplicate_count > 0 {
+            warn!(
+                "Found {} duplicate work items across resume sources (pending: {}, failed: {}, dlq: {})",
+                duplicate_count,
+                pending.len(),
+                failed.len(),
+                dlq.len()
+            );
         }
 
-        // Add failed items if retry is enabled
-        if options.reset_failed_agents {
-            for (item_id, failure) in &state.failed_agents {
-                if failure.attempts < options.max_additional_retries {
-                    if let Some(item) = state.find_work_item(item_id) {
-                        remaining.push(item);
-                    }
-                }
-            }
-        }
+        // Deduplicate (pure function)
+        let deduped = deduplicate_work_items(combined);
 
-        // Add DLQ items if requested
-        if options.include_dlq_items {
-            let dlq_items = self.load_dlq_items(&state.job_id).await?;
-            remaining.extend(dlq_items);
-        }
+        info!(
+            "Resume work items: {} total, {} unique after deduplication",
+            pending.len() + failed.len() + dlq.len(),
+            deduped.len()
+        );
 
-        Ok(remaining)
+        Ok(deduped)
     }
 
     /// Load items from Dead Letter Queue
