@@ -367,7 +367,7 @@ impl MapReduceResumeManager {
     }
 
     /// Calculate remaining work items
-    async fn calculate_remaining_items(
+    pub async fn calculate_remaining_items(
         &self,
         state: &mut MapReduceJobState,
         options: &EnhancedResumeOptions,
