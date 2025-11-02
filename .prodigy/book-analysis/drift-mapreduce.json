@@ -24,6 +24,24 @@
       "should_add": "Note that all Duration fields (delay, initial, increment, timeout) are serialized using humantime_serde, supporting multiple formats like \"1s\", \"500ms\", \"2m\", \"1h30m\"",
       "fix_suggestion": "Add subsection explaining humantime_serde usage in Duration fields for clarity",
       "source_reference": "src/cook/workflow/error_policy.rs:56 and BackoffStrategy enum"
+    },
+    {
+      "type": "minor_enhancement",
+      "severity": "low",
+      "section": "Map Phase Configuration",
+      "description": "timeout_config advanced configuration object is mentioned in features but not prominently documented",
+      "should_add": "Brief mention that timeout_config provides advanced timeout configuration as an alternative to agent_timeout_secs",
+      "fix_suggestion": "Add a note or example showing timeout_config field for advanced timeout scenarios",
+      "source_reference": "src/config/mapreduce.rs:MapPhaseYaml::timeout_config, features.json:mapreduce.configuration.map.timeout_config"
+    },
+    {
+      "type": "minor_enhancement",
+      "severity": "low",
+      "section": "Configuration Examples",
+      "description": "Environment variable support for configuration fields (max_parallel, timeout, etc.) could be more prominently featured",
+      "should_add": "Examples demonstrating environment variable usage in configuration fields like max_parallel: \"$MAX_WORKERS\"",
+      "fix_suggestion": "Add an example or note showing that fields like max_parallel, agent_timeout_secs, and setup.timeout can reference environment variables",
+      "source_reference": "features.json:mapreduce.configuration mentions env var support for multiple fields"
     }
   ],
   "positive_aspects": [
@@ -56,10 +74,13 @@
     "Could add more examples of custom error handlers (ItemFailureAction::Custom)",
     "Could clarify that humantime_serde enables flexible duration parsing throughout",
     "Consider adding troubleshooting for timeout_config field usage",
-    "Could mention that simple capture format (variable: 0) is not legacy but a valid shorthand"
+    "Could mention that simple capture format (variable: 0) is not legacy but a valid shorthand",
+    "Add examples showing environment variable usage in max_parallel and timeout fields",
+    "Clarify merge queue mechanism for agent-to-parent merges (FIFO sequential processing)",
+    "Document session-to-job ID mapping for resume flexibility"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-12",
+    "analyzed_at": "2025-11-02",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "MapReduce mode",
