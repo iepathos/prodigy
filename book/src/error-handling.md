@@ -123,6 +123,17 @@ Execute commands when a step succeeds. The `on_success` field accepts a full Wor
 
 **Note:** The `on_success` handler supports all WorkflowStep fields including `timeout`, `capture`, `working_dir`, `when`, and nested `on_failure` handlers.
 
+**Common Use Cases:**
+
+Success handlers are useful for post-processing actions that should only occur when a step completes successfully:
+- **Notifications:** Send success notifications to teams via Slack, email, or other channels
+- **Metrics Updates:** Update deployment metrics, dashboard statistics, or monitoring systems
+- **Downstream Workflows:** Trigger dependent workflows or pipelines
+- **Artifact Archiving:** Archive build artifacts, logs, or generated files for later use
+- **External System Updates:** Update issue trackers, deployment records, or configuration management systems
+
+The handler receives access to step outputs via the `capture` field, allowing you to process results or pass data to subsequent steps.
+
 ### Commit Requirements
 
 Specify whether a workflow step must create a git commit:
@@ -188,7 +199,34 @@ error_policy:
     half_open_requests: 3    # Test requests in half-open state
 ```
 
-**Note:** The `timeout` field uses humantime format supporting `1s`, `100ms`, `2m`, `30s` for duration parsing
+**Note:** The `timeout` field uses humantime format supporting `1s`, `100ms`, `2m`, `30s` for duration parsing.
+
+#### Circuit Breaker States
+
+The circuit breaker operates in three states to protect against cascading failures:
+
+1. **Closed (Normal Operation)**
+   - All requests are processed normally
+   - Failures are tracked; consecutive failures increment the failure counter
+   - Transitions to **Open** after `failure_threshold` consecutive failures
+
+2. **Open (Rejecting Requests)**
+   - All requests are immediately rejected without attempting execution
+   - Prevents further load on a failing dependency
+   - Transitions to **HalfOpen** after `timeout` duration expires
+
+3. **HalfOpen (Testing Recovery)**
+   - Allows a limited number of test requests (`half_open_requests`) to verify recovery
+   - If test requests succeed (reaching `success_threshold`), transitions back to **Closed**
+   - If any test request fails, transitions back to **Open** and resets the timeout
+
+**State Transition Flow:**
+```
+Closed → Open (after failure_threshold consecutive failures)
+Open → HalfOpen (after timeout expires)
+HalfOpen → Closed (after success_threshold successes)
+HalfOpen → Open (if any half_open_request fails)
+```
 
 ### Retry Configuration with Backoff
 
@@ -275,10 +313,11 @@ You can also access metrics programmatically via the Prodigy API or through CLI 
 
 Prodigy automatically detects recurring error patterns when an error type occurs 3 or more times. The `failure_patterns` field includes suggested remediation actions:
 
-- **Timeout errors** → "Consider increasing timeout_per_agent"
+- **Timeout errors** → "Consider increasing agent_timeout_secs"
 - **Network errors** → "Check network connectivity and retry configuration"
 - **Permission errors** → "Verify file permissions and access rights"
-- **Out of memory errors** → "Consider reducing max_parallel or increasing memory limits"
+
+**Note:** Other error types receive a generic suggestion: "Review error logs for more details."
 
 These suggestions help diagnose and resolve systemic issues in MapReduce jobs.
 
@@ -340,12 +379,27 @@ This centralized storage allows multiple worktrees to share the same DLQ.
 
 ## Best Practices
 
+### Choosing the Right Error Handling Level
+
+Understanding when to use command-level versus workflow-level error handling is crucial for building robust workflows.
+
+| **Aspect** | **Command-Level (`on_failure`)** | **Workflow-Level (`error_policy`)** |
+|------------|-----------------------------------|--------------------------------------|
+| **Scope** | Single workflow step | Entire MapReduce job |
+| **Availability** | All workflow modes | MapReduce mode only |
+| **Use Case** | Step-specific recovery logic | Consistent handling across all items |
+| **Retry Control** | Per-command retry with `max_attempts` | Per-item retry with backoff strategies |
+| **Failure Action** | Custom handler commands | DLQ, retry, skip, or stop |
+| **Circuit Breaker** | Not available | Available with configurable thresholds |
+| **Best For** | Targeted recovery, cleanup, notifications | Batch processing, rate limiting, cascading failure prevention |
+
 ### When to Use Command-Level Error Handling
 
 - **Recovery:** Use `on_failure` to fix issues and retry (e.g., clearing cache before reinstalling)
 - **Cleanup:** Use `strategy: cleanup` to clean up resources after failures
 - **Fallback:** Use `strategy: fallback` for alternative approaches
 - **Notifications:** Use handler commands to notify teams of failures
+- **Step-Specific Logic:** When different steps need different error handling strategies
 
 ### When to Use Workflow-Level Error Policy
 
@@ -353,6 +407,8 @@ This centralized storage allows multiple worktrees to share the same DLQ.
 - **Failure thresholds:** Use max_failures or failure_threshold to prevent runaway jobs
 - **Circuit breakers:** Use when external dependencies might fail cascading
 - **DLQ:** Use for large batch jobs where you want to retry failures separately
+- **Rate Limiting:** Use backoff strategies to avoid overwhelming external services
+- **Batch Processing:** When processing hundreds or thousands of items with similar error patterns
 
 ### Error Information Available
 
@@ -395,3 +451,50 @@ The `${shell.output}` variable contains the command's stdout/stderr output.
       - shell: "notify-team 'Deployment failed'"
     fail_workflow: true   # Still fail workflow after cleanup
 ```
+
+**Combined Error Handling Strategies (MapReduce):**
+
+For complex MapReduce workflows, combine multiple error handling features:
+
+```yaml
+# Process API endpoints with comprehensive error handling
+mode: mapreduce
+error_policy:
+  on_item_failure: retry          # Try immediate retry first
+  continue_on_failure: true       # Don't stop entire job
+  max_failures: 50                # Stop if too many failures
+  failure_threshold: 0.15         # Stop if 15% failure rate
+
+  # Retry with exponential backoff
+  retry_config:
+    max_attempts: 3
+    backoff:
+      type: exponential
+      initial: 2s
+      multiplier: 2
+
+  # Protect against cascading failures
+  circuit_breaker:
+    failure_threshold: 10
+    success_threshold: 3
+    timeout: 60s
+    half_open_requests: 5
+
+  error_collection: batched
+  batch_size: 10                  # Report errors in batches
+
+map:
+  agent_template:
+    - claude: "/process-endpoint ${item.path}"
+      on_failure:
+        # Item-level recovery before workflow-level retry
+        claude: "/diagnose-api-error ${shell.output}"
+        max_attempts: 2
+```
+
+This configuration provides multiple layers of protection:
+1. Item-level error handlers for immediate recovery attempts
+2. Automatic retry with exponential backoff for transient failures
+3. Circuit breaker to prevent overwhelming failing dependencies
+4. Failure thresholds to stop runaway jobs early
+5. Batched error reporting to reduce noise
