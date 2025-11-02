@@ -237,13 +237,13 @@
       timeout: "60s"         # Not 60
       failure_threshold: 5
   ```
-- **Backoff Strategy:** Prodigy uses exponential backoff by default (base 2.0), which is not directly configurable in the workflow YAML. However, you CAN control the backoff behavior through the retry_config parameters:
+- **Backoff Strategy:** Prodigy uses exponential backoff with base 2.0 by default. While you cannot change the backoff algorithm itself (it's always exponential), you CAN control the backoff behavior through the retry_config parameters:
   - `max_attempts` - Number of retry attempts before giving up
   - `initial_delay` - Starting delay between retries (e.g., "1s")
   - `max_delay` - Maximum delay between retries (e.g., "30s")
   - The delay doubles with each retry (exponential backoff with base 2.0) up to max_delay
   - Example: With `initial_delay: "1s"` and `max_delay: "30s"`, retries occur at 1s, 2s, 4s, 8s, 16s, 30s, 30s...
-  - These parameters shape the exponential backoff curve to match your needs
+  - These parameters shape the exponential backoff curve to match your needs - adjust `initial_delay` to control how aggressively retries start, and `max_delay` to cap the maximum wait time
 - Circuit breaker requires both timeout and failure_threshold
 
 ---
@@ -279,10 +279,10 @@
   ```
 
 **When to Use Each Mode:**
-- **Use streaming (default)**: For debugging Claude interactions, maintaining an audit trail, and local development
-- **Disable streaming (`PRODIGY_CLAUDE_STREAMING=false`)**: In CI/CD environments where disk space is constrained or when streaming logs aren't needed
+- **Use streaming (default)**: For debugging Claude interactions, maintaining an audit trail, and local development. Streaming logs provide a complete record of Claude's execution and are valuable for post-execution analysis.
+- **Disable streaming (`PRODIGY_CLAUDE_STREAMING=false`)**: In CI/CD environments where disk space is constrained, in high-frequency workflows where log storage becomes costly, or when streaming logs aren't needed for debugging.
 
-**Streaming logs are saved to:** `~/.prodigy/logs/claude-streaming/` with format `{timestamp}-{uuid}.jsonl`. The log path is displayed before execution starts with a 📁 emoji for easy reference.
+**Streaming logs are saved to:** `~/.prodigy/logs/claude-streaming/` with format `{timestamp}-{uuid}.jsonl`. The log path is displayed before execution starts with a 📁 emoji for easy reference. These logs persist after execution for later analysis and debugging.
 
 ---
 
@@ -368,13 +368,20 @@ Prodigy maintains two types of Claude logs for comprehensive debugging:
    - Real-time streaming output during command execution
    - One JSON object per line (JSONL format)
    - Log path displayed before execution with 📁 emoji
-   - Controlled by `PRODIGY_CLAUDE_STREAMING` environment variable
+   - Controlled by `PRODIGY_CLAUDE_STREAMING` environment variable (default: enabled)
+   - Persists after execution for post-execution analysis
+   - Useful for debugging specific execution patterns and failures
 
 2. **Claude's native session logs** (JSON format): `~/.local/state/claude/logs/session-{id}.json`
    - Complete session history created by Claude Code CLI
    - Full message history and tool invocations
    - Token usage statistics and error details
    - Location displayed with verbose mode (`-v`)
+   - Contains complete conversation context and API interactions
+
+**When to use each log type:**
+- **Streaming logs**: Debugging Prodigy-specific issues, tracking real-time execution, analyzing workflow behavior
+- **Native session logs**: Deep debugging of Claude's reasoning, analyzing tool usage patterns, investigating API errors
 
 **Primary method - Use the `prodigy logs` command:**
 ```bash
@@ -436,7 +443,7 @@ This is especially valuable for debugging MapReduce agent failures, as you can s
 # List failed items
 prodigy dlq list <job_id>
 
-# View failure details (inspect/show are aliases)
+# View failure details (inspect and show are aliases - both commands work identically)
 prodigy dlq inspect <job_id>
 prodigy dlq show <job_id>
 

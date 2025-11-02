@@ -3,101 +3,108 @@
   "chapter_title": "Variables and Interpolation",
   "chapter_file": "book/src/variables.md",
   "drift_detected": true,
-  "severity": "low",
-  "quality_assessment": "Chapter is comprehensive and well-structured with good coverage of variable types and interpolation. Documentation is largely accurate with only minor missing details about advanced features.",
+  "severity": "medium",
+  "quality_assessment": "The chapter is comprehensive and well-structured with excellent examples. Most content is accurate, but has some minor inconsistencies with naming conventions and missing details about variable aliases. The map.results documentation is particularly strong.",
   "issues": [
     {
       "type": "missing_content",
+      "severity": "medium",
+      "section": "Validation Variables",
+      "description": "Chapter documents 'validation.missing_count' as a numeric variable, but this doesn't appear in features.json validation variables section",
+      "current_content": "- `${validation.missing_count}` - Number of missing requirements (numeric)",
+      "should_be": "Verify if validation.missing_count is actually implemented in ValidationResult struct, or if users should use ${validation.missing} array and get length in shell",
+      "fix_suggestion": "Either confirm this variable exists in ValidationResult structure or update to show: 'To get count of missing requirements, use shell commands: echo \"${validation.missing}\" | wc -w'",
+      "source_reference": "features.json:variables.validation (lines 164-169), src/cook/workflow/validation.rs"
+    },
+    {
+      "type": "incomplete_explanation",
       "severity": "low",
-      "section": "System Variables",
-      "description": "Chapter documents git.branch and git.commit variables but these are added to context via executor/context.rs, not variables.rs. The chapter doesn't clarify these are populated from git operations at runtime.",
-      "should_add": "Add explanation that git.branch and git.commit are dynamically populated from the git repository state, not statically defined",
-      "fix_suggestion": "Add a note: 'Git context variables are automatically populated from your repository state when the workflow runs. They are not available if running outside a git repository.'",
-      "source_reference": "src/cook/workflow/executor/context.rs:360-370"
+      "section": "Validation Variables",
+      "description": "Chapter correctly notes that validation.completion and validation.completion_percentage are equivalent but doesn't provide guidance on which to prefer",
+      "current_content": "**Note**: `validation.completion` and `validation.completion_percentage` are equivalent - both return the numeric completion percentage value.",
+      "should_add": "Recommend which variable name is preferred in new workflows",
+      "fix_suggestion": "Update note to: 'Use validation.completion_percentage in new workflows for clarity. validation.completion is supported as a shorter alias.'",
+      "source_reference": "features.json:variables.validation, src/cook/workflow/executor.rs:2138"
     },
     {
       "type": "missing_content",
       "severity": "low",
       "section": "Git Context Variables",
-      "description": "Chapter documents step.files_added, step.files_modified, etc. returning space-separated strings, but doesn't mention these are numeric counts (not lists)",
-      "should_add": "Clarify that variables like step.files_added return numeric counts, not file lists. The actual file lists are step.files_changed (space-separated paths)",
-      "fix_suggestion": "Update examples to show: step.files_added (number), step.files_modified (number), step.files_deleted (number), step.files_changed (space-separated list of paths)",
-      "source_reference": "src/cook/workflow/executor/context.rs:68-83"
+      "description": "Chapter doesn't document git.files.modified, git.files.added, git.files.deleted, git.changed_files variables from features.json",
+      "current_content": "Only documents step.* and workflow.* file tracking variables",
+      "should_add": "Document the git.* file tracking variables that show current git status (different from step.* which show changes during execution)",
+      "fix_suggestion": "Add subsection: 'Git Status Variables: ${git.files.modified}, ${git.files.added}, ${git.files.deleted}, ${git.changed_files} - Current git repository status (use git diff to populate these)'",
+      "source_reference": "features.json:variables.git_context (lines 171-178)"
     },
     {
-      "type": "incomplete_explanation",
+      "type": "outdated_information",
       "severity": "low",
-      "section": "Custom Variable Capture",
-      "description": "Chapter shows basic capture examples but doesn't explain the full CaptureStreams API (capture_streams field)",
-      "should_add": "The capture_streams section (lines 215-236) is actually well-documented. This is not a real drift issue.",
-      "fix_suggestion": "No fix needed - documentation is accurate",
-      "source_reference": "src/cook/workflow/variables.rs:268-292, book/src/variables.md:215-236"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Advanced Variable Features",
-      "description": "Chapter doesn't document the enhanced variable system in src/cook/execution/variables.rs which supports computed variables (env.*, file:, cmd:, json:, date:, uuid), aggregate functions, and variable scoping",
-      "should_add": "Advanced features exist but may be experimental or not yet exposed in workflow YAML. Verify if these are user-facing features before documenting.",
-      "fix_suggestion": "If these features are user-facing, add an 'Advanced Variable Features' section covering: computed variables (env.*, file:, cmd:, json:, date:, uuid), aggregate functions (count, sum, average, min, max, collect, etc.), and scope management (local/phase/global)",
-      "source_reference": "src/cook/execution/variables.rs:20-1260"
+      "section": "Output Variables - shell.stdout note",
+      "description": "Chapter includes note about shell.output being correct (not shell.stdout), but there's no reference to shell.stdout anywhere in the chapter that would cause confusion",
+      "current_content": "**Note**: `${shell.output}` is the correct variable name for shell command output. The code uses `shell.output`, not `shell.stdout`.",
+      "should_be": "Remove this note as it addresses a non-existent confusion, or reframe it more positively",
+      "fix_suggestion": "Remove note entirely, or reframe as: 'Shell command output is captured in ${shell.output}, providing the complete stdout from the last shell command executed.'",
+      "source_reference": "book/src/variables.md:64"
     },
     {
       "type": "unclear_content",
       "severity": "low",
-      "section": "Variable Availability by Phase",
-      "description": "Table shows Item Variables not available in reduce phase, but chapter correctly documents ${map.results} for accessing item data in reduce. This could be clearer.",
-      "should_add": "Clarify that ${item.*} variables are not directly available in reduce, but all item data is available through ${map.results} aggregation",
-      "fix_suggestion": "Add note after table: 'In reduce phase, individual item variables (${item.*}) are not available, but you can access all item data through ${map.results} which contains the aggregated results from all map agents.'",
-      "source_reference": "book/src/variables.md:14-23"
+      "section": "Capture Streams - Default Behavior",
+      "description": "Example shows all capture_streams fields but the default behavior note comes after the example, making it less prominent",
+      "current_content": "Example first, then note: 'Default Behavior: By default, stdout, exit_code, success, and duration are captured'",
+      "should_be": "Explain default behavior before showing full configuration example",
+      "fix_suggestion": "Restructure to: 'By default, stdout, exit_code, success, and duration are captured. To customize:\n```yaml\ncapture_streams:\n  stderr: true  # Add stderr to defaults\n```'",
+      "source_reference": "book/src/variables.md:336-356"
     },
     {
-      "type": "missing_content",
+      "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Validation Variables",
-      "description": "Chapter documents validation.completion_percentage but doesn't explain validation.completion (appears to be duplicate or different format)",
-      "should_add": "Clarify difference between validation.completion and validation.completion_percentage, or note if one is deprecated",
-      "fix_suggestion": "Check executor/context.rs implementation to verify if both are needed or if one is legacy alias",
-      "source_reference": "book/src/variables.md:108-115, src/cook/workflow/executor/context.rs:44-54"
+      "section": "System Variables - WORKTREE",
+      "description": "Chapter documents WORKTREE variable but doesn't explain it's derived from PRODIGY_WORKTREE environment variable",
+      "current_content": "- `${WORKTREE}` - Name of the current worktree (if running in a Prodigy worktree session)",
+      "should_add": "Clarify that Prodigy automatically sets this when creating isolated worktrees",
+      "fix_suggestion": "Expand: '${WORKTREE} - Name of current worktree (automatically set by Prodigy when running in isolated worktree, e.g., session-abc123)'",
+      "source_reference": "src/cook/workflow/executor/context.rs:371-374"
     }
   ],
   "positive_aspects": [
-    "Excellent organization with clear sections for each variable category",
-    "Comprehensive table showing variable availability by workflow phase (setup, map, reduce, merge)",
-    "Good coverage of all capture formats (string, number, json, lines, boolean) with examples",
-    "Clear documentation of nested JSON field access with dot notation",
-    "Helpful troubleshooting section with common errors and solutions",
-    "Good explanation of variable scope and precedence with examples",
-    "Proper documentation of legacy aliases with migration guidance",
-    "Well-explained capture_streams configuration with all options",
-    "Clear examples for both basic and advanced use cases"
+    "Excellent variable availability table showing which variables work in which phases (setup/map/reduce/merge)",
+    "Outstanding documentation of map.results limitations and best practices for write_file vs shell/Claude",
+    "Comprehensive coverage of all variable categories: standard, output, MapReduce, validation, git, merge, system",
+    "Clear examples throughout showing practical usage patterns",
+    "Strong troubleshooting section with common errors and solutions",
+    "Accurate documentation of capture formats (string, number, json, lines, boolean)",
+    "Good explanation of capture streams with all available options",
+    "Helpful notes about variable scope and precedence",
+    "Clear migration guidance for legacy aliases ($ARG, $FILE)",
+    "Well-structured nested JSON field access examples"
   ],
   "improvement_suggestions": [
-    "Add a visual diagram showing variable lifecycle through workflow phases",
-    "Include more real-world examples combining multiple variable types",
-    "Add a 'Quick Reference' section at the end with all variables in a condensed format",
-    "Consider adding a subsection on performance implications of computed variables",
-    "Add examples showing variable interpolation in different command types (shell, claude, goal_seek)",
-    "Include guidance on when to use custom capture vs. automatic output variables",
-    "Add section on debugging variable interpolation issues (e.g., using verbose mode)"
+    "Add a 'Quick Reference' table at the end with all variables categorized by phase",
+    "Include examples combining multiple variable types in a single command",
+    "Add visual diagram showing variable lifecycle through workflow phases",
+    "Expand debugging section with examples of using -v flag to see variable values",
+    "Add section on performance implications of large variables like map.results",
+    "Include cross-references to related chapters (Commands, MapReduce) for deeper context",
+    "Add examples showing variable composition and advanced interpolation patterns"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-12",
+    "analyzed_at": "2025-11-02",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "Standard variables",
-      "System variables (PROJECT_ROOT, WORKTREE, git.*)",
+      "Standard variables (workflow.*, step.*)",
       "Output variables (shell.output, claude.output, last.*)",
       "MapReduce variables (item.*, map.*, worker.id)",
-      "Merge variables (merge.*)",
+      "System variables (PROJECT_ROOT, WORKTREE, git.branch, git.commit)",
       "Validation variables (validation.*)",
       "Git context variables (step.*, workflow.*)",
+      "Merge variables (merge.*)",
       "Custom variable capture",
-      "Capture formats (string, number, json, lines, boolean)",
-      "Capture streams (stdout, stderr, exit_code, success, duration)",
-      "Nested JSON field access",
+      "Capture formats",
+      "Capture streams",
       "Variable scope and precedence",
-      "Legacy variable aliases"
+      "Legacy aliases",
+      "Troubleshooting"
     ],
     "validation_focus": "Check all variable types and interpolation syntax"
   }

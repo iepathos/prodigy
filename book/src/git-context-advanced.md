@@ -121,6 +121,8 @@ Use glob patterns to match files precisely:
 - `{a,b}` - Match either `a` or `b`
 - `[abc]` - Match character class
 
+**Note**: Prodigy uses glob patterns only. Regular expressions (regex) are not supported for pattern filtering. Use glob syntax for all file matching operations.
+
 **Examples:**
 
 ```yaml
@@ -203,7 +205,7 @@ Use `:csv` or `:comma` for comma-separated output:
 
 ### Combining Format and Pattern
 
-Apply both pattern filtering and format modifiers:
+Apply both pattern filtering and format modifiers using the `:pattern:format` syntax:
 
 ```yaml
 # JSON array of Rust files
@@ -215,6 +217,8 @@ Apply both pattern filtering and format modifiers:
 # CSV of modified test files
 - shell: "echo ${step.files_modified:**/*_test.rs:csv}"
 ```
+
+**Note**: The syntax supports exactly one pattern and one format modifier per variable reference. You cannot chain multiple patterns or formats. For more complex filtering, use shell commands to post-process the output.
 
 ## Use Cases
 
@@ -336,7 +340,20 @@ reduce:
 - shell: "echo Filtered: ${step.files_changed:*.rs}"
 ```
 
-**Solution**: Use `git ls-files` to verify file paths match your pattern
+**What happens**: When a pattern matches no files, the variable resolves to an empty string. This is not an error—it's expected behavior when no files match the pattern.
+
+```yaml
+# Example: No Python files in a Rust project
+- shell: "echo Python files: ${step.files_changed:*.py}"
+# Output: Python files:
+# (empty - no error)
+
+# Use conditionals to handle empty results
+- when: "${step.files_changed:*.rs}"
+  shell: "cargo fmt"  # Only runs if Rust files changed
+```
+
+**Solution**: Use `git ls-files` to verify file paths match your pattern, or use conditionals to handle empty results gracefully
 
 ### Empty Variables
 

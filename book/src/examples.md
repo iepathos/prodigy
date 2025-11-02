@@ -78,7 +78,7 @@ map:
     - claude: "/review-file ${item.path}"
       id: "review"
       capture_output: "review_result"
-      capture_format: "json"
+      capture_format: "json"  # Formats: string, json, lines, number, boolean - see Example 5
     - shell: "cargo check ${item.path}"
   max_parallel: 5
 
@@ -114,6 +114,17 @@ reduce:
 - `lines` - Split output into array of lines
 - `number` - Parse output as numeric value
 - `boolean` - Parse as true/false based on exit code or output text
+
+**Advanced capture options:**
+```yaml
+# Capture specific streams (stdout, stderr, exit_code, success, duration)
+- shell: "cargo build 2>&1"
+  capture_output: "build_output"
+  capture_streams: "stdout,stderr,exit_code"  # Capture multiple streams
+
+# Access captured values
+- shell: "echo 'Exit code was ${build_output.exit_code}'"
+```
 
 ---
 
@@ -185,7 +196,16 @@ env_files:
     LOG_LEVEL: debug
 ```
 
-**Note:** Profiles are activated using the `--profile <name>` CLI flag when running workflows. For example: `prodigy run workflow.yml --profile production`
+**Note:** Profiles are activated using the `--profile <name>` CLI flag when running workflows. For example:
+```bash
+# Use production profile
+prodigy run workflow.yml --profile production
+
+# Use staging profile
+prodigy run workflow.yml --profile staging
+```
+
+Variables go directly under the profile name (not nested under 'env') because profiles use flattened serialization.
 
 ---
 
@@ -312,9 +332,22 @@ error_policy:
 - **Max attempts**: Combine with conditional execution for automatic retry logic
 - **Conditional execution**: Use `when` clauses with captured output or variables
 - **Complex conditionals**: Combine multiple conditions with `and`/`or` operators
+- **Working directory**: Per-command directory control using `working_dir` field in step environment
+
+**Example of working_dir usage:**
+```yaml
+# Run command in specific directory
+- shell: "cargo test"
+  working_dir: "subproject/"  # Execute in subproject/ directory
+
+# Or set for multiple commands
+- shell: "npm install"
+  env:
+    NODE_ENV: production
+  working_dir: "frontend/"
+```
 
 **Future capabilities** (not yet implemented, but planned):
-- **Working directory**: `cwd` field for running commands in specific directories
 - **Git context variables**: Access `files_modified`, `files_added` from git operations
 - **Pattern filtering**: Filter file lists with `:*.rs` syntax
 - **Format modifiers**: Advanced output transformation with `:json`, `:lines`, `:csv`

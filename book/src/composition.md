@@ -54,7 +54,7 @@ imports:
       - validate_schema
 ```
 
-Selective import configuration is validated and stored. The actual filtering of specific items during composition is planned for a future release (see `import_selective` in `composer.rs`).
+Selective import configuration is validated and stored correctly (see `mod.rs:63-64`). The filtering logic for applying selective imports is implemented but currently logs items without full integration into the merge process (see `composer.rs:321-334`).
 
 ### Multiple Imports
 
@@ -187,7 +187,7 @@ template:
     target_dir: src/
 ```
 
-Parameter validation and storage is fully implemented. The automatic substitution of parameters throughout template commands is planned for a future release (see `apply_template_params` in `composer.rs`).
+Parameter validation is fully implemented with type checking for all six parameter types (string, number, boolean, array, object, any) via `validate_parameter_value` (`mod.rs:252-279`). Parameters are stored and applied to workflow metadata. Template-specific parameter substitution throughout commands is logged but not fully integrated (see `apply_template_params` in `composer.rs:336-347`).
 
 ### Template Overrides
 
@@ -367,7 +367,7 @@ parameters:
       validation: "value >= 1 && value <= 100"
 ```
 
-*Note: The validation field is stored but custom expression evaluation is not yet implemented. Type validation IS working for all parameter types.*
+*Note: Custom validation expressions are stored and logged when present (see `validate_parameter_value`, `mod.rs:269-276`), but the actual expression evaluation engine is not yet implemented. This means validation fields are preserved in the configuration but not enforced during parameter validation. Type validation IS fully enforced for all parameter types.*
 
 ### Array and Object Parameters
 
@@ -434,7 +434,7 @@ defaults:
   environment: development
 ```
 
-Default values are validated and stored in the workflow configuration. The automatic application of defaults to missing parameters is planned but not yet fully implemented (see `apply_defaults` in `composer.rs`).
+Default values are validated, stored, and integrated into the composition flow (`composer.rs:85-87`). The function `apply_defaults` is called during composition but the actual application logic to merge defaults with parameters has a TODO (`composer.rs:210-221`). The infrastructure is in place but the merge logic needs implementation.
 
 When implemented, defaults will be applied before parameter validation and can be overridden by:
 1. Values in the `parameters` section
@@ -450,7 +450,7 @@ Defaults interact with parameters as follows:
 
 Execute child workflows as part of a parent workflow. Sub-workflows can run in parallel and have their own parameters and outputs.
 
-*Implementation Status: Sub-workflow configuration, composition, and context management are fully implemented. Integration with the main workflow executor is in progress (see `execute_composed` in `sub_workflow.rs`).*
+*Implementation Status: Sub-workflow configuration, validation (`validate_sub_workflows` in `composer.rs:381-395`), and composition are fully implemented. Sub-workflow definitions work correctly and are validated. The `SubWorkflowExecutor` structure exists (`sub_workflow.rs:181-227`) but execution integration with the main workflow executor runtime is in progress.*
 
 ### Basic Sub-Workflow
 
@@ -587,7 +587,7 @@ name: workflow-b
 extends: workflow-a  # Error: circular dependency detected
 ```
 
-This prevents infinite loops during composition.
+The composer uses a DFS-based cycle detection algorithm that maintains visited nodes and a recursion stack. If a node is encountered that's already in the recursion stack, a circular dependency is detected and composition fails with a clear error message (see `DependencyResolver::has_cycle` in `composer.rs:471-494`). This prevents infinite loops during composition.
 
 ## Complete Examples
 
@@ -661,6 +661,8 @@ parameters:
       type: string
       description: Deployment environment
       # validation: "^(dev|staging|prod)$"  # Custom validation not yet implemented
+      # Note: Type validation is fully working - the type: string declaration ensures
+      # only strings are accepted, rejecting numbers or booleans
     - name: version
       type: string
       description: Version to deploy
@@ -833,7 +835,7 @@ let storage = FileTemplateStorage::new("./templates");
 let registry = TemplateRegistry::new_with_storage(storage);
 ```
 
-Templates are cached in memory after first load for performance. The registry automatically scans the template directory and makes all templates available by name.
+Templates are cached in memory after first load for performance. The registry automatically discovers templates by scanning for `.yml` files in the template directory. Metadata files (`.meta.json`) are detected and filtered out during discovery. Templates are loaded on-demand and cached (see `is_template_file` and `extract_template_name` helper functions in `registry.rs:303-324`).
 
 **Template File Structure:**
 
@@ -863,6 +865,12 @@ Test workflows at each composition level:
 1. **Unit level**: Test individual workflows
 2. **Integration level**: Test workflows with imports
 3. **Composition level**: Test fully composed workflows with all features
+
+### Performance Considerations
+
+**Workflow Loader Caching:**
+
+The workflow loader caches parsed workflows in memory to avoid re-parsing the same files during composition. This means importing the same workflow multiple times has minimal overhead (see `WorkflowLoader` cache in `composer.rs:399-435`). The cache is maintained in a `Mutex<HashMap>` for thread-safe access during parallel composition operations.
 
 ### Naming Conventions
 

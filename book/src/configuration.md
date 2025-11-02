@@ -166,7 +166,7 @@ Project configuration is stored in `.prodigy/config.yml` and overrides global se
 | `spec_dir` | Path | No | `"specs"` | Directory for specification files |
 | `claude_api_key` | String | No | None | Project-specific API key |
 | `auto_commit` | Boolean | No | None | Project-specific auto-commit setting |
-| `variables` | Map | No | None | Custom project variables as YAML map (internally stored as toml::Table for backward compatibility - users can ignore this detail) |
+| `variables` | Map | No | None | Custom project variables as YAML map |
 
 ### Example Project Configuration
 
@@ -301,7 +301,7 @@ The file backend stores data in the filesystem (recommended for production).
 | `base_dir` | Path | `~/.prodigy` | Base directory for storage |
 | `use_global` | Boolean | `true` | Use global storage (local storage deprecated) |
 | `enable_file_locks` | Boolean | `true` | File-based locking |
-| `max_file_size` | Number | `104857600` | Max file size before rotation (100MB). Note: MemoryConfig also has a max_memory field with the same 100MB default. |
+| `max_file_size` | Number | `104857600` | Max file size before rotation (100MB, same as MemoryConfig.max_memory default) |
 | `enable_compression` | Boolean | `false` | Compression for archived files |
 
 #### Example File Storage Configuration
