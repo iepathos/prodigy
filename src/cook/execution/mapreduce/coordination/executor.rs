@@ -16,6 +16,7 @@ use crate::cook::execution::mapreduce::{
     event::{EventLogger, MapReduceEvent},
     merge_queue::MergeQueue,
     resources::git::GitOperations,
+    retry_tracking,
     state::StateManager,
     timeout::{TimeoutConfig, TimeoutEnforcer},
     types::{MapPhase, ReducePhase, SetupPhase},
@@ -83,6 +84,8 @@ pub struct MapReduceCoordinator {
     orphaned_worktrees: Arc<Mutex<Vec<OrphanedWorktree>>>,
     /// Dead Letter Queue for failed items
     dlq: Arc<DeadLetterQueue>,
+    /// Retry counts for work items (for accurate DLQ attempt tracking)
+    retry_counts: Arc<tokio::sync::RwLock<HashMap<String, u32>>>,
 }
 
 impl MapReduceCoordinator {
@@ -171,6 +174,7 @@ impl MapReduceCoordinator {
             merge_queue,
             orphaned_worktrees: Arc::new(Mutex::new(Vec::new())),
             dlq: Arc::new(dlq),
+            retry_counts: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
         }
     }
 
@@ -650,6 +654,7 @@ impl MapReduceCoordinator {
                 let claude_executor = Arc::clone(&self.claude_executor);
                 let subprocess = Arc::clone(&self.subprocess);
                 let dlq = Arc::clone(&self.dlq);
+                let retry_counts = Arc::clone(&self.retry_counts);
                 let map_phase = map_phase.clone();
                 let env = env.clone();
                 let job_id = self.job_id.clone();
@@ -748,8 +753,16 @@ impl MapReduceCoordinator {
                     result_collector.add_result(agent_result.clone()).await;
 
                     // Add failed items to DLQ (graceful failure - don't break workflow)
+                    // Get current attempt number for this item
+                    let retry_counts_read = retry_counts.read().await;
+                    let attempt_number = retry_tracking::get_item_attempt_number(
+                        &item_id,
+                        &retry_counts_read,
+                    );
+                    drop(retry_counts_read); // Release read lock
+
                     if let Some(dlq_item) =
-                        dlq_integration::agent_result_to_dlq_item(&agent_result, &item_for_dlq, 1)
+                        dlq_integration::agent_result_to_dlq_item(&agent_result, &item_for_dlq, attempt_number)
                     {
                         if let Err(e) = dlq.add(dlq_item).await {
                             warn!(
@@ -758,8 +771,15 @@ impl MapReduceCoordinator {
                             );
                         } else {
                             info!(
-                                "Added failed item {} to DLQ for potential retry",
-                                agent_result.item_id
+                                "Added failed item {} to DLQ (attempt {})",
+                                agent_result.item_id, attempt_number
+                            );
+
+                            // Increment retry count in state
+                            let mut retry_counts_write = retry_counts.write().await;
+                            *retry_counts_write = retry_tracking::increment_retry_count(
+                                &item_id,
+                                retry_counts_write.clone(),
                             );
                         }
                     }
