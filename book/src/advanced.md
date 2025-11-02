@@ -34,6 +34,11 @@ The `when` clause supports a flexible expression syntax for conditional logic:
 **Comparison Operators:**
 - `==` - Equality comparison (e.g., `${status == 'success'}`)
 - `!=` - Inequality comparison (e.g., `${exit_code != 0}`)
+- `>` - Greater than (e.g., `${score > 80}`)
+- `<` - Less than (e.g., `${errors < 5}`)
+- `>=` - Greater than or equal to (e.g., `${coverage >= 90}`)
+- `<=` - Less than or equal to (e.g., `${warnings <= 10}`)
+- `contains` - String matching (e.g., `${output contains 'success'}`)
 
 **Logical Operators:**
 - `&&` - Logical AND (e.g., `${tests_passed && build_succeeded}`)
@@ -71,6 +76,20 @@ Execute follow-up commands when a command succeeds:
 
 **Note**: The `on_success` field supports any workflow step command with all its features, including nested conditionals, output capture, validation, and error handlers. You can create complex success workflows by combining multiple handlers or using `when` clauses for sophisticated control flow.
 
+**Complex On Success Example:**
+
+```yaml
+- shell: "cargo build --release"
+  on_success:
+    claude: "/verify-build-artifacts"
+    validate:
+      shell: "check-binary-size.sh"
+      threshold: 100
+    on_failure:
+      claude: "/optimize-binary-size"
+      max_attempts: 2
+```
+
 ### On Failure Handlers
 
 Handle failures with automatic remediation:
@@ -90,6 +109,36 @@ The `on_failure` configuration supports:
 - `commit_required`: Whether the remediation command should create a git commit (default: true)
 
 **Note**: These defaults come from the `TestDebugConfig` which provides sensible defaults for error recovery workflows.
+
+**Multi-Step Remediation:**
+
+For complex error recovery, use the `commands` array to execute multiple remediation steps in sequence:
+
+```yaml
+- shell: "cargo test"
+  on_failure:
+    commands:
+      - claude: "/analyze-test-failures"
+      - shell: "cargo fmt"
+      - claude: "/verify-fixes"
+    max_attempts: 3
+    fail_workflow: true
+```
+
+### Exit Code Handlers
+
+Map specific exit codes to different actions using `on_exit_code`:
+
+```yaml
+- shell: "cargo test"
+  on_exit_code:
+    1: {claude: "/fix-test-failures"}
+    2: {shell: "retry-flaky-tests.sh"}
+    101: {claude: "/fix-compilation-errors"}
+    255: {fail_workflow: true}
+```
+
+This allows fine-grained control over error handling based on the specific exit code returned by a command.
 
 ### Nested Conditionals
 
@@ -200,7 +249,7 @@ Use the struct format when you need additional metadata alongside the captured o
 
 This is particularly useful for validation workflows where you need to make decisions based on command success or timing information.
 
-**Format Flexibility**: The `capture_streams` field is flexible—you can choose either format based on your needs. Use the simple string format (`"stdout"`, `"stderr"`, `"both"`) when you only need basic stream selection, or the struct format when you need metadata like `exit_code`, `success`, and `duration` alongside the output. Both formats are supported via Rust's untagged enum deserialization.
+**Format Flexibility**: The `capture_streams` field is flexible—you can choose either format based on your needs. Use the simple string format (`"stdout"`, `"stderr"`, `"both"`) when you only need basic stream selection, or the struct format when you need metadata like `exit_code`, `success`, and `duration` alongside the output. Prodigy uses Rust's untagged enum deserialization, allowing you to choose either format based on your needs without any special syntax.
 
 ### Output File Redirection
 
@@ -241,11 +290,49 @@ The `working_dir` path is relative to the workflow's root directory. This is par
 
 **Note**: The `working_dir` field is also available with the alias `cwd` for compatibility with other tools.
 
+### Step-Level Environment Overrides
+
+Configure environment variables and settings for individual steps using the step environment configuration:
+
+```yaml
+# Set environment variables for a specific command
+- shell: "npm test"
+  env:
+    NODE_ENV: test
+    DEBUG: "*"
+  working_dir: "./frontend"
+  clear_env: false  # Keep parent environment variables
+  inherit: true     # Inherit workflow-level environment
+```
+
+**Step Environment Fields:**
+- `env`: Key-value pairs of environment variables to set
+- `working_dir`: Directory to execute the command in
+- `clear_env`: Whether to clear all parent environment variables (default: false)
+- `inherit`: Whether to inherit workflow-level environment variables (default: true)
+
+**Use Cases:**
+- Set test-specific environment variables without affecting other steps
+- Configure tool-specific settings (DEBUG, LOG_LEVEL, etc.)
+- Run commands with isolated environments for reproducibility
+- Override workflow-level environment for specific operations
+
 ---
 
 ## Step Identification
 
 Assign unique IDs to steps for explicit output referencing. This is particularly useful in complex workflows where multiple steps produce outputs and you need to reference specific results.
+
+### Available Step Reference Fields
+
+When you assign an ID to a step, you can reference multiple fields from that step's execution:
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `${step-id.output}` | string | Captured output | `${test-step.output}` |
+| `${step-id.exit_code}` | number | Exit code | `${build.exit_code}` |
+| `${step-id.success}` | boolean | Success status | `${lint.success}` |
+| `${step-id.duration}` | number | Execution time (seconds) | `${bench.duration}` |
 
 ### Basic Step IDs
 
@@ -256,6 +343,9 @@ Assign unique IDs to steps for explicit output referencing. This is particularly
 
 # Reference step output by ID
 - shell: "echo 'Tests: ${test-step.output}'"
+
+# Reference step exit code
+- shell: "echo 'Exit code: ${test-step.exit_code}'"
 ```
 
 ### When to Use Step IDs
@@ -363,6 +453,24 @@ Set execution timeouts at the command level:
   timeout: 1800  # 30 minutes
 ```
 
+### Timeout with Environment Variables
+
+Timeout fields support environment variable references for flexible configuration:
+
+```yaml
+# Use environment variable for timeout
+- shell: "cargo bench"
+  timeout: $BENCH_TIMEOUT
+
+# With default value
+- claude: "/analyze-codebase"
+  timeout: ${ANALYSIS_TIMEOUT:-1800}
+
+# Different timeouts per environment
+- shell: "run-tests.sh"
+  timeout: ${TEST_TIMEOUT:-300}  # 5 minutes default
+```
+
 **Note**: Timeouts are only supported at the individual command level, not for MapReduce agents.
 
 ---
@@ -429,30 +537,22 @@ Read validation results from a file instead of stdout:
     threshold: 95
 ```
 
+**When to Use result_file:**
+
+The `result_file` option is useful when you need to separate validation output from command logs:
+
+- **Complex JSON Output**: Validation produces structured JSON that shouldn't be mixed with logs
+- **Separate Concerns**: Keep validation results separate from command stdout/stderr
+- **Additional Logging**: Validation command produces diagnostic output alongside results
+- **Debugging**: Preserve validation output in a file for later inspection
+
+The file should contain JSON matching the validation result schema with fields like `completion_percentage`, `status`, `gaps`, etc.
+
 ### Handling Incomplete Implementations
 
 Automatically remediate when validation fails:
 
-```yaml
-- claude: "/implement-spec"
-  validate:
-    shell: "check-completeness.sh"
-    threshold: 100
-    on_incomplete:
-      claude: "/fill-gaps"
-      max_attempts: 3
-      fail_workflow: true
-```
-
-The `on_incomplete` configuration supports:
-- `claude`: Claude command to execute for gap-filling
-- `shell`: Shell command to execute for gap-filling
-- `commands`: Array of commands to execute
-- `max_attempts`: Maximum remediation attempts (default: 1)
-- `fail_workflow`: Whether to fail workflow if remediation fails (default: true)
-- `commit_required`: Whether remediation command should create a commit (default: false)
-
-**Convenience Syntax**: For simple cases, you can use an array format directly:
+**Convenience Array Syntax** - For simple remediation workflows:
 
 ```yaml
 - claude: "/implement-spec"
@@ -463,6 +563,28 @@ The `on_incomplete` configuration supports:
       - claude: "/fill-gaps"
       - shell: "cargo fmt"
 ```
+
+**Verbose Configuration** - For complex cases requiring additional control:
+
+```yaml
+- claude: "/implement-spec"
+  validate:
+    shell: "check-completeness.sh"
+    threshold: 100
+    on_incomplete:
+      claude: "/fill-gaps"
+      max_attempts: 3
+      fail_workflow: true
+      commit_required: true
+```
+
+The `on_incomplete` configuration supports:
+- `claude`: Claude command to execute for gap-filling
+- `shell`: Shell command to execute for gap-filling
+- `commands`: Array of commands to execute
+- `max_attempts`: Maximum remediation attempts (default: 1)
+- `fail_workflow`: Whether to fail workflow if remediation fails (default: true)
+- `commit_required`: Whether remediation command should create a commit (default: false)
 
 ---
 
@@ -494,7 +616,19 @@ Generate items from a command:
 
 ### Parallel Execution
 
-Control parallelism with the `parallel` field:
+Control parallelism with the `parallel` field. It accepts both boolean and numeric values:
+
+**Boolean - Automatic Parallelism:**
+
+```yaml
+- foreach:
+    foreach: "ls *.txt"
+    parallel: true  # Use all available cores
+    do:
+      - shell: "analyze ${item}"
+```
+
+**Number - Explicit Concurrency Limit:**
 
 ```yaml
 - foreach:
@@ -503,6 +637,8 @@ Control parallelism with the `parallel` field:
     do:
       - shell: "analyze ${item}"
 ```
+
+Use `true` for automatic parallelism based on available resources, or specify a number to limit concurrent execution.
 
 ### Error Handling
 
@@ -536,18 +672,28 @@ Iteratively refine implementations until they meet validation criteria.
 
 ### Basic Goal Seek
 
-Define a goal and validation command:
+Define a goal and validation command using either `shell` or `claude`:
 
 ```yaml
+# Using shell command
 - goal_seek:
     goal: "All tests pass"
-    command: "cargo fix"
+    shell: "cargo fix"
     validate: "cargo test"
     threshold: 100
 ```
 
+```yaml
+# Using Claude command
+- goal_seek:
+    goal: "Code quality improved"
+    claude: "/fix-issues"
+    validate: "quality-check.sh"
+    threshold: 95
+```
+
 The goal-seeking operation will:
-1. Run the command
+1. Run the command (shell or claude)
 2. Run the validation
 3. Retry if validation threshold not met
 4. Stop when goal achieved or max attempts reached
@@ -559,11 +705,11 @@ Control iteration behavior:
 ```yaml
 - goal_seek:
     goal: "Code passes all quality checks"
-    command: "auto-fix.sh"
+    shell: "auto-fix.sh"
     validate: "quality-check.sh"
     threshold: 95
     max_attempts: 5
-    timeout: 300
+    timeout_seconds: 300
     fail_on_incomplete: true
 ```
 
@@ -665,7 +811,7 @@ Control iteration behavior:
 ```yaml
 - goal_seek:
     goal: "Code quality score above 90"
-    command: "auto-improve.sh"
+    shell: "auto-improve.sh"
     validate: "quality-check.sh"
     threshold: 90
     max_attempts: 5
