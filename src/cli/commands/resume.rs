@@ -200,6 +200,15 @@ async fn try_resume_regular_workflow(
     let prodigy_home = crate::storage::get_default_storage_dir()
         .context("Failed to determine Prodigy storage directory")?;
 
+    // Acquire resume lock to prevent concurrent resume attempts
+    let lock_manager = crate::cook::execution::ResumeLockManager::new(prodigy_home.clone())
+        .context("Failed to create resume lock manager")?;
+
+    let _lock = lock_manager
+        .acquire_lock(session_id)
+        .await
+        .context("Failed to acquire resume lock")?;
+
     // Check if session exists and is resumable by loading session metadata
     let storage =
         crate::storage::GlobalStorage::new().context("Failed to create global storage")?;
@@ -479,6 +488,15 @@ pub async fn run_resume_job_command(
     // Find the MapReduce job checkpoint
     let prodigy_home = crate::storage::get_default_storage_dir()
         .context("Failed to determine Prodigy storage directory")?;
+
+    // Acquire resume lock to prevent concurrent resume attempts
+    let lock_manager = crate::cook::execution::ResumeLockManager::new(prodigy_home.clone())
+        .context("Failed to create resume lock manager")?;
+
+    let _lock = lock_manager
+        .acquire_lock(&job_id)
+        .await
+        .context("Failed to acquire resume lock")?;
 
     // Search for the job in the global storage
     let state_dir = prodigy_home.join("state");
