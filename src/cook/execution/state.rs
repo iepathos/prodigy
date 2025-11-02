@@ -119,6 +119,10 @@ pub struct MapReduceJobState {
     /// Whether setup phase has been completed
     #[serde(default)]
     pub setup_completed: bool,
+    /// Track retry attempts per work item
+    /// Key: item_id, Value: number of attempts so far
+    #[serde(default)]
+    pub item_retry_counts: HashMap<String, u32>,
 }
 
 /// Default checkpoint format version
@@ -159,6 +163,7 @@ impl MapReduceJobState {
             variables: HashMap::new(),
             setup_output: None,
             setup_completed: false,
+            item_retry_counts: HashMap::new(),
         }
     }
 

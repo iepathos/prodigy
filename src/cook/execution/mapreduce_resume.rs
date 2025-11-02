@@ -17,7 +17,7 @@ use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 /// Enhanced resume options with additional control parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -416,6 +416,28 @@ impl MapReduceResumeManager {
             deduped.len()
         );
 
+        // Initialize retry counts from state sources if not already initialized
+        // This ensures accurate attempt tracking across resume operations
+        if state.item_retry_counts.is_empty() {
+            use super::mapreduce::retry_tracking;
+
+            // Load DLQ items to get their failure counts
+            let dlq_items = if options.include_dlq_items {
+                self.load_all_dlq_items(&state.job_id).await?
+            } else {
+                vec![]
+            };
+
+            // Merge retry counts from failed_agents and DLQ
+            state.item_retry_counts =
+                retry_tracking::merge_retry_counts(&state.failed_agents, &dlq_items);
+
+            debug!(
+                "Initialized retry counts for {} items from checkpoint state",
+                state.item_retry_counts.len()
+            );
+        }
+
         Ok(deduped)
     }
 
@@ -436,6 +458,37 @@ impl MapReduceResumeManager {
                 let values: Vec<Value> = items.into_iter().map(|item| item.item_data).collect();
                 info!("Loaded {} items from DLQ for job {}", values.len(), _job_id);
                 Ok(values)
+            }
+            Err(e) => {
+                warn!("Failed to load DLQ items for job {}: {}", _job_id, e);
+                Ok(Vec::new())
+            }
+        }
+    }
+
+    /// Load all DLQ items (including DeadLetteredItem metadata) for retry count initialization
+    async fn load_all_dlq_items(
+        &self,
+        _job_id: &str,
+    ) -> MRResult<Vec<super::dlq::DeadLetteredItem>> {
+        use super::dlq::DLQFilter;
+
+        // Use empty filter to get all items
+        let filter = DLQFilter {
+            reprocess_eligible: None,
+            error_type: None,
+            after: None,
+            before: None,
+            error_signature: None,
+        };
+
+        match self.dlq.list_items(filter).await {
+            Ok(items) => {
+                debug!(
+                    "Loaded {} DLQ items for retry count initialization",
+                    items.len()
+                );
+                Ok(items)
             }
             Err(e) => {
                 warn!("Failed to load DLQ items for job {}: {}", _job_id, e);
@@ -712,6 +765,7 @@ mod tests {
             variables: HashMap::new(),
             setup_output: None,
             setup_completed: false,
+            item_retry_counts: HashMap::new(),
         }
     }
 

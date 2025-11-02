@@ -130,6 +130,7 @@ mod tests {
             variables: HashMap::new(),
             setup_output: None,
             setup_completed: false,
+            item_retry_counts: HashMap::new(),
         }
     }
 

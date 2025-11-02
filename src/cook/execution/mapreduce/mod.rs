@@ -28,6 +28,7 @@ pub mod reduce_phase;
 pub mod resources;
 pub mod resume_collection;
 pub mod resume_deduplication;
+pub mod retry_tracking;
 pub mod state;
 pub mod timeout;
 #[cfg(test)]
@@ -573,6 +574,7 @@ mod tests {
             setup_completed: false,
             setup_output: None,
             variables: HashMap::new(),
+            item_retry_counts: HashMap::new(),
         };
 
         assert!(executor.validate_checkpoint(&valid_state).is_ok());

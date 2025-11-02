@@ -324,6 +324,7 @@ async fn create_partial_job_state(
         is_complete: false,
         agent_template,
         reduce_commands,
+        item_retry_counts: std::collections::HashMap::new(),
     }
 }
 
