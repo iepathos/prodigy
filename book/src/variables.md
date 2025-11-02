@@ -40,7 +40,7 @@ Both systems use the same `${variable.name}` interpolation syntax and can be fre
 These variables are automatically available in all workflow contexts:
 
 - `${PROJECT_ROOT}` - Absolute path to the working directory (repository root)
-- `${WORKTREE}` - Name of the current worktree (if running in a Prodigy worktree session)
+- `${WORKTREE}` - Name of current worktree (automatically set by Prodigy when running in isolated worktree, e.g., session-abc123)
 - `${git.branch}` - Current git branch name
 - `${git.commit}` - Current git commit hash (short SHA)
 
@@ -61,7 +61,7 @@ These variables are automatically available in all workflow contexts:
 - `${last.output}` - Output from last executed command (any type)
 - `${last.exit_code}` - Exit code from last command
 
-**Note**: `${shell.output}` is the correct variable name for shell command output. The code uses `shell.output`, not `shell.stdout`.
+**Note**: Shell command output is captured in `${shell.output}`, providing the complete stdout from the last shell command executed.
 
 **Legacy/Specialized Output Variables (Deprecated):**
 
@@ -224,7 +224,7 @@ If you try to use `${map.results}` in shell/Claude commands, you may see:
 - `${validation.gaps}` - Gap details
 - `${validation.status}` - Status (complete/incomplete/failed)
 
-**Note**: `validation.completion` and `validation.completion_percentage` are equivalent - both return the numeric completion percentage value.
+**Note**: Use `validation.completion_percentage` in new workflows for clarity. `validation.completion` is supported as a shorter alias.
 
 ### Git Context Variables
 
@@ -233,6 +233,16 @@ If you try to use `${map.results}` in shell/Claude commands, you may see:
 - `${workflow.commits}` - Space-separated commit hashes from entire workflow
 
 **Note**: These are space-separated strings of commit hashes (e.g., "abc123 def456 ghi789"), not arrays. Use in shell commands that accept commit lists.
+
+**Git Status Variables:**
+
+These variables reflect the current git repository status (populated by `git diff`):
+- `${git.files.modified}` - Files with uncommitted changes in working directory
+- `${git.files.added}` - Files staged for commit
+- `${git.files.deleted}` - Files deleted in working directory
+- `${git.changed_files}` - All files with any changes (modified, added, or deleted)
+
+**Note**: These show repository state, while `step.*` and `workflow.*` variables below track changes made during workflow execution.
 
 **File Change Tracking:**
 - `${step.files_added}` - Space-separated list of files added in current step
@@ -334,10 +344,18 @@ The `capture_format` field determines how output is parsed and stored:
 
 ### Capture Streams
 
-Control which output streams to capture (useful for detailed command analysis):
+Control which output streams to capture (useful for detailed command analysis).
+
+**Default Behavior**: By default, `stdout`, `exit_code`, `success`, and `duration` are captured. To customize:
 
 ```yaml
-# Capture specific streams
+# Add stderr to default captures
+- shell: "cargo test 2>&1"
+  capture: "test_results"
+  capture_streams:
+    stderr: true  # Add stderr to defaults (stdout, exit_code, success, duration)
+
+# Or configure all streams explicitly
 - shell: "cargo test 2>&1"
   capture: "test_results"
   capture_streams:
@@ -352,8 +370,6 @@ Control which output streams to capture (useful for detailed command analysis):
 - shell: "echo 'Success: ${test_results.success}'"
 - shell: "echo 'Duration: ${test_results.duration}s'"
 ```
-
-**Default Behavior**: By default, `stdout`, `exit_code`, `success`, and `duration` are captured (all `true`). Set `stderr: true` to also capture error output.
 
 ### Nested JSON Field Access
 
