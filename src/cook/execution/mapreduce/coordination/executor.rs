@@ -2277,7 +2277,7 @@ mod execute_setup_phase_tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_setup_phase_all_steps_succeed() {
         let coordinator = create_test_coordinator(true, true);
         let env = create_test_env();
@@ -2304,7 +2304,7 @@ mod execute_setup_phase_tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_setup_phase_shell_failure_with_exit_code() {
         let coordinator = create_test_coordinator(true, false);
         let env = create_test_env();
@@ -2337,7 +2337,7 @@ mod execute_setup_phase_tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_setup_phase_shell_failure_with_stderr() {
         let coordinator = create_test_coordinator(true, false);
         let env = create_test_env();
@@ -2364,7 +2364,7 @@ mod execute_setup_phase_tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_setup_phase_shell_failure_with_stdout_only() {
         let coordinator = create_test_coordinator(true, false);
         let env = create_test_env();
@@ -2389,7 +2389,7 @@ mod execute_setup_phase_tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_setup_phase_claude_failure_with_log_hint() {
         let coordinator = create_test_coordinator(false, true);
         let env = create_test_env();
@@ -2418,7 +2418,7 @@ mod execute_setup_phase_tests {
         // Note: log hint only appears if extract_repo_name succeeds, which it won't in this test
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_setup_phase_multiple_steps_mixed_success() {
         let coordinator = create_test_coordinator(true, false);
         let env = create_test_env();
@@ -2456,7 +2456,7 @@ mod execute_setup_phase_tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_setup_phase_environment_variables_set() {
         let coordinator = create_test_coordinator(true, true);
         let env = create_test_env();
@@ -2476,7 +2476,7 @@ mod execute_setup_phase_tests {
         assert!(result.is_ok(), "Setup phase should succeed");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_setup_phase_debug_logging_context() {
         let coordinator = create_test_coordinator(true, true);
         let env = create_test_env();
