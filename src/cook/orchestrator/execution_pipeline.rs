@@ -448,6 +448,11 @@ impl ExecutionPipeline {
         let session_file = env.working_dir.join(".prodigy").join("session_state.json");
         self.session_manager.load_state(&session_file).await?;
 
+        // Transition session status to InProgress (from Failed, Interrupted, etc.)
+        self.session_manager
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::InProgress))
+            .await?;
+
         // Resume the workflow execution from the saved state
         if let Some(ref workflow_state) = state.workflow_state {
             // Restore config from saved workflow state

@@ -245,11 +245,22 @@ impl SessionState {
     }
 
     /// Check if session is resumable
+    ///
+    /// A session is resumable if:
+    /// - It has checkpoint data (workflow_state is Some)
+    /// - AND it's not in a terminal Completed state
+    ///
+    /// Failed sessions WITH checkpoint data are resumable, allowing users
+    /// to fix issues and continue from where the workflow failed.
     pub fn is_resumable(&self) -> bool {
-        matches!(
-            self.status,
-            SessionStatus::InProgress | SessionStatus::Interrupted
-        ) && self.workflow_state.is_some()
+        // Completed sessions are terminal and cannot be resumed
+        if matches!(self.status, SessionStatus::Completed) {
+            return false;
+        }
+
+        // All other statuses (InProgress, Interrupted, Failed) can be resumed
+        // if they have checkpoint data
+        self.workflow_state.is_some()
     }
 
     /// Update workflow state for checkpoint
