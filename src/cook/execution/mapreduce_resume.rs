@@ -157,6 +157,7 @@ pub struct MapReduceResumeManager {
     event_logger: Arc<EventLogger>,
     dlq: Arc<DeadLetterQueue>,
     executor: Option<Arc<MapReduceExecutor>>,
+    lock_manager: super::resume_lock::ResumeLockManager,
 }
 
 impl MapReduceResumeManager {
@@ -170,7 +171,7 @@ impl MapReduceResumeManager {
         let dlq = Arc::new(
             DeadLetterQueue::new(
                 job_id,
-                project_root,
+                project_root.clone(),
                 1000,                       // max_items
                 30,                         // retention_days
                 Some(event_logger.clone()), // event_logger
@@ -178,11 +179,18 @@ impl MapReduceResumeManager {
             .await?,
         );
 
+        // Create lock manager using storage directory
+        let storage_dir = crate::storage::get_default_storage_dir()
+            .map_err(|e| anyhow::anyhow!("Failed to get storage directory: {}", e))?;
+        let lock_manager = super::resume_lock::ResumeLockManager::new(storage_dir)
+            .map_err(|e| anyhow::anyhow!("Failed to create lock manager: {}", e))?;
+
         Ok(Self {
             state_manager,
             event_logger,
             dlq,
             executor: None,
+            lock_manager,
         })
     }
 
@@ -198,6 +206,11 @@ impl MapReduceResumeManager {
         options: EnhancedResumeOptions,
         env: &ExecutionEnvironment,
     ) -> MRResult<EnhancedResumeResult> {
+        // Acquire lock first (RAII - auto-released on drop)
+        let _lock = self.lock_manager.acquire_lock(job_id).await.map_err(|e| {
+            MapReduceError::from_anyhow(anyhow::anyhow!("Failed to acquire resume lock: {}", e))
+        })?;
+
         info!("Starting enhanced resume for job {}", job_id);
 
         // Load job state from checkpoint

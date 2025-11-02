@@ -573,6 +573,71 @@ Based on checkpoint state and phase, different resume strategies apply:
 5. Reconstructs execution state
 6. Continues from last completed step
 
+### Concurrent Resume Protection (Spec 140)
+
+Prodigy prevents multiple resume processes from running on the same session/job simultaneously using an RAII-based locking mechanism.
+
+#### Lock Behavior
+
+**Automatic Lock Acquisition**:
+- Resume automatically acquires exclusive lock before starting
+- Lock creation is atomic - fails if another process holds the lock
+- Lock automatically released when resume completes or fails (RAII pattern)
+- Stale locks (from crashed processes) are automatically detected and cleaned up
+
+**Lock Metadata**:
+Lock files contain:
+- Process ID (PID) of the holding process
+- Hostname where the process is running
+- Timestamp when lock was acquired
+- Job/session ID being locked
+
+**Stale Lock Detection**:
+- Platform-specific process existence check (Unix: `kill -0`, Windows: `tasklist`)
+- If holding process is no longer running, lock is automatically removed
+- New resume attempt succeeds after stale lock cleanup
+
+#### Error Messages
+
+If a resume is blocked by an active lock:
+
+```bash
+$ prodigy resume <job_id>
+Error: Resume already in progress for job <job_id>
+Lock held by: PID 12345 on hostname (acquired 2025-01-11 10:30:00 UTC)
+Please wait for the other process to complete, or use --force to override.
+```
+
+#### Lock Storage
+
+```
+~/.prodigy/resume_locks/
+├── session-abc123.lock
+├── mapreduce-xyz789.lock
+└── ...
+```
+
+Each `.lock` file contains JSON metadata about the lock holder.
+
+#### Troubleshooting Stuck Locks
+
+If a lock persists after a process crash:
+
+1. **Check lock file location**: `~/.prodigy/resume_locks/<job_id>.lock`
+2. **Verify process status**: `ps aux | grep <PID>` (from error message)
+3. **Manual cleanup** (if process is dead): `rm ~/.prodigy/resume_locks/<job_id>.lock`
+4. **Automatic cleanup**: Retry resume - stale locks are auto-detected and removed
+
+**Note**: Under normal conditions, locks are automatically cleaned up. Manual intervention is rarely needed.
+
+#### Safety Guarantees
+
+- **Data Corruption Prevention**: Only one process can modify job state at a time
+- **No Duplicate Work**: Work items cannot be processed by multiple agents concurrently
+- **Consistent State**: Checkpoint updates are serialized
+- **Automatic Cleanup**: RAII pattern ensures locks are released even on errors
+- **Cross-Host Safety**: Hostname in lock prevents conflicts across machines
+
 ### Worktree Isolation (Spec 127, Spec 134)
 
 **All MapReduce workflow phases (setup, map, reduce) execute in an isolated git worktree**, ensuring the main repository remains untouched during workflow execution.

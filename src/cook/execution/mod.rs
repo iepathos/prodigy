@@ -58,6 +58,9 @@ pub mod progress_display_tests;
 #[cfg(test)]
 pub mod progress_tests;
 pub mod progress_tracker;
+pub mod resume_lock;
+#[cfg(test)]
+pub mod resume_lock_tests;
 pub mod runner;
 pub mod setup_executor;
 #[cfg(test)]
@@ -82,6 +85,7 @@ pub use mapreduce::{
     AgentResult, AgentStatus, MapPhase, MapReduceConfig, MapReduceExecutor, ReducePhase,
     ResumeOptions, ResumeResult, SetupPhase,
 };
+pub use resume_lock::{is_process_running, ResumeLock, ResumeLockData, ResumeLockManager};
 pub use runner::{CommandRunner, RealCommandRunner};
 
 use anyhow::Result;
