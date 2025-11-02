@@ -210,21 +210,104 @@ Environment variables can be configured at multiple levels:
 
 ### Global Environment Variables
 
+**Basic (Static) Variables:**
+
 ```yaml
 env:
   NODE_ENV: production
   DATABASE_URL: postgres://localhost/mydb
 ```
 
+**Advanced Variable Types:**
+
+Prodigy supports three types of environment variable values:
+
+1. **Static** - Plain string values (shown above)
+2. **Dynamic** - Execute commands to compute values (with caching support)
+3. **Conditional** - Use expressions to compute values based on conditions
+
+**Dynamic Variables:**
+
+Execute shell commands to generate values:
+
+```yaml
+env:
+  GIT_COMMIT:
+    command: "git rev-parse HEAD"
+    cache: true  # Cache result for performance
+  BUILD_TIME:
+    command: "date -u +%Y-%m-%dT%H:%M:%SZ"
+    cache: false  # Recompute each time
+```
+
+**Conditional Variables:**
+
+Use expressions to set values based on conditions:
+
+```yaml
+env:
+  LOG_LEVEL:
+    condition: "${CI} == 'true'"
+    if_true: "debug"
+    if_false: "info"
+  API_URL:
+    condition: "${NODE_ENV} == 'production'"
+    if_true: "https://api.example.com"
+    if_false: "http://localhost:3000"
+```
+
 ### Secret Variables
 
-Secret variables are masked in logs for security:
+Secret variables are masked in logs for security. Prodigy supports multiple secret providers:
+
+**Environment Variable Provider:**
 
 ```yaml
 secrets:
   API_KEY: "${env:SECRET_API_KEY}"
   DB_PASSWORD: "${env:DATABASE_PASSWORD}"
 ```
+
+**File Provider:**
+
+Read secrets from files:
+
+```yaml
+secrets:
+  SSH_KEY: "${file:/path/to/ssh/key}"
+  TLS_CERT: "${file:~/.config/certs/client.pem}"
+```
+
+**Vault Provider:**
+
+Retrieve secrets from HashiCorp Vault:
+
+```yaml
+secrets:
+  DATABASE_PASSWORD: "${vault:secret/data/myapp/db}"
+  API_TOKEN: "${vault:auth/token/myapp}"
+```
+
+**AWS Secrets Manager Provider:**
+
+Fetch secrets from AWS:
+
+```yaml
+secrets:
+  RDS_PASSWORD: "${aws:prod/database/password}"
+  API_KEY: "${aws:prod/api/key}"
+```
+
+**Custom Provider:**
+
+Use custom secret providers:
+
+```yaml
+secrets:
+  CUSTOM_SECRET: "${custom:my-provider:secret-name}"
+```
+
+All secret values are masked in logs, error messages, and output regardless of provider type.
 
 ### Environment Files
 
@@ -271,6 +354,19 @@ Individual commands can override or add environment variables:
 ```
 
 Step-level environment variables override global variables for that command only.
+
+**Clearing Parent Environment:**
+
+Use `clear_env` to start with a clean environment (no inherited global variables):
+
+```yaml
+- shell: "isolated-command"
+  env:
+    ONLY_VAR: "value"
+    clear_env: true  # Start fresh, ignore global env
+```
+
+This is useful for commands that need complete isolation from the global environment. When `clear_env: true`, only the step-level environment variables are available to the command. Default is `false` (inherit global environment).
 
 For more details, see the [Environment Variables chapter](environment.md).
 
