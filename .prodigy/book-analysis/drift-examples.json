@@ -4,140 +4,119 @@
   "chapter_file": "book/src/examples.md",
   "drift_detected": true,
   "severity": "medium",
-  "quality_assessment": "Chapter has excellent practical examples with good coverage of features, but contains some syntax issues in Example 7 (environment configuration) and Example 10 (unverified advanced features). Most examples are syntactically correct and follow current best practices.",
+  "quality_assessment": "The Examples chapter provides comprehensive, practical examples covering major workflow features. Most examples are syntactically correct and use current APIs. However, Example 10 incorrectly lists working_dir as a future capability when it's already implemented in StepEnvironment, and uses incorrect field name 'cwd' instead of 'working_dir'. Example 7's secrets syntax is correct. The chapter would benefit from clarifying implementation status and updating field names.",
   "issues": [
     {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Example 10: Advanced Features - Future capabilities",
+      "description": "Chapter lists 'working directory' with 'cwd' field as a future capability, but it's already implemented as 'working_dir' in StepEnvironment",
+      "current_content": "**Future capabilities** (not yet implemented, but planned):\n- **Working directory**: `cwd` field for running commands in specific directories",
+      "should_be": "**Current capabilities**:\n- **Working directory**: `working_dir` field in StepEnvironment (per-command directory control)\n- Example: shell: 'cargo test'\n  working_dir: 'subproject/'",
+      "fix_suggestion": "Move working_dir from 'Future capabilities' to 'Current capabilities' section. Update field name from 'cwd' to 'working_dir'. Show example usage in per-command environment.",
+      "source_reference": "src/cook/environment/config.rs:128-144 (StepEnvironment struct with working_dir: Option<PathBuf> at line 135)"
+    },
+    {
       "type": "outdated_information",
-      "severity": "high",
+      "severity": "medium",
       "section": "Example 7: Environment-Aware Workflow",
-      "description": "Example shows 'secrets' as a separate top-level object with nested structure, but actual implementation expects secrets to use SecretValue enum (Simple string or Provider object)",
-      "current_content": "secrets:\n  API_KEY:\n    value: \"${SECRET_API_KEY}\"\n    secret: true",
-      "should_be": "secrets:\n  API_KEY: \"${SECRET_API_KEY}\"  # Simple format\n  # OR\n  API_KEY:\n    provider: env\n    key: SECRET_API_KEY",
-      "fix_suggestion": "Update Example 7 to show correct SecretValue structure. The 'secret: true' field doesn't exist - secrets are automatically masked. Use either Simple(String) or Provider{provider, key, version} format.",
-      "source_reference": "src/cook/environment/config.rs:86-96 (SecretValue enum)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Example 7: Environment-Aware Workflow",
-      "description": "Example shows 'description' field in profiles but EnvProfile struct doesn't have this field",
-      "current_content": "profiles:\n  production:\n    env:\n      API_URL: https://api.production.com\n      LOG_LEVEL: error",
-      "should_be": "profiles:\n  production:\n    API_URL: https://api.production.com\n    LOG_LEVEL: error",
-      "fix_suggestion": "EnvProfile uses #[serde(flatten)] so env vars go directly under the profile name, not nested under 'env'. Remove the nested 'env' key.",
-      "source_reference": "src/cook/environment/config.rs:116-124 (EnvProfile struct with #[serde(flatten)])"
-    },
-    {
-      "type": "incorrect_example",
-      "severity": "medium",
-      "section": "Example 10: Advanced Features",
-      "description": "Example shows 'cwd' field for working directory, but WorkflowStepCommand doesn't have this field",
-      "current_content": "- shell: \"npm install\"\n  cwd: \"frontend/\"",
-      "should_be": "Verify if working_dir or similar field exists, or remove this example",
-      "fix_suggestion": "Check WorkflowStepCommand implementation for working directory support. If not implemented, mark as future feature or remove.",
-      "source_reference": "src/config/command.rs:320-401 (WorkflowStepCommand - no cwd/working_dir field found)"
-    },
-    {
-      "type": "incorrect_example",
-      "severity": "medium",
-      "section": "Example 10: Advanced Features",
-      "description": "Example shows git context variables like ${step.commit.files_modified} but this feature is not verified in the codebase",
-      "current_content": "- shell: \"echo 'Modified files: ${step.commit.files_modified}'\"",
-      "should_verify": "Verify that git context extraction with step-level variable access is implemented",
-      "fix_suggestion": "Either verify this feature exists in the variable capture system or mark as a planned/future feature",
-      "source_reference": "Variable capture and git context needs verification"
-    },
-    {
-      "type": "incorrect_example",
-      "severity": "medium",
-      "section": "Example 10: Advanced Features",
-      "description": "Example shows format modifiers like :json, :lines, :csv in variable interpolation, but this advanced syntax is not verified",
-      "current_content": "- shell: \"echo 'Issues found: ${analysis_result:json:.issues | length}'\"\n- shell: \"echo '${analysis_result:csv}' > report.csv\"",
-      "should_verify": "Verify that format modifiers and JSONPath syntax in variable interpolation is supported",
-      "fix_suggestion": "Either verify these advanced modifiers exist or simplify example to use basic capture_format field",
-      "source_reference": "Variable interpolation and format modifiers need verification"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Example 5: Conditional Deployment",
-      "description": "Example uses 'capture' field but the canonical field name in WorkflowStepCommand is 'capture_output'",
-      "current_content": "- shell: \"cargo test --quiet && echo true || echo false\"\n  id: \"test\"\n  capture: \"test_result\"\n  capture_format: \"boolean\"",
-      "should_add": "Note that 'capture_output' is the standard field name, though 'capture' may be supported for backwards compatibility",
-      "fix_suggestion": "Add a comment explaining that capture_output is the canonical field, or update example to use capture_output",
-      "source_reference": "src/config/command.rs:367-368 (capture_output field in WorkflowStepCommand)"
+      "description": "Comment suggests variables go directly under profile name, but example shows nested 'env' structure which may be confusing",
+      "current_content": "# Note: Variables go directly under the profile name, not nested under 'env'\nprofiles:\n  production:\n    API_URL: https://api.production.com\n    LOG_LEVEL: error",
+      "should_clarify": "Example is actually correct - EnvProfile uses #[serde(flatten)] so variables DO go directly under profile name. The comment is accurate, but the example presentation could be clearer.",
+      "fix_suggestion": "The example is correct, but consider adding a counter-example showing the WRONG way (nested under 'env') to prevent confusion.",
+      "source_reference": "src/cook/environment/config.rs:116-124 (EnvProfile with #[serde(flatten)])"
     },
     {
       "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Example 10: Advanced Features",
+      "description": "The 'Git context variables', 'Pattern filtering', and 'Format modifiers' are listed as future capabilities without implementation status clarification",
+      "current_content": "**Future capabilities** (not yet implemented, but planned):\n- **Git context variables**: Access `files_modified`, `files_added` from git operations\n- **Pattern filtering**: Filter file lists with `:*.rs` syntax\n- **Format modifiers**: Advanced output transformation with `:json`, `:lines`, `:csv`",
+      "should_clarify": "features.json shows git_context_advanced exists with pattern_filtering and format_modifiers sections. Need to verify which parts are fully implemented vs planned.",
+      "fix_suggestion": "Review features.json git_context_advanced (lines 492-517) and verify implementation status. Split into 'Implemented but undocumented' vs 'Truly planned' sections.",
+      "source_reference": "features.json lines 492-517 (git_context_advanced section with pattern_filtering and format_modifiers)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Example 4: Parallel Code Review",
+      "description": "Example shows capture_format but doesn't explain all available format options in context",
+      "current_content": "capture_format: \"json\"",
+      "should_add": "Brief inline comment or reference to Example 5 which documents all capture_format options",
+      "fix_suggestion": "Add a comment like: # Formats: string (default), json, lines, number, boolean - see Example 5 for details",
+      "source_reference": "Example 5 lines 111-116 documents capture_format options correctly"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "General",
+      "description": "No example shows capture_streams usage despite it being documented in features",
+      "should_add": "Example showing how to capture stderr separately or control which streams are captured",
+      "fix_suggestion": "Add to Example 5 or Example 10:\n- shell: 'cargo build 2>&1'\n  capture_output: 'build_output'\n  capture_streams: 'stdout,stderr,exit_code'",
+      "source_reference": "features.json lines 192-198 (capture_streams configuration with stdout, stderr, exit_code, success, duration)"
+    },
+    {
+      "type": "missing_content",
       "severity": "low",
       "section": "Example 3: Foreach Iteration",
-      "description": "Example shows 'parallel: 3' but doesn't explain the full range of parallel configuration options",
-      "current_content": "parallel: 3\ncontinue_on_error: true",
-      "should_add": "Explain that parallel can be:\n  - false (sequential, default)\n  - true (default parallel count)\n  - number (specific parallel count)",
-      "fix_suggestion": "Add a comment showing the different parallel config options",
-      "source_reference": "src/config/command.rs:223-237 (ParallelConfig enum)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Example 5: Conditional Deployment",
-      "description": "Example lists capture formats in comment but doesn't explain what each format does",
-      "current_content": "capture_format: \"boolean\"  # Supported: string, json, lines, number, boolean",
-      "should_add": "Brief explanation:\n  - string: Raw text output\n  - json: Parse as JSON object\n  - lines: Split into array of lines\n  - number: Parse as numeric value\n  - boolean: Parse as true/false based on exit code or output",
-      "fix_suggestion": "Add a note section or expand the comment to explain each format",
-      "source_reference": "features.json:advanced_features.output_capture.formats"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Example 8: Complex MapReduce with Error Handling",
-      "description": "Missing note that error_policy fields are optional with sensible defaults",
-      "should_add": "Note that if error_policy is not specified, defaults are: on_item_failure: dlq, continue_on_failure: true, error_collection: aggregate",
-      "fix_suggestion": "Add note explaining default behavior so users know they don't need to specify all fields",
-      "source_reference": "Mentioned in example note, but could be clearer"
+      "description": "Example comment mentions parallel options but doesn't fully explain the range",
+      "current_content": "parallel: 3  # Options: false (sequential), true (default parallelism), or number (specific count)",
+      "should_expand": "The inline comment is actually comprehensive and correct",
+      "fix_suggestion": "No fix needed - the comment already explains all three options clearly",
+      "source_reference": "Comment is accurate and complete"
     }
   ],
   "positive_aspects": [
-    "Excellent progression from simple (Example 1) to complex (Example 8)",
-    "Good coverage of major features: goal_seek, foreach, MapReduce, conditionals, environment",
-    "Examples are practical and use real tools (cargo, debtmap, npm, docker)",
-    "Well-commented examples that explain key concepts",
-    "Example 4 correctly shows MapReduce with JSONPath and includes helpful note",
-    "Example 8 shows comprehensive MapReduce with all error handling options",
-    "Example 9 (write_file) clearly demonstrates all supported formats",
-    "Example 6 shows advanced validation with on_incomplete handler",
-    "Most examples are syntactically correct and would parse successfully",
-    "Good use of on_failure and on_success handlers in multiple examples"
+    "Comprehensive coverage of major workflow features (simple commands, goal_seek, foreach, MapReduce, conditionals, validation, environment, error handling, write_file)",
+    "Examples progress logically from simple to complex",
+    "Good use of comments and notes to explain syntax and behavior",
+    "Examples are syntactically correct and use current field names (capture_output is canonical, capture is mentioned as alias)",
+    "MapReduce example (Example 4) correctly uses direct array format for agent_template (preferred syntax)",
+    "Error handling examples show proper use of on_failure handlers",
+    "Validation example demonstrates complete validation workflow with on_incomplete",
+    "Environment example correctly shows secrets as top-level field (per WorkflowConfig line 26)",
+    "Secrets example correctly shows both simple format (string) and provider format (per SecretValue enum)",
+    "Write_file example (Example 9) demonstrates all formats (text, json, yaml) with proper configuration",
+    "Foreach example includes helpful inline comment explaining parallel options",
+    "Example 5 documents all capture_format options with clear descriptions"
   ],
   "improvement_suggestions": [
-    "Fix Example 7 environment configuration to match actual SecretValue and EnvProfile structure",
-    "Verify or remove Example 10's unverified features (cwd, git context, format modifiers)",
-    "Update Example 5 to use 'capture_output' as the canonical field name",
-    "Add more explanation for capture_format options",
-    "Explain parallel configuration options in foreach example",
-    "Add an example showing retry configuration with backoff strategies",
-    "Include an example of nested on_failure handlers with max_attempts",
-    "Add example showing MapReduce setup phase with capture_outputs",
-    "Show timeout configuration at different levels (command, workflow)",
-    "Add troubleshooting tips or common mistakes section",
-    "Link to specific book chapters for deeper dives into features",
-    "Consider adding a best practices callout referencing the features inventory"
+    "Fix Example 10 to move working_dir from 'Future capabilities' to 'Current capabilities' with correct field name",
+    "Add an example demonstrating working_dir usage in StepEnvironment (per-command directory control)",
+    "Clarify which 'future capabilities' in Example 10 are implemented vs truly planned (verify git_context_advanced features)",
+    "Add an example showing capture_streams usage for stderr capture or stream control",
+    "Add cross-references between examples (e.g., 'see Example 5 for capture_format options')",
+    "Consider adding an example of nested error handlers (on_failure with its own on_success)",
+    "Show max_attempts usage more prominently in retry scenarios",
+    "Add a troubleshooting section for common example pitfalls",
+    "Add an example showing profile activation with CLI flag (--profile production)",
+    "Consider showing timeout configuration at different levels (command vs workflow vs phase)"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-12",
+    "analyzed_at": "2025-11-02",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "Basic build and test workflows",
-      "Goal seeking for iterative improvement",
+      "Simple build and test workflows",
+      "Goal-seeking with validation",
       "Foreach iteration (sequential and parallel)",
       "MapReduce parallel processing",
       "Conditional execution with when clauses",
-      "Output capture with multiple formats",
       "Multi-step validation with on_incomplete",
       "Environment variables, secrets, and profiles",
-      "Complex error handling and DLQ",
+      "Complex MapReduce with error policies",
       "File generation with write_file",
-      "Advanced features (nested handlers, git context)"
+      "Advanced features (nested handlers, conditionals, retries)"
     ],
-    "validation_focus": "Check examples are valid and work with current syntax"
+    "validation_focus": "Check examples are valid and work with current syntax",
+    "examples_count": 10,
+    "syntactically_valid": true,
+    "uses_current_apis": true,
+    "key_findings": [
+      "working_dir is implemented in StepEnvironment (not a future capability)",
+      "secrets field is correctly shown as top-level in WorkflowConfig",
+      "SecretValue supports both simple string and provider object formats (both shown correctly)",
+      "Most examples use current, valid syntax",
+      "Main drift is in Example 10's incorrect classification of implemented features as 'future'"
+    ]
   }
 }
