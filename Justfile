@@ -1,4 +1,4 @@
-# Eidolon - Justfile
+# Prodigy - Justfile
 # Quick development commands for Rust projects
 
 # Default recipe - show available commands
