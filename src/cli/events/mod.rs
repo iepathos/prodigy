@@ -1,12 +1,13 @@
 //! CLI commands for viewing and searching MapReduce events
 
+pub mod analysis;
 pub mod format;
 pub mod io;
 pub mod transform;
 
 use crate::cook::interaction::prompts::{UserPrompter, UserPrompterImpl};
 use anyhow::Result;
-use chrono::{DateTime, Local};
+use chrono::Local;
 use clap::{Args, Subcommand};
 use serde_json::Value;
 use std::fs;
@@ -157,118 +158,6 @@ pub enum EventsCommand {
     },
 }
 
-/// Get list of available jobs from global storage
-fn get_available_jobs() -> Result<Vec<format::JobInfo>> {
-    let current_dir = std::env::current_dir()?;
-    let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-    let global_base = crate::storage::get_default_storage_dir()?;
-    let global_events_dir = global_base.join("events").join(&repo_name);
-
-    if !global_events_dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let entries = fs::read_dir(&global_events_dir)?;
-
-    let jobs: Vec<format::JobInfo> = entries
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().is_dir())
-        .map(|entry| {
-            let job_id = entry.file_name().to_string_lossy().to_string();
-            read_job_status(&global_events_dir.join(&job_id)).unwrap_or_else(|_| format::JobInfo {
-                id: job_id.clone(),
-                status: format::JobStatus::Unknown,
-                start_time: None,
-                end_time: None,
-                success_count: 0,
-                failure_count: 0,
-            })
-        })
-        .collect();
-
-    Ok(jobs)
-}
-
-/// Read job status from event files
-fn read_job_status(job_events_dir: &Path) -> Result<format::JobInfo> {
-    let job_id = job_events_dir
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("unknown")
-        .to_string();
-
-    let mut status = format::JobStatus::Unknown;
-    let mut start_time = None;
-    let mut end_time = None;
-    let mut success_count = 0;
-    let mut failure_count = 0;
-
-    // Find and read event files
-    let event_files = io::find_event_files(job_events_dir)?;
-
-    for file in event_files {
-        let content = fs::read_to_string(&file)?;
-        for line in content.lines() {
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            if let Ok(event) = serde_json::from_str::<Value>(line) {
-                process_event_for_status(
-                    &event,
-                    &mut status,
-                    &mut start_time,
-                    &mut end_time,
-                    &mut success_count,
-                    &mut failure_count,
-                );
-            }
-        }
-    }
-
-    Ok(format::JobInfo {
-        id: job_id,
-        status,
-        start_time,
-        end_time,
-        success_count,
-        failure_count,
-    })
-}
-
-/// Process a single event to extract status information
-fn process_event_for_status(
-    event: &Value,
-    status: &mut format::JobStatus,
-    start_time: &mut Option<DateTime<Local>>,
-    end_time: &mut Option<DateTime<Local>>,
-    success_count: &mut u64,
-    failure_count: &mut u64,
-) {
-    if event.get("JobStarted").is_some() {
-        *status = format::JobStatus::InProgress;
-        if let Some(ts) = transform::extract_timestamp(event) {
-            *start_time = Some(ts.with_timezone(&Local));
-        }
-    } else if let Some(completed) = event.get("JobCompleted") {
-        *status = format::JobStatus::Completed;
-        if let Some(ts) = transform::extract_timestamp(event) {
-            *end_time = Some(ts.with_timezone(&Local));
-        }
-        if let Some(s) = completed.get("success_count").and_then(|v| v.as_u64()) {
-            *success_count = s;
-        }
-        if let Some(f) = completed.get("failure_count").and_then(|v| v.as_u64()) {
-            *failure_count = f;
-        }
-    } else if event.get("JobFailed").is_some() {
-        *status = format::JobStatus::Failed;
-        if let Some(ts) = transform::extract_timestamp(event) {
-            *end_time = Some(ts.with_timezone(&Local));
-        }
-    }
-}
-
 // =============================================================================
 // Re-exports from submodules
 // =============================================================================
@@ -319,7 +208,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
         } => {
             // If no explicit file, aggregate all events from global storage
             if !file.exists() {
-                show_aggregated_stats(group_by, output_format).await
+                analysis::show_aggregated_stats(group_by, output_format).await
             } else {
                 let resolved_file = io::resolve_event_file_with_fallback(file, None)?;
                 show_stats(resolved_file, group_by, output_format).await
@@ -333,7 +222,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
         } => {
             // If no explicit file, search all events from global storage
             if !file.exists() {
-                search_aggregated_events(pattern, fields).await
+                analysis::search_aggregated_events(pattern, fields).await
             } else {
                 let resolved_file = io::resolve_event_file_with_fallback(file, None)?;
                 search_events(resolved_file, pattern, fields).await
@@ -356,7 +245,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
         } => {
             // If no explicit file, export all events from global storage
             if !file.exists() {
-                export_aggregated_events(format, output).await
+                analysis::export_aggregated_events(format, output).await
             } else {
                 let resolved_file = io::resolve_event_file_with_fallback(file, None)?;
                 export_events(resolved_file, format, output).await
@@ -394,7 +283,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
 
 /// Display available jobs with their status
 fn display_available_jobs() -> Result<()> {
-    let jobs = get_available_jobs()?;
+    let jobs = analysis::get_available_jobs()?;
 
     if jobs.is_empty() {
         println!("No MapReduce jobs found in global storage.");
@@ -443,23 +332,6 @@ async fn list_events(
     format::display_events_with_format(&events, &output_format)
 }
 
-/// Show aggregated statistics from all global event files (refactored)
-async fn show_aggregated_stats(group_by: String, output_format: String) -> Result<()> {
-    let event_files = io::get_all_event_files()?;
-
-    if event_files.is_empty() {
-        println!("No events found in global storage.");
-        return Ok(());
-    }
-
-    // Read all events and calculate statistics using pure functions
-    let all_events = io::read_events_from_files(&event_files)?;
-    let (stats, total) = transform::calculate_event_statistics(all_events.into_iter(), &group_by);
-    let sorted_stats = transform::sort_statistics_by_count(stats);
-
-    // Display statistics using pure functions
-    format::display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, true)
-}
 
 
 /// Show event statistics (refactored to use pure functions)
@@ -479,23 +351,6 @@ async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> R
 }
 
 
-/// Search aggregated events from all global event files (refactored)
-async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) -> Result<()> {
-    let event_files = io::get_all_event_files()?;
-
-    if event_files.is_empty() {
-        println!("No events found in global storage.");
-        return Ok(());
-    }
-
-    // Read all events and search using pure functions
-    let all_events = io::read_events_from_files(&event_files)?;
-    let matching_events =
-        transform::search_events_with_pattern(&all_events, &pattern, fields.as_deref())?;
-
-    // Display results
-    format::display_search_results(&matching_events, true)
-}
 
 /// Search events by pattern (refactored to use pure functions)
 async fn search_events(file: PathBuf, pattern: String, fields: Option<Vec<String>>) -> Result<()> {
@@ -615,52 +470,6 @@ async fn wait_for_file_creation(
     Ok(())
 }
 
-/// Export aggregated events from all global event files
-async fn export_aggregated_events(format: String, output: Option<PathBuf>) -> Result<()> {
-    let event_files = io::get_all_event_files()?;
-
-    if event_files.is_empty() {
-        println!("No events found in global storage.");
-        return Ok(());
-    }
-
-    let mut events = Vec::new();
-
-    // Collect all events from all files
-    for file in event_files {
-        let content = fs::File::open(&file)?;
-        let reader = BufReader::new(content);
-
-        for line in reader.lines() {
-            let line = line?;
-            if line.trim().is_empty() {
-                continue;
-            }
-            let event: Value = serde_json::from_str(&line)?;
-            events.push(event);
-        }
-    }
-
-    let exported = match format.as_str() {
-        "json" => format::export_as_json(&events)?,
-        "csv" => format::export_as_csv(&events)?,
-        "markdown" => format::export_as_markdown(&events)?,
-        _ => return Err(anyhow::anyhow!("Unsupported format: {}", format)),
-    };
-
-    if let Some(output_path) = output {
-        fs::write(output_path, exported)?;
-        println!(
-            "Events exported successfully ({} events from all jobs)",
-            events.len()
-        );
-    } else {
-        println!("{}", exported);
-    }
-
-    Ok(())
-}
-
 /// Export events to different format
 async fn export_events(file: PathBuf, format: String, output: Option<PathBuf>) -> Result<()> {
     if !file.exists() {
@@ -717,7 +526,7 @@ async fn clean_events(
 
     // First perform dry-run analysis to show what will be cleaned
     let _analysis_total = if !dry_run {
-        let analysis = analyze_retention_targets(all_jobs, job_id.as_deref(), &policy).await?;
+        let analysis = analysis::analyze_retention_targets(all_jobs, job_id.as_deref(), &policy).await?;
 
         if !confirm_cleanup(&analysis).await? {
             return Ok(());
@@ -780,90 +589,8 @@ fn build_retention_policy(
 }
 
 // ==============================================================================
-// Pure Decision Functions for Retention Analysis
-// ==============================================================================
-
-/// Pure function: Determine if global storage should be analyzed
-fn should_analyze_global_storage(all_jobs: bool, job_id: Option<&str>) -> bool {
-    all_jobs || job_id.is_some()
-}
-
-// ==============================================================================
 // Retention Analysis
 // ==============================================================================
-
-/// Analyze retention targets and calculate what will be cleaned
-async fn analyze_retention_targets(
-    all_jobs: bool,
-    job_id: Option<&str>,
-    policy: &crate::cook::execution::events::retention::RetentionPolicy,
-) -> Result<crate::cook::execution::events::retention::RetentionAnalysis> {
-    use crate::cook::execution::events::retention::{RetentionAnalysis, RetentionManager};
-
-    let mut analysis_total = RetentionAnalysis::default();
-
-    if should_analyze_global_storage(all_jobs, job_id) {
-        let current_dir = std::env::current_dir()?;
-        let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-        let global_events_dir = io::build_global_events_path(&repo_name)?;
-
-        if global_events_dir.exists() {
-            let job_dirs = get_job_directories(&global_events_dir, job_id)?;
-            analysis_total = aggregate_job_retention(job_dirs, policy).await?;
-        }
-    } else {
-        let local_file = PathBuf::from(".prodigy/events/mapreduce_events.jsonl");
-        if local_file.exists() {
-            let retention = RetentionManager::new(policy.clone(), local_file);
-            analysis_total = retention.analyze_retention().await?;
-        }
-    }
-
-    Ok(analysis_total)
-}
-
-/// Aggregate retention analysis across job directories
-async fn aggregate_job_retention(
-    job_dirs: Vec<PathBuf>,
-    policy: &crate::cook::execution::events::retention::RetentionPolicy,
-) -> Result<crate::cook::execution::events::retention::RetentionAnalysis> {
-    use crate::cook::execution::events::retention::{RetentionAnalysis, RetentionManager};
-
-    let mut analysis_total = RetentionAnalysis::default();
-
-    for job_dir in job_dirs {
-        let event_files = io::find_event_files(&job_dir)?;
-        for event_file in event_files {
-            let retention = RetentionManager::new(policy.clone(), event_file);
-            let analysis = retention.analyze_retention().await?;
-            analysis_total.events_to_remove += analysis.events_to_remove;
-            analysis_total.space_to_save += analysis.space_to_save;
-            if policy.archive_old_events {
-                analysis_total.events_to_archive += analysis.events_to_archive;
-            }
-        }
-    }
-
-    Ok(analysis_total)
-}
-
-/// Get job directories to process
-fn get_job_directories(global_events_dir: &Path, job_id: Option<&str>) -> Result<Vec<PathBuf>> {
-    if let Some(specific_job_id) = job_id {
-        let specific_dir = global_events_dir.join(specific_job_id);
-        if specific_dir.exists() {
-            Ok(vec![specific_dir])
-        } else {
-            Ok(vec![])
-        }
-    } else {
-        Ok(fs::read_dir(global_events_dir)?
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().is_dir())
-            .map(|e| e.path())
-            .collect())
-    }
-}
 
 /// Confirm cleanup with user if not in automation mode
 async fn confirm_cleanup(
@@ -1059,7 +786,7 @@ async fn clean_global_storage(
         return Ok((0, 0));
     }
 
-    let job_dirs = get_job_directories(&global_events_dir, job_id)?;
+    let job_dirs = analysis::get_job_directories(&global_events_dir, job_id)?;
     if job_dirs.is_empty() {
         if let Some(id) = job_id {
             println!("Job '{}' not found", id);
@@ -1600,22 +1327,6 @@ mod tests {
     // Tests for Pure Decision Functions
     // ===========================================================================
 
-    #[test]
-    fn test_should_analyze_global_storage_with_all_jobs() {
-        assert!(should_analyze_global_storage(true, None));
-        assert!(should_analyze_global_storage(true, Some("job-123")));
-    }
-
-    #[test]
-    fn test_should_analyze_global_storage_with_job_id() {
-        assert!(should_analyze_global_storage(false, Some("job-123")));
-        assert!(!should_analyze_global_storage(false, None));
-    }
-
-    #[test]
-    fn test_should_analyze_global_storage_neither_flag() {
-        assert!(!should_analyze_global_storage(false, None));
-    }
 
     #[test]
     fn test_build_global_events_path() {
