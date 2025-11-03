@@ -5,6 +5,9 @@
 use crate::cli::args::WorktreeCommands;
 use anyhow::Result;
 
+use super::operations::{
+    list_sessions_operation, merge_all_sessions_operation, merge_session_operation,
+};
 use super::utils::parse_duration;
 
 /// Execute worktree-related commands
@@ -47,22 +50,23 @@ async fn run_worktree_ls(_json: bool, _detailed: bool) -> Result<()> {
     use crate::subprocess::SubprocessManager;
     use crate::worktree::manager::WorktreeManager;
 
-    // Get current repository path
+    // Initialize dependencies
     let repo_path = std::env::current_dir()?;
     let subprocess = SubprocessManager::production();
-
     let manager = WorktreeManager::new(repo_path, subprocess)?;
-    let sessions = manager.list_sessions().await?;
 
-    if sessions.is_empty() {
+    // Execute operation
+    let result = list_sessions_operation(&manager).await?;
+
+    // Display results
+    if result.sessions.is_empty() {
         println!("No active Prodigy worktrees found.");
     } else {
-        // Output as table
         println!("Active Prodigy worktrees:");
         println!("{:<40} {:<30} {:<20}", "Name", "Branch", "Created");
         println!("{}", "-".repeat(90));
 
-        for session in sessions {
+        for session in result.sessions {
             println!(
                 "{:<40} {:<30} {:<20}",
                 session.name,
@@ -80,7 +84,7 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
     use crate::subprocess::SubprocessManager;
     use crate::worktree::manager::WorktreeManager;
 
-    // Get current repository path
+    // Initialize dependencies
     let repo_path = std::env::current_dir()?;
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(repo_path, subprocess)?;
@@ -88,31 +92,39 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
     if all {
         // Merge all active worktrees
         println!("Merging all worktrees...");
-        let sessions = manager.list_sessions().await?;
-        let mut merged_count = 0;
+        let result = merge_all_sessions_operation(&manager).await?;
 
-        for session in sessions {
-            println!("Merging worktree '{}'...", session.name);
-            match manager.merge_session(&session.name).await {
-                Ok(_) => {
-                    println!("✅ Successfully merged worktree '{}'", session.name);
-                    merged_count += 1;
-                }
-                Err(e) => {
-                    eprintln!("❌ Failed to merge worktree '{}': {}", session.name, e);
-                }
+        // Display results
+        for merge_result in &result.results {
+            if merge_result.success {
+                println!("✅ Successfully merged worktree '{}'", merge_result.session_name);
+            } else {
+                eprintln!(
+                    "❌ Failed to merge worktree '{}': {}",
+                    merge_result.session_name,
+                    merge_result.error.as_ref().unwrap_or(&"Unknown error".to_string())
+                );
             }
         }
 
-        if merged_count > 0 {
-            println!("Successfully merged {} worktree(s)", merged_count);
+        if result.merged_count > 0 {
+            println!("Successfully merged {} worktree(s)", result.merged_count);
         }
         Ok(())
     } else if let Some(name) = name {
         println!("Merging worktree '{}'...", name);
-        manager.merge_session(&name).await?;
-        println!("✅ Successfully merged worktree '{}'", name);
-        Ok(())
+        let result = merge_session_operation(&manager, &name).await;
+
+        if result.success {
+            println!("✅ Successfully merged worktree '{}'", name);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "Failed to merge worktree '{}': {}",
+                name,
+                result.error.unwrap_or_else(|| "Unknown error".to_string())
+            ))
+        }
     } else {
         println!("Please specify a worktree name or use --all");
         Ok(())
