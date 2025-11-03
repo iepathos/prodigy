@@ -25,7 +25,7 @@ jobs:
       uses: taiki-e/install-action@cargo-llvm-cov
 
     - name: Install just
-      uses: extractions/setup-just@v2
+      uses: extractions/setup-just@v3
 
     - name: Generate code coverage
       run: just coverage
