@@ -109,9 +109,59 @@ pub async fn cleanup_all_sessions_operation(
     Ok(count)
 }
 
+/// Filter sessions older than the specified duration
+///
+/// Pure function that filters sessions based on age.
+pub fn filter_old_sessions(
+    sessions: Vec<WorktreeSession>,
+    max_age: std::time::Duration,
+) -> Vec<WorktreeSession> {
+    let now = chrono::Utc::now();
+    sessions
+        .into_iter()
+        .filter(|session| {
+            let age = now.signed_duration_since(session.created_at);
+            age.num_seconds() as u64 > max_age.as_secs()
+        })
+        .collect()
+}
+
+/// Result of a cleanup operation
+#[derive(Debug, Clone)]
+pub struct CleanupResult {
+    #[allow(dead_code)] // Used in Phase 5
+    pub cleaned_count: usize,
+    #[allow(dead_code)] // Used in Phase 5
+    pub session_names: Vec<String>,
+}
+
+/// Clean up old worktree sessions
+///
+/// Returns the list of cleaned sessions.
+#[allow(dead_code)] // Used in Phase 5
+pub async fn cleanup_old_sessions_operation(
+    manager: &WorktreeManager,
+    max_age: std::time::Duration,
+    force: bool,
+) -> Result<CleanupResult> {
+    let sessions = manager.list_sessions().await?;
+    let old_sessions = filter_old_sessions(sessions, max_age);
+    let session_names: Vec<String> = old_sessions.iter().map(|s| s.name.clone()).collect();
+
+    for session in &old_sessions {
+        manager.cleanup_session(&session.name, force).await?;
+    }
+
+    Ok(CleanupResult {
+        cleaned_count: old_sessions.len(),
+        session_names,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{Duration, Utc};
 
     // Note: Full integration tests would require mocking WorktreeManager
     // For now, we test the data structures and ensure the functions compile
@@ -176,5 +226,103 @@ mod tests {
         assert_eq!(batch_result.merged_count, 2);
         assert_eq!(batch_result.failed_count, 1);
         assert_eq!(batch_result.results.len(), 3);
+    }
+
+    #[test]
+    fn test_filter_old_sessions_empty() {
+        let sessions = vec![];
+        let max_age = std::time::Duration::from_secs(3600); // 1 hour
+        let filtered = filter_old_sessions(sessions, max_age);
+        assert_eq!(filtered.len(), 0);
+    }
+
+    #[test]
+    fn test_filter_old_sessions_all_new() {
+        use crate::worktree::WorktreeSession;
+
+        let sessions = vec![
+            WorktreeSession {
+                name: "session1".to_string(),
+                branch: "branch1".to_string(),
+                created_at: Utc::now(),
+                path: std::path::PathBuf::from("/tmp/session1"),
+            },
+            WorktreeSession {
+                name: "session2".to_string(),
+                branch: "branch2".to_string(),
+                created_at: Utc::now(),
+                path: std::path::PathBuf::from("/tmp/session2"),
+            },
+        ];
+
+        let max_age = std::time::Duration::from_secs(3600); // 1 hour
+        let filtered = filter_old_sessions(sessions, max_age);
+        assert_eq!(filtered.len(), 0);
+    }
+
+    #[test]
+    fn test_filter_old_sessions_all_old() {
+        use crate::worktree::WorktreeSession;
+
+        let old_time = Utc::now() - Duration::hours(2);
+        let sessions = vec![
+            WorktreeSession {
+                name: "session1".to_string(),
+                branch: "branch1".to_string(),
+                created_at: old_time,
+                path: std::path::PathBuf::from("/tmp/session1"),
+            },
+            WorktreeSession {
+                name: "session2".to_string(),
+                branch: "branch2".to_string(),
+                created_at: old_time,
+                path: std::path::PathBuf::from("/tmp/session2"),
+            },
+        ];
+
+        let max_age = std::time::Duration::from_secs(3600); // 1 hour
+        let filtered = filter_old_sessions(sessions, max_age);
+        assert_eq!(filtered.len(), 2);
+    }
+
+    #[test]
+    fn test_filter_old_sessions_mixed() {
+        use crate::worktree::WorktreeSession;
+
+        let old_time = Utc::now() - Duration::hours(2);
+        let new_time = Utc::now();
+        let sessions = vec![
+            WorktreeSession {
+                name: "old_session".to_string(),
+                branch: "branch1".to_string(),
+                created_at: old_time,
+                path: std::path::PathBuf::from("/tmp/old"),
+            },
+            WorktreeSession {
+                name: "new_session".to_string(),
+                branch: "branch2".to_string(),
+                created_at: new_time,
+                path: std::path::PathBuf::from("/tmp/new"),
+            },
+        ];
+
+        let max_age = std::time::Duration::from_secs(3600); // 1 hour
+        let filtered = filter_old_sessions(sessions, max_age);
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].name, "old_session");
+    }
+
+    #[test]
+    fn test_cleanup_result_creation() {
+        let result = CleanupResult {
+            cleaned_count: 3,
+            session_names: vec![
+                "session1".to_string(),
+                "session2".to_string(),
+                "session3".to_string(),
+            ],
+        };
+        assert_eq!(result.cleaned_count, 3);
+        assert_eq!(result.session_names.len(), 3);
     }
 }
