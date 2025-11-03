@@ -457,7 +457,8 @@ mod tests {
 
     #[test]
     fn test_parse_filter_complex_logical() {
-        let expr = parse_filter("(priority > 5 && status == 'active') || urgency == 'high'").unwrap();
+        let expr =
+            parse_filter("(priority > 5 && status == 'active') || urgency == 'high'").unwrap();
         assert!(matches!(expr, Expression::Or(_, _)));
     }
 
@@ -470,8 +471,10 @@ mod tests {
 
     #[test]
     fn test_parse_filter_complex_nested() {
-        let expr =
-            parse_filter("(priority > 5 && status == 'active') || (priority > 10 && status == 'pending')").unwrap();
+        let expr = parse_filter(
+            "(priority > 5 && status == 'active') || (priority > 10 && status == 'pending')",
+        )
+        .unwrap();
         assert!(matches!(expr, Expression::Or(_, _)));
     }
 
