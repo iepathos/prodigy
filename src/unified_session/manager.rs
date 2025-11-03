@@ -4,11 +4,11 @@ use super::state::{
     Checkpoint, CheckpointId, SessionConfig, SessionFilter, SessionId, SessionStatus,
     SessionSummary, UnifiedSession,
 };
+use super::storage::SessionStorage;
 use crate::storage::GlobalStorage;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tokio::fs;
 
 /// Session update operations
 #[derive(Debug, Clone)]
@@ -29,7 +29,7 @@ pub enum SessionUpdate {
 
 /// Unified session manager
 pub struct SessionManager {
-    storage: GlobalStorage,
+    storage: SessionStorage,
     active_sessions: Arc<RwLock<HashMap<SessionId, UnifiedSession>>>,
 }
 
@@ -37,7 +37,7 @@ impl SessionManager {
     /// Create a new session manager
     pub async fn new(storage: GlobalStorage) -> Result<Self> {
         Ok(Self {
-            storage,
+            storage: SessionStorage::new(storage),
             active_sessions: Arc::new(RwLock::new(HashMap::new())),
         })
     }
@@ -75,7 +75,7 @@ impl SessionManager {
         }
 
         // Persist to storage
-        self.save_session(&session).await?;
+        self.storage.save(&session).await?;
 
         Ok(session_id)
     }
@@ -94,7 +94,18 @@ impl SessionManager {
         }
 
         // Load from storage
-        self.load_from_storage(id).await
+        let session = self.storage.load(id).await?;
+
+        // Add to active sessions cache
+        {
+            let mut sessions = self
+                .active_sessions
+                .write()
+                .map_err(|e| anyhow!("Failed to acquire write lock on active sessions: {}", e))?;
+            sessions.insert(id.clone(), session.clone());
+        }
+
+        Ok(session)
     }
 
     /// Update a session
@@ -172,7 +183,7 @@ impl SessionManager {
         }
 
         // Persist to storage
-        self.save_session(&session).await
+        self.storage.save(&session).await
     }
 
     /// Delete a session
@@ -187,7 +198,7 @@ impl SessionManager {
         }
 
         // Delete from storage
-        self.delete_from_storage(id).await
+        self.storage.delete(id).await
     }
 
     /// Start a session
@@ -266,7 +277,7 @@ impl SessionManager {
         }
 
         // Persist to storage
-        self.save_session(&restored_session).await
+        self.storage.save(&restored_session).await
     }
 
     /// List checkpoints for a session
@@ -280,7 +291,7 @@ impl SessionManager {
         &self,
         filter: Option<SessionFilter>,
     ) -> Result<Vec<SessionSummary>> {
-        let sessions = self.load_all_sessions().await?;
+        let sessions = self.storage.load_all().await?;
 
         let filtered = if let Some(filter) = filter {
             sessions
@@ -334,99 +345,6 @@ impl SessionManager {
             .read()
             .map_err(|e| anyhow!("Failed to acquire read lock on active sessions: {}", e))?;
         Ok(sessions.keys().cloned().collect())
-    }
-
-    // Private helper methods
-
-    async fn save_session(&self, session: &UnifiedSession) -> Result<()> {
-        let sessions_dir = self.storage.base_dir().join("sessions");
-        fs::create_dir_all(&sessions_dir)
-            .await
-            .context("Failed to create sessions directory")?;
-
-        let session_file = sessions_dir.join(format!("{}.json", session.id.as_str()));
-        let json = serde_json::to_string_pretty(session)?;
-        fs::write(&session_file, json)
-            .await
-            .context("Failed to write session file")?;
-
-        Ok(())
-    }
-
-    async fn load_from_storage(&self, id: &SessionId) -> Result<UnifiedSession> {
-        let session_file = self
-            .storage
-            .base_dir()
-            .join("sessions")
-            .join(format!("{}.json", id.as_str()));
-
-        if !session_file.exists() {
-            return Err(anyhow!("Session not found: {}", id.as_str()));
-        }
-
-        let json = fs::read_to_string(&session_file)
-            .await
-            .context("Failed to read session file")?;
-        let session: UnifiedSession = serde_json::from_str(&json)?;
-
-        // Add to active sessions cache
-        {
-            let mut sessions = self
-                .active_sessions
-                .write()
-                .map_err(|e| anyhow!("Failed to acquire write lock on active sessions: {}", e))?;
-            sessions.insert(id.clone(), session.clone());
-        }
-
-        Ok(session)
-    }
-
-    async fn delete_from_storage(&self, id: &SessionId) -> Result<()> {
-        let session_file = self
-            .storage
-            .base_dir()
-            .join("sessions")
-            .join(format!("{}.json", id.as_str()));
-
-        if session_file.exists() {
-            fs::remove_file(&session_file)
-                .await
-                .context("Failed to delete session file")?;
-        }
-
-        Ok(())
-    }
-
-    async fn load_all_sessions(&self) -> Result<Vec<UnifiedSession>> {
-        let sessions_dir = self.storage.base_dir().join("sessions");
-
-        if !sessions_dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        let mut sessions = Vec::new();
-        let mut entries = fs::read_dir(&sessions_dir)
-            .await
-            .context("Failed to read sessions directory")?;
-
-        while let Some(entry) = entries
-            .next_entry()
-            .await
-            .context("Failed to read directory entry")?
-        {
-            if let Some(ext) = entry.path().extension() {
-                if ext == "json" {
-                    let json = fs::read_to_string(entry.path())
-                        .await
-                        .context("Failed to read session file")?;
-                    if let Ok(session) = serde_json::from_str::<UnifiedSession>(&json) {
-                        sessions.push(session);
-                    }
-                }
-            }
-        }
-
-        Ok(sessions)
     }
 }
 

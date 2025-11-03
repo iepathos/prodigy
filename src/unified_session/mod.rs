@@ -21,7 +21,7 @@ pub use state::{
     SessionId, SessionMetadata, SessionStatus, SessionSummary, SessionTimings, SessionType,
     UnifiedSession, WorkflowSession,
 };
-pub use storage::SessionStorageAdapter;
+pub use storage::SessionStorage;
 pub use timing::{format_duration, TimingTracker};
 
 use anyhow::Result;
