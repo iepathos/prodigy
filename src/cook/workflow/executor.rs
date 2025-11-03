@@ -1074,10 +1074,42 @@ impl WorkflowExecutor {
                         });
 
                         // I/O operation: save to disk
-                        match checkpoint_create_result {
-                            Ok(cp) => checkpoint_manager.save_checkpoint(&cp).await,
+                        let checkpoint_save_result = match checkpoint_create_result {
+                            Ok(cp) => {
+                                // Save checkpoint to disk
+                                let save_result = checkpoint_manager.save_checkpoint(&cp).await;
+
+                                // FIX: Update SessionManager's workflow_state so is_resumable() works correctly
+                                // This ensures the in-memory session state is synchronized with the disk checkpoint
+                                if save_result.is_ok() {
+                                    let workflow_state = crate::cook::session::WorkflowState {
+                                        current_iteration: 0,
+                                        current_step: failed_step_index,
+                                        completed_steps: self.completed_steps.clone(),
+                                        workflow_path: env.working_dir.join("workflow.yml"),
+                                        input_args: Vec::new(),
+                                        map_patterns: Vec::new(),
+                                        using_worktree: true,
+                                    };
+
+                                    // Update session manager (ignore errors to not mask the original failure)
+                                    if let Err(e) = self.session_manager
+                                        .update_session(crate::cook::session::SessionUpdate::UpdateWorkflowState(workflow_state))
+                                        .await
+                                    {
+                                        tracing::warn!(
+                                            "Failed to update session workflow_state after error checkpoint: {}",
+                                            e
+                                        );
+                                    }
+                                }
+
+                                save_result
+                            }
                             Err(e) => Err(e),
-                        }
+                        };
+
+                        checkpoint_save_result
                     }
                 };
 
