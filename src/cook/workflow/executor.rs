@@ -23,9 +23,9 @@ mod types;
 mod validation;
 
 use crate::abstractions::git::GitOperations;
-use crate::commands::CommandRegistry;
 #[cfg(test)]
 use crate::commands::AttributeValue;
+use crate::commands::CommandRegistry;
 use crate::cook::execution::interpolation::InterpolationContext;
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
@@ -64,9 +64,9 @@ static UNBRACED_VAR_REGEX: Lazy<Regex> = Lazy::new(|| {
 use pure::{ExecutionFlags, IterationContinuation};
 
 // Re-export core types from types and context modules
-pub use types::{CaptureOutput, CommandType, StepResult, VariableResolution};
-use types::deserialize_capture_output;
 pub use context::WorkflowContext;
+use types::deserialize_capture_output;
+pub use types::{CaptureOutput, CommandType, StepResult, VariableResolution};
 
 /// Handler step configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
