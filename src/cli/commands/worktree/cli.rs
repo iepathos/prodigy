@@ -97,12 +97,18 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
         // Display results
         for merge_result in &result.results {
             if merge_result.success {
-                println!("✅ Successfully merged worktree '{}'", merge_result.session_name);
+                println!(
+                    "✅ Successfully merged worktree '{}'",
+                    merge_result.session_name
+                );
             } else {
                 eprintln!(
                     "❌ Failed to merge worktree '{}': {}",
                     merge_result.session_name,
-                    merge_result.error.as_ref().unwrap_or(&"Unknown error".to_string())
+                    merge_result
+                        .error
+                        .as_ref()
+                        .unwrap_or(&"Unknown error".to_string())
                 );
             }
         }

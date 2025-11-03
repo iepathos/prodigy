@@ -17,7 +17,10 @@ pub fn format_sessions_table(sessions: &[WorktreeSession]) -> String {
 
     let mut output = String::new();
     output.push_str("Active Prodigy worktrees:\n");
-    output.push_str(&format!("{:<40} {:<30} {:<20}\n", "Name", "Branch", "Created"));
+    output.push_str(&format!(
+        "{:<40} {:<30} {:<20}\n",
+        "Name", "Branch", "Created"
+    ));
     output.push_str(&format!("{}\n", "-".repeat(90)));
 
     for session in sessions {

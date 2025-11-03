@@ -43,10 +43,7 @@ pub async fn list_sessions_operation(manager: &WorktreeManager) -> Result<Sessio
 /// Merge a single worktree session
 ///
 /// Returns a MergeResult indicating success or failure.
-pub async fn merge_session_operation(
-    manager: &WorktreeManager,
-    session_name: &str,
-) -> MergeResult {
+pub async fn merge_session_operation(manager: &WorktreeManager, session_name: &str) -> MergeResult {
     match manager.merge_session(session_name).await {
         Ok(_) => MergeResult {
             session_name: session_name.to_string(),
@@ -168,9 +165,7 @@ mod tests {
 
     #[test]
     fn test_session_list_result_creation() {
-        let result = SessionListResult {
-            sessions: vec![],
-        };
+        let result = SessionListResult { sessions: vec![] };
         assert_eq!(result.sessions.len(), 0);
     }
 
