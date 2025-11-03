@@ -30,14 +30,14 @@ pub(super) fn should_continue_retry(attempts: u32, max_attempts: u32, is_complet
 
 /// Handler type for incomplete validation
 #[derive(Debug, Clone, PartialEq)]
-enum HandlerType {
+pub(super) enum HandlerType {
     MultiCommand,
     SingleCommand,
     NoHandler,
 }
 
 /// Determine what type of handler is configured
-fn determine_handler_type(
+pub(super) fn determine_handler_type(
     on_incomplete: &crate::cook::workflow::validation::OnIncompleteConfig,
 ) -> HandlerType {
     if on_incomplete.commands.is_some() {
@@ -52,15 +52,15 @@ fn determine_handler_type(
 /// Retry progress information
 #[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
-struct RetryProgress {
-    attempts: u32,
-    max_attempts: u32,
-    completion_percentage: f64,
+pub(super) struct RetryProgress {
+    pub(super) attempts: u32,
+    pub(super) max_attempts: u32,
+    pub(super) completion_percentage: f64,
 }
 
 /// Calculate retry progress for display/logging
 #[allow(dead_code)]
-fn calculate_retry_progress(attempts: u32, max_attempts: u32, completion: f64) -> RetryProgress {
+pub(super) fn calculate_retry_progress(attempts: u32, max_attempts: u32, completion: f64) -> RetryProgress {
     RetryProgress {
         attempts,
         max_attempts,
@@ -71,7 +71,7 @@ fn calculate_retry_progress(attempts: u32, max_attempts: u32, completion: f64) -
 /// Determine if the workflow should fail based on validation state
 ///
 /// Returns true if validation is incomplete AND fail_workflow is true
-fn should_fail_workflow(is_complete: bool, fail_workflow_flag: bool, _attempts: u32) -> bool {
+pub(super) fn should_fail_workflow(is_complete: bool, fail_workflow_flag: bool, _attempts: u32) -> bool {
     !is_complete && fail_workflow_flag
 }
 
@@ -81,7 +81,7 @@ fn should_fail_workflow(is_complete: bool, fail_workflow_flag: bool, _attempts: 
 
 /// Command mode for validation execution (renamed to avoid collision with step_validation::ValidationCommandType)
 #[derive(Debug, Clone, PartialEq)]
-enum ValidationExecutionMode {
+pub(super) enum ValidationExecutionMode {
     CommandsArray,
     Claude,
     Shell,
@@ -89,7 +89,7 @@ enum ValidationExecutionMode {
 }
 
 /// Determine which command mode to execute (lines 539-621)
-fn determine_validation_execution_mode(
+pub(super) fn determine_validation_execution_mode(
     config: &super::super::validation::ValidationConfig,
 ) -> ValidationExecutionMode {
     if config.commands.is_some() {
@@ -104,14 +104,14 @@ fn determine_validation_execution_mode(
 }
 
 /// Check if result_file should be parsed after commands execution
-fn should_read_result_file_after_commands(
+pub(super) fn should_read_result_file_after_commands(
     config: &super::super::validation::ValidationConfig,
 ) -> bool {
     config.commands.is_some() && config.result_file.is_some()
 }
 
 /// Check if result_file should be used instead of stdout (legacy mode)
-fn should_use_result_file(config: &super::super::validation::ValidationConfig) -> bool {
+pub(super) fn should_use_result_file(config: &super::super::validation::ValidationConfig) -> bool {
     config.commands.is_none() && config.result_file.is_some()
 }
 
