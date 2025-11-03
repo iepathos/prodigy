@@ -235,10 +235,7 @@ pub async fn show_aggregated_stats(group_by: String, output_format: String) -> R
 ///     Some(vec!["message".to_string()])
 /// ).await?;
 /// ```
-pub async fn search_aggregated_events(
-    pattern: String,
-    fields: Option<Vec<String>>,
-) -> Result<()> {
+pub async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) -> Result<()> {
     let event_files = io::get_all_event_files()?;
 
     if event_files.is_empty() {

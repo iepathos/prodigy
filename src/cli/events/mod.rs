@@ -7,7 +7,6 @@ pub mod transform;
 
 use crate::cook::interaction::prompts::{UserPrompter, UserPrompterImpl};
 use anyhow::Result;
-use chrono::Local;
 use clap::{Args, Subcommand};
 use serde_json::Value;
 use std::fs;
@@ -332,8 +331,6 @@ async fn list_events(
     format::display_events_with_format(&events, &output_format)
 }
 
-
-
 /// Show event statistics (refactored to use pure functions)
 async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> Result<()> {
     if !file.exists() {
@@ -349,8 +346,6 @@ async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> R
     // Display statistics using pure functions
     format::display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, false)
 }
-
-
 
 /// Search events by pattern (refactored to use pure functions)
 async fn search_events(file: PathBuf, pattern: String, fields: Option<Vec<String>>) -> Result<()> {
@@ -526,7 +521,8 @@ async fn clean_events(
 
     // First perform dry-run analysis to show what will be cleaned
     let _analysis_total = if !dry_run {
-        let analysis = analysis::analyze_retention_targets(all_jobs, job_id.as_deref(), &policy).await?;
+        let analysis =
+            analysis::analyze_retention_targets(all_jobs, job_id.as_deref(), &policy).await?;
 
         if !confirm_cleanup(&analysis).await? {
             return Ok(());
@@ -1009,7 +1005,7 @@ mod tests {
     use super::format::*;
     use super::transform::*;
     use super::*;
-    use chrono::TimeZone;
+    use chrono::{Local, TimeZone};
     use serde_json::json;
 
     #[test]
@@ -1326,7 +1322,6 @@ mod tests {
     // ===========================================================================
     // Tests for Pure Decision Functions
     // ===========================================================================
-
 
     #[test]
     fn test_build_global_events_path() {
