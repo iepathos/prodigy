@@ -384,3 +384,175 @@ fn test_should_use_result_file_false_with_commands() {
 
     assert!(!should_use_result_file(&config));
 }
+
+// ============================================================================
+// Phase 3: Tests for Result Construction Functions
+// ============================================================================
+
+// Tests for create_command_step_failure_result
+#[test]
+fn test_create_command_step_failure_result() {
+    let result = create_command_step_failure_result(0, "Error: test failed");
+
+    assert_eq!(result.status, ValidationStatus::Failed);
+    assert!(result
+        .missing
+        .iter()
+        .any(|m| m.contains("Validation step 1 failed")));
+    assert!(result
+        .missing
+        .iter()
+        .any(|m| m.contains("Error: test failed")));
+}
+
+#[test]
+fn test_create_command_step_failure_result_multiple_steps() {
+    let result1 = create_command_step_failure_result(0, "First error");
+    let result2 = create_command_step_failure_result(1, "Second error");
+    let result3 = create_command_step_failure_result(2, "Third error");
+
+    assert!(result1
+        .missing
+        .iter()
+        .any(|m| m.contains("Validation step 1 failed")));
+    assert!(result2
+        .missing
+        .iter()
+        .any(|m| m.contains("Validation step 2 failed")));
+    assert!(result3
+        .missing
+        .iter()
+        .any(|m| m.contains("Validation step 3 failed")));
+}
+
+// Tests for create_file_read_error_result
+#[test]
+fn test_create_file_read_error_result() {
+    let result = create_file_read_error_result("results.json", "No such file or directory");
+
+    assert_eq!(result.status, ValidationStatus::Failed);
+    assert!(result
+        .missing
+        .iter()
+        .any(|m| m.contains("Failed to read validation result from results.json")));
+    assert!(result
+        .missing
+        .iter()
+        .any(|m| m.contains("No such file or directory")));
+}
+
+#[test]
+fn test_create_file_read_error_result_permission_denied() {
+    let result = create_file_read_error_result("/root/secret.json", "Permission denied");
+
+    assert_eq!(result.status, ValidationStatus::Failed);
+    assert!(result
+        .missing
+        .iter()
+        .any(|m| m.contains("/root/secret.json")));
+    assert!(result
+        .missing
+        .iter()
+        .any(|m| m.contains("Permission denied")));
+}
+
+// Tests for create_command_execution_failure_result
+#[test]
+fn test_create_command_execution_failure_result() {
+    let result = create_command_execution_failure_result(1);
+
+    assert_eq!(result.status, ValidationStatus::Failed);
+    assert!(result
+        .missing
+        .iter()
+        .any(|m| m.contains("Validation command failed with exit code: 1")));
+}
+
+#[test]
+fn test_create_command_execution_failure_result_various_codes() {
+    let result0 = create_command_execution_failure_result(0);
+    let result1 = create_command_execution_failure_result(1);
+    let result127 = create_command_execution_failure_result(127);
+    let result_neg1 = create_command_execution_failure_result(-1);
+
+    assert!(result0.missing.iter().any(|m| m.contains("exit code: 0")));
+    assert!(result1.missing.iter().any(|m| m.contains("exit code: 1")));
+    assert!(result127
+        .missing
+        .iter()
+        .any(|m| m.contains("exit code: 127")));
+    assert!(result_neg1
+        .missing
+        .iter()
+        .any(|m| m.contains("exit code: -1")));
+}
+
+// Tests for create_validation_execution_context
+#[test]
+fn test_create_validation_execution_context_with_timeout() {
+    let working_dir = std::path::PathBuf::from("/tmp/test");
+    let timeout = Some(30);
+
+    let context = create_validation_execution_context(working_dir.clone(), timeout);
+
+    assert_eq!(context.working_directory, working_dir);
+    assert!(context.env_vars.is_empty());
+    assert!(context.capture_output);
+    assert_eq!(context.timeout_seconds, Some(30));
+    assert!(context.stdin.is_none());
+    assert!(!context.capture_streaming);
+    assert!(context.streaming_config.is_none());
+}
+
+#[test]
+fn test_create_validation_execution_context_without_timeout() {
+    let working_dir = std::path::PathBuf::from("/tmp/test");
+
+    let context = create_validation_execution_context(working_dir.clone(), None);
+
+    assert_eq!(context.working_directory, working_dir);
+    assert!(context.timeout_seconds.is_none());
+    assert!(context.capture_output);
+}
+
+#[test]
+fn test_create_validation_execution_context_zero_timeout() {
+    let working_dir = std::path::PathBuf::from("/tmp/test");
+    let timeout = Some(0);
+
+    let context = create_validation_execution_context(working_dir.clone(), timeout);
+
+    assert_eq!(context.timeout_seconds, Some(0));
+}
+
+// Tests for create_validation_timeout_result
+#[test]
+fn test_create_validation_timeout_result_basic() {
+    let timeout_secs = 30;
+
+    let result = create_validation_timeout_result(timeout_secs);
+
+    assert!(!result.passed);
+    assert_eq!(result.results.len(), 0);
+    assert_eq!(result.duration, std::time::Duration::from_secs(30));
+    assert_eq!(result.attempts, 1);
+}
+
+#[test]
+fn test_create_validation_timeout_result_zero_timeout() {
+    let result = create_validation_timeout_result(0);
+
+    assert!(!result.passed);
+    assert_eq!(result.duration, std::time::Duration::from_secs(0));
+}
+
+#[test]
+fn test_create_validation_timeout_result_long_timeout() {
+    let timeout_secs = 3600; // 1 hour
+
+    let result = create_validation_timeout_result(timeout_secs);
+
+    assert!(!result.passed);
+    assert_eq!(result.duration, std::time::Duration::from_secs(3600));
+    assert_eq!(result.attempts, 1);
+}

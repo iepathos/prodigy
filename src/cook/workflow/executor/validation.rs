@@ -136,7 +136,7 @@ fn parse_validation_result_with_fallback(
 }
 
 /// Create a failed validation result for a command step failure
-fn create_command_step_failure_result(
+pub(super) fn create_command_step_failure_result(
     step_idx: usize,
     stdout: &str,
 ) -> super::super::validation::ValidationResult {
@@ -148,7 +148,7 @@ fn create_command_step_failure_result(
 }
 
 /// Create a failed validation result for file read errors
-fn create_file_read_error_result(
+pub(super) fn create_file_read_error_result(
     file_path: &str,
     error: &str,
 ) -> super::super::validation::ValidationResult {
@@ -159,7 +159,7 @@ fn create_file_read_error_result(
 }
 
 /// Create a failed validation result for command execution failure
-fn create_command_execution_failure_result(
+pub(super) fn create_command_execution_failure_result(
     exit_code: i32,
 ) -> super::super::validation::ValidationResult {
     super::super::validation::ValidationResult::failed(format!(
@@ -234,7 +234,7 @@ fn determine_step_name(step: &WorkflowStep) -> &str {
 /// Create execution context for step validation
 ///
 /// Pure function that builds ExecutionContext with validation-specific settings
-fn create_validation_execution_context(
+pub(super) fn create_validation_execution_context(
     working_directory: std::path::PathBuf,
     timeout_seconds: Option<u64>,
 ) -> ExecutionContext {
@@ -252,7 +252,7 @@ fn create_validation_execution_context(
 /// Create a timeout failure result for step validation
 ///
 /// Pure function that builds StepValidationResult representing a timeout
-fn create_validation_timeout_result(
+pub(super) fn create_validation_timeout_result(
     timeout_secs: u64,
 ) -> super::super::step_validation::StepValidationResult {
     super::super::step_validation::StepValidationResult {
