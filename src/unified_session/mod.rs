@@ -15,6 +15,7 @@ mod storage;
 #[cfg(test)]
 mod tests;
 pub mod timing;
+mod updates;
 
 pub use cook_adapter::CookSessionAdapter;
 pub use manager::{SessionManager, SessionUpdate};

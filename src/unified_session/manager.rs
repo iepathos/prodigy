@@ -1,6 +1,6 @@
 //! Unified session manager implementation
 
-use super::{checkpoints, lifecycle};
+use super::{checkpoints, lifecycle, updates};
 use super::state::{
     Checkpoint, CheckpointId, SessionConfig, SessionFilter, SessionId, SessionStatus,
     SessionSummary, UnifiedSession,
@@ -119,55 +119,22 @@ impl SessionManager {
                 lifecycle::apply_status_update(&mut session, status)?;
             }
             SessionUpdate::Metadata(metadata) => {
-                // Handle special metadata keys
-                for (key, value) in metadata.iter() {
-                    match key.as_str() {
-                        "files_changed_delta" => {
-                            if let Some(count) = value.as_u64() {
-                                if let Some(workflow) = &mut session.workflow_data {
-                                    workflow.files_changed += count as u32;
-                                }
-                            }
-                        }
-                        "increment_iteration" => {
-                            if value.as_bool().unwrap_or(false) {
-                                if let Some(workflow) = &mut session.workflow_data {
-                                    workflow.iterations_completed += 1;
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                session.metadata.extend(metadata);
+                updates::apply_metadata_update(&mut session, metadata);
             }
             SessionUpdate::Checkpoint(state) => {
-                let checkpoint = Checkpoint {
-                    id: CheckpointId::new(),
-                    created_at: chrono::Utc::now(),
-                    state,
-                    metadata: HashMap::new(),
-                };
-                session.checkpoints.push(checkpoint);
+                updates::apply_checkpoint_update(&mut session, state);
             }
             SessionUpdate::Error(error) => {
-                session.error = Some(error);
-                session.status = SessionStatus::Failed;
+                updates::apply_error_update(&mut session, error);
             }
             SessionUpdate::Progress { current, total } => {
-                if let Some(workflow) = &mut session.workflow_data {
-                    workflow.current_step = current;
-                    workflow.total_steps = total;
-                } else if let Some(mapreduce) = &mut session.mapreduce_data {
-                    mapreduce.processed_items = current;
-                    mapreduce.total_items = total;
-                }
+                updates::apply_progress_update(&mut session, current, total);
             }
             SessionUpdate::Timing {
                 operation,
                 duration,
             } => {
-                session.timings.insert(operation, duration);
+                updates::apply_timing_update(&mut session, operation, duration);
             }
         }
 
