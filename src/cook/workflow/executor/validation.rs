@@ -116,7 +116,7 @@ pub(super) fn should_use_result_file(config: &super::super::validation::Validati
 }
 
 /// Parse validation JSON with fallback to simple complete/failed result
-fn parse_validation_result_with_fallback(
+pub(super) fn parse_validation_result_with_fallback(
     json_content: &str,
     command_success: bool,
 ) -> super::super::validation::ValidationResult {
@@ -169,7 +169,7 @@ pub(super) fn create_command_execution_failure_result(
 }
 
 /// Parse result file content with fallback to complete on non-JSON
-fn parse_result_file_content(content: &str) -> super::super::validation::ValidationResult {
+pub(super) fn parse_result_file_content(content: &str) -> super::super::validation::ValidationResult {
     use super::super::validation::ValidationResult;
 
     match ValidationResult::from_json(content) {
@@ -183,7 +183,7 @@ fn parse_result_file_content(content: &str) -> super::super::validation::Validat
 // ============================================================================
 
 /// Format a success message for passed validation
-fn format_validation_passed_message(results_count: usize, attempts: u32) -> String {
+pub(super) fn format_validation_passed_message(results_count: usize, attempts: u32) -> String {
     format!(
         "Step validation passed ({} validation{}, {} attempt{})",
         results_count,
@@ -194,7 +194,7 @@ fn format_validation_passed_message(results_count: usize, attempts: u32) -> Stri
 }
 
 /// Format a warning message for failed validation
-fn format_validation_failed_message(results_count: usize, attempts: u32) -> String {
+pub(super) fn format_validation_failed_message(results_count: usize, attempts: u32) -> String {
     format!(
         "Step validation failed ({} validation{}, {} attempt{})",
         results_count,
@@ -205,7 +205,7 @@ fn format_validation_failed_message(results_count: usize, attempts: u32) -> Stri
 }
 
 /// Format detailed message for a single failed validation
-fn format_failed_validation_detail(idx: usize, message: &str, exit_code: i32) -> String {
+pub(super) fn format_failed_validation_detail(idx: usize, message: &str, exit_code: i32) -> String {
     format!(
         "  Validation {}: {} (exit code: {})",
         idx + 1,
@@ -215,7 +215,7 @@ fn format_failed_validation_detail(idx: usize, message: &str, exit_code: i32) ->
 }
 
 /// Determine step name for logging based on step properties
-fn determine_step_name(step: &WorkflowStep) -> &str {
+pub(super) fn determine_step_name(step: &WorkflowStep) -> &str {
     step.name.as_deref().unwrap_or_else(|| {
         if step.claude.is_some() {
             "claude command"

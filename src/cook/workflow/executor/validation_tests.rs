@@ -556,3 +556,230 @@ fn test_create_validation_timeout_result_long_timeout() {
     assert_eq!(result.duration, std::time::Duration::from_secs(3600));
     assert_eq!(result.attempts, 1);
 }
+
+// ============================================================================
+// Phase 4: Tests for Formatting and Parsing Functions
+// ============================================================================
+
+use crate::cook::workflow::WorkflowStep;
+
+// Tests for format_validation_passed_message
+#[test]
+fn test_format_validation_passed_message_single_validation_single_attempt() {
+    let message = format_validation_passed_message(1, 1);
+    assert_eq!(message, "Step validation passed (1 validation, 1 attempt)");
+}
+
+#[test]
+fn test_format_validation_passed_message_multiple_validations_single_attempt() {
+    let message = format_validation_passed_message(3, 1);
+    assert_eq!(message, "Step validation passed (3 validations, 1 attempt)");
+}
+
+#[test]
+fn test_format_validation_passed_message_single_validation_multiple_attempts() {
+    let message = format_validation_passed_message(1, 5);
+    assert_eq!(message, "Step validation passed (1 validation, 5 attempts)");
+}
+
+#[test]
+fn test_format_validation_passed_message_multiple_validations_multiple_attempts() {
+    let message = format_validation_passed_message(4, 3);
+    assert_eq!(
+        message,
+        "Step validation passed (4 validations, 3 attempts)"
+    );
+}
+
+// Tests for format_validation_failed_message
+#[test]
+fn test_format_validation_failed_message_single_validation_single_attempt() {
+    let message = format_validation_failed_message(1, 1);
+    assert_eq!(message, "Step validation failed (1 validation, 1 attempt)");
+}
+
+#[test]
+fn test_format_validation_failed_message_multiple_validations_single_attempt() {
+    let message = format_validation_failed_message(2, 1);
+    assert_eq!(message, "Step validation failed (2 validations, 1 attempt)");
+}
+
+#[test]
+fn test_format_validation_failed_message_single_validation_multiple_attempts() {
+    let message = format_validation_failed_message(1, 4);
+    assert_eq!(message, "Step validation failed (1 validation, 4 attempts)");
+}
+
+#[test]
+fn test_format_validation_failed_message_multiple_validations_multiple_attempts() {
+    let message = format_validation_failed_message(5, 2);
+    assert_eq!(
+        message,
+        "Step validation failed (5 validations, 2 attempts)"
+    );
+}
+
+// Tests for format_failed_validation_detail
+#[test]
+fn test_format_failed_validation_detail_simple_message() {
+    let detail = format_failed_validation_detail(0, "test failed", 1);
+    assert_eq!(detail, "  Validation 1: test failed (exit code: 1)");
+}
+
+#[test]
+fn test_format_failed_validation_detail_multiple_validations() {
+    let detail1 = format_failed_validation_detail(0, "first failure", 1);
+    let detail2 = format_failed_validation_detail(1, "second failure", 2);
+    let detail3 = format_failed_validation_detail(2, "third failure", 127);
+
+    assert_eq!(detail1, "  Validation 1: first failure (exit code: 1)");
+    assert_eq!(detail2, "  Validation 2: second failure (exit code: 2)");
+    assert_eq!(detail3, "  Validation 3: third failure (exit code: 127)");
+}
+
+#[test]
+fn test_format_failed_validation_detail_with_special_characters() {
+    let detail = format_failed_validation_detail(3, "Error: file \"test.txt\" not found", 2);
+    assert_eq!(
+        detail,
+        "  Validation 4: Error: file \"test.txt\" not found (exit code: 2)"
+    );
+}
+
+// Tests for determine_step_name
+#[test]
+fn test_determine_step_name_with_explicit_name() {
+    let step = WorkflowStep {
+        name: Some("my-custom-step".to_string()),
+        claude: Some("/prodigy-lint".to_string()),
+        shell: Some("cargo test".to_string()),
+        ..Default::default()
+    };
+
+    assert_eq!(determine_step_name(&step), "my-custom-step");
+}
+
+#[test]
+fn test_determine_step_name_with_claude_no_name() {
+    let step = WorkflowStep {
+        name: None,
+        claude: Some("/prodigy-code-review".to_string()),
+        shell: None,
+        ..Default::default()
+    };
+
+    assert_eq!(determine_step_name(&step), "claude command");
+}
+
+#[test]
+fn test_determine_step_name_with_shell_no_name() {
+    let step = WorkflowStep {
+        name: None,
+        claude: None,
+        shell: Some("cargo build --release".to_string()),
+        ..Default::default()
+    };
+
+    assert_eq!(determine_step_name(&step), "shell command");
+}
+
+#[test]
+fn test_determine_step_name_with_neither_fallback() {
+    let step = WorkflowStep {
+        name: None,
+        claude: None,
+        shell: None,
+        ..Default::default()
+    };
+
+    assert_eq!(determine_step_name(&step), "workflow step");
+}
+
+#[test]
+fn test_determine_step_name_empty_name_uses_fallback() {
+    // If name is None (not just empty string), should use fallback logic
+    let step = WorkflowStep {
+        name: None,
+        claude: Some("/command".to_string()),
+        ..Default::default()
+    };
+
+    assert_eq!(determine_step_name(&step), "claude command");
+}
+
+// Tests for parse_validation_result_with_fallback
+#[test]
+fn test_parse_validation_result_with_fallback_valid_json() {
+    let json = r#"{"status":"complete","completion_percentage":100.0,"implemented":["feature1"],"missing":[],"gaps":{}}"#;
+
+    let result = parse_validation_result_with_fallback(json, true);
+
+    assert_eq!(result.status, ValidationStatus::Complete);
+    assert_eq!(result.completion_percentage, 100.0);
+    assert_eq!(result.implemented.len(), 1);
+}
+
+#[test]
+fn test_parse_validation_result_with_fallback_invalid_json_success() {
+    let invalid_json = "This is not JSON";
+
+    let result = parse_validation_result_with_fallback(invalid_json, true);
+
+    assert_eq!(result.status, ValidationStatus::Complete);
+    assert_eq!(result.completion_percentage, 100.0);
+}
+
+#[test]
+fn test_parse_validation_result_with_fallback_invalid_json_failure() {
+    let invalid_json = "This is not JSON";
+
+    let result = parse_validation_result_with_fallback(invalid_json, false);
+
+    assert_eq!(result.status, ValidationStatus::Failed);
+    assert!(result
+        .missing
+        .iter()
+        .any(|m| m.contains("Validation failed (non-JSON output)")));
+}
+
+// Tests for parse_result_file_content
+#[test]
+fn test_parse_result_file_content_valid_json() {
+    let json = r#"{"status":"complete","completion_percentage":100.0,"implemented":[],"missing":[],"gaps":{}}"#;
+
+    let result = parse_result_file_content(json);
+
+    assert_eq!(result.status, ValidationStatus::Complete);
+    assert_eq!(result.completion_percentage, 100.0);
+}
+
+#[test]
+fn test_parse_result_file_content_invalid_json_returns_complete() {
+    let invalid = "Not JSON at all";
+
+    let result = parse_result_file_content(invalid);
+
+    // Should return complete when JSON parsing fails (after commands array)
+    assert_eq!(result.status, ValidationStatus::Complete);
+    assert_eq!(result.completion_percentage, 100.0);
+}
+
+#[test]
+fn test_parse_result_file_content_empty_string() {
+    let result = parse_result_file_content("");
+
+    // Empty string is not valid JSON, should return complete
+    assert_eq!(result.status, ValidationStatus::Complete);
+}
+
+#[test]
+fn test_parse_result_file_content_partial_implementation() {
+    let json = r#"{"status":"incomplete","completion_percentage":50.0,"implemented":["feature1"],"missing":["feature2"],"gaps":{}}"#;
+
+    let result = parse_result_file_content(json);
+
+    assert_eq!(result.status, ValidationStatus::Incomplete);
+    assert_eq!(result.completion_percentage, 50.0);
+    assert_eq!(result.implemented.len(), 1);
+    assert_eq!(result.missing.len(), 1);
+}
