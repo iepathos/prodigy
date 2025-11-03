@@ -23,6 +23,7 @@ mod executor_tests;
 pub mod git_context;
 #[cfg(test)]
 mod git_context_tests;
+mod git_utils;
 pub mod normalized;
 mod on_failure;
 pub mod progress;
