@@ -60,7 +60,11 @@ pub(super) struct RetryProgress {
 
 /// Calculate retry progress for display/logging
 #[allow(dead_code)]
-pub(super) fn calculate_retry_progress(attempts: u32, max_attempts: u32, completion: f64) -> RetryProgress {
+pub(super) fn calculate_retry_progress(
+    attempts: u32,
+    max_attempts: u32,
+    completion: f64,
+) -> RetryProgress {
     RetryProgress {
         attempts,
         max_attempts,
@@ -71,7 +75,11 @@ pub(super) fn calculate_retry_progress(attempts: u32, max_attempts: u32, complet
 /// Determine if the workflow should fail based on validation state
 ///
 /// Returns true if validation is incomplete AND fail_workflow is true
-pub(super) fn should_fail_workflow(is_complete: bool, fail_workflow_flag: bool, _attempts: u32) -> bool {
+pub(super) fn should_fail_workflow(
+    is_complete: bool,
+    fail_workflow_flag: bool,
+    _attempts: u32,
+) -> bool {
     !is_complete && fail_workflow_flag
 }
 
@@ -169,7 +177,9 @@ pub(super) fn create_command_execution_failure_result(
 }
 
 /// Parse result file content with fallback to complete on non-JSON
-pub(super) fn parse_result_file_content(content: &str) -> super::super::validation::ValidationResult {
+pub(super) fn parse_result_file_content(
+    content: &str,
+) -> super::super::validation::ValidationResult {
     use super::super::validation::ValidationResult;
 
     match ValidationResult::from_json(content) {
