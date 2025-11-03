@@ -1,6 +1,7 @@
 //! CLI commands for viewing and searching MapReduce events
 
 pub mod format;
+pub mod io;
 pub mod transform;
 
 use crate::cook::interaction::prompts::{UserPrompter, UserPrompterImpl};
@@ -11,7 +12,6 @@ use serde_json::Value;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use tracing::info;
 
 /// Event viewer commands
 #[derive(Debug, Args)]
@@ -204,7 +204,7 @@ fn read_job_status(job_events_dir: &Path) -> Result<format::JobInfo> {
     let mut failure_count = 0;
 
     // Find and read event files
-    let event_files = find_event_files(job_events_dir)?;
+    let event_files = io::find_event_files(job_events_dir)?;
 
     for file in event_files {
         let content = fs::read_to_string(&file)?;
@@ -269,95 +269,6 @@ fn process_event_for_status(
     }
 }
 
-/// Find all event files in a directory, sorted by name
-fn find_event_files(dir: &Path) -> Result<Vec<PathBuf>> {
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let mut files: Vec<_> = fs::read_dir(dir)?
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path()
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .map(|ext| ext == "jsonl")
-                .unwrap_or(false)
-        })
-        .map(|e| e.path())
-        .collect();
-
-    files.sort();
-    Ok(files)
-}
-
-/// Resolve event file path for a specific job
-fn resolve_job_event_file(job_id: &str) -> Result<PathBuf> {
-    let current_dir = std::env::current_dir()?;
-    let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-    let global_base = crate::storage::get_default_storage_dir()?;
-    let job_events_dir = global_base.join("events").join(&repo_name).join(job_id);
-
-    if !job_events_dir.exists() {
-        return Err(anyhow::anyhow!("Job '{}' not found", job_id));
-    }
-
-    // Find the most recent event file
-    let event_files = find_event_files(&job_events_dir)?;
-
-    event_files
-        .into_iter()
-        .next_back()
-        .ok_or_else(|| anyhow::anyhow!("No event files found for job '{}'", job_id))
-}
-
-/// Resolve event file path, with fallback to local file if it exists
-fn resolve_event_file_with_fallback(file: PathBuf, job_id: Option<&str>) -> Result<PathBuf> {
-    // If the provided file exists, use it directly
-    if file.exists() {
-        return Ok(file);
-    }
-
-    // If a job_id is provided, resolve it from global storage
-    if let Some(job_id) = job_id {
-        if let Ok(resolved) = resolve_job_event_file(job_id) {
-            info!("Using global event file: {:?}", resolved);
-            return Ok(resolved);
-        }
-    }
-
-    // Return the original path (will fail gracefully if it doesn't exist)
-    Ok(file)
-}
-
-/// Get all event files from global storage for aggregate operations
-fn get_all_event_files() -> Result<Vec<PathBuf>> {
-    // Always use global storage for event file aggregation
-
-    let current_dir = std::env::current_dir()?;
-    let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-    let global_base = crate::storage::get_default_storage_dir()?;
-    let global_events_dir = global_base.join("events").join(&repo_name);
-
-    if !global_events_dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let mut all_files = Vec::new();
-
-    // Iterate through all job directories
-    for entry in fs::read_dir(&global_events_dir)? {
-        let entry = entry?;
-        if entry.path().is_dir() {
-            let event_files = find_event_files(&entry.path())?;
-            all_files.extend(event_files);
-        }
-    }
-
-    all_files.sort();
-    Ok(all_files)
-}
-
 // =============================================================================
 // Re-exports from submodules
 // =============================================================================
@@ -387,7 +298,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
                 Ok(())
             } else {
                 // Resolve the event file and list events
-                let resolved_file = resolve_event_file_with_fallback(file, job_id.as_deref())?;
+                let resolved_file = io::resolve_event_file_with_fallback(file, job_id.as_deref())?;
                 list_events(
                     resolved_file,
                     job_id,
@@ -410,7 +321,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             if !file.exists() {
                 show_aggregated_stats(group_by, output_format).await
             } else {
-                let resolved_file = resolve_event_file_with_fallback(file, None)?;
+                let resolved_file = io::resolve_event_file_with_fallback(file, None)?;
                 show_stats(resolved_file, group_by, output_format).await
             }
         }
@@ -424,7 +335,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             if !file.exists() {
                 search_aggregated_events(pattern, fields).await
             } else {
-                let resolved_file = resolve_event_file_with_fallback(file, None)?;
+                let resolved_file = io::resolve_event_file_with_fallback(file, None)?;
                 search_events(resolved_file, pattern, fields).await
             }
         }
@@ -434,7 +345,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             job_id,
             event_type,
         } => {
-            let resolved_file = resolve_event_file_with_fallback(file, job_id.as_deref())?;
+            let resolved_file = io::resolve_event_file_with_fallback(file, job_id.as_deref())?;
             follow_events(resolved_file, job_id, event_type).await
         }
 
@@ -447,7 +358,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             if !file.exists() {
                 export_aggregated_events(format, output).await
             } else {
-                let resolved_file = resolve_event_file_with_fallback(file, None)?;
+                let resolved_file = io::resolve_event_file_with_fallback(file, None)?;
                 export_events(resolved_file, format, output).await
             }
         }
@@ -526,35 +437,15 @@ async fn list_events(
     let filter = EventFilter::new(job_id, event_type, agent_id, since);
 
     // Read events from file
-    let events = read_and_filter_events(&file, &filter, limit)?;
+    let events = io::read_and_filter_events(&file, &filter, limit)?;
 
     // Display events using pure functions
     format::display_events_with_format(&events, &output_format)
 }
 
-/// Pure I/O function to read and filter events from file
-fn read_and_filter_events(
-    file: &PathBuf,
-    filter: &EventFilter,
-    limit: usize,
-) -> Result<Vec<Value>> {
-    let file_handle = fs::File::open(file)?;
-    let reader = BufReader::new(file_handle);
-
-    let events = reader
-        .lines()
-        .map_while(Result::ok)
-        .filter_map(|line| transform::parse_event_line(&line))
-        .filter(|event| filter.matches_event(event))
-        .take(limit)
-        .collect();
-
-    Ok(events)
-}
-
 /// Show aggregated statistics from all global event files (refactored)
 async fn show_aggregated_stats(group_by: String, output_format: String) -> Result<()> {
-    let event_files = get_all_event_files()?;
+    let event_files = io::get_all_event_files()?;
 
     if event_files.is_empty() {
         println!("No events found in global storage.");
@@ -562,7 +453,7 @@ async fn show_aggregated_stats(group_by: String, output_format: String) -> Resul
     }
 
     // Read all events and calculate statistics using pure functions
-    let all_events = read_events_from_files(&event_files)?;
+    let all_events = io::read_events_from_files(&event_files)?;
     let (stats, total) = transform::calculate_event_statistics(all_events.into_iter(), &group_by);
     let sorted_stats = transform::sort_statistics_by_count(stats);
 
@@ -570,24 +461,6 @@ async fn show_aggregated_stats(group_by: String, output_format: String) -> Resul
     format::display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, true)
 }
 
-/// Pure I/O function to read events from multiple files
-fn read_events_from_files(event_files: &[PathBuf]) -> Result<Vec<Value>> {
-    let mut all_events = Vec::new();
-
-    for file in event_files {
-        let content = fs::File::open(file)?;
-        let reader = BufReader::new(content);
-
-        for line in reader.lines() {
-            let line = line?;
-            if let Some(event) = transform::parse_event_line(&line) {
-                all_events.push(event);
-            }
-        }
-    }
-
-    Ok(all_events)
-}
 
 /// Show event statistics (refactored to use pure functions)
 async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> Result<()> {
@@ -597,7 +470,7 @@ async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> R
     }
 
     // Read events and calculate statistics using pure functions
-    let events = read_events_from_single_file(&file)?;
+    let events = io::read_events_from_single_file(&file)?;
     let (stats, total) = transform::calculate_event_statistics(events.into_iter(), &group_by);
     let sorted_stats = transform::sort_statistics_by_count(stats);
 
@@ -605,23 +478,10 @@ async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> R
     format::display_statistics_with_format(&sorted_stats, total, &group_by, &output_format, false)
 }
 
-/// Pure I/O function to read events from a single file
-fn read_events_from_single_file(file: &PathBuf) -> Result<Vec<Value>> {
-    let file_handle = fs::File::open(file)?;
-    let reader = BufReader::new(file_handle);
-
-    let events = reader
-        .lines()
-        .map_while(Result::ok)
-        .filter_map(|line| transform::parse_event_line(&line))
-        .collect();
-
-    Ok(events)
-}
 
 /// Search aggregated events from all global event files (refactored)
 async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) -> Result<()> {
-    let event_files = get_all_event_files()?;
+    let event_files = io::get_all_event_files()?;
 
     if event_files.is_empty() {
         println!("No events found in global storage.");
@@ -629,7 +489,7 @@ async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) 
     }
 
     // Read all events and search using pure functions
-    let all_events = read_events_from_files(&event_files)?;
+    let all_events = io::read_events_from_files(&event_files)?;
     let matching_events =
         transform::search_events_with_pattern(&all_events, &pattern, fields.as_deref())?;
 
@@ -645,7 +505,7 @@ async fn search_events(file: PathBuf, pattern: String, fields: Option<Vec<String
     }
 
     // Read events and search using pure functions
-    let events = read_events_from_single_file(&file)?;
+    let events = io::read_events_from_single_file(&file)?;
     let matching_events =
         transform::search_events_with_pattern(&events, &pattern, fields.as_deref())?;
 
@@ -667,7 +527,7 @@ async fn follow_events(
     // Set up file watcher
     let (tx, rx) = channel();
     let mut watcher = setup_file_watcher(tx)?;
-    let watch_path = determine_watch_path(&file);
+    let watch_path = io::determine_watch_path(&file);
     watcher.watch(&watch_path, RecursiveMode::NonRecursive)?;
 
     println!("Following events (Ctrl+C to stop)...\n");
@@ -702,17 +562,6 @@ fn setup_file_watcher(
     })?;
 
     Ok(watcher)
-}
-
-/// Determine the path to watch based on file existence
-fn determine_watch_path(file: &Path) -> PathBuf {
-    if file.exists() {
-        file.to_path_buf()
-    } else {
-        file.parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| file.to_path_buf())
-    }
 }
 
 /// Watch existing file for new events
@@ -768,7 +617,7 @@ async fn wait_for_file_creation(
 
 /// Export aggregated events from all global event files
 async fn export_aggregated_events(format: String, output: Option<PathBuf>) -> Result<()> {
-    let event_files = get_all_event_files()?;
+    let event_files = io::get_all_event_files()?;
 
     if event_files.is_empty() {
         println!("No events found in global storage.");
@@ -939,12 +788,6 @@ fn should_analyze_global_storage(all_jobs: bool, job_id: Option<&str>) -> bool {
     all_jobs || job_id.is_some()
 }
 
-/// Pure function: Build global events path from repo name
-fn build_global_events_path(repo_name: &str) -> Result<PathBuf> {
-    let global_base = crate::storage::get_default_storage_dir()?;
-    Ok(global_base.join("events").join(repo_name))
-}
-
 // ==============================================================================
 // Retention Analysis
 // ==============================================================================
@@ -962,7 +805,7 @@ async fn analyze_retention_targets(
     if should_analyze_global_storage(all_jobs, job_id) {
         let current_dir = std::env::current_dir()?;
         let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-        let global_events_dir = build_global_events_path(&repo_name)?;
+        let global_events_dir = io::build_global_events_path(&repo_name)?;
 
         if global_events_dir.exists() {
             let job_dirs = get_job_directories(&global_events_dir, job_id)?;
@@ -989,7 +832,7 @@ async fn aggregate_job_retention(
     let mut analysis_total = RetentionAnalysis::default();
 
     for job_dir in job_dirs {
-        let event_files = find_event_files(&job_dir)?;
+        let event_files = io::find_event_files(&job_dir)?;
         for event_file in event_files {
             let retention = RetentionManager::new(policy.clone(), event_file);
             let analysis = retention.analyze_retention().await?;
@@ -1180,7 +1023,7 @@ async fn process_job_directory(
     let job_name = transform::extract_job_name(&job_dir);
     println!("Processing job: {}", job_name);
 
-    let event_files = find_event_files(&job_dir)?;
+    let event_files = io::find_event_files(&job_dir)?;
     let mut stats = (0usize, 0usize);
 
     for event_file in event_files {
@@ -1776,7 +1619,7 @@ mod tests {
 
     #[test]
     fn test_build_global_events_path() {
-        let result = build_global_events_path("test-repo");
+        let result = io::build_global_events_path("test-repo");
         assert!(result.is_ok());
         let path = result.unwrap();
         assert!(path.to_string_lossy().contains("events"));
@@ -1785,7 +1628,7 @@ mod tests {
 
     #[test]
     fn test_build_global_events_path_empty_repo() {
-        let result = build_global_events_path("");
+        let result = io::build_global_events_path("");
         assert!(result.is_ok());
         let path = result.unwrap();
         assert!(path.to_string_lossy().contains("events"));
