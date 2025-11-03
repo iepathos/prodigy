@@ -1,6 +1,6 @@
 //! Expression validator for checking syntax and types
 
-use super::parser::Expression;
+use super::ast::Expression;
 use anyhow::{anyhow, Result};
 
 /// Expression validator

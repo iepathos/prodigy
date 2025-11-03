@@ -9,6 +9,7 @@
 //! - JSONPath field access with array support
 //! - Multiple sort keys with custom null handling
 
+pub mod ast;
 pub mod evaluator;
 pub mod optimizer;
 pub mod parser;
@@ -17,9 +18,10 @@ pub mod validator;
 use anyhow::Result;
 use serde_json::Value;
 
+pub use ast::{Expression, NullHandling, SortDirection, SortKey};
 pub use evaluator::{Collation, CompiledFilter, CompiledSort, ExpressionEvaluator};
 pub use optimizer::ExpressionOptimizer;
-pub use parser::{Expression, ExpressionParser};
+pub use parser::ExpressionParser;
 pub use validator::ExpressionValidator;
 
 /// Expression engine for compiling and executing filter/sort expressions

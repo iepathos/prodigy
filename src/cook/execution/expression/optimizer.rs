@@ -1,6 +1,6 @@
 //! Expression optimizer for improving performance
 
-use super::parser::Expression;
+use super::ast::Expression;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
