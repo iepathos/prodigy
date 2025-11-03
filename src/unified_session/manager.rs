@@ -1,6 +1,6 @@
 //! Unified session manager implementation
 
-use super::{checkpoints, lifecycle, updates};
+use super::{checkpoints, filters, lifecycle, updates};
 use super::state::{
     Checkpoint, CheckpointId, SessionConfig, SessionFilter, SessionId, SessionStatus,
     SessionSummary, UnifiedSession,
@@ -266,47 +266,19 @@ impl SessionManager {
     ) -> Result<Vec<SessionSummary>> {
         let sessions = self.storage.load_all().await?;
 
-        let filtered = if let Some(filter) = filter {
+        // Apply filter if provided
+        let filtered_sessions = if let Some(filter) = filter {
             sessions
                 .into_iter()
-                .filter(|s| {
-                    if let Some(status) = &filter.status {
-                        if s.status != *status {
-                            return false;
-                        }
-                    }
-                    if let Some(session_type) = &filter.session_type {
-                        if s.session_type != *session_type {
-                            return false;
-                        }
-                    }
-                    if let Some(after) = &filter.after {
-                        if s.started_at < *after {
-                            return false;
-                        }
-                    }
-                    if let Some(before) = &filter.before {
-                        if s.started_at > *before {
-                            return false;
-                        }
-                    }
-                    if let Some(worktree_name) = &filter.worktree_name {
-                        if let Some(workflow_data) = &s.workflow_data {
-                            if workflow_data.worktree_name.as_ref() != Some(worktree_name) {
-                                return false;
-                            }
-                        } else {
-                            return false;
-                        }
-                    }
-                    true
-                })
+                .filter(|s| filters::apply_session_filter(s, &filter))
                 .collect()
         } else {
             sessions
         };
 
-        let summaries: Vec<SessionSummary> = filtered.iter().map(|s| s.to_summary()).collect();
+        // Convert to summaries
+        let summaries: Vec<SessionSummary> =
+            filtered_sessions.iter().map(|s| s.to_summary()).collect();
 
         Ok(summaries)
     }
