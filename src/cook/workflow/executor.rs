@@ -17,11 +17,15 @@ mod orchestration;
 mod pure;
 #[path = "executor/step_executor.rs"]
 mod step_executor;
+#[path = "executor/types.rs"]
+mod types;
 #[path = "executor/validation.rs"]
 mod validation;
 
 use crate::abstractions::git::GitOperations;
-use crate::commands::{AttributeValue, CommandRegistry};
+use crate::commands::CommandRegistry;
+#[cfg(test)]
+use crate::commands::AttributeValue;
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
@@ -43,7 +47,7 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -57,122 +61,12 @@ static UNBRACED_VAR_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"\$([A-Za-z_][A-Za-z0-9_]*)").expect("Failed to compile unbraced variable regex")
 });
 
-/// Capture output configuration - either a boolean or a variable name
-#[derive(Debug, Clone, PartialEq, Default)]
-pub enum CaptureOutput {
-    /// Don't capture output
-    #[default]
-    Disabled,
-    /// Capture to default variable names (claude.output, shell.output, etc.)
-    Default,
-    /// Capture to a custom variable name
-    Variable(String),
-}
-
-impl Serialize for CaptureOutput {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            CaptureOutput::Disabled => serializer.serialize_bool(false),
-            CaptureOutput::Default => serializer.serialize_bool(true),
-            CaptureOutput::Variable(s) => serializer.serialize_str(s),
-        }
-    }
-}
-
-impl CaptureOutput {
-    /// Check if output should be captured
-    pub fn is_enabled(&self) -> bool {
-        !matches!(self, CaptureOutput::Disabled)
-    }
-
-    /// Get the variable name to use for captured output
-    pub fn get_variable_name(&self, command_type: &CommandType) -> Option<String> {
-        match self {
-            CaptureOutput::Disabled => None,
-            CaptureOutput::Default => {
-                // Use command-type specific default names
-                Some(match command_type {
-                    CommandType::Claude(_) | CommandType::Legacy(_) => "claude.output".to_string(),
-                    CommandType::Shell(_) => "shell.output".to_string(),
-                    CommandType::Handler { .. } => "handler.output".to_string(),
-                    CommandType::Test(_) => "test.output".to_string(),
-                    CommandType::GoalSeek(_) => "goal_seek.output".to_string(),
-                    CommandType::Foreach(_) => "foreach.output".to_string(),
-                    CommandType::WriteFile(_) => "write_file.output".to_string(),
-                })
-            }
-            CaptureOutput::Variable(name) => Some(name.clone()),
-        }
-    }
-}
-
-/// Custom deserializer for CaptureOutput that accepts bool or string
-fn deserialize_capture_output<'de, D>(deserializer: D) -> Result<CaptureOutput, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum CaptureOutputHelper {
-        Bool(bool),
-        String(String),
-    }
-
-    match CaptureOutputHelper::deserialize(deserializer)? {
-        CaptureOutputHelper::Bool(false) => Ok(CaptureOutput::Disabled),
-        CaptureOutputHelper::Bool(true) => Ok(CaptureOutput::Default),
-        CaptureOutputHelper::String(s) => Ok(CaptureOutput::Variable(s)),
-    }
-}
-
 // Re-export pure types for internal use
 use pure::{ExecutionFlags, IterationContinuation};
 
-/// Command type for workflow steps
-#[derive(Debug, Clone, PartialEq)]
-pub enum CommandType {
-    /// Claude CLI command with args
-    Claude(String),
-    /// Shell command to execute
-    Shell(String),
-    /// Test command with retry logic
-    Test(crate::config::command::TestCommand),
-    /// Goal-seeking command with iterative refinement
-    GoalSeek(crate::cook::goal_seek::GoalSeekConfig),
-    /// Foreach command for parallel iteration
-    Foreach(crate::config::command::ForeachConfig),
-    /// Write file command with formatting and validation
-    WriteFile(crate::config::command::WriteFileConfig),
-    /// Legacy name-based approach
-    Legacy(String),
-    /// Modular command handler
-    Handler {
-        handler_name: String,
-        attributes: HashMap<String, AttributeValue>,
-    },
-}
-
-/// Result of executing a step
-#[derive(Debug, Clone, Default)]
-pub struct StepResult {
-    pub success: bool,
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-    /// Optional path to Claude JSON log file for debugging
-    pub json_log_location: Option<String>,
-}
-
-/// Variable resolution tracking for verbose output
-#[derive(Debug, Clone)]
-pub struct VariableResolution {
-    pub name: String,
-    pub raw_expression: String,
-    pub resolved_value: String,
-}
+// Re-export core types from types module
+pub use types::{CaptureOutput, CommandType, StepResult, VariableResolution};
+use types::deserialize_capture_output;
 
 /// Workflow context for variable interpolation
 #[derive(Debug, Clone)]
