@@ -9,6 +9,7 @@ use std::time::Duration;
 ///
 /// ```
 /// use std::time::Duration;
+/// use prodigy::cli::commands::worktree::parse_duration;
 ///
 /// let duration = parse_duration("1h").unwrap();
 /// assert_eq!(duration, Duration::from_secs(3600));

@@ -25,10 +25,13 @@ use std::path::{Path, PathBuf};
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::analysis::get_available_jobs;
+///
 /// let jobs = get_available_jobs()?;
 /// for job in jobs {
 ///     println!("{}: {:?}", job.id, job.status);
 /// }
+/// # Ok::<(), anyhow::Error>(())
 /// ```
 pub fn get_available_jobs() -> Result<Vec<format::JobInfo>> {
     let current_dir = std::env::current_dir()?;
@@ -74,8 +77,12 @@ pub fn get_available_jobs() -> Result<Vec<format::JobInfo>> {
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::analysis::read_job_status;
+/// use std::path::Path;
+///
 /// let job_info = read_job_status(Path::new(".prodigy/events/mapreduce-123"))?;
 /// println!("Job {} is {:?}", job_info.id, job_info.status);
+/// # Ok::<(), anyhow::Error>(())
 /// ```
 pub fn read_job_status(job_events_dir: &Path) -> Result<format::JobInfo> {
     let job_id = job_events_dir
@@ -138,6 +145,11 @@ pub fn read_job_status(job_events_dir: &Path) -> Result<format::JobInfo> {
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::analysis::process_event_for_status;
+/// use prodigy::cli::events::format::JobStatus;
+/// use serde_json::json;
+///
+/// let event = json!({"JobStarted": {"job_id": "test"}});
 /// let mut status = JobStatus::Unknown;
 /// let mut start_time = None;
 /// let mut end_time = None;
@@ -200,7 +212,12 @@ pub fn process_event_for_status(
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::analysis::show_aggregated_stats;
+///
+/// # async fn example() -> Result<(), anyhow::Error> {
 /// show_aggregated_stats("event_type".to_string(), "human".to_string()).await?;
+/// # Ok(())
+/// # }
 /// ```
 pub async fn show_aggregated_stats(group_by: String, output_format: String) -> Result<()> {
     let event_files = io::get_all_event_files()?;
@@ -230,10 +247,15 @@ pub async fn show_aggregated_stats(group_by: String, output_format: String) -> R
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::analysis::search_aggregated_events;
+///
+/// # async fn example() -> Result<(), anyhow::Error> {
 /// search_aggregated_events(
 ///     "error".to_string(),
 ///     Some(vec!["message".to_string()])
 /// ).await?;
+/// # Ok(())
+/// # }
 /// ```
 pub async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) -> Result<()> {
     let event_files = io::get_all_event_files()?;
@@ -263,10 +285,16 @@ pub async fn search_aggregated_events(pattern: String, fields: Option<Vec<String
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::analysis::export_aggregated_events;
+/// use std::path::PathBuf;
+///
+/// # async fn example() -> Result<(), anyhow::Error> {
 /// export_aggregated_events(
 ///     "json".to_string(),
 ///     Some(PathBuf::from("all-events.json"))
 /// ).await?;
+/// # Ok(())
+/// # }
 /// ```
 pub async fn export_aggregated_events(format: String, output: Option<PathBuf>) -> Result<()> {
     let event_files = io::get_all_event_files()?;
@@ -327,6 +355,8 @@ pub async fn export_aggregated_events(format: String, output: Option<PathBuf>) -
 ///
 /// # Example
 /// ```
+/// use prodigy::cli::events::analysis::should_analyze_global_storage;
+///
 /// assert!(should_analyze_global_storage(true, None));
 /// assert!(should_analyze_global_storage(false, Some("job-123")));
 /// assert!(!should_analyze_global_storage(false, None));
@@ -350,9 +380,15 @@ pub fn should_analyze_global_storage(all_jobs: bool, job_id: Option<&str>) -> bo
 ///
 /// # Example
 /// ```no_run
-/// let policy = build_retention_policy(...);
+/// use prodigy::cli::events::analysis::analyze_retention_targets;
+/// use prodigy::cook::execution::events::retention::RetentionPolicy;
+///
+/// # async fn example() -> Result<(), anyhow::Error> {
+/// let policy = RetentionPolicy::default();
 /// let analysis = analyze_retention_targets(true, None, &policy).await?;
 /// println!("Will remove {} events", analysis.events_to_remove);
+/// # Ok(())
+/// # }
 /// ```
 pub async fn analyze_retention_targets(
     all_jobs: bool,
@@ -397,8 +433,17 @@ pub async fn analyze_retention_targets(
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::analysis::{aggregate_job_retention, get_job_directories};
+/// use prodigy::cook::execution::events::retention::RetentionPolicy;
+/// use std::path::Path;
+///
+/// # async fn example() -> Result<(), anyhow::Error> {
+/// let global_events_dir = Path::new(".prodigy/events");
+/// let policy = RetentionPolicy::default();
 /// let job_dirs = get_job_directories(&global_events_dir, None)?;
 /// let analysis = aggregate_job_retention(job_dirs, &policy).await?;
+/// # Ok(())
+/// # }
 /// ```
 pub async fn aggregate_job_retention(
     job_dirs: Vec<PathBuf>,
@@ -438,11 +483,18 @@ pub async fn aggregate_job_retention(
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::analysis::get_job_directories;
+/// use std::path::Path;
+///
+/// # fn example() -> Result<(), anyhow::Error> {
+/// let global_events_dir = Path::new(".prodigy/events");
 /// // Get all job directories
 /// let all_jobs = get_job_directories(&global_events_dir, None)?;
 ///
 /// // Get specific job directory
 /// let specific = get_job_directories(&global_events_dir, Some("mapreduce-123"))?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn get_job_directories(global_events_dir: &Path, job_id: Option<&str>) -> Result<Vec<PathBuf>> {
     if let Some(specific_job_id) = job_id {

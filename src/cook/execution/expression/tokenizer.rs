@@ -232,8 +232,8 @@ mod tests {
 
     #[test]
     fn test_tokenize_float() {
-        let tokens = tokenize("3.14").unwrap();
-        assert_eq!(tokens, vec![Token::Number(3.14)]);
+        let tokens = tokenize("3.25").unwrap();
+        assert_eq!(tokens, vec![Token::Number(3.25)]);
     }
 
     #[test]

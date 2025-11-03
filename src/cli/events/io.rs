@@ -26,7 +26,13 @@ use tracing::info;
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::io::find_event_files;
+/// use std::path::Path;
+///
+/// # fn example() -> Result<(), anyhow::Error> {
 /// let files = find_event_files(Path::new(".prodigy/events"))?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn find_event_files(dir: &Path) -> Result<Vec<PathBuf>> {
     if !dir.exists() {
@@ -56,8 +62,13 @@ pub fn find_event_files(dir: &Path) -> Result<Vec<PathBuf>> {
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::io::get_all_event_files;
+///
+/// # fn example() -> Result<(), anyhow::Error> {
 /// let all_files = get_all_event_files()?;
 /// println!("Found {} event files across all jobs", all_files.len());
+/// # Ok(())
+/// # }
 /// ```
 pub fn get_all_event_files() -> Result<Vec<PathBuf>> {
     // Always use global storage for event file aggregation
@@ -102,7 +113,12 @@ pub fn get_all_event_files() -> Result<Vec<PathBuf>> {
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::io::resolve_job_event_file;
+///
+/// # fn example() -> Result<(), anyhow::Error> {
 /// let file = resolve_job_event_file("mapreduce-123")?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn resolve_job_event_file(job_id: &str) -> Result<PathBuf> {
     let current_dir = std::env::current_dir()?;
@@ -134,10 +150,16 @@ pub fn resolve_job_event_file(job_id: &str) -> Result<PathBuf> {
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::io::resolve_event_file_with_fallback;
+/// use std::path::PathBuf;
+///
+/// # fn example() -> Result<(), anyhow::Error> {
 /// let file = resolve_event_file_with_fallback(
 ///     PathBuf::from(".prodigy/events/events.jsonl"),
 ///     Some("mapreduce-123")
 /// )?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn resolve_event_file_with_fallback(file: PathBuf, job_id: Option<&str>) -> Result<PathBuf> {
     // If the provided file exists, use it directly
@@ -166,8 +188,14 @@ pub fn resolve_event_file_with_fallback(file: PathBuf, job_id: Option<&str>) -> 
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::io::build_global_events_path;
+/// use std::path::PathBuf;
+///
+/// # fn example() -> Result<(), anyhow::Error> {
 /// let path = build_global_events_path("my-repo")?;
-/// assert_eq!(path, PathBuf::from("/home/user/.prodigy/events/my-repo"));
+/// assert!(path.ends_with("events/my-repo"));
+/// # Ok(())
+/// # }
 /// ```
 pub fn build_global_events_path(repo_name: &str) -> Result<PathBuf> {
     let global_base = crate::storage::get_default_storage_dir()?;
@@ -184,6 +212,9 @@ pub fn build_global_events_path(repo_name: &str) -> Result<PathBuf> {
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::io::determine_watch_path;
+/// use std::path::Path;
+///
 /// let watch_path = determine_watch_path(Path::new(".prodigy/events/events.jsonl"));
 /// ```
 pub fn determine_watch_path(file: &Path) -> PathBuf {
@@ -210,8 +241,14 @@ pub fn determine_watch_path(file: &Path) -> PathBuf {
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::io::read_events_from_files;
+/// use std::path::PathBuf;
+///
+/// # fn example() -> Result<(), anyhow::Error> {
 /// let files = vec![PathBuf::from("events1.jsonl"), PathBuf::from("events2.jsonl")];
 /// let events = read_events_from_files(&files)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn read_events_from_files(event_files: &[PathBuf]) -> Result<Vec<Value>> {
     let mut all_events = Vec::new();
@@ -241,7 +278,13 @@ pub fn read_events_from_files(event_files: &[PathBuf]) -> Result<Vec<Value>> {
 ///
 /// # Example
 /// ```no_run
+/// use prodigy::cli::events::io::read_events_from_single_file;
+/// use std::path::PathBuf;
+///
+/// # fn example() -> Result<(), anyhow::Error> {
 /// let events = read_events_from_single_file(&PathBuf::from("events.jsonl"))?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn read_events_from_single_file(file: &PathBuf) -> Result<Vec<Value>> {
     let file_handle = fs::File::open(file)?;
@@ -268,10 +311,21 @@ pub fn read_events_from_single_file(file: &PathBuf) -> Result<Vec<Value>> {
 ///
 /// # Example
 /// ```no_run
-/// let filter = EventFilter::new()
-///     .with_job_id("mapreduce-123")
-///     .with_event_type("AgentCompleted");
+/// use prodigy::cli::events::io::read_and_filter_events;
+/// use prodigy::cli::events::EventFilter;
+/// use std::path::PathBuf;
+///
+/// # fn example() -> Result<(), anyhow::Error> {
+/// let file = PathBuf::from("events.jsonl");
+/// let filter = EventFilter::new(
+///     Some("mapreduce-123".to_string()),
+///     Some("AgentCompleted".to_string()),
+///     None,
+///     None
+/// );
 /// let events = read_and_filter_events(&file, &filter, 100)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn read_and_filter_events(
     file: &PathBuf,
