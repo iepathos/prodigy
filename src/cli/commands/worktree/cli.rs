@@ -5,6 +5,8 @@
 use crate::cli::args::WorktreeCommands;
 use anyhow::Result;
 
+use super::utils::parse_duration;
+
 /// Execute worktree-related commands
 pub async fn run_worktree_command(command: WorktreeCommands) -> Result<()> {
     match command {
@@ -178,41 +180,6 @@ async fn run_worktree_clean(
     }
 
     Ok(())
-}
-
-/// Parse duration string (e.g., "1h", "24h", "7d")
-fn parse_duration(s: &str) -> Result<std::time::Duration> {
-    use std::time::Duration;
-
-    let s = s.trim().to_lowercase();
-    let (num_str, unit) = if s.ends_with("ms") {
-        (&s[..s.len() - 2], "ms")
-    } else if s.ends_with('s') {
-        (&s[..s.len() - 1], "s")
-    } else if s.ends_with('m') {
-        (&s[..s.len() - 1], "m")
-    } else if s.ends_with('h') {
-        (&s[..s.len() - 1], "h")
-    } else if s.ends_with('d') {
-        (&s[..s.len() - 1], "d")
-    } else {
-        return Err(anyhow::anyhow!(
-            "Invalid duration format. Use format like '1h', '24h', '7d'"
-        ));
-    };
-
-    let num: u64 = num_str
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid number in duration"))?;
-
-    Ok(match unit {
-        "ms" => Duration::from_millis(num),
-        "s" => Duration::from_secs(num),
-        "m" => Duration::from_secs(num * 60),
-        "h" => Duration::from_secs(num * 3600),
-        "d" => Duration::from_secs(num * 86400),
-        _ => unreachable!(),
-    })
 }
 
 /// Clean up old worktrees
