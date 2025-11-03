@@ -3,6 +3,7 @@
 //! This module provides a single, consolidated session management system
 //! that handles all session-related functionality consistently across the application.
 
+mod checkpoints;
 mod cook_adapter;
 mod lifecycle;
 mod manager;

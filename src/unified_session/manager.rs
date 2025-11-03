@@ -1,6 +1,6 @@
 //! Unified session manager implementation
 
-use super::lifecycle;
+use super::{checkpoints, lifecycle};
 use super::state::{
     Checkpoint, CheckpointId, SessionConfig, SessionFilter, SessionId, SessionStatus,
     SessionSummary, UnifiedSession,
@@ -233,20 +233,29 @@ impl SessionManager {
 
     /// Create a checkpoint
     pub async fn create_checkpoint(&self, id: &SessionId) -> Result<CheckpointId> {
-        let session = self.load_session(id).await?;
-        let checkpoint_state = serde_json::to_value(&session)?;
+        let mut session = self.load_session(id).await?;
 
-        // Store just the state, the checkpoint object will be created in update_session
-        self.update_session(id, SessionUpdate::Checkpoint(checkpoint_state))
-            .await?;
+        // Use pure function to create checkpoint
+        let checkpoint = checkpoints::create_checkpoint_from_session(&session)?;
+        let checkpoint_id = checkpoint.id.clone();
 
-        // Get the session again to retrieve the actual checkpoint ID
-        let updated_session = self.load_session(id).await?;
-        if let Some(checkpoint) = updated_session.checkpoints.last() {
-            Ok(checkpoint.id.clone())
-        } else {
-            Err(anyhow!("Failed to create checkpoint"))
+        // Add to session checkpoints
+        session.checkpoints.push(checkpoint);
+        session.updated_at = chrono::Utc::now();
+
+        // Update active sessions cache
+        {
+            let mut sessions = self
+                .active_sessions
+                .write()
+                .map_err(|e| anyhow!("Failed to acquire write lock on active sessions: {}", e))?;
+            sessions.insert(id.clone(), session.clone());
         }
+
+        // Persist to storage
+        self.storage.save(&session).await?;
+
+        Ok(checkpoint_id)
     }
 
     /// Restore from a checkpoint
@@ -257,15 +266,14 @@ impl SessionManager {
     ) -> Result<()> {
         let session = self.load_session(id).await?;
 
-        let checkpoint = session
-            .checkpoints
-            .iter()
-            .find(|c| c.id == *checkpoint_id)
+        // Use pure function to find checkpoint
+        let checkpoint = checkpoints::find_checkpoint(&session.checkpoints, checkpoint_id)
             .ok_or_else(|| anyhow!("Checkpoint not found"))?;
 
-        let restored_session: UnifiedSession = serde_json::from_value(checkpoint.state.clone())?;
+        // Use pure function to restore session
+        let restored_session = checkpoints::restore_session_from_checkpoint(checkpoint)?;
 
-        // Update active sessions
+        // Update active sessions cache
         {
             let mut sessions = self
                 .active_sessions
