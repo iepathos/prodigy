@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use tracing::{debug, info};
 
 use super::manager_queries::load_state_from_file;
+use super::manager_validation;
 use super::parsing;
 use super::{WorktreeSession, WorktreeState, WorktreeStatus};
 
@@ -363,12 +364,7 @@ impl WorktreeManager {
         let commit_count = self
             .get_commit_count_between_branches(target_branch, worktree_branch)
             .await?;
-        Ok(Self::should_proceed_with_merge(&commit_count))
-    }
-
-    /// Pure function to determine if merge should proceed based on commit count
-    fn should_proceed_with_merge(commit_count: &str) -> bool {
-        commit_count != "0"
+        Ok(manager_validation::should_proceed_with_merge(&commit_count))
     }
 
     /// Execute merge workflow - orchestrates merge execution
@@ -423,28 +419,12 @@ impl WorktreeManager {
             .await
             .context("Failed to execute claude /prodigy-merge-worktree")?;
 
-        Self::validate_claude_result(&result)?;
+        manager_validation::validate_claude_result(&result)?;
         if self.verbosity == 0 {
             // Clean output - only show the final result message
             println!("{}", result.stdout);
         }
         Ok(result.stdout)
-    }
-
-    /// Pure function to build Claude environment variables
-    /// Pure function to validate Claude execution result
-    fn validate_claude_result(result: &crate::cook::execution::ExecutionResult) -> Result<()> {
-        if !result.success {
-            eprintln!("❌ Claude merge failed:");
-            if !result.stderr.is_empty() {
-                eprintln!("Error output: {}", result.stderr);
-            }
-            if !result.stdout.is_empty() {
-                eprintln!("Standard output: {}", result.stdout);
-            }
-            anyhow::bail!("Claude merge failed");
-        }
-        Ok(())
     }
 
     /// Verify merge completion - I/O operation with pure validation
@@ -455,42 +435,12 @@ impl WorktreeManager {
         merge_output: &str,
     ) -> Result<()> {
         let merged_branches = self.get_merged_branches(target_branch).await?;
-        Self::validate_merge_success(
+        manager_validation::validate_merge_success(
             worktree_branch,
             target_branch,
             &merged_branches,
             merge_output,
         )
-    }
-
-    /// Pure function to build merge check command
-    /// Pure function to validate merge success
-    fn validate_merge_success(
-        worktree_branch: &str,
-        target_branch: &str,
-        merged_branches: &str,
-        merge_output: &str,
-    ) -> Result<()> {
-        if !merged_branches.contains(worktree_branch) {
-            if Self::is_permission_denied(merge_output) {
-                anyhow::bail!(
-                    "Merge was not completed - Claude requires permission to proceed. \
-                    Please run the command again and grant permission when prompted."
-                );
-            }
-            anyhow::bail!(
-                "Merge verification failed - branch '{}' is not merged into '{}'. \
-                The merge may have been aborted or failed silently.",
-                worktree_branch,
-                target_branch
-            );
-        }
-        Ok(())
-    }
-
-    /// Pure function to check if merge output indicates permission denial
-    fn is_permission_denied(output: &str) -> bool {
-        output.contains("permission") || output.contains("grant permission")
     }
 
     /// Finalize merge session - orchestrates post-merge operations
@@ -742,7 +692,7 @@ impl WorktreeManager {
             return Ok(false);
         }
 
-        Ok(output.stdout.contains(branch))
+        Ok(manager_validation::check_if_branch_merged(branch, &output.stdout))
     }
 
     /// Detect if a worktree branch has been merged and is ready for cleanup
