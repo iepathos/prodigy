@@ -4,6 +4,7 @@
 
 mod cli;
 mod operations;
+mod presentation;
 mod utils;
 
 pub use cli::run_worktree_command;
