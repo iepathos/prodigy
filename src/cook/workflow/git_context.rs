@@ -1,7 +1,42 @@
 //! Git context tracking for workflows
 //!
-//! Provides automatic tracking of git changes during workflow execution,
+//! This module provides automatic tracking of git changes during workflow execution,
 //! exposing file change information as interpolatable variables.
+//!
+//! # Module Structure
+//!
+//! The git context functionality is organized into focused modules:
+//!
+//! - [`git_context`](self) - Domain logic for change tracking and variable resolution
+//! - [`git_utils`](super::git_utils) - Pure utility functions for file classification and list operations
+//!
+//! # Responsibilities
+//!
+//! This module handles:
+//! - Git repository interaction and change detection
+//! - Step-by-step change tracking during workflow execution
+//! - Variable resolution for git context (e.g., `${step.files_added}`)
+//! - Aggregation of changes across workflow steps
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! use prodigy::cook::workflow::GitChangeTracker;
+//! use std::path::Path;
+//!
+//! # fn main() -> anyhow::Result<()> {
+//! let mut tracker = GitChangeTracker::new(Path::new("."))?;
+//!
+//! // Track changes for a step
+//! tracker.begin_step("step1")?;
+//! // ... perform operations ...
+//! let changes = tracker.complete_step()?;
+//!
+//! println!("Files added: {:?}", changes.files_added);
+//! println!("Files modified: {:?}", changes.files_modified);
+//! # Ok(())
+//! # }
+//! ```
 
 use anyhow::{Context, Result};
 use git2::{DiffOptions, Oid, Repository, StatusOptions};
