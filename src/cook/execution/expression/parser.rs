@@ -3,6 +3,7 @@
 use anyhow::{anyhow, Result};
 
 use crate::cook::execution::expression::ast::{Expression, NullHandling, SortDirection, SortKey};
+use crate::cook::execution::expression::tokenizer::{tokenize, Token};
 
 /// Expression parser
 pub struct ExpressionParser {
@@ -17,7 +18,7 @@ impl ExpressionParser {
 
     /// Parse a filter expression
     pub fn parse_filter(&self, expr: &str) -> Result<Expression> {
-        let tokens = self.tokenize(expr)?;
+        let tokens = tokenize(expr)?;
         self.parse_expression(&tokens, 0)
     }
 
@@ -88,155 +89,6 @@ impl ExpressionParser {
         }
 
         Ok(sort_keys)
-    }
-
-    /// Tokenize an expression string
-    fn tokenize(&self, expr: &str) -> Result<Vec<Token>> {
-        // Simplified tokenizer - in production, use a proper lexer
-        let mut tokens = Vec::new();
-        let mut chars = expr.chars().peekable();
-
-        while let Some(&ch) = chars.peek() {
-            match ch {
-                ' ' | '\t' | '\n' => {
-                    chars.next();
-                }
-                '(' => {
-                    tokens.push(Token::LeftParen);
-                    chars.next();
-                }
-                ')' => {
-                    tokens.push(Token::RightParen);
-                    chars.next();
-                }
-                '!' => {
-                    chars.next();
-                    if chars.peek() == Some(&'=') {
-                        chars.next();
-                        tokens.push(Token::NotEqual);
-                    } else {
-                        tokens.push(Token::Not);
-                    }
-                }
-                '=' => {
-                    chars.next();
-                    if chars.peek() == Some(&'=') {
-                        chars.next();
-                        tokens.push(Token::Equal);
-                    } else {
-                        tokens.push(Token::Equal); // Single = also means equal
-                    }
-                }
-                '>' => {
-                    chars.next();
-                    if chars.peek() == Some(&'=') {
-                        chars.next();
-                        tokens.push(Token::GreaterEqual);
-                    } else {
-                        tokens.push(Token::Greater);
-                    }
-                }
-                '<' => {
-                    chars.next();
-                    if chars.peek() == Some(&'=') {
-                        chars.next();
-                        tokens.push(Token::LessEqual);
-                    } else {
-                        tokens.push(Token::Less);
-                    }
-                }
-                '&' => {
-                    chars.next();
-                    if chars.peek() == Some(&'&') {
-                        chars.next();
-                        tokens.push(Token::And);
-                    } else {
-                        return Err(anyhow!("Expected && but got single &"));
-                    }
-                }
-                '|' => {
-                    chars.next();
-                    if chars.peek() == Some(&'|') {
-                        chars.next();
-                        tokens.push(Token::Or);
-                    } else {
-                        return Err(anyhow!("Expected || but got single |"));
-                    }
-                }
-                '"' | '\'' => {
-                    let quote = ch;
-                    chars.next();
-                    let mut string = String::new();
-                    for ch in chars.by_ref() {
-                        if ch == quote {
-                            break;
-                        }
-                        string.push(ch);
-                    }
-                    tokens.push(Token::String(string));
-                }
-                '0'..='9' | '-' => {
-                    let mut num_str = String::new();
-                    while let Some(&ch) = chars.peek() {
-                        if ch.is_numeric() || ch == '.' || ch == '-' {
-                            num_str.push(ch);
-                            chars.next();
-                        } else {
-                            break;
-                        }
-                    }
-                    if let Ok(num) = num_str.parse::<f64>() {
-                        tokens.push(Token::Number(num));
-                    } else {
-                        return Err(anyhow!("Invalid number: {}", num_str));
-                    }
-                }
-                _ if ch.is_alphabetic() || ch == '_' => {
-                    let mut ident = String::new();
-                    while let Some(&ch) = chars.peek() {
-                        if ch.is_alphanumeric()
-                            || ch == '_'
-                            || ch == '.'
-                            || ch == '['
-                            || ch == ']'
-                            || ch == '*'
-                        {
-                            ident.push(ch);
-                            chars.next();
-                        } else {
-                            break;
-                        }
-                    }
-
-                    // Check for keywords (case-insensitive for operators)
-                    match ident.to_lowercase().as_str() {
-                        "true" => tokens.push(Token::Boolean(true)),
-                        "false" => tokens.push(Token::Boolean(false)),
-                        "null" => tokens.push(Token::Null),
-                        "in" => tokens.push(Token::In),
-                        "and" => tokens.push(Token::And),
-                        "or" => tokens.push(Token::Or),
-                        "not" => tokens.push(Token::Not),
-                        "contains" => tokens.push(Token::Contains),
-                        "starts_with" | "startswith" => tokens.push(Token::StartsWith),
-                        "ends_with" | "endswith" => tokens.push(Token::EndsWith),
-                        "matches" => tokens.push(Token::Matches),
-                        "length" => tokens.push(Token::Length),
-                        "sum" => tokens.push(Token::Sum),
-                        "count" => tokens.push(Token::Count),
-                        "min" => tokens.push(Token::Min),
-                        "max" => tokens.push(Token::Max),
-                        "avg" => tokens.push(Token::Avg),
-                        _ => tokens.push(Token::Identifier(ident)),
-                    }
-                }
-                _ => {
-                    chars.next();
-                }
-            }
-        }
-
-        Ok(tokens)
     }
 
     /// Parse an expression from tokens
@@ -530,52 +382,6 @@ impl ExpressionParser {
         let segments: Vec<String> = path.split('.').map(|s| s.to_string()).collect();
         Ok(Expression::Field(segments))
     }
-}
-
-/// Token types for the lexer
-#[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)]
-enum Token {
-    // Literals
-    Number(f64),
-    String(String),
-    Boolean(bool),
-    Null,
-    Identifier(String),
-
-    // Operators
-    Equal,
-    NotEqual,
-    Greater,
-    Less,
-    GreaterEqual,
-    LessEqual,
-    And,
-    Or,
-    Not,
-    In,
-
-    // Functions
-    Contains,
-    StartsWith,
-    EndsWith,
-    Matches,
-
-    // Aggregate Functions
-    Length,
-    Sum,
-    Count,
-    Min,
-    Max,
-    Avg,
-
-    // Punctuation
-    LeftParen,
-    RightParen,
-    LeftBracket,
-    RightBracket,
-    Comma,
-    Dot,
 }
 
 impl Default for ExpressionParser {

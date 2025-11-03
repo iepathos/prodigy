@@ -13,6 +13,7 @@ pub mod ast;
 pub mod evaluator;
 pub mod optimizer;
 pub mod parser;
+pub mod tokenizer;
 pub mod validator;
 
 use anyhow::Result;
