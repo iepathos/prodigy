@@ -4,6 +4,7 @@
 //! that handles all session-related functionality consistently across the application.
 
 mod cook_adapter;
+mod lifecycle;
 mod manager;
 pub mod migration;
 #[cfg(test)]

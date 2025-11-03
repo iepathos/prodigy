@@ -1,5 +1,6 @@
 //! Unified session manager implementation
 
+use super::lifecycle;
 use super::state::{
     Checkpoint, CheckpointId, SessionConfig, SessionFilter, SessionId, SessionStatus,
     SessionSummary, UnifiedSession,
@@ -115,10 +116,7 @@ impl SessionManager {
 
         match update {
             SessionUpdate::Status(status) => {
-                session.status = status.clone();
-                if matches!(status, SessionStatus::Completed | SessionStatus::Failed) {
-                    session.completed_at = Some(chrono::Utc::now());
-                }
+                lifecycle::apply_status_update(&mut session, status)?;
             }
             SessionUpdate::Metadata(metadata) => {
                 // Handle special metadata keys
