@@ -1,11 +1,11 @@
 //! Unified session manager implementation
 
-use super::{checkpoints, filters, lifecycle, updates};
 use super::state::{
     Checkpoint, CheckpointId, SessionConfig, SessionFilter, SessionId, SessionStatus,
     SessionSummary, UnifiedSession,
 };
 use super::storage::SessionStorage;
+use super::{checkpoints, filters, lifecycle, updates};
 use crate::storage::GlobalStorage;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;

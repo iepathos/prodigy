@@ -54,15 +54,11 @@ mod tests {
         let checkpoints = vec![checkpoint1.clone(), checkpoint2.clone()];
 
         assert_eq!(
-            find_checkpoint(&checkpoints, &checkpoint1.id)
-                .unwrap()
-                .id,
+            find_checkpoint(&checkpoints, &checkpoint1.id).unwrap().id,
             checkpoint1.id
         );
         assert_eq!(
-            find_checkpoint(&checkpoints, &checkpoint2.id)
-                .unwrap()
-                .id,
+            find_checkpoint(&checkpoints, &checkpoint2.id).unwrap().id,
             checkpoint2.id
         );
     }

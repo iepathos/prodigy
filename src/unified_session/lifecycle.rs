@@ -6,7 +6,7 @@ use chrono::{DateTime, Duration, Utc};
 
 /// Represents a status transition
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]  // Used in tests, available for future functional refactoring
+#[allow(dead_code)] // Used in tests, available for future functional refactoring
 pub enum Transition {
     Start,
     Pause,
@@ -22,8 +22,8 @@ pub fn validate_transition(from: &SessionStatus, to: &SessionStatus) -> Result<(
     let valid = match (from, to) {
         // From Initializing - allow transitions to any non-initializing state
         (Initializing, Running) => true,
-        (Initializing, Paused) => true,     // For migration support
-        (Initializing, Completed) => true,  // Allow direct completion
+        (Initializing, Paused) => true,    // For migration support
+        (Initializing, Completed) => true, // Allow direct completion
         (Initializing, Failed) => true,
 
         // From Running
@@ -60,7 +60,7 @@ pub fn validate_transition(from: &SessionStatus, to: &SessionStatus) -> Result<(
 }
 
 /// Apply a status transition to get the new status
-#[allow(dead_code)]  // Used in tests, available for future functional refactoring
+#[allow(dead_code)] // Used in tests, available for future functional refactoring
 pub fn transition_status(current: &SessionStatus, transition: Transition) -> Result<SessionStatus> {
     let new_status = match transition {
         Transition::Start => SessionStatus::Running,
@@ -75,7 +75,7 @@ pub fn transition_status(current: &SessionStatus, transition: Transition) -> Res
 }
 
 /// Calculate session duration
-#[allow(dead_code)]  // Used in tests, available for future functional refactoring
+#[allow(dead_code)] // Used in tests, available for future functional refactoring
 pub fn calculate_duration(
     started_at: DateTime<Utc>,
     completed_at: Option<DateTime<Utc>>,

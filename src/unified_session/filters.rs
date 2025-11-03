@@ -96,10 +96,7 @@ mod tests {
     #[test]
     fn test_matches_type_filter() {
         let session = create_test_session();
-        assert!(matches_type_filter(
-            &session,
-            &Some(SessionType::Workflow)
-        ));
+        assert!(matches_type_filter(&session, &Some(SessionType::Workflow)));
         assert!(!matches_type_filter(
             &session,
             &Some(SessionType::MapReduce)
