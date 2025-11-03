@@ -39,9 +39,21 @@ mod tests {
         // Test valid status transitions using pure function approach
         // Each test case is independent to avoid state contamination
         let test_cases = vec![
-            ("Running to Paused", SessionStatus::InProgress, SessionStatus::Interrupted),
-            ("Running to Completed", SessionStatus::InProgress, SessionStatus::Completed),
-            ("Running to Failed", SessionStatus::InProgress, SessionStatus::Failed),
+            (
+                "Running to Paused",
+                SessionStatus::InProgress,
+                SessionStatus::Interrupted,
+            ),
+            (
+                "Running to Completed",
+                SessionStatus::InProgress,
+                SessionStatus::Completed,
+            ),
+            (
+                "Running to Failed",
+                SessionStatus::InProgress,
+                SessionStatus::Failed,
+            ),
         ];
 
         for (description, initial_status, target_status) in test_cases {
