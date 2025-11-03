@@ -24,7 +24,7 @@ use std::sync::Arc;
 /// Returns true if:
 /// - attempts < max_attempts AND
 /// - validation is incomplete
-fn should_continue_retry(attempts: u32, max_attempts: u32, is_complete: bool) -> bool {
+pub(super) fn should_continue_retry(attempts: u32, max_attempts: u32, is_complete: bool) -> bool {
     attempts < max_attempts && !is_complete
 }
 

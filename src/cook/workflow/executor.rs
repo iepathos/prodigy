@@ -21,6 +21,9 @@ mod step_executor;
 mod types;
 #[path = "executor/validation.rs"]
 mod validation;
+#[cfg(test)]
+#[path = "executor/validation_tests.rs"]
+mod validation_tests;
 
 use crate::abstractions::git::GitOperations;
 #[cfg(test)]
