@@ -328,7 +328,7 @@ impl WorkflowContext {
     /// Resolve a variable path from the store (async)
     ///
     /// Queries the variable store for a value at the given path. Paths can be
-    /// dotted notation like "user.name" or "map.results[0]".
+    /// dotted notation like "user.name" or "map.results\[0\]".
     pub async fn resolve_variable(&self, path: &str) -> Option<String> {
         if let Ok(value) = self.variable_store.resolve_path(path).await {
             Some(value.to_string())

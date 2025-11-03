@@ -8,9 +8,9 @@
 //! # Architecture
 //!
 //! The WorktreeManager serves as the main orchestrator and delegates to:
-//! - [`manager_validation`] - Pure validation functions for merge operations
-//! - [`manager_utilities`] - Pure utility functions for string manipulation
-//! - [`manager_queries`] - Query operations for reading session state
+//! - `manager_validation` - Pure validation functions for merge operations
+//! - `manager_utilities` - Pure utility functions for string manipulation
+//! - `manager_queries` - Query operations for reading session state
 //!
 //! # Responsibilities
 //!

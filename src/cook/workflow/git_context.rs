@@ -8,7 +8,7 @@
 //! The git context functionality is organized into focused modules:
 //!
 //! - [`git_context`](self) - Domain logic for change tracking and variable resolution
-//! - [`git_utils`](super::git_utils) - Pure utility functions for file classification and list operations
+//! - `git_utils` - Pure utility functions for file classification and list operations
 //!
 //! # Responsibilities
 //!
