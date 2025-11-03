@@ -1,3 +1,34 @@
+//! Worktree manager implementation for git worktree operations
+//!
+//! This module provides the core `WorktreeManager` struct that orchestrates
+//! all worktree operations including creation, merging, cleanup, and session
+//! management. It coordinates between multiple helper modules for validation,
+//! utilities, and queries.
+//!
+//! # Architecture
+//!
+//! The WorktreeManager serves as the main orchestrator and delegates to:
+//! - [`manager_validation`] - Pure validation functions for merge operations
+//! - [`manager_utilities`] - Pure utility functions for string manipulation
+//! - [`manager_queries`] - Query operations for reading session state
+//!
+//! # Responsibilities
+//!
+//! Core responsibilities retained in WorktreeManager:
+//! - Session creation and lifecycle management
+//! - Git worktree operations (create, merge, cleanup)
+//! - Subprocess execution and I/O operations
+//! - Async orchestration of complex workflows
+//! - State management and persistence
+//! - Custom merge workflow execution
+//!
+//! # Design Principles
+//!
+//! - **I/O at the edges**: All file and subprocess operations stay in manager
+//! - **Pure logic extracted**: Validation and utilities moved to separate modules
+//! - **Async orchestration**: Complex workflows coordinated at manager level
+//! - **Clear boundaries**: Each module has a single, well-defined responsibility
+
 use crate::config::mapreduce::MergeWorkflow;
 use crate::cook::execution::{ClaudeExecutor, ClaudeExecutorImpl};
 use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
@@ -693,7 +724,10 @@ impl WorktreeManager {
             return Ok(false);
         }
 
-        Ok(manager_validation::check_if_branch_merged(branch, &output.stdout))
+        Ok(manager_validation::check_if_branch_merged(
+            branch,
+            &output.stdout,
+        ))
     }
 
     /// Detect if a worktree branch has been merged and is ready for cleanup
@@ -1074,7 +1108,10 @@ impl WorktreeManager {
         tracing::debug!("Working Directory: {}", worktree_path.display());
         tracing::debug!("Worktree Path: {}", worktree_path.display());
         tracing::debug!("Project Directory: {}", self.repo_path.display());
-        tracing::debug!("Variables:\n{}", manager_utilities::format_variables_for_log(variables, "  "));
+        tracing::debug!(
+            "Variables:\n{}",
+            manager_utilities::format_variables_for_log(variables, "  ")
+        );
         tracing::debug!("Environment Variables:");
         tracing::debug!("  PRODIGY_AUTOMATION = true");
         if self.verbosity >= 1 {
