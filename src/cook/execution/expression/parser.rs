@@ -5,6 +5,100 @@ use anyhow::{anyhow, Result};
 use crate::cook::execution::expression::ast::{Expression, NullHandling, SortDirection, SortKey};
 use crate::cook::execution::expression::tokenizer::{tokenize, Token};
 
+/// Parse a binary operator expression (OR, AND, etc.)
+///
+/// This pure helper function extracts the common pattern used in parsing binary operators.
+/// It finds all operator positions at the current nesting level, splits the token stream,
+/// parses each part, and combines them into an expression tree.
+fn parse_binary_operator<F, C>(
+    tokens: &[Token],
+    op: &Token,
+    parse_next: F,
+    combine: C,
+) -> Result<Expression>
+where
+    F: Fn(&[Token]) -> Result<Expression>,
+    C: Fn(Expression, Expression) -> Expression,
+{
+    // Find all operator positions at this level (not inside parentheses)
+    let positions = find_operators(tokens, op)?;
+
+    if positions.is_empty() {
+        return parse_next(tokens);
+    }
+
+    // Split by operator and parse each part
+    let mut parts = Vec::new();
+    let mut start = 0;
+    for pos in positions {
+        if pos > start {
+            let part_tokens = &tokens[start..pos];
+            parts.push(parse_next(part_tokens)?);
+        }
+        start = pos + 1;
+    }
+    if start < tokens.len() {
+        parts.push(parse_next(&tokens[start..])?);
+    }
+
+    // Build expression tree from left to right
+    let result = parts
+        .into_iter()
+        .reduce(combine)
+        .ok_or_else(|| anyhow!("Empty expression"))?;
+
+    Ok(result)
+}
+
+/// Find operator positions at the current level (not inside parentheses)
+///
+/// This pure function scans through tokens and returns the positions of the given operator,
+/// but only at the current parenthesis nesting level.
+fn find_operators(tokens: &[Token], op: &Token) -> Result<Vec<usize>> {
+    let mut positions = Vec::new();
+    let mut paren_depth = 0;
+
+    for (i, token) in tokens.iter().enumerate() {
+        match token {
+            Token::LeftParen => paren_depth += 1,
+            Token::RightParen => paren_depth -= 1,
+            _ if paren_depth == 0 && token == op => positions.push(i),
+            _ => {}
+        }
+    }
+
+    Ok(positions)
+}
+
+/// Find the matching closing parenthesis for an opening parenthesis
+///
+/// Returns the index of the matching right paren, or an error if not found.
+fn find_matching_paren(tokens: &[Token], start: usize) -> Result<usize> {
+    if start >= tokens.len() || tokens[start] != Token::LeftParen {
+        return Err(anyhow!("Expected left paren at position {}", start));
+    }
+
+    let mut depth = 1;
+    let mut end = start + 1;
+
+    while end < tokens.len() && depth > 0 {
+        match tokens[end] {
+            Token::LeftParen => depth += 1,
+            Token::RightParen => depth -= 1,
+            _ => {}
+        }
+        if depth > 0 {
+            end += 1;
+        }
+    }
+
+    if depth != 0 {
+        return Err(anyhow!("Mismatched parentheses"));
+    }
+
+    Ok(end)
+}
+
 /// Expression parser
 pub struct ExpressionParser {
     // Could add configuration options here
@@ -104,83 +198,22 @@ impl ExpressionParser {
 
     /// Parse OR expressions
     fn parse_or(&self, tokens: &[Token]) -> Result<Expression> {
-        // Find all OR positions at this level (not inside parentheses)
-        let or_positions = self.find_operators(tokens, &Token::Or)?;
-
-        if or_positions.is_empty() {
-            return self.parse_and(tokens);
-        }
-
-        // Split by OR and parse each part
-        let mut parts = Vec::new();
-        let mut start = 0;
-        for pos in or_positions {
-            if pos > start {
-                let part_tokens = &tokens[start..pos];
-                parts.push(self.parse_and(part_tokens)?);
-            }
-            start = pos + 1;
-        }
-        if start < tokens.len() {
-            parts.push(self.parse_and(&tokens[start..])?);
-        }
-
-        // Build OR tree from left to right
-        let result = parts
-            .into_iter()
-            .reduce(|left, right| Expression::Or(Box::new(left), Box::new(right)))
-            .ok_or_else(|| anyhow!("Empty OR expression"))?;
-
-        Ok(result)
+        parse_binary_operator(
+            tokens,
+            &Token::Or,
+            |tokens| self.parse_and(tokens),
+            |left, right| Expression::Or(Box::new(left), Box::new(right)),
+        )
     }
 
     /// Parse AND expressions
     fn parse_and(&self, tokens: &[Token]) -> Result<Expression> {
-        // Find all AND positions at this level
-        let and_positions = self.find_operators(tokens, &Token::And)?;
-
-        if and_positions.is_empty() {
-            return self.parse_comparison(tokens);
-        }
-
-        // Split by AND and parse each part
-        let mut parts = Vec::new();
-        let mut start = 0;
-        for pos in and_positions {
-            if pos > start {
-                let part_tokens = &tokens[start..pos];
-                parts.push(self.parse_comparison(part_tokens)?);
-            }
-            start = pos + 1;
-        }
-        if start < tokens.len() {
-            parts.push(self.parse_comparison(&tokens[start..])?);
-        }
-
-        // Build AND tree from left to right
-        let result = parts
-            .into_iter()
-            .reduce(|left, right| Expression::And(Box::new(left), Box::new(right)))
-            .ok_or_else(|| anyhow!("Empty AND expression"))?;
-
-        Ok(result)
-    }
-
-    /// Find operator positions at the current level (not inside parentheses)
-    fn find_operators(&self, tokens: &[Token], op: &Token) -> Result<Vec<usize>> {
-        let mut positions = Vec::new();
-        let mut paren_depth = 0;
-
-        for (i, token) in tokens.iter().enumerate() {
-            match token {
-                Token::LeftParen => paren_depth += 1,
-                Token::RightParen => paren_depth -= 1,
-                _ if paren_depth == 0 && token == op => positions.push(i),
-                _ => {}
-            }
-        }
-
-        Ok(positions)
+        parse_binary_operator(
+            tokens,
+            &Token::And,
+            |tokens| self.parse_comparison(tokens),
+            |left, right| Expression::And(Box::new(left), Box::new(right)),
+        )
     }
 
     /// Parse comparison expressions
@@ -192,20 +225,11 @@ impl ExpressionParser {
         // Handle parenthesized expressions first
         if tokens[0] == Token::LeftParen {
             // Check if entire expression is parenthesized
-            let mut depth = 1;
-            let mut end = 1;
-            while end < tokens.len() && depth > 0 {
-                match tokens[end] {
-                    Token::LeftParen => depth += 1,
-                    Token::RightParen => depth -= 1,
-                    _ => {}
-                }
-                end += 1;
-            }
+            let end = find_matching_paren(tokens, 0)?;
 
-            if depth == 0 && end == tokens.len() {
+            if end + 1 == tokens.len() {
                 // Entire expression is parenthesized, strip parentheses and re-parse
-                return self.parse_or(&tokens[1..end - 1]);
+                return self.parse_or(&tokens[1..end]);
             }
         }
 
@@ -290,21 +314,7 @@ impl ExpressionParser {
             Token::Length | Token::Sum | Token::Count | Token::Min | Token::Max | Token::Avg => {
                 if tokens.len() >= 3 && tokens[1] == Token::LeftParen {
                     // Find matching right paren
-                    let mut depth = 1;
-                    let mut end = 2;
-                    while end < tokens.len() && depth > 0 {
-                        match tokens[end] {
-                            Token::LeftParen => depth += 1,
-                            Token::RightParen => depth -= 1,
-                            _ => {}
-                        }
-                        if depth > 0 {
-                            end += 1;
-                        }
-                    }
-                    if depth != 0 {
-                        return Err(anyhow!("Mismatched parentheses in function call"));
-                    }
+                    let end = find_matching_paren(tokens, 1)?;
                     // Parse the argument
                     let arg = self.parse_expression(&tokens[2..end], 0)?;
                     let func_expr = match tokens[0] {
@@ -332,21 +342,7 @@ impl ExpressionParser {
             }
             Token::LeftParen => {
                 // Find matching right paren
-                let mut depth = 1;
-                let mut end = 1;
-                while end < tokens.len() && depth > 0 {
-                    match tokens[end] {
-                        Token::LeftParen => depth += 1,
-                        Token::RightParen => depth -= 1,
-                        _ => {}
-                    }
-                    if depth > 0 {
-                        end += 1;
-                    }
-                }
-                if depth != 0 {
-                    return Err(anyhow!("Mismatched parentheses"));
-                }
+                let end = find_matching_paren(tokens, 0)?;
                 // Parse the expression inside parentheses
                 self.parse_expression(&tokens[1..end], 0)
             }
