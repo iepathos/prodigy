@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use tracing::{debug, info};
 
 use super::manager_queries::load_state_from_file;
+use super::manager_utilities;
 use super::manager_validation;
 use super::parsing;
 use super::{WorktreeSession, WorktreeState, WorktreeStatus};
@@ -516,7 +517,7 @@ impl WorktreeManager {
 
     /// Pure function to show manual cleanup message
     fn show_manual_cleanup_message(&self, name: &str) {
-        println!("ℹ️  Session '{name}' has been merged. You can clean it up with: prodigy worktree cleanup {name}");
+        println!("{}", manager_utilities::format_cleanup_message(name));
     }
 
     /// Clean up a worktree session
@@ -1058,12 +1059,7 @@ impl WorktreeManager {
         input: &str,
         variables: &HashMap<String, String>,
     ) -> String {
-        let mut result = input.to_string();
-        for (key, value) in variables {
-            let placeholder = format!("${{{}}}", key);
-            result = result.replace(&placeholder, value);
-        }
-        result
+        manager_utilities::interpolate_variables(input, variables)
     }
 
     /// Log execution context for debugging
@@ -1078,15 +1074,7 @@ impl WorktreeManager {
         tracing::debug!("Working Directory: {}", worktree_path.display());
         tracing::debug!("Worktree Path: {}", worktree_path.display());
         tracing::debug!("Project Directory: {}", self.repo_path.display());
-        tracing::debug!("Variables:");
-        for (key, value) in variables {
-            let display_value = if value.len() > 100 {
-                format!("{}... (truncated)", &value[..100])
-            } else {
-                value.clone()
-            };
-            tracing::debug!("  {} = {}", key, display_value);
-        }
+        tracing::debug!("Variables:\n{}", manager_utilities::format_variables_for_log(variables, "  "));
         tracing::debug!("Environment Variables:");
         tracing::debug!("  PRODIGY_AUTOMATION = true");
         if self.verbosity >= 1 {

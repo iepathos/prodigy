@@ -68,6 +68,7 @@ pub mod display;
 pub mod manager;
 pub mod manager_construction;
 pub mod manager_queries;
+pub mod manager_utilities;
 pub mod manager_validation;
 pub mod parsing;
 pub mod pool;
