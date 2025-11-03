@@ -6,13 +6,47 @@
 use crate::cook::execution::interpolation::InterpolationContext;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::workflow::executor::{
-    VariableResolution, WorkflowContext, WorkflowExecutor, WorkflowStep, BRACED_VAR_REGEX,
-    UNBRACED_VAR_REGEX,
+    VariableResolution, WorkflowExecutor, WorkflowStep, BRACED_VAR_REGEX, UNBRACED_VAR_REGEX,
 };
 use crate::cook::workflow::git_context::GitChangeTracker;
+use crate::cook::workflow::validation::ValidationResult;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+/// Workflow context for variable interpolation
+///
+/// Manages all variables, captured outputs, and state needed for variable
+/// interpolation throughout workflow execution. Supports complex data types
+/// through the variable store and git change tracking.
+#[derive(Debug, Clone)]
+pub struct WorkflowContext {
+    /// Simple string variables set explicitly
+    pub variables: HashMap<String, String>,
+    /// Deprecated: Captured command outputs (use variable_store instead)
+    pub captured_outputs: HashMap<String, String>,
+    /// Iteration-specific variables (for iterative workflows)
+    pub iteration_vars: HashMap<String, String>,
+    /// Validation results from validation steps
+    pub validation_results: HashMap<String, ValidationResult>,
+    /// Advanced variable store supporting complex types (arrays, objects, etc.)
+    pub variable_store: Arc<crate::cook::workflow::variables::VariableStore>,
+    /// Git change tracker for file and commit tracking variables
+    pub git_tracker: Option<Arc<std::sync::Mutex<GitChangeTracker>>>,
+}
+
+impl Default for WorkflowContext {
+    fn default() -> Self {
+        Self {
+            variables: HashMap::new(),
+            captured_outputs: HashMap::new(),
+            iteration_vars: HashMap::new(),
+            validation_results: HashMap::new(),
+            variable_store: Arc::new(crate::cook::workflow::variables::VariableStore::new()),
+            git_tracker: None,
+        }
+    }
+}
 
 impl WorkflowContext {
     /// Build InterpolationContext from WorkflowContext variables (pure function)
@@ -224,6 +258,82 @@ impl WorkflowContext {
                 // For complex objects, try to serialize to JSON
                 serde_json::to_string(other).unwrap_or_else(|_| format!("{:?}", other))
             }
+        }
+    }
+
+    /// Interpolate variables in a template string
+    ///
+    /// This is the standard interpolation method that silently falls back to
+    /// the original template if interpolation fails. For error handling, use
+    /// `interpolate_strict` instead.
+    pub fn interpolate(&self, template: &str) -> String {
+        self.interpolate_with_tracking(template).0
+    }
+
+    /// Interpolate variables and track resolutions for verbose output
+    ///
+    /// Returns both the interpolated string and a list of variable resolutions
+    /// that occurred during interpolation. Useful for debugging and verbose
+    /// logging of variable substitutions.
+    pub fn interpolate_with_tracking(&self, template: &str) -> (String, Vec<VariableResolution>) {
+        // Build interpolation context using pure function
+        let context = self.build_interpolation_context();
+
+        // Use InterpolationEngine for proper template parsing and variable resolution
+        let mut engine = crate::cook::execution::interpolation::InterpolationEngine::new(false); // non-strict mode for backward compatibility
+
+        match engine.interpolate(template, &context) {
+            Ok(result) => {
+                // Extract variable resolutions for tracking
+                let resolutions = Self::extract_variable_resolutions(template, &result, &context);
+                (result, resolutions)
+            }
+            Err(error) => {
+                // Log interpolation failure for debugging
+                tracing::warn!(
+                    "Variable interpolation failed for template '{}': {}",
+                    template,
+                    error
+                );
+
+                // Provide detailed error information
+                let available_variables =
+                    WorkflowExecutor::get_available_variable_summary(&context);
+                tracing::debug!("Available variables: {}", available_variables);
+
+                // Fallback to original template on error (non-strict mode behavior)
+                (template.to_string(), Vec::new())
+            }
+        }
+    }
+
+    /// Enhanced interpolation with strict mode and detailed error reporting
+    ///
+    /// Unlike `interpolate()`, this method returns an error if interpolation fails
+    /// instead of falling back to the original template. Use this when you need
+    /// to ensure all variables are properly resolved.
+    pub fn interpolate_strict(&self, template: &str) -> Result<String, String> {
+        let context = self.build_interpolation_context();
+        let mut engine = crate::cook::execution::interpolation::InterpolationEngine::new(true); // strict mode
+
+        engine.interpolate(template, &context).map_err(|error| {
+            let available_variables = WorkflowExecutor::get_available_variable_summary(&context);
+            format!(
+                "Variable interpolation failed for template '{}': {}. Available variables: {}",
+                template, error, available_variables
+            )
+        })
+    }
+
+    /// Resolve a variable path from the store (async)
+    ///
+    /// Queries the variable store for a value at the given path. Paths can be
+    /// dotted notation like "user.name" or "map.results[0]".
+    pub async fn resolve_variable(&self, path: &str) -> Option<String> {
+        if let Ok(value) = self.variable_store.resolve_path(path).await {
+            Some(value.to_string())
+        } else {
+            None
         }
     }
 }

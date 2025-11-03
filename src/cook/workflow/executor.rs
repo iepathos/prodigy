@@ -26,7 +26,7 @@ use crate::abstractions::git::GitOperations;
 use crate::commands::CommandRegistry;
 #[cfg(test)]
 use crate::commands::AttributeValue;
-use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
+use crate::cook::execution::interpolation::InterpolationContext;
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
@@ -36,11 +36,10 @@ use crate::cook::workflow::checkpoint::{
     self, create_checkpoint_with_total_steps, CheckpointManager,
     CompletedStep as CheckpointCompletedStep, ResumeContext,
 };
-use crate::cook::workflow::git_context::GitChangeTracker;
 use crate::cook::workflow::normalized;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::on_failure::OnFailureConfig;
-use crate::cook::workflow::validation::{ValidationConfig, ValidationResult};
+use crate::cook::workflow::validation::ValidationConfig;
 use crate::testing::config::TestConfiguration;
 use crate::unified_session::{format_duration, TimingTracker};
 use anyhow::{anyhow, Context, Result};
@@ -64,100 +63,10 @@ static UNBRACED_VAR_REGEX: Lazy<Regex> = Lazy::new(|| {
 // Re-export pure types for internal use
 use pure::{ExecutionFlags, IterationContinuation};
 
-// Re-export core types from types module
+// Re-export core types from types and context modules
 pub use types::{CaptureOutput, CommandType, StepResult, VariableResolution};
 use types::deserialize_capture_output;
-
-/// Workflow context for variable interpolation
-#[derive(Debug, Clone)]
-pub struct WorkflowContext {
-    pub variables: HashMap<String, String>,
-    pub captured_outputs: HashMap<String, String>,
-    pub iteration_vars: HashMap<String, String>,
-    pub validation_results: HashMap<String, ValidationResult>,
-    /// Variable store for advanced capture functionality
-    pub variable_store: Arc<super::variables::VariableStore>,
-    /// Git change tracker for file tracking
-    pub git_tracker: Option<Arc<std::sync::Mutex<GitChangeTracker>>>,
-}
-
-impl Default for WorkflowContext {
-    fn default() -> Self {
-        Self {
-            variables: HashMap::new(),
-            captured_outputs: HashMap::new(),
-            iteration_vars: HashMap::new(),
-            validation_results: HashMap::new(),
-            variable_store: Arc::new(super::variables::VariableStore::new()),
-            git_tracker: None,
-        }
-    }
-}
-
-impl WorkflowContext {
-    /// Interpolate variables in a template string
-    pub fn interpolate(&self, template: &str) -> String {
-        self.interpolate_with_tracking(template).0
-    }
-
-    /// Interpolate variables and track resolutions for verbose output
-    pub fn interpolate_with_tracking(&self, template: &str) -> (String, Vec<VariableResolution>) {
-        // Build interpolation context using pure function
-        let context = self.build_interpolation_context();
-
-        // Use InterpolationEngine for proper template parsing and variable resolution
-        let mut engine = InterpolationEngine::new(false); // non-strict mode for backward compatibility
-
-        match engine.interpolate(template, &context) {
-            Ok(result) => {
-                // Extract variable resolutions for tracking
-                let resolutions = Self::extract_variable_resolutions(template, &result, &context);
-                (result, resolutions)
-            }
-            Err(error) => {
-                // Log interpolation failure for debugging
-                tracing::warn!(
-                    "Variable interpolation failed for template '{}': {}",
-                    template,
-                    error
-                );
-
-                // Provide detailed error information
-                let available_variables =
-                    WorkflowExecutor::get_available_variable_summary(&context);
-                tracing::debug!("Available variables: {}", available_variables);
-
-                // Fallback to original template on error (non-strict mode behavior)
-                (template.to_string(), Vec::new())
-            }
-        }
-    }
-
-    // This function was moved to WorkflowExecutor impl block
-
-    /// Enhanced interpolation with strict mode and detailed error reporting
-    pub fn interpolate_strict(&self, template: &str) -> Result<String, String> {
-        let context = self.build_interpolation_context();
-        let mut engine = InterpolationEngine::new(true); // strict mode
-
-        engine.interpolate(template, &context).map_err(|error| {
-            let available_variables = WorkflowExecutor::get_available_variable_summary(&context);
-            format!(
-                "Variable interpolation failed for template '{}': {}. Available variables: {}",
-                template, error, available_variables
-            )
-        })
-    }
-
-    /// Resolve a variable path from the store (async)
-    pub async fn resolve_variable(&self, path: &str) -> Option<String> {
-        if let Ok(value) = self.variable_store.resolve_path(path).await {
-            Some(value.to_string())
-        } else {
-            None
-        }
-    }
-}
+pub use context::WorkflowContext;
 
 /// Handler step configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
