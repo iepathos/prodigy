@@ -36,30 +36,39 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_status() {
-        // Setup
-        let temp_dir = TempDir::new().unwrap();
-        let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
-        let session_manager = Arc::new(UnifiedSessionManager::new(storage).await.unwrap());
-        let working_dir = PathBuf::from("/test");
-        let coordinator = DefaultSessionCoordinator::new(session_manager.clone(), working_dir);
-
-        // Start session first
-        coordinator.start_session("session-test-456").await.unwrap();
-
-        // Test different status updates
-        let statuses = vec![
-            SessionStatus::InProgress,
-            SessionStatus::Completed,
-            SessionStatus::Failed,
-            SessionStatus::Interrupted,
+        // Test valid status transitions using pure function approach
+        // Each test case is independent to avoid state contamination
+        let test_cases = vec![
+            ("Running to Paused", SessionStatus::InProgress, SessionStatus::Interrupted),
+            ("Running to Completed", SessionStatus::InProgress, SessionStatus::Completed),
+            ("Running to Failed", SessionStatus::InProgress, SessionStatus::Failed),
         ];
 
-        for status in statuses {
-            let result = coordinator.update_status(status.clone()).await;
-            assert!(result.is_ok());
+        for (description, initial_status, target_status) in test_cases {
+            // Setup fresh coordinator for each test case
+            let temp_dir = TempDir::new().unwrap();
+            let storage = GlobalStorage::new_with_root(temp_dir.path().to_path_buf()).unwrap();
+            let session_manager = Arc::new(UnifiedSessionManager::new(storage).await.unwrap());
+            let working_dir = PathBuf::from("/test");
+            let coordinator = DefaultSessionCoordinator::new(session_manager.clone(), working_dir);
 
-            // Just verify the operation succeeded
-            // We can't easily verify internal state without mocking
+            // Start session
+            coordinator
+                .start_session(&format!("session-test-{}", description.replace(" ", "-")))
+                .await
+                .unwrap();
+
+            // Set initial status
+            coordinator.update_status(initial_status).await.unwrap();
+
+            // Test transition to target status
+            let result = coordinator.update_status(target_status.clone()).await;
+            assert!(
+                result.is_ok(),
+                "Failed to transition {}: {:?}",
+                description,
+                result.err()
+            );
         }
     }
 
