@@ -207,3 +207,29 @@ pub(super) fn fold_logical_operators(
         _ => Ok(expr),
     }
 }
+
+/// Helper function to fold string operators (Contains, StartsWith, EndsWith, Matches)
+pub(super) fn fold_string_operators(
+    optimizer: &mut super::ExpressionOptimizer,
+    expr: Expression,
+) -> Result<Expression> {
+    match expr {
+        Expression::Contains(left, right) => Ok(Expression::Contains(
+            Box::new(optimizer.constant_folding(*left)?),
+            Box::new(optimizer.constant_folding(*right)?),
+        )),
+        Expression::StartsWith(left, right) => Ok(Expression::StartsWith(
+            Box::new(optimizer.constant_folding(*left)?),
+            Box::new(optimizer.constant_folding(*right)?),
+        )),
+        Expression::EndsWith(left, right) => Ok(Expression::EndsWith(
+            Box::new(optimizer.constant_folding(*left)?),
+            Box::new(optimizer.constant_folding(*right)?),
+        )),
+        Expression::Matches(left, right) => Ok(Expression::Matches(
+            Box::new(optimizer.constant_folding(*left)?),
+            Box::new(optimizer.constant_folding(*right)?),
+        )),
+        _ => Ok(expr),
+    }
+}

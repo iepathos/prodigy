@@ -191,23 +191,11 @@ impl ExpressionOptimizer {
                 fold_is_not_null(&mut self.stats, inner)
             }
 
-            // Recursively fold other expressions
-            Expression::Contains(left, right) => Ok(Expression::Contains(
-                Box::new(self.constant_folding(*left)?),
-                Box::new(self.constant_folding(*right)?),
-            )),
-            Expression::StartsWith(left, right) => Ok(Expression::StartsWith(
-                Box::new(self.constant_folding(*left)?),
-                Box::new(self.constant_folding(*right)?),
-            )),
-            Expression::EndsWith(left, right) => Ok(Expression::EndsWith(
-                Box::new(self.constant_folding(*left)?),
-                Box::new(self.constant_folding(*right)?),
-            )),
-            Expression::Matches(left, right) => Ok(Expression::Matches(
-                Box::new(self.constant_folding(*left)?),
-                Box::new(self.constant_folding(*right)?),
-            )),
+            // Delegate string operators to specialized function
+            Expression::Contains(_, _)
+            | Expression::StartsWith(_, _)
+            | Expression::EndsWith(_, _)
+            | Expression::Matches(_, _) => fold_string_operators(self, expr),
             Expression::Index(base, idx) => Ok(Expression::Index(
                 Box::new(self.constant_folding(*base)?),
                 Box::new(self.constant_folding(*idx)?),
@@ -508,7 +496,8 @@ mod utils;
 use cache::SubExpressionCache;
 use folding::{
     fold_equal_comparison, fold_is_not_null, fold_is_null, fold_logical_operators,
-    fold_not_equal_comparison, fold_numeric_comparison, NumericComparisonOp,
+    fold_not_equal_comparison, fold_numeric_comparison, fold_string_operators,
+    NumericComparisonOp,
 };
 use utils::{expressions_equal, hash_expression};
 
