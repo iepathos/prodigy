@@ -4,6 +4,7 @@
 
 pub mod manager;
 pub mod reduce;
+pub mod storage;
 pub mod types;
 
 // Re-export all types from types module
@@ -15,10 +16,11 @@ pub use types::{
     WorkItemBatch, WorkItemProgress, WorkItemState,
 };
 
+// Re-export from storage
+pub use storage::{CheckpointStorage, CompressionAlgorithm, FileCheckpointStorage};
+
 // Re-export from manager
-pub use manager::{
-    CheckpointManager, CheckpointStorage, CompressionAlgorithm, FileCheckpointStorage,
-};
+pub use manager::CheckpointManager;
 
 // Re-export types from reduce
 pub use reduce::{ReducePhaseCheckpoint, StepResult};
