@@ -30,6 +30,8 @@ mod context;
 mod data_structures;
 #[path = "executor/failure_handler.rs"]
 mod failure_handler;
+#[path = "executor/git_support.rs"]
+mod git_support;
 #[path = "executor/orchestration.rs"]
 mod orchestration;
 #[path = "executor/pure.rs"]
@@ -1206,93 +1208,27 @@ impl WorkflowExecutor {
         }
     }
 
-    /// Get current git HEAD
+    /// Get current git HEAD (delegated to git_support module)
     async fn get_current_head(&self, working_dir: &std::path::Path) -> Result<String> {
-        // We need to run git commands in the correct working directory (especially for worktrees)
-        let output = self
-            .git_operations
-            .git_command_in_dir(&["rev-parse", "HEAD"], "get HEAD", working_dir)
-            .await
-            .context("Failed to get git HEAD")?;
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        let helper = git_support::GitOperationsHelper::new(Arc::clone(&self.git_operations));
+        helper.get_current_head(working_dir).await
     }
 
-    /// Check if there are uncommitted changes
+    /// Check if there are uncommitted changes (delegated to git_support module)
     async fn check_for_changes(&self, working_dir: &std::path::Path) -> Result<bool> {
-        let output = self
-            .git_operations
-            .git_command_in_dir(&["status", "--porcelain"], "check status", working_dir)
-            .await
-            .context("Failed to check git status")?;
-
-        Ok(!output.stdout.is_empty())
+        let helper = git_support::GitOperationsHelper::new(Arc::clone(&self.git_operations));
+        helper.check_for_changes(working_dir).await
     }
 
-    /// Get commits between two refs
+    /// Get commits between two refs (delegated to git_support module)
     async fn get_commits_between(
         &self,
         working_dir: &std::path::Path,
         from: &str,
         to: &str,
     ) -> Result<Vec<crate::cook::commit_tracker::TrackedCommit>> {
-        use crate::cook::commit_tracker::TrackedCommit;
-        use chrono::{DateTime, Utc};
-
-        let output = self
-            .git_operations
-            .git_command_in_dir(
-                &[
-                    "log",
-                    &format!("{from}..{to}"),
-                    "--pretty=format:%H|%s|%an|%aI",
-                    "--name-only",
-                ],
-                "get commit log",
-                working_dir,
-            )
-            .await
-            .context("Failed to get commit log")?;
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let mut commits = Vec::new();
-        let mut current_commit: Option<TrackedCommit> = None;
-
-        for line in stdout.lines() {
-            if line.contains('|') {
-                // This is a commit header line
-                if let Some(commit) = current_commit.take() {
-                    commits.push(commit);
-                }
-
-                let parts: Vec<&str> = line.split('|').collect();
-                if parts.len() >= 4 {
-                    current_commit = Some(TrackedCommit {
-                        hash: parts[0].to_string(),
-                        message: parts[1].to_string(),
-                        author: parts[2].to_string(),
-                        timestamp: parts[3]
-                            .parse::<DateTime<Utc>>()
-                            .unwrap_or_else(|_| Utc::now()),
-                        files_changed: Vec::new(),
-                        insertions: 0,
-                        deletions: 0,
-                        step_name: String::new(),
-                        agent_id: None,
-                    });
-                }
-            } else if !line.is_empty() {
-                // This is a file name
-                if let Some(ref mut commit) = current_commit {
-                    commit.files_changed.push(std::path::PathBuf::from(line));
-                }
-            }
-        }
-
-        if let Some(commit) = current_commit {
-            commits.push(commit);
-        }
-
-        Ok(commits)
+        let helper = git_support::GitOperationsHelper::new(Arc::clone(&self.git_operations));
+        helper.get_commits_between(working_dir, from, to).await
     }
 
     /// Handle the case where no commits were created when expected
