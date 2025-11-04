@@ -181,15 +181,14 @@ impl ExpressionOptimizer {
                 )
             }
 
-            // Type checks on constants
-            Expression::IsNull(inner) => {
-                let inner = self.constant_folding(*inner)?;
-                fold_is_null(&mut self.stats, inner)
-            }
-            Expression::IsNotNull(inner) => {
-                let inner = self.constant_folding(*inner)?;
-                fold_is_not_null(&mut self.stats, inner)
-            }
+            // Delegate type checks to specialized function
+            Expression::IsNull(_)
+            | Expression::IsNotNull(_)
+            | Expression::IsNumber(_)
+            | Expression::IsString(_)
+            | Expression::IsBool(_)
+            | Expression::IsArray(_)
+            | Expression::IsObject(_) => fold_type_checks(self, expr),
 
             // Delegate string operators to specialized function
             Expression::Contains(_, _)
@@ -216,23 +215,6 @@ impl ExpressionOptimizer {
             Expression::Min(inner) => Ok(Expression::Min(Box::new(self.constant_folding(*inner)?))),
             Expression::Max(inner) => Ok(Expression::Max(Box::new(self.constant_folding(*inner)?))),
             Expression::Avg(inner) => Ok(Expression::Avg(Box::new(self.constant_folding(*inner)?))),
-
-            // Type checks
-            Expression::IsNumber(inner) => Ok(Expression::IsNumber(Box::new(
-                self.constant_folding(*inner)?,
-            ))),
-            Expression::IsString(inner) => Ok(Expression::IsString(Box::new(
-                self.constant_folding(*inner)?,
-            ))),
-            Expression::IsBool(inner) => {
-                Ok(Expression::IsBool(Box::new(self.constant_folding(*inner)?)))
-            }
-            Expression::IsArray(inner) => Ok(Expression::IsArray(Box::new(
-                self.constant_folding(*inner)?,
-            ))),
-            Expression::IsObject(inner) => Ok(Expression::IsObject(Box::new(
-                self.constant_folding(*inner)?,
-            ))),
 
             // Literals and simple expressions pass through
             _ => Ok(expr),
@@ -495,9 +477,8 @@ mod utils;
 // Import from internal modules
 use cache::SubExpressionCache;
 use folding::{
-    fold_equal_comparison, fold_is_not_null, fold_is_null, fold_logical_operators,
-    fold_not_equal_comparison, fold_numeric_comparison, fold_string_operators,
-    NumericComparisonOp,
+    fold_equal_comparison, fold_logical_operators, fold_not_equal_comparison,
+    fold_numeric_comparison, fold_string_operators, fold_type_checks, NumericComparisonOp,
 };
 use utils::{expressions_equal, hash_expression};
 

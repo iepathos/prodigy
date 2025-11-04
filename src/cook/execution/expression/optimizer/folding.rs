@@ -233,3 +233,36 @@ pub(super) fn fold_string_operators(
         _ => Ok(expr),
     }
 }
+
+/// Helper function to fold type check operators
+pub(super) fn fold_type_checks(
+    optimizer: &mut super::ExpressionOptimizer,
+    expr: Expression,
+) -> Result<Expression> {
+    match expr {
+        Expression::IsNull(inner) => {
+            let inner = optimizer.constant_folding(*inner)?;
+            fold_is_null(&mut optimizer.stats, inner)
+        }
+        Expression::IsNotNull(inner) => {
+            let inner = optimizer.constant_folding(*inner)?;
+            fold_is_not_null(&mut optimizer.stats, inner)
+        }
+        Expression::IsNumber(inner) => Ok(Expression::IsNumber(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
+        Expression::IsString(inner) => Ok(Expression::IsString(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
+        Expression::IsBool(inner) => {
+            Ok(Expression::IsBool(Box::new(optimizer.constant_folding(*inner)?)))
+        }
+        Expression::IsArray(inner) => Ok(Expression::IsArray(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
+        Expression::IsObject(inner) => Ok(Expression::IsObject(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
+        _ => Ok(expr),
+    }
+}
