@@ -462,52 +462,49 @@ impl WorkflowExecutor {
         );
 
         if head_after == head_before {
-            // No commits were created - check if auto-commit is enabled
-            if step.auto_commit {
-                // Try to create an auto-commit
-                if let Ok(has_changes) = commit_handler.has_uncommitted_changes(working_dir).await {
-                    if has_changes {
-                        let message = self.generate_commit_message(step, workflow_context);
-                        if let Err(e) = commit_handler
-                            .create_auto_commit(working_dir, &message, step_display)
-                            .await
-                        {
-                            tracing::warn!("Failed to create auto-commit: {}", e);
-                            if step.commit_required {
-                                self.handle_no_commits_error(step)?;
-                            }
-                        } else {
-                            return Ok(true);
-                        }
-                    } else if step.commit_required {
-                        self.handle_no_commits_error(step)?;
-                    }
-                } else if step.commit_required {
+            // No commits were created - determine action
+            let has_changes = commit_handler.has_uncommitted_changes(working_dir).await;
+            let action = pure::determine_no_commit_action(step, has_changes);
+
+            match action {
+                pure::CommitVerificationAction::CreateAutoCommit => {
+                    let message = self.generate_commit_message(step, workflow_context);
+                    let commit_created = self
+                        .execute_auto_commit(
+                            &commit_handler,
+                            working_dir,
+                            &message,
+                            step_display,
+                            step,
+                        )
+                        .await?;
+                    return Ok(commit_created);
+                }
+                pure::CommitVerificationAction::RequireCommitError => {
                     self.handle_no_commits_error(step)?;
                 }
-            } else if step.commit_required {
-                self.handle_no_commits_error(step)?;
+                pure::CommitVerificationAction::NoAction => {}
             }
-            Ok(false)
-        } else {
-            // Track commit metadata if available
-            let (_, commits) = commit_handler
-                .verify_and_handle_commits(working_dir, head_before, &head_after, step_display)
-                .await?;
-
-            // Store commit info in context for later use
-            workflow_context.variables.insert(
-                "step.commits".to_string(),
-                commits
-                    .iter()
-                    .map(|c| &c.hash)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(","),
-            );
-
-            Ok(true)
+            return Ok(false);
         }
+
+        // Commits were created - verify and track
+        let (_, commits) = commit_handler
+            .verify_and_handle_commits(working_dir, head_before, &head_after, step_display)
+            .await?;
+
+        // Store commit info in context for later use
+        workflow_context.variables.insert(
+            "step.commits".to_string(),
+            commits
+                .iter()
+                .map(|c| &c.hash)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+
+        Ok(true)
     }
 
     /// Execute auto-commit with error handling
