@@ -254,9 +254,9 @@ pub(super) fn fold_type_checks(
         Expression::IsString(inner) => Ok(Expression::IsString(Box::new(
             optimizer.constant_folding(*inner)?,
         ))),
-        Expression::IsBool(inner) => {
-            Ok(Expression::IsBool(Box::new(optimizer.constant_folding(*inner)?)))
-        }
+        Expression::IsBool(inner) => Ok(Expression::IsBool(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
         Expression::IsArray(inner) => Ok(Expression::IsArray(Box::new(
             optimizer.constant_folding(*inner)?,
         ))),
@@ -273,16 +273,24 @@ pub(super) fn fold_aggregate_functions(
     expr: Expression,
 ) -> Result<Expression> {
     match expr {
-        Expression::Length(inner) => {
-            Ok(Expression::Length(Box::new(optimizer.constant_folding(*inner)?)))
-        }
-        Expression::Sum(inner) => Ok(Expression::Sum(Box::new(optimizer.constant_folding(*inner)?))),
-        Expression::Count(inner) => {
-            Ok(Expression::Count(Box::new(optimizer.constant_folding(*inner)?)))
-        }
-        Expression::Min(inner) => Ok(Expression::Min(Box::new(optimizer.constant_folding(*inner)?))),
-        Expression::Max(inner) => Ok(Expression::Max(Box::new(optimizer.constant_folding(*inner)?))),
-        Expression::Avg(inner) => Ok(Expression::Avg(Box::new(optimizer.constant_folding(*inner)?))),
+        Expression::Length(inner) => Ok(Expression::Length(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
+        Expression::Sum(inner) => Ok(Expression::Sum(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
+        Expression::Count(inner) => Ok(Expression::Count(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
+        Expression::Min(inner) => Ok(Expression::Min(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
+        Expression::Max(inner) => Ok(Expression::Max(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
+        Expression::Avg(inner) => Ok(Expression::Avg(Box::new(
+            optimizer.constant_folding(*inner)?,
+        ))),
         _ => Ok(expr),
     }
 }
