@@ -30,14 +30,13 @@
 //! - **Clear boundaries**: Each module has a single, well-defined responsibility
 
 use crate::config::mapreduce::MergeWorkflow;
-use crate::cook::execution::{ClaudeExecutor, ClaudeExecutorImpl};
 use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use serde_json;
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tracing::{debug, info};
 
 use super::manager_queries::load_state_from_file;
@@ -1200,4 +1199,3 @@ mod tests {
         assert_eq!(Automatic, Automatic);
     }
 }
-
