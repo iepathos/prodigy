@@ -127,52 +127,9 @@ impl ExpressionOptimizer {
     /// Constant folding - evaluate constant expressions at compile time
     fn constant_folding(&mut self, expr: Expression) -> Result<Expression> {
         match expr {
-            // Fold constant arithmetic
-            Expression::And(left, right) => {
-                let left = self.constant_folding(*left)?;
-                let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Boolean(false), _) | (_, Expression::Boolean(false)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(false))
-                    }
-                    (Expression::Boolean(true), other) | (other, Expression::Boolean(true)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(other.clone())
-                    }
-                    _ => Ok(Expression::And(Box::new(left), Box::new(right))),
-                }
-            }
-            Expression::Or(left, right) => {
-                let left = self.constant_folding(*left)?;
-                let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Boolean(true), _) | (_, Expression::Boolean(true)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(true))
-                    }
-                    (Expression::Boolean(false), other) | (other, Expression::Boolean(false)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(other.clone())
-                    }
-                    _ => Ok(Expression::Or(Box::new(left), Box::new(right))),
-                }
-            }
-            Expression::Not(inner) => {
-                let inner = self.constant_folding(*inner)?;
-                match inner {
-                    Expression::Boolean(b) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(!b))
-                    }
-                    Expression::Not(double_inner) => {
-                        self.stats.algebraic_simplifications += 1;
-                        Ok(*double_inner) // Double negation
-                    }
-                    _ => Ok(Expression::Not(Box::new(inner))),
-                }
+            // Delegate logical operators to specialized function
+            Expression::And(_, _) | Expression::Or(_, _) | Expression::Not(_) => {
+                fold_logical_operators(self, expr)
             }
             // Fold constant comparisons
             Expression::Equal(left, right) => {
@@ -224,70 +181,33 @@ impl ExpressionOptimizer {
                 )
             }
 
-            // Type checks on constants
-            Expression::IsNull(inner) => {
-                let inner = self.constant_folding(*inner)?;
-                fold_is_null(&mut self.stats, inner)
-            }
-            Expression::IsNotNull(inner) => {
-                let inner = self.constant_folding(*inner)?;
-                fold_is_not_null(&mut self.stats, inner)
+            // Delegate type checks to specialized function
+            Expression::IsNull(_)
+            | Expression::IsNotNull(_)
+            | Expression::IsNumber(_)
+            | Expression::IsString(_)
+            | Expression::IsBool(_)
+            | Expression::IsArray(_)
+            | Expression::IsObject(_) => fold_type_checks(self, expr),
+
+            // Delegate string operators to specialized function
+            Expression::Contains(_, _)
+            | Expression::StartsWith(_, _)
+            | Expression::EndsWith(_, _)
+            | Expression::Matches(_, _) => fold_string_operators(self, expr),
+
+            // Delegate array operators to specialized function
+            Expression::Index(_, _) | Expression::ArrayWildcard(_, _) => {
+                fold_array_operators(self, expr)
             }
 
-            // Recursively fold other expressions
-            Expression::Contains(left, right) => Ok(Expression::Contains(
-                Box::new(self.constant_folding(*left)?),
-                Box::new(self.constant_folding(*right)?),
-            )),
-            Expression::StartsWith(left, right) => Ok(Expression::StartsWith(
-                Box::new(self.constant_folding(*left)?),
-                Box::new(self.constant_folding(*right)?),
-            )),
-            Expression::EndsWith(left, right) => Ok(Expression::EndsWith(
-                Box::new(self.constant_folding(*left)?),
-                Box::new(self.constant_folding(*right)?),
-            )),
-            Expression::Matches(left, right) => Ok(Expression::Matches(
-                Box::new(self.constant_folding(*left)?),
-                Box::new(self.constant_folding(*right)?),
-            )),
-            Expression::Index(base, idx) => Ok(Expression::Index(
-                Box::new(self.constant_folding(*base)?),
-                Box::new(self.constant_folding(*idx)?),
-            )),
-            Expression::ArrayWildcard(base, path) => Ok(Expression::ArrayWildcard(
-                Box::new(self.constant_folding(*base)?),
-                path,
-            )),
-
-            // Aggregate functions
-            Expression::Length(inner) => {
-                Ok(Expression::Length(Box::new(self.constant_folding(*inner)?)))
-            }
-            Expression::Sum(inner) => Ok(Expression::Sum(Box::new(self.constant_folding(*inner)?))),
-            Expression::Count(inner) => {
-                Ok(Expression::Count(Box::new(self.constant_folding(*inner)?)))
-            }
-            Expression::Min(inner) => Ok(Expression::Min(Box::new(self.constant_folding(*inner)?))),
-            Expression::Max(inner) => Ok(Expression::Max(Box::new(self.constant_folding(*inner)?))),
-            Expression::Avg(inner) => Ok(Expression::Avg(Box::new(self.constant_folding(*inner)?))),
-
-            // Type checks
-            Expression::IsNumber(inner) => Ok(Expression::IsNumber(Box::new(
-                self.constant_folding(*inner)?,
-            ))),
-            Expression::IsString(inner) => Ok(Expression::IsString(Box::new(
-                self.constant_folding(*inner)?,
-            ))),
-            Expression::IsBool(inner) => {
-                Ok(Expression::IsBool(Box::new(self.constant_folding(*inner)?)))
-            }
-            Expression::IsArray(inner) => Ok(Expression::IsArray(Box::new(
-                self.constant_folding(*inner)?,
-            ))),
-            Expression::IsObject(inner) => Ok(Expression::IsObject(Box::new(
-                self.constant_folding(*inner)?,
-            ))),
+            // Delegate aggregate functions to specialized function
+            Expression::Length(_)
+            | Expression::Sum(_)
+            | Expression::Count(_)
+            | Expression::Min(_)
+            | Expression::Max(_)
+            | Expression::Avg(_) => fold_aggregate_functions(self, expr),
 
             // Literals and simple expressions pass through
             _ => Ok(expr),
@@ -550,8 +470,9 @@ mod utils;
 // Import from internal modules
 use cache::SubExpressionCache;
 use folding::{
-    fold_equal_comparison, fold_is_not_null, fold_is_null, fold_not_equal_comparison,
-    fold_numeric_comparison, NumericComparisonOp,
+    fold_aggregate_functions, fold_array_operators, fold_equal_comparison, fold_logical_operators,
+    fold_not_equal_comparison, fold_numeric_comparison, fold_string_operators, fold_type_checks,
+    NumericComparisonOp,
 };
 use utils::{expressions_equal, hash_expression};
 
