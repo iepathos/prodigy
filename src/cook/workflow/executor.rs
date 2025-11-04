@@ -24,12 +24,16 @@
 mod builder;
 #[path = "executor/commands.rs"]
 pub(crate) mod commands;
+#[path = "executor/commit_handler.rs"]
+mod commit_handler;
 #[path = "executor/context.rs"]
 mod context;
 #[path = "executor/data_structures.rs"]
 mod data_structures;
 #[path = "executor/failure_handler.rs"]
 mod failure_handler;
+#[path = "executor/git_support.rs"]
+mod git_support;
 #[path = "executor/orchestration.rs"]
 mod orchestration;
 #[path = "executor/pure.rs"]
@@ -442,7 +446,7 @@ impl WorkflowExecutor {
             .await
     }
 
-    /// Handle commit verification and auto-commit
+    /// Handle commit verification and auto-commit (delegated to commit_handler module)
     async fn handle_commit_verification(
         &mut self,
         working_dir: &std::path::Path,
@@ -452,21 +456,27 @@ impl WorkflowExecutor {
         workflow_context: &mut WorkflowContext,
     ) -> Result<bool> {
         let head_after = self.get_current_head(working_dir).await?;
+        let commit_handler = commit_handler::CommitHandler::new(
+            Arc::clone(&self.git_operations),
+            Arc::clone(&self.user_interaction),
+        );
+
         if head_after == head_before {
             // No commits were created - check if auto-commit is enabled
             if step.auto_commit {
                 // Try to create an auto-commit
-                if let Ok(has_changes) = self.check_for_changes(working_dir).await {
+                if let Ok(has_changes) = commit_handler.has_uncommitted_changes(working_dir).await {
                     if has_changes {
                         let message = self.generate_commit_message(step, workflow_context);
-                        if let Err(e) = self.create_auto_commit(working_dir, &message).await {
+                        if let Err(e) = commit_handler
+                            .create_auto_commit(working_dir, &message, step_display)
+                            .await
+                        {
                             tracing::warn!("Failed to create auto-commit: {}", e);
                             if step.commit_required {
                                 self.handle_no_commits_error(step)?;
                             }
                         } else {
-                            self.user_interaction
-                                .display_success(&format!("{step_display} auto-committed changes"));
                             return Ok(true);
                         }
                     } else if step.commit_required {
@@ -481,95 +491,36 @@ impl WorkflowExecutor {
             Ok(false)
         } else {
             // Track commit metadata if available
-            if let Ok(commits) = self
-                .get_commits_between(working_dir, head_before, &head_after)
-                .await
-            {
-                let commit_count = commits.len();
-                let files_changed: std::collections::HashSet<_> = commits
-                    .iter()
-                    .flat_map(|c| c.files_changed.iter())
-                    .collect();
-                self.user_interaction.display_success(&format!(
-                    "{step_display} created {} commit{} affecting {} file{}",
-                    commit_count,
-                    if commit_count == 1 { "" } else { "s" },
-                    files_changed.len(),
-                    if files_changed.len() == 1 { "" } else { "s" }
-                ));
+            let (_, commits) = commit_handler
+                .verify_and_handle_commits(working_dir, head_before, &head_after, step_display)
+                .await?;
 
-                // Store commit info in context for later use
-                workflow_context.variables.insert(
-                    "step.commits".to_string(),
-                    commits
-                        .iter()
-                        .map(|c| &c.hash)
-                        .cloned()
-                        .collect::<Vec<_>>()
-                        .join(","),
-                );
-            }
+            // Store commit info in context for later use
+            workflow_context.variables.insert(
+                "step.commits".to_string(),
+                commits
+                    .iter()
+                    .map(|c| &c.hash)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(","),
+            );
+
             Ok(true)
         }
     }
 
-    /// Handle commit squashing if enabled in workflow
+    /// Handle commit squashing if enabled in workflow (delegated to commit_handler module)
     async fn handle_commit_squashing(
         &mut self,
         workflow: &ExtendedWorkflowConfig,
         env: &ExecutionEnvironment,
     ) {
-        // Check if any step has squash enabled in commit_config
-        let should_squash = workflow.steps.iter().any(|step| {
-            step.commit_config
-                .as_ref()
-                .map(|config| config.squash)
-                .unwrap_or(false)
-        });
-
-        if !should_squash {
-            return;
-        }
-
-        self.user_interaction
-            .display_progress("Squashing workflow commits...");
-
-        // Try to get all commits created during this workflow
-        if let Ok(head_after) = self.get_current_head(&env.working_dir).await {
-            // Use a reasonable range for getting commits (last 20 commits should be enough for a workflow)
-            if let Ok(commits) = self
-                .get_commits_between(&env.working_dir, "HEAD~20", &head_after)
-                .await
-            {
-                if !commits.is_empty() {
-                    // Create commit tracker and squash
-                    let git_ops = Arc::new(crate::abstractions::git::RealGitOperations::new());
-                    let commit_tracker = crate::cook::commit_tracker::CommitTracker::new(
-                        git_ops,
-                        env.working_dir.to_path_buf(),
-                    );
-
-                    // Generate squash message
-                    let squash_message = format!(
-                        "Squashed {} workflow commits from {}",
-                        commits.len(),
-                        workflow.name
-                    );
-
-                    if let Err(e) = commit_tracker
-                        .squash_commits(&commits, &squash_message)
-                        .await
-                    {
-                        tracing::warn!("Failed to squash commits: {}", e);
-                    } else {
-                        self.user_interaction.display_success(&format!(
-                            "Squashed {} commits into one",
-                            commits.len()
-                        ));
-                    }
-                }
-            }
-        }
+        let commit_handler = commit_handler::CommitHandler::new(
+            Arc::clone(&self.git_operations),
+            Arc::clone(&self.user_interaction),
+        );
+        commit_handler.handle_commit_squashing(workflow, env).await;
     }
 
     /// Determine execution flags from environment variables (delegated to pure module)
@@ -1206,93 +1157,10 @@ impl WorkflowExecutor {
         }
     }
 
-    /// Get current git HEAD
+    /// Get current git HEAD (delegated to git_support module)
     async fn get_current_head(&self, working_dir: &std::path::Path) -> Result<String> {
-        // We need to run git commands in the correct working directory (especially for worktrees)
-        let output = self
-            .git_operations
-            .git_command_in_dir(&["rev-parse", "HEAD"], "get HEAD", working_dir)
-            .await
-            .context("Failed to get git HEAD")?;
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    }
-
-    /// Check if there are uncommitted changes
-    async fn check_for_changes(&self, working_dir: &std::path::Path) -> Result<bool> {
-        let output = self
-            .git_operations
-            .git_command_in_dir(&["status", "--porcelain"], "check status", working_dir)
-            .await
-            .context("Failed to check git status")?;
-
-        Ok(!output.stdout.is_empty())
-    }
-
-    /// Get commits between two refs
-    async fn get_commits_between(
-        &self,
-        working_dir: &std::path::Path,
-        from: &str,
-        to: &str,
-    ) -> Result<Vec<crate::cook::commit_tracker::TrackedCommit>> {
-        use crate::cook::commit_tracker::TrackedCommit;
-        use chrono::{DateTime, Utc};
-
-        let output = self
-            .git_operations
-            .git_command_in_dir(
-                &[
-                    "log",
-                    &format!("{from}..{to}"),
-                    "--pretty=format:%H|%s|%an|%aI",
-                    "--name-only",
-                ],
-                "get commit log",
-                working_dir,
-            )
-            .await
-            .context("Failed to get commit log")?;
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let mut commits = Vec::new();
-        let mut current_commit: Option<TrackedCommit> = None;
-
-        for line in stdout.lines() {
-            if line.contains('|') {
-                // This is a commit header line
-                if let Some(commit) = current_commit.take() {
-                    commits.push(commit);
-                }
-
-                let parts: Vec<&str> = line.split('|').collect();
-                if parts.len() >= 4 {
-                    current_commit = Some(TrackedCommit {
-                        hash: parts[0].to_string(),
-                        message: parts[1].to_string(),
-                        author: parts[2].to_string(),
-                        timestamp: parts[3]
-                            .parse::<DateTime<Utc>>()
-                            .unwrap_or_else(|_| Utc::now()),
-                        files_changed: Vec::new(),
-                        insertions: 0,
-                        deletions: 0,
-                        step_name: String::new(),
-                        agent_id: None,
-                    });
-                }
-            } else if !line.is_empty() {
-                // This is a file name
-                if let Some(ref mut commit) = current_commit {
-                    commit.files_changed.push(std::path::PathBuf::from(line));
-                }
-            }
-        }
-
-        if let Some(commit) = current_commit {
-            commits.push(commit);
-        }
-
-        Ok(commits)
+        let helper = git_support::GitOperationsHelper::new(Arc::clone(&self.git_operations));
+        helper.get_current_head(working_dir).await
     }
 
     /// Handle the case where no commits were created when expected

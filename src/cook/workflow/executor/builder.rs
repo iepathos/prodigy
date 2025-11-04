@@ -22,7 +22,7 @@ use crate::cook::retry_state::RetryStateManager;
 use crate::cook::session::SessionManager;
 use crate::testing::config::TestConfiguration;
 use crate::unified_session::TimingTracker;
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -216,33 +216,6 @@ impl WorkflowExecutor {
     }
 
     // Configuration helpers
-
-    /// Create an auto-commit
-    pub(super) async fn create_auto_commit(
-        &self,
-        working_dir: &std::path::Path,
-        message: &str,
-    ) -> Result<()> {
-        // Stage all changes
-        self.git_operations
-            .git_command_in_dir(&["add", "."], "stage changes", working_dir)
-            .await
-            .context("Failed to stage changes")?;
-
-        // Create commit
-        let output = self
-            .git_operations
-            .git_command_in_dir(&["commit", "-m", message], "create commit", working_dir)
-            .await
-            .context("Failed to create commit")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow!("Failed to create commit: {stderr}"));
-        }
-
-        Ok(())
-    }
 
     /// Create a validation handler from on_incomplete configuration
     pub(super) fn create_validation_handler(
@@ -473,28 +446,16 @@ impl WorkflowExecutor {
         super::pure::build_step_error_message(step, result)
     }
 
-    /// Generate a commit message from template or default
+    /// Generate a commit message from template or default (delegated to commit_handler module)
     pub fn generate_commit_message(
         &self,
         step: &WorkflowStep,
         context: &WorkflowContext,
     ) -> String {
-        if let Some(ref config) = step.commit_config {
-            if let Some(ref template) = config.message_template {
-                // Interpolate variables in template
-                let mut message = template.clone();
-                message = message.replace("${step.name}", &self.get_step_display_name(step));
-
-                // Replace other variables from context
-                for (key, value) in &context.variables {
-                    message = message.replace(&format!("${{{key}}}"), value);
-                    message = message.replace(&format!("${key}"), value);
-                }
-
-                return message;
-            }
-        }
-
-        format!("Auto-commit: {}", self.get_step_display_name(step))
+        super::commit_handler::generate_commit_message(
+            step,
+            context,
+            &self.get_step_display_name(step),
+        )
     }
 }
