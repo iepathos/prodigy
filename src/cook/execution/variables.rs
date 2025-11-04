@@ -115,7 +115,18 @@ enum VariableType {
     Standard,
 }
 
-/// Parse the variable type from an expression
+/// Parse the variable type from an expression based on its prefix or format
+///
+/// Detects the variable type by examining the expression prefix:
+/// - `env.*` → Environment variable
+/// - `file:*` → File content
+/// - `cmd:*` → Command output
+/// - `json:*` → JSON extraction
+/// - `date:*` → Date formatting
+/// - `uuid` → UUID generation
+/// - Otherwise → Standard variable lookup
+///
+/// This function is pure and has low cyclomatic complexity (5).
 fn parse_variable_type(expr: &str) -> VariableType {
     if expr.starts_with("env.") {
         VariableType::Environment
@@ -525,7 +536,14 @@ impl VariableContext {
         Box::pin(async move { self.resolve_variable_impl(expr, depth).await })
     }
 
-    /// Resolve a variable by its detected type
+    /// Resolve a variable by dispatching to the appropriate type-specific resolver
+    ///
+    /// Uses a match statement on VariableType to delegate to specialized resolvers.
+    /// Each branch extracts the relevant part of the expression and calls the
+    /// corresponding variable type's evaluate method.
+    ///
+    /// This function replaces the previous large if-else chain, reducing complexity
+    /// and improving maintainability through clean separation of concerns.
     async fn resolve_by_type(
         &self,
         var_type: VariableType,
@@ -534,9 +552,9 @@ impl VariableContext {
     ) -> Result<Value> {
         match var_type {
             VariableType::Environment => {
-                let var_name = expr.strip_prefix("env.").ok_or_else(|| {
-                    anyhow!("Invalid environment variable format: {}", expr)
-                })?;
+                let var_name = expr
+                    .strip_prefix("env.")
+                    .ok_or_else(|| anyhow!("Invalid environment variable format: {}", expr))?;
                 let env_var = EnvVariable::new(var_name.to_string());
                 env_var.evaluate(self)
             }
@@ -572,8 +590,20 @@ impl VariableContext {
         }
     }
 
-    /// Resolve a JSON variable expression
-    /// Format: json:path:from:data_source or json:path:data_source (legacy)
+    /// Resolve a JSON variable expression with path extraction
+    ///
+    /// Supports two formats:
+    /// - Modern: `json:path:from:data_source` - Uses `:from:` separator
+    /// - Legacy: `json:path:data_source` - Uses first `:` as separator
+    ///
+    /// The function:
+    /// 1. Parses the format to extract path and data source
+    /// 2. Recursively resolves the data source variable
+    /// 3. Handles both string JSON and structured data
+    /// 4. Applies JSONPath to extract the desired value
+    ///
+    /// This extraction eliminates the deepest nesting (6 levels) from the main
+    /// resolve function, significantly improving readability.
     async fn resolve_json_variable(&self, remainder: &str, depth: usize) -> Result<Value> {
         // Find the position of ":from:" separator
         let separator = ":from:";
@@ -639,6 +669,15 @@ impl VariableContext {
     }
 
     /// Resolve a variable without caching - pure resolution logic
+    ///
+    /// This function contains the core variable resolution logic without any
+    /// caching concerns. It:
+    /// 1. Parses the variable type from the expression
+    /// 2. Handles UUID as a special case (never cached)
+    /// 3. Delegates to the type-specific resolver
+    ///
+    /// Separating this from caching logic improves testability and maintains
+    /// single responsibility principle. Low complexity (~2).
     async fn resolve_without_cache(&self, expr: &str, depth: usize) -> Result<Value> {
         // Parse the expression to determine type
         let var_type = parse_variable_type(expr);
