@@ -1,252 +1,213 @@
-# Implementation Plan: Extract Test Code from validation.rs God Module
+# Implementation Plan: Modularize Data Pipeline Test File
 
 ## Problem Summary
 
-**Location**: ./src/cook/workflow/executor/validation.rs:file:0
-**Priority Score**: 69.44
-**Debt Type**: God Object (File-level)
+**Location**: ./src/cook/execution/data_pipeline.rs:file:0
+**Priority Score**: 52.04
+**Debt Type**: File-level - Large test file with low modularity
 **Current Metrics**:
-- Lines of Code: 2,038
-- Functions: 112 (92 test functions, 20 implementation functions)
-- Cyclomatic Complexity: 209 total (avg 1.87 per function)
-- Coverage: 0.0% (test file, not production code)
-- God Object Score: 1.0 (maximum)
-- Responsibilities: 7 distinct domains mixed together
+- Lines of Code: 2843
+- Functions: 133
+- Cyclomatic Complexity: 321 (avg 2.41 per function, max 22)
+- Coverage: 0% (test code)
+- File Type: Unit Test Code
 
-**Issue**: This file has become a massive "God Module" with 2,038 lines containing both implementation code (validation logic) and extensive test code (78+ test functions). The file violates the single responsibility principle by mixing production validation logic with test infrastructure and test cases. The recommended action is to split by data flow: 1) Input/parsing functions 2) Core logic/transformation 3) Output/formatting 4) Extract test code to separate test module.
-
-**Root Cause**: Test code has grown organically within the same file as implementation code, violating the convention of separating tests into dedicated test modules. The debtmap analysis identifies this as having 92 private test functions and test helper functions mixed with 20 implementation functions.
+**Issue**: Large test file (2843 lines) with mixed concerns should be split into focused test modules. The file contains comprehensive tests for JSON path parsing, filtering, sorting, and data pipeline operations, but all tests are in a single monolithic file making it difficult to navigate and maintain.
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 41.8 points (moving test code to separate module)
-- Maintainability Improvement: 6.94 points
-- Test Effort: 203.8 lines of test code to reorganize
+**Expected Impact**:
+- Complexity Reduction: 64.2 points
+- Maintainability Improvement: 5.2 points
+- Test Effort: 284.3 (already test code, no new tests needed)
 
 **Success Criteria**:
-- [ ] Test code extracted to `src/cook/workflow/executor/validation_tests.rs`
-- [ ] Implementation code remains in `validation.rs` with only production logic
-- [ ] All 92 tests continue to pass without modification
-- [ ] File size reduced from 2,038 lines to ~250 lines for implementation
+- [ ] File reduced from 2843 lines to <500 lines (main module)
+- [ ] Tests split into logical sub-modules by feature area
+- [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting with `cargo fmt`
-- [ ] Clear module boundary with appropriate visibility (`pub(super)`)
+- [ ] Proper formatting
+- [ ] Clear module organization reflecting the data pipeline components
 
 ## Implementation Phases
 
-### Phase 1: Create Dedicated Test Module File
+### Phase 1: Analyze and Plan Module Structure
 
-**Goal**: Set up the infrastructure for separate test module and verify the approach works
+**Goal**: Understand the current test organization and design the module split strategy
 
 **Changes**:
-1. Create new file `src/cook/workflow/executor/validation_tests.rs`
-2. Add module declaration in `src/cook/workflow/executor/mod.rs` with `#[cfg(test)]`
-3. Set up basic test module structure with necessary imports
-4. Move ONE simple test function (e.g., `test_should_continue_retry_boundary_conditions`) as proof of concept
-5. Verify test still compiles and runs
+- Analyze the file to identify distinct testing domains:
+  - JsonPath tests (compilation, selection, recursive descent, filters)
+  - FilterExpression tests (comparison, logical operators, functions, IN expressions)
+  - Sorter tests (field parsing, sorting logic, null handling)
+  - DataPipeline tests (integration, processing, deduplication, field mapping)
+- Create module structure plan
+- Document which tests go into which modules
 
 **Testing**:
-```bash
-cargo test --lib validation_tests::test_should_continue_retry_boundary_conditions
-cargo test --lib -- validation  # Run all validation tests
-```
+- No code changes yet, only analysis
+- Verify current tests pass: `cargo test data_pipeline`
 
 **Success Criteria**:
-- [ ] New test file created with proper module structure
-- [ ] Module properly declared in parent `mod.rs`
-- [ ] Proof-of-concept test passes in new location
-- [ ] Original test in validation.rs still exists (not deleted yet)
+- [ ] Clear mapping of test functions to modules documented
+- [ ] Module structure designed (4-5 focused modules)
+- [ ] All current tests passing
+
+### Phase 2: Extract JsonPath Tests to Submodule
+
+**Goal**: Move all JsonPath-related tests to a dedicated submodule
+
+**Changes**:
+- Create `tests/json_path.rs` submodule within the test module
+- Move ~30-40 JsonPath test functions to the new module
+- Keep imports and test helpers minimal and focused
+- Ensure tests can access necessary types from parent module
+
+**Testing**:
+- Run `cargo test json_path` to verify extracted tests pass
+- Run `cargo test data_pipeline` to ensure nothing broke
+
+**Success Criteria**:
+- [ ] JsonPath tests isolated in dedicated submodule
+- [ ] All JsonPath tests passing
+- [ ] Main file reduced by ~400-600 lines
 - [ ] Ready to commit
 
-**Estimated Lines**: Create ~50 lines (new file setup + 1 test)
+### Phase 3: Extract FilterExpression Tests to Submodule
 
-### Phase 2: Move Pure Function Tests (Decision Logic)
-
-**Goal**: Extract tests for pure decision functions that have no side effects
+**Goal**: Move all FilterExpression-related tests to a dedicated submodule
 
 **Changes**:
-1. Move all tests for pure decision functions to `validation_tests.rs`:
-   - `test_should_continue_retry_*` (4 tests)
-   - `test_determine_handler_type_*` (4 tests)
-   - `test_should_fail_workflow_*` (4 tests)
-   - `test_calculate_retry_progress_*` (4 tests)
-   - `test_determine_validation_execution_mode_*` (6 tests)
-   - `test_should_read_result_file_after_commands_*` (3 tests)
-   - `test_should_use_result_file_*` (2 tests)
-
-2. Remove these tests from `validation.rs`
-3. Ensure all imports are correct in both files
+- Create `tests/filter_expression.rs` submodule
+- Move ~40-50 FilterExpression test functions including:
+  - Comparison tests
+  - Logical operator tests (AND, OR, NOT)
+  - IN expression tests
+  - Function tests
+  - Complex nested expression tests
+- Keep test data fixtures organized
 
 **Testing**:
-```bash
-cargo test --lib -- validation  # All validation tests should pass
-cargo test --lib validation_tests  # New module tests should pass
-```
+- Run `cargo test filter_expression` to verify extracted tests pass
+- Run `cargo test data_pipeline` to ensure all tests still pass
 
 **Success Criteria**:
-- [ ] 27 pure function tests moved to separate module
-- [ ] All tests pass in new location
-- [ ] validation.rs reduced by ~540 lines
-- [ ] No duplicate test code between files
+- [ ] FilterExpression tests isolated in dedicated submodule
+- [ ] All FilterExpression tests passing
+- [ ] Main file reduced by additional ~500-800 lines
 - [ ] Ready to commit
 
-**Estimated Lines**: Move ~540 lines from validation.rs to validation_tests.rs
+### Phase 4: Extract Sorter Tests to Submodule
 
-### Phase 3: Move Result Construction Tests
-
-**Goal**: Extract tests for result/context construction functions
+**Goal**: Move all Sorter-related tests to a dedicated submodule
 
 **Changes**:
-1. Move all tests for construction functions to `validation_tests.rs`:
-   - `test_create_command_step_failure_result*` (2 tests)
-   - `test_create_file_read_error_result*` (2 tests)
-   - `test_create_command_execution_failure_result*` (2 tests)
-   - `test_create_validation_execution_context_*` (3 tests)
-   - `test_create_validation_timeout_result_*` (3 tests)
-
-2. Remove these tests from `validation.rs`
-3. Verify helper functions are accessible (may need `pub(super)` visibility)
+- Create `tests/sorter.rs` submodule
+- Move ~15-20 Sorter test functions including:
+  - Sort field parsing tests
+  - Sort order tests (ASC/DESC)
+  - Null position handling tests
+  - Multi-field sorting tests
+- Organize test fixtures for sorting scenarios
 
 **Testing**:
-```bash
-cargo test --lib -- validation  # All validation tests should pass
-cargo clippy --tests  # Check for unused imports or visibility issues
-```
+- Run `cargo test sorter` to verify extracted tests pass
+- Run `cargo test data_pipeline` to ensure all tests still pass
 
 **Success Criteria**:
-- [ ] 12 construction tests moved to separate module
-- [ ] All tests pass in new location
-- [ ] validation.rs reduced by ~240 lines (cumulative ~780 lines moved)
-- [ ] Helper functions have appropriate visibility
+- [ ] Sorter tests isolated in dedicated submodule
+- [ ] All Sorter tests passing
+- [ ] Main file reduced by additional ~200-400 lines
 - [ ] Ready to commit
 
-**Estimated Lines**: Move ~240 lines from validation.rs to validation_tests.rs
+### Phase 5: Organize DataPipeline Integration Tests and Finalize
 
-### Phase 4: Move Formatting and Parsing Tests
-
-**Goal**: Extract tests for formatting and parsing functions
+**Goal**: Keep integration tests in main module, finalize structure
 
 **Changes**:
-1. Move all tests for formatting/parsing functions to `validation_tests.rs`:
-   - `test_format_validation_passed_message_*` (4 tests)
-   - `test_format_validation_failed_message_*` (4 tests)
-   - `test_format_failed_validation_detail_*` (3 tests)
-   - `test_determine_step_name_*` (5 tests)
-   - `test_parse_validation_result_with_fallback_*` (3 tests)
-   - `test_parse_result_file_content_*` (4 tests)
-
-2. Remove these tests from `validation.rs`
-3. Ensure parsing/formatting functions have proper visibility
+- Keep ~20-30 DataPipeline integration tests in main `tests` module
+- Add module documentation explaining the structure
+- Add `mod` declarations for the submodules at the top of the test module
+- Verify main file is now <500 lines
+- Run final formatting and linting
 
 **Testing**:
-```bash
-cargo test --lib -- validation
-cargo test --lib validation_tests
-```
+- Run `cargo test --lib` to verify all tests pass
+- Run `cargo clippy` to check for warnings
+- Run `cargo fmt` to ensure formatting
 
 **Success Criteria**:
-- [ ] 23 formatting/parsing tests moved to separate module
-- [ ] All tests pass in new location
-- [ ] validation.rs reduced by ~460 lines (cumulative ~1,240 lines moved)
-- [ ] Ready to commit
-
-**Estimated Lines**: Move ~460 lines from validation.rs to validation_tests.rs
-
-### Phase 5: Move Integration and Async Tests
-
-**Goal**: Extract remaining integration tests and test helper infrastructure
-
-**Changes**:
-1. Move test helper functions to `validation_tests.rs`:
-   - `create_test_env()`
-   - `create_test_executor_for_validation()`
-   - `create_test_executor_with_mocks()`
-
-2. Move all async integration tests to `validation_tests.rs`:
-   - `test_handle_incomplete_validation_*` (5 tests)
-   - `test_handle_step_validation_*` (3 tests)
-   - `test_execute_validation_*` (1 test)
-
-3. Remove the entire `mod tests` block from `validation.rs`
-4. Final cleanup: remove unused imports from `validation.rs`
-5. Update module documentation in both files
-
-**Testing**:
-```bash
-cargo test --lib -- validation  # All 92 tests should still pass
-cargo test --lib validation_tests  # All tests in new module pass
-cargo clippy --lib  # No warnings
-cargo fmt --check  # Proper formatting
-```
-
-**Success Criteria**:
-- [ ] All remaining test code moved (9 tests + helpers)
-- [ ] `mod tests` block completely removed from validation.rs
-- [ ] validation.rs is now ~250 lines (pure implementation)
-- [ ] validation_tests.rs contains all ~1,788 lines of test code
-- [ ] All 92 tests pass without modification
+- [ ] Main test module <500 lines
+- [ ] Clear module structure with 4 focused test submodules:
+  - `tests/json_path.rs`
+  - `tests/filter_expression.rs`
+  - `tests/sorter.rs`
+  - Main `tests` module for integration tests
+- [ ] All 133 tests still passing
 - [ ] No clippy warnings
-- [ ] Both files properly formatted
-- [ ] Module documentation updated
-- [ ] Ready to commit
-
-**Estimated Lines**:
-- Move final ~800 lines from validation.rs to validation_tests.rs
-- validation.rs: 2,038 → ~250 lines (87% reduction)
-- validation_tests.rs: 0 → ~1,788 lines (new test module)
+- [ ] Properly formatted
+- [ ] Ready for final commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib -- validation` to verify all tests pass
-2. Run `cargo clippy --tests` to check for warnings
-3. Run `cargo fmt` to ensure proper formatting
-4. Verify imports are minimal and correct in both files
+1. Run `cargo test --lib data_pipeline` to verify existing tests pass before changes
+2. After extraction, run `cargo test --lib <module_name>` to verify moved tests work
+3. Run `cargo test --lib data_pipeline` again to ensure nothing broke
+4. Run `cargo clippy -- -D warnings` to catch any issues
+5. Run `cargo fmt` to ensure consistent formatting
 
-**After Phase 2-4 (incremental verification)**:
-- Tests should pass in both old and new locations during transition
-- Remove old tests only after verifying new location works
-
-**Final verification (Phase 5)**:
-1. `cargo test --lib -- validation` - All 92 tests pass
-2. `cargo clippy --lib` - No warnings
-3. `cargo fmt --check` - Proper formatting
-4. Verify validation.rs has only implementation code (~250 lines)
-5. Verify validation_tests.rs has all test code (~1,788 lines)
+**Final verification**:
+1. `cargo test --lib` - All tests pass (133 tests should still pass)
+2. `cargo clippy` - No warnings
+3. `cargo fmt --check` - Properly formatted
+4. Verify file size: `wc -l src/cook/execution/data_pipeline.rs` - Should be <500 lines
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure (likely import or visibility issue)
-3. Adjust visibility modifiers (`pub(super)` for test-accessible functions)
-4. Retry with corrected approach
-
-**Common Issues**:
-- **Visibility errors**: Add `pub(super)` to functions accessed by tests
-- **Import errors**: Ensure `use super::*;` in test module for access to implementation
-- **Module not found**: Verify `mod validation_tests;` in executor/mod.rs with `#[cfg(test)]`
+2. Review the failure - likely import or visibility issues
+3. Adjust the module structure (make types pub(crate) if needed)
+4. Retry the extraction
 
 ## Notes
 
-**Why This Approach**:
-- Rust convention is to separate test code from implementation
-- This is not a complexity refactoring - we're organizing code by purpose
-- Tests remain unchanged - only their location changes
-- This is a mechanical, low-risk refactoring with clear rollback
+**Key Considerations**:
+- This is test code, so we're not changing production behavior
+- The goal is better organization, not new functionality
+- Module boundaries should follow domain boundaries (JsonPath, Filter, Sort, Pipeline)
+- Some shared test utilities may need to be accessible across modules
+- Rust test module organization: use `#[cfg(test)] mod tests { mod submodule { ... } }`
 
-**File Organization Strategy**:
-- `validation.rs`: Pure implementation code (~250 lines)
-- `validation_tests.rs`: All test code (~1,788 lines)
-- This matches Rust convention and improves maintainability
+**Module Structure Pattern**:
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-**Visibility Requirements**:
-- Implementation functions may need `pub(super)` for test access
-- Test module uses `#[cfg(test)]` to exclude from production builds
-- Test module imports implementation with `use super::*;`
+    // Integration tests stay here
 
-**This is File-Level Debt**:
-- The entire file is the problem (not a specific function)
-- Solution: Split file by production vs. test code
-- This will reduce the God Object score and improve maintainability
+    mod json_path {
+        use super::*;
+        // JsonPath tests
+    }
+
+    mod filter_expression {
+        use super::*;
+        // FilterExpression tests
+    }
+
+    mod sorter {
+        use super::*;
+        // Sorter tests
+    }
+}
+```
+
+**Why This Matters**:
+- 2843 lines is difficult to navigate and maintain
+- Splitting by domain makes tests easier to find
+- Reduces cognitive load when working on specific features
+- Follows single-responsibility principle at module level
+- Makes it easier to add new tests in the right place
