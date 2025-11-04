@@ -199,6 +199,29 @@ fn parse_keyword_or_identifier(ident: String) -> Token {
     }
 }
 
+/// Parse an identifier (variable name, field path, or array accessor)
+///
+/// Collects identifier characters including alphanumerics, underscores,
+/// dots (for field paths), brackets (for array access), and wildcards.
+///
+/// # Arguments
+/// * `chars` - The character iterator
+///
+/// # Returns
+/// The raw identifier string (e.g., "user.profile.name" or "items[*].score")
+fn parse_identifier(chars: &mut Peekable<Chars>) -> String {
+    let mut ident = String::new();
+    while let Some(&ch) = chars.peek() {
+        if ch.is_alphanumeric() || ch == '_' || ch == '.' || ch == '[' || ch == ']' || ch == '*' {
+            ident.push(ch);
+            chars.next();
+        } else {
+            break;
+        }
+    }
+    ident
+}
+
 /// Tokenize an expression string into a sequence of tokens
 ///
 /// This is a pure function that converts a string into tokens.
@@ -249,22 +272,7 @@ pub fn tokenize(expr: &str) -> Result<Vec<Token>> {
                 tokens.push(Token::Number(num));
             }
             _ if ch.is_alphabetic() || ch == '_' => {
-                let mut ident = String::new();
-                while let Some(&ch) = chars.peek() {
-                    if ch.is_alphanumeric()
-                        || ch == '_'
-                        || ch == '.'
-                        || ch == '['
-                        || ch == ']'
-                        || ch == '*'
-                    {
-                        ident.push(ch);
-                        chars.next();
-                    } else {
-                        break;
-                    }
-                }
-
+                let ident = parse_identifier(&mut chars);
                 let token = parse_keyword_or_identifier(ident);
                 tokens.push(token);
             }
