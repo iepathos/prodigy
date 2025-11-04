@@ -138,7 +138,7 @@ impl StepChanges {
 }
 
 /// Format for variable output
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VariableFormat {
     /// Space-separated (default)
     SpaceSeparated,
@@ -148,6 +148,46 @@ pub enum VariableFormat {
     JsonArray,
     /// Comma-separated
     CommaSeparated,
+}
+
+/// Parse variable format from modifier string
+fn parse_variable_format(modifier: Option<&str>) -> VariableFormat {
+    match modifier {
+        Some("json") => VariableFormat::JsonArray,
+        Some("lines") | Some("newline") => VariableFormat::NewlineSeparated,
+        Some("csv") | Some("comma") => VariableFormat::CommaSeparated,
+        _ => VariableFormat::SpaceSeparated,
+    }
+}
+
+/// Extract glob pattern from modifier if it contains glob characters
+fn extract_glob_pattern(modifier: Option<&str>) -> Option<&str> {
+    modifier.filter(|m| m.contains('*') || m.contains('?'))
+}
+
+/// Parse variable path into base path and modifier
+fn parse_variable_path(var_path: &str) -> Result<(Vec<&str>, Option<&str>)> {
+    let parts: Vec<&str> = var_path.split('.').collect();
+
+    if parts.is_empty() {
+        return Err(anyhow::anyhow!("Empty variable path"));
+    }
+
+    // Parse format and pattern from variable path
+    // Format: step.files_added:*.md or step.files_added:json
+    if let Some(pos) = parts.last().unwrap().find(':') {
+        let last = parts.last().unwrap();
+        let base = &last[..pos];
+        let modifier = &last[pos + 1..];
+        let base_path = parts[..parts.len() - 1]
+            .iter()
+            .chain(&[base])
+            .copied()
+            .collect::<Vec<_>>();
+        Ok((base_path, Some(modifier)))
+    } else {
+        Ok((parts, None))
+    }
 }
 
 impl GitChangeTracker {
@@ -374,50 +414,13 @@ impl GitChangeTracker {
 
     /// Resolve a git context variable
     pub fn resolve_variable(&self, var_path: &str) -> Result<String> {
-        let parts: Vec<&str> = var_path.split('.').collect();
-
-        if parts.is_empty() {
-            return Err(anyhow::anyhow!("Empty variable path"));
-        }
-
-        // Parse format and pattern from variable path
-        // Format: step.files_added:*.md or step.files_added:json
-        let (base_path, modifier) = if let Some(pos) = parts.last().unwrap().find(':') {
-            let last = parts.last().unwrap();
-            let base = &last[..pos];
-            let modifier = &last[pos + 1..];
-            (
-                parts[..parts.len() - 1]
-                    .iter()
-                    .chain(&[base])
-                    .copied()
-                    .collect::<Vec<_>>(),
-                Some(modifier),
-            )
-        } else {
-            (parts, None)
-        };
-
-        // Determine format from modifier
-        let format = match modifier {
-            Some("json") => VariableFormat::JsonArray,
-            Some("lines") | Some("newline") => VariableFormat::NewlineSeparated,
-            Some("csv") | Some("comma") => VariableFormat::CommaSeparated,
-            _ => VariableFormat::SpaceSeparated,
-        };
-
-        // Check if modifier is a glob pattern
-        let pattern = modifier.filter(|m| m.contains('*') || m.contains('?'));
+        let (base_path, modifier) = parse_variable_path(var_path)?;
+        let format = parse_variable_format(modifier);
+        let pattern = extract_glob_pattern(modifier);
 
         match base_path[..] {
             ["step", var_name] => {
-                // Get current step changes
-                let changes = if let Some(step_id) = &self.current_step_id {
-                    self.step_changes.get(step_id).cloned().unwrap_or_default()
-                } else {
-                    StepChanges::default()
-                };
-
+                let changes = self.get_current_step_changes();
                 self.resolve_step_variable(&changes, var_name, format, pattern)
             }
             ["workflow", var_name] => {
@@ -425,6 +428,15 @@ impl GitChangeTracker {
                 self.resolve_step_variable(&changes, var_name, format, pattern)
             }
             _ => Err(anyhow::anyhow!("Unknown git variable path: {}", var_path)),
+        }
+    }
+
+    /// Get changes for the current step
+    fn get_current_step_changes(&self) -> StepChanges {
+        if let Some(step_id) = &self.current_step_id {
+            self.step_changes.get(step_id).cloned().unwrap_or_default()
+        } else {
+            StepChanges::default()
         }
     }
 
@@ -436,41 +448,36 @@ impl GitChangeTracker {
         format: VariableFormat,
         pattern: Option<&str>,
     ) -> Result<String> {
-        let files = match var_name {
-            "files_added" => &changes.files_added,
-            "files_modified" => &changes.files_modified,
-            "files_deleted" => &changes.files_deleted,
+        match var_name {
+            "files_added" => Ok(self.resolve_file_list(&changes.files_added, changes, format, pattern)),
+            "files_modified" => Ok(self.resolve_file_list(&changes.files_modified, changes, format, pattern)),
+            "files_deleted" => Ok(self.resolve_file_list(&changes.files_deleted, changes, format, pattern)),
             "files_changed" => {
                 let all = changes.files_changed();
-                return Ok(if let Some(p) = pattern {
-                    Self::format_file_list(&changes.filter_files(&all, p), format)
-                } else {
-                    Self::format_file_list(&all, format)
-                });
+                Ok(self.resolve_file_list(&all, changes, format, pattern))
             }
-            "commits" => {
-                return Ok(Self::format_file_list(&changes.commits, format));
-            }
-            "commit_count" => {
-                return Ok(changes.commit_count().to_string());
-            }
-            "insertions" => {
-                return Ok(changes.insertions.to_string());
-            }
-            "deletions" => {
-                return Ok(changes.deletions.to_string());
-            }
-            _ => return Err(anyhow::anyhow!("Unknown step variable: {}", var_name)),
-        };
+            "commits" => Ok(Self::format_file_list(&changes.commits, format)),
+            "commit_count" => Ok(changes.commit_count().to_string()),
+            "insertions" => Ok(changes.insertions.to_string()),
+            "deletions" => Ok(changes.deletions.to_string()),
+            _ => Err(anyhow::anyhow!("Unknown step variable: {}", var_name)),
+        }
+    }
 
-        // Apply pattern filter if specified
+    /// Resolve a file list variable with optional pattern filtering
+    fn resolve_file_list(
+        &self,
+        files: &[String],
+        changes: &StepChanges,
+        format: VariableFormat,
+        pattern: Option<&str>,
+    ) -> String {
         let filtered = if let Some(p) = pattern {
             changes.filter_files(files, p)
         } else {
-            files.clone()
+            files.to_vec()
         };
-
-        Ok(Self::format_file_list(&filtered, format))
+        Self::format_file_list(&filtered, format)
     }
 
     /// Check if tracker is active (in a git repository)
