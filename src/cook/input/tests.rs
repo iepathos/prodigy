@@ -814,8 +814,12 @@ fn test_variable_definition_complete() {
 
 #[tokio::test]
 async fn test_file_pattern_with_exclusions() {
+    use crate::testing::fixtures::isolation::TestWorkingDir;
     use std::fs::create_dir_all;
     use tempfile::TempDir;
+
+    // Use TestWorkingDir to ensure working directory is restored after test
+    let wd = TestWorkingDir::new().unwrap();
 
     let temp_dir = TempDir::new().unwrap();
     let temp_path = temp_dir.path();
@@ -846,7 +850,7 @@ async fn test_file_pattern_with_exclusions() {
     let mut config = provider::InputConfig::new();
 
     // Set the base path for glob patterns
-    std::env::set_current_dir(temp_path).unwrap();
+    wd.change_to(temp_path).unwrap();
 
     // Test pattern that should exclude target directory
     config.set("patterns".to_string(), json!(["src/**/*.rs"]));
@@ -859,6 +863,7 @@ async fn test_file_pattern_with_exclusions() {
             assert!(!file_var.to_string().contains("target"));
         }
     }
+    // TestWorkingDir automatically restores original directory when dropped
 }
 
 #[test]
