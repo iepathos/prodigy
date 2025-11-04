@@ -1,268 +1,272 @@
-# Implementation Plan: Refactor Worktree Command Module
+# Implementation Plan: Reduce Complexity in ResumeExecutor::execute_from_checkpoint
 
 ## Problem Summary
 
-**Location**: ./src/cli/commands/worktree.rs:file:0
-**Priority Score**: 57.31
-**Debt Type**: God Object / File-Level Complexity
-
+**Location**: ./src/cook/workflow/resume.rs:ResumeExecutor::execute_from_checkpoint:337
+**Priority Score**: 32.5
+**Debt Type**: ComplexityHotspot (Cyclomatic: 54, Cognitive: 227)
 **Current Metrics**:
-- Lines of Code: 464
-- Functions: 9
-- Cyclomatic Complexity: 96 (avg: 10.67, max: 27)
-- Coverage: 0%
-- Responsibilities: 2 (Utilities, Parsing & Input)
+- Lines of Code: 546
+- Cyclomatic Complexity: 54
+- Cognitive Complexity: 227
+- Nesting Depth: 6
 
-**Issue**: This file is a god object mixing CLI argument handling, business logic, formatting output, and utility functions. The recommendation is to split by data flow into: 1) Input/parsing functions 2) Core logic/transformation 3) Output/formatting. The high complexity and zero test coverage make this code risky to modify and difficult to maintain.
+**Issue**: Reduce complexity from 54 to ~10. High complexity 54/227 makes function hard to test and maintain. This massive function handles checkpoint loading, workflow parsing, step execution, error recovery, and progress tracking all in one place.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 19.2 points
-- Maintainability Improvement: 5.73 points
-- Test Effort Reduction: 46.4 points
+- Complexity Reduction: 27.0
+- Coverage Improvement: 0.0
+- Risk Reduction: 11.375
 
 **Success Criteria**:
-- [ ] File split into focused modules (<200 lines each)
-- [ ] Pure business logic extracted and testable
-- [ ] Test coverage reaches >60% for core logic
-- [ ] All existing functionality preserved
+- [ ] Cyclomatic complexity reduced from 54 to ≤10
+- [ ] Function length reduced from 546 lines to ≤50 lines
+- [ ] Nesting depth reduced from 6 to ≤3
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting maintained
+- [ ] Proper formatting
+- [ ] Each extracted function has single, clear responsibility
 
 ## Implementation Phases
 
-### Phase 1: Extract Pure Parsing/Utility Functions
+### Phase 1: Extract Workflow Loading and Parsing Logic
 
-**Goal**: Extract the pure, stateless utility functions (`parse_duration`) into a separate testable module.
+**Goal**: Extract workflow file loading and parsing into dedicated functions to reduce initial complexity.
 
 **Changes**:
-- Create new module `src/cli/commands/worktree/utils.rs`
-- Move `parse_duration` function to utils module
-- Add comprehensive unit tests for `parse_duration`
-- Update imports in main worktree.rs file
+- Extract workflow file loading (lines 421-435) into `load_workflow_file(workflow_path: &PathBuf) -> Result<WorkflowConfig>`
+- Extract WorkflowCommand to WorkflowStep conversion (lines 438-525) into `convert_commands_to_steps(commands: Vec<WorkflowCommand>) -> Vec<WorkflowStep>`
+- Extract ExtendedWorkflowConfig creation (lines 527-542) into `build_extended_workflow(checkpoint: &WorkflowCheckpoint, steps: Vec<WorkflowStep>) -> ExtendedWorkflowConfig`
+
+**Expected Complexity Reduction**: ~8 points (removes nested conditionals in command parsing)
 
 **Testing**:
-- Write unit tests for all duration formats: "1ms", "5s", "10m", "2h", "7d"
-- Test error cases: invalid format, invalid numbers, empty strings
-- Run `cargo test --lib` to verify all tests pass
+- Run `cargo test resume::` to verify resume functionality
+- Run `cargo test workflow::executor::` to verify workflow execution
+- Verify workflow loading with both YAML and JSON files
 
 **Success Criteria**:
-- [ ] `parse_duration` moved to utils module with proper documentation
-- [ ] 100% test coverage for `parse_duration` (all branches tested)
+- [ ] Three new pure functions created with clear responsibilities
+- [ ] Main function delegates workflow loading/parsing to extracted functions
+- [ ] All existing resume tests pass
+- [ ] Complexity reduced by ~8 points
+- [ ] Ready to commit
+
+### Phase 2: Extract Progress Tracking Setup
+
+**Goal**: Isolate progress tracking initialization and display logic.
+
+**Changes**:
+- Extract progress tracker creation (lines 394-404) into `create_progress_tracker(checkpoint: &WorkflowCheckpoint, workflow_id: &str) -> SequentialProgressTracker`
+- Extract initial progress display setup (lines 406-419) into `initialize_progress_display(tracker: &mut SequentialProgressTracker, display: &mut ProgressDisplay, workflow_id: &str) -> Result<()>`
+- Combine environment creation (lines 544-560) into `build_execution_environment(workflow_path: &PathBuf, workflow_id: &str) -> ExecutionEnvironment`
+
+**Expected Complexity Reduction**: ~4 points (removes initialization branches)
+
+**Testing**:
+- Run `cargo test resume::`
+- Verify progress tracking displays correctly during resume
+- Test with checkpoints at different stages
+
+**Success Criteria**:
+- [ ] Progress tracking logic extracted to focused functions
+- [ ] Main function uses extracted functions for setup
 - [ ] All existing tests pass
-- [ ] Clippy clean
-- [ ] Code compiles and formats correctly
+- [ ] Complexity reduced by additional ~4 points
 - [ ] Ready to commit
 
-### Phase 2: Extract Business Logic - Session Operations
+### Phase 3: Extract Step Execution Loop into Focused Function
 
-**Goal**: Separate core business logic for session operations into a dedicated operations module.
+**Goal**: Extract the massive step execution loop (lines 608-843) which handles execution, error recovery, and retries.
 
 **Changes**:
-- Create `src/cli/commands/worktree/operations.rs`
-- Extract pure functions for:
-  - `list_sessions_operation` - wraps manager.list_sessions with filtering/sorting logic
-  - `merge_session_operation` - handles single session merge logic
-  - `merge_all_sessions_operation` - handles batch merge logic with error aggregation
-  - `cleanup_session_operation` - session cleanup logic
-- These functions take dependencies as parameters (no direct instantiation)
-- Return structured results (not printing directly)
+- Extract step execution loop into `execute_remaining_steps(executor: &mut WorkflowExecutorImpl, workflow: &ExtendedWorkflowConfig, start_from: usize, env: &ExecutionEnvironment, workflow_context: &mut WorkflowContext, progress_tracker: &mut SequentialProgressTracker, progress_display: &mut ProgressDisplay, error_recovery: &ResumeErrorRecovery, checkpoint: &WorkflowCheckpoint) -> Result<usize>`
+- This function returns the number of steps executed
+- Maintains all error handling and recovery logic
+- Delegates to error recovery handler (already extracted in codebase)
+
+**Expected Complexity Reduction**: ~10 points (most complex nested logic)
 
 **Testing**:
-- Write integration tests for each operation function
-- Mock WorktreeManager using test fixtures
-- Test error handling and edge cases
-- Verify Result types propagate correctly
+- Run `cargo test resume::` to verify step execution
+- Test error recovery scenarios
+- Test with workflows that have on_failure handlers
+- Verify retry logic works correctly
 
 **Success Criteria**:
-- [ ] Business logic extracted to operations module
-- [ ] Functions are pure (dependencies injected, no side effects)
-- [ ] Test coverage >60% for operations module
+- [ ] Step execution loop fully extracted
+- [ ] Error recovery logic preserved and functional
 - [ ] All existing tests pass
+- [ ] Complexity reduced by additional ~10 points
 - [ ] Ready to commit
 
-### Phase 3: Extract Business Logic - Cleanup Operations
+### Phase 4: Extract Error Recovery Action Handling
 
-**Goal**: Extract cleanup-related business logic into the operations module.
+**Goal**: Extract the complex match statement for recovery actions (lines 698-840) into a dedicated function.
 
 **Changes**:
-- Add to `operations.rs`:
-  - `filter_old_sessions` - pure function to filter sessions by age
-  - `cleanup_old_sessions_operation` - orchestrates cleanup of old sessions
-  - `cleanup_mapreduce_operation` - handles MapReduce cleanup logic
-  - `cleanup_orphaned_operation` - handles orphaned worktree cleanup
-- Extract logic from `cleanup_old_worktrees`, `run_mapreduce_cleanup`, `run_worktree_clean_orphaned`
-- Keep presentation/I/O separate
+- Extract recovery action handling into `handle_recovery_action(recovery_action: RecoveryAction, step_index: usize, step: &WorkflowStep, executor: &mut WorkflowExecutorImpl, env: &ExecutionEnvironment, workflow_context: &mut WorkflowContext, progress_tracker: &mut SequentialProgressTracker, checkpoint_manager: &CheckpointManager, workflow_id: &str) -> Result<RecoveryOutcome>`
+- Define `RecoveryOutcome` enum: `Retry`, `Continue`, `Abort`
+- Simplifies the main execution loop error handling
+
+**Expected Complexity Reduction**: ~6 points (nested match with multiple branches)
 
 **Testing**:
-- Test session age filtering with various time ranges
-- Test cleanup orchestration with mocked managers
-- Test MapReduce cleanup scenarios
-- Test orphaned worktree scenarios
+- Run `cargo test resume::`
+- Test each recovery action type: Retry, Continue, SafeAbort, Fallback, PartialResume, RequestIntervention
+- Verify cleanup actions execute on SafeAbort
+- Verify checkpoint saved on RequestIntervention
 
 **Success Criteria**:
-- [ ] Cleanup logic extracted and testable
-- [ ] Test coverage >60% for cleanup operations
-- [ ] All existing tests pass
+- [ ] Recovery action handling extracted to dedicated function
+- [ ] RecoveryOutcome enum clearly defines outcomes
+- [ ] All recovery scenarios tested
+- [ ] Complexity reduced by additional ~6 points
 - [ ] Ready to commit
 
-### Phase 4: Create Presentation Layer
+### Phase 5: Final Refactoring and Complexity Verification
 
-**Goal**: Separate output formatting and user interaction into a presentation module.
-
-**Changes**:
-- Create `src/cli/commands/worktree/presentation.rs`
-- Extract all printing/formatting logic:
-  - `format_sessions_table` - formats session list as table
-  - `print_merge_result` - formats merge success/failure messages
-  - `print_cleanup_summary` - formats cleanup results
-  - `prompt_user_confirmation` - handles user prompts
-- These are pure functions taking data and returning formatted strings
-- CLI command functions call presentation functions for output
-
-**Testing**:
-- Test table formatting with various session data
-- Test message formatting for different scenarios
-- Verify output strings match expected format
-- No need for complex mocking (pure string formatting)
-
-**Success Criteria**:
-- [ ] All output formatting extracted to presentation module
-- [ ] Functions are pure (data in, strings out)
-- [ ] Test coverage >80% for presentation module
-- [ ] Output matches original format
-- [ ] Ready to commit
-
-### Phase 5: Refactor CLI Command Functions
-
-**Goal**: Simplify CLI command functions to orchestrate operations and presentation only.
+**Goal**: Achieve target complexity ≤10 through final refinements and verification.
 
 **Changes**:
-- Refactor `run_worktree_ls`, `run_worktree_merge`, `run_worktree_clean`, `run_worktree_clean_orphaned`
-- Each function becomes thin orchestration:
-  1. Parse/validate CLI arguments (already done by clap)
-  2. Initialize dependencies (WorktreeManager, etc.)
-  3. Call operation functions
-  4. Call presentation functions
-  5. Handle errors
-- Maximum 20-30 lines per function
-- No business logic in these functions
+- Extract checkpoint validation and early return logic (lines 367-386) into `check_already_completed(checkpoint: &WorkflowCheckpoint, options: &ResumeOptions, workflow_id: &str) -> Result<Option<ResumeResult>>`
+- Extract final summary display (lines 852-862) into `display_completion_summary(total_steps: usize, skipped_steps: usize, steps_executed: usize, start_time: std::time::Instant)`
+- Refactor main function to be a clear orchestration of extracted functions
+- Run debtmap analysis to verify complexity reduction
+
+**Expected Complexity Reduction**: ~3 points (removes remaining conditionals)
 
 **Testing**:
-- Integration tests verifying end-to-end flows
-- Error handling tests
-- Verify all CLI argument combinations work
+- Run full test suite: `cargo test --lib`
+- Run clippy: `cargo clippy`
+- Verify formatting: `cargo fmt --check`
+- Run `debtmap analyze` to verify complexity metrics
 
 **Success Criteria**:
-- [ ] CLI functions are thin orchestrators (<30 lines each)
-- [ ] No business logic in CLI layer
-- [ ] All functionality preserved
-- [ ] Integration tests pass
-- [ ] Ready to commit
-
-### Phase 6: Create Module Structure and Documentation
-
-**Goal**: Organize the refactored code into a proper module structure with clear public API.
-
-**Changes**:
-- Create `src/cli/commands/worktree/mod.rs` with:
-  - Public re-exports of necessary functions
-  - Module documentation explaining structure
-  - Clear separation of public vs private functions
-- Update `src/cli/commands/worktree.rs` to become `src/cli/commands/worktree/cli.rs`
-- Ensure module organization follows:
-  ```
-  src/cli/commands/worktree/
-  ├── mod.rs           (public API, module docs)
-  ├── cli.rs           (CLI command handlers)
-  ├── operations.rs    (business logic)
-  ├── presentation.rs  (output formatting)
-  └── utils.rs         (utility functions)
-  ```
-
-**Testing**:
-- Verify public API is minimal and clear
-- Ensure private functions are not exposed
-- Run full test suite
-- Run `just ci` to verify all checks pass
-
-**Success Criteria**:
-- [ ] Module structure properly organized
-- [ ] Clear module documentation
-- [ ] Public API is minimal
+- [ ] Main function is <50 lines of orchestration code
+- [ ] Cyclomatic complexity ≤10
+- [ ] Cognitive complexity significantly reduced
 - [ ] All tests pass
-- [ ] Full CI passes (just ci)
+- [ ] No clippy warnings
+- [ ] Debtmap shows improvement
 - [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Write tests BEFORE refactoring (TDD where possible)
-2. Run `cargo test --lib` after each change
+1. Run `cargo test resume::` to verify resume-specific tests pass
+2. Run `cargo test workflow::executor::` to verify workflow execution
 3. Run `cargo clippy` to check for warnings
-4. Run `cargo fmt` to maintain formatting
-5. Verify no regressions in existing functionality
+4. Manually test with sample workflows to verify behavior
 
 **Final verification**:
-1. `just ci` - Full CI checks pass
-2. `cargo test --all` - All tests pass
-3. `cargo tarpaulin --workspace` - Verify coverage improvement
-4. Manually test each CLI command:
-   - `prodigy worktree ls`
-   - `prodigy worktree merge --name <name>`
-   - `prodigy worktree clean --all`
-   - `prodigy worktree clean-orphaned`
-
-**Coverage Goals**:
-- utils.rs: 100% (pure functions)
-- operations.rs: >60% (business logic)
-- presentation.rs: >80% (formatting logic)
-- cli.rs: >40% (orchestration/integration)
+1. `cargo test --lib` - All library tests pass
+2. `cargo clippy` - No warnings
+3. `cargo fmt --check` - Proper formatting
+4. `debtmap analyze` - Verify complexity reduced to target
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure carefully:
-   - What broke?
-   - Why did the test fail?
-   - What assumption was incorrect?
-3. Adjust the approach:
-   - Break the phase into smaller steps
-   - Add more tests first
-   - Simplify the refactoring
-4. Retry with the adjusted plan
-
-**Important**: Each phase should be independently revertable. Always commit working code after each phase.
+2. Review the failure and test output
+3. Adjust the extraction strategy
+4. Ensure extracted functions have proper error handling
+5. Retry with refined approach
 
 ## Notes
 
-### Key Functional Programming Principles Applied
+### Key Architectural Patterns
 
-1. **Pure Functions First**: Extract stateless utility and business logic functions
-2. **Separate I/O from Logic**: Keep printing/formatting separate from computation
-3. **Dependency Injection**: Pass dependencies as parameters, not global instantiation
-4. **Immutability**: Return new data structures rather than mutating in place
-5. **Composition**: Build complex operations from simple, testable functions
+**Separation Strategy**:
+- **Pure Logic**: Extract workflow parsing, config building (can be unit tested easily)
+- **I/O Operations**: Keep async operations in extracted functions but with clear boundaries
+- **Error Handling**: Preserve all error recovery logic, just organize it better
 
-### Potential Challenges
+**Function Design Principles**:
+- Each extracted function should have ≤3 parameters (use structs for more)
+- Each function should do ONE thing well
+- Prefer returning Results to panicking
+- Keep nesting depth ≤2 in extracted functions
 
-1. **WorktreeManager Integration**: The manager is currently instantiated in each CLI function. Consider passing it as a parameter or creating a factory pattern.
+**Gotchas**:
+- The error recovery logic is complex but well-designed - preserve its semantics
+- Progress tracking is stateful - pass by mutable reference where needed
+- WorkflowContext is mutable state that flows through execution
+- Don't break the async execution model
 
-2. **Error Context**: Ensure error messages remain helpful after refactoring. Use `.context()` to add meaningful error information.
+### Expected Final Structure
 
-3. **Testing MapReduce Cleanup**: This involves complex file system operations. May need to use temporary directories or mocking for thorough testing.
+After all phases, `execute_from_checkpoint` should look approximately like:
 
-4. **Maintaining Output Format**: The presentation layer must preserve exact output format to avoid breaking scripts/tools that parse output.
+```rust
+pub async fn execute_from_checkpoint(
+    &mut self,
+    workflow_id: &str,
+    workflow_path: &PathBuf,
+    options: ResumeOptions,
+) -> Result<ResumeResult> {
+    // Validate executors configured
+    self.ensure_executors_configured()?;
 
-### Success Indicators
+    // Load and validate checkpoint
+    let checkpoint = self.load_and_validate_checkpoint(workflow_id, &options).await?;
 
-After completion:
-- File reduced from 464 lines to ~50-100 lines (CLI orchestration only)
-- 4 focused modules, each <200 lines
-- Test coverage improved from 0% to >50% overall
-- Complexity reduced by ~19 points (as predicted by debtmap)
-- Code is significantly more maintainable and testable
-- Foundation for future improvements is established
+    // Check if already completed
+    if let Some(result) = check_already_completed(&checkpoint, &options, workflow_id)? {
+        return Ok(result);
+    }
+
+    // Setup execution environment
+    let workflow = load_workflow_file(workflow_path).await?;
+    let steps = convert_commands_to_steps(workflow.commands);
+    let extended_workflow = build_extended_workflow(&checkpoint, steps);
+    let env = build_execution_environment(workflow_path, workflow_id);
+
+    // Setup progress tracking
+    let mut progress_tracker = create_progress_tracker(&checkpoint, workflow_id);
+    let mut progress_display = ProgressDisplay::new();
+    initialize_progress_display(&mut progress_tracker, &mut progress_display, workflow_id).await;
+
+    // Restore context and create executor
+    let mut workflow_context = self.restore_workflow_context(&checkpoint)?;
+    let mut executor = self.create_workflow_executor(workflow_path, workflow_id);
+
+    // Execute remaining steps
+    let steps_executed = execute_remaining_steps(
+        &mut executor,
+        &extended_workflow,
+        checkpoint.execution_state.current_step_index,
+        &env,
+        &mut workflow_context,
+        &mut progress_tracker,
+        &mut progress_display,
+        &self.error_recovery,
+        &checkpoint,
+        &self.checkpoint_manager,
+        workflow_id,
+    ).await?;
+
+    // Complete and cleanup
+    display_completion_summary(
+        extended_workflow.steps.len(),
+        checkpoint.execution_state.current_step_index,
+        steps_executed,
+        progress_tracker.start_time,
+    );
+
+    self.checkpoint_manager.delete_checkpoint(workflow_id).await?;
+
+    Ok(ResumeResult {
+        success: true,
+        total_steps_executed: extended_workflow.steps.len(),
+        skipped_steps: checkpoint.execution_state.current_step_index,
+        new_steps_executed: steps_executed,
+        final_context: workflow_context,
+    })
+}
+```
+
+This transformation reduces the function from 546 lines to ~50 lines of clear orchestration, with each responsibility delegated to a focused, testable function.

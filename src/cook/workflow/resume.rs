@@ -333,96 +333,13 @@ impl ResumeExecutor {
         Ok(())
     }
 
-    /// Execute workflow from checkpoint with full execution support
-    pub async fn execute_from_checkpoint(
-        &mut self,
-        workflow_id: &str,
-        workflow_path: &PathBuf,
-        options: ResumeOptions,
-    ) -> Result<ResumeResult> {
-        // Ensure we have executors
-        let claude_executor = self
-            .claude_executor
-            .as_ref()
-            .ok_or_else(|| anyhow!("Claude executor not configured for resume"))?;
-        let session_manager = self
-            .session_manager
-            .as_ref()
-            .ok_or_else(|| anyhow!("Session manager not configured for resume"))?;
-        let user_interaction = self
-            .user_interaction
-            .as_ref()
-            .ok_or_else(|| anyhow!("User interaction not configured for resume"))?;
-
-        info!("Executing workflow {} from checkpoint", workflow_id);
-
-        // Load checkpoint
-        let checkpoint = self
-            .checkpoint_manager
-            .load_checkpoint(workflow_id)
-            .await
-            .context("Failed to load checkpoint")?;
-
-        // Validate checkpoint
-        if !options.skip_validation {
-            self.validate_checkpoint(&checkpoint)?;
-        }
-
-        // Check if workflow is already complete
-        if checkpoint.execution_state.status == checkpoint::WorkflowStatus::Completed
-            && !options.force
-        {
-            println!(
-                "Workflow {} is already completed - nothing to resume",
-                workflow_id
-            );
-            return Ok(ResumeResult {
-                success: true,
-                total_steps_executed: checkpoint.execution_state.current_step_index,
-                skipped_steps: checkpoint.execution_state.current_step_index,
-                new_steps_executed: 0,
-                final_context: WorkflowContext::default(),
-            });
-        }
-
-        // Create progress tracker for resume
-        let total_steps = checkpoint.total_steps;
-        let skipped_steps = checkpoint.completed_steps.len();
-        let current_iteration = checkpoint.execution_state.current_iteration.unwrap_or(1);
-        let max_iterations = checkpoint.execution_state.total_iterations.unwrap_or(1);
-
-        let mut progress_tracker = SequentialProgressTracker::for_resume(
-            workflow_id.to_string(),
-            checkpoint
-                .workflow_name
-                .clone()
-                .unwrap_or_else(|| workflow_id.to_string()),
-            total_steps,
-            max_iterations,
-            skipped_steps,
-            current_iteration,
-        );
-
-        // Create progress display
-        let mut progress_display = ProgressDisplay::new();
-
-        // Set initial phase
-        progress_tracker
-            .update_phase(ExecutionPhase::LoadingCheckpoint)
-            .await;
-        progress_display.force_update(&format!("Loading checkpoint for workflow {}", workflow_id));
-
-        // Load the workflow file
-        progress_tracker
-            .update_phase(ExecutionPhase::RestoringState)
-            .await;
-        progress_display.force_update("Loading workflow file and restoring state...");
-
+    /// Load workflow file from path
+    async fn load_workflow_file(workflow_path: &PathBuf) -> Result<WorkflowConfig> {
         let workflow_content = tokio::fs::read_to_string(workflow_path)
             .await
             .context("Failed to read workflow file")?;
 
-        // Parse workflow based on type
+        // Parse workflow based on file extension
         let workflow_config: WorkflowConfig = if workflow_path.extension().and_then(|s| s.to_str())
             == Some("yml")
             || workflow_path.extension().and_then(|s| s.to_str()) == Some("yaml")
@@ -434,12 +351,17 @@ impl ResumeExecutor {
             return Err(anyhow!("Unsupported workflow file format"));
         };
 
-        // Convert workflow commands to steps
-        let steps = workflow_config
-            .commands
+        Ok(workflow_config)
+    }
+
+    /// Convert WorkflowCommands to WorkflowSteps
+    fn convert_commands_to_steps(
+        commands: Vec<crate::config::WorkflowCommand>,
+    ) -> Vec<WorkflowStep> {
+        commands
             .into_iter()
             .map(|cmd| {
-                let mut step = crate::cook::workflow::executor::WorkflowStep {
+                let mut step = WorkflowStep {
                     name: None,
                     claude: None,
                     shell: None,
@@ -522,10 +444,15 @@ impl ResumeExecutor {
 
                 step
             })
-            .collect();
+            .collect()
+    }
 
-        // Convert to extended workflow config
-        let extended_workflow = crate::cook::workflow::executor::ExtendedWorkflowConfig {
+    /// Build ExtendedWorkflowConfig from checkpoint and steps
+    fn build_extended_workflow(
+        checkpoint: &WorkflowCheckpoint,
+        steps: Vec<WorkflowStep>,
+    ) -> crate::cook::workflow::executor::ExtendedWorkflowConfig {
+        crate::cook::workflow::executor::ExtendedWorkflowConfig {
             name: checkpoint
                 .workflow_name
                 .clone()
@@ -539,10 +466,50 @@ impl ResumeExecutor {
             reduce_phase: None,   // Not a MapReduce workflow
             retry_defaults: None, // Would need to be loaded from checkpoint
             environment: None,    // Would need to be loaded from checkpoint
-        };
+        }
+    }
 
-        // Create execution environment
-        let env = ExecutionEnvironment {
+    /// Create progress tracker for resume
+    fn create_progress_tracker(
+        checkpoint: &WorkflowCheckpoint,
+        workflow_id: &str,
+    ) -> SequentialProgressTracker {
+        let total_steps = checkpoint.total_steps;
+        let skipped_steps = checkpoint.completed_steps.len();
+        let current_iteration = checkpoint.execution_state.current_iteration.unwrap_or(1);
+        let max_iterations = checkpoint.execution_state.total_iterations.unwrap_or(1);
+
+        SequentialProgressTracker::for_resume(
+            workflow_id.to_string(),
+            checkpoint
+                .workflow_name
+                .clone()
+                .unwrap_or_else(|| workflow_id.to_string()),
+            total_steps,
+            max_iterations,
+            skipped_steps,
+            current_iteration,
+        )
+    }
+
+    /// Initialize progress display with initial phase
+    async fn initialize_progress_display(
+        progress_tracker: &mut SequentialProgressTracker,
+        progress_display: &mut ProgressDisplay,
+        workflow_id: &str,
+    ) {
+        progress_tracker
+            .update_phase(ExecutionPhase::LoadingCheckpoint)
+            .await;
+        progress_display.force_update(&format!("Loading checkpoint for workflow {}", workflow_id));
+    }
+
+    /// Build execution environment for workflow
+    fn build_execution_environment(
+        workflow_path: &std::path::Path,
+        workflow_id: &str,
+    ) -> ExecutionEnvironment {
+        ExecutionEnvironment {
             working_dir: Arc::new(
                 workflow_path
                     .parent()
@@ -557,23 +524,69 @@ impl ResumeExecutor {
             ),
             worktree_name: None,
             session_id: Arc::from(format!("resume-{}", workflow_id)),
-        };
+        }
+    }
 
-        // Restore workflow context
-        let mut workflow_context = self.restore_workflow_context(&checkpoint)?;
+    /// Check if workflow is already completed
+    fn check_already_completed(
+        checkpoint: &WorkflowCheckpoint,
+        options: &ResumeOptions,
+        workflow_id: &str,
+    ) -> Result<Option<ResumeResult>> {
+        if checkpoint.execution_state.status == checkpoint::WorkflowStatus::Completed
+            && !options.force
+        {
+            println!(
+                "Workflow {} is already completed - nothing to resume",
+                workflow_id
+            );
+            return Ok(Some(ResumeResult {
+                success: true,
+                total_steps_executed: checkpoint.execution_state.current_step_index,
+                skipped_steps: checkpoint.execution_state.current_step_index,
+                new_steps_executed: 0,
+                final_context: WorkflowContext::default(),
+            }));
+        }
+        Ok(None)
+    }
 
-        // Create workflow executor with checkpoint support
-        let mut executor = WorkflowExecutorImpl::new(
-            claude_executor.clone(),
-            session_manager.clone(),
-            user_interaction.clone(),
-        )
-        .with_workflow_path(workflow_path.clone())
-        .with_checkpoint_manager(self.checkpoint_manager.clone(), workflow_id.to_string());
+    /// Display completion summary
+    fn display_completion_summary(
+        total_steps: usize,
+        skipped_steps: usize,
+        steps_executed: usize,
+        start_time: std::time::Instant,
+    ) {
+        let total_duration = start_time.elapsed();
+        println!("\n✅ Workflow Resume Complete!");
+        println!("   Total steps: {}", total_steps);
+        println!("   Steps skipped (already completed): {}", skipped_steps);
+        println!("   Steps executed in this session: {}", steps_executed);
+        println!("   Total duration: {:.2}s", total_duration.as_secs_f64());
+        if steps_executed > 0 {
+            let avg_step_time = total_duration.as_secs_f64() / steps_executed as f64;
+            println!("   Average step time: {:.2}s", avg_step_time);
+        }
+    }
 
-        // Execute remaining steps
-        let start_from = checkpoint.execution_state.current_step_index;
+    /// Execute remaining workflow steps from checkpoint
+    #[allow(clippy::too_many_arguments)]
+    async fn execute_remaining_steps(
+        &mut self,
+        executor: &mut WorkflowExecutorImpl,
+        extended_workflow: &crate::cook::workflow::executor::ExtendedWorkflowConfig,
+        start_from: usize,
+        env: &ExecutionEnvironment,
+        workflow_context: &mut WorkflowContext,
+        progress_tracker: &mut SequentialProgressTracker,
+        progress_display: &mut ProgressDisplay,
+        checkpoint: &WorkflowCheckpoint,
+        workflow_id: &str,
+    ) -> Result<usize> {
         let total_steps = extended_workflow.steps.len();
+        let skipped_steps = checkpoint.completed_steps.len();
+        let current_iteration = checkpoint.execution_state.current_iteration.unwrap_or(1);
         let mut steps_executed = 0;
 
         info!(
@@ -636,10 +649,7 @@ impl ResumeExecutor {
 
             // Execute the step with error recovery
             let step_start = std::time::Instant::now();
-            match executor
-                .execute_step(step, &env, &mut workflow_context)
-                .await
-            {
+            match executor.execute_step(step, env, workflow_context).await {
                 Ok(_result) => {
                     steps_executed += 1;
                     let duration = step_start.elapsed();
@@ -666,7 +676,7 @@ impl ResumeExecutor {
                                 .execute_error_handler_with_resume_context(
                                     &handler,
                                     &e.to_string(),
-                                    &mut workflow_context,
+                                    workflow_context,
                                 )
                                 .await
                             {
@@ -692,7 +702,7 @@ impl ResumeExecutor {
                     // No handler or handler failed - attempt recovery
                     let recovery_action = self
                         .error_recovery
-                        .handle_resume_error(&ResumeError::Other(anyhow!("{}", e)), &checkpoint)
+                        .handle_resume_error(&ResumeError::Other(anyhow!("{}", e)), checkpoint)
                         .await?;
 
                     match recovery_action {
@@ -700,10 +710,7 @@ impl ResumeExecutor {
                             warn!("Retrying step {} after {:?}", step_index + 1, delay);
                             tokio::time::sleep(delay).await;
                             // Retry the current step
-                            match executor
-                                .execute_step(step, &env, &mut workflow_context)
-                                .await
-                            {
+                            match executor.execute_step(step, env, workflow_context).await {
                                 Ok(_) => {
                                     info!("Retry succeeded for step {}", step_index + 1);
                                     steps_executed += 1;
@@ -770,7 +777,7 @@ impl ResumeExecutor {
 
                                     // Execute the cleanup step
                                     let _ = executor
-                                        .execute_step(&cleanup_step, &env, &mut workflow_context)
+                                        .execute_step(&cleanup_step, env, workflow_context)
                                         .await;
                                 }
                             }
@@ -842,6 +849,99 @@ impl ResumeExecutor {
             }
         }
 
+        Ok(steps_executed)
+    }
+
+    /// Execute workflow from checkpoint with full execution support
+    pub async fn execute_from_checkpoint(
+        &mut self,
+        workflow_id: &str,
+        workflow_path: &PathBuf,
+        options: ResumeOptions,
+    ) -> Result<ResumeResult> {
+        // Ensure we have executors
+        let claude_executor = self
+            .claude_executor
+            .as_ref()
+            .ok_or_else(|| anyhow!("Claude executor not configured for resume"))?;
+        let session_manager = self
+            .session_manager
+            .as_ref()
+            .ok_or_else(|| anyhow!("Session manager not configured for resume"))?;
+        let user_interaction = self
+            .user_interaction
+            .as_ref()
+            .ok_or_else(|| anyhow!("User interaction not configured for resume"))?;
+
+        info!("Executing workflow {} from checkpoint", workflow_id);
+
+        // Load checkpoint
+        let checkpoint = self
+            .checkpoint_manager
+            .load_checkpoint(workflow_id)
+            .await
+            .context("Failed to load checkpoint")?;
+
+        // Validate checkpoint
+        if !options.skip_validation {
+            self.validate_checkpoint(&checkpoint)?;
+        }
+
+        // Check if already completed
+        if let Some(result) = Self::check_already_completed(&checkpoint, &options, workflow_id)? {
+            return Ok(result);
+        }
+
+        // Create progress tracker and display
+        let mut progress_tracker = Self::create_progress_tracker(&checkpoint, workflow_id);
+        let mut progress_display = ProgressDisplay::new();
+        Self::initialize_progress_display(
+            &mut progress_tracker,
+            &mut progress_display,
+            workflow_id,
+        )
+        .await;
+
+        // Load the workflow file
+        progress_tracker
+            .update_phase(ExecutionPhase::RestoringState)
+            .await;
+        progress_display.force_update("Loading workflow file and restoring state...");
+
+        let workflow_config = Self::load_workflow_file(workflow_path).await?;
+        let steps = Self::convert_commands_to_steps(workflow_config.commands);
+        let extended_workflow = Self::build_extended_workflow(&checkpoint, steps);
+        let env = Self::build_execution_environment(workflow_path, workflow_id);
+
+        // Restore workflow context
+        let mut workflow_context = self.restore_workflow_context(&checkpoint)?;
+
+        // Create workflow executor with checkpoint support
+        let mut executor = WorkflowExecutorImpl::new(
+            claude_executor.clone(),
+            session_manager.clone(),
+            user_interaction.clone(),
+        )
+        .with_workflow_path(workflow_path.clone())
+        .with_checkpoint_manager(self.checkpoint_manager.clone(), workflow_id.to_string());
+
+        // Execute remaining steps
+        let start_from = checkpoint.execution_state.current_step_index;
+        let total_steps = extended_workflow.steps.len();
+        let steps_executed = self
+            .execute_remaining_steps(
+                &mut executor,
+                &extended_workflow,
+                start_from,
+                &env,
+                &mut workflow_context,
+                &mut progress_tracker,
+                &mut progress_display,
+                &checkpoint,
+                workflow_id,
+            )
+            .await?;
+
         // Update progress to completed
         progress_tracker
             .update_phase(ExecutionPhase::Completed)
@@ -850,16 +950,12 @@ impl ResumeExecutor {
         progress_display.force_update(&final_progress);
 
         // Show final summary
-        let total_duration = progress_tracker.start_time.elapsed();
-        println!("\n✅ Workflow Resume Complete!");
-        println!("   Total steps: {}", total_steps);
-        println!("   Steps skipped (already completed): {}", start_from);
-        println!("   Steps executed in this session: {}", steps_executed);
-        println!("   Total duration: {:.2}s", total_duration.as_secs_f64());
-        if steps_executed > 0 {
-            let avg_step_time = total_duration.as_secs_f64() / steps_executed as f64;
-            println!("   Average step time: {:.2}s", avg_step_time);
-        }
+        Self::display_completion_summary(
+            total_steps,
+            start_from,
+            steps_executed,
+            progress_tracker.start_time,
+        );
 
         // Delete checkpoint on successful completion
         self.checkpoint_manager
