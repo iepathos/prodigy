@@ -676,6 +676,7 @@ impl ResumeExecutor {
     /// Execute a single workflow step with progress tracking
     ///
     /// Handles progress display updates and timing for step execution.
+    #[allow(clippy::too_many_arguments)]
     async fn execute_single_step(
         executor: &mut WorkflowExecutorImpl,
         step: &WorkflowStep,
@@ -1131,6 +1132,7 @@ enum RecoveryOutcome {
 
 /// Result of executing a single workflow step
 #[derive(Debug)]
+#[allow(dead_code)]
 struct StepExecutionResult {
     /// Whether the step succeeded
     success: bool,
