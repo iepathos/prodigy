@@ -115,6 +115,16 @@ pub struct StepChanges {
     pub deletions: usize,
 }
 
+/// Diff statistics between two commits
+#[derive(Debug, Clone, Default)]
+struct DiffStats {
+    insertions: usize,
+    deletions: usize,
+    files_added: Vec<String>,
+    files_modified: Vec<String>,
+    files_deleted: Vec<String>,
+}
+
 impl StepChanges {
     /// Get all changed files (added + modified + deleted)
     pub fn files_changed(&self) -> Vec<String> {
@@ -352,6 +362,52 @@ impl GitChangeTracker {
         Ok(commits)
     }
 
+    /// Calculate diff statistics between two commits
+    fn calculate_diff_stats(repo: &Repository, from_oid: Oid, to_oid: Oid) -> Result<DiffStats> {
+        let from_commit = repo.find_commit(from_oid)?;
+        let to_commit = repo.find_commit(to_oid)?;
+        let from_tree = from_commit.tree()?;
+        let to_tree = to_commit.tree()?;
+
+        let diff = repo.diff_tree_to_tree(
+            Some(&from_tree),
+            Some(&to_tree),
+            Some(&mut DiffOptions::new()),
+        )?;
+
+        let stats = diff.stats()?;
+        let mut diff_stats = DiffStats {
+            insertions: stats.insertions(),
+            deletions: stats.deletions(),
+            ..Default::default()
+        };
+
+        diff.foreach(
+            &mut |delta, _progress| {
+                if let Some(path_str) = extract_file_path(&delta) {
+                    match classify_delta_status(delta.status()) {
+                        FileChangeType::Added => {
+                            add_unique_file(&mut diff_stats.files_added, path_str)
+                        }
+                        FileChangeType::Modified => {
+                            add_unique_file(&mut diff_stats.files_modified, path_str)
+                        }
+                        FileChangeType::Deleted => {
+                            add_unique_file(&mut diff_stats.files_deleted, path_str)
+                        }
+                        FileChangeType::Unknown => {}
+                    }
+                }
+                true
+            },
+            None,
+            None,
+            None,
+        )?;
+
+        Ok(diff_stats)
+    }
+
     /// Calculate changes for the current step
     pub(crate) fn calculate_step_changes(&self) -> Result<StepChanges> {
         let repo = Repository::open(&self.repo_path).context("Failed to open git repository")?;
@@ -371,48 +427,13 @@ impl GitChangeTracker {
                 // Collect commits between last and current
                 changes.commits = Self::collect_commits_between(&repo, last_oid, current_oid)?;
 
-                // Calculate diff stats
-                if let (Ok(last_commit), Ok(current_commit)) =
-                    (repo.find_commit(last_oid), repo.find_commit(current_oid))
-                {
-                    if let (Some(last_tree), Some(current_tree)) =
-                        (last_commit.tree().ok(), current_commit.tree().ok())
-                    {
-                        let diff = repo.diff_tree_to_tree(
-                            Some(&last_tree),
-                            Some(&current_tree),
-                            Some(&mut DiffOptions::new()),
-                        )?;
-
-                        let stats = diff.stats()?;
-                        changes.insertions = stats.insertions();
-                        changes.deletions = stats.deletions();
-
-                        // Process diff to get file changes from commits
-                        diff.foreach(
-                            &mut |delta, _progress| {
-                                if let Some(path_str) = extract_file_path(&delta) {
-                                    match classify_delta_status(delta.status()) {
-                                        FileChangeType::Added => {
-                                            add_unique_file(&mut changes.files_added, path_str)
-                                        }
-                                        FileChangeType::Modified => {
-                                            add_unique_file(&mut changes.files_modified, path_str)
-                                        }
-                                        FileChangeType::Deleted => {
-                                            add_unique_file(&mut changes.files_deleted, path_str)
-                                        }
-                                        FileChangeType::Unknown => {}
-                                    }
-                                }
-                                true
-                            },
-                            None,
-                            None,
-                            None,
-                        )?;
-                    }
-                }
+                // Calculate diff stats and file changes
+                let diff_stats = Self::calculate_diff_stats(&repo, last_oid, current_oid)?;
+                changes.insertions = diff_stats.insertions;
+                changes.deletions = diff_stats.deletions;
+                changes.files_added.extend(diff_stats.files_added);
+                changes.files_modified.extend(diff_stats.files_modified);
+                changes.files_deleted.extend(diff_stats.files_deleted);
             }
         }
 
