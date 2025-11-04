@@ -613,7 +613,9 @@ impl ResumeExecutor {
                     }
                 }
 
-                Ok(RecoveryOutcome::Abort(anyhow!("Workflow aborted due to unrecoverable error")))
+                Ok(RecoveryOutcome::Abort(anyhow!(
+                    "Workflow aborted due to unrecoverable error"
+                )))
             }
             RecoveryAction::Fallback { alternative_path } => {
                 warn!("Attempting fallback path: {}", alternative_path);
@@ -720,9 +722,7 @@ impl ResumeExecutor {
             }
             Err(e) => {
                 warn!("Step {} failed: {}", step_index + 1, e);
-                progress_tracker
-                    .fail_step(step_index, e.to_string())
-                    .await;
+                progress_tracker.fail_step(step_index, e.to_string()).await;
                 result.map(|_| StepExecutionResult {
                     success: false,
                     duration,
@@ -857,10 +857,14 @@ impl ResumeExecutor {
                     continue;
                 }
                 Err(e) => {
-
                     // Execute error handler if configured
                     match self
-                        .execute_step_error_handler(step, step_index, &e.to_string(), workflow_context)
+                        .execute_step_error_handler(
+                            step,
+                            step_index,
+                            &e.to_string(),
+                            workflow_context,
+                        )
                         .await?
                     {
                         ErrorHandlerOutcome::Recovered => {
@@ -897,7 +901,10 @@ impl ResumeExecutor {
                     {
                         RecoveryOutcome::Retry(retry_step) => {
                             // Retry the step
-                            match executor.execute_step(&retry_step, env, workflow_context).await {
+                            match executor
+                                .execute_step(&retry_step, env, workflow_context)
+                                .await
+                            {
                                 Ok(_) => {
                                     info!("Retry succeeded for step {}", step_index + 1);
                                     steps_executed += 1;
