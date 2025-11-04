@@ -79,9 +79,7 @@ fn test_short_circuit_optimization() {
     // Should reorder to put simple expression first
     match result {
         Expression::And(left, right) => {
-            assert!(
-                optimizer.estimate_complexity(&left) <= optimizer.estimate_complexity(&right)
-            );
+            assert!(optimizer.estimate_complexity(&left) <= optimizer.estimate_complexity(&right));
         }
         _ => panic!("Expected And expression"),
     }

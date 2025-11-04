@@ -135,7 +135,10 @@ pub(super) fn fold_is_null(stats: &mut OptimizationStats, inner: Expression) -> 
 }
 
 /// Helper function to fold IsNotNull type check
-pub(super) fn fold_is_not_null(stats: &mut OptimizationStats, inner: Expression) -> Result<Expression> {
+pub(super) fn fold_is_not_null(
+    stats: &mut OptimizationStats,
+    inner: Expression,
+) -> Result<Expression> {
     match inner {
         Expression::Null => {
             stats.constants_folded += 1;

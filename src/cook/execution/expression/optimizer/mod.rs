@@ -42,7 +42,6 @@ pub struct OptimizationStats {
     pub optimization_time: Duration,
 }
 
-
 /// Expression optimizer
 pub struct ExpressionOptimizer {
     config: OptimizerConfig,
