@@ -42,54 +42,6 @@ pub struct OptimizationStats {
     pub optimization_time: Duration,
 }
 
-/// Sub-expression cache for CSE
-#[derive(Debug)]
-struct SubExpressionCache {
-    #[allow(dead_code)]
-    expressions: HashMap<u64, CachedExpression>,
-    #[allow(dead_code)]
-    access_count: HashMap<u64, usize>,
-}
-
-impl SubExpressionCache {
-    fn new() -> Self {
-        Self {
-            expressions: HashMap::new(),
-            access_count: HashMap::new(),
-        }
-    }
-
-    #[allow(dead_code)]
-    fn get(&mut self, hash: u64) -> Option<&CachedExpression> {
-        self.access_count
-            .entry(hash)
-            .and_modify(|c| *c += 1)
-            .or_insert(1);
-        self.expressions.get(&hash)
-    }
-
-    #[allow(dead_code)]
-    fn insert(&mut self, hash: u64, expr: CachedExpression) {
-        self.expressions.insert(hash, expr);
-        self.access_count.insert(hash, 1);
-    }
-
-    #[allow(dead_code)]
-    fn should_cache(&self, hash: u64, threshold: usize) -> bool {
-        self.access_count.get(&hash).copied().unwrap_or(0) >= threshold
-    }
-}
-
-/// Cached expression with metadata
-#[derive(Debug, Clone)]
-struct CachedExpression {
-    #[allow(dead_code)]
-    id: usize,
-    #[allow(dead_code)]
-    expr: Expression,
-    #[allow(dead_code)]
-    cost: u32,
-}
 
 /// Expression optimizer
 pub struct ExpressionOptimizer {
@@ -592,10 +544,12 @@ impl Default for ExpressionOptimizer {
 }
 
 // Internal modules
+mod cache;
 mod folding;
 mod utils;
 
 // Import from internal modules
+use cache::SubExpressionCache;
 use folding::{
     fold_equal_comparison, fold_is_not_null, fold_is_null, fold_not_equal_comparison,
     fold_numeric_comparison, NumericComparisonOp,
