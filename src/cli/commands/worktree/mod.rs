@@ -141,6 +141,7 @@
 mod cli;
 mod mapreduce_cleanup;
 mod operations;
+mod orphaned_cleanup;
 mod presentation;
 mod utils;
 
