@@ -151,3 +151,59 @@ pub(super) fn fold_is_not_null(
         _ => Ok(Expression::IsNotNull(Box::new(inner))),
     }
 }
+
+/// Helper function to fold logical operators (And, Or, Not)
+pub(super) fn fold_logical_operators(
+    optimizer: &mut super::ExpressionOptimizer,
+    expr: Expression,
+) -> Result<Expression> {
+    match expr {
+        Expression::And(left, right) => {
+            let left = optimizer.constant_folding(*left)?;
+            let right = optimizer.constant_folding(*right)?;
+
+            match (&left, &right) {
+                (Expression::Boolean(false), _) | (_, Expression::Boolean(false)) => {
+                    optimizer.stats.constants_folded += 1;
+                    Ok(Expression::Boolean(false))
+                }
+                (Expression::Boolean(true), other) | (other, Expression::Boolean(true)) => {
+                    optimizer.stats.constants_folded += 1;
+                    Ok(other.clone())
+                }
+                _ => Ok(Expression::And(Box::new(left), Box::new(right))),
+            }
+        }
+        Expression::Or(left, right) => {
+            let left = optimizer.constant_folding(*left)?;
+            let right = optimizer.constant_folding(*right)?;
+
+            match (&left, &right) {
+                (Expression::Boolean(true), _) | (_, Expression::Boolean(true)) => {
+                    optimizer.stats.constants_folded += 1;
+                    Ok(Expression::Boolean(true))
+                }
+                (Expression::Boolean(false), other) | (other, Expression::Boolean(false)) => {
+                    optimizer.stats.constants_folded += 1;
+                    Ok(other.clone())
+                }
+                _ => Ok(Expression::Or(Box::new(left), Box::new(right))),
+            }
+        }
+        Expression::Not(inner) => {
+            let inner = optimizer.constant_folding(*inner)?;
+            match inner {
+                Expression::Boolean(b) => {
+                    optimizer.stats.constants_folded += 1;
+                    Ok(Expression::Boolean(!b))
+                }
+                Expression::Not(double_inner) => {
+                    optimizer.stats.algebraic_simplifications += 1;
+                    Ok(*double_inner) // Double negation
+                }
+                _ => Ok(Expression::Not(Box::new(inner))),
+            }
+        }
+        _ => Ok(expr),
+    }
+}

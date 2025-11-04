@@ -127,52 +127,9 @@ impl ExpressionOptimizer {
     /// Constant folding - evaluate constant expressions at compile time
     fn constant_folding(&mut self, expr: Expression) -> Result<Expression> {
         match expr {
-            // Fold constant arithmetic
-            Expression::And(left, right) => {
-                let left = self.constant_folding(*left)?;
-                let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Boolean(false), _) | (_, Expression::Boolean(false)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(false))
-                    }
-                    (Expression::Boolean(true), other) | (other, Expression::Boolean(true)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(other.clone())
-                    }
-                    _ => Ok(Expression::And(Box::new(left), Box::new(right))),
-                }
-            }
-            Expression::Or(left, right) => {
-                let left = self.constant_folding(*left)?;
-                let right = self.constant_folding(*right)?;
-
-                match (&left, &right) {
-                    (Expression::Boolean(true), _) | (_, Expression::Boolean(true)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(true))
-                    }
-                    (Expression::Boolean(false), other) | (other, Expression::Boolean(false)) => {
-                        self.stats.constants_folded += 1;
-                        Ok(other.clone())
-                    }
-                    _ => Ok(Expression::Or(Box::new(left), Box::new(right))),
-                }
-            }
-            Expression::Not(inner) => {
-                let inner = self.constant_folding(*inner)?;
-                match inner {
-                    Expression::Boolean(b) => {
-                        self.stats.constants_folded += 1;
-                        Ok(Expression::Boolean(!b))
-                    }
-                    Expression::Not(double_inner) => {
-                        self.stats.algebraic_simplifications += 1;
-                        Ok(*double_inner) // Double negation
-                    }
-                    _ => Ok(Expression::Not(Box::new(inner))),
-                }
+            // Delegate logical operators to specialized function
+            Expression::And(_, _) | Expression::Or(_, _) | Expression::Not(_) => {
+                fold_logical_operators(self, expr)
             }
             // Fold constant comparisons
             Expression::Equal(left, right) => {
@@ -550,8 +507,8 @@ mod utils;
 // Import from internal modules
 use cache::SubExpressionCache;
 use folding::{
-    fold_equal_comparison, fold_is_not_null, fold_is_null, fold_not_equal_comparison,
-    fold_numeric_comparison, NumericComparisonOp,
+    fold_equal_comparison, fold_is_not_null, fold_is_null, fold_logical_operators,
+    fold_not_equal_comparison, fold_numeric_comparison, NumericComparisonOp,
 };
 use utils::{expressions_equal, hash_expression};
 
