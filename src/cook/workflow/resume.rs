@@ -506,7 +506,7 @@ impl ResumeExecutor {
 
     /// Build execution environment for workflow
     fn build_execution_environment(
-        workflow_path: &PathBuf,
+        workflow_path: &std::path::Path,
         workflow_id: &str,
     ) -> ExecutionEnvironment {
         ExecutionEnvironment {
@@ -524,6 +524,49 @@ impl ResumeExecutor {
             ),
             worktree_name: None,
             session_id: Arc::from(format!("resume-{}", workflow_id)),
+        }
+    }
+
+    /// Check if workflow is already completed
+    fn check_already_completed(
+        checkpoint: &WorkflowCheckpoint,
+        options: &ResumeOptions,
+        workflow_id: &str,
+    ) -> Result<Option<ResumeResult>> {
+        if checkpoint.execution_state.status == checkpoint::WorkflowStatus::Completed
+            && !options.force
+        {
+            println!(
+                "Workflow {} is already completed - nothing to resume",
+                workflow_id
+            );
+            return Ok(Some(ResumeResult {
+                success: true,
+                total_steps_executed: checkpoint.execution_state.current_step_index,
+                skipped_steps: checkpoint.execution_state.current_step_index,
+                new_steps_executed: 0,
+                final_context: WorkflowContext::default(),
+            }));
+        }
+        Ok(None)
+    }
+
+    /// Display completion summary
+    fn display_completion_summary(
+        total_steps: usize,
+        skipped_steps: usize,
+        steps_executed: usize,
+        start_time: std::time::Instant,
+    ) {
+        let total_duration = start_time.elapsed();
+        println!("\n✅ Workflow Resume Complete!");
+        println!("   Total steps: {}", total_steps);
+        println!("   Steps skipped (already completed): {}", skipped_steps);
+        println!("   Steps executed in this session: {}", steps_executed);
+        println!("   Total duration: {:.2}s", total_duration.as_secs_f64());
+        if steps_executed > 0 {
+            let avg_step_time = total_duration.as_secs_f64() / steps_executed as f64;
+            println!("   Average step time: {:.2}s", avg_step_time);
         }
     }
 
@@ -850,21 +893,9 @@ impl ResumeExecutor {
             self.validate_checkpoint(&checkpoint)?;
         }
 
-        // Check if workflow is already complete
-        if checkpoint.execution_state.status == checkpoint::WorkflowStatus::Completed
-            && !options.force
-        {
-            println!(
-                "Workflow {} is already completed - nothing to resume",
-                workflow_id
-            );
-            return Ok(ResumeResult {
-                success: true,
-                total_steps_executed: checkpoint.execution_state.current_step_index,
-                skipped_steps: checkpoint.execution_state.current_step_index,
-                new_steps_executed: 0,
-                final_context: WorkflowContext::default(),
-            });
+        // Check if already completed
+        if let Some(result) = Self::check_already_completed(&checkpoint, &options, workflow_id)? {
+            return Ok(result);
         }
 
         // Create progress tracker and display
@@ -920,16 +951,12 @@ impl ResumeExecutor {
         progress_display.force_update(&final_progress);
 
         // Show final summary
-        let total_duration = progress_tracker.start_time.elapsed();
-        println!("\n✅ Workflow Resume Complete!");
-        println!("   Total steps: {}", total_steps);
-        println!("   Steps skipped (already completed): {}", start_from);
-        println!("   Steps executed in this session: {}", steps_executed);
-        println!("   Total duration: {:.2}s", total_duration.as_secs_f64());
-        if steps_executed > 0 {
-            let avg_step_time = total_duration.as_secs_f64() / steps_executed as f64;
-            println!("   Average step time: {:.2}s", avg_step_time);
-        }
+        Self::display_completion_summary(
+            total_steps,
+            start_from,
+            steps_executed,
+            progress_tracker.start_time,
+        );
 
         // Delete checkpoint on successful completion
         self.checkpoint_manager
