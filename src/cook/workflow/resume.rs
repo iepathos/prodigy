@@ -527,6 +527,294 @@ impl ResumeExecutor {
         }
     }
 
+    /// Execute remaining workflow steps from checkpoint
+    #[allow(clippy::too_many_arguments)]
+    async fn execute_remaining_steps(
+        &mut self,
+        executor: &mut WorkflowExecutorImpl,
+        extended_workflow: &crate::cook::workflow::executor::ExtendedWorkflowConfig,
+        start_from: usize,
+        env: &ExecutionEnvironment,
+        workflow_context: &mut WorkflowContext,
+        progress_tracker: &mut SequentialProgressTracker,
+        progress_display: &mut ProgressDisplay,
+        checkpoint: &WorkflowCheckpoint,
+        workflow_id: &str,
+    ) -> Result<usize> {
+        let total_steps = extended_workflow.steps.len();
+        let skipped_steps = checkpoint.completed_steps.len();
+        let current_iteration = checkpoint.execution_state.current_iteration.unwrap_or(1);
+        let mut steps_executed = 0;
+
+        info!(
+            "Resuming execution from step {} of {}",
+            start_from + 1,
+            total_steps
+        );
+
+        // Update progress to executing phase
+        progress_tracker
+            .update_phase(ExecutionPhase::ExecutingSteps)
+            .await;
+        progress_display.force_update(&format!(
+            "Resuming from step {}/{}. {} steps already completed.",
+            start_from + 1,
+            total_steps,
+            skipped_steps
+        ));
+
+        // Set progress callback to display updates
+        progress_tracker.set_callback(move |update| {
+            if let Some(ref msg) = update.message {
+                println!("📊 {}", msg);
+            }
+        });
+
+        // Start iteration tracking if needed
+        if current_iteration > 0 {
+            progress_tracker.start_iteration(current_iteration).await;
+        }
+
+        // Skip completed steps and execute remaining ones
+        for (step_index, step) in extended_workflow.steps.iter().enumerate() {
+            if step_index < start_from {
+                info!("Skipping completed step {}: {:?}", step_index + 1, step);
+                progress_tracker
+                    .skip_step(step_index, "Already completed from checkpoint".to_string())
+                    .await;
+                continue;
+            }
+
+            // Get step name for progress display
+            let step_name = get_step_name(step);
+
+            info!(
+                "Executing step {}/{}: {}",
+                step_index + 1,
+                total_steps,
+                step_name
+            );
+
+            // Start step in progress tracker
+            progress_tracker
+                .start_step(step_index, step_name.clone())
+                .await;
+
+            // Update progress display
+            let progress_msg = progress_tracker.format_progress().await;
+            progress_display.update(&progress_msg);
+
+            // Execute the step with error recovery
+            let step_start = std::time::Instant::now();
+            match executor
+                .execute_step(step, env, workflow_context)
+                .await
+            {
+                Ok(_result) => {
+                    steps_executed += 1;
+                    let duration = step_start.elapsed();
+                    info!("Step {} completed successfully", step_index + 1);
+
+                    // Update progress tracker
+                    progress_tracker.complete_step(step_index, duration).await;
+                }
+                Err(e) => {
+                    warn!("Step {} failed: {}", step_index + 1, e);
+
+                    // Update progress tracker for failure
+                    progress_tracker.fail_step(step_index, e.to_string()).await;
+
+                    // Check if step has error handler
+                    if let Some(ref on_failure) = step.on_failure {
+                        info!("Executing error handler for step {}", step_index + 1);
+
+                        // Convert OnFailureConfig to ErrorHandler
+                        if let Some(handler) = on_failure_to_error_handler(on_failure, step_index) {
+                            // Execute error handler with resume context
+                            match self
+                                .error_recovery
+                                .execute_error_handler_with_resume_context(
+                                    &handler,
+                                    &e.to_string(),
+                                    workflow_context,
+                                )
+                                .await
+                            {
+                                Ok(true) => {
+                                    info!("Error handler succeeded, continuing workflow");
+                                    steps_executed += 1;
+                                    continue; // Continue to next step
+                                }
+                                Ok(false) => {
+                                    warn!("Error handler failed for step {}", step_index + 1);
+                                    if !on_failure.should_fail_workflow() {
+                                        warn!("Continuing despite handler failure");
+                                        continue;
+                                    }
+                                }
+                                Err(handler_err) => {
+                                    error!("Error executing handler: {}", handler_err);
+                                }
+                            }
+                        }
+                    }
+
+                    // No handler or handler failed - attempt recovery
+                    let recovery_action = self
+                        .error_recovery
+                        .handle_resume_error(&ResumeError::Other(anyhow!("{}", e)), checkpoint)
+                        .await?;
+
+                    match recovery_action {
+                        RecoveryAction::Retry { delay, .. } => {
+                            warn!("Retrying step {} after {:?}", step_index + 1, delay);
+                            tokio::time::sleep(delay).await;
+                            // Retry the current step
+                            match executor
+                                .execute_step(step, env, workflow_context)
+                                .await
+                            {
+                                Ok(_) => {
+                                    info!("Retry succeeded for step {}", step_index + 1);
+                                    steps_executed += 1;
+                                    continue;
+                                }
+                                Err(retry_err) => {
+                                    error!(
+                                        "Retry failed for step {}: {}",
+                                        step_index + 1,
+                                        retry_err
+                                    );
+                                    return Err(retry_err);
+                                }
+                            }
+                        }
+                        RecoveryAction::Continue => {
+                            warn!("Continuing despite error in step {}", step_index + 1);
+                            continue;
+                        }
+                        RecoveryAction::SafeAbort { cleanup_actions } => {
+                            error!("Aborting workflow due to unrecoverable error");
+
+                            // Execute cleanup actions if any
+                            if !cleanup_actions.is_empty() {
+                                info!(
+                                    "Executing {} cleanup actions before abort",
+                                    cleanup_actions.len()
+                                );
+                                for action in cleanup_actions {
+                                    // Create a WorkflowStep from the handler command
+                                    let cleanup_step = WorkflowStep {
+                                        name: Some("cleanup".to_string()),
+                                        shell: action.shell.clone(),
+                                        claude: action.claude.clone(),
+                                        test: None,
+                                        goal_seek: None,
+                                        foreach: None,
+                                        write_file: None,
+                                        command: None,
+                                        handler: None,
+                                        capture: None,
+                                        capture_format: None,
+                                        capture_streams: Default::default(),
+                                        output_file: None,
+                                        timeout: None,
+                                        capture_output:
+                                            crate::cook::workflow::executor::CaptureOutput::Disabled,
+                                        on_failure: None,
+                                        retry: None,
+                                        on_success: None,
+                                        on_exit_code: Default::default(),
+                                        commit_required: false,
+                                        auto_commit: false,
+                                        commit_config: None,
+                                        working_dir: None,
+                                        env: Default::default(),
+                                        validate: None,
+                                        step_validate: None,
+                                        skip_validation: false,
+                                        validation_timeout: None,
+                                        ignore_validation_failure: false,
+                                        when: None,
+                                    };
+
+                                    // Execute the cleanup step
+                                    let _ = executor
+                                        .execute_step(&cleanup_step, env, workflow_context)
+                                        .await;
+                                }
+                            }
+
+                            return Err(e);
+                        }
+                        RecoveryAction::Fallback { alternative_path } => {
+                            warn!("Attempting fallback path: {}", alternative_path);
+                            // Load alternative workflow configuration from file
+                            let alt_path = std::path::Path::new(&alternative_path);
+                            let content =
+                                tokio::fs::read_to_string(&alt_path).await.map_err(|err| {
+                                    anyhow!("Failed to read fallback workflow file: {}", err)
+                                })?;
+
+                            let alt_config: WorkflowConfig = serde_yaml::from_str(&content)
+                                .map_err(|err| {
+                                    anyhow!("Failed to parse fallback workflow: {}", err)
+                                })?;
+
+                            // Convert to normalized workflow
+                            let _alt_workflow = NormalizedWorkflow::from_workflow_config(
+                                &alt_config,
+                                crate::cook::workflow::normalized::ExecutionMode::Sequential,
+                            )?;
+
+                            // Execute the fallback workflow from the current step
+                            info!("Executing fallback workflow from step {}", step_index);
+                            // Note: This would need more implementation to properly merge contexts
+                            // For now, we'll just continue with the current workflow
+                            warn!("Fallback workflow execution not fully implemented, continuing with current workflow");
+                            continue;
+                        }
+                        RecoveryAction::PartialResume { from_step } => {
+                            warn!("Performing partial resume from step {}", from_step);
+                            // Jump to the specified step
+                            if from_step < step_index {
+                                // We've already passed this step, continue normally
+                                continue;
+                            } else if from_step > step_index {
+                                // Skip ahead to the specified step
+                                for i in step_index..from_step {
+                                    progress_tracker
+                                        .skip_step(i, "Skipping to recovery point".to_string())
+                                        .await;
+                                }
+                                continue;
+                            }
+                            // If from_step == step_index, just continue normally
+                            continue;
+                        }
+                        RecoveryAction::RequestIntervention { message } => {
+                            error!("Manual intervention required: {}", message);
+
+                            // Save checkpoint with intervention request
+                            self.checkpoint_manager
+                                .save_intervention_request(workflow_id, &message)
+                                .await?;
+
+                            // Return error with intervention message
+                            return Err(anyhow!(
+                                "Workflow suspended for manual intervention: {}. Resume with 'prodigy resume {}' after resolving.",
+                                message,
+                                workflow_id
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(steps_executed)
+    }
+
     /// Execute workflow from checkpoint with full execution support
     pub async fn execute_from_checkpoint(
         &mut self,
@@ -610,275 +898,19 @@ impl ResumeExecutor {
         // Execute remaining steps
         let start_from = checkpoint.execution_state.current_step_index;
         let total_steps = extended_workflow.steps.len();
-        let skipped_steps = checkpoint.completed_steps.len();
-        let current_iteration = checkpoint.execution_state.current_iteration.unwrap_or(1);
-        let mut steps_executed = 0;
-
-        info!(
-            "Resuming execution from step {} of {}",
-            start_from + 1,
-            total_steps
-        );
-
-        // Update progress to executing phase
-        progress_tracker
-            .update_phase(ExecutionPhase::ExecutingSteps)
-            .await;
-        progress_display.force_update(&format!(
-            "Resuming from step {}/{}. {} steps already completed.",
-            start_from + 1,
-            total_steps,
-            skipped_steps
-        ));
-
-        // Set progress callback to display updates
-        progress_tracker.set_callback(move |update| {
-            if let Some(ref msg) = update.message {
-                println!("📊 {}", msg);
-            }
-        });
-
-        // Start iteration tracking if needed
-        if current_iteration > 0 {
-            progress_tracker.start_iteration(current_iteration).await;
-        }
-
-        // Skip completed steps and execute remaining ones
-        for (step_index, step) in extended_workflow.steps.iter().enumerate() {
-            if step_index < start_from {
-                info!("Skipping completed step {}: {:?}", step_index + 1, step);
-                progress_tracker
-                    .skip_step(step_index, "Already completed from checkpoint".to_string())
-                    .await;
-                continue;
-            }
-
-            // Get step name for progress display
-            let step_name = get_step_name(step);
-
-            info!(
-                "Executing step {}/{}: {}",
-                step_index + 1,
-                total_steps,
-                step_name
-            );
-
-            // Start step in progress tracker
-            progress_tracker
-                .start_step(step_index, step_name.clone())
-                .await;
-
-            // Update progress display
-            let progress_msg = progress_tracker.format_progress().await;
-            progress_display.update(&progress_msg);
-
-            // Execute the step with error recovery
-            let step_start = std::time::Instant::now();
-            match executor
-                .execute_step(step, &env, &mut workflow_context)
-                .await
-            {
-                Ok(_result) => {
-                    steps_executed += 1;
-                    let duration = step_start.elapsed();
-                    info!("Step {} completed successfully", step_index + 1);
-
-                    // Update progress tracker
-                    progress_tracker.complete_step(step_index, duration).await;
-                }
-                Err(e) => {
-                    warn!("Step {} failed: {}", step_index + 1, e);
-
-                    // Update progress tracker for failure
-                    progress_tracker.fail_step(step_index, e.to_string()).await;
-
-                    // Check if step has error handler
-                    if let Some(ref on_failure) = step.on_failure {
-                        info!("Executing error handler for step {}", step_index + 1);
-
-                        // Convert OnFailureConfig to ErrorHandler
-                        if let Some(handler) = on_failure_to_error_handler(on_failure, step_index) {
-                            // Execute error handler with resume context
-                            match self
-                                .error_recovery
-                                .execute_error_handler_with_resume_context(
-                                    &handler,
-                                    &e.to_string(),
-                                    &mut workflow_context,
-                                )
-                                .await
-                            {
-                                Ok(true) => {
-                                    info!("Error handler succeeded, continuing workflow");
-                                    steps_executed += 1;
-                                    continue; // Continue to next step
-                                }
-                                Ok(false) => {
-                                    warn!("Error handler failed for step {}", step_index + 1);
-                                    if !on_failure.should_fail_workflow() {
-                                        warn!("Continuing despite handler failure");
-                                        continue;
-                                    }
-                                }
-                                Err(handler_err) => {
-                                    error!("Error executing handler: {}", handler_err);
-                                }
-                            }
-                        }
-                    }
-
-                    // No handler or handler failed - attempt recovery
-                    let recovery_action = self
-                        .error_recovery
-                        .handle_resume_error(&ResumeError::Other(anyhow!("{}", e)), &checkpoint)
-                        .await?;
-
-                    match recovery_action {
-                        RecoveryAction::Retry { delay, .. } => {
-                            warn!("Retrying step {} after {:?}", step_index + 1, delay);
-                            tokio::time::sleep(delay).await;
-                            // Retry the current step
-                            match executor
-                                .execute_step(step, &env, &mut workflow_context)
-                                .await
-                            {
-                                Ok(_) => {
-                                    info!("Retry succeeded for step {}", step_index + 1);
-                                    steps_executed += 1;
-                                    continue;
-                                }
-                                Err(retry_err) => {
-                                    error!(
-                                        "Retry failed for step {}: {}",
-                                        step_index + 1,
-                                        retry_err
-                                    );
-                                    return Err(retry_err);
-                                }
-                            }
-                        }
-                        RecoveryAction::Continue => {
-                            warn!("Continuing despite error in step {}", step_index + 1);
-                            continue;
-                        }
-                        RecoveryAction::SafeAbort { cleanup_actions } => {
-                            error!("Aborting workflow due to unrecoverable error");
-
-                            // Execute cleanup actions if any
-                            if !cleanup_actions.is_empty() {
-                                info!(
-                                    "Executing {} cleanup actions before abort",
-                                    cleanup_actions.len()
-                                );
-                                for action in cleanup_actions {
-                                    // Create a WorkflowStep from the handler command
-                                    let cleanup_step = WorkflowStep {
-                                        name: Some("cleanup".to_string()),
-                                        shell: action.shell.clone(),
-                                        claude: action.claude.clone(),
-                                        test: None,
-                                        goal_seek: None,
-                                        foreach: None,
-                                        write_file: None,
-                                        command: None,
-                                        handler: None,
-                                        capture: None,
-                                        capture_format: None,
-                                        capture_streams: Default::default(),
-                                        output_file: None,
-                                        timeout: None,
-                                        capture_output:
-                                            crate::cook::workflow::executor::CaptureOutput::Disabled,
-                                        on_failure: None,
-                                        retry: None,
-                                        on_success: None,
-                                        on_exit_code: Default::default(),
-                                        commit_required: false,
-                                        auto_commit: false,
-                                        commit_config: None,
-                                        working_dir: None,
-                                        env: Default::default(),
-                                        validate: None,
-                                        step_validate: None,
-                                        skip_validation: false,
-                                        validation_timeout: None,
-                                        ignore_validation_failure: false,
-                                        when: None,
-                                    };
-
-                                    // Execute the cleanup step
-                                    let _ = executor
-                                        .execute_step(&cleanup_step, &env, &mut workflow_context)
-                                        .await;
-                                }
-                            }
-
-                            return Err(e);
-                        }
-                        RecoveryAction::Fallback { alternative_path } => {
-                            warn!("Attempting fallback path: {}", alternative_path);
-                            // Load alternative workflow configuration from file
-                            let alt_path = std::path::Path::new(&alternative_path);
-                            let content =
-                                tokio::fs::read_to_string(&alt_path).await.map_err(|err| {
-                                    anyhow!("Failed to read fallback workflow file: {}", err)
-                                })?;
-
-                            let alt_config: WorkflowConfig = serde_yaml::from_str(&content)
-                                .map_err(|err| {
-                                    anyhow!("Failed to parse fallback workflow: {}", err)
-                                })?;
-
-                            // Convert to normalized workflow
-                            let _alt_workflow = NormalizedWorkflow::from_workflow_config(
-                                &alt_config,
-                                crate::cook::workflow::normalized::ExecutionMode::Sequential,
-                            )?;
-
-                            // Execute the fallback workflow from the current step
-                            info!("Executing fallback workflow from step {}", step_index);
-                            // Note: This would need more implementation to properly merge contexts
-                            // For now, we'll just continue with the current workflow
-                            warn!("Fallback workflow execution not fully implemented, continuing with current workflow");
-                            continue;
-                        }
-                        RecoveryAction::PartialResume { from_step } => {
-                            warn!("Performing partial resume from step {}", from_step);
-                            // Jump to the specified step
-                            if from_step < step_index {
-                                // We've already passed this step, continue normally
-                                continue;
-                            } else if from_step > step_index {
-                                // Skip ahead to the specified step
-                                for i in step_index..from_step {
-                                    progress_tracker
-                                        .skip_step(i, "Skipping to recovery point".to_string())
-                                        .await;
-                                }
-                                continue;
-                            }
-                            // If from_step == step_index, just continue normally
-                            continue;
-                        }
-                        RecoveryAction::RequestIntervention { message } => {
-                            error!("Manual intervention required: {}", message);
-
-                            // Save checkpoint with intervention request
-                            self.checkpoint_manager
-                                .save_intervention_request(workflow_id, &message)
-                                .await?;
-
-                            // Return error with intervention message
-                            return Err(anyhow!(
-                                "Workflow suspended for manual intervention: {}. Resume with 'prodigy resume {}' after resolving.",
-                                message,
-                                workflow_id
-                            ));
-                        }
-                    }
-                }
-            }
-        }
+        let steps_executed = self
+            .execute_remaining_steps(
+                &mut executor,
+                &extended_workflow,
+                start_from,
+                &env,
+                &mut workflow_context,
+                &mut progress_tracker,
+                &mut progress_display,
+                &checkpoint,
+                workflow_id,
+            )
+            .await?;
 
         // Update progress to completed
         progress_tracker
