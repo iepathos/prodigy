@@ -570,6 +570,56 @@ impl ResumeExecutor {
         }
     }
 
+    /// Execute error handler for a failed step
+    ///
+    /// Returns the outcome of error handler execution:
+    /// - Recovered: Handler succeeded, workflow can continue
+    /// - Failed: Handler failed but workflow may continue based on configuration
+    /// - NoHandler: No handler was configured
+    async fn execute_step_error_handler(
+        &mut self,
+        step: &WorkflowStep,
+        step_index: usize,
+        error_msg: &str,
+        workflow_context: &mut WorkflowContext,
+    ) -> Result<ErrorHandlerOutcome> {
+        // Check if step has error handler
+        if let Some(ref on_failure) = step.on_failure {
+            info!("Executing error handler for step {}", step_index + 1);
+
+            // Convert OnFailureConfig to ErrorHandler
+            if let Some(handler) = on_failure_to_error_handler(on_failure, step_index) {
+                // Execute error handler with resume context
+                match self
+                    .error_recovery
+                    .execute_error_handler_with_resume_context(
+                        &handler,
+                        error_msg,
+                        workflow_context,
+                    )
+                    .await
+                {
+                    Ok(true) => {
+                        info!("Error handler succeeded, continuing workflow");
+                        return Ok(ErrorHandlerOutcome::Recovered);
+                    }
+                    Ok(false) => {
+                        warn!("Error handler failed for step {}", step_index + 1);
+                        if !on_failure.should_fail_workflow() {
+                            warn!("Continuing despite handler failure");
+                            return Ok(ErrorHandlerOutcome::Failed);
+                        }
+                    }
+                    Err(handler_err) => {
+                        error!("Error executing handler: {}", handler_err);
+                    }
+                }
+            }
+        }
+
+        Ok(ErrorHandlerOutcome::NoHandler)
+    }
+
     /// Execute remaining workflow steps from checkpoint
     #[allow(clippy::too_many_arguments)]
     async fn execute_remaining_steps(
@@ -664,38 +714,20 @@ impl ResumeExecutor {
                     // Update progress tracker for failure
                     progress_tracker.fail_step(step_index, e.to_string()).await;
 
-                    // Check if step has error handler
-                    if let Some(ref on_failure) = step.on_failure {
-                        info!("Executing error handler for step {}", step_index + 1);
-
-                        // Convert OnFailureConfig to ErrorHandler
-                        if let Some(handler) = on_failure_to_error_handler(on_failure, step_index) {
-                            // Execute error handler with resume context
-                            match self
-                                .error_recovery
-                                .execute_error_handler_with_resume_context(
-                                    &handler,
-                                    &e.to_string(),
-                                    workflow_context,
-                                )
-                                .await
-                            {
-                                Ok(true) => {
-                                    info!("Error handler succeeded, continuing workflow");
-                                    steps_executed += 1;
-                                    continue; // Continue to next step
-                                }
-                                Ok(false) => {
-                                    warn!("Error handler failed for step {}", step_index + 1);
-                                    if !on_failure.should_fail_workflow() {
-                                        warn!("Continuing despite handler failure");
-                                        continue;
-                                    }
-                                }
-                                Err(handler_err) => {
-                                    error!("Error executing handler: {}", handler_err);
-                                }
-                            }
+                    // Execute error handler if configured
+                    match self
+                        .execute_step_error_handler(step, step_index, &e.to_string(), workflow_context)
+                        .await?
+                    {
+                        ErrorHandlerOutcome::Recovered => {
+                            steps_executed += 1;
+                            continue; // Continue to next step
+                        }
+                        ErrorHandlerOutcome::Failed => {
+                            continue; // Continue despite handler failure
+                        }
+                        ErrorHandlerOutcome::NoHandler => {
+                            // No handler, proceed to recovery action
                         }
                     }
 
@@ -982,6 +1014,17 @@ pub struct ResumableWorkflow {
     pub progress: String,
     pub last_checkpoint: chrono::DateTime<chrono::Utc>,
     pub can_resume: bool,
+}
+
+/// Result of executing an error handler
+#[derive(Debug)]
+enum ErrorHandlerOutcome {
+    /// Handler succeeded, workflow can continue
+    Recovered,
+    /// Handler failed but workflow should continue anyway
+    Failed,
+    /// No handler was configured
+    NoHandler,
 }
 
 /// Helper function to get a display name for a workflow step
