@@ -25,6 +25,8 @@ pub mod git_context;
 mod git_context_tests;
 #[cfg(test)]
 mod git_context_test_utils;
+#[cfg(test)]
+mod git_context_uncommitted_tests;
 mod git_utils;
 pub mod normalized;
 mod on_failure;
