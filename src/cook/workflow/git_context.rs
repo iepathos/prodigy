@@ -8,15 +8,37 @@
 //! The git context functionality is organized into focused modules:
 //!
 //! - [`git_context`](self) - Domain logic for change tracking and variable resolution
+//! - `git_context_tests` - Comprehensive test suite (24 tests across 3 phases)
 //! - `git_utils` - Pure utility functions for file classification and list operations
+//!
+//! # Architecture
+//!
+//! The module follows functional programming principles with:
+//! - **Pure helper functions** for parsing and formatting (all under 20 lines)
+//! - **Separated I/O and logic** - Git operations isolated from business logic
+//! - **Function composition** - Complex operations built from simple, testable units
+//! - **Immutable data flow** - Changes are calculated, not mutated
 //!
 //! # Responsibilities
 //!
 //! This module handles:
-//! - Git repository interaction and change detection
+//! - Git repository interaction and change detection (committed and uncommitted)
 //! - Step-by-step change tracking during workflow execution
-//! - Variable resolution for git context (e.g., `${step.files_added}`)
+//! - Variable resolution for git context (e.g., `${step.files_added}`, `${workflow.commits:json}`)
+//! - Format support: space-separated, newline, JSON array, comma-separated
+//! - Glob pattern filtering (e.g., `${step.files_added:*.rs}`)
 //! - Aggregation of changes across workflow steps
+//!
+//! # Variable Resolution
+//!
+//! Variables support multiple formats and patterns:
+//!
+//! ```text
+//! ${step.files_added}          # Space-separated list
+//! ${step.files_added:json}     # JSON array format
+//! ${step.files_added:*.rs}     # Filter by glob pattern
+//! ${workflow.commit_count}     # Scalar values
+//! ```
 //!
 //! # Example
 //!
@@ -34,9 +56,20 @@
 //!
 //! println!("Files added: {:?}", changes.files_added);
 //! println!("Files modified: {:?}", changes.files_modified);
+//!
+//! // Resolve variables with format and pattern support
+//! let json_files = tracker.resolve_variable("step.files_added:json")?;
+//! let rust_files = tracker.resolve_variable("step.files_added:*.rs")?;
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # Test Organization
+//!
+//! Tests are organized in `git_context_tests.rs` into three phases:
+//! - **Phase 1**: Uncommitted changes detection (8 tests)
+//! - **Phase 2**: Commit history walking (6 tests)
+//! - **Phase 3**: Diff statistics and file changes (10 tests)
 
 use anyhow::{Context, Result};
 use git2::{DiffOptions, Oid, Repository, StatusOptions};
