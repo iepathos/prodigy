@@ -314,16 +314,9 @@ impl GitChangeTracker {
         }
     }
 
-    /// Calculate changes for the current step
-    pub(crate) fn calculate_step_changes(&self) -> Result<StepChanges> {
-        let repo = Repository::open(&self.repo_path).context("Failed to open git repository")?;
-
+    /// Collect uncommitted file changes from git status
+    fn collect_uncommitted_changes(repo: &Repository) -> Result<StepChanges> {
         let mut changes = StepChanges::default();
-
-        // Get current HEAD
-        let current_commit = Self::get_head_commit(&repo)?;
-
-        // Calculate file changes using git status for uncommitted changes
         let mut status_opts = StatusOptions::new();
         status_opts.include_untracked(true);
         let statuses = repo.statuses(Some(&mut status_opts))?;
@@ -333,15 +326,26 @@ impl GitChangeTracker {
                 Some(p) => p,
                 None => continue,
             };
-            let status = entry.status();
 
-            match classify_file_status(status) {
+            match classify_file_status(entry.status()) {
                 FileChangeType::Added => changes.files_added.push(path.to_string()),
                 FileChangeType::Modified => changes.files_modified.push(path.to_string()),
                 FileChangeType::Deleted => changes.files_deleted.push(path.to_string()),
                 FileChangeType::Unknown => {}
             }
         }
+
+        Ok(changes)
+    }
+
+    /// Calculate changes for the current step
+    pub(crate) fn calculate_step_changes(&self) -> Result<StepChanges> {
+        let repo = Repository::open(&self.repo_path).context("Failed to open git repository")?;
+
+        let current_commit = Self::get_head_commit(&repo)?;
+
+        // Collect uncommitted changes
+        let mut changes = Self::collect_uncommitted_changes(&repo)?;
 
         // If there's a previous commit, calculate committed changes
         if let (Some(last), Some(current)) = (&self.last_commit, &current_commit) {
