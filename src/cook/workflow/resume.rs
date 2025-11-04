@@ -671,6 +671,66 @@ impl ResumeExecutor {
         }
     }
 
+    /// Execute a single workflow step with progress tracking
+    ///
+    /// Handles progress display updates and timing for step execution.
+    async fn execute_single_step(
+        executor: &mut WorkflowExecutorImpl,
+        step: &WorkflowStep,
+        step_index: usize,
+        total_steps: usize,
+        env: &ExecutionEnvironment,
+        workflow_context: &mut WorkflowContext,
+        progress_tracker: &mut SequentialProgressTracker,
+        progress_display: &mut ProgressDisplay,
+    ) -> Result<StepExecutionResult> {
+        // Get step name for progress display
+        let step_name = get_step_name(step);
+
+        info!(
+            "Executing step {}/{}: {}",
+            step_index + 1,
+            total_steps,
+            step_name
+        );
+
+        // Start step in progress tracker
+        progress_tracker
+            .start_step(step_index, step_name.clone())
+            .await;
+
+        // Update progress display
+        let progress_msg = progress_tracker.format_progress().await;
+        progress_display.update(&progress_msg);
+
+        // Execute the step with timing
+        let step_start = std::time::Instant::now();
+        let result = executor.execute_step(step, env, workflow_context).await;
+        let duration = step_start.elapsed();
+
+        // Update progress tracker based on result
+        match &result {
+            Ok(_) => {
+                info!("Step {} completed successfully", step_index + 1);
+                progress_tracker.complete_step(step_index, duration).await;
+                Ok(StepExecutionResult {
+                    success: true,
+                    duration,
+                })
+            }
+            Err(e) => {
+                warn!("Step {} failed: {}", step_index + 1, e);
+                progress_tracker
+                    .fail_step(step_index, e.to_string())
+                    .await;
+                result.map(|_| StepExecutionResult {
+                    success: false,
+                    duration,
+                })
+            }
+        }
+    }
+
     /// Execute error handler for a failed step
     ///
     /// Returns the outcome of error handler execution:
@@ -779,41 +839,24 @@ impl ResumeExecutor {
                 continue;
             }
 
-            // Get step name for progress display
-            let step_name = get_step_name(step);
-
-            info!(
-                "Executing step {}/{}: {}",
-                step_index + 1,
+            // Execute the step with progress tracking
+            match Self::execute_single_step(
+                executor,
+                step,
+                step_index,
                 total_steps,
-                step_name
-            );
-
-            // Start step in progress tracker
-            progress_tracker
-                .start_step(step_index, step_name.clone())
-                .await;
-
-            // Update progress display
-            let progress_msg = progress_tracker.format_progress().await;
-            progress_display.update(&progress_msg);
-
-            // Execute the step with error recovery
-            let step_start = std::time::Instant::now();
-            match executor.execute_step(step, env, workflow_context).await {
+                env,
+                workflow_context,
+                progress_tracker,
+                progress_display,
+            )
+            .await
+            {
                 Ok(_result) => {
                     steps_executed += 1;
-                    let duration = step_start.elapsed();
-                    info!("Step {} completed successfully", step_index + 1);
-
-                    // Update progress tracker
-                    progress_tracker.complete_step(step_index, duration).await;
+                    continue;
                 }
                 Err(e) => {
-                    warn!("Step {} failed: {}", step_index + 1, e);
-
-                    // Update progress tracker for failure
-                    progress_tracker.fail_step(step_index, e.to_string()).await;
 
                     // Execute error handler if configured
                     match self
@@ -1077,6 +1120,15 @@ enum RecoveryOutcome {
     Abort(anyhow::Error),
     /// Requires manual intervention
     RequiresIntervention(String),
+}
+
+/// Result of executing a single workflow step
+#[derive(Debug)]
+struct StepExecutionResult {
+    /// Whether the step succeeded
+    success: bool,
+    /// How long the step took to execute
+    duration: std::time::Duration,
 }
 
 /// Helper function to get a display name for a workflow step
