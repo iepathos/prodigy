@@ -195,14 +195,11 @@ impl ExpressionOptimizer {
             | Expression::StartsWith(_, _)
             | Expression::EndsWith(_, _)
             | Expression::Matches(_, _) => fold_string_operators(self, expr),
-            Expression::Index(base, idx) => Ok(Expression::Index(
-                Box::new(self.constant_folding(*base)?),
-                Box::new(self.constant_folding(*idx)?),
-            )),
-            Expression::ArrayWildcard(base, path) => Ok(Expression::ArrayWildcard(
-                Box::new(self.constant_folding(*base)?),
-                path,
-            )),
+
+            // Delegate array operators to specialized function
+            Expression::Index(_, _) | Expression::ArrayWildcard(_, _) => {
+                fold_array_operators(self, expr)
+            }
 
             // Delegate aggregate functions to specialized function
             Expression::Length(_)
@@ -473,7 +470,7 @@ mod utils;
 // Import from internal modules
 use cache::SubExpressionCache;
 use folding::{
-    fold_aggregate_functions, fold_equal_comparison, fold_logical_operators,
+    fold_aggregate_functions, fold_array_operators, fold_equal_comparison, fold_logical_operators,
     fold_not_equal_comparison, fold_numeric_comparison, fold_string_operators, fold_type_checks,
     NumericComparisonOp,
 };

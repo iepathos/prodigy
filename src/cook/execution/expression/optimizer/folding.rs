@@ -286,3 +286,21 @@ pub(super) fn fold_aggregate_functions(
         _ => Ok(expr),
     }
 }
+
+/// Helper function to fold array operators (Index, ArrayWildcard)
+pub(super) fn fold_array_operators(
+    optimizer: &mut super::ExpressionOptimizer,
+    expr: Expression,
+) -> Result<Expression> {
+    match expr {
+        Expression::Index(base, idx) => Ok(Expression::Index(
+            Box::new(optimizer.constant_folding(*base)?),
+            Box::new(optimizer.constant_folding(*idx)?),
+        )),
+        Expression::ArrayWildcard(base, path) => Ok(Expression::ArrayWildcard(
+            Box::new(optimizer.constant_folding(*base)?),
+            path,
+        )),
+        _ => Ok(expr),
+    }
+}
