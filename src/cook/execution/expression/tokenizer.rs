@@ -119,6 +119,53 @@ fn parse_operator(ch: char, chars: &mut Peekable<Chars>) -> Result<Option<Token>
     Ok(Some(token))
 }
 
+/// Parse a quoted string literal
+///
+/// Consumes characters from the iterator until the closing quote is found.
+/// The opening quote has already been consumed by the caller.
+///
+/// # Arguments
+/// * `quote` - The quote character (' or ") that opened the string
+/// * `chars` - The character iterator
+///
+/// # Returns
+/// The parsed string content (without quotes)
+fn parse_string(quote: char, chars: &mut Peekable<Chars>) -> String {
+    let mut string = String::new();
+    for ch in chars.by_ref() {
+        if ch == quote {
+            break;
+        }
+        string.push(ch);
+    }
+    string
+}
+
+/// Parse a numeric literal (integer or float, positive or negative)
+///
+/// Consumes numeric characters and returns the parsed number.
+/// The first character (digit or '-') is still in the iterator.
+///
+/// # Arguments
+/// * `chars` - The character iterator
+///
+/// # Returns
+/// The parsed number as f64
+fn parse_number(chars: &mut Peekable<Chars>) -> Result<f64> {
+    let mut num_str = String::new();
+    while let Some(&ch) = chars.peek() {
+        if ch.is_numeric() || ch == '.' || ch == '-' {
+            num_str.push(ch);
+            chars.next();
+        } else {
+            break;
+        }
+    }
+    num_str
+        .parse::<f64>()
+        .map_err(|_| anyhow!("Invalid number: {}", num_str))
+}
+
 /// Tokenize an expression string into a sequence of tokens
 ///
 /// This is a pure function that converts a string into tokens.
@@ -161,30 +208,12 @@ pub fn tokenize(expr: &str) -> Result<Vec<Token>> {
             '"' | '\'' => {
                 let quote = ch;
                 chars.next();
-                let mut string = String::new();
-                for ch in chars.by_ref() {
-                    if ch == quote {
-                        break;
-                    }
-                    string.push(ch);
-                }
+                let string = parse_string(quote, &mut chars);
                 tokens.push(Token::String(string));
             }
             '0'..='9' | '-' => {
-                let mut num_str = String::new();
-                while let Some(&ch) = chars.peek() {
-                    if ch.is_numeric() || ch == '.' || ch == '-' {
-                        num_str.push(ch);
-                        chars.next();
-                    } else {
-                        break;
-                    }
-                }
-                if let Ok(num) = num_str.parse::<f64>() {
-                    tokens.push(Token::Number(num));
-                } else {
-                    return Err(anyhow!("Invalid number: {}", num_str));
-                }
+                let num = parse_number(&mut chars)?;
+                tokens.push(Token::Number(num));
             }
             _ if ch.is_alphabetic() || ch == '_' => {
                 let mut ident = String::new();
