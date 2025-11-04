@@ -4,16 +4,23 @@
 
 pub mod manager;
 pub mod reduce;
+pub mod storage;
+pub mod types;
 
-// Re-export all types from manager
-pub use manager::{
-    AgentInfo, AgentState, CheckpointConfig, CheckpointId, CheckpointInfo, CheckpointManager,
-    CheckpointMetadata, CheckpointReason, CheckpointStorage, CompletedWorkItem,
-    CompressionAlgorithm, DlqItem, ErrorState, ExecutionState, FailedWorkItem,
-    FileCheckpointStorage, MapPhaseResults, MapReduceCheckpoint, PhaseResult, PhaseType,
-    ResourceAllocation, ResourceState, ResumeState, ResumeStrategy, RetentionPolicy, VariableState,
-    WorkItem, WorkItemBatch, WorkItemProgress, WorkItemState,
+// Re-export all types from types module
+pub use types::{
+    AgentInfo, AgentState, CheckpointConfig, CheckpointId, CheckpointInfo, CheckpointMetadata,
+    CheckpointReason, CompletedWorkItem, DlqItem, ErrorState, ExecutionState, FailedWorkItem,
+    MapPhaseResults, MapReduceCheckpoint, PhaseResult, PhaseType, ResourceAllocation,
+    ResourceState, ResumeState, ResumeStrategy, RetentionPolicy, VariableState, WorkItem,
+    WorkItemBatch, WorkItemProgress, WorkItemState,
 };
+
+// Re-export from storage
+pub use storage::{CheckpointStorage, CompressionAlgorithm, FileCheckpointStorage};
+
+// Re-export from manager
+pub use manager::CheckpointManager;
 
 // Re-export types from reduce
 pub use reduce::{ReducePhaseCheckpoint, StepResult};

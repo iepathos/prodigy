@@ -5,9 +5,13 @@
 use crate::cli::args::WorktreeCommands;
 use anyhow::Result;
 
+use super::age_cleanup::cleanup_old_worktrees;
+use super::mapreduce_cleanup::run_mapreduce_cleanup;
 use super::operations::{
     list_sessions_operation, merge_all_sessions_operation, merge_session_operation,
 };
+use super::orphaned_cleanup::run_worktree_clean_orphaned;
+use super::presentation::{format_batch_merge_summary, format_merge_result, format_sessions_table};
 use super::utils::parse_duration;
 
 /// Execute worktree-related commands
@@ -58,23 +62,9 @@ async fn run_worktree_ls(_json: bool, _detailed: bool) -> Result<()> {
     // Execute operation
     let result = list_sessions_operation(&manager).await?;
 
-    // Display results
-    if result.sessions.is_empty() {
-        println!("No active Prodigy worktrees found.");
-    } else {
-        println!("Active Prodigy worktrees:");
-        println!("{:<40} {:<30} {:<20}", "Name", "Branch", "Created");
-        println!("{}", "-".repeat(90));
-
-        for session in result.sessions {
-            println!(
-                "{:<40} {:<30} {:<20}",
-                session.name,
-                session.branch,
-                session.created_at.format("%Y-%m-%d %H:%M:%S")
-            );
-        }
-    }
+    // Display results using presentation layer
+    let output = format_sessions_table(&result.sessions);
+    print!("{}", output);
 
     Ok(())
 }
@@ -94,27 +84,19 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
         println!("Merging all worktrees...");
         let result = merge_all_sessions_operation(&manager).await?;
 
-        // Display results
+        // Display results using presentation layer
         for merge_result in &result.results {
+            let message = format_merge_result(merge_result);
             if merge_result.success {
-                println!(
-                    "✅ Successfully merged worktree '{}'",
-                    merge_result.session_name
-                );
+                println!("{}", message);
             } else {
-                eprintln!(
-                    "❌ Failed to merge worktree '{}': {}",
-                    merge_result.session_name,
-                    merge_result
-                        .error
-                        .as_ref()
-                        .unwrap_or(&"Unknown error".to_string())
-                );
+                eprintln!("{}", message);
             }
         }
 
-        if result.merged_count > 0 {
-            println!("Successfully merged {} worktree(s)", result.merged_count);
+        let summary = format_batch_merge_summary(&result);
+        if !summary.is_empty() {
+            println!("{}", summary);
         }
         Ok(())
     } else if let Some(name) = name {
@@ -122,13 +104,14 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
         let result = merge_session_operation(&manager, &name).await;
 
         if result.success {
-            println!("✅ Successfully merged worktree '{}'", name);
+            println!("{}", format_merge_result(&result));
             Ok(())
         } else {
+            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
             Err(anyhow::anyhow!(
                 "Failed to merge worktree '{}': {}",
                 name,
-                result.error.unwrap_or_else(|| "Unknown error".to_string())
+                error_msg
             ))
         }
     } else {
@@ -195,254 +178,6 @@ async fn run_worktree_clean(
         }
     } else {
         println!("No worktrees specified for cleanup. Use --all or specify a worktree name.");
-    }
-
-    Ok(())
-}
-
-/// Clean up old worktrees
-async fn cleanup_old_worktrees(
-    manager: &crate::worktree::manager::WorktreeManager,
-    max_age: std::time::Duration,
-    force: bool,
-    dry_run: bool,
-) -> Result<()> {
-    let sessions = manager.list_sessions().await?;
-    let now = chrono::Utc::now();
-    let mut cleaned = 0;
-
-    for session in sessions {
-        let age = now.signed_duration_since(session.created_at);
-        if age.num_seconds() as u64 > max_age.as_secs() {
-            if dry_run {
-                println!(
-                    "DRY RUN: Would remove worktree '{}' (age: {} hours)",
-                    session.name,
-                    age.num_hours()
-                );
-            } else {
-                println!(
-                    "Removing old worktree '{}' (age: {} hours)",
-                    session.name,
-                    age.num_hours()
-                );
-                manager.cleanup_session(&session.name, force).await?;
-                cleaned += 1;
-            }
-        }
-    }
-
-    if !dry_run {
-        println!("Cleaned {} old worktrees", cleaned);
-    }
-
-    Ok(())
-}
-
-/// Run MapReduce-specific cleanup
-async fn run_mapreduce_cleanup(
-    job_id: Option<String>,
-    older_than: Option<String>,
-    dry_run: bool,
-    force: bool,
-) -> Result<()> {
-    use crate::cook::execution::mapreduce::cleanup::{
-        WorktreeCleanupConfig, WorktreeCleanupCoordinator,
-    };
-    use std::path::PathBuf;
-
-    // Get worktree base path
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    let repo_name = std::env::current_dir()?
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("unknown")
-        .to_string();
-    let worktree_base_path = PathBuf::from(home)
-        .join(".prodigy")
-        .join("worktrees")
-        .join(&repo_name);
-
-    // Create cleanup coordinator
-    let config = if force {
-        WorktreeCleanupConfig::aggressive()
-    } else {
-        WorktreeCleanupConfig::default()
-    };
-    let coordinator = WorktreeCleanupCoordinator::new(config, worktree_base_path.clone());
-
-    if let Some(job_id) = job_id {
-        // Clean specific job
-        if dry_run {
-            println!("DRY RUN: Would clean all worktrees for job {}", job_id);
-        } else {
-            println!("Cleaning worktrees for job {}...", job_id);
-            let count = coordinator.cleanup_job(&job_id).await?;
-            println!("Cleaned {} worktrees for job {}", count, job_id);
-        }
-    } else if let Some(duration_str) = older_than {
-        // Clean old MapReduce worktrees
-        let duration = parse_duration(&duration_str)?;
-        if dry_run {
-            println!(
-                "DRY RUN: Would clean MapReduce worktrees older than {}",
-                duration_str
-            );
-        } else {
-            println!(
-                "Cleaning MapReduce worktrees older than {}...",
-                duration_str
-            );
-            let count = coordinator.cleanup_orphaned_worktrees(duration).await?;
-            println!("Cleaned {} orphaned MapReduce worktrees", count);
-        }
-    } else {
-        // Clean all orphaned MapReduce worktrees
-        if dry_run {
-            println!("DRY RUN: Would clean all orphaned MapReduce worktrees");
-        } else {
-            println!("Cleaning all orphaned MapReduce worktrees...");
-            // Default to 1 hour old
-            let count = coordinator
-                .cleanup_orphaned_worktrees(std::time::Duration::from_secs(3600))
-                .await?;
-            println!("Cleaned {} orphaned MapReduce worktrees", count);
-        }
-    }
-
-    Ok(())
-}
-
-/// Clean orphaned worktrees from cleanup failures
-async fn run_worktree_clean_orphaned(
-    job_id: Option<String>,
-    dry_run: bool,
-    force: bool,
-) -> Result<()> {
-    use std::path::PathBuf;
-
-    let home_dir =
-        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Unable to determine home directory"))?;
-    let repo_path = std::env::current_dir()?;
-    let repo_name = repo_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("unknown");
-
-    // Load orphaned worktrees registry
-    let registry_path = home_dir
-        .join(".prodigy")
-        .join("orphaned_worktrees")
-        .join(repo_name);
-
-    if !registry_path.exists() {
-        println!("No orphaned worktrees registry found.");
-        return Ok(());
-    }
-
-    // Read registry file
-    let registry_file = if let Some(ref jid) = job_id {
-        registry_path.join(format!("{}.json", jid))
-    } else {
-        // Find all registry files
-        let entries = std::fs::read_dir(&registry_path)?;
-        let mut files: Vec<PathBuf> = entries
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("json"))
-            .collect();
-
-        if files.is_empty() {
-            println!("No orphaned worktrees found.");
-            return Ok(());
-        }
-
-        if files.len() > 1 && !force {
-            println!("Multiple job registries found. Please specify a job_id:");
-            for file in &files {
-                if let Some(name) = file.file_stem().and_then(|s| s.to_str()) {
-                    println!("  - {}", name);
-                }
-            }
-            return Ok(());
-        }
-
-        files.remove(0)
-    };
-
-    if !registry_file.exists() {
-        println!("No orphaned worktrees found for the specified job.");
-        return Ok(());
-    }
-
-    // Read and parse the registry
-    let content = std::fs::read_to_string(&registry_file)?;
-    let orphaned_worktrees: Vec<
-        crate::cook::execution::mapreduce::coordination::executor::OrphanedWorktree,
-    > = serde_json::from_str(&content)?;
-
-    if orphaned_worktrees.is_empty() {
-        println!("No orphaned worktrees in registry.");
-        return Ok(());
-    }
-
-    println!("Found {} orphaned worktree(s):", orphaned_worktrees.len());
-    for orphaned in &orphaned_worktrees {
-        println!(
-            "  - {} (agent: {}, item: {}, error: {})",
-            orphaned.path.display(),
-            orphaned.agent_id,
-            orphaned.item_id,
-            orphaned.error
-        );
-    }
-
-    if dry_run {
-        println!(
-            "\nDry run: would clean {} worktree(s)",
-            orphaned_worktrees.len()
-        );
-        return Ok(());
-    }
-
-    if !force {
-        println!("\nProceed with cleanup? [y/N]");
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input)?;
-        if !input.trim().eq_ignore_ascii_case("y") {
-            println!("Cleanup cancelled.");
-            return Ok(());
-        }
-    }
-
-    // Clean each orphaned worktree
-    let mut cleaned = 0;
-    let mut failed = 0;
-
-    for orphaned in &orphaned_worktrees {
-        if orphaned.path.exists() {
-            match std::fs::remove_dir_all(&orphaned.path) {
-                Ok(_) => {
-                    println!("✅ Cleaned: {}", orphaned.path.display());
-                    cleaned += 1;
-                }
-                Err(e) => {
-                    eprintln!("❌ Failed to clean {}: {}", orphaned.path.display(), e);
-                    failed += 1;
-                }
-            }
-        } else {
-            println!("⚠️  Already removed: {}", orphaned.path.display());
-            cleaned += 1;
-        }
-    }
-
-    // If all cleaned successfully, remove the registry file
-    if failed == 0 {
-        std::fs::remove_file(&registry_file)?;
-        println!("\n✅ Cleaned {} orphaned worktree(s)", cleaned);
-    } else {
-        println!("\n⚠️  Cleaned {} worktree(s), {} failed", cleaned, failed);
     }
 
     Ok(())

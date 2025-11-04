@@ -1,60 +1,21 @@
 //! Event storage and retrieval functionality
 
+use super::filter::{matches_filter, EventFilter};
+use super::index::{
+    build_index_from_events, validate_index_consistency, validate_job_id, EventIndex,
+};
+use super::io::{read_events_from_file_with_offsets, save_index};
+use super::stats::EventStats;
 use super::{EventRecord, MapReduceEvent};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tracing::{debug, info, warn};
-use uuid::Uuid;
-
-/// Event filter for querying events
-#[derive(Debug, Clone, Default)]
-pub struct EventFilter {
-    pub job_id: Option<String>,
-    pub agent_id: Option<String>,
-    pub event_types: Vec<String>,
-    pub time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
-    pub correlation_id: Option<String>,
-    pub limit: Option<usize>,
-}
-
-/// Event index for quick lookup
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventIndex {
-    pub job_id: String,
-    pub event_counts: HashMap<String, usize>,
-    pub time_range: (DateTime<Utc>, DateTime<Utc>),
-    pub file_offsets: Vec<FileOffset>,
-    pub total_events: usize,
-}
-
-/// File offset information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileOffset {
-    pub file_path: PathBuf,
-    pub byte_offset: u64,
-    pub line_number: usize,
-    pub event_id: Uuid,
-    pub timestamp: DateTime<Utc>,
-}
-
-/// Event statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventStats {
-    pub job_id: String,
-    pub total_events: usize,
-    pub event_counts: HashMap<String, usize>,
-    pub success_count: usize,
-    pub failure_count: usize,
-    pub duration_ms: Option<i64>,
-    pub time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
-}
+use tracing::{info, warn};
 
 /// Event handler for replay functionality
 pub type EventHandler = Box<dyn Fn(&EventRecord) -> Result<()> + Send + Sync>;
@@ -150,294 +111,6 @@ impl FileEventStore {
 
         Ok(events)
     }
-
-    /// Apply filter to an event
-    fn matches_filter(&self, event: &EventRecord, filter: &EventFilter) -> bool {
-        // Check job ID
-        if let Some(ref job_id) = filter.job_id {
-            if event.event.job_id() != job_id {
-                return false;
-            }
-        }
-
-        // Check agent ID
-        if let Some(ref agent_id) = filter.agent_id {
-            if event.event.agent_id() != Some(agent_id.as_str()) {
-                return false;
-            }
-        }
-
-        // Check event types
-        if !filter.event_types.is_empty()
-            && !filter
-                .event_types
-                .contains(&event.event.event_name().to_string())
-        {
-            return false;
-        }
-
-        // Check time range
-        if let Some((start, end)) = filter.time_range {
-            if event.timestamp < start || event.timestamp > end {
-                return false;
-            }
-        }
-
-        // Check correlation ID
-        if let Some(ref correlation_id) = filter.correlation_id {
-            if event.correlation_id != *correlation_id {
-                return false;
-            }
-        }
-
-        true
-    }
-}
-
-// Pure helper functions for index operations
-
-/// Calculate the time range for a collection of events
-#[cfg(test)]
-fn calculate_time_range(events: &[EventRecord]) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
-    if events.is_empty() {
-        return None;
-    }
-
-    let mut start = events[0].timestamp;
-    let mut end = events[0].timestamp;
-
-    for event in events {
-        if event.timestamp < start {
-            start = event.timestamp;
-        }
-        if event.timestamp > end {
-            end = event.timestamp;
-        }
-    }
-
-    Some((start, end))
-}
-
-/// Type alias for parsed event data from a file
-type ParsedEventData = Vec<(EventRecord, u64, usize)>;
-
-/// Type alias for file events data
-type FileEventsData = Vec<(PathBuf, ParsedEventData)>;
-
-/// Build an index from file event data (pure function)
-///
-/// Takes parsed event data from files and constructs an EventIndex.
-/// This is a pure function that performs no I/O operations.
-///
-/// # Arguments
-/// * `job_id` - The job identifier
-/// * `file_events` - Vector of (file_path, events) tuples
-///
-/// # Returns
-/// An EventIndex with aggregated statistics
-fn build_index_from_events(job_id: &str, file_events: FileEventsData) -> EventIndex {
-    let mut index = EventIndex {
-        job_id: job_id.to_string(),
-        event_counts: HashMap::new(),
-        time_range: (Utc::now(), Utc::now()),
-        file_offsets: Vec::new(),
-        total_events: 0,
-    };
-
-    let mut all_timestamps = Vec::new();
-
-    for (file_path, events) in file_events {
-        for (event, byte_offset, line_number) in events {
-            index.total_events += 1;
-
-            // Update event counts
-            let event_name = event.event.event_name().to_string();
-            increment_event_count(&mut index.event_counts, event_name);
-
-            // Create file offset
-            let file_offset = FileOffset {
-                file_path: file_path.clone(),
-                byte_offset,
-                line_number,
-                event_id: event.id,
-                timestamp: event.timestamp,
-            };
-            index.file_offsets.push(file_offset);
-
-            all_timestamps.push(event.timestamp);
-        }
-    }
-
-    // Calculate time range from all timestamps
-    if !all_timestamps.is_empty() {
-        let min_time = all_timestamps
-            .iter()
-            .min()
-            .copied()
-            .unwrap_or_else(Utc::now);
-        let max_time = all_timestamps
-            .iter()
-            .max()
-            .copied()
-            .unwrap_or_else(Utc::now);
-        index.time_range = (min_time, max_time);
-    }
-
-    index
-}
-
-/// Update time range with a new event timestamp
-#[cfg(test)]
-fn update_time_range(
-    start: Option<DateTime<Utc>>,
-    end: Option<DateTime<Utc>>,
-    event_time: DateTime<Utc>,
-) -> (Option<DateTime<Utc>>, Option<DateTime<Utc>>) {
-    let new_start = match start {
-        None => Some(event_time),
-        Some(s) if event_time < s => Some(event_time),
-        Some(s) => Some(s),
-    };
-
-    let new_end = match end {
-        None => Some(event_time),
-        Some(e) if event_time > e => Some(event_time),
-        Some(e) => Some(e),
-    };
-
-    (new_start, new_end)
-}
-
-/// Increment event count for a given event type
-fn increment_event_count(counts: &mut HashMap<String, usize>, event_name: String) {
-    *counts.entry(event_name).or_insert(0) += 1;
-}
-
-/// Validate job ID for proper format and content
-fn validate_job_id(job_id: &str) -> Result<()> {
-    use anyhow::anyhow;
-
-    // Check for empty job_id
-    if job_id.is_empty() {
-        return Err(anyhow!("Job ID cannot be empty"));
-    }
-
-    // Check for invalid characters (only allow alphanumeric, dash, underscore)
-    if !job_id
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-    {
-        return Err(anyhow!(
-            "Job ID contains invalid characters. Only alphanumeric, dash, and underscore allowed: {}",
-            job_id
-        ));
-    }
-
-    // Check for reasonable length (max 255 characters)
-    if job_id.len() > 255 {
-        return Err(anyhow!(
-            "Job ID is too long (max 255 characters): {} characters",
-            job_id.len()
-        ));
-    }
-
-    Ok(())
-}
-
-/// Validate index consistency before saving
-fn validate_index_consistency(index: &mut EventIndex) -> Result<()> {
-    use anyhow::anyhow;
-
-    // Validate time range consistency
-    let (start, end) = index.time_range;
-    if start > end {
-        // Fix the time range if it's inverted
-        warn!(
-            "Index time range was inverted (start: {}, end: {}). Correcting...",
-            start, end
-        );
-        index.time_range = (end, start);
-    }
-
-    // Validate event counts match total
-    let sum_of_counts: usize = index.event_counts.values().sum();
-    if sum_of_counts != index.total_events {
-        warn!(
-            "Event count mismatch: sum of individual counts ({}) != total_events ({}). Using sum.",
-            sum_of_counts, index.total_events
-        );
-        index.total_events = sum_of_counts;
-    }
-
-    // Validate file offsets count matches total events
-    if index.file_offsets.len() != index.total_events {
-        warn!(
-            "File offset count ({}) doesn't match total events ({}). This may indicate partial indexing.",
-            index.file_offsets.len(),
-            index.total_events
-        );
-        // This is acceptable as we might have events without offsets
-    }
-
-    // Ensure job_id is not empty (redundant check but important)
-    if index.job_id.is_empty() {
-        return Err(anyhow!("Index has empty job_id"));
-    }
-
-    Ok(())
-}
-
-/// Save index to file
-async fn save_index(index: &EventIndex, index_path: &Path) -> Result<()> {
-    // Ensure parent directory exists
-    if let Some(parent) = index_path.parent() {
-        fs::create_dir_all(parent)
-            .await
-            .with_context(|| format!("Failed to create index directory: {}", parent.display()))?;
-    }
-
-    let json = serde_json::to_string_pretty(index).context("Failed to serialize index to JSON")?;
-
-    fs::write(index_path, json)
-        .await
-        .with_context(|| format!("Failed to write index to {}", index_path.display()))?;
-
-    Ok(())
-}
-
-/// Read and parse events from a file (I/O operation)
-async fn read_events_from_file_with_offsets(
-    file_path: &PathBuf,
-) -> Result<Vec<(EventRecord, u64, usize)>> {
-    let file = File::open(file_path)
-        .await
-        .with_context(|| format!("Failed to open event file: {}", file_path.display()))?;
-    let reader = BufReader::new(file);
-    let mut lines = reader.lines();
-    let mut line_number = 0;
-    let mut byte_offset = 0u64;
-    let mut events = Vec::new();
-
-    while let Some(line) = lines.next_line().await? {
-        line_number += 1;
-
-        // Try to parse the event
-        if let Ok(event) = serde_json::from_str::<EventRecord>(&line) {
-            events.push((event, byte_offset, line_number));
-        } else {
-            // Log warning but continue processing
-            debug!(
-                "Skipping malformed event at {}:{}: {}",
-                file_path.display(),
-                line_number,
-                &line[..line.len().min(100)]
-            );
-        }
-
-        byte_offset += line.len() as u64 + 1; // +1 for newline
-    }
-
-    Ok(events)
 }
 
 #[async_trait]
@@ -460,7 +133,7 @@ impl EventStore for FileEventStore {
         for file in files {
             let events = self.read_events_from_file(&file).await?;
             for event in events {
-                if self.matches_filter(&event, &filter) {
+                if matches_filter(&event, &filter) {
                     all_events.push(event);
 
                     // Apply limit if specified
@@ -706,8 +379,12 @@ impl EventStore for FileEventStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cook::execution::events::index::{
+        calculate_time_range, increment_event_count, update_time_range,
+    };
     use crate::cook::execution::mapreduce::MapReduceConfig;
     use tempfile::TempDir;
+    use uuid::Uuid;
 
     // Include tests for the pure functions extracted in Phase 1
     include!("test_pure_functions.rs");

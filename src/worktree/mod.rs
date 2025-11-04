@@ -70,6 +70,7 @@ pub mod manager_construction;
 pub mod manager_queries;
 pub mod manager_utilities;
 pub mod manager_validation;
+pub mod merge_orchestrator;
 pub mod parsing;
 pub mod pool;
 pub mod state;

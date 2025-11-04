@@ -8,15 +8,37 @@
 //! The git context functionality is organized into focused modules:
 //!
 //! - [`git_context`](self) - Domain logic for change tracking and variable resolution
+//! - `git_context_tests` - Comprehensive test suite (24 tests across 3 phases)
 //! - `git_utils` - Pure utility functions for file classification and list operations
+//!
+//! # Architecture
+//!
+//! The module follows functional programming principles with:
+//! - **Pure helper functions** for parsing and formatting (all under 20 lines)
+//! - **Separated I/O and logic** - Git operations isolated from business logic
+//! - **Function composition** - Complex operations built from simple, testable units
+//! - **Immutable data flow** - Changes are calculated, not mutated
 //!
 //! # Responsibilities
 //!
 //! This module handles:
-//! - Git repository interaction and change detection
+//! - Git repository interaction and change detection (committed and uncommitted)
 //! - Step-by-step change tracking during workflow execution
-//! - Variable resolution for git context (e.g., `${step.files_added}`)
+//! - Variable resolution for git context (e.g., `${step.files_added}`, `${workflow.commits:json}`)
+//! - Format support: space-separated, newline, JSON array, comma-separated
+//! - Glob pattern filtering (e.g., `${step.files_added:*.rs}`)
 //! - Aggregation of changes across workflow steps
+//!
+//! # Variable Resolution
+//!
+//! Variables support multiple formats and patterns:
+//!
+//! ```text
+//! ${step.files_added}          # Space-separated list
+//! ${step.files_added:json}     # JSON array format
+//! ${step.files_added:*.rs}     # Filter by glob pattern
+//! ${workflow.commit_count}     # Scalar values
+//! ```
 //!
 //! # Example
 //!
@@ -34,9 +56,20 @@
 //!
 //! println!("Files added: {:?}", changes.files_added);
 //! println!("Files modified: {:?}", changes.files_modified);
+//!
+//! // Resolve variables with format and pattern support
+//! let json_files = tracker.resolve_variable("step.files_added:json")?;
+//! let rust_files = tracker.resolve_variable("step.files_added:*.rs")?;
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # Test Organization
+//!
+//! Tests are organized in `git_context_tests.rs` into three phases:
+//! - **Phase 1**: Uncommitted changes detection (8 tests)
+//! - **Phase 2**: Commit history walking (6 tests)
+//! - **Phase 3**: Diff statistics and file changes (10 tests)
 
 use anyhow::{Context, Result};
 use git2::{DiffOptions, Oid, Repository, StatusOptions};
@@ -138,7 +171,7 @@ impl StepChanges {
 }
 
 /// Format for variable output
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VariableFormat {
     /// Space-separated (default)
     SpaceSeparated,
@@ -148,6 +181,46 @@ pub enum VariableFormat {
     JsonArray,
     /// Comma-separated
     CommaSeparated,
+}
+
+/// Parse variable format from modifier string
+fn parse_variable_format(modifier: Option<&str>) -> VariableFormat {
+    match modifier {
+        Some("json") => VariableFormat::JsonArray,
+        Some("lines") | Some("newline") => VariableFormat::NewlineSeparated,
+        Some("csv") | Some("comma") => VariableFormat::CommaSeparated,
+        _ => VariableFormat::SpaceSeparated,
+    }
+}
+
+/// Extract glob pattern from modifier if it contains glob characters
+fn extract_glob_pattern(modifier: Option<&str>) -> Option<&str> {
+    modifier.filter(|m| m.contains('*') || m.contains('?'))
+}
+
+/// Parse variable path into base path and modifier
+fn parse_variable_path(var_path: &str) -> Result<(Vec<&str>, Option<&str>)> {
+    let parts: Vec<&str> = var_path.split('.').collect();
+
+    if parts.is_empty() {
+        return Err(anyhow::anyhow!("Empty variable path"));
+    }
+
+    // Parse format and pattern from variable path
+    // Format: step.files_added:*.md or step.files_added:json
+    if let Some(pos) = parts.last().unwrap().find(':') {
+        let last = parts.last().unwrap();
+        let base = &last[..pos];
+        let modifier = &last[pos + 1..];
+        let base_path = parts[..parts.len() - 1]
+            .iter()
+            .chain(&[base])
+            .copied()
+            .collect::<Vec<_>>();
+        Ok((base_path, Some(modifier)))
+    } else {
+        Ok((parts, None))
+    }
 }
 
 impl GitChangeTracker {
@@ -242,7 +315,7 @@ impl GitChangeTracker {
     }
 
     /// Calculate changes for the current step
-    fn calculate_step_changes(&self) -> Result<StepChanges> {
+    pub(crate) fn calculate_step_changes(&self) -> Result<StepChanges> {
         let repo = Repository::open(&self.repo_path).context("Failed to open git repository")?;
 
         let mut changes = StepChanges::default();
@@ -374,50 +447,13 @@ impl GitChangeTracker {
 
     /// Resolve a git context variable
     pub fn resolve_variable(&self, var_path: &str) -> Result<String> {
-        let parts: Vec<&str> = var_path.split('.').collect();
-
-        if parts.is_empty() {
-            return Err(anyhow::anyhow!("Empty variable path"));
-        }
-
-        // Parse format and pattern from variable path
-        // Format: step.files_added:*.md or step.files_added:json
-        let (base_path, modifier) = if let Some(pos) = parts.last().unwrap().find(':') {
-            let last = parts.last().unwrap();
-            let base = &last[..pos];
-            let modifier = &last[pos + 1..];
-            (
-                parts[..parts.len() - 1]
-                    .iter()
-                    .chain(&[base])
-                    .copied()
-                    .collect::<Vec<_>>(),
-                Some(modifier),
-            )
-        } else {
-            (parts, None)
-        };
-
-        // Determine format from modifier
-        let format = match modifier {
-            Some("json") => VariableFormat::JsonArray,
-            Some("lines") | Some("newline") => VariableFormat::NewlineSeparated,
-            Some("csv") | Some("comma") => VariableFormat::CommaSeparated,
-            _ => VariableFormat::SpaceSeparated,
-        };
-
-        // Check if modifier is a glob pattern
-        let pattern = modifier.filter(|m| m.contains('*') || m.contains('?'));
+        let (base_path, modifier) = parse_variable_path(var_path)?;
+        let format = parse_variable_format(modifier);
+        let pattern = extract_glob_pattern(modifier);
 
         match base_path[..] {
             ["step", var_name] => {
-                // Get current step changes
-                let changes = if let Some(step_id) = &self.current_step_id {
-                    self.step_changes.get(step_id).cloned().unwrap_or_default()
-                } else {
-                    StepChanges::default()
-                };
-
+                let changes = self.get_current_step_changes();
                 self.resolve_step_variable(&changes, var_name, format, pattern)
             }
             ["workflow", var_name] => {
@@ -425,6 +461,15 @@ impl GitChangeTracker {
                 self.resolve_step_variable(&changes, var_name, format, pattern)
             }
             _ => Err(anyhow::anyhow!("Unknown git variable path: {}", var_path)),
+        }
+    }
+
+    /// Get changes for the current step
+    fn get_current_step_changes(&self) -> StepChanges {
+        if let Some(step_id) = &self.current_step_id {
+            self.step_changes.get(step_id).cloned().unwrap_or_default()
+        } else {
+            StepChanges::default()
         }
     }
 
@@ -436,948 +481,46 @@ impl GitChangeTracker {
         format: VariableFormat,
         pattern: Option<&str>,
     ) -> Result<String> {
-        let files = match var_name {
-            "files_added" => &changes.files_added,
-            "files_modified" => &changes.files_modified,
-            "files_deleted" => &changes.files_deleted,
+        match var_name {
+            "files_added" => {
+                Ok(self.resolve_file_list(&changes.files_added, changes, format, pattern))
+            }
+            "files_modified" => {
+                Ok(self.resolve_file_list(&changes.files_modified, changes, format, pattern))
+            }
+            "files_deleted" => {
+                Ok(self.resolve_file_list(&changes.files_deleted, changes, format, pattern))
+            }
             "files_changed" => {
                 let all = changes.files_changed();
-                return Ok(if let Some(p) = pattern {
-                    Self::format_file_list(&changes.filter_files(&all, p), format)
-                } else {
-                    Self::format_file_list(&all, format)
-                });
+                Ok(self.resolve_file_list(&all, changes, format, pattern))
             }
-            "commits" => {
-                return Ok(Self::format_file_list(&changes.commits, format));
-            }
-            "commit_count" => {
-                return Ok(changes.commit_count().to_string());
-            }
-            "insertions" => {
-                return Ok(changes.insertions.to_string());
-            }
-            "deletions" => {
-                return Ok(changes.deletions.to_string());
-            }
-            _ => return Err(anyhow::anyhow!("Unknown step variable: {}", var_name)),
-        };
+            "commits" => Ok(Self::format_file_list(&changes.commits, format)),
+            "commit_count" => Ok(changes.commit_count().to_string()),
+            "insertions" => Ok(changes.insertions.to_string()),
+            "deletions" => Ok(changes.deletions.to_string()),
+            _ => Err(anyhow::anyhow!("Unknown step variable: {}", var_name)),
+        }
+    }
 
-        // Apply pattern filter if specified
+    /// Resolve a file list variable with optional pattern filtering
+    fn resolve_file_list(
+        &self,
+        files: &[String],
+        changes: &StepChanges,
+        format: VariableFormat,
+        pattern: Option<&str>,
+    ) -> String {
         let filtered = if let Some(p) = pattern {
             changes.filter_files(files, p)
         } else {
-            files.clone()
+            files.to_vec()
         };
-
-        Ok(Self::format_file_list(&filtered, format))
+        Self::format_file_list(&filtered, format)
     }
 
     /// Check if tracker is active (in a git repository)
     pub fn is_active(&self) -> bool {
         self.workflow_start_commit.is_some()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    fn init_test_repo() -> Result<TempDir> {
-        let dir = TempDir::new()?;
-        {
-            let repo = Repository::init(dir.path())?;
-
-            // Create initial commit
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = {
-                let mut index = repo.index()?;
-                index.write_tree()?
-            };
-            let tree = repo.find_tree(tree_id)?;
-            repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])?;
-        }
-
-        Ok(dir)
-    }
-
-    #[test]
-    fn test_step_changes() {
-        let changes = StepChanges {
-            files_added: vec!["a.txt".into(), "b.txt".into()],
-            files_modified: vec!["c.txt".into()],
-            files_deleted: vec!["d.txt".into()],
-            commits: vec!["abc123".into()],
-            insertions: 10,
-            deletions: 5,
-        };
-
-        assert_eq!(changes.files_changed().len(), 4);
-        assert_eq!(changes.commit_count(), 1);
-    }
-
-    #[test]
-    fn test_filter_files() {
-        let changes = StepChanges {
-            files_added: vec![
-                "src/main.rs".into(),
-                "src/lib.rs".into(),
-                "README.md".into(),
-                "docs/guide.md".into(),
-            ],
-            ..Default::default()
-        };
-
-        let filtered = changes.filter_files(&changes.files_added, "*.md");
-        assert_eq!(filtered.len(), 2);
-        assert!(filtered.contains(&"README.md".to_string()));
-        assert!(filtered.contains(&"docs/guide.md".to_string()));
-    }
-
-    #[test]
-    fn test_format_file_list() {
-        let files = vec!["a.txt".into(), "b.txt".into()];
-
-        assert_eq!(
-            GitChangeTracker::format_file_list(&files, VariableFormat::SpaceSeparated),
-            "a.txt b.txt"
-        );
-
-        assert_eq!(
-            GitChangeTracker::format_file_list(&files, VariableFormat::NewlineSeparated),
-            "a.txt\nb.txt"
-        );
-
-        assert_eq!(
-            GitChangeTracker::format_file_list(&files, VariableFormat::CommaSeparated),
-            "a.txt,b.txt"
-        );
-
-        assert_eq!(
-            GitChangeTracker::format_file_list(&files, VariableFormat::JsonArray),
-            r#"["a.txt","b.txt"]"#
-        );
-    }
-
-    #[test]
-    fn test_tracker_initialization() -> Result<()> {
-        let dir = init_test_repo()?;
-        let tracker = GitChangeTracker::new(dir.path())?;
-
-        assert!(tracker.is_active());
-        assert!(tracker.workflow_start_commit.is_some());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_non_git_directory() -> Result<()> {
-        let dir = TempDir::new()?;
-        let tracker = GitChangeTracker::new(dir.path())?;
-
-        assert!(!tracker.is_active());
-        assert!(tracker.workflow_start_commit.is_none());
-
-        Ok(())
-    }
-
-    // Phase 1 Tests: Uncommitted Changes Detection
-
-    #[test]
-    fn test_calculate_step_changes_with_new_file() -> Result<()> {
-        let dir = init_test_repo()?;
-        let tracker = GitChangeTracker::new(dir.path())?;
-
-        // Create a new file
-        std::fs::write(dir.path().join("new_file.txt"), "content")?;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes.files_added.contains(&"new_file.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_with_modified_file() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Create and commit a file first
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("existing.txt"), "original content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("existing.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Add existing file",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        let tracker = GitChangeTracker::new(dir.path())?;
-
-        // Modify the file
-        std::fs::write(dir.path().join("existing.txt"), "modified content")?;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes.files_modified.contains(&"existing.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_with_deleted_file() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Create and commit a file first
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("to_delete.txt"), "content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("to_delete.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Add file to delete",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        let tracker = GitChangeTracker::new(dir.path())?;
-
-        // Delete the file
-        std::fs::remove_file(dir.path().join("to_delete.txt"))?;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes.files_deleted.contains(&"to_delete.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_with_staged_new_file() -> Result<()> {
-        let dir = init_test_repo()?;
-        let tracker = GitChangeTracker::new(dir.path())?;
-
-        // Create and stage a new file
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("staged_new.txt"), "content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("staged_new.txt"))?;
-            index.write()?;
-        }
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes.files_added.contains(&"staged_new.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_with_staged_modification() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Create and commit a file first
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("to_modify.txt"), "original")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("to_modify.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Add file to modify",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        let tracker = GitChangeTracker::new(dir.path())?;
-
-        // Modify and stage the file
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("to_modify.txt"), "modified")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("to_modify.txt"))?;
-            index.write()?;
-        }
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes
-            .files_modified
-            .contains(&"to_modify.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_with_staged_deletion() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Create and commit a file first
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("staged_delete.txt"), "content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("staged_delete.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Add file for staged deletion",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        let tracker = GitChangeTracker::new(dir.path())?;
-
-        // Delete and stage the deletion
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::remove_file(dir.path().join("staged_delete.txt"))?;
-            let mut index = repo.index()?;
-            index.remove_path(Path::new("staged_delete.txt"))?;
-            index.write()?;
-        }
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes
-            .files_deleted
-            .contains(&"staged_delete.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_with_mixed_changes() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Setup: create and commit initial files
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("existing1.txt"), "content1")?;
-            std::fs::write(dir.path().join("existing2.txt"), "content2")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("existing1.txt"))?;
-            index.add_path(Path::new("existing2.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Add initial files",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        let tracker = GitChangeTracker::new(dir.path())?;
-
-        // Create mixed changes: new file, modified file (unstaged), deleted file (staged)
-        {
-            let repo = Repository::open(dir.path())?;
-
-            // New file (not staged)
-            std::fs::write(dir.path().join("new.txt"), "new content")?;
-
-            // Modified file (not staged)
-            std::fs::write(dir.path().join("existing1.txt"), "modified content")?;
-
-            // Deleted file (staged)
-            std::fs::remove_file(dir.path().join("existing2.txt"))?;
-            let mut index = repo.index()?;
-            index.remove_path(Path::new("existing2.txt"))?;
-            index.write()?;
-        }
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes.files_added.contains(&"new.txt".to_string()));
-        assert!(changes
-            .files_modified
-            .contains(&"existing1.txt".to_string()));
-        assert!(changes.files_deleted.contains(&"existing2.txt".to_string()));
-
-        Ok(())
-    }
-
-    // Phase 2 Tests: Commit History Walking
-
-    #[test]
-    fn test_calculate_step_changes_with_new_commit() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Create initial tracker to capture starting commit
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Create a new commit
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("new_commit.txt"), "content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("new_commit.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "New commit for test",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        // Update tracker's last_commit to simulate previous step
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert_eq!(changes.commits.len(), 1);
-        assert!(changes.files_added.contains(&"new_commit.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_with_multiple_commits() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Capture starting commit
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Create multiple commits
-        {
-            let repo = Repository::open(dir.path())?;
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-
-            // First commit
-            std::fs::write(dir.path().join("file1.txt"), "content1")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("file1.txt"))?;
-            index.write()?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(Some("HEAD"), &sig, &sig, "First commit", &tree, &[&parent])?;
-
-            // Second commit
-            std::fs::write(dir.path().join("file2.txt"), "content2")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("file2.txt"))?;
-            index.write()?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(Some("HEAD"), &sig, &sig, "Second commit", &tree, &[&parent])?;
-
-            // Third commit
-            std::fs::write(dir.path().join("file3.txt"), "content3")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("file3.txt"))?;
-            index.write()?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(Some("HEAD"), &sig, &sig, "Third commit", &tree, &[&parent])?;
-        }
-
-        // Update tracker's last_commit to simulate previous step
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert_eq!(changes.commits.len(), 3);
-        assert!(changes.files_added.contains(&"file1.txt".to_string()));
-        assert!(changes.files_added.contains(&"file2.txt".to_string()));
-        assert!(changes.files_added.contains(&"file3.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_with_commit_stats() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Capture starting commit
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Create a commit with known insertions
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(
-                dir.path().join("stats_test.txt"),
-                "line1\nline2\nline3\nline4\nline5\n",
-            )?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("stats_test.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Commit with stats",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        // Update tracker's last_commit
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes.insertions > 0);
-        assert_eq!(changes.deletions, 0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_with_no_new_commits() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Create tracker and immediately check again (no new commits)
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let current_commit = tracker.workflow_start_commit.clone();
-        tracker.last_commit = current_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert_eq!(changes.commits.len(), 0);
-        assert_eq!(changes.insertions, 0);
-        assert_eq!(changes.deletions, 0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_tracks_commit_shas() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Capture starting commit
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Create a commit
-        let new_commit_sha = {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("sha_test.txt"), "content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("sha_test.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            let commit_oid = repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "SHA tracking test",
-                &tree,
-                &[&parent],
-            )?;
-            commit_oid.to_string()
-        };
-
-        // Update tracker's last_commit
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert_eq!(changes.commits.len(), 1);
-        assert_eq!(changes.commits[0], new_commit_sha);
-
-        Ok(())
-    }
-
-    // Phase 3 Tests: Diff Statistics and File Changes
-
-    #[test]
-    fn test_calculate_step_changes_tracks_added_files_from_commits() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Capture starting commit
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Create a commit that adds files
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("added1.txt"), "content")?;
-            std::fs::write(dir.path().join("added2.txt"), "content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("added1.txt"))?;
-            index.add_path(Path::new("added2.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(Some("HEAD"), &sig, &sig, "Add files", &tree, &[&parent])?;
-        }
-
-        // Update tracker's last_commit
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes.files_added.contains(&"added1.txt".to_string()));
-        assert!(changes.files_added.contains(&"added2.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_tracks_modified_files_from_commits() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // First, create and commit a file
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("to_modify.txt"), "original")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("to_modify.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(Some("HEAD"), &sig, &sig, "Initial file", &tree, &[&parent])?;
-        }
-
-        // Capture commit after initial file
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Now modify and commit the file
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("to_modify.txt"), "modified content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("to_modify.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(Some("HEAD"), &sig, &sig, "Modify file", &tree, &[&parent])?;
-        }
-
-        // Update tracker's last_commit
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes
-            .files_modified
-            .contains(&"to_modify.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_tracks_deleted_files_from_commits() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // First, create and commit a file
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("to_delete.txt"), "content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("to_delete.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Add file to delete",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        // Capture commit after initial file
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Now delete and commit
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::remove_file(dir.path().join("to_delete.txt"))?;
-            let mut index = repo.index()?;
-            index.remove_path(Path::new("to_delete.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(Some("HEAD"), &sig, &sig, "Delete file", &tree, &[&parent])?;
-        }
-
-        // Update tracker's last_commit
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes.files_deleted.contains(&"to_delete.txt".to_string()));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_deduplicates_files() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Capture starting commit
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Create a file, stage it (appears in index), then commit it
-        // This will cause the file to appear in both uncommitted and committed changes
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("dup_test.txt"), "content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("dup_test.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Commit for dedup test",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        // Update tracker's last_commit
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        // File should appear only once in files_added (deduplication working)
-        let count = changes
-            .files_added
-            .iter()
-            .filter(|f| *f == "dup_test.txt")
-            .count();
-        assert_eq!(count, 1);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_sorts_file_lists() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Capture starting commit
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Create files in non-alphabetical order
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("zebra.txt"), "z")?;
-            std::fs::write(dir.path().join("apple.txt"), "a")?;
-            std::fs::write(dir.path().join("middle.txt"), "m")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("zebra.txt"))?;
-            index.add_path(Path::new("apple.txt"))?;
-            index.add_path(Path::new("middle.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Add unsorted files",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        // Update tracker's last_commit
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        // Verify files are sorted
-        let mut sorted = changes.files_added.clone();
-        sorted.sort();
-        assert_eq!(changes.files_added, sorted);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_calculates_insertions_deletions() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // First, create a file with some content
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(dir.path().join("changes.txt"), "line1\nline2\nline3\n")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("changes.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Initial content",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        // Capture commit after initial file
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Now modify the file: remove 1 line, add 2 lines
-        {
-            let repo = Repository::open(dir.path())?;
-            std::fs::write(
-                dir.path().join("changes.txt"),
-                "line2\nline3\nnew line 1\nnew line 2\n",
-            )?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("changes.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Modify content",
-                &tree,
-                &[&parent],
-            )?;
-        }
-
-        // Update tracker's last_commit
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes.insertions > 0);
-        assert!(changes.deletions > 0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_calculate_step_changes_handles_mixed_commit_and_uncommitted() -> Result<()> {
-        let dir = init_test_repo()?;
-
-        // Capture starting commit
-        let mut tracker = GitChangeTracker::new(dir.path())?;
-        let start_commit = tracker.workflow_start_commit.clone();
-
-        // Create a committed file and an uncommitted file
-        {
-            let repo = Repository::open(dir.path())?;
-
-            // Committed file
-            std::fs::write(dir.path().join("committed.txt"), "content")?;
-            let mut index = repo.index()?;
-            index.add_path(Path::new("committed.txt"))?;
-            index.write()?;
-
-            let sig = git2::Signature::now("Test", "test@example.com")?;
-            let tree_id = index.write_tree()?;
-            let tree = repo.find_tree(tree_id)?;
-            let parent = repo.head()?.peel_to_commit()?;
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "Add committed file",
-                &tree,
-                &[&parent],
-            )?;
-
-            // Uncommitted file
-            std::fs::write(dir.path().join("uncommitted.txt"), "content")?;
-        }
-
-        // Update tracker's last_commit
-        tracker.last_commit = start_commit;
-
-        let changes = tracker.calculate_step_changes()?;
-        assert!(changes.files_added.contains(&"committed.txt".to_string()));
-        assert!(changes.files_added.contains(&"uncommitted.txt".to_string()));
-        assert_eq!(changes.commits.len(), 1);
-
-        Ok(())
     }
 }

@@ -1,342 +1,286 @@
-# Implementation Plan: Refactor MapReduceCoordinator God Object
+# Implementation Plan: Refactor Worktree CLI Command Module
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/mapreduce/coordination/executor.rs:file:0
-**Priority Score**: 103.05
-**Debt Type**: God Object (God Class)
+**Location**: ./src/cli/commands/worktree/cli.rs:file:0
+**Priority Score**: 62.43
+**Debt Type**: God Object (File-Level)
 **Current Metrics**:
-- Lines of Code: 2,752 lines
-- Functions: 103 functions (57 production, ~46 test functions)
-- Cyclomatic Complexity: 246 total, 2.39 average
-- Coverage: 0%
-- God Object Score: 1.0 (maximum)
-- Responsibilities: 5 distinct responsibilities
-- MapReduceCoordinator: 16 fields, 22 methods
+- Lines of Code: 449
+- Functions: 8
+- Cyclomatic Complexity: 95 (avg 11.875 per function, max 27)
+- Coverage: 0.0%
 
-**Issue**: This file is a classic God Object anti-pattern. The MapReduceCoordinator class has grown to handle 5 different responsibilities (Processing, Utilities, Persistence, Construction, Data Access) with 2,752 lines in a single file. This violates the Single Responsibility Principle and makes the code difficult to test, understand, and maintain. The file contains substantial test code (~1,100 lines) that should be in a separate test file.
+**Issue**: Large CLI command handler file mixing input parsing, business logic orchestration, formatting, and I/O. Contains 7 distinct command handlers with varying complexity, making the module difficult to test and maintain. The file exhibits god object characteristics with multiple responsibilities bundled into a single module.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 49.2 (20% reduction)
-- Maintainability Improvement: 10.3 points
-- Test Effort Reduction: 275.2 (by making code more testable)
+- Complexity Reduction: 19.0 points
+- Maintainability Improvement: 6.24 points
+- Test Effort: 44.9 points
 
 **Success Criteria**:
-- [ ] MapReduceCoordinator reduced to <500 lines with clear, focused responsibility
-- [ ] All tests moved to separate test file
-- [ ] Phase execution logic extracted to dedicated modules
-- [ ] Helper utilities extracted to utility module
+- [ ] File split into focused modules with single responsibilities
+- [ ] Each function under 30 lines with complexity < 10
+- [ ] Pure business logic extracted and independently testable
+- [ ] I/O and formatting separated from logic
+- [ ] Test coverage > 70% for business logic modules
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
 - [ ] Proper formatting
-- [ ] Code coverage maintained or improved
 
 ## Implementation Phases
 
-This refactoring will be done incrementally to maintain stability and allow for testing at each step.
+### Phase 1: Extract MapReduce Cleanup Logic
 
-### Phase 1: Extract Test Code to Separate File
-
-**Goal**: Move all test modules from executor.rs to executor_tests.rs to reduce file size and improve organization.
+**Goal**: Separate MapReduce-specific cleanup operations into dedicated module
 
 **Changes**:
-- Move test modules from lines 1673-2752 to `executor_tests.rs`
-- Keep production code in executor.rs
-- Update imports in test file to access production code
-- Verify all tests pass in new location
+- Create new module `src/cli/commands/worktree/mapreduce_cleanup.rs`
+- Move `run_mapreduce_cleanup()` function (lines 243-314)
+- Extract configuration building logic into pure functions
+- Separate path resolution from cleanup coordination
+- Update `cli.rs` to use new module
 
-**Test Modules to Move**:
-- `handle_on_failure_tests` (lines 1674-2083)
-- `execute_setup_phase_tests` (lines 2085-2522)
-- `reduce_interpolation_context_tests` (lines 2524-2752)
+**Rationale**: This function (72 lines) handles a distinct responsibility (MapReduce worktree cleanup) with its own dependencies and logic. Separating it reduces `cli.rs` complexity and enables targeted testing.
 
 **Testing**:
-```bash
-cargo test --lib mapreduce::coordination::executor
-cargo test --lib mapreduce::coordination::executor_tests
-```
+- Unit tests for path resolution logic
+- Unit tests for configuration building
+- Integration tests for cleanup coordination (existing patterns)
+- Run `cargo test --lib` to verify no regressions
 
 **Success Criteria**:
-- [ ] All tests moved to executor_tests.rs
-- [ ] All tests pass in new location
-- [ ] executor.rs reduced by ~1,100 lines
-- [ ] No compilation errors
-
-### Phase 2: Extract Phase Execution Modules
-
-**Goal**: Extract setup, map, and reduce phase execution logic into separate, focused modules to reduce coordinator complexity.
-
-**Changes**:
-Create three new modules in `src/cook/execution/mapreduce/coordination/phases/`:
-- `setup_phase.rs` - Setup phase execution logic
-- `map_phase.rs` - Map phase execution logic
-- `reduce_phase.rs` - Reduce phase execution logic
-
-**Functions to Extract**:
-
-**setup_phase.rs** (~250 lines):
-- `execute_setup_phase()` (lines 347-481)
-- `execute_setup_step()` (lines 483-565)
-- `get_step_display_name()` (lines 329-345)
-- Helper: Setup phase event logging
-- Helper: Setup checkpoint management
-
-**map_phase.rs** (~400 lines):
-- `execute_map_phase_internal()` (lines 615-823)
-- `load_work_items()` (lines 567-613)
-- `execute_agent_for_item()` (lines 825-1115)
-- `execute_step_in_agent_worktree()` (lines 1117-1309)
-- `handle_on_failure()` (lines 1311-1417)
-- `get_worktree_commits()` (lines 1419-1436)
-- `get_worktree_modified_files()` (lines 1438-1459)
-
-**reduce_phase.rs** (~150 lines):
-- `execute_reduce_phase()` (lines 1486-1575)
-- `build_reduce_interpolation_context()` (lines 1461-1484)
-- Helper: Reduce phase event logging
-
-**Module Structure**:
-Each module will have:
-- A struct holding necessary dependencies (Arc references from coordinator)
-- Public methods for phase execution
-- Private helper methods for internal logic
-- Clear separation of concerns
-
-**Testing**:
-```bash
-cargo test --lib mapreduce::coordination::phases
-cargo build --lib
-```
-
-**Success Criteria**:
-- [ ] Three new phase modules created
-- [ ] Phase execution logic moved to modules
-- [ ] MapReduceCoordinator delegates to phase modules
+- [ ] `run_mapreduce_cleanup()` moved to new module
+- [ ] Path resolution logic is pure and testable
+- [ ] Config building logic is pure and testable
+- [ ] cli.rs imports and calls new module correctly
 - [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] executor.rs reduced by ~800 lines
+- [ ] Ready to commit
 
-### Phase 3: Extract Display and Summary Utilities
+### Phase 2: Extract Orphaned Worktree Cleanup Logic
 
-**Goal**: Extract display, summary, and utility methods into a separate utilities module.
-
-**Changes**:
-Create `src/cook/execution/mapreduce/coordination/utils.rs`:
-
-**Functions to Extract**:
-- `display_map_summary()` (lines 1577-1589)
-- `display_reduce_summary()` (lines 1591-1597)
-- Orphaned worktree management functions
-- Any remaining helper utilities
-
-**Module Structure**:
-```rust
-pub struct CoordinatorUtils {
-    event_logger: Arc<EventLogger>,
-    user_interaction: Arc<dyn UserInteraction>,
-}
-
-impl CoordinatorUtils {
-    pub fn display_map_summary(&self, summary: &AggregationSummary) { ... }
-    pub fn display_reduce_summary(&self, summary: &AggregationSummary) { ... }
-}
-```
-
-**Testing**:
-```bash
-cargo test --lib mapreduce::coordination::utils
-cargo clippy --lib
-```
-
-**Success Criteria**:
-- [ ] Utils module created with utility functions
-- [ ] Display logic extracted from coordinator
-- [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] executor.rs reduced by ~100 lines
-
-### Phase 4: Simplify MapReduceCoordinator Structure
-
-**Goal**: Reduce field count and simplify coordinator by grouping related dependencies.
+**Goal**: Separate orphaned worktree cleanup into dedicated module
 
 **Changes**:
-- Group related Arc references into context structs
-- Create `ExecutionContext` to hold execution-related dependencies
-- Create `ResourceContext` to hold resource-related dependencies
-- Reduce coordinator to orchestration-only logic
+- Create new module `src/cli/commands/worktree/orphaned_cleanup.rs`
+- Move `run_worktree_clean_orphaned()` function (lines 317-449)
+- Extract registry file discovery into pure function
+- Extract worktree display formatting into pure function
+- Separate user confirmation logic from cleanup logic
+- Update `cli.rs` to use new module
 
-**Before** (16 fields):
-```rust
-pub struct MapReduceCoordinator {
-    agent_manager: Arc<dyn AgentLifecycleManager>,
-    _state_manager: Arc<StateManager>,
-    user_interaction: Arc<dyn UserInteraction>,
-    result_collector: Arc<ResultCollector>,
-    subprocess: Arc<SubprocessManager>,
-    project_root: PathBuf,
-    event_logger: Arc<EventLogger>,
-    job_id: String,
-    claude_executor: Arc<dyn ClaudeExecutor>,
-    _session_manager: Arc<dyn SessionManager>,
-    execution_mode: ExecutionMode,
-    timeout_enforcer: Arc<Mutex<Option<Arc<TimeoutEnforcer>>>>,
-    merge_queue: Arc<MergeQueue>,
-    orphaned_worktrees: Arc<Mutex<Vec<OrphanedWorktree>>>,
-    dlq: Arc<DeadLetterQueue>,
-    retry_counts: Arc<tokio::sync::RwLock<HashMap<String, u32>>>,
-}
-```
-
-**After** (6-7 fields):
-```rust
-pub struct MapReduceCoordinator {
-    execution_context: Arc<ExecutionContext>,
-    resource_context: Arc<ResourceContext>,
-    setup_executor: SetupPhaseExecutor,
-    map_executor: MapPhaseExecutor,
-    reduce_executor: ReducePhaseExecutor,
-    utils: CoordinatorUtils,
-}
-
-pub struct ExecutionContext {
-    pub job_id: String,
-    pub project_root: PathBuf,
-    pub execution_mode: ExecutionMode,
-    pub event_logger: Arc<EventLogger>,
-    pub user_interaction: Arc<dyn UserInteraction>,
-}
-
-pub struct ResourceContext {
-    pub agent_manager: Arc<dyn AgentLifecycleManager>,
-    pub result_collector: Arc<ResultCollector>,
-    pub subprocess: Arc<SubprocessManager>,
-    pub claude_executor: Arc<dyn ClaudeExecutor>,
-    pub timeout_enforcer: Arc<Mutex<Option<Arc<TimeoutEnforcer>>>>,
-    pub merge_queue: Arc<MergeQueue>,
-    pub dlq: Arc<DeadLetterQueue>,
-}
-```
+**Rationale**: This function (133 lines, complexity 27) is the most complex in the file. It handles registry file I/O, user interaction, and worktree cleanup. Extracting it significantly reduces file complexity.
 
 **Testing**:
-```bash
-cargo test --lib mapreduce::coordination
-cargo build --lib
-```
+- Unit tests for registry file discovery logic
+- Unit tests for formatting functions
+- Mock-based tests for cleanup operations
+- Run `cargo test --lib` to verify no regressions
 
 **Success Criteria**:
-- [ ] Context structs created
-- [ ] Coordinator fields consolidated
-- [ ] All phase executors initialized with contexts
+- [ ] `run_worktree_clean_orphaned()` moved to new module
+- [ ] Registry discovery logic is pure and testable
+- [ ] Formatting logic is pure and testable
+- [ ] cli.rs imports and calls new module correctly
 - [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] Coordinator down to ~400 lines
+- [ ] Ready to commit
 
-### Phase 5: Update Public API and Documentation
+### Phase 3: Extract Age-Based Cleanup Logic
 
-**Goal**: Ensure the refactored coordinator maintains its public API and is well-documented.
+**Goal**: Separate age-based worktree cleanup into dedicated module
 
 **Changes**:
-- Update `execute_job()` to delegate to phase executors
-- Ensure all public methods remain unchanged
-- Add module-level documentation for new modules
-- Update inline documentation for clarity
-- Verify all integration points work correctly
+- Create new module `src/cli/commands/worktree/age_cleanup.rs`
+- Move `cleanup_old_worktrees()` function (lines 204-240)
+- Extract age calculation into pure function
+- Extract worktree filtering logic into pure function
+- Separate display formatting from cleanup operations
+- Update `cli.rs` to use new module
 
-**Public API Methods** (must remain unchanged):
-- `new()` - Constructor
-- `with_mode()` - Constructor with execution mode
-- `get_orphaned_worktrees()` - Get orphaned worktree list
-- `register_orphaned_worktree()` - Register orphaned worktree
-- `execute_job()` - Main entry point
-- `get_results()` - Get execution results
-- `clear_results()` - Clear results
-
-**Documentation**:
-- Add module docs for phases/ modules
-- Add struct docs for context types
-- Update executor.rs module doc
-- Ensure all public methods have doc comments
+**Rationale**: This function (37 lines) handles time-based filtering, a distinct concern from other cleanup operations. Extracting it improves modularity.
 
 **Testing**:
-```bash
-cargo test --lib
-cargo clippy --lib
-cargo fmt --check
-cargo doc --lib --no-deps
-```
+- Unit tests for age calculation logic
+- Unit tests for worktree filtering by age
+- Mock-based tests for cleanup operations
+- Run `cargo test --lib` to verify no regressions
 
 **Success Criteria**:
-- [ ] All public methods work as before
-- [ ] Integration with orchestrator unchanged
-- [ ] Documentation complete and accurate
+- [ ] `cleanup_old_worktrees()` moved to new module
+- [ ] Age calculation logic is pure and testable
+- [ ] Filtering logic is pure and testable
+- [ ] cli.rs imports and calls new module correctly
 - [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] Code properly formatted
-- [ ] Final line count: executor.rs <500 lines
+- [ ] Ready to commit
+
+### Phase 4: Refactor Main Command Handlers
+
+**Goal**: Simplify remaining command handler functions by extracting pure logic
+
+**Changes in `run_worktree_clean()`**:
+- Extract parameter validation logic into pure function
+- Extract routing logic into pure decision functions
+- Reduce function to simple orchestration of operations
+- Target: < 30 lines, complexity < 5
+
+**Changes in `run_worktree_merge()`**:
+- Extract result formatting into pure function
+- Extract error message construction into pure function
+- Separate success/failure logic paths
+- Target: < 30 lines, complexity < 5
+
+**Changes in `run_worktree_ls()`**:
+- Extract table formatting into pure function
+- Extract session display logic into pure function
+- Target: < 25 lines, complexity < 3
+
+**Rationale**: These handlers currently mix orchestration with formatting and decision logic. Extracting pure functions makes the handlers simple, testable orchestrators.
+
+**Testing**:
+- Unit tests for all extracted pure functions
+- Unit tests for parameter validation
+- Unit tests for formatting functions
+- Integration tests verify handler orchestration
+- Run `cargo test --lib` to verify no regressions
+
+**Success Criteria**:
+- [ ] All handlers under 30 lines
+- [ ] All handlers with complexity < 5
+- [ ] Pure functions extracted and tested
+- [ ] Formatting logic is reusable
+- [ ] All tests pass
+- [ ] Ready to commit
+
+### Phase 5: Add Comprehensive Test Coverage
+
+**Goal**: Achieve >70% test coverage for all new modules and refactored logic
+
+**Test Additions**:
+- `tests/cli/commands/worktree/mapreduce_cleanup_tests.rs`
+  - Path resolution tests
+  - Configuration building tests
+  - Edge cases (missing $HOME, invalid repo names)
+
+- `tests/cli/commands/worktree/orphaned_cleanup_tests.rs`
+  - Registry file discovery tests
+  - Multi-job registry handling tests
+  - Formatting tests
+  - Edge cases (empty registry, missing files)
+
+- `tests/cli/commands/worktree/age_cleanup_tests.rs`
+  - Age calculation tests
+  - Filtering logic tests
+  - Edge cases (zero age, negative durations)
+
+- `tests/cli/commands/worktree/formatting_tests.rs`
+  - Table formatting tests
+  - Result display tests
+  - Error message construction tests
+
+**Rationale**: Testing pure logic is straightforward and provides confidence in refactoring. Test coverage validates that behavior is preserved.
+
+**Testing**:
+- Run `cargo test --lib` for all new tests
+- Run `cargo tarpaulin` to verify coverage >70%
+- Run `just ci` for full validation
+
+**Success Criteria**:
+- [ ] All new modules have test files
+- [ ] Test coverage >70% for business logic
+- [ ] All edge cases covered
+- [ ] All tests pass
+- [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run unit tests: `cargo test --lib mapreduce::coordination`
-2. Run clippy: `cargo clippy --lib`
-3. Check formatting: `cargo fmt --check`
-4. Verify compilation: `cargo build --lib`
-
-**Phase-specific testing**:
-- Phase 1: Verify all tests moved and still pass
-- Phase 2: Test each new phase module independently
-- Phase 3: Test utility functions in isolation
-- Phase 4: Integration tests for context structs
-- Phase 5: Full end-to-end workflow test
+1. Write tests for extracted pure functions first (TDD approach)
+2. Run `cargo test --lib` after each extraction
+3. Run `cargo clippy` to check for warnings
+4. Run `cargo fmt` to ensure formatting
+5. Verify no behavior changes via integration tests
 
 **Final verification**:
-1. Run full test suite: `cargo test`
-2. Run linter: `cargo clippy -- -D warnings`
-3. Check coverage: `cargo tarpaulin --lib`
-4. Run debtmap: `debtmap analyze --file src/cook/execution/mapreduce/coordination/executor.rs`
-5. Verify metrics improvement:
-   - Lines: 2752 → <500 (82% reduction)
-   - Functions: 103 → <30 (71% reduction)
-   - God Object Score: 1.0 → <0.3
+1. `just ci` - Full CI checks
+2. `cargo tarpaulin --out Html` - Generate coverage report
+3. `cargo clippy -- -D warnings` - Zero warnings
+4. Review overall file structure and module organization
+
+**Coverage targets by module**:
+- `mapreduce_cleanup.rs`: >80% (mostly pure logic)
+- `orphaned_cleanup.rs`: >70% (some I/O)
+- `age_cleanup.rs`: >80% (mostly pure logic)
+- `cli.rs`: >60% (orchestration, harder to test)
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the compilation/test failure
-3. Identify the root cause (usually missing import or incorrect delegation)
-4. Adjust the plan for that specific issue
-5. Retry the phase with fix applied
+2. Review the failure and error messages
+3. Check if the issue is:
+   - Logic error: Fix the extracted code
+   - Integration error: Fix the imports/calls
+   - Test error: Fix the test assumptions
+4. Adjust the plan if necessary
+5. Retry the phase
 
-**Common issues and solutions**:
-- **Missing imports**: Add use statements for extracted types
-- **Lifetime issues**: Ensure Arc cloning for shared ownership
-- **Test failures**: Check test fixture setup uses new structure
-- **Visibility issues**: Make extracted structs/methods pub where needed
+If multiple phases fail consecutively:
+1. Stop and reassess the approach
+2. Consider smaller extraction steps
+3. Get additional context on the codebase patterns
+4. Resume with adjusted plan
+
+## Post-Implementation Validation
+
+After all phases complete:
+
+1. **Complexity Metrics**:
+   - Run debtmap again to verify score improvement
+   - Expected: Score reduction of ~19 points
+   - Target: No function with complexity >10
+
+2. **Coverage Metrics**:
+   - Run `cargo tarpaulin --out Html`
+   - Expected: Coverage improvement from 0% to >70%
+   - Review uncovered lines for gaps
+
+3. **Code Quality**:
+   - Run `cargo clippy -- -D warnings`
+   - Run `cargo fmt --check`
+   - Review for any remaining `unwrap()` calls (per Spec 101)
+
+4. **Module Structure**:
+   - Verify clear module boundaries
+   - Check for circular dependencies
+   - Ensure public APIs are minimal
 
 ## Notes
 
-**Key Considerations**:
-- This is a large refactoring but done incrementally to minimize risk
-- Each phase is independently valuable and leaves code in working state
-- Tests are moved first to reduce file size and clarify production code
-- Phase extraction follows natural boundaries (setup, map, reduce)
-- Context structs reduce parameter passing and coupling
-- Public API remains unchanged to avoid breaking integration
+**Key Design Principles**:
+- **Separation of Concerns**: I/O at boundaries, pure logic in core
+- **Single Responsibility**: Each module handles one aspect of worktree management
+- **Testability**: Pure functions are easy to test without mocks
+- **Progressive Refactoring**: Each phase is independently valuable
 
-**Design Decisions**:
-- Using context structs instead of builder pattern for clarity
-- Each phase executor is a separate struct with clear responsibilities
-- Keeping coordination logic in MapReduceCoordinator (its true responsibility)
-- DummySessionManager remains in executor.rs as it's test-specific
+**Architecture After Refactoring**:
+```
+src/cli/commands/worktree/
+├── cli.rs (orchestrator, ~100 lines)
+├── mapreduce_cleanup.rs (MapReduce cleanup logic)
+├── orphaned_cleanup.rs (orphaned worktree cleanup)
+├── age_cleanup.rs (time-based cleanup)
+├── operations.rs (existing operations)
+└── utils.rs (existing utilities)
+```
 
-**Expected Outcome**:
-After this refactoring:
-- MapReduceCoordinator will be <500 lines and focused on coordination
-- Each phase has its own testable module
-- Test code is properly separated
-- Complexity is distributed across multiple small modules
-- Future changes are easier to make and test
-- God Object anti-pattern is resolved
+**Potential Challenges**:
+- **Error Handling**: Ensure all error paths preserve context (use `.context()` per Spec 101)
+- **Dependencies**: Some functions have dependencies on WorktreeManager; use trait bounds for testability
+- **User Interaction**: stdin/stdout interactions are harder to test; keep them thin wrappers
+
+**Future Improvements** (out of scope for this debt item):
+- Add integration tests with real worktree operations
+- Consider extracting formatting into a shared formatting module
+- Add builder pattern for complex configuration objects
