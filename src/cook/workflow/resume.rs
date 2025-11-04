@@ -741,39 +741,7 @@ impl ResumeExecutor {
                                 );
                                 for action in cleanup_actions {
                                     // Create a WorkflowStep from the handler command
-                                    let cleanup_step = WorkflowStep {
-                                        name: Some("cleanup".to_string()),
-                                        shell: action.shell.clone(),
-                                        claude: action.claude.clone(),
-                                        test: None,
-                                        goal_seek: None,
-                                        foreach: None,
-                                        write_file: None,
-                                        command: None,
-                                        handler: None,
-                                        capture: None,
-                                        capture_format: None,
-                                        capture_streams: Default::default(),
-                                        output_file: None,
-                                        timeout: None,
-                                        capture_output:
-                                            crate::cook::workflow::executor::CaptureOutput::Disabled,
-                                        on_failure: None,
-                                        retry: None,
-                                        on_success: None,
-                                        on_exit_code: Default::default(),
-                                        commit_required: false,
-                                        auto_commit: false,
-                                        commit_config: None,
-                                        working_dir: None,
-                                        env: Default::default(),
-                                        validate: None,
-                                        step_validate: None,
-                                        skip_validation: false,
-                                        validation_timeout: None,
-                                        ignore_validation_failure: false,
-                                        when: None,
-                                    };
+                                    let cleanup_step = build_cleanup_step(&action);
 
                                     // Execute the cleanup step
                                     let _ = executor
@@ -1028,6 +996,45 @@ fn get_step_name(step: &crate::cook::workflow::executor::WorkflowStep) -> String
         cmd.clone()
     } else {
         "unnamed step".to_string()
+    }
+}
+
+/// Build a cleanup workflow step from a handler command
+///
+/// This is a pure function that constructs a WorkflowStep for cleanup actions,
+/// typically used during SafeAbort recovery actions.
+fn build_cleanup_step(action: &crate::cook::workflow::on_failure::HandlerCommand) -> WorkflowStep {
+    WorkflowStep {
+        name: Some("cleanup".to_string()),
+        shell: action.shell.clone(),
+        claude: action.claude.clone(),
+        test: None,
+        goal_seek: None,
+        foreach: None,
+        write_file: None,
+        command: None,
+        handler: None,
+        capture: None,
+        capture_format: None,
+        capture_streams: Default::default(),
+        output_file: None,
+        timeout: None,
+        capture_output: crate::cook::workflow::executor::CaptureOutput::Disabled,
+        on_failure: None,
+        retry: None,
+        on_success: None,
+        on_exit_code: Default::default(),
+        commit_required: false,
+        auto_commit: false,
+        commit_config: None,
+        working_dir: None,
+        env: Default::default(),
+        validate: None,
+        step_validate: None,
+        skip_validation: false,
+        validation_timeout: None,
+        ignore_validation_failure: false,
+        when: None,
     }
 }
 
