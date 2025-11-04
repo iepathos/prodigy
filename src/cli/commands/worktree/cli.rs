@@ -11,9 +11,7 @@ use super::operations::{
     list_sessions_operation, merge_all_sessions_operation, merge_session_operation,
 };
 use super::orphaned_cleanup::run_worktree_clean_orphaned;
-use super::presentation::{
-    format_batch_merge_summary, format_merge_result, format_sessions_table,
-};
+use super::presentation::{format_batch_merge_summary, format_merge_result, format_sessions_table};
 use super::utils::parse_duration;
 
 /// Execute worktree-related commands
@@ -109,9 +107,7 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
             println!("{}", format_merge_result(&result));
             Ok(())
         } else {
-            let error_msg = result
-                .error
-                .unwrap_or_else(|| "Unknown error".to_string());
+            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
             Err(anyhow::anyhow!(
                 "Failed to merge worktree '{}': {}",
                 name,
@@ -186,6 +182,3 @@ async fn run_worktree_clean(
 
     Ok(())
 }
-
-
-

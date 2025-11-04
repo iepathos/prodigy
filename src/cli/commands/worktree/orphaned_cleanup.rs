@@ -4,14 +4,14 @@
 //! separating pure logic from I/O operations.
 
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::cook::execution::mapreduce::coordination::executor::OrphanedWorktree;
 
 /// Pure function to resolve registry base path
 ///
 /// Constructs the registry path for orphaned worktrees.
-pub fn resolve_registry_base_path(home_dir: &PathBuf, repo_name: &str) -> PathBuf {
+pub fn resolve_registry_base_path(home_dir: &Path, repo_name: &str) -> PathBuf {
     home_dir
         .join(".prodigy")
         .join("orphaned_worktrees")
@@ -21,7 +21,7 @@ pub fn resolve_registry_base_path(home_dir: &PathBuf, repo_name: &str) -> PathBu
 /// Pure function to find registry files
 ///
 /// Reads directory and filters for JSON files.
-pub fn find_registry_files(registry_path: &PathBuf) -> Result<Vec<PathBuf>> {
+pub fn find_registry_files(registry_path: &Path) -> Result<Vec<PathBuf>> {
     if !registry_path.exists() {
         return Ok(Vec::new());
     }
@@ -126,7 +126,7 @@ pub async fn run_worktree_clean_orphaned(
 
 /// Find the target registry file based on job_id and force flag
 fn find_target_registry_file(
-    registry_path: &PathBuf,
+    registry_path: &Path,
     job_id: Option<String>,
     force: bool,
 ) -> Result<PathBuf> {
@@ -157,11 +157,11 @@ fn find_target_registry_file(
 }
 
 /// Load orphaned worktrees from registry file
-fn load_orphaned_worktrees(registry_file: &PathBuf) -> Result<Vec<OrphanedWorktree>> {
+fn load_orphaned_worktrees(registry_file: &Path) -> Result<Vec<OrphanedWorktree>> {
     let content = std::fs::read_to_string(registry_file)
         .context("Failed to read orphaned worktrees registry")?;
-    let orphaned_worktrees: Vec<OrphanedWorktree> = serde_json::from_str(&content)
-        .context("Failed to parse orphaned worktrees registry")?;
+    let orphaned_worktrees: Vec<OrphanedWorktree> =
+        serde_json::from_str(&content).context("Failed to parse orphaned worktrees registry")?;
     Ok(orphaned_worktrees)
 }
 

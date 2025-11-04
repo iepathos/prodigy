@@ -110,7 +110,7 @@ mod tests {
         let age = calculate_age_seconds(created, now);
 
         // Should be approximately 2 hours = 7200 seconds
-        assert!(age >= 7199 && age <= 7201, "Age was {}", age);
+        assert!((7199..=7201).contains(&age), "Age was {}", age);
     }
 
     #[test]

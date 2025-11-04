@@ -146,10 +146,7 @@ mod tests {
     #[test]
     fn test_resolve_worktree_base_path() {
         let path = resolve_worktree_base_path("/home/user", "myrepo");
-        assert_eq!(
-            path,
-            PathBuf::from("/home/user/.prodigy/worktrees/myrepo")
-        );
+        assert_eq!(path, PathBuf::from("/home/user/.prodigy/worktrees/myrepo"));
     }
 
     #[test]
