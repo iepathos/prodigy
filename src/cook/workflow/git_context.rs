@@ -362,6 +362,14 @@ impl GitChangeTracker {
         Ok(commits)
     }
 
+    /// Check if new commits exist between two commit references
+    fn has_new_commits(last: &Option<String>, current: &Option<String>) -> bool {
+        match (last, current) {
+            (Some(l), Some(c)) => l != c,
+            _ => false,
+        }
+    }
+
     /// Calculate diff statistics between two commits
     fn calculate_diff_stats(repo: &Repository, from_oid: Oid, to_oid: Oid) -> Result<DiffStats> {
         let from_commit = repo.find_commit(from_oid)?;
@@ -411,30 +419,26 @@ impl GitChangeTracker {
     /// Calculate changes for the current step
     pub(crate) fn calculate_step_changes(&self) -> Result<StepChanges> {
         let repo = Repository::open(&self.repo_path).context("Failed to open git repository")?;
-
         let current_commit = Self::get_head_commit(&repo)?;
 
         // Collect uncommitted changes
         let mut changes = Self::collect_uncommitted_changes(&repo)?;
 
-        // If there's a previous commit, calculate committed changes
-        if let (Some(last), Some(current)) = (&self.last_commit, &current_commit) {
-            if last != current {
-                // New commits were made
-                let last_oid = Oid::from_str(last)?;
-                let current_oid = Oid::from_str(current)?;
+        // Add committed changes if new commits exist
+        if Self::has_new_commits(&self.last_commit, &current_commit) {
+            let last_oid = Oid::from_str(self.last_commit.as_ref().unwrap())?;
+            let current_oid = Oid::from_str(current_commit.as_ref().unwrap())?;
 
-                // Collect commits between last and current
-                changes.commits = Self::collect_commits_between(&repo, last_oid, current_oid)?;
+            // Collect commits and diff stats
+            changes.commits = Self::collect_commits_between(&repo, last_oid, current_oid)?;
+            let diff_stats = Self::calculate_diff_stats(&repo, last_oid, current_oid)?;
 
-                // Calculate diff stats and file changes
-                let diff_stats = Self::calculate_diff_stats(&repo, last_oid, current_oid)?;
-                changes.insertions = diff_stats.insertions;
-                changes.deletions = diff_stats.deletions;
-                changes.files_added.extend(diff_stats.files_added);
-                changes.files_modified.extend(diff_stats.files_modified);
-                changes.files_deleted.extend(diff_stats.files_deleted);
-            }
+            // Merge diff stats into changes
+            changes.insertions = diff_stats.insertions;
+            changes.deletions = diff_stats.deletions;
+            changes.files_added.extend(diff_stats.files_added);
+            changes.files_modified.extend(diff_stats.files_modified);
+            changes.files_deleted.extend(diff_stats.files_deleted);
         }
 
         // Remove duplicates and sort
