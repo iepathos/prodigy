@@ -11,6 +11,9 @@ use super::operations::{
     list_sessions_operation, merge_all_sessions_operation, merge_session_operation,
 };
 use super::orphaned_cleanup::run_worktree_clean_orphaned;
+use super::presentation::{
+    format_batch_merge_summary, format_merge_result, format_sessions_table,
+};
 use super::utils::parse_duration;
 
 /// Execute worktree-related commands
@@ -61,23 +64,9 @@ async fn run_worktree_ls(_json: bool, _detailed: bool) -> Result<()> {
     // Execute operation
     let result = list_sessions_operation(&manager).await?;
 
-    // Display results
-    if result.sessions.is_empty() {
-        println!("No active Prodigy worktrees found.");
-    } else {
-        println!("Active Prodigy worktrees:");
-        println!("{:<40} {:<30} {:<20}", "Name", "Branch", "Created");
-        println!("{}", "-".repeat(90));
-
-        for session in result.sessions {
-            println!(
-                "{:<40} {:<30} {:<20}",
-                session.name,
-                session.branch,
-                session.created_at.format("%Y-%m-%d %H:%M:%S")
-            );
-        }
-    }
+    // Display results using presentation layer
+    let output = format_sessions_table(&result.sessions);
+    print!("{}", output);
 
     Ok(())
 }
@@ -97,27 +86,19 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
         println!("Merging all worktrees...");
         let result = merge_all_sessions_operation(&manager).await?;
 
-        // Display results
+        // Display results using presentation layer
         for merge_result in &result.results {
+            let message = format_merge_result(merge_result);
             if merge_result.success {
-                println!(
-                    "✅ Successfully merged worktree '{}'",
-                    merge_result.session_name
-                );
+                println!("{}", message);
             } else {
-                eprintln!(
-                    "❌ Failed to merge worktree '{}': {}",
-                    merge_result.session_name,
-                    merge_result
-                        .error
-                        .as_ref()
-                        .unwrap_or(&"Unknown error".to_string())
-                );
+                eprintln!("{}", message);
             }
         }
 
-        if result.merged_count > 0 {
-            println!("Successfully merged {} worktree(s)", result.merged_count);
+        let summary = format_batch_merge_summary(&result);
+        if !summary.is_empty() {
+            println!("{}", summary);
         }
         Ok(())
     } else if let Some(name) = name {
@@ -125,13 +106,16 @@ async fn run_worktree_merge(name: Option<String>, all: bool) -> Result<()> {
         let result = merge_session_operation(&manager, &name).await;
 
         if result.success {
-            println!("✅ Successfully merged worktree '{}'", name);
+            println!("{}", format_merge_result(&result));
             Ok(())
         } else {
+            let error_msg = result
+                .error
+                .unwrap_or_else(|| "Unknown error".to_string());
             Err(anyhow::anyhow!(
                 "Failed to merge worktree '{}': {}",
                 name,
-                result.error.unwrap_or_else(|| "Unknown error".to_string())
+                error_msg
             ))
         }
     } else {
