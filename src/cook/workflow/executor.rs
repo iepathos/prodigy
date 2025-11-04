@@ -446,7 +446,18 @@ impl WorkflowExecutor {
             .await
     }
 
-    /// Handle commit verification and auto-commit (delegated to commit_handler module)
+    /// Handle commit verification and auto-commit
+    ///
+    /// Verifies that commits were created after a step execution. If no commits
+    /// were created, determines the appropriate action based on step configuration:
+    /// - Create auto-commit if changes exist and auto_commit is enabled
+    /// - Fail if commit_required is true
+    /// - Continue silently otherwise
+    ///
+    /// The function uses extracted pure logic for decision-making, reducing
+    /// cognitive complexity and improving testability.
+    ///
+    /// Returns `Ok(true)` if commits were created or auto-committed.
     async fn handle_commit_verification(
         &mut self,
         working_dir: &std::path::Path,
