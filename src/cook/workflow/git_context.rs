@@ -482,9 +482,15 @@ impl GitChangeTracker {
         pattern: Option<&str>,
     ) -> Result<String> {
         match var_name {
-            "files_added" => Ok(self.resolve_file_list(&changes.files_added, changes, format, pattern)),
-            "files_modified" => Ok(self.resolve_file_list(&changes.files_modified, changes, format, pattern)),
-            "files_deleted" => Ok(self.resolve_file_list(&changes.files_deleted, changes, format, pattern)),
+            "files_added" => {
+                Ok(self.resolve_file_list(&changes.files_added, changes, format, pattern))
+            }
+            "files_modified" => {
+                Ok(self.resolve_file_list(&changes.files_modified, changes, format, pattern))
+            }
+            "files_deleted" => {
+                Ok(self.resolve_file_list(&changes.files_deleted, changes, format, pattern))
+            }
             "files_changed" => {
                 let all = changes.files_changed();
                 Ok(self.resolve_file_list(&all, changes, format, pattern))
