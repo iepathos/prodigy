@@ -139,6 +139,7 @@
 //! 5. Add integration test
 
 mod cli;
+mod mapreduce_cleanup;
 mod operations;
 mod presentation;
 mod utils;

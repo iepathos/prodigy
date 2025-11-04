@@ -5,6 +5,7 @@
 use crate::cli::args::WorktreeCommands;
 use anyhow::Result;
 
+use super::mapreduce_cleanup::run_mapreduce_cleanup;
 use super::operations::{
     list_sessions_operation, merge_all_sessions_operation, merge_session_operation,
 };
@@ -239,79 +240,6 @@ async fn cleanup_old_worktrees(
     Ok(())
 }
 
-/// Run MapReduce-specific cleanup
-async fn run_mapreduce_cleanup(
-    job_id: Option<String>,
-    older_than: Option<String>,
-    dry_run: bool,
-    force: bool,
-) -> Result<()> {
-    use crate::cook::execution::mapreduce::cleanup::{
-        WorktreeCleanupConfig, WorktreeCleanupCoordinator,
-    };
-    use std::path::PathBuf;
-
-    // Get worktree base path
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    let repo_name = std::env::current_dir()?
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("unknown")
-        .to_string();
-    let worktree_base_path = PathBuf::from(home)
-        .join(".prodigy")
-        .join("worktrees")
-        .join(&repo_name);
-
-    // Create cleanup coordinator
-    let config = if force {
-        WorktreeCleanupConfig::aggressive()
-    } else {
-        WorktreeCleanupConfig::default()
-    };
-    let coordinator = WorktreeCleanupCoordinator::new(config, worktree_base_path.clone());
-
-    if let Some(job_id) = job_id {
-        // Clean specific job
-        if dry_run {
-            println!("DRY RUN: Would clean all worktrees for job {}", job_id);
-        } else {
-            println!("Cleaning worktrees for job {}...", job_id);
-            let count = coordinator.cleanup_job(&job_id).await?;
-            println!("Cleaned {} worktrees for job {}", count, job_id);
-        }
-    } else if let Some(duration_str) = older_than {
-        // Clean old MapReduce worktrees
-        let duration = parse_duration(&duration_str)?;
-        if dry_run {
-            println!(
-                "DRY RUN: Would clean MapReduce worktrees older than {}",
-                duration_str
-            );
-        } else {
-            println!(
-                "Cleaning MapReduce worktrees older than {}...",
-                duration_str
-            );
-            let count = coordinator.cleanup_orphaned_worktrees(duration).await?;
-            println!("Cleaned {} orphaned MapReduce worktrees", count);
-        }
-    } else {
-        // Clean all orphaned MapReduce worktrees
-        if dry_run {
-            println!("DRY RUN: Would clean all orphaned MapReduce worktrees");
-        } else {
-            println!("Cleaning all orphaned MapReduce worktrees...");
-            // Default to 1 hour old
-            let count = coordinator
-                .cleanup_orphaned_worktrees(std::time::Duration::from_secs(3600))
-                .await?;
-            println!("Cleaned {} orphaned MapReduce worktrees", count);
-        }
-    }
-
-    Ok(())
-}
 
 /// Clean orphaned worktrees from cleanup failures
 async fn run_worktree_clean_orphaned(
