@@ -907,6 +907,90 @@ impl MapReduceCoordinator {
         Ok(())
     }
 
+    /// Merge agent changes and cleanup worktree
+    ///
+    /// Handles merging agent changes back to parent worktree and cleaning up
+    /// the agent's worktree. Returns whether merge was successful.
+    ///
+    /// # Arguments
+    /// * `agent_manager` - Agent lifecycle manager
+    /// * `merge_queue` - Merge queue for serialized merges
+    /// * `handle` - Agent handle with worktree information
+    /// * `config` - Agent configuration
+    /// * `agent_result` - Result from agent execution
+    /// * `env` - Execution environment
+    /// * `agent_id` - ID of the agent
+    /// * `item_id` - ID of the work item
+    ///
+    /// # Returns
+    /// True if merge was successful, false otherwise
+    #[allow(clippy::too_many_arguments)]
+    async fn merge_and_cleanup_agent(
+        agent_manager: &Arc<dyn AgentLifecycleManager>,
+        merge_queue: &Arc<MergeQueue>,
+        handle: crate::cook::execution::mapreduce::agent::AgentHandle,
+        config: &AgentConfig,
+        agent_result: &AgentResult,
+        env: &ExecutionEnvironment,
+        agent_id: &str,
+        item_id: &str,
+    ) -> MapReduceResult<bool> {
+        if !agent_result.commits.is_empty() {
+            // Create branch for the agent
+            agent_manager
+                .create_agent_branch(handle.worktree_path(), &config.branch_name)
+                .await
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!("Failed to create agent branch: {}", e))
+                })?;
+
+            // Submit merge to queue (serialized processing)
+            match merge_queue
+                .submit_merge(
+                    agent_id.to_string(),
+                    config.branch_name.clone(),
+                    item_id.to_string(),
+                    env.clone(),
+                )
+                .await
+            {
+                Ok(()) => {
+                    info!("Successfully merged agent {} (item {})", agent_id, item_id);
+                    // Cleanup the worktree after successful merge
+                    // Note: Cleanup failures are non-critical since the work was successfully merged
+                    if let Err(e) = agent_manager.cleanup_agent(handle).await {
+                        warn!(
+                            "Failed to cleanup agent {} after successful merge: {}. \
+                             Work was successfully merged, worktree may need manual cleanup.",
+                            agent_id, e
+                        );
+                    }
+                    Ok(true)
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to merge agent {} (item {}): {}",
+                        agent_id, item_id, e
+                    );
+                    // Still cleanup the worktree even if merge failed
+                    let _ = agent_manager.cleanup_agent(handle).await;
+                    Ok(false)
+                }
+            }
+        } else {
+            // No commits, just cleanup the worktree
+            // Note: Cleanup failures are non-critical, log but don't fail the agent
+            if let Err(e) = agent_manager.cleanup_agent(handle).await {
+                warn!(
+                    "Failed to cleanup agent {} (no commits made): {}. \
+                     Worktree may need manual cleanup.",
+                    agent_id, e
+                );
+            }
+            Ok(false)
+        }
+    }
+
     /// Execute agent commands in the worktree
     ///
     /// Executes all commands for an agent, handling failures and collecting results.
@@ -1159,60 +1243,17 @@ impl MapReduceCoordinator {
         Self::unregister_agent_timeout(timeout_enforcer, agent_id).await?;
 
         // Merge and cleanup agent if successful
-        let merge_successful = if !agent_result.commits.is_empty() {
-            // Create branch for the agent
-            agent_manager
-                .create_agent_branch(handle.worktree_path(), &config.branch_name)
-                .await
-                .map_err(|e| {
-                    MapReduceError::ProcessingError(format!("Failed to create agent branch: {}", e))
-                })?;
-
-            // Submit merge to queue (serialized processing)
-            match merge_queue
-                .submit_merge(
-                    agent_id.to_string(),
-                    config.branch_name.clone(),
-                    item_id.to_string(),
-                    env.clone(),
-                )
-                .await
-            {
-                Ok(()) => {
-                    info!("Successfully merged agent {} (item {})", agent_id, item_id);
-                    // Cleanup the worktree after successful merge
-                    // Note: Cleanup failures are non-critical since the work was successfully merged
-                    if let Err(e) = agent_manager.cleanup_agent(handle).await {
-                        warn!(
-                            "Failed to cleanup agent {} after successful merge: {}. \
-                             Work was successfully merged, worktree may need manual cleanup.",
-                            agent_id, e
-                        );
-                    }
-                    true
-                }
-                Err(e) => {
-                    warn!(
-                        "Failed to merge agent {} (item {}): {}",
-                        agent_id, item_id, e
-                    );
-                    // Still cleanup the worktree even if merge failed
-                    let _ = agent_manager.cleanup_agent(handle).await;
-                    false
-                }
-            }
-        } else {
-            // No commits, just cleanup the worktree
-            // Note: Cleanup failures are non-critical, log but don't fail the agent
-            if let Err(e) = agent_manager.cleanup_agent(handle).await {
-                warn!(
-                    "Failed to cleanup agent {} (no commits made): {}. \
-                     Worktree may need manual cleanup.",
-                    agent_id, e
-                );
-            }
-            false
-        };
+        let merge_successful = Self::merge_and_cleanup_agent(
+            agent_manager,
+            merge_queue,
+            handle,
+            &config,
+            &agent_result,
+            env,
+            agent_id,
+            item_id,
+        )
+        .await?;
 
         // Update agent status based on merge outcome
         if !merge_successful && !agent_result.commits.is_empty() {
