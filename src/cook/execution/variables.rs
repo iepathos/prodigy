@@ -527,6 +527,48 @@ impl VariableContext {
         Box::pin(async move { self.resolve_variable_impl(expr, depth).await })
     }
 
+    /// Resolve a JSON variable expression
+    /// Format: json:path:from:data_source or json:path:data_source (legacy)
+    async fn resolve_json_variable(&self, remainder: &str, depth: usize) -> Result<Value> {
+        // Find the position of ":from:" separator
+        let separator = ":from:";
+        if let Some(sep_pos) = remainder.find(separator) {
+            let path = &remainder[..sep_pos];
+            let data_source = &remainder[sep_pos + separator.len()..];
+
+            // Resolve the JSON data variable first
+            let json_value = self.resolve_variable(data_source, depth + 1).await?;
+
+            // Handle both string JSON and already-structured data
+            let json_to_query = if json_value.is_string() {
+                // If it's a string, parse it as JSON
+                let json_str = self.value_to_string(&json_value);
+                serde_json::from_str(&json_str)
+                    .context("Failed to parse JSON string from variable")?
+            } else {
+                // If it's already structured data, use it directly
+                json_value.clone()
+            };
+
+            // Apply JSONPath to extract the value
+            extract_json_path(&json_to_query, path)
+                .ok_or_else(|| anyhow!("JSON path '{}' not found in data", path))
+        } else {
+            // Legacy format: json:path:data_source (split on first colon)
+            let parts: Vec<&str> = remainder.splitn(2, ':').collect();
+            if parts.len() == 2 {
+                let json_value = self.resolve_variable(parts[1], depth + 1).await?;
+                let json_str = self.value_to_string(&json_value);
+                let json_var = JsonPathVariable::new(json_str, parts[0].to_string());
+                json_var.evaluate(self)
+            } else {
+                Err(anyhow!(
+                    "Invalid json: expression format. Use json:path:from:data_source"
+                ))
+            }
+        }
+    }
+
     /// Implementation of resolve_variable
     async fn resolve_variable_impl(&self, expr: &str, depth: usize) -> Result<Value> {
         // Check cache first
@@ -552,45 +594,8 @@ impl VariableContext {
             let cmd_var = CommandVariable::new(command.to_string());
             cmd_var.evaluate(self)?
         } else if let Some(remainder) = expr.strip_prefix("json:") {
-            // JSON extraction (format: json:path:from:data_source)
-            // Split into path and data_source parts
-            // Find the position of ":from:" separator
-            let separator = ":from:";
-            if let Some(sep_pos) = remainder.find(separator) {
-                let path = &remainder[..sep_pos];
-                let data_source = &remainder[sep_pos + separator.len()..];
-
-                // Resolve the JSON data variable first
-                let json_value = self.resolve_variable(data_source, depth + 1).await?;
-
-                // Handle both string JSON and already-structured data
-                let json_to_query = if json_value.is_string() {
-                    // If it's a string, parse it as JSON
-                    let json_str = self.value_to_string(&json_value);
-                    serde_json::from_str(&json_str)
-                        .context("Failed to parse JSON string from variable")?
-                } else {
-                    // If it's already structured data, use it directly
-                    json_value.clone()
-                };
-
-                // Apply JSONPath to extract the value
-                extract_json_path(&json_to_query, path)
-                    .ok_or_else(|| anyhow!("JSON path '{}' not found in data", path))?
-            } else {
-                // Legacy format: json:path:data_source (split on first colon)
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                if parts.len() == 2 {
-                    let json_value = self.resolve_variable(parts[1], depth + 1).await?;
-                    let json_str = self.value_to_string(&json_value);
-                    let json_var = JsonPathVariable::new(json_str, parts[0].to_string());
-                    json_var.evaluate(self)?
-                } else {
-                    return Err(anyhow!(
-                        "Invalid json: expression format. Use json:path:from:data_source"
-                    ));
-                }
-            }
+            // JSON extraction - delegate to specialized function
+            self.resolve_json_variable(remainder, depth).await?
         } else if let Some(format) = expr.strip_prefix("date:") {
             // Date formatting
             let date_var = DateVariable::new(format.to_string());
