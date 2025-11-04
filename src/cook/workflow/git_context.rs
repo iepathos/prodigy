@@ -349,7 +349,11 @@ impl GitChangeTracker {
     }
 
     /// Collect commit SHAs between two OIDs
-    fn collect_commits_between(repo: &Repository, from_oid: Oid, to_oid: Oid) -> Result<Vec<String>> {
+    fn collect_commits_between(
+        repo: &Repository,
+        from_oid: Oid,
+        to_oid: Oid,
+    ) -> Result<Vec<String>> {
         let mut commits = Vec::new();
         let mut revwalk = repo.revwalk()?;
         revwalk.push(to_oid)?;
