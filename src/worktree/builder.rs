@@ -4,10 +4,8 @@
 //! - WorktreeManager initialization and configuration
 //! - Worktree session creation
 //! - Command builders for git operations
-//! - Factory methods for executors and checkpoint managers
 
 use crate::config::mapreduce::MergeWorkflow;
-use crate::cook::execution::ClaudeExecutorImpl;
 use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
@@ -316,69 +314,6 @@ impl WorktreeManager {
             .args(["branch", "--merged", target_branch])
             .build()
     }
-
-    /// Build Claude environment variables for automation
-    pub(crate) fn build_claude_environment_variables(&self) -> HashMap<String, String> {
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-
-        // Explicitly set console output based on verbosity unless overridden by environment
-        let console_output_override = std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").ok();
-        if let Some(override_value) = console_output_override {
-            // Environment variable takes precedence
-            env_vars.insert("PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(), override_value);
-        } else {
-            // Default: only show console output when verbosity >= 1
-            env_vars.insert(
-                "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
-                (self.verbosity >= 1).to_string(),
-            );
-        }
-
-        env_vars
-    }
-}
-
-/// Factory methods for creating executors and managers
-impl WorktreeManager {
-    /// Create a Claude executor instance
-    pub(crate) fn create_claude_executor(
-        &self,
-    ) -> ClaudeExecutorImpl<crate::cook::execution::runner::RealCommandRunner> {
-        use crate::cook::execution::runner::RealCommandRunner;
-        let command_runner = RealCommandRunner::new();
-        ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity)
-    }
-
-    /// Create a checkpoint manager for merge operations
-    pub(crate) fn create_merge_checkpoint_manager(
-        &self,
-    ) -> Result<crate::cook::workflow::checkpoint::CheckpointManager> {
-        use crate::storage::{extract_repo_name, GlobalStorage};
-        use std::fs;
-
-        let storage = GlobalStorage::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create global storage: {}", e))?;
-
-        let repo_name = extract_repo_name(&self.repo_path)
-            .map_err(|e| anyhow::anyhow!("Failed to extract repository name: {}", e))?;
-
-        // Create checkpoint directory synchronously
-        let checkpoint_dir = storage
-            .base_dir()
-            .join("state")
-            .join(&repo_name)
-            .join("checkpoints");
-        fs::create_dir_all(&checkpoint_dir).context("Failed to create checkpoint directory")?;
-
-        use crate::cook::workflow::checkpoint_path::CheckpointStorage;
-
-        #[allow(deprecated)]
-        let manager = crate::cook::workflow::checkpoint::CheckpointManager::with_storage(
-            CheckpointStorage::Local(checkpoint_dir),
-        );
-        Ok(manager)
-    }
 }
 
 #[cfg(test)]
@@ -582,97 +517,5 @@ pub(crate) mod test_helpers {
         std::fs::write(&session_state_file, serde_json::to_string(session_state)?)?;
 
         Ok(())
-    }
-
-    #[cfg(test)]
-    mod env_var_tests {
-        use super::*;
-        use tempfile::TempDir;
-
-        #[test]
-        fn test_build_claude_env_vars_verbosity_0() {
-            // Ensure environment variable is not set (to avoid test pollution)
-            std::env::remove_var("PRODIGY_CLAUDE_CONSOLE_OUTPUT");
-
-            // Test that verbosity 0 sets PRODIGY_CLAUDE_CONSOLE_OUTPUT to "false"
-            let temp_dir = TempDir::new().unwrap();
-            let subprocess = SubprocessManager::production();
-
-            let manager = WorktreeManager::with_config(
-                temp_dir.path().to_path_buf(),
-                subprocess,
-                0, // verbosity = 0
-                None,
-                std::collections::HashMap::new(),
-            )
-            .unwrap();
-
-            let env_vars = manager.build_claude_environment_variables();
-
-            // Verify PRODIGY_CLAUDE_CONSOLE_OUTPUT is set to "false"
-            assert_eq!(
-                env_vars.get("PRODIGY_CLAUDE_CONSOLE_OUTPUT"),
-                Some(&"false".to_string()),
-                "With verbosity 0, PRODIGY_CLAUDE_CONSOLE_OUTPUT should be 'false'"
-            );
-        }
-
-        #[test]
-        fn test_build_claude_env_vars_verbosity_1() {
-            // Ensure environment variable is not set (to avoid test pollution)
-            std::env::remove_var("PRODIGY_CLAUDE_CONSOLE_OUTPUT");
-
-            // Test that verbosity 1 sets PRODIGY_CLAUDE_CONSOLE_OUTPUT to "true"
-            let temp_dir = TempDir::new().unwrap();
-            let subprocess = SubprocessManager::production();
-
-            let manager = WorktreeManager::with_config(
-                temp_dir.path().to_path_buf(),
-                subprocess,
-                1, // verbosity = 1
-                None,
-                std::collections::HashMap::new(),
-            )
-            .unwrap();
-
-            let env_vars = manager.build_claude_environment_variables();
-
-            // Verify PRODIGY_CLAUDE_CONSOLE_OUTPUT is set to "true"
-            assert_eq!(
-                env_vars.get("PRODIGY_CLAUDE_CONSOLE_OUTPUT"),
-                Some(&"true".to_string()),
-                "With verbosity 1, PRODIGY_CLAUDE_CONSOLE_OUTPUT should be 'true'"
-            );
-        }
-
-        #[test]
-        fn test_build_claude_env_vars_env_override() {
-            // Test that environment variable override works
-            std::env::set_var("PRODIGY_CLAUDE_CONSOLE_OUTPUT", "true");
-
-            let temp_dir = TempDir::new().unwrap();
-            let subprocess = SubprocessManager::production();
-
-            let manager = WorktreeManager::with_config(
-                temp_dir.path().to_path_buf(),
-                subprocess,
-                0, // verbosity = 0, but env var should override
-                None,
-                std::collections::HashMap::new(),
-            )
-            .unwrap();
-
-            let env_vars = manager.build_claude_environment_variables();
-
-            // Verify environment variable takes precedence
-            assert_eq!(
-                env_vars.get("PRODIGY_CLAUDE_CONSOLE_OUTPUT"),
-                Some(&"true".to_string()),
-                "Environment variable should override verbosity setting"
-            );
-
-            // Clean up
-            std::env::remove_var("PRODIGY_CLAUDE_CONSOLE_OUTPUT");
-        }
     }
 }

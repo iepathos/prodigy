@@ -649,10 +649,7 @@ impl ResumeExecutor {
 
             // Execute the step with error recovery
             let step_start = std::time::Instant::now();
-            match executor
-                .execute_step(step, env, workflow_context)
-                .await
-            {
+            match executor.execute_step(step, env, workflow_context).await {
                 Ok(_result) => {
                     steps_executed += 1;
                     let duration = step_start.elapsed();
@@ -713,10 +710,7 @@ impl ResumeExecutor {
                             warn!("Retrying step {} after {:?}", step_index + 1, delay);
                             tokio::time::sleep(delay).await;
                             // Retry the current step
-                            match executor
-                                .execute_step(step, env, workflow_context)
-                                .await
-                            {
+                            match executor.execute_step(step, env, workflow_context).await {
                                 Ok(_) => {
                                     info!("Retry succeeded for step {}", step_index + 1);
                                     steps_executed += 1;
@@ -901,7 +895,12 @@ impl ResumeExecutor {
         // Create progress tracker and display
         let mut progress_tracker = Self::create_progress_tracker(&checkpoint, workflow_id);
         let mut progress_display = ProgressDisplay::new();
-        Self::initialize_progress_display(&mut progress_tracker, &mut progress_display, workflow_id).await;
+        Self::initialize_progress_display(
+            &mut progress_tracker,
+            &mut progress_display,
+            workflow_id,
+        )
+        .await;
 
         // Load the workflow file
         progress_tracker
