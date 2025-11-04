@@ -96,6 +96,46 @@ pub enum AggregateType {
     },
 }
 
+/// Types of variables based on their prefix or format
+#[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)] // Used in later phases
+enum VariableType {
+    /// Environment variable (env.*)
+    Environment,
+    /// File content (file:*)
+    File,
+    /// Command output (cmd:*)
+    Command,
+    /// JSON extraction (json:*)
+    Json,
+    /// Date formatting (date:*)
+    Date,
+    /// UUID generation (uuid)
+    Uuid,
+    /// Standard variable lookup (no prefix)
+    Standard,
+}
+
+/// Parse the variable type from an expression
+#[allow(dead_code)] // Used in later phases
+fn parse_variable_type(expr: &str) -> VariableType {
+    if expr.starts_with("env.") {
+        VariableType::Environment
+    } else if expr.starts_with("file:") {
+        VariableType::File
+    } else if expr.starts_with("cmd:") {
+        VariableType::Command
+    } else if expr.starts_with("json:") {
+        VariableType::Json
+    } else if expr.starts_with("date:") {
+        VariableType::Date
+    } else if expr == "uuid" {
+        VariableType::Uuid
+    } else {
+        VariableType::Standard
+    }
+}
+
 /// Trait for computed variables that evaluate on demand
 pub trait ComputedVariable: Send + Sync {
     /// Evaluate the variable in the given context
@@ -1263,6 +1303,49 @@ impl From<&super::interpolation::InterpolationContext> for VariableContext {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn test_parse_variable_type_environment() {
+        assert_eq!(parse_variable_type("env.PATH"), VariableType::Environment);
+        assert_eq!(parse_variable_type("env.HOME"), VariableType::Environment);
+    }
+
+    #[test]
+    fn test_parse_variable_type_file() {
+        assert_eq!(
+            parse_variable_type("file:/path/to/file.txt"),
+            VariableType::File
+        );
+    }
+
+    #[test]
+    fn test_parse_variable_type_command() {
+        assert_eq!(parse_variable_type("cmd:echo hello"), VariableType::Command);
+    }
+
+    #[test]
+    fn test_parse_variable_type_json() {
+        assert_eq!(
+            parse_variable_type("json:$.path:from:variable"),
+            VariableType::Json
+        );
+    }
+
+    #[test]
+    fn test_parse_variable_type_date() {
+        assert_eq!(parse_variable_type("date:%Y-%m-%d"), VariableType::Date);
+    }
+
+    #[test]
+    fn test_parse_variable_type_uuid() {
+        assert_eq!(parse_variable_type("uuid"), VariableType::Uuid);
+    }
+
+    #[test]
+    fn test_parse_variable_type_standard() {
+        assert_eq!(parse_variable_type("some.variable"), VariableType::Standard);
+        assert_eq!(parse_variable_type("simple"), VariableType::Standard);
+    }
 
     #[tokio::test]
     async fn test_basic_interpolation() {
