@@ -2,6 +2,14 @@
 //!
 //! This module contains all the core data structures used by the workflow executor,
 //! including step definitions, configuration types, and helper functions.
+//!
+//! ## Key Types
+//!
+//! - [`WorkflowStep`]: Configuration for individual workflow steps
+//! - [`ExtendedWorkflowConfig`]: Top-level workflow configuration
+//! - [`WorkflowMode`]: Execution mode (Sequential or MapReduce)
+//! - [`SensitivePatternConfig`]: Configuration for masking sensitive data
+//! - [`HandlerStep`]: Modular command handler configuration
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};

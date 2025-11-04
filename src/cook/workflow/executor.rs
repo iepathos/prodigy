@@ -2,6 +2,23 @@
 //!
 //! Executes workflow steps in sequence, verifies git commits when required,
 //! and manages iteration logic for continuous improvement sessions.
+//!
+//! ## Module Organization
+//!
+//! The executor is organized into focused submodules:
+//!
+//! - [`data_structures`]: Core data types (WorkflowStep, ExtendedWorkflowConfig, etc.)
+//! - [`pure`]: Pure functions for validation, formatting, and computation
+//! - [`context`]: Workflow context and variable management
+//! - [`validation`]: Validation logic and conditional execution
+//! - [`commands`]: Command execution (shell, claude, test, etc.)
+//! - [`step_executor`]: Step-level execution orchestration
+//! - [`orchestration`]: High-level workflow orchestration
+//! - [`builder`]: Workflow executor builder pattern
+//! - [`types`]: Type definitions and utilities
+//! - [`failure_handler`]: Failure handling and recovery
+//!
+//! This organization separates concerns and makes the codebase easier to maintain and test.
 
 #[path = "executor/builder.rs"]
 mod builder;
