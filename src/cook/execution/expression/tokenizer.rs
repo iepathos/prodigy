@@ -2,6 +2,20 @@
 //!
 //! This module converts expression strings into sequences of tokens.
 //! The tokenizer is designed to be a pure function with no side effects.
+//!
+//! ## Architecture
+//!
+//! The tokenizer uses a delegation pattern with specialized helper functions:
+//!
+//! - **`tokenize()`**: Main coordinator that iterates through characters
+//! - **`parse_operator()`**: Handles operator tokens with lookahead (==, !=, >=, <=, &&, ||)
+//! - **`parse_string()`**: Parses quoted string literals
+//! - **`parse_number()`**: Parses numeric literals (integers, floats, negative numbers)
+//! - **`parse_identifier()`**: Collects identifier characters (including field paths and array accessors)
+//! - **`parse_keyword_or_identifier()`**: Distinguishes keywords from identifiers
+//!
+//! This design keeps each function focused on a single responsibility, making the code
+//! easier to test, understand, and maintain.
 
 use anyhow::{anyhow, Result};
 use std::iter::Peekable;
