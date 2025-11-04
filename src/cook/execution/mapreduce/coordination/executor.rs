@@ -823,6 +823,46 @@ impl MapReduceCoordinator {
         Ok(results)
     }
 
+    /// Build variables for item interpolation
+    ///
+    /// Extracts fields from a JSON item and creates a HashMap of variables
+    /// for template interpolation. Handles different JSON value types and
+    /// provides both flattened field access (item.field) and full JSON (item_json).
+    ///
+    /// # Arguments
+    /// * `item` - The JSON item to extract variables from
+    /// * `item_id` - The ID of the item being processed
+    ///
+    /// # Returns
+    /// HashMap of variable names to string values for interpolation
+    fn build_item_variables(item: &Value, item_id: &str) -> HashMap<String, String> {
+        let mut variables = HashMap::new();
+
+        // Store the item fields as flattened variables for interpolation
+        if let Value::Object(map) = item {
+            for (key, value) in map {
+                let var_key = format!("item.{}", key);
+                let var_value = match value {
+                    Value::String(s) => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    Value::Bool(b) => b.to_string(),
+                    Value::Null => "null".to_string(),
+                    _ => value.to_string(),
+                };
+                variables.insert(var_key, var_value);
+            }
+        }
+
+        // Also store the entire item as JSON for complex cases
+        variables.insert(
+            "item_json".to_string(),
+            serde_json::to_string(item).unwrap_or_default(),
+        );
+        variables.insert("item_id".to_string(), item_id.to_string());
+
+        variables
+    }
+
     /// Execute a single agent for a work item
     #[allow(clippy::too_many_arguments)]
     async fn execute_agent_for_item(
@@ -907,29 +947,7 @@ impl MapReduceCoordinator {
                 let cmd_start = Instant::now();
 
                 // Create variables for interpolation
-                let mut variables = HashMap::new();
-
-                // Store the item fields as flattened variables for interpolation
-                if let serde_json::Value::Object(map) = &item {
-                    for (key, value) in map {
-                        let var_key = format!("item.{}", key);
-                        let var_value = match value {
-                            serde_json::Value::String(s) => s.clone(),
-                            serde_json::Value::Number(n) => n.to_string(),
-                            serde_json::Value::Bool(b) => b.to_string(),
-                            serde_json::Value::Null => "null".to_string(),
-                            _ => value.to_string(),
-                        };
-                        variables.insert(var_key, var_value);
-                    }
-                }
-
-                // Also store the entire item as JSON for complex cases
-                variables.insert(
-                    "item_json".to_string(),
-                    serde_json::to_string(&item).unwrap_or_default(),
-                );
-                variables.insert("item_id".to_string(), item_id.to_string());
+                let variables = Self::build_item_variables(&item, item_id);
 
                 // Execute the step in the agent's worktree
                 let step_result = Self::execute_step_in_agent_worktree(
@@ -1672,5 +1690,74 @@ impl SessionManager for DummySessionManager {
 
     async fn get_last_interrupted(&self) -> anyhow::Result<Option<String>> {
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_build_item_variables_with_simple_types() {
+        let item = json!({
+            "name": "test-item",
+            "count": 42,
+            "enabled": true,
+            "optional": null
+        });
+
+        let variables = MapReduceCoordinator::build_item_variables(&item, "item-123");
+
+        assert_eq!(variables.get("item.name"), Some(&"test-item".to_string()));
+        assert_eq!(variables.get("item.count"), Some(&"42".to_string()));
+        assert_eq!(variables.get("item.enabled"), Some(&"true".to_string()));
+        assert_eq!(variables.get("item.optional"), Some(&"null".to_string()));
+        assert_eq!(variables.get("item_id"), Some(&"item-123".to_string()));
+        assert!(variables.contains_key("item_json"));
+    }
+
+    #[test]
+    fn test_build_item_variables_with_nested_objects() {
+        let item = json!({
+            "name": "test",
+            "metadata": {
+                "key": "value"
+            }
+        });
+
+        let variables = MapReduceCoordinator::build_item_variables(&item, "item-456");
+
+        assert_eq!(variables.get("item.name"), Some(&"test".to_string()));
+        // Nested objects should be serialized to JSON
+        assert!(variables.get("item.metadata").unwrap().contains("key"));
+        assert_eq!(variables.get("item_id"), Some(&"item-456".to_string()));
+    }
+
+    #[test]
+    fn test_build_item_variables_with_empty_object() {
+        let item = json!({});
+
+        let variables = MapReduceCoordinator::build_item_variables(&item, "item-789");
+
+        // Should still have item_json and item_id
+        assert_eq!(variables.get("item_id"), Some(&"item-789".to_string()));
+        assert_eq!(variables.get("item_json"), Some(&"{}".to_string()));
+        assert_eq!(variables.len(), 2); // Only item_id and item_json
+    }
+
+    #[test]
+    fn test_build_item_variables_with_non_object() {
+        let item = json!("just a string");
+
+        let variables = MapReduceCoordinator::build_item_variables(&item, "item-999");
+
+        // Should still have item_json and item_id
+        assert_eq!(variables.get("item_id"), Some(&"item-999".to_string()));
+        assert_eq!(
+            variables.get("item_json"),
+            Some(&"\"just a string\"".to_string())
+        );
+        assert_eq!(variables.len(), 2); // Only item_id and item_json
     }
 }
