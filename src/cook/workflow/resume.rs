@@ -570,6 +570,107 @@ impl ResumeExecutor {
         }
     }
 
+    /// Process a recovery action and return the outcome
+    ///
+    /// Handles all recovery action types: Retry, Continue, SafeAbort, Fallback,
+    /// PartialResume, and RequestIntervention.
+    #[allow(clippy::too_many_arguments)]
+    async fn process_recovery_action(
+        &mut self,
+        recovery_action: RecoveryAction,
+        step: &WorkflowStep,
+        step_index: usize,
+        executor: &mut WorkflowExecutorImpl,
+        env: &ExecutionEnvironment,
+        workflow_context: &mut WorkflowContext,
+        progress_tracker: &mut SequentialProgressTracker,
+        workflow_id: &str,
+    ) -> Result<RecoveryOutcome> {
+        match recovery_action {
+            RecoveryAction::Retry { delay, .. } => {
+                warn!("Retrying step {} after {:?}", step_index + 1, delay);
+                tokio::time::sleep(delay).await;
+                Ok(RecoveryOutcome::Retry(Box::new(step.clone())))
+            }
+            RecoveryAction::Continue => {
+                warn!("Continuing despite error in step {}", step_index + 1);
+                Ok(RecoveryOutcome::Continue)
+            }
+            RecoveryAction::SafeAbort { cleanup_actions } => {
+                error!("Aborting workflow due to unrecoverable error");
+
+                // Execute cleanup actions if any
+                if !cleanup_actions.is_empty() {
+                    info!(
+                        "Executing {} cleanup actions before abort",
+                        cleanup_actions.len()
+                    );
+                    for action in cleanup_actions {
+                        let cleanup_step = build_cleanup_step(&action);
+                        let _ = executor
+                            .execute_step(&cleanup_step, env, workflow_context)
+                            .await;
+                    }
+                }
+
+                Ok(RecoveryOutcome::Abort(anyhow!("Workflow aborted due to unrecoverable error")))
+            }
+            RecoveryAction::Fallback { alternative_path } => {
+                warn!("Attempting fallback path: {}", alternative_path);
+                // Load alternative workflow configuration from file
+                let alt_path = std::path::Path::new(&alternative_path);
+                let content = tokio::fs::read_to_string(&alt_path)
+                    .await
+                    .map_err(|err| anyhow!("Failed to read fallback workflow file: {}", err))?;
+
+                let alt_config: WorkflowConfig = serde_yaml::from_str(&content)
+                    .map_err(|err| anyhow!("Failed to parse fallback workflow: {}", err))?;
+
+                // Convert to normalized workflow
+                let _alt_workflow = NormalizedWorkflow::from_workflow_config(
+                    &alt_config,
+                    crate::cook::workflow::normalized::ExecutionMode::Sequential,
+                )?;
+
+                // Execute the fallback workflow from the current step
+                info!("Executing fallback workflow from step {}", step_index);
+                // Note: This would need more implementation to properly merge contexts
+                // For now, we'll just continue with the current workflow
+                warn!("Fallback workflow execution not fully implemented, continuing with current workflow");
+                Ok(RecoveryOutcome::Continue)
+            }
+            RecoveryAction::PartialResume { from_step } => {
+                warn!("Performing partial resume from step {}", from_step);
+                // Jump to the specified step
+                if from_step < step_index {
+                    // We've already passed this step, continue normally
+                    Ok(RecoveryOutcome::Continue)
+                } else if from_step > step_index {
+                    // Skip ahead to the specified step
+                    for i in step_index..from_step {
+                        progress_tracker
+                            .skip_step(i, "Skipping to recovery point".to_string())
+                            .await;
+                    }
+                    Ok(RecoveryOutcome::Continue)
+                } else {
+                    // If from_step == step_index, just continue normally
+                    Ok(RecoveryOutcome::Continue)
+                }
+            }
+            RecoveryAction::RequestIntervention { message } => {
+                error!("Manual intervention required: {}", message);
+
+                // Save checkpoint with intervention request
+                self.checkpoint_manager
+                    .save_intervention_request(workflow_id, &message)
+                    .await?;
+
+                Ok(RecoveryOutcome::RequiresIntervention(message))
+            }
+        }
+    }
+
     /// Execute error handler for a failed step
     ///
     /// Returns the outcome of error handler execution:
@@ -737,12 +838,23 @@ impl ResumeExecutor {
                         .handle_resume_error(&ResumeError::Other(anyhow!("{}", e)), checkpoint)
                         .await?;
 
-                    match recovery_action {
-                        RecoveryAction::Retry { delay, .. } => {
-                            warn!("Retrying step {} after {:?}", step_index + 1, delay);
-                            tokio::time::sleep(delay).await;
-                            // Retry the current step
-                            match executor.execute_step(step, env, workflow_context).await {
+                    // Process the recovery action
+                    match self
+                        .process_recovery_action(
+                            recovery_action,
+                            step,
+                            step_index,
+                            executor,
+                            env,
+                            workflow_context,
+                            progress_tracker,
+                            workflow_id,
+                        )
+                        .await?
+                    {
+                        RecoveryOutcome::Retry(retry_step) => {
+                            // Retry the step
+                            match executor.execute_step(&retry_step, env, workflow_context).await {
                                 Ok(_) => {
                                     info!("Retry succeeded for step {}", step_index + 1);
                                     steps_executed += 1;
@@ -758,86 +870,13 @@ impl ResumeExecutor {
                                 }
                             }
                         }
-                        RecoveryAction::Continue => {
-                            warn!("Continuing despite error in step {}", step_index + 1);
+                        RecoveryOutcome::Continue => {
                             continue;
                         }
-                        RecoveryAction::SafeAbort { cleanup_actions } => {
-                            error!("Aborting workflow due to unrecoverable error");
-
-                            // Execute cleanup actions if any
-                            if !cleanup_actions.is_empty() {
-                                info!(
-                                    "Executing {} cleanup actions before abort",
-                                    cleanup_actions.len()
-                                );
-                                for action in cleanup_actions {
-                                    // Create a WorkflowStep from the handler command
-                                    let cleanup_step = build_cleanup_step(&action);
-
-                                    // Execute the cleanup step
-                                    let _ = executor
-                                        .execute_step(&cleanup_step, env, workflow_context)
-                                        .await;
-                                }
-                            }
-
-                            return Err(e);
+                        RecoveryOutcome::Abort(abort_err) => {
+                            return Err(abort_err);
                         }
-                        RecoveryAction::Fallback { alternative_path } => {
-                            warn!("Attempting fallback path: {}", alternative_path);
-                            // Load alternative workflow configuration from file
-                            let alt_path = std::path::Path::new(&alternative_path);
-                            let content =
-                                tokio::fs::read_to_string(&alt_path).await.map_err(|err| {
-                                    anyhow!("Failed to read fallback workflow file: {}", err)
-                                })?;
-
-                            let alt_config: WorkflowConfig = serde_yaml::from_str(&content)
-                                .map_err(|err| {
-                                    anyhow!("Failed to parse fallback workflow: {}", err)
-                                })?;
-
-                            // Convert to normalized workflow
-                            let _alt_workflow = NormalizedWorkflow::from_workflow_config(
-                                &alt_config,
-                                crate::cook::workflow::normalized::ExecutionMode::Sequential,
-                            )?;
-
-                            // Execute the fallback workflow from the current step
-                            info!("Executing fallback workflow from step {}", step_index);
-                            // Note: This would need more implementation to properly merge contexts
-                            // For now, we'll just continue with the current workflow
-                            warn!("Fallback workflow execution not fully implemented, continuing with current workflow");
-                            continue;
-                        }
-                        RecoveryAction::PartialResume { from_step } => {
-                            warn!("Performing partial resume from step {}", from_step);
-                            // Jump to the specified step
-                            if from_step < step_index {
-                                // We've already passed this step, continue normally
-                                continue;
-                            } else if from_step > step_index {
-                                // Skip ahead to the specified step
-                                for i in step_index..from_step {
-                                    progress_tracker
-                                        .skip_step(i, "Skipping to recovery point".to_string())
-                                        .await;
-                                }
-                                continue;
-                            }
-                            // If from_step == step_index, just continue normally
-                            continue;
-                        }
-                        RecoveryAction::RequestIntervention { message } => {
-                            error!("Manual intervention required: {}", message);
-
-                            // Save checkpoint with intervention request
-                            self.checkpoint_manager
-                                .save_intervention_request(workflow_id, &message)
-                                .await?;
-
-                            // Return error with intervention message
+                        RecoveryOutcome::RequiresIntervention(message) => {
                             return Err(anyhow!(
                                 "Workflow suspended for manual intervention: {}. Resume with 'prodigy resume {}' after resolving.",
                                 message,
@@ -1025,6 +1064,19 @@ enum ErrorHandlerOutcome {
     Failed,
     /// No handler was configured
     NoHandler,
+}
+
+/// Result of processing a recovery action
+#[derive(Debug)]
+enum RecoveryOutcome {
+    /// Retry the current step
+    Retry(Box<WorkflowStep>),
+    /// Continue to next step
+    Continue,
+    /// Abort workflow with error
+    Abort(anyhow::Error),
+    /// Requires manual intervention
+    RequiresIntervention(String),
 }
 
 /// Helper function to get a display name for a workflow step
