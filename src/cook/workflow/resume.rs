@@ -469,6 +469,64 @@ impl ResumeExecutor {
         }
     }
 
+    /// Create progress tracker for resume
+    fn create_progress_tracker(
+        checkpoint: &WorkflowCheckpoint,
+        workflow_id: &str,
+    ) -> SequentialProgressTracker {
+        let total_steps = checkpoint.total_steps;
+        let skipped_steps = checkpoint.completed_steps.len();
+        let current_iteration = checkpoint.execution_state.current_iteration.unwrap_or(1);
+        let max_iterations = checkpoint.execution_state.total_iterations.unwrap_or(1);
+
+        SequentialProgressTracker::for_resume(
+            workflow_id.to_string(),
+            checkpoint
+                .workflow_name
+                .clone()
+                .unwrap_or_else(|| workflow_id.to_string()),
+            total_steps,
+            max_iterations,
+            skipped_steps,
+            current_iteration,
+        )
+    }
+
+    /// Initialize progress display with initial phase
+    async fn initialize_progress_display(
+        progress_tracker: &mut SequentialProgressTracker,
+        progress_display: &mut ProgressDisplay,
+        workflow_id: &str,
+    ) {
+        progress_tracker
+            .update_phase(ExecutionPhase::LoadingCheckpoint)
+            .await;
+        progress_display.force_update(&format!("Loading checkpoint for workflow {}", workflow_id));
+    }
+
+    /// Build execution environment for workflow
+    fn build_execution_environment(
+        workflow_path: &PathBuf,
+        workflow_id: &str,
+    ) -> ExecutionEnvironment {
+        ExecutionEnvironment {
+            working_dir: Arc::new(
+                workflow_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."))
+                    .to_path_buf(),
+            ),
+            project_dir: Arc::new(
+                workflow_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."))
+                    .to_path_buf(),
+            ),
+            worktree_name: None,
+            session_id: Arc::from(format!("resume-{}", workflow_id)),
+        }
+    }
+
     /// Execute workflow from checkpoint with full execution support
     pub async fn execute_from_checkpoint(
         &mut self,
@@ -521,32 +579,10 @@ impl ResumeExecutor {
             });
         }
 
-        // Create progress tracker for resume
-        let total_steps = checkpoint.total_steps;
-        let skipped_steps = checkpoint.completed_steps.len();
-        let current_iteration = checkpoint.execution_state.current_iteration.unwrap_or(1);
-        let max_iterations = checkpoint.execution_state.total_iterations.unwrap_or(1);
-
-        let mut progress_tracker = SequentialProgressTracker::for_resume(
-            workflow_id.to_string(),
-            checkpoint
-                .workflow_name
-                .clone()
-                .unwrap_or_else(|| workflow_id.to_string()),
-            total_steps,
-            max_iterations,
-            skipped_steps,
-            current_iteration,
-        );
-
-        // Create progress display
+        // Create progress tracker and display
+        let mut progress_tracker = Self::create_progress_tracker(&checkpoint, workflow_id);
         let mut progress_display = ProgressDisplay::new();
-
-        // Set initial phase
-        progress_tracker
-            .update_phase(ExecutionPhase::LoadingCheckpoint)
-            .await;
-        progress_display.force_update(&format!("Loading checkpoint for workflow {}", workflow_id));
+        Self::initialize_progress_display(&mut progress_tracker, &mut progress_display, workflow_id).await;
 
         // Load the workflow file
         progress_tracker
@@ -557,24 +593,7 @@ impl ResumeExecutor {
         let workflow_config = Self::load_workflow_file(workflow_path).await?;
         let steps = Self::convert_commands_to_steps(workflow_config.commands);
         let extended_workflow = Self::build_extended_workflow(&checkpoint, steps);
-
-        // Create execution environment
-        let env = ExecutionEnvironment {
-            working_dir: Arc::new(
-                workflow_path
-                    .parent()
-                    .unwrap_or_else(|| std::path::Path::new("."))
-                    .to_path_buf(),
-            ),
-            project_dir: Arc::new(
-                workflow_path
-                    .parent()
-                    .unwrap_or_else(|| std::path::Path::new("."))
-                    .to_path_buf(),
-            ),
-            worktree_name: None,
-            session_id: Arc::from(format!("resume-{}", workflow_id)),
-        };
+        let env = Self::build_execution_environment(workflow_path, workflow_id);
 
         // Restore workflow context
         let mut workflow_context = self.restore_workflow_context(&checkpoint)?;
@@ -591,6 +610,8 @@ impl ResumeExecutor {
         // Execute remaining steps
         let start_from = checkpoint.execution_state.current_step_index;
         let total_steps = extended_workflow.steps.len();
+        let skipped_steps = checkpoint.completed_steps.len();
+        let current_iteration = checkpoint.execution_state.current_iteration.unwrap_or(1);
         let mut steps_executed = 0;
 
         info!(
