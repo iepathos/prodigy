@@ -902,7 +902,9 @@ impl MapReduceCoordinator {
         agent_id: &str,
     ) -> MapReduceResult<()> {
         if let Some(enforcer) = enforcer {
-            let _ = enforcer.unregister_agent_timeout(&agent_id.to_string()).await;
+            let _ = enforcer
+                .unregister_agent_timeout(&agent_id.to_string())
+                .await;
         }
         Ok(())
     }
