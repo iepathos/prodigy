@@ -5,6 +5,7 @@
 use crate::cli::args::WorktreeCommands;
 use anyhow::Result;
 
+use super::age_cleanup::cleanup_old_worktrees;
 use super::mapreduce_cleanup::run_mapreduce_cleanup;
 use super::operations::{
     list_sessions_operation, merge_all_sessions_operation, merge_session_operation,
@@ -202,43 +203,5 @@ async fn run_worktree_clean(
     Ok(())
 }
 
-/// Clean up old worktrees
-async fn cleanup_old_worktrees(
-    manager: &crate::worktree::manager::WorktreeManager,
-    max_age: std::time::Duration,
-    force: bool,
-    dry_run: bool,
-) -> Result<()> {
-    let sessions = manager.list_sessions().await?;
-    let now = chrono::Utc::now();
-    let mut cleaned = 0;
-
-    for session in sessions {
-        let age = now.signed_duration_since(session.created_at);
-        if age.num_seconds() as u64 > max_age.as_secs() {
-            if dry_run {
-                println!(
-                    "DRY RUN: Would remove worktree '{}' (age: {} hours)",
-                    session.name,
-                    age.num_hours()
-                );
-            } else {
-                println!(
-                    "Removing old worktree '{}' (age: {} hours)",
-                    session.name,
-                    age.num_hours()
-                );
-                manager.cleanup_session(&session.name, force).await?;
-                cleaned += 1;
-            }
-        }
-    }
-
-    if !dry_run {
-        println!("Cleaned {} old worktrees", cleaned);
-    }
-
-    Ok(())
-}
 
 

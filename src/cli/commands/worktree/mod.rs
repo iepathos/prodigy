@@ -138,6 +138,7 @@
 //!
 //! 5. Add integration test
 
+mod age_cleanup;
 mod cli;
 mod mapreduce_cleanup;
 mod operations;
