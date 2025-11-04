@@ -510,6 +510,33 @@ impl WorkflowExecutor {
         }
     }
 
+    /// Execute auto-commit with error handling
+    ///
+    /// Attempts to create an auto-commit and handles failures appropriately.
+    /// Returns Ok(true) if commit was created successfully.
+    async fn execute_auto_commit(
+        &mut self,
+        commit_handler: &commit_handler::CommitHandler,
+        working_dir: &std::path::Path,
+        message: &str,
+        step_display: &str,
+        step: &WorkflowStep,
+    ) -> Result<bool> {
+        match commit_handler
+            .create_auto_commit(working_dir, message, step_display)
+            .await
+        {
+            Ok(_) => Ok(true),
+            Err(e) => {
+                tracing::warn!("Failed to create auto-commit: {}", e);
+                if step.commit_required {
+                    self.handle_no_commits_error(step)?;
+                }
+                Ok(false)
+            }
+        }
+    }
+
     /// Handle commit squashing if enabled in workflow (delegated to commit_handler module)
     async fn handle_commit_squashing(
         &mut self,
