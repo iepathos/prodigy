@@ -823,6 +823,340 @@ impl MapReduceCoordinator {
         Ok(results)
     }
 
+    /// Register agent timeout with the enforcer
+    ///
+    /// Attempts to register a timeout for the agent with the enforcer.
+    /// Returns None if enforcer is not available or registration fails.
+    ///
+    /// # Arguments
+    /// * `enforcer` - Optional timeout enforcer
+    /// * `agent_id` - ID of the agent to register
+    /// * `item_id` - ID of the work item being processed
+    /// * `commands` - Commands that will be executed by the agent
+    ///
+    /// # Returns
+    /// Optional timeout handle if registration succeeds
+    async fn register_agent_timeout(
+        enforcer: Option<&Arc<TimeoutEnforcer>>,
+        agent_id: &str,
+        item_id: &str,
+        commands: &[WorkflowStep],
+    ) -> Option<crate::cook::execution::mapreduce::timeout::TimeoutHandle> {
+        if let Some(enforcer) = enforcer {
+            match enforcer
+                .register_agent_timeout(agent_id.to_string(), item_id.to_string(), commands)
+                .await
+            {
+                Ok(handle) => Some(handle),
+                Err(e) => {
+                    warn!("Failed to register timeout for agent {}: {}", agent_id, e);
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Register command lifecycle events with the enforcer
+    ///
+    /// Notifies the timeout enforcer of command start or completion.
+    /// Logs warnings if notification fails but doesn't propagate errors.
+    ///
+    /// # Arguments
+    /// * `enforcer` - Optional timeout enforcer
+    /// * `agent_id` - ID of the agent executing the command
+    /// * `index` - Index of the command in the workflow
+    /// * `elapsed` - Optional elapsed time (for completion events)
+    async fn register_command_lifecycle(
+        enforcer: Option<&Arc<TimeoutEnforcer>>,
+        agent_id: &str,
+        index: usize,
+        elapsed: Option<Duration>,
+    ) -> MapReduceResult<()> {
+        if let Some(enforcer) = enforcer {
+            if let Some(duration) = elapsed {
+                // Command completion
+                let _ = enforcer
+                    .register_command_completion(&agent_id.to_string(), index, duration)
+                    .await;
+            } else {
+                // Command start
+                let _ = enforcer
+                    .register_command_start(&agent_id.to_string(), index)
+                    .await;
+            }
+        }
+        Ok(())
+    }
+
+    /// Unregister agent timeout with the enforcer
+    ///
+    /// Removes the timeout registration for a completed agent.
+    ///
+    /// # Arguments
+    /// * `enforcer` - Optional timeout enforcer
+    /// * `agent_id` - ID of the agent to unregister
+    async fn unregister_agent_timeout(
+        enforcer: Option<&Arc<TimeoutEnforcer>>,
+        agent_id: &str,
+    ) -> MapReduceResult<()> {
+        if let Some(enforcer) = enforcer {
+            let _ = enforcer
+                .unregister_agent_timeout(&agent_id.to_string())
+                .await;
+        }
+        Ok(())
+    }
+
+    /// Merge agent changes and cleanup worktree
+    ///
+    /// Handles merging agent changes back to parent worktree and cleaning up
+    /// the agent's worktree. Returns whether merge was successful.
+    ///
+    /// # Arguments
+    /// * `agent_manager` - Agent lifecycle manager
+    /// * `merge_queue` - Merge queue for serialized merges
+    /// * `handle` - Agent handle with worktree information
+    /// * `config` - Agent configuration
+    /// * `agent_result` - Result from agent execution
+    /// * `env` - Execution environment
+    /// * `agent_id` - ID of the agent
+    /// * `item_id` - ID of the work item
+    ///
+    /// # Returns
+    /// True if merge was successful, false otherwise
+    #[allow(clippy::too_many_arguments)]
+    async fn merge_and_cleanup_agent(
+        agent_manager: &Arc<dyn AgentLifecycleManager>,
+        merge_queue: &Arc<MergeQueue>,
+        handle: crate::cook::execution::mapreduce::agent::AgentHandle,
+        config: &AgentConfig,
+        agent_result: &AgentResult,
+        env: &ExecutionEnvironment,
+        agent_id: &str,
+        item_id: &str,
+    ) -> MapReduceResult<bool> {
+        if !agent_result.commits.is_empty() {
+            // Create branch for the agent
+            agent_manager
+                .create_agent_branch(handle.worktree_path(), &config.branch_name)
+                .await
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!("Failed to create agent branch: {}", e))
+                })?;
+
+            // Submit merge to queue (serialized processing)
+            match merge_queue
+                .submit_merge(
+                    agent_id.to_string(),
+                    config.branch_name.clone(),
+                    item_id.to_string(),
+                    env.clone(),
+                )
+                .await
+            {
+                Ok(()) => {
+                    info!("Successfully merged agent {} (item {})", agent_id, item_id);
+                    // Cleanup the worktree after successful merge
+                    // Note: Cleanup failures are non-critical since the work was successfully merged
+                    if let Err(e) = agent_manager.cleanup_agent(handle).await {
+                        warn!(
+                            "Failed to cleanup agent {} after successful merge: {}. \
+                             Work was successfully merged, worktree may need manual cleanup.",
+                            agent_id, e
+                        );
+                    }
+                    Ok(true)
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to merge agent {} (item {}): {}",
+                        agent_id, item_id, e
+                    );
+                    // Still cleanup the worktree even if merge failed
+                    let _ = agent_manager.cleanup_agent(handle).await;
+                    Ok(false)
+                }
+            }
+        } else {
+            // No commits, just cleanup the worktree
+            // Note: Cleanup failures are non-critical, log but don't fail the agent
+            if let Err(e) = agent_manager.cleanup_agent(handle).await {
+                warn!(
+                    "Failed to cleanup agent {} (no commits made): {}. \
+                     Worktree may need manual cleanup.",
+                    agent_id, e
+                );
+            }
+            Ok(false)
+        }
+    }
+
+    /// Execute agent commands in the worktree
+    ///
+    /// Executes all commands for an agent, handling failures and collecting results.
+    ///
+    /// # Arguments
+    /// * `handle` - Agent handle with worktree information
+    /// * `commands` - Commands to execute
+    /// * `item` - Work item data
+    /// * `item_id` - ID of the work item
+    /// * `agent_id` - ID of the agent
+    /// * `env` - Execution environment
+    /// * `claude_executor` - Claude command executor
+    /// * `subprocess` - Subprocess manager
+    /// * `timeout_enforcer` - Optional timeout enforcer
+    /// * `user_interaction` - User interaction handler
+    ///
+    /// # Returns
+    /// Tuple of (output, commits, files_modified)
+    #[allow(clippy::too_many_arguments)]
+    async fn execute_agent_commands(
+        handle: &crate::cook::execution::mapreduce::agent::AgentHandle,
+        commands: &[WorkflowStep],
+        item: &Value,
+        item_id: &str,
+        agent_id: &str,
+        env: &ExecutionEnvironment,
+        claude_executor: &Arc<dyn ClaudeExecutor>,
+        subprocess: &Arc<SubprocessManager>,
+        timeout_enforcer: Option<&Arc<TimeoutEnforcer>>,
+        user_interaction: &Arc<dyn UserInteraction>,
+    ) -> MapReduceResult<(String, Vec<String>, Vec<String>)> {
+        let mut output = String::new();
+        let mut all_commits = Vec::new();
+        let mut all_files_modified = Vec::new();
+
+        for (index, step) in commands.iter().enumerate() {
+            user_interaction.display_progress(&format!(
+                "Agent {}: Executing step {}/{}",
+                agent_id,
+                index + 1,
+                commands.len()
+            ));
+
+            // Notify timeout enforcer of command start
+            Self::register_command_lifecycle(timeout_enforcer, agent_id, index, None).await?;
+
+            let cmd_start = Instant::now();
+
+            // Create variables for interpolation
+            let variables = Self::build_item_variables(item, item_id);
+
+            // Execute the step in the agent's worktree
+            let step_result = Self::execute_step_in_agent_worktree(
+                handle.worktree_path(),
+                step,
+                &variables,
+                None, // Map phase doesn't need full context
+                env,
+                claude_executor,
+                subprocess,
+            )
+            .await?;
+
+            // Notify timeout enforcer of command completion
+            Self::register_command_lifecycle(
+                timeout_enforcer,
+                agent_id,
+                index,
+                Some(cmd_start.elapsed()),
+            )
+            .await?;
+
+            if !step_result.success {
+                // Handle on_failure if configured
+                if let Some(on_failure) = &step.on_failure {
+                    user_interaction.display_warning(&format!(
+                        "Agent {}: Step {} failed, executing on_failure handler",
+                        agent_id,
+                        index + 1
+                    ));
+
+                    // Execute on_failure handler
+                    let handler_result = Self::handle_on_failure(
+                        on_failure,
+                        handle.worktree_path(),
+                        &variables,
+                        env,
+                        claude_executor,
+                        subprocess,
+                        user_interaction,
+                    )
+                    .await?;
+
+                    if !handler_result {
+                        return Err(MapReduceError::ProcessingError(format!(
+                            "Agent {} step {} failed and on_failure handler failed",
+                            agent_id,
+                            index + 1
+                        )));
+                    }
+                }
+            }
+
+            // Capture output
+            if !step_result.stdout.is_empty() {
+                output.push_str(&step_result.stdout);
+                output.push('\n');
+            }
+
+            // Track commits if required
+            if step.commit_required {
+                // Get actual commits from git in the worktree
+                let commits = Self::get_worktree_commits(handle.worktree_path()).await;
+                all_commits.extend(commits);
+
+                // Get files modified
+                let files = Self::get_worktree_modified_files(handle.worktree_path()).await;
+                all_files_modified.extend(files);
+            }
+        }
+
+        Ok((output, all_commits, all_files_modified))
+    }
+
+    /// Build variables for item interpolation
+    ///
+    /// Extracts fields from a JSON item and creates a HashMap of variables
+    /// for template interpolation. Handles different JSON value types and
+    /// provides both flattened field access (item.field) and full JSON (item_json).
+    ///
+    /// # Arguments
+    /// * `item` - The JSON item to extract variables from
+    /// * `item_id` - The ID of the item being processed
+    ///
+    /// # Returns
+    /// HashMap of variable names to string values for interpolation
+    fn build_item_variables(item: &Value, item_id: &str) -> HashMap<String, String> {
+        let mut variables = HashMap::new();
+
+        // Store the item fields as flattened variables for interpolation
+        if let Value::Object(map) = item {
+            for (key, value) in map {
+                let var_key = format!("item.{}", key);
+                let var_value = match value {
+                    Value::String(s) => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    Value::Bool(b) => b.to_string(),
+                    Value::Null => "null".to_string(),
+                    _ => value.to_string(),
+                };
+                variables.insert(var_key, var_value);
+            }
+        }
+
+        // Also store the entire item as JSON for complex cases
+        variables.insert(
+            "item_json".to_string(),
+            serde_json::to_string(item).unwrap_or_default(),
+        );
+        variables.insert("item_id".to_string(), item_id.to_string());
+
+        variables
+    }
+
     /// Execute a single agent for a work item
     #[allow(clippy::too_many_arguments)]
     async fn execute_agent_for_item(
@@ -865,143 +1199,27 @@ impl MapReduceCoordinator {
             })?;
 
         // Register timeout if enforcer is available
-        let _timeout_handle = if let Some(enforcer) = timeout_enforcer {
-            match enforcer
-                .register_agent_timeout(agent_id.to_string(), item_id.to_string(), &commands)
-                .await
-            {
-                Ok(handle) => Some(handle),
-                Err(e) => {
-                    warn!("Failed to register timeout for agent {}: {}", agent_id, e);
-                    None
-                }
-            }
-        } else {
-            None
-        };
+        let _timeout_handle =
+            Self::register_agent_timeout(timeout_enforcer, agent_id, item_id, &commands).await;
 
         // Execute commands with timeout monitoring
         let agent_result = {
             let start_time = Instant::now();
 
-            // Execute commands in the agent's worktree
-            let mut output = String::new();
-            let mut all_commits = Vec::new();
-            let mut all_files_modified = Vec::new();
-
-            for (index, step) in commands.iter().enumerate() {
-                user_interaction.display_progress(&format!(
-                    "Agent {}: Executing step {}/{}",
-                    agent_id,
-                    index + 1,
-                    commands.len()
-                ));
-
-                // Notify timeout enforcer of command start
-                if let Some(enforcer) = timeout_enforcer {
-                    let _ = enforcer
-                        .register_command_start(&agent_id.to_string(), index)
-                        .await;
-                }
-
-                let cmd_start = Instant::now();
-
-                // Create variables for interpolation
-                let mut variables = HashMap::new();
-
-                // Store the item fields as flattened variables for interpolation
-                if let serde_json::Value::Object(map) = &item {
-                    for (key, value) in map {
-                        let var_key = format!("item.{}", key);
-                        let var_value = match value {
-                            serde_json::Value::String(s) => s.clone(),
-                            serde_json::Value::Number(n) => n.to_string(),
-                            serde_json::Value::Bool(b) => b.to_string(),
-                            serde_json::Value::Null => "null".to_string(),
-                            _ => value.to_string(),
-                        };
-                        variables.insert(var_key, var_value);
-                    }
-                }
-
-                // Also store the entire item as JSON for complex cases
-                variables.insert(
-                    "item_json".to_string(),
-                    serde_json::to_string(&item).unwrap_or_default(),
-                );
-                variables.insert("item_id".to_string(), item_id.to_string());
-
-                // Execute the step in the agent's worktree
-                let step_result = Self::execute_step_in_agent_worktree(
-                    handle.worktree_path(),
-                    step,
-                    &variables,
-                    None, // Map phase doesn't need full context
-                    env,
-                    claude_executor,
-                    subprocess,
-                )
-                .await?;
-
-                // Notify timeout enforcer of command completion
-                if let Some(enforcer) = timeout_enforcer {
-                    let _ = enforcer
-                        .register_command_completion(
-                            &agent_id.to_string(),
-                            index,
-                            cmd_start.elapsed(),
-                        )
-                        .await;
-                }
-
-                if !step_result.success {
-                    // Handle on_failure if configured
-                    if let Some(on_failure) = &step.on_failure {
-                        user_interaction.display_warning(&format!(
-                            "Agent {}: Step {} failed, executing on_failure handler",
-                            agent_id,
-                            index + 1
-                        ));
-
-                        // Execute on_failure handler
-                        let handler_result = Self::handle_on_failure(
-                            on_failure,
-                            handle.worktree_path(),
-                            &variables,
-                            env,
-                            claude_executor,
-                            subprocess,
-                            user_interaction,
-                        )
-                        .await?;
-
-                        if !handler_result {
-                            return Err(MapReduceError::ProcessingError(format!(
-                                "Agent {} step {} failed and on_failure handler failed",
-                                agent_id,
-                                index + 1
-                            )));
-                        }
-                    }
-                }
-
-                // Capture output
-                if !step_result.stdout.is_empty() {
-                    output.push_str(&step_result.stdout);
-                    output.push('\n');
-                }
-
-                // Track commits if required
-                if step.commit_required {
-                    // Get actual commits from git in the worktree
-                    let commits = Self::get_worktree_commits(handle.worktree_path()).await;
-                    all_commits.extend(commits);
-
-                    // Get files modified
-                    let files = Self::get_worktree_modified_files(handle.worktree_path()).await;
-                    all_files_modified.extend(files);
-                }
-            }
+            // Execute all commands
+            let (output, all_commits, all_files_modified) = Self::execute_agent_commands(
+                &handle,
+                &commands,
+                &item,
+                item_id,
+                agent_id,
+                env,
+                claude_executor,
+                subprocess,
+                timeout_enforcer,
+                user_interaction,
+            )
+            .await?;
 
             // Calculate total duration
             let total_duration = start_time.elapsed();
@@ -1024,67 +1242,20 @@ impl MapReduceCoordinator {
         };
 
         // Unregister timeout (agent completed)
-        if let Some(enforcer) = timeout_enforcer {
-            let _ = enforcer
-                .unregister_agent_timeout(&agent_id.to_string())
-                .await;
-        }
+        Self::unregister_agent_timeout(timeout_enforcer, agent_id).await?;
 
         // Merge and cleanup agent if successful
-        let merge_successful = if !agent_result.commits.is_empty() {
-            // Create branch for the agent
-            agent_manager
-                .create_agent_branch(handle.worktree_path(), &config.branch_name)
-                .await
-                .map_err(|e| {
-                    MapReduceError::ProcessingError(format!("Failed to create agent branch: {}", e))
-                })?;
-
-            // Submit merge to queue (serialized processing)
-            match merge_queue
-                .submit_merge(
-                    agent_id.to_string(),
-                    config.branch_name.clone(),
-                    item_id.to_string(),
-                    env.clone(),
-                )
-                .await
-            {
-                Ok(()) => {
-                    info!("Successfully merged agent {} (item {})", agent_id, item_id);
-                    // Cleanup the worktree after successful merge
-                    // Note: Cleanup failures are non-critical since the work was successfully merged
-                    if let Err(e) = agent_manager.cleanup_agent(handle).await {
-                        warn!(
-                            "Failed to cleanup agent {} after successful merge: {}. \
-                             Work was successfully merged, worktree may need manual cleanup.",
-                            agent_id, e
-                        );
-                    }
-                    true
-                }
-                Err(e) => {
-                    warn!(
-                        "Failed to merge agent {} (item {}): {}",
-                        agent_id, item_id, e
-                    );
-                    // Still cleanup the worktree even if merge failed
-                    let _ = agent_manager.cleanup_agent(handle).await;
-                    false
-                }
-            }
-        } else {
-            // No commits, just cleanup the worktree
-            // Note: Cleanup failures are non-critical, log but don't fail the agent
-            if let Err(e) = agent_manager.cleanup_agent(handle).await {
-                warn!(
-                    "Failed to cleanup agent {} (no commits made): {}. \
-                     Worktree may need manual cleanup.",
-                    agent_id, e
-                );
-            }
-            false
-        };
+        let merge_successful = Self::merge_and_cleanup_agent(
+            agent_manager,
+            merge_queue,
+            handle,
+            &config,
+            &agent_result,
+            env,
+            agent_id,
+            item_id,
+        )
+        .await?;
 
         // Update agent status based on merge outcome
         if !merge_successful && !agent_result.commits.is_empty() {
@@ -1672,5 +1843,74 @@ impl SessionManager for DummySessionManager {
 
     async fn get_last_interrupted(&self) -> anyhow::Result<Option<String>> {
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_build_item_variables_with_simple_types() {
+        let item = json!({
+            "name": "test-item",
+            "count": 42,
+            "enabled": true,
+            "optional": null
+        });
+
+        let variables = MapReduceCoordinator::build_item_variables(&item, "item-123");
+
+        assert_eq!(variables.get("item.name"), Some(&"test-item".to_string()));
+        assert_eq!(variables.get("item.count"), Some(&"42".to_string()));
+        assert_eq!(variables.get("item.enabled"), Some(&"true".to_string()));
+        assert_eq!(variables.get("item.optional"), Some(&"null".to_string()));
+        assert_eq!(variables.get("item_id"), Some(&"item-123".to_string()));
+        assert!(variables.contains_key("item_json"));
+    }
+
+    #[test]
+    fn test_build_item_variables_with_nested_objects() {
+        let item = json!({
+            "name": "test",
+            "metadata": {
+                "key": "value"
+            }
+        });
+
+        let variables = MapReduceCoordinator::build_item_variables(&item, "item-456");
+
+        assert_eq!(variables.get("item.name"), Some(&"test".to_string()));
+        // Nested objects should be serialized to JSON
+        assert!(variables.get("item.metadata").unwrap().contains("key"));
+        assert_eq!(variables.get("item_id"), Some(&"item-456".to_string()));
+    }
+
+    #[test]
+    fn test_build_item_variables_with_empty_object() {
+        let item = json!({});
+
+        let variables = MapReduceCoordinator::build_item_variables(&item, "item-789");
+
+        // Should still have item_json and item_id
+        assert_eq!(variables.get("item_id"), Some(&"item-789".to_string()));
+        assert_eq!(variables.get("item_json"), Some(&"{}".to_string()));
+        assert_eq!(variables.len(), 2); // Only item_id and item_json
+    }
+
+    #[test]
+    fn test_build_item_variables_with_non_object() {
+        let item = json!("just a string");
+
+        let variables = MapReduceCoordinator::build_item_variables(&item, "item-999");
+
+        // Should still have item_json and item_id
+        assert_eq!(variables.get("item_id"), Some(&"item-999".to_string()));
+        assert_eq!(
+            variables.get("item_json"),
+            Some(&"\"just a string\"".to_string())
+        );
+        assert_eq!(variables.len(), 2); // Only item_id and item_json
     }
 }
