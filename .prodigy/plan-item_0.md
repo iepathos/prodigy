@@ -1,232 +1,188 @@
-# Implementation Plan: Refactor Git Context Module
+# Implementation Plan: Refactor git_context.rs Test Suite into Focused Modules
 
 ## Problem Summary
 
 **Location**: ./src/cook/workflow/git_context.rs:file:0
-**Priority Score**: 223.88
-**Debt Type**: God Object (God Module)
+**Priority Score**: 205.20
+**Debt Type**: God Object (GodClass with 5 fields, 11 methods, 6 responsibilities)
 **Current Metrics**:
-- Lines of Code: 1695
-- Functions: 81 (64 private, 0 public functions; 15 impl methods)
-- Cyclomatic Complexity: 485 total, 5.99 average, 33 max
-- Coverage: 0% (test code itself)
-- Module Components: 16 (enums, structs, impl blocks)
-- God Object Score: 1.0 (maximum)
+- Lines of Code: 1383
+- Functions: 42 (11 public methods + 31 test functions)
+- Cyclomatic Complexity: 436 (max: 33)
+- Coverage: 0.0% (test file)
 
-**Issue**: This test-heavy module contains 1695 lines with 81 functions crammed into a single file. The code mixes:
-1. Pure utility functions (file status classification, list normalization)
-2. Git I/O operations (repository access, diff processing)
-3. Core domain logic (change tracking, step management)
-4. Test infrastructure (527 lines of test setup code)
+**Issue**: This file contains 1383 lines with mixed production code (481 lines) and test code (901 lines). While the production code is reasonably well-structured, the massive test suite makes the file difficult to navigate and maintain. The test code should be extracted into a focused test module, and complex variable resolution logic could be simplified.
 
-The debtmap analysis recommends splitting by data flow into 3 focused modules with <30 functions each.
+**Root Cause**: The file combines production implementation (GitChangeTracker with 6 responsibilities) with an extensive test suite testing 3 distinct phases of functionality, leading to poor navigability and maintenance overhead.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 97.0 points
-- Maintainability Improvement: 22.39 points
-- Test Effort: 169.5 lines
+- Complexity Reduction: 87.2 points
+- Maintainability Improvement: 20.5 points
+- Test Effort Reduction: 138.3 points
 
 **Success Criteria**:
-- [ ] Production code split into 3-4 focused modules (<400 lines each)
-- [ ] Test code separated into test-only module
-- [ ] Pure functions extracted and independently testable
-- [ ] Average function complexity reduced below 4.0
-- [ ] All 81 existing tests continue to pass
+- [ ] Test suite extracted to separate test module (tests/git_context_tests.rs or git_context/tests.rs)
+- [ ] Production code remains in git_context.rs (under 500 lines)
+- [ ] Variable resolution complexity reduced from cyclomatic complexity 33 to under 10
+- [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting with cargo fmt
+- [ ] Proper formatting maintained
 
 ## Implementation Phases
 
-### Phase 1: Extract Pure Utility Functions
+### Phase 1: Extract Test Helper Functions to Separate Module
 
-**Goal**: Extract all pure utility functions (file status classification, list operations) into a dedicated module
+**Goal**: Move the test helper function `init_test_repo` and test setup utilities to a dedicated test_helpers submodule to reduce duplication and clarify test structure.
 
 **Changes**:
-- Create `src/cook/workflow/git_utils.rs` module
-- Extract 11 pure functions:
-  - `classify_file_status`, `should_track_as_added`, `should_track_as_modified`, `should_track_as_deleted`
-  - `classify_delta_status`, `extract_file_path`
-  - `should_add_to_list`, `add_unique_file`
-  - `normalize_file_list`, `normalize_file_lists`
-  - Plus `FileChangeType` enum
-- Update `git_context.rs` to use re-exported functions
-- Move 31 related pure function tests to `git_utils.rs` tests
+- Create new file `src/cook/workflow/git_context/test_helpers.rs`
+- Move `init_test_repo()` function (lines 487-503) to test_helpers module
+- Add any other common test utilities (signature creation, file operations)
+- Update git_context.rs to import from test_helpers in #[cfg(test)]
 
 **Testing**:
-- Run `cargo test --lib git_utils` to verify extracted functions
-- Run `cargo test --lib git_context` to ensure no regressions
-- All 31 pure function tests should pass in new module
+- Run `cargo test --lib git_context` to verify all tests pass
+- Verify helper function is accessible from tests
 
 **Success Criteria**:
-- [ ] 11 pure functions extracted to `git_utils.rs` (~120 lines)
-- [ ] 31 tests moved and passing (~350 lines)
-- [ ] No git2 or I/O dependencies in utils module
-- [ ] All tests pass with `cargo test`
+- [ ] Test helpers extracted to separate module
+- [ ] All 31 tests pass without modification
 - [ ] No clippy warnings
 
-### Phase 2: Extract Git Operations Module
+### Phase 2: Extract Test Suite to Separate Test File
 
-**Goal**: Separate low-level git I/O operations from domain logic
+**Goal**: Move the entire test suite (lines 482-1383) from git_context.rs to a dedicated test file, making the main module more focused and navigable.
 
 **Changes**:
-- Create `src/cook/workflow/git_ops.rs` module
-- Extract git I/O functions:
-  - `get_head_commit` (currently private in GitChangeTracker)
-  - Functions for reading git status
-  - Functions for walking commit history
-  - Functions for calculating diffs
-- These should be focused, single-purpose functions
-- Move integration tests that directly test git operations (25 tests) to `git_ops.rs`
+- Create new file `tests/git_context_tests.rs` or organize as `src/cook/workflow/git_context/tests.rs`
+- Move all test functions (3 test phases with 31 test functions) to the new file
+- Update imports to reference the production code correctly
+- Ensure test_helpers module is accessible from the new test location
 
 **Testing**:
-- Run `cargo test --lib git_ops` for git operation tests
-- Verify all integration tests pass (those using `init_test_repo`)
-- Ensure no test behavior changes
+- Run `cargo test --lib` to verify all tests still pass
+- Run `cargo test git_context` specifically to confirm test discovery
+- Verify git_context.rs is now under 500 lines
 
 **Success Criteria**:
-- [ ] Git I/O operations isolated in `git_ops.rs` (~200 lines)
-- [ ] 25 integration tests moved and passing (~750 lines)
-- [ ] Clear separation: git_ops handles I/O, git_context handles domain logic
-- [ ] All tests pass with `cargo test`
-- [ ] No clippy warnings
+- [ ] All 31 tests moved to separate file
+- [ ] Production code in git_context.rs reduced to ~481 lines
+- [ ] All tests pass without modification
+- [ ] Test organization maintained (Phase 1, 2, 3 sections)
 
-### Phase 3: Simplify Core Domain Logic
+### Phase 3: Simplify Variable Resolution Logic
 
-**Goal**: Streamline GitChangeTracker to focus on domain logic, using extracted utilities and operations
+**Goal**: Refactor the `resolve_variable()` method (lines 376-429) and `resolve_step_variable()` (lines 432-474) to reduce cyclomatic complexity from 33 to under 10 through functional decomposition.
 
 **Changes**:
-- Refactor `GitChangeTracker` to use functions from `git_utils` and `git_ops`
-- Simplify `calculate_step_changes` by delegating to git_ops functions
-- Reduce impl method complexity (currently 11 methods)
-- Keep only domain logic: step tracking, change aggregation, variable resolution
-- Update remaining tests to use new structure
+- Extract format parsing logic into pure function `parse_variable_format(modifier: Option<&str>) -> VariableFormat`
+- Extract pattern filtering logic into pure function `extract_glob_pattern(modifier: Option<&str>) -> Option<&str>`
+- Simplify match expressions by extracting common patterns
+- Create helper function `resolve_file_list_variable()` for files_added/modified/deleted cases
+- Add unit tests for the new pure functions
 
 **Testing**:
-- Run `cargo test --lib git_context` for domain logic tests
-- Verify step tracking tests still pass
-- Test variable resolution and change aggregation
+- Run existing variable resolution tests to ensure behavior unchanged
+- Add tests for new helper functions
+- Verify cyclomatic complexity reduced with `cargo clippy`
 
 **Success Criteria**:
-- [ ] `git_context.rs` reduced to ~400 lines (from 1695)
-- [ ] GitChangeTracker focused on domain logic only
-- [ ] Average complexity per function < 4.0 (down from 5.99)
-- [ ] 25 domain logic tests remain and pass
-- [ ] All tests pass with `cargo test`
-- [ ] No clippy warnings
+- [ ] Variable resolution split into 3-4 pure functions
+- [ ] Each function under 20 lines
+- [ ] Cyclomatic complexity under 10 per function
+- [ ] All tests pass
+- [ ] New tests for extracted functions
 
-### Phase 4: Module Integration and Structure
+### Phase 4: Add Module-Level Documentation
 
-**Goal**: Ensure clean module boundaries and proper visibility controls
+**Goal**: Improve module documentation to clearly describe the new structure, test organization, and usage examples.
 
 **Changes**:
-- Update `src/cook/workflow/mod.rs` to declare new submodules
-- Set proper `pub` visibility for exported functions/types
-- Keep internal helpers private with `pub(crate)` where needed
-- Ensure `git_context` is the public API, re-exporting what's needed
-- Document module responsibilities in module-level docs
+- Update module-level doc comment to reflect new structure
+- Add documentation for test_helpers module
+- Document the three test phases in test file comments
+- Add examples of variable resolution patterns
 
 **Testing**:
-- Run full test suite: `cargo test --lib`
-- Verify no breaking changes to public API
-- Test from external crates that all exports work
+- Run `cargo doc --open` to verify documentation renders correctly
+- Check for any rustdoc warnings
 
 **Success Criteria**:
-- [ ] Module structure properly declared in `mod.rs`
-- [ ] Clean public API maintained
-- [ ] Private helpers properly scoped
-- [ ] All 81 tests pass unchanged
-- [ ] Full test suite passes: `cargo test`
-- [ ] No clippy warnings
+- [ ] Module documentation updated and accurate
+- [ ] Test organization documented
+- [ ] No rustdoc warnings
+- [ ] Examples compile and run
 
-### Phase 5: Final Verification and Documentation
+### Phase 5: Final Verification and Cleanup
 
-**Goal**: Verify improvements and document the new structure
+**Goal**: Ensure all changes integrate correctly, tests pass, and metrics show improvement.
 
 **Changes**:
-- Run `just ci` to verify all CI checks pass
-- Generate coverage report with `cargo tarpaulin` (if available)
-- Update module-level documentation to reflect new structure
-- Add inline docs explaining module responsibilities
-- Verify all metrics have improved
+- Run full CI suite with `just ci`
+- Verify code formatting with `cargo fmt --check`
+- Check for clippy warnings with `cargo clippy`
+- Run coverage analysis with `cargo tarpaulin` (if available)
+- Run debtmap analysis to verify improvement
 
 **Testing**:
 - `cargo test --all` - All tests pass
-- `cargo clippy --all-targets` - No warnings
-- `cargo fmt -- --check` - Properly formatted
-- `just ci` - Full CI passes
+- `cargo clippy -- -D warnings` - No clippy warnings
+- `cargo fmt --check` - Proper formatting
+- `debtmap analyze` - Reduced complexity score
 
 **Success Criteria**:
-- [ ] All 81 tests passing
-- [ ] Coverage maintained or improved
-- [ ] Module count: 4 (up from 1 god module)
-- [ ] Average file size: ~400 lines (down from 1695)
-- [ ] Average complexity: <4.0 per function (down from 5.99)
-- [ ] Zero clippy warnings
-- [ ] Documentation updated
+- [ ] All 31+ tests pass
+- [ ] No clippy warnings
+- [ ] Properly formatted
+- [ ] Debtmap shows complexity reduction
+- [ ] File under 500 lines
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify existing tests pass
+1. Run `cargo test --lib git_context` to verify existing tests pass
 2. Run `cargo clippy` to check for warnings
-3. Run phase-specific module tests
-4. Commit with descriptive message
+3. Run `cargo fmt` to ensure formatting
+4. Commit after successful verification
 
 **Final verification**:
-1. `just ci` - Full CI checks
-2. `cargo tarpaulin` - Verify coverage unchanged
-3. Manual review of module structure and boundaries
-
-## Module Structure (Target)
-
-After completion, the git context system will have this structure:
-
-```
-src/cook/workflow/
-├── git_context.rs        (~400 lines)  - Public API, domain logic, GitChangeTracker
-├── git_utils.rs          (~120 lines)  - Pure utility functions
-├── git_ops.rs            (~200 lines)  - Git I/O operations
-└── mod.rs                (updated)     - Module declarations
-```
-
-With tests distributed:
-- `git_context.rs` tests: ~200 lines (domain logic tests)
-- `git_utils.rs` tests: ~350 lines (pure function tests)
-- `git_ops.rs` tests: ~750 lines (integration tests)
-
-Total: ~1600 lines across 3 focused modules vs 1695 lines in one god module
+1. `just ci` - Full CI checks pass
+2. `cargo tarpaulin` - Coverage maintained or improved
+3. `debtmap analyze` - Verify complexity reduction and maintainability improvement
+4. Manual review of file structure and readability
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failures or errors
-3. Adjust the extraction strategy
-4. Ensure no circular dependencies between modules
-5. Retry with smaller changes
+2. Review the failure and error messages
+3. Identify root cause (imports, test discovery, logic error)
+4. Adjust the plan based on findings
+5. Retry with corrected approach
 
 ## Notes
 
-**Key Principles**:
-- Pure functions first (easiest to extract and test)
-- I/O operations next (clear boundary)
-- Domain logic last (depends on other two)
-- Never break existing tests - they verify correctness
+**Why this approach**:
+- The production code (lines 1-481) is already reasonably well-structured with clear separation of concerns
+- The real problem is the 901-line test suite (65% of the file) making it hard to navigate
+- Variable resolution has high cyclomatic complexity (33) that can be reduced through functional decomposition
+- This approach maintains all existing functionality and tests while improving structure
 
-**Potential Gotchas**:
-- Test helper `init_test_repo` is used by many tests - keep it accessible
-- Some functions are used in closures (e.g., in `diff.foreach`) - ensure they're accessible
-- The `normalize_file_lists` function operates on `StepChanges` - may need to stay in git_context
-- Private functions currently used only in tests should be reevaluated
+**Test organization**:
+- Phase 1 tests: Uncommitted changes detection (lines 586-840, 8 tests)
+- Phase 2 tests: Commit history walking (lines 844-1039, 6 tests)
+- Phase 3 tests: Diff statistics and file changes (lines 1043-1382, 17 tests)
+- This organization should be preserved in the extracted test file
 
-**Performance Considerations**:
-- No performance impact expected - only reorganizing code
-- All functions remain inline-able by compiler
-- No additional allocations or indirections
+**Complexity hotspots**:
+- `resolve_variable()` (lines 376-429): Cyclomatic complexity 15+
+- `resolve_step_variable()` (lines 432-474): Cyclomatic complexity 10+
+- `calculate_step_changes()` (lines 245-347): Large but sequential, complexity is acceptable
 
-**Dependency Analysis**:
-- `git_utils`: No external dependencies (pure functions)
-- `git_ops`: Depends on git2, anyhow - I/O layer
-- `git_context`: Depends on git_utils, git_ops - domain layer
+**Key constraints**:
+- This is a test file with 0% coverage, so we're refactoring test code itself
+- Must maintain all 31 existing tests without breaking them
+- Focus on structure and navigability rather than changing test behavior
+- Ensure test discovery works correctly after extraction
