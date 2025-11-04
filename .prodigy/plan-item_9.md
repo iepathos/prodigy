@@ -1,272 +1,289 @@
-# Implementation Plan: Reduce Complexity in ResumeExecutor::execute_from_checkpoint
+# Implementation Plan: Extract Token Parsing Functions from Tokenizer
 
 ## Problem Summary
 
-**Location**: ./src/cook/workflow/resume.rs:ResumeExecutor::execute_from_checkpoint:337
-**Priority Score**: 32.5
-**Debt Type**: ComplexityHotspot (Cyclomatic: 54, Cognitive: 227)
+**Location**: src/cook/execution/expression/tokenizer.rs:tokenize:70
+**Priority Score**: 22.3925
+**Debt Type**: ComplexityHotspot (cyclomatic: 53, cognitive: 87)
 **Current Metrics**:
-- Lines of Code: 546
-- Cyclomatic Complexity: 54
-- Cognitive Complexity: 227
-- Nesting Depth: 6
+- Lines of Code: 163
+- Cyclomatic Complexity: 53
+- Cognitive Complexity: 87
+- Function Length: 163
+- Nesting Depth: 4
 
-**Issue**: Reduce complexity from 54 to ~10. High complexity 54/227 makes function hard to test and maintain. This massive function handles checkpoint loading, workflow parsing, step execution, error recovery, and progress tracking all in one place.
+**Issue**: Reduce complexity from 53 to ~10. High complexity 53/87 makes function hard to test and maintain.
+
+## Analysis
+
+The `tokenize` function is a pure function (confirmed by debtmap analysis) with excellent test coverage (32 unit tests). The complexity comes from:
+
+1. **Massive match statement** - Single match with 10+ arms handling different character types
+2. **Nested lookahead logic** - Each operator arm checks `chars.peek()` for multi-character operators (==, !=, >=, <=, &&, ||)
+3. **Inline keyword matching** - Identifier arm contains a match with 20+ keyword cases
+4. **Multiple concerns** - Character-level parsing, operator detection, number parsing, string parsing, keyword recognition all in one function
+
+The function is already well-tested, so we can refactor safely with confidence that tests will catch regressions.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 27.0
-- Coverage Improvement: 0.0
-- Risk Reduction: 11.375
+- Complexity Reduction: 26.5 (from 53 to ~27, target ~10)
+- Coverage Improvement: 0.0 (already well-tested)
+- Risk Reduction: 7.84
 
 **Success Criteria**:
-- [ ] Cyclomatic complexity reduced from 54 to ≤10
-- [ ] Function length reduced from 546 lines to ≤50 lines
-- [ ] Nesting depth reduced from 6 to ≤3
-- [ ] All existing tests continue to pass
-- [ ] No clippy warnings
-- [ ] Proper formatting
-- [ ] Each extracted function has single, clear responsibility
+- [ ] Cyclomatic complexity reduced from 53 to ≤15 per function
+- [ ] Each extracted function has single responsibility
+- [ ] All 32 existing unit tests continue to pass
+- [ ] No new clippy warnings
+- [ ] Code is formatted with rustfmt
+- [ ] Main tokenize function acts as coordinator, delegating to helpers
 
 ## Implementation Phases
 
-### Phase 1: Extract Workflow Loading and Parsing Logic
+### Phase 1: Extract Operator Parsing Functions
 
-**Goal**: Extract workflow file loading and parsing into dedicated functions to reduce initial complexity.
+**Goal**: Extract multi-character operator parsing logic into focused helper functions, reducing the main match complexity.
 
 **Changes**:
-- Extract workflow file loading (lines 421-435) into `load_workflow_file(workflow_path: &PathBuf) -> Result<WorkflowConfig>`
-- Extract WorkflowCommand to WorkflowStep conversion (lines 438-525) into `convert_commands_to_steps(commands: Vec<WorkflowCommand>) -> Vec<WorkflowStep>`
-- Extract ExtendedWorkflowConfig creation (lines 527-542) into `build_extended_workflow(checkpoint: &WorkflowCheckpoint, steps: Vec<WorkflowStep>) -> ExtendedWorkflowConfig`
+- Extract `parse_operator()` function that handles all operators (!, =, >, <, &, |)
+- Returns `Option<Token>` for matched operators
+- Consolidates the lookahead logic for multi-character operators
+- Reduces main match from 6 operator arms to 1 delegation call
 
-**Expected Complexity Reduction**: ~8 points (removes nested conditionals in command parsing)
+**New Functions**:
+```rust
+/// Parse operator tokens (!, !=, =, ==, >, >=, <, <=, &&, ||)
+fn parse_operator(ch: char, chars: &mut Peekable<Chars>) -> Result<Option<Token>>
+```
 
 **Testing**:
-- Run `cargo test resume::` to verify resume functionality
-- Run `cargo test workflow::executor::` to verify workflow execution
-- Verify workflow loading with both YAML and JSON files
+- All existing operator tests should pass:
+  - `test_tokenize_equal`, `test_tokenize_not_equal`
+  - `test_tokenize_greater`, `test_tokenize_greater_equal`
+  - `test_tokenize_less`, `test_tokenize_less_equal`
+  - `test_tokenize_and_symbols`, `test_tokenize_or_symbols`
+  - `test_tokenize_not_symbol`
+- Error tests for single & and | should still work
 
 **Success Criteria**:
-- [ ] Three new pure functions created with clear responsibilities
-- [ ] Main function delegates workflow loading/parsing to extracted functions
-- [ ] All existing resume tests pass
-- [ ] Complexity reduced by ~8 points
+- [ ] Operator parsing logic extracted to pure function
+- [ ] Main match reduced by 6 arms (consolidated to 1 operator check)
+- [ ] All operator tests pass (14 tests)
+- [ ] `cargo test tokenize::` passes
+- [ ] `cargo clippy` reports no new warnings
 - [ ] Ready to commit
 
-### Phase 2: Extract Progress Tracking Setup
+**Estimated Complexity Reduction**: -6 cyclomatic complexity
 
-**Goal**: Isolate progress tracking initialization and display logic.
+---
 
-**Changes**:
-- Extract progress tracker creation (lines 394-404) into `create_progress_tracker(checkpoint: &WorkflowCheckpoint, workflow_id: &str) -> SequentialProgressTracker`
-- Extract initial progress display setup (lines 406-419) into `initialize_progress_display(tracker: &mut SequentialProgressTracker, display: &mut ProgressDisplay, workflow_id: &str) -> Result<()>`
-- Combine environment creation (lines 544-560) into `build_execution_environment(workflow_path: &PathBuf, workflow_id: &str) -> ExecutionEnvironment`
+### Phase 2: Extract String and Number Parsing
 
-**Expected Complexity Reduction**: ~4 points (removes initialization branches)
-
-**Testing**:
-- Run `cargo test resume::`
-- Verify progress tracking displays correctly during resume
-- Test with checkpoints at different stages
-
-**Success Criteria**:
-- [ ] Progress tracking logic extracted to focused functions
-- [ ] Main function uses extracted functions for setup
-- [ ] All existing tests pass
-- [ ] Complexity reduced by additional ~4 points
-- [ ] Ready to commit
-
-### Phase 3: Extract Step Execution Loop into Focused Function
-
-**Goal**: Extract the massive step execution loop (lines 608-843) which handles execution, error recovery, and retries.
+**Goal**: Extract literal parsing (strings and numbers) into dedicated functions.
 
 **Changes**:
-- Extract step execution loop into `execute_remaining_steps(executor: &mut WorkflowExecutorImpl, workflow: &ExtendedWorkflowConfig, start_from: usize, env: &ExecutionEnvironment, workflow_context: &mut WorkflowContext, progress_tracker: &mut SequentialProgressTracker, progress_display: &mut ProgressDisplay, error_recovery: &ResumeErrorRecovery, checkpoint: &WorkflowCheckpoint) -> Result<usize>`
-- This function returns the number of steps executed
-- Maintains all error handling and recovery logic
-- Delegates to error recovery handler (already extracted in codebase)
+- Extract `parse_string(quote: char, chars: &mut Peekable<Chars>) -> Result<String>`
+  - Handles both single and double quote strings
+  - Returns the parsed string content
+- Extract `parse_number(chars: &mut Peekable<Chars>) -> Result<f64>`
+  - Handles integers, floats, and negative numbers
+  - Returns the parsed number
+- Main match delegates to these functions for '" | '\'' and '0'..='9' | '-' arms
 
-**Expected Complexity Reduction**: ~10 points (most complex nested logic)
+**New Functions**:
+```rust
+/// Parse a quoted string literal
+fn parse_string(quote: char, chars: &mut Peekable<Chars>) -> Result<String>
 
-**Testing**:
-- Run `cargo test resume::` to verify step execution
-- Test error recovery scenarios
-- Test with workflows that have on_failure handlers
-- Verify retry logic works correctly
-
-**Success Criteria**:
-- [ ] Step execution loop fully extracted
-- [ ] Error recovery logic preserved and functional
-- [ ] All existing tests pass
-- [ ] Complexity reduced by additional ~10 points
-- [ ] Ready to commit
-
-### Phase 4: Extract Error Recovery Action Handling
-
-**Goal**: Extract the complex match statement for recovery actions (lines 698-840) into a dedicated function.
-
-**Changes**:
-- Extract recovery action handling into `handle_recovery_action(recovery_action: RecoveryAction, step_index: usize, step: &WorkflowStep, executor: &mut WorkflowExecutorImpl, env: &ExecutionEnvironment, workflow_context: &mut WorkflowContext, progress_tracker: &mut SequentialProgressTracker, checkpoint_manager: &CheckpointManager, workflow_id: &str) -> Result<RecoveryOutcome>`
-- Define `RecoveryOutcome` enum: `Retry`, `Continue`, `Abort`
-- Simplifies the main execution loop error handling
-
-**Expected Complexity Reduction**: ~6 points (nested match with multiple branches)
+/// Parse a numeric literal (integer or float, positive or negative)
+fn parse_number(chars: &mut Peekable<Chars>) -> Result<f64>
+```
 
 **Testing**:
-- Run `cargo test resume::`
-- Test each recovery action type: Retry, Continue, SafeAbort, Fallback, PartialResume, RequestIntervention
-- Verify cleanup actions execute on SafeAbort
-- Verify checkpoint saved on RequestIntervention
+- String tests should pass:
+  - `test_tokenize_string_double_quotes`
+  - `test_tokenize_string_single_quotes`
+- Number tests should pass:
+  - `test_tokenize_number`
+  - `test_tokenize_negative_number`
+  - `test_tokenize_float`
+  - `test_tokenize_number_followed_by_identifier`
 
 **Success Criteria**:
-- [ ] Recovery action handling extracted to dedicated function
-- [ ] RecoveryOutcome enum clearly defines outcomes
-- [ ] All recovery scenarios tested
-- [ ] Complexity reduced by additional ~6 points
-- [ ] Ready to commit
-
-### Phase 5: Final Refactoring and Complexity Verification
-
-**Goal**: Achieve target complexity ≤10 through final refinements and verification.
-
-**Changes**:
-- Extract checkpoint validation and early return logic (lines 367-386) into `check_already_completed(checkpoint: &WorkflowCheckpoint, options: &ResumeOptions, workflow_id: &str) -> Result<Option<ResumeResult>>`
-- Extract final summary display (lines 852-862) into `display_completion_summary(total_steps: usize, skipped_steps: usize, steps_executed: usize, start_time: std::time::Instant)`
-- Refactor main function to be a clear orchestration of extracted functions
-- Run debtmap analysis to verify complexity reduction
-
-**Expected Complexity Reduction**: ~3 points (removes remaining conditionals)
-
-**Testing**:
-- Run full test suite: `cargo test --lib`
-- Run clippy: `cargo clippy`
-- Verify formatting: `cargo fmt --check`
-- Run `debtmap analyze` to verify complexity metrics
-
-**Success Criteria**:
-- [ ] Main function is <50 lines of orchestration code
-- [ ] Cyclomatic complexity ≤10
-- [ ] Cognitive complexity significantly reduced
-- [ ] All tests pass
+- [ ] String parsing extracted to pure function
+- [ ] Number parsing extracted to pure function
+- [ ] Main match reduced by 2 more arms
+- [ ] All string and number tests pass (7 tests)
+- [ ] `cargo test tokenize::` passes
 - [ ] No clippy warnings
-- [ ] Debtmap shows improvement
 - [ ] Ready to commit
+
+**Estimated Complexity Reduction**: -4 cyclomatic complexity
+
+---
+
+### Phase 3: Extract Keyword Recognition
+
+**Goal**: Extract the massive keyword matching logic from the identifier parsing arm.
+
+**Changes**:
+- Extract `parse_keyword_or_identifier(ident: String) -> Token`
+  - Takes the raw identifier string
+  - Returns appropriate Token (keyword or Identifier)
+  - Encapsulates the 20+ arm match for keywords
+- Main identifier parsing arm simplified to:
+  1. Collect identifier characters
+  2. Delegate to `parse_keyword_or_identifier()`
+
+**New Function**:
+```rust
+/// Convert identifier string to keyword token or Identifier token
+fn parse_keyword_or_identifier(ident: String) -> Token
+```
+
+**Testing**:
+- Keyword tests should pass:
+  - `test_tokenize_boolean_true`, `test_tokenize_boolean_false`
+  - `test_tokenize_null`, `test_tokenize_and_word`, `test_tokenize_or_word`, `test_tokenize_not_word`
+  - `test_tokenize_contains`, `test_tokenize_starts_with`, `test_tokenize_ends_with`, `test_tokenize_matches`
+  - `test_tokenize_length`, `test_tokenize_sum`, `test_tokenize_count`, `test_tokenize_min`, `test_tokenize_max`, `test_tokenize_avg`
+- Identifier tests should pass:
+  - `test_tokenize_identifier`, `test_tokenize_field_path`, `test_tokenize_array_wildcard`
+
+**Success Criteria**:
+- [ ] Keyword matching extracted to pure function
+- [ ] Identifier arm simplified significantly
+- [ ] All keyword and identifier tests pass (20+ tests)
+- [ ] `cargo test tokenize::` passes
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+**Estimated Complexity Reduction**: -20 cyclomatic complexity (from keyword match)
+
+---
+
+### Phase 4: Extract Identifier Character Parsing
+
+**Goal**: Extract the identifier character collection logic into a focused function.
+
+**Changes**:
+- Extract `parse_identifier(chars: &mut Peekable<Chars>) -> String`
+  - Collects identifier characters (alphanumeric, _, ., [, ], *)
+  - Returns the raw identifier string
+  - Removes the nested while loop from main match
+- Main identifier arm becomes:
+  1. Call `parse_identifier(chars)`
+  2. Call `parse_keyword_or_identifier(ident)`
+  3. Push resulting token
+
+**New Function**:
+```rust
+/// Parse an identifier (variable name, field path, or array accessor)
+fn parse_identifier(chars: &mut Peekable<Chars>) -> String
+```
+
+**Testing**:
+- Same identifier tests from Phase 3 should continue to pass
+- Complex identifier tests:
+  - `test_tokenize_field_path` (user.profile.name)
+  - `test_tokenize_array_wildcard` (items[*].score)
+
+**Success Criteria**:
+- [ ] Identifier character collection extracted
+- [ ] Main match arm simplified to 3 function calls
+- [ ] All identifier tests pass
+- [ ] `cargo test tokenize::` passes
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+**Estimated Complexity Reduction**: -2 cyclomatic complexity
+
+---
+
+### Phase 5: Final Cleanup and Verification
+
+**Goal**: Verify all improvements and document the refactored architecture.
+
+**Changes**:
+- Add module-level documentation explaining the parsing strategy
+- Ensure all helper functions have clear doc comments
+- Verify cyclomatic complexity of main `tokenize` function ≤15
+- Run full test suite and linting
+
+**Documentation Updates**:
+- Update module-level doc comment to explain tokenizer architecture
+- Document each helper function with examples and edge cases
+- Add comment in main `tokenize` explaining the delegation pattern
+
+**Testing**:
+- Run `cargo test --lib` - all tests must pass
+- Run `cargo clippy` - no warnings
+- Run `cargo fmt --check` - properly formatted
+- Verify complex expression tests pass:
+  - `test_tokenize_simple_comparison`
+  - `test_tokenize_complex_expression`
+  - `test_tokenize_with_parentheses`
+  - `test_tokenize_function_call`
+
+**Success Criteria**:
+- [ ] All 32 unit tests pass
+- [ ] Main `tokenize` function has cyclomatic complexity ≤15
+- [ ] Each helper function has cyclomatic complexity ≤10
+- [ ] All functions properly documented
+- [ ] No clippy warnings
+- [ ] Code formatted with rustfmt
+- [ ] Ready for final commit
+
+**Estimated Complexity Reduction**: Final verification of ~32 point reduction (53 → ~21)
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test resume::` to verify resume-specific tests pass
-2. Run `cargo test workflow::executor::` to verify workflow execution
-3. Run `cargo clippy` to check for warnings
-4. Manually test with sample workflows to verify behavior
+1. Run `cargo test tokenize::` to verify tokenizer tests pass
+2. Run `cargo clippy -- -D warnings` to ensure no new warnings
+3. Run `cargo fmt` to ensure proper formatting
+4. Manually review the complexity reduction
 
 **Final verification**:
-1. `cargo test --lib` - All library tests pass
+1. `cargo test --lib` - All tests pass
 2. `cargo clippy` - No warnings
-3. `cargo fmt --check` - Proper formatting
-4. `debtmap analyze` - Verify complexity reduced to target
+3. `cargo fmt --check` - Properly formatted
+4. Visual inspection of `tokenize()` function - should be <50 lines, mostly delegation
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure and test output
-3. Adjust the extraction strategy
-4. Ensure extracted functions have proper error handling
-5. Retry with refined approach
+2. Review the test failures or clippy warnings
+3. Identify the issue (likely: missed edge case, incorrect delegation, signature mismatch)
+4. Adjust the implementation
+5. Retry the phase
 
 ## Notes
 
-### Key Architectural Patterns
+**Why This Approach Works**:
+- The function is already pure and well-tested (32 tests)
+- Each extraction maintains the same external behavior
+- Helper functions are also pure and testable
+- Incremental extraction reduces risk
+- Existing tests provide safety net
 
-**Separation Strategy**:
-- **Pure Logic**: Extract workflow parsing, config building (can be unit tested easily)
-- **I/O Operations**: Keep async operations in extracted functions but with clear boundaries
-- **Error Handling**: Preserve all error recovery logic, just organize it better
+**Complexity Reduction Breakdown**:
+- Phase 1 (operators): -6 complexity
+- Phase 2 (literals): -4 complexity
+- Phase 3 (keywords): -20 complexity
+- Phase 4 (identifier parsing): -2 complexity
+- **Total**: ~32 complexity reduction (53 → ~21)
 
-**Function Design Principles**:
-- Each extracted function should have ≤3 parameters (use structs for more)
-- Each function should do ONE thing well
-- Prefer returning Results to panicking
-- Keep nesting depth ≤2 in extracted functions
+**Target**: While we won't reach cyclomatic complexity of 10 for the main function (too aggressive), we will:
+- Reduce main `tokenize` to ~21 complexity (match arms + minimal logic)
+- Create 5 helper functions with ≤10 complexity each
+- Achieve the spirit of the recommendation: "function hard to test and maintain" → "simple coordinator with testable helpers"
 
-**Gotchas**:
-- The error recovery logic is complex but well-designed - preserve its semantics
-- Progress tracking is stateful - pass by mutable reference where needed
-- WorkflowContext is mutable state that flows through execution
-- Don't break the async execution model
-
-### Expected Final Structure
-
-After all phases, `execute_from_checkpoint` should look approximately like:
-
-```rust
-pub async fn execute_from_checkpoint(
-    &mut self,
-    workflow_id: &str,
-    workflow_path: &PathBuf,
-    options: ResumeOptions,
-) -> Result<ResumeResult> {
-    // Validate executors configured
-    self.ensure_executors_configured()?;
-
-    // Load and validate checkpoint
-    let checkpoint = self.load_and_validate_checkpoint(workflow_id, &options).await?;
-
-    // Check if already completed
-    if let Some(result) = check_already_completed(&checkpoint, &options, workflow_id)? {
-        return Ok(result);
-    }
-
-    // Setup execution environment
-    let workflow = load_workflow_file(workflow_path).await?;
-    let steps = convert_commands_to_steps(workflow.commands);
-    let extended_workflow = build_extended_workflow(&checkpoint, steps);
-    let env = build_execution_environment(workflow_path, workflow_id);
-
-    // Setup progress tracking
-    let mut progress_tracker = create_progress_tracker(&checkpoint, workflow_id);
-    let mut progress_display = ProgressDisplay::new();
-    initialize_progress_display(&mut progress_tracker, &mut progress_display, workflow_id).await;
-
-    // Restore context and create executor
-    let mut workflow_context = self.restore_workflow_context(&checkpoint)?;
-    let mut executor = self.create_workflow_executor(workflow_path, workflow_id);
-
-    // Execute remaining steps
-    let steps_executed = execute_remaining_steps(
-        &mut executor,
-        &extended_workflow,
-        checkpoint.execution_state.current_step_index,
-        &env,
-        &mut workflow_context,
-        &mut progress_tracker,
-        &mut progress_display,
-        &self.error_recovery,
-        &checkpoint,
-        &self.checkpoint_manager,
-        workflow_id,
-    ).await?;
-
-    // Complete and cleanup
-    display_completion_summary(
-        extended_workflow.steps.len(),
-        checkpoint.execution_state.current_step_index,
-        steps_executed,
-        progress_tracker.start_time,
-    );
-
-    self.checkpoint_manager.delete_checkpoint(workflow_id).await?;
-
-    Ok(ResumeResult {
-        success: true,
-        total_steps_executed: extended_workflow.steps.len(),
-        skipped_steps: checkpoint.execution_state.current_step_index,
-        new_steps_executed: steps_executed,
-        final_context: workflow_context,
-    })
-}
-```
-
-This transformation reduces the function from 546 lines to ~50 lines of clear orchestration, with each responsibility delegated to a focused, testable function.
+**Edge Cases to Watch**:
+- String parsing: Unclosed quotes (currently consumes rest of input)
+- Number parsing: Invalid formats (e.g., "1.2.3")
+- Operators: Single & or | should still error
+- Identifiers: Complex paths like `items[*].score`

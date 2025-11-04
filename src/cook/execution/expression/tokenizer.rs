@@ -4,6 +4,8 @@
 //! The tokenizer is designed to be a pure function with no side effects.
 
 use anyhow::{anyhow, Result};
+use std::iter::Peekable;
+use std::str::Chars;
 
 /// Token types for the lexer
 #[derive(Debug, Clone, PartialEq)]
@@ -50,6 +52,73 @@ pub enum Token {
     Dot,
 }
 
+/// Parse operator tokens (!, !=, =, ==, >, >=, <, <=, &&, ||)
+///
+/// This helper function handles all operator parsing, including lookahead
+/// for multi-character operators.
+///
+/// Returns `Some(Token)` if the character is an operator, `None` otherwise.
+fn parse_operator(ch: char, chars: &mut Peekable<Chars>) -> Result<Option<Token>> {
+    let token = match ch {
+        '!' => {
+            chars.next();
+            if chars.peek() == Some(&'=') {
+                chars.next();
+                Token::NotEqual
+            } else {
+                Token::Not
+            }
+        }
+        '=' => {
+            chars.next();
+            if chars.peek() == Some(&'=') {
+                chars.next();
+                Token::Equal
+            } else {
+                Token::Equal // Single = also means equal
+            }
+        }
+        '>' => {
+            chars.next();
+            if chars.peek() == Some(&'=') {
+                chars.next();
+                Token::GreaterEqual
+            } else {
+                Token::Greater
+            }
+        }
+        '<' => {
+            chars.next();
+            if chars.peek() == Some(&'=') {
+                chars.next();
+                Token::LessEqual
+            } else {
+                Token::Less
+            }
+        }
+        '&' => {
+            chars.next();
+            if chars.peek() == Some(&'&') {
+                chars.next();
+                Token::And
+            } else {
+                return Err(anyhow!("Expected && but got single &"));
+            }
+        }
+        '|' => {
+            chars.next();
+            if chars.peek() == Some(&'|') {
+                chars.next();
+                Token::Or
+            } else {
+                return Err(anyhow!("Expected || but got single |"));
+            }
+        }
+        _ => return Ok(None),
+    };
+    Ok(Some(token))
+}
+
 /// Tokenize an expression string into a sequence of tokens
 ///
 /// This is a pure function that converts a string into tokens.
@@ -84,58 +153,9 @@ pub fn tokenize(expr: &str) -> Result<Vec<Token>> {
                 tokens.push(Token::RightParen);
                 chars.next();
             }
-            '!' => {
-                chars.next();
-                if chars.peek() == Some(&'=') {
-                    chars.next();
-                    tokens.push(Token::NotEqual);
-                } else {
-                    tokens.push(Token::Not);
-                }
-            }
-            '=' => {
-                chars.next();
-                if chars.peek() == Some(&'=') {
-                    chars.next();
-                    tokens.push(Token::Equal);
-                } else {
-                    tokens.push(Token::Equal); // Single = also means equal
-                }
-            }
-            '>' => {
-                chars.next();
-                if chars.peek() == Some(&'=') {
-                    chars.next();
-                    tokens.push(Token::GreaterEqual);
-                } else {
-                    tokens.push(Token::Greater);
-                }
-            }
-            '<' => {
-                chars.next();
-                if chars.peek() == Some(&'=') {
-                    chars.next();
-                    tokens.push(Token::LessEqual);
-                } else {
-                    tokens.push(Token::Less);
-                }
-            }
-            '&' => {
-                chars.next();
-                if chars.peek() == Some(&'&') {
-                    chars.next();
-                    tokens.push(Token::And);
-                } else {
-                    return Err(anyhow!("Expected && but got single &"));
-                }
-            }
-            '|' => {
-                chars.next();
-                if chars.peek() == Some(&'|') {
-                    chars.next();
-                    tokens.push(Token::Or);
-                } else {
-                    return Err(anyhow!("Expected || but got single |"));
+            '!' | '=' | '>' | '<' | '&' | '|' => {
+                if let Some(token) = parse_operator(ch, &mut chars)? {
+                    tokens.push(token);
                 }
             }
             '"' | '\'' => {
