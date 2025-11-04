@@ -222,7 +222,7 @@ fn parse_keyword_or_identifier(ident: String) -> Token {
 /// * `chars` - The character iterator
 ///
 /// # Returns
-/// The raw identifier string (e.g., "user.profile.name" or "items[*].score")
+/// The raw identifier string (e.g., "user.profile.name" or "items\[*\].score")
 fn parse_identifier(chars: &mut Peekable<Chars>) -> String {
     let mut ident = String::new();
     while let Some(&ch) = chars.peek() {
