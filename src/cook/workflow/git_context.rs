@@ -115,6 +115,16 @@ pub struct StepChanges {
     pub deletions: usize,
 }
 
+/// Diff statistics between two commits
+#[derive(Debug, Clone, Default)]
+struct DiffStats {
+    insertions: usize,
+    deletions: usize,
+    files_added: Vec<String>,
+    files_modified: Vec<String>,
+    files_deleted: Vec<String>,
+}
+
 impl StepChanges {
     /// Get all changed files (added + modified + deleted)
     pub fn files_changed(&self) -> Vec<String> {
@@ -314,16 +324,9 @@ impl GitChangeTracker {
         }
     }
 
-    /// Calculate changes for the current step
-    pub(crate) fn calculate_step_changes(&self) -> Result<StepChanges> {
-        let repo = Repository::open(&self.repo_path).context("Failed to open git repository")?;
-
+    /// Collect uncommitted file changes from git status
+    fn collect_uncommitted_changes(repo: &Repository) -> Result<StepChanges> {
         let mut changes = StepChanges::default();
-
-        // Get current HEAD
-        let current_commit = Self::get_head_commit(&repo)?;
-
-        // Calculate file changes using git status for uncommitted changes
         let mut status_opts = StatusOptions::new();
         status_opts.include_untracked(true);
         let statuses = repo.statuses(Some(&mut status_opts))?;
@@ -333,9 +336,8 @@ impl GitChangeTracker {
                 Some(p) => p,
                 None => continue,
             };
-            let status = entry.status();
 
-            match classify_file_status(status) {
+            match classify_file_status(entry.status()) {
                 FileChangeType::Added => changes.files_added.push(path.to_string()),
                 FileChangeType::Modified => changes.files_modified.push(path.to_string()),
                 FileChangeType::Deleted => changes.files_deleted.push(path.to_string()),
@@ -343,66 +345,104 @@ impl GitChangeTracker {
             }
         }
 
-        // If there's a previous commit, calculate committed changes
-        if let (Some(last), Some(current)) = (&self.last_commit, &current_commit) {
-            if last != current {
-                // New commits were made
-                let last_oid = Oid::from_str(last)?;
-                let current_oid = Oid::from_str(current)?;
+        Ok(changes)
+    }
 
-                // Get commits between last and current
-                let mut revwalk = repo.revwalk()?;
-                revwalk.push(current_oid)?;
-                revwalk.hide(last_oid)?;
+    /// Collect commit SHAs between two OIDs
+    fn collect_commits_between(
+        repo: &Repository,
+        from_oid: Oid,
+        to_oid: Oid,
+    ) -> Result<Vec<String>> {
+        let mut commits = Vec::new();
+        let mut revwalk = repo.revwalk()?;
+        revwalk.push(to_oid)?;
+        revwalk.hide(from_oid)?;
 
-                for oid in revwalk {
-                    let oid = oid?;
-                    changes.commits.push(oid.to_string());
-                }
+        for oid in revwalk {
+            commits.push(oid?.to_string());
+        }
 
-                // Calculate diff stats
-                if let (Ok(last_commit), Ok(current_commit)) =
-                    (repo.find_commit(last_oid), repo.find_commit(current_oid))
-                {
-                    if let (Some(last_tree), Some(current_tree)) =
-                        (last_commit.tree().ok(), current_commit.tree().ok())
-                    {
-                        let diff = repo.diff_tree_to_tree(
-                            Some(&last_tree),
-                            Some(&current_tree),
-                            Some(&mut DiffOptions::new()),
-                        )?;
+        Ok(commits)
+    }
 
-                        let stats = diff.stats()?;
-                        changes.insertions = stats.insertions();
-                        changes.deletions = stats.deletions();
+    /// Check if new commits exist between two commit references
+    fn has_new_commits(last: &Option<String>, current: &Option<String>) -> bool {
+        match (last, current) {
+            (Some(l), Some(c)) => l != c,
+            _ => false,
+        }
+    }
 
-                        // Process diff to get file changes from commits
-                        diff.foreach(
-                            &mut |delta, _progress| {
-                                if let Some(path_str) = extract_file_path(&delta) {
-                                    match classify_delta_status(delta.status()) {
-                                        FileChangeType::Added => {
-                                            add_unique_file(&mut changes.files_added, path_str)
-                                        }
-                                        FileChangeType::Modified => {
-                                            add_unique_file(&mut changes.files_modified, path_str)
-                                        }
-                                        FileChangeType::Deleted => {
-                                            add_unique_file(&mut changes.files_deleted, path_str)
-                                        }
-                                        FileChangeType::Unknown => {}
-                                    }
-                                }
-                                true
-                            },
-                            None,
-                            None,
-                            None,
-                        )?;
+    /// Calculate diff statistics between two commits
+    fn calculate_diff_stats(repo: &Repository, from_oid: Oid, to_oid: Oid) -> Result<DiffStats> {
+        let from_commit = repo.find_commit(from_oid)?;
+        let to_commit = repo.find_commit(to_oid)?;
+        let from_tree = from_commit.tree()?;
+        let to_tree = to_commit.tree()?;
+
+        let diff = repo.diff_tree_to_tree(
+            Some(&from_tree),
+            Some(&to_tree),
+            Some(&mut DiffOptions::new()),
+        )?;
+
+        let stats = diff.stats()?;
+        let mut diff_stats = DiffStats {
+            insertions: stats.insertions(),
+            deletions: stats.deletions(),
+            ..Default::default()
+        };
+
+        diff.foreach(
+            &mut |delta, _progress| {
+                if let Some(path_str) = extract_file_path(&delta) {
+                    match classify_delta_status(delta.status()) {
+                        FileChangeType::Added => {
+                            add_unique_file(&mut diff_stats.files_added, path_str)
+                        }
+                        FileChangeType::Modified => {
+                            add_unique_file(&mut diff_stats.files_modified, path_str)
+                        }
+                        FileChangeType::Deleted => {
+                            add_unique_file(&mut diff_stats.files_deleted, path_str)
+                        }
+                        FileChangeType::Unknown => {}
                     }
                 }
-            }
+                true
+            },
+            None,
+            None,
+            None,
+        )?;
+
+        Ok(diff_stats)
+    }
+
+    /// Calculate changes for the current step
+    pub(crate) fn calculate_step_changes(&self) -> Result<StepChanges> {
+        let repo = Repository::open(&self.repo_path).context("Failed to open git repository")?;
+        let current_commit = Self::get_head_commit(&repo)?;
+
+        // Collect uncommitted changes
+        let mut changes = Self::collect_uncommitted_changes(&repo)?;
+
+        // Add committed changes if new commits exist
+        if Self::has_new_commits(&self.last_commit, &current_commit) {
+            let last_oid = Oid::from_str(self.last_commit.as_ref().unwrap())?;
+            let current_oid = Oid::from_str(current_commit.as_ref().unwrap())?;
+
+            // Collect commits and diff stats
+            changes.commits = Self::collect_commits_between(&repo, last_oid, current_oid)?;
+            let diff_stats = Self::calculate_diff_stats(&repo, last_oid, current_oid)?;
+
+            // Merge diff stats into changes
+            changes.insertions = diff_stats.insertions;
+            changes.deletions = diff_stats.deletions;
+            changes.files_added.extend(diff_stats.files_added);
+            changes.files_modified.extend(diff_stats.files_modified);
+            changes.files_deleted.extend(diff_stats.files_deleted);
         }
 
         // Remove duplicates and sort
