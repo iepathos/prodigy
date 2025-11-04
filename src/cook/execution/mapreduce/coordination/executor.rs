@@ -823,6 +823,90 @@ impl MapReduceCoordinator {
         Ok(results)
     }
 
+    /// Register agent timeout with the enforcer
+    ///
+    /// Attempts to register a timeout for the agent with the enforcer.
+    /// Returns None if enforcer is not available or registration fails.
+    ///
+    /// # Arguments
+    /// * `enforcer` - Optional timeout enforcer
+    /// * `agent_id` - ID of the agent to register
+    /// * `item_id` - ID of the work item being processed
+    /// * `commands` - Commands that will be executed by the agent
+    ///
+    /// # Returns
+    /// Optional timeout handle if registration succeeds
+    async fn register_agent_timeout(
+        enforcer: Option<&Arc<TimeoutEnforcer>>,
+        agent_id: &str,
+        item_id: &str,
+        commands: &[WorkflowStep],
+    ) -> Option<crate::cook::execution::mapreduce::timeout::TimeoutHandle> {
+        if let Some(enforcer) = enforcer {
+            match enforcer
+                .register_agent_timeout(agent_id.to_string(), item_id.to_string(), commands)
+                .await
+            {
+                Ok(handle) => Some(handle),
+                Err(e) => {
+                    warn!("Failed to register timeout for agent {}: {}", agent_id, e);
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Register command lifecycle events with the enforcer
+    ///
+    /// Notifies the timeout enforcer of command start or completion.
+    /// Logs warnings if notification fails but doesn't propagate errors.
+    ///
+    /// # Arguments
+    /// * `enforcer` - Optional timeout enforcer
+    /// * `agent_id` - ID of the agent executing the command
+    /// * `index` - Index of the command in the workflow
+    /// * `elapsed` - Optional elapsed time (for completion events)
+    async fn register_command_lifecycle(
+        enforcer: Option<&Arc<TimeoutEnforcer>>,
+        agent_id: &str,
+        index: usize,
+        elapsed: Option<Duration>,
+    ) -> MapReduceResult<()> {
+        if let Some(enforcer) = enforcer {
+            if let Some(duration) = elapsed {
+                // Command completion
+                let _ = enforcer
+                    .register_command_completion(&agent_id.to_string(), index, duration)
+                    .await;
+            } else {
+                // Command start
+                let _ = enforcer
+                    .register_command_start(&agent_id.to_string(), index)
+                    .await;
+            }
+        }
+        Ok(())
+    }
+
+    /// Unregister agent timeout with the enforcer
+    ///
+    /// Removes the timeout registration for a completed agent.
+    ///
+    /// # Arguments
+    /// * `enforcer` - Optional timeout enforcer
+    /// * `agent_id` - ID of the agent to unregister
+    async fn unregister_agent_timeout(
+        enforcer: Option<&Arc<TimeoutEnforcer>>,
+        agent_id: &str,
+    ) -> MapReduceResult<()> {
+        if let Some(enforcer) = enforcer {
+            let _ = enforcer.unregister_agent_timeout(&agent_id.to_string()).await;
+        }
+        Ok(())
+    }
+
     /// Build variables for item interpolation
     ///
     /// Extracts fields from a JSON item and creates a HashMap of variables
@@ -905,20 +989,8 @@ impl MapReduceCoordinator {
             })?;
 
         // Register timeout if enforcer is available
-        let _timeout_handle = if let Some(enforcer) = timeout_enforcer {
-            match enforcer
-                .register_agent_timeout(agent_id.to_string(), item_id.to_string(), &commands)
-                .await
-            {
-                Ok(handle) => Some(handle),
-                Err(e) => {
-                    warn!("Failed to register timeout for agent {}: {}", agent_id, e);
-                    None
-                }
-            }
-        } else {
-            None
-        };
+        let _timeout_handle =
+            Self::register_agent_timeout(timeout_enforcer, agent_id, item_id, &commands).await;
 
         // Execute commands with timeout monitoring
         let agent_result = {
@@ -938,11 +1010,7 @@ impl MapReduceCoordinator {
                 ));
 
                 // Notify timeout enforcer of command start
-                if let Some(enforcer) = timeout_enforcer {
-                    let _ = enforcer
-                        .register_command_start(&agent_id.to_string(), index)
-                        .await;
-                }
+                Self::register_command_lifecycle(timeout_enforcer, agent_id, index, None).await?;
 
                 let cmd_start = Instant::now();
 
@@ -962,15 +1030,13 @@ impl MapReduceCoordinator {
                 .await?;
 
                 // Notify timeout enforcer of command completion
-                if let Some(enforcer) = timeout_enforcer {
-                    let _ = enforcer
-                        .register_command_completion(
-                            &agent_id.to_string(),
-                            index,
-                            cmd_start.elapsed(),
-                        )
-                        .await;
-                }
+                Self::register_command_lifecycle(
+                    timeout_enforcer,
+                    agent_id,
+                    index,
+                    Some(cmd_start.elapsed()),
+                )
+                .await?;
 
                 if !step_result.success {
                     // Handle on_failure if configured
@@ -1042,11 +1108,7 @@ impl MapReduceCoordinator {
         };
 
         // Unregister timeout (agent completed)
-        if let Some(enforcer) = timeout_enforcer {
-            let _ = enforcer
-                .unregister_agent_timeout(&agent_id.to_string())
-                .await;
-        }
+        Self::unregister_agent_timeout(timeout_enforcer, agent_id).await?;
 
         // Merge and cleanup agent if successful
         let merge_successful = if !agent_result.commits.is_empty() {
