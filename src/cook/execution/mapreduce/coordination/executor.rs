@@ -907,6 +907,130 @@ impl MapReduceCoordinator {
         Ok(())
     }
 
+    /// Execute agent commands in the worktree
+    ///
+    /// Executes all commands for an agent, handling failures and collecting results.
+    ///
+    /// # Arguments
+    /// * `handle` - Agent handle with worktree information
+    /// * `commands` - Commands to execute
+    /// * `item` - Work item data
+    /// * `item_id` - ID of the work item
+    /// * `agent_id` - ID of the agent
+    /// * `env` - Execution environment
+    /// * `claude_executor` - Claude command executor
+    /// * `subprocess` - Subprocess manager
+    /// * `timeout_enforcer` - Optional timeout enforcer
+    /// * `user_interaction` - User interaction handler
+    ///
+    /// # Returns
+    /// Tuple of (output, commits, files_modified)
+    #[allow(clippy::too_many_arguments)]
+    async fn execute_agent_commands(
+        handle: &crate::cook::execution::mapreduce::agent::AgentHandle,
+        commands: &[WorkflowStep],
+        item: &Value,
+        item_id: &str,
+        agent_id: &str,
+        env: &ExecutionEnvironment,
+        claude_executor: &Arc<dyn ClaudeExecutor>,
+        subprocess: &Arc<SubprocessManager>,
+        timeout_enforcer: Option<&Arc<TimeoutEnforcer>>,
+        user_interaction: &Arc<dyn UserInteraction>,
+    ) -> MapReduceResult<(String, Vec<String>, Vec<String>)> {
+        let mut output = String::new();
+        let mut all_commits = Vec::new();
+        let mut all_files_modified = Vec::new();
+
+        for (index, step) in commands.iter().enumerate() {
+            user_interaction.display_progress(&format!(
+                "Agent {}: Executing step {}/{}",
+                agent_id,
+                index + 1,
+                commands.len()
+            ));
+
+            // Notify timeout enforcer of command start
+            Self::register_command_lifecycle(timeout_enforcer, agent_id, index, None).await?;
+
+            let cmd_start = Instant::now();
+
+            // Create variables for interpolation
+            let variables = Self::build_item_variables(item, item_id);
+
+            // Execute the step in the agent's worktree
+            let step_result = Self::execute_step_in_agent_worktree(
+                handle.worktree_path(),
+                step,
+                &variables,
+                None, // Map phase doesn't need full context
+                env,
+                claude_executor,
+                subprocess,
+            )
+            .await?;
+
+            // Notify timeout enforcer of command completion
+            Self::register_command_lifecycle(
+                timeout_enforcer,
+                agent_id,
+                index,
+                Some(cmd_start.elapsed()),
+            )
+            .await?;
+
+            if !step_result.success {
+                // Handle on_failure if configured
+                if let Some(on_failure) = &step.on_failure {
+                    user_interaction.display_warning(&format!(
+                        "Agent {}: Step {} failed, executing on_failure handler",
+                        agent_id,
+                        index + 1
+                    ));
+
+                    // Execute on_failure handler
+                    let handler_result = Self::handle_on_failure(
+                        on_failure,
+                        handle.worktree_path(),
+                        &variables,
+                        env,
+                        claude_executor,
+                        subprocess,
+                        user_interaction,
+                    )
+                    .await?;
+
+                    if !handler_result {
+                        return Err(MapReduceError::ProcessingError(format!(
+                            "Agent {} step {} failed and on_failure handler failed",
+                            agent_id,
+                            index + 1
+                        )));
+                    }
+                }
+            }
+
+            // Capture output
+            if !step_result.stdout.is_empty() {
+                output.push_str(&step_result.stdout);
+                output.push('\n');
+            }
+
+            // Track commits if required
+            if step.commit_required {
+                // Get actual commits from git in the worktree
+                let commits = Self::get_worktree_commits(handle.worktree_path()).await;
+                all_commits.extend(commits);
+
+                // Get files modified
+                let files = Self::get_worktree_modified_files(handle.worktree_path()).await;
+                all_files_modified.extend(files);
+            }
+        }
+
+        Ok((output, all_commits, all_files_modified))
+    }
+
     /// Build variables for item interpolation
     ///
     /// Extracts fields from a JSON item and creates a HashMap of variables
@@ -996,96 +1120,20 @@ impl MapReduceCoordinator {
         let agent_result = {
             let start_time = Instant::now();
 
-            // Execute commands in the agent's worktree
-            let mut output = String::new();
-            let mut all_commits = Vec::new();
-            let mut all_files_modified = Vec::new();
-
-            for (index, step) in commands.iter().enumerate() {
-                user_interaction.display_progress(&format!(
-                    "Agent {}: Executing step {}/{}",
-                    agent_id,
-                    index + 1,
-                    commands.len()
-                ));
-
-                // Notify timeout enforcer of command start
-                Self::register_command_lifecycle(timeout_enforcer, agent_id, index, None).await?;
-
-                let cmd_start = Instant::now();
-
-                // Create variables for interpolation
-                let variables = Self::build_item_variables(&item, item_id);
-
-                // Execute the step in the agent's worktree
-                let step_result = Self::execute_step_in_agent_worktree(
-                    handle.worktree_path(),
-                    step,
-                    &variables,
-                    None, // Map phase doesn't need full context
-                    env,
-                    claude_executor,
-                    subprocess,
-                )
-                .await?;
-
-                // Notify timeout enforcer of command completion
-                Self::register_command_lifecycle(
-                    timeout_enforcer,
-                    agent_id,
-                    index,
-                    Some(cmd_start.elapsed()),
-                )
-                .await?;
-
-                if !step_result.success {
-                    // Handle on_failure if configured
-                    if let Some(on_failure) = &step.on_failure {
-                        user_interaction.display_warning(&format!(
-                            "Agent {}: Step {} failed, executing on_failure handler",
-                            agent_id,
-                            index + 1
-                        ));
-
-                        // Execute on_failure handler
-                        let handler_result = Self::handle_on_failure(
-                            on_failure,
-                            handle.worktree_path(),
-                            &variables,
-                            env,
-                            claude_executor,
-                            subprocess,
-                            user_interaction,
-                        )
-                        .await?;
-
-                        if !handler_result {
-                            return Err(MapReduceError::ProcessingError(format!(
-                                "Agent {} step {} failed and on_failure handler failed",
-                                agent_id,
-                                index + 1
-                            )));
-                        }
-                    }
-                }
-
-                // Capture output
-                if !step_result.stdout.is_empty() {
-                    output.push_str(&step_result.stdout);
-                    output.push('\n');
-                }
-
-                // Track commits if required
-                if step.commit_required {
-                    // Get actual commits from git in the worktree
-                    let commits = Self::get_worktree_commits(handle.worktree_path()).await;
-                    all_commits.extend(commits);
-
-                    // Get files modified
-                    let files = Self::get_worktree_modified_files(handle.worktree_path()).await;
-                    all_files_modified.extend(files);
-                }
-            }
+            // Execute all commands
+            let (output, all_commits, all_files_modified) = Self::execute_agent_commands(
+                &handle,
+                &commands,
+                &item,
+                item_id,
+                agent_id,
+                env,
+                claude_executor,
+                subprocess,
+                timeout_enforcer,
+                user_interaction,
+            )
+            .await?;
 
             // Calculate total duration
             let total_duration = start_time.elapsed();
