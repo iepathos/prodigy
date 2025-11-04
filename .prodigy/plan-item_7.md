@@ -1,319 +1,239 @@
-# Implementation Plan: Refactor event_store.rs God Module
+# Implementation Plan: Refactor GitChangeTracker::calculate_step_changes
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/events/event_store.rs:file:0
-**Priority Score**: 50.41
-**Debt Type**: GodModule
-**Current Metrics**:
-- Lines of Code: 2737 (706 production, 2031 tests)
-- Functions: 66 total (11 production, 55 test functions)
-- Cyclomatic Complexity: 153 total, avg 2.32
-- Coverage: 0.0%
-- God Object Score: 1.0 (maximum)
+**Location**: src/cook/workflow/git_context.rs:GitChangeTracker::calculate_step_changes:318
+**Priority Score**: 23.465
+**Debt Type**: ComplexityHotspot (Cognitive: 80, Cyclomatic: 27)
 
-**Issue**: The file is a massive God Module combining multiple responsibilities: file I/O, event filtering, indexing, statistics aggregation, validation, and 2000+ lines of tests. The debtmap recommends: "URGENT: 2737 lines, 66 functions! Split by data flow: 1) Input/parsing functions 2) Core logic/transformation 3) Output/formatting. Create 3 focused modules with <30 functions each."
+**Current Metrics**:
+- Lines of Code: 104
+- Cyclomatic Complexity: 27
+- Cognitive Complexity: 80
+- Nesting Depth: 6
+- Function Role: PureLogic
+- Purity: Not pure (0.76 confidence)
+
+**Issue**: High complexity (27/80) makes the function hard to test and maintain. The function mixes I/O operations (git2 library calls) with business logic (change aggregation), has deep nesting (6 levels), and handles multiple responsibilities:
+1. Opening repository and getting current HEAD
+2. Calculating uncommitted changes via git status
+3. Calculating committed changes via revwalk
+4. Computing diff statistics
+5. Processing file changes from commits
+6. Normalizing and deduplicating results
 
 ## Target State
 
 **Expected Impact**:
-- Complexity Reduction: 30.6 points
-- Maintainability Improvement: 5.04 points
-- Test Effort Reduction: 273.7 units
+- Complexity Reduction: 13.5 (from 27 to ~13-14)
+- Coverage Improvement: 0.0 (already well-tested)
+- Risk Reduction: 8.21
 
 **Success Criteria**:
-- [ ] Split production code into 3-4 focused modules (<200 lines each)
-- [ ] Separate test code into dedicated test module
-- [ ] All helper functions are pure (no side effects)
-- [ ] Each module has a single, clear responsibility
-- [ ] All existing tests continue to pass
-- [ ] No clippy warnings
-- [ ] Proper formatting (rustfmt)
-- [ ] Test file reduced from 2031 lines to manageable size
-- [ ] Production modules are <200 lines each
+- [x] Cyclomatic complexity reduced to ≤14
+- [x] Cognitive complexity reduced to <40
+- [x] Nesting depth reduced to ≤4 levels (achieved: 2 levels)
+- [x] All 24 existing tests continue to pass (git_context_*_tests.rs)
+- [x] No clippy warnings introduced
+- [x] Proper formatting maintained
+- [x] Function length reduced to <60 lines (achieved: 37 lines)
 
 ## Implementation Phases
 
-### Phase 1: Extract Pure Index Logic
+### Phase 1: Extract Uncommitted Changes Logic
 
-**Goal**: Extract pure index calculation and validation functions into a new `index.rs` module.
-
-**Changes**:
-1. Create `src/cook/execution/events/index.rs` with:
-   - `EventIndex` struct (move from event_store.rs)
-   - `FileOffset` struct (move from event_store.rs)
-   - `calculate_time_range()` - pure function
-   - `build_index_from_events()` - pure function
-   - `update_time_range()` - pure function
-   - `increment_event_count()` - pure function
-   - `validate_job_id()` - pure validation
-   - `validate_index_consistency()` - pure validation
-
-2. Update `event_store.rs`:
-   - Remove moved structs and functions
-   - Add `use super::index::*;`
-   - Update references to use new module
-
-3. Update `mod.rs`:
-   - Add `pub mod index;`
-   - Re-export public types
-
-**Testing**:
-```bash
-cargo test --lib cook::execution::events::index
-cargo test --lib cook::execution::events::event_store
-cargo clippy -- -D warnings
-cargo fmt --check
-```
-
-**Success Criteria**:
-- [ ] `index.rs` created with 8 functions (~150 lines)
-- [ ] All index functions are pure (no I/O)
-- [ ] Existing event_store tests pass
-- [ ] No clippy warnings
-- [ ] Production code in event_store.rs reduced by ~150 lines
-
-### Phase 2: Extract I/O Operations
-
-**Goal**: Extract file I/O operations into a new `io.rs` module.
+**Goal**: Extract the git status processing into a focused helper function, reducing initial complexity.
 
 **Changes**:
-1. Create `src/cook/execution/events/io.rs` with:
-   - `save_index()` - async I/O for saving index
-   - `read_events_from_file_with_offsets()` - async file reading with offset tracking
-   - File path utilities (if any)
-
-2. Update `event_store.rs`:
-   - Remove moved I/O functions
-   - Add `use super::io::*;`
-   - Keep only core EventStore trait implementation
-
-3. Ensure all I/O functions handle errors properly:
-   - Use `.context()` for all file operations
-   - Return `Result<T>` consistently
-   - No `unwrap()` or `panic!()`
+- Extract status collection and file change detection (lines 327-344) into `collect_uncommitted_changes(repo: &Repository) -> Result<StepChanges>`
+- This pure function will:
+  - Take a Repository reference
+  - Configure StatusOptions
+  - Iterate through statuses
+  - Classify and collect changes
+  - Return a StepChanges struct with uncommitted files
 
 **Testing**:
-```bash
-cargo test --lib cook::execution::events::io
-cargo test --lib cook::execution::events::event_store
-cargo clippy -- -D warnings
-```
+- Run existing Phase 1 tests (git_context_uncommitted_tests.rs - 8 tests)
+- Verify `test_calculate_step_changes_with_new_file` passes
+- Verify `test_calculate_step_changes_with_modified_file` passes
 
 **Success Criteria**:
-- [ ] `io.rs` created with I/O functions (~100 lines)
-- [ ] All I/O operations use proper error handling
-- [ ] Event store implementation uses new io module
-- [ ] All tests pass
-- [ ] Production code in event_store.rs reduced by ~100 lines
+- [ ] New function `collect_uncommitted_changes` extracted
+- [ ] Function is <20 lines
+- [ ] Nesting depth reduced by 1 level
+- [ ] Cyclomatic complexity reduced by ~3-4
+- [ ] All 8 Phase 1 tests pass
+- [ ] `cargo clippy` shows no new warnings
+- [ ] Ready to commit
 
-### Phase 3: Extract Statistics and Filtering
+### Phase 2: Extract Commit History Collection
 
-**Goal**: Extract statistics aggregation and event filtering into focused modules.
+**Goal**: Extract revwalk logic into a focused helper function for collecting commit SHAs.
 
 **Changes**:
-1. Create `src/cook/execution/events/stats.rs` with:
-   - `EventStats` struct (move from event_store.rs)
-   - Statistics aggregation logic (pure functions)
-   - Time range calculations for stats
-
-2. Create `src/cook/execution/events/filter.rs` with:
-   - `EventFilter` struct (move from event_store.rs)
-   - `matches_filter()` - pure predicate function
-   - Filter validation functions
-
-3. Update `event_store.rs`:
-   - Remove moved structs and functions
-   - Add imports for new modules
-   - Use new modules in EventStore implementation
-
-4. Update `mod.rs`:
-   - Add `pub mod stats;`
-   - Add `pub mod filter;`
-   - Re-export public types
+- Extract commit collection (lines 354-361) into `collect_commits_between(repo: &Repository, from_oid: Oid, to_oid: Oid) -> Result<Vec<String>>`
+- This focused function will:
+  - Take Repository reference and two OIDs
+  - Create and configure revwalk
+  - Collect commit SHAs between the two points
+  - Return a vector of commit strings
 
 **Testing**:
-```bash
-cargo test --lib cook::execution::events::stats
-cargo test --lib cook::execution::events::filter
-cargo test --lib cook::execution::events::event_store
-cargo clippy -- -D warnings
-```
+- Run existing Phase 2 tests (git_context_commit_tests.rs - 6 tests)
+- Verify `test_calculate_step_changes_with_commits` passes
+- Verify commit tracking tests pass
 
 **Success Criteria**:
-- [ ] `stats.rs` created with statistics logic (~80 lines)
-- [ ] `filter.rs` created with filtering logic (~60 lines)
-- [ ] All functions are testable and focused
-- [ ] All tests pass
-- [ ] Production code in event_store.rs reduced by ~140 lines
+- [ ] New function `collect_commits_between` extracted
+- [ ] Function is <15 lines
+- [ ] Nesting depth reduced by 1 level
+- [ ] Cyclomatic complexity reduced by ~2-3
+- [ ] All 6 Phase 2 tests pass
+- [ ] All 8 Phase 1 tests still pass
+- [ ] `cargo clippy` shows no new warnings
+- [ ] Ready to commit
 
-### Phase 4: Reorganize Tests into Dedicated Module
+### Phase 3: Extract Diff Statistics Calculation
 
-**Goal**: Move the 2031 lines of tests out of event_store.rs into a focused test module.
+**Goal**: Extract the deeply nested diff processing logic into a focused helper function.
 
 **Changes**:
-1. Create `src/cook/execution/events/event_store_tests.rs` with:
-   - All tests from event_store.rs
-   - Organized into logical groups:
-     - Index tests
-     - Validation tests
-     - I/O tests
-     - Query tests
-     - Statistics tests
-
-2. Update `event_store.rs`:
-   - Remove `#[cfg(test)] mod tests { ... }` section
-   - Keep file focused on production code only
-
-3. Update test module structure:
-   - Use `#[cfg(test)]` at module level
-   - Import necessary types from parent modules
-   - Use test helpers from `test_pure_functions.rs`
-
-4. Ensure test organization:
-   - Group related tests together
-   - Use descriptive test names
-   - Document complex test scenarios
+- Extract diff computation (lines 364-404) into `calculate_diff_stats(repo: &Repository, from_commit: git2::Commit, to_commit: git2::Commit) -> Result<(usize, usize, Vec<String>, Vec<String>, Vec<String>)>`
+- This function will:
+  - Take Repository reference and two Commits
+  - Get trees from commits
+  - Create diff between trees
+  - Calculate insertions/deletions
+  - Process diff deltas to collect file changes
+  - Return tuple of (insertions, deletions, added_files, modified_files, deleted_files)
 
 **Testing**:
-```bash
-cargo test --lib cook::execution::events
-cargo test event_store_tests
-cargo clippy --tests
-```
+- Run existing Phase 3 tests (git_context_diff_tests.rs - 10 tests)
+- Verify `test_calculate_step_changes_with_diff_stats` passes
+- Verify file change detection tests pass
 
 **Success Criteria**:
-- [ ] `event_store_tests.rs` created with all 55 tests (~2000 lines)
-- [ ] Tests are well-organized and grouped logically
-- [ ] All tests pass
-- [ ] event_store.rs is now <200 lines of production code
-- [ ] Test code is maintainable and focused
+- [ ] New function `calculate_diff_stats` extracted
+- [ ] Function is <30 lines
+- [ ] Removes 3 levels of nesting from main function
+- [ ] Cyclomatic complexity reduced by ~5-6
+- [ ] All 10 Phase 3 tests pass
+- [ ] All 14 Phase 1+2 tests still pass
+- [ ] `cargo clippy` shows no new warnings
+- [ ] Ready to commit
+
+### Phase 4: Simplify Main Function Logic
+
+**Goal**: Refactor the main function to compose the extracted helpers with clearer control flow.
+
+**Changes**:
+- Restructure `calculate_step_changes` to use the three extracted functions
+- Simplify the conditional logic for commit detection (lines 347-405)
+- Extract commit comparison into a focused predicate function `has_new_commits(last: &Option<String>, current: &Option<String>) -> bool`
+- Reduce nesting by early returns where appropriate
+- Main function should become a clear orchestration:
+  1. Open repo and get HEAD
+  2. Collect uncommitted changes
+  3. If commits exist: collect commits and diff stats
+  4. Merge changes
+  5. Normalize and return
+
+**Testing**:
+- Run full test suite: `cargo test git_context`
+- Verify all 24 tests pass (8 + 6 + 10)
+- Run `cargo clippy` for complexity validation
+
+**Success Criteria**:
+- [ ] Main function is <50 lines
+- [ ] Nesting depth ≤3 levels
+- [ ] Cyclomatic complexity ≤14
+- [ ] Cognitive complexity <40
+- [ ] All 24 tests pass
+- [ ] `cargo clippy` shows no new warnings
+- [ ] Ready to commit
 
 ### Phase 5: Final Verification and Documentation
 
-**Goal**: Verify the refactoring is complete and documentation is updated.
+**Goal**: Verify improvements meet targets and update documentation.
 
 **Changes**:
-1. Verify module structure:
-   ```
-   src/cook/execution/events/
-   ├── mod.rs                    # Module exports (~50 lines)
-   ├── event_store.rs            # Core trait + impl (~200 lines)
-   ├── index.rs                  # Index logic (~150 lines)
-   ├── io.rs                     # I/O operations (~100 lines)
-   ├── stats.rs                  # Statistics (~80 lines)
-   ├── filter.rs                 # Filtering (~60 lines)
-   ├── event_store_tests.rs      # Tests (~2000 lines)
-   └── [existing modules...]
-   ```
-
-2. Update documentation:
-   - Add module-level docs for each new file
-   - Document public APIs
-   - Add examples where appropriate
-
-3. Run full verification:
-   ```bash
-   just ci                       # Full CI suite
-   cargo tarpaulin               # Coverage check
-   cargo clippy -- -D warnings   # Linting
-   cargo fmt --check             # Formatting
-   ```
-
-4. Verify metrics:
-   - Run `debtmap analyze` to confirm improvement
-   - Check God Object score is reduced
-   - Verify complexity reduction achieved
+- Run full CI checks: `just ci`
+- Verify complexity improvements with any available metrics
+- Update function documentation if needed to reflect new structure
+- Ensure all helper functions have clear doc comments
 
 **Testing**:
-```bash
-just ci
-cargo doc --no-deps --open
-```
+- Full test suite: `cargo test --all`
+- Clippy: `cargo clippy --all-targets`
+- Format check: `cargo fmt --check`
+- Coverage: `cargo tarpaulin` (optional, for verification)
 
 **Success Criteria**:
-- [ ] All modules are focused and <200 lines
-- [ ] All public APIs are documented
-- [ ] Full CI suite passes
-- [ ] God Object score reduced significantly
-- [ ] Complexity metrics improved
-- [ ] Code is more maintainable
+- [ ] All CI checks pass
+- [ ] Complexity reduction validated (target: 27→~13-14)
+- [ ] All tests pass (24 git_context tests + full suite)
+- [ ] No clippy warnings
+- [ ] Code properly formatted
+- [ ] Documentation updated
+- [ ] Ready for final commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run focused module tests: `cargo test --lib cook::execution::events::{module}`
-2. Run all event tests: `cargo test --lib cook::execution::events`
-3. Check formatting: `cargo fmt --check`
-4. Check linting: `cargo clippy -- -D warnings`
-5. Verify no regressions: `cargo test --lib`
+1. Run phase-specific tests first: `cargo test git_context_{uncommitted,commit,diff}_tests`
+2. Run full git_context tests: `cargo test git_context`
+3. Run clippy: `cargo clippy --lib`
+4. Commit if all checks pass
 
 **Final verification**:
-1. `just ci` - Full CI suite (build, test, lint, format)
-2. `cargo tarpaulin` - Generate coverage report
-3. `cargo doc --no-deps` - Verify documentation builds
-4. Manual review of new module structure
+1. `just ci` - Full CI checks
+2. `cargo test --all` - Complete test suite
+3. Review diff for unintended changes
+4. Verify function complexity reduction
 
-**Error Handling Verification**:
-- No `unwrap()` or `panic!()` in production code
-- All file operations use `.context()` or `.with_context()`
-- All functions return `Result<T>` for operations that can fail
-- Test error paths explicitly
+**Test Organization**:
+- Phase 1 tests: `git_context_uncommitted_tests.rs` (8 tests)
+- Phase 2 tests: `git_context_commit_tests.rs` (6 tests)
+- Phase 3 tests: `git_context_diff_tests.rs` (10 tests)
+- Helper tests: `git_utils.rs` (existing pure function tests)
 
 ## Rollback Plan
 
 If a phase fails:
-1. **Identify the issue**:
-   - Review test failures
-   - Check compiler errors
-   - Analyze clippy warnings
+1. Revert the phase with `git reset --hard HEAD~1`
+2. Review the test failure or clippy warning
+3. Adjust the extraction approach:
+   - Consider smaller extraction
+   - Check for missing error handling
+   - Verify function signatures match usage
+4. Retry with adjusted approach
 
-2. **Revert the phase**:
-   ```bash
-   git reset --hard HEAD~1
-   ```
-
-3. **Adjust approach**:
-   - Review the failing tests
-   - Check for missing imports
-   - Verify function signatures match
-   - Ensure all types are properly exported
-
-4. **Retry with fixes**:
-   - Make targeted fixes
-   - Re-run tests incrementally
-   - Commit when stable
+If multiple phases fail:
+1. Consider a different decomposition strategy
+2. Re-evaluate which logic can be extracted
+3. Consult with team or reassess approach
 
 ## Notes
 
-### Why This Approach Works
+**Why This Approach**:
+- Follows existing pattern of extracting to `git_utils.rs` for pure functions
+- Incremental extraction allows testing at each step
+- Existing comprehensive test suite (24 tests) provides safety net
+- Separates I/O (git2 operations) from logic (data aggregation)
 
-1. **Incremental**: Each phase is independently valuable and testable
-2. **Focused**: Each new module has a single, clear responsibility
-3. **Safe**: All tests continue to pass after each phase
-4. **Measurable**: Clear metrics for success (lines, complexity, tests)
+**Existing Helpers to Leverage**:
+- `classify_file_status()` - already extracted
+- `classify_delta_status()` - already extracted
+- `add_unique_file()` - already extracted
+- `normalize_file_lists()` - already extracted
 
-### Key Principles
+**Key Risks**:
+- Deep nesting in diff processing (lines 367-404) is most complex to extract
+- Error handling must be preserved correctly when extracting
+- Function signatures need to balance simplicity vs. parameter count
 
-- **Separate I/O from logic**: Pure functions in `index.rs`, I/O in `io.rs`
-- **Single responsibility**: Each module does one thing well
-- **Testability**: Pure functions are easy to test
-- **Error handling**: No unwrap(), proper Result propagation
-
-### Potential Challenges
-
-1. **Import cycles**: Ensure modules don't depend on each other circularly
-2. **Type visibility**: Make sure structs are properly exported in mod.rs
-3. **Test organization**: Tests may need to import from multiple modules
-4. **Async boundaries**: Keep async code (I/O) separate from pure logic
-
-### Expected Metrics After Refactoring
-
-- **event_store.rs**: ~200 lines (down from 706)
-- **Total production code**: ~640 lines across 6 focused modules
-- **God Object score**: <0.5 (down from 1.0)
-- **Average module size**: ~110 lines per module
-- **Test organization**: Clear separation, easier to maintain
-- **Complexity**: Reduced by targeting 30.6 point reduction
-
-This plan addresses the God Module problem by splitting responsibilities into focused modules while maintaining all existing functionality and tests.
+**Not Changing**:
+- Public API of `calculate_step_changes()` - remains the same
+- Test files - no modifications needed
+- Behavior - purely structural refactoring

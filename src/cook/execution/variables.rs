@@ -96,6 +96,55 @@ pub enum AggregateType {
     },
 }
 
+/// Types of variables based on their prefix or format
+#[derive(Debug, Clone, PartialEq)]
+enum VariableType {
+    /// Environment variable (env.*)
+    Environment,
+    /// File content (file:*)
+    File,
+    /// Command output (cmd:*)
+    Command,
+    /// JSON extraction (json:*)
+    Json,
+    /// Date formatting (date:*)
+    Date,
+    /// UUID generation (uuid)
+    Uuid,
+    /// Standard variable lookup (no prefix)
+    Standard,
+}
+
+/// Parse the variable type from an expression based on its prefix or format
+///
+/// Detects the variable type by examining the expression prefix:
+/// - `env.*` → Environment variable
+/// - `file:*` → File content
+/// - `cmd:*` → Command output
+/// - `json:*` → JSON extraction
+/// - `date:*` → Date formatting
+/// - `uuid` → UUID generation
+/// - Otherwise → Standard variable lookup
+///
+/// This function is pure and has low cyclomatic complexity (5).
+fn parse_variable_type(expr: &str) -> VariableType {
+    if expr.starts_with("env.") {
+        VariableType::Environment
+    } else if expr.starts_with("file:") {
+        VariableType::File
+    } else if expr.starts_with("cmd:") {
+        VariableType::Command
+    } else if expr.starts_with("json:") {
+        VariableType::Json
+    } else if expr.starts_with("date:") {
+        VariableType::Date
+    } else if expr == "uuid" {
+        VariableType::Uuid
+    } else {
+        VariableType::Standard
+    }
+}
+
 /// Trait for computed variables that evaluate on demand
 pub trait ComputedVariable: Send + Sync {
     /// Evaluate the variable in the given context
@@ -487,7 +536,115 @@ impl VariableContext {
         Box::pin(async move { self.resolve_variable_impl(expr, depth).await })
     }
 
-    /// Implementation of resolve_variable
+    /// Resolve a variable by dispatching to the appropriate type-specific resolver
+    ///
+    /// Uses a match statement on VariableType to delegate to specialized resolvers.
+    /// Each branch extracts the relevant part of the expression and calls the
+    /// corresponding variable type's evaluate method.
+    ///
+    /// This function replaces the previous large if-else chain, reducing complexity
+    /// and improving maintainability through clean separation of concerns.
+    async fn resolve_by_type(
+        &self,
+        var_type: VariableType,
+        expr: &str,
+        depth: usize,
+    ) -> Result<Value> {
+        match var_type {
+            VariableType::Environment => {
+                let var_name = expr
+                    .strip_prefix("env.")
+                    .ok_or_else(|| anyhow!("Invalid environment variable format: {}", expr))?;
+                let env_var = EnvVariable::new(var_name.to_string());
+                env_var.evaluate(self)
+            }
+            VariableType::File => {
+                let path = expr
+                    .strip_prefix("file:")
+                    .ok_or_else(|| anyhow!("Invalid file variable format: {}", expr))?;
+                let file_var = FileVariable::new(path.to_string());
+                file_var.evaluate(self)
+            }
+            VariableType::Command => {
+                let command = expr
+                    .strip_prefix("cmd:")
+                    .ok_or_else(|| anyhow!("Invalid command variable format: {}", expr))?;
+                let cmd_var = CommandVariable::new(command.to_string());
+                cmd_var.evaluate(self)
+            }
+            VariableType::Json => {
+                let remainder = expr
+                    .strip_prefix("json:")
+                    .ok_or_else(|| anyhow!("Invalid JSON variable format: {}", expr))?;
+                self.resolve_json_variable(remainder, depth).await
+            }
+            VariableType::Date => {
+                let format = expr
+                    .strip_prefix("date:")
+                    .ok_or_else(|| anyhow!("Invalid date variable format: {}", expr))?;
+                let date_var = DateVariable::new(format.to_string());
+                date_var.evaluate(self)
+            }
+            VariableType::Uuid => UuidVariable.evaluate(self),
+            VariableType::Standard => self.lookup_variable(expr),
+        }
+    }
+
+    /// Resolve a JSON variable expression with path extraction
+    ///
+    /// Supports two formats:
+    /// - Modern: `json:path:from:data_source` - Uses `:from:` separator
+    /// - Legacy: `json:path:data_source` - Uses first `:` as separator
+    ///
+    /// The function:
+    /// 1. Parses the format to extract path and data source
+    /// 2. Recursively resolves the data source variable
+    /// 3. Handles both string JSON and structured data
+    /// 4. Applies JSONPath to extract the desired value
+    ///
+    /// This extraction eliminates the deepest nesting (6 levels) from the main
+    /// resolve function, significantly improving readability.
+    async fn resolve_json_variable(&self, remainder: &str, depth: usize) -> Result<Value> {
+        // Find the position of ":from:" separator
+        let separator = ":from:";
+        if let Some(sep_pos) = remainder.find(separator) {
+            let path = &remainder[..sep_pos];
+            let data_source = &remainder[sep_pos + separator.len()..];
+
+            // Resolve the JSON data variable first
+            let json_value = self.resolve_variable(data_source, depth + 1).await?;
+
+            // Handle both string JSON and already-structured data
+            let json_to_query = if json_value.is_string() {
+                // If it's a string, parse it as JSON
+                let json_str = self.value_to_string(&json_value);
+                serde_json::from_str(&json_str)
+                    .context("Failed to parse JSON string from variable")?
+            } else {
+                // If it's already structured data, use it directly
+                json_value.clone()
+            };
+
+            // Apply JSONPath to extract the value
+            extract_json_path(&json_to_query, path)
+                .ok_or_else(|| anyhow!("JSON path '{}' not found in data", path))
+        } else {
+            // Legacy format: json:path:data_source (split on first colon)
+            let parts: Vec<&str> = remainder.splitn(2, ':').collect();
+            if parts.len() == 2 {
+                let json_value = self.resolve_variable(parts[1], depth + 1).await?;
+                let json_str = self.value_to_string(&json_value);
+                let json_var = JsonPathVariable::new(json_str, parts[0].to_string());
+                json_var.evaluate(self)
+            } else {
+                Err(anyhow!(
+                    "Invalid json: expression format. Use json:path:from:data_source"
+                ))
+            }
+        }
+    }
+
+    /// Implementation of resolve_variable with caching
     async fn resolve_variable_impl(&self, expr: &str, depth: usize) -> Result<Value> {
         // Check cache first
         {
@@ -498,70 +655,8 @@ impl VariableContext {
             }
         }
 
-        // Parse the expression to determine type
-        let value = if let Some(var_name) = expr.strip_prefix("env.") {
-            // Environment variable
-            let env_var = EnvVariable::new(var_name.to_string());
-            env_var.evaluate(self)?
-        } else if let Some(path) = expr.strip_prefix("file:") {
-            // File content
-            let file_var = FileVariable::new(path.to_string());
-            file_var.evaluate(self)?
-        } else if let Some(command) = expr.strip_prefix("cmd:") {
-            // Command output
-            let cmd_var = CommandVariable::new(command.to_string());
-            cmd_var.evaluate(self)?
-        } else if let Some(remainder) = expr.strip_prefix("json:") {
-            // JSON extraction (format: json:path:from:data_source)
-            // Split into path and data_source parts
-            // Find the position of ":from:" separator
-            let separator = ":from:";
-            if let Some(sep_pos) = remainder.find(separator) {
-                let path = &remainder[..sep_pos];
-                let data_source = &remainder[sep_pos + separator.len()..];
-
-                // Resolve the JSON data variable first
-                let json_value = self.resolve_variable(data_source, depth + 1).await?;
-
-                // Handle both string JSON and already-structured data
-                let json_to_query = if json_value.is_string() {
-                    // If it's a string, parse it as JSON
-                    let json_str = self.value_to_string(&json_value);
-                    serde_json::from_str(&json_str)
-                        .context("Failed to parse JSON string from variable")?
-                } else {
-                    // If it's already structured data, use it directly
-                    json_value.clone()
-                };
-
-                // Apply JSONPath to extract the value
-                extract_json_path(&json_to_query, path)
-                    .ok_or_else(|| anyhow!("JSON path '{}' not found in data", path))?
-            } else {
-                // Legacy format: json:path:data_source (split on first colon)
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                if parts.len() == 2 {
-                    let json_value = self.resolve_variable(parts[1], depth + 1).await?;
-                    let json_str = self.value_to_string(&json_value);
-                    let json_var = JsonPathVariable::new(json_str, parts[0].to_string());
-                    json_var.evaluate(self)?
-                } else {
-                    return Err(anyhow!(
-                        "Invalid json: expression format. Use json:path:from:data_source"
-                    ));
-                }
-            }
-        } else if let Some(format) = expr.strip_prefix("date:") {
-            // Date formatting
-            let date_var = DateVariable::new(format.to_string());
-            date_var.evaluate(self)?
-        } else if expr == "uuid" {
-            // UUID generation (never cached)
-            return UuidVariable.evaluate(self);
-        } else {
-            // Standard variable lookup
-            self.lookup_variable(expr)?
-        };
+        // Resolve the variable without caching
+        let value = self.resolve_without_cache(expr, depth).await?;
 
         // Cache expensive computations
         if self.should_cache(expr) {
@@ -571,6 +666,29 @@ impl VariableContext {
         }
 
         Ok(value)
+    }
+
+    /// Resolve a variable without caching - pure resolution logic
+    ///
+    /// This function contains the core variable resolution logic without any
+    /// caching concerns. It:
+    /// 1. Parses the variable type from the expression
+    /// 2. Handles UUID as a special case (never cached)
+    /// 3. Delegates to the type-specific resolver
+    ///
+    /// Separating this from caching logic improves testability and maintains
+    /// single responsibility principle. Low complexity (~2).
+    async fn resolve_without_cache(&self, expr: &str, depth: usize) -> Result<Value> {
+        // Parse the expression to determine type
+        let var_type = parse_variable_type(expr);
+
+        // Special case: UUID is never cached, so handle it directly
+        if var_type == VariableType::Uuid {
+            return UuidVariable.evaluate(self);
+        }
+
+        // Resolve the variable using the appropriate resolver
+        self.resolve_by_type(var_type, expr, depth).await
     }
 
     /// Look up a variable in scopes
@@ -1263,6 +1381,49 @@ impl From<&super::interpolation::InterpolationContext> for VariableContext {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn test_parse_variable_type_environment() {
+        assert_eq!(parse_variable_type("env.PATH"), VariableType::Environment);
+        assert_eq!(parse_variable_type("env.HOME"), VariableType::Environment);
+    }
+
+    #[test]
+    fn test_parse_variable_type_file() {
+        assert_eq!(
+            parse_variable_type("file:/path/to/file.txt"),
+            VariableType::File
+        );
+    }
+
+    #[test]
+    fn test_parse_variable_type_command() {
+        assert_eq!(parse_variable_type("cmd:echo hello"), VariableType::Command);
+    }
+
+    #[test]
+    fn test_parse_variable_type_json() {
+        assert_eq!(
+            parse_variable_type("json:$.path:from:variable"),
+            VariableType::Json
+        );
+    }
+
+    #[test]
+    fn test_parse_variable_type_date() {
+        assert_eq!(parse_variable_type("date:%Y-%m-%d"), VariableType::Date);
+    }
+
+    #[test]
+    fn test_parse_variable_type_uuid() {
+        assert_eq!(parse_variable_type("uuid"), VariableType::Uuid);
+    }
+
+    #[test]
+    fn test_parse_variable_type_standard() {
+        assert_eq!(parse_variable_type("some.variable"), VariableType::Standard);
+        assert_eq!(parse_variable_type("simple"), VariableType::Standard);
+    }
 
     #[tokio::test]
     async fn test_basic_interpolation() {

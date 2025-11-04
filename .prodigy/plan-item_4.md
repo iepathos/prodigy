@@ -1,286 +1,199 @@
-# Implementation Plan: Refactor Worktree CLI Command Module
+# Implementation Plan: Reduce Complexity of execute_agent_for_item
 
 ## Problem Summary
 
-**Location**: ./src/cli/commands/worktree/cli.rs:file:0
-**Priority Score**: 62.43
-**Debt Type**: God Object (File-Level)
+**Location**: ./src/cook/execution/mapreduce/coordination/executor.rs:MapReduceCoordinator::execute_agent_for_item:828
+**Priority Score**: 28.405
+**Debt Type**: ComplexityHotspot (Cognitive: 106, Cyclomatic: 29)
 **Current Metrics**:
-- Lines of Code: 449
-- Functions: 8
-- Cyclomatic Complexity: 95 (avg 11.875 per function, max 27)
-- Coverage: 0.0%
+- Lines of Code: 278
+- Cyclomatic Complexity: 29
+- Cognitive Complexity: 106
+- Nesting Depth: 4
 
-**Issue**: Large CLI command handler file mixing input parsing, business logic orchestration, formatting, and I/O. Contains 7 distinct command handlers with varying complexity, making the module difficult to test and maintain. The file exhibits god object characteristics with multiple responsibilities bundled into a single module.
+**Issue**: High complexity (29 cyclomatic, 106 cognitive) makes function hard to test and maintain. The function handles too many responsibilities: agent creation, timeout management, command execution with variable interpolation, error handling, merge coordination, and cleanup orchestration.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 19.0 points
-- Maintainability Improvement: 6.24 points
-- Test Effort: 44.9 points
+- Complexity Reduction: 14.5 (target cyclomatic: ~10-15)
+- Coverage Improvement: 0.0 (function is orchestration code)
+- Risk Reduction: 9.94175
 
 **Success Criteria**:
-- [ ] File split into focused modules with single responsibilities
-- [ ] Each function under 30 lines with complexity < 10
-- [ ] Pure business logic extracted and independently testable
-- [ ] I/O and formatting separated from logic
-- [ ] Test coverage > 70% for business logic modules
+- [ ] Cyclomatic complexity reduced from 29 to ≤15
+- [ ] Cognitive complexity reduced from 106 to ≤50
+- [ ] Extract 4-5 focused pure functions for testable logic
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting
+- [ ] Proper formatting with `cargo fmt`
 
 ## Implementation Phases
 
-### Phase 1: Extract MapReduce Cleanup Logic
+### Phase 1: Extract Variable Preparation Logic
 
-**Goal**: Separate MapReduce-specific cleanup operations into dedicated module
-
-**Changes**:
-- Create new module `src/cli/commands/worktree/mapreduce_cleanup.rs`
-- Move `run_mapreduce_cleanup()` function (lines 243-314)
-- Extract configuration building logic into pure functions
-- Separate path resolution from cleanup coordination
-- Update `cli.rs` to use new module
-
-**Rationale**: This function (72 lines) handles a distinct responsibility (MapReduce worktree cleanup) with its own dependencies and logic. Separating it reduces `cli.rs` complexity and enables targeted testing.
-
-**Testing**:
-- Unit tests for path resolution logic
-- Unit tests for configuration building
-- Integration tests for cleanup coordination (existing patterns)
-- Run `cargo test --lib` to verify no regressions
-
-**Success Criteria**:
-- [ ] `run_mapreduce_cleanup()` moved to new module
-- [ ] Path resolution logic is pure and testable
-- [ ] Config building logic is pure and testable
-- [ ] cli.rs imports and calls new module correctly
-- [ ] All tests pass
-- [ ] Ready to commit
-
-### Phase 2: Extract Orphaned Worktree Cleanup Logic
-
-**Goal**: Separate orphaned worktree cleanup into dedicated module
+**Goal**: Extract the complex variable building logic (lines 910-933) into a pure, testable function.
 
 **Changes**:
-- Create new module `src/cli/commands/worktree/orphaned_cleanup.rs`
-- Move `run_worktree_clean_orphaned()` function (lines 317-449)
-- Extract registry file discovery into pure function
-- Extract worktree display formatting into pure function
-- Separate user confirmation logic from cleanup logic
-- Update `cli.rs` to use new module
-
-**Rationale**: This function (133 lines, complexity 27) is the most complex in the file. It handles registry file I/O, user interaction, and worktree cleanup. Extracting it significantly reduces file complexity.
+- Create new pure function `build_item_variables(item: &Value, item_id: &str) -> HashMap<String, String>`
+- Move the HashMap construction and item field flattening logic
+- Replace inline logic with function call
+- Add unit tests for variable building edge cases
 
 **Testing**:
-- Unit tests for registry file discovery logic
-- Unit tests for formatting functions
-- Mock-based tests for cleanup operations
-- Run `cargo test --lib` to verify no regressions
+- Unit test with Object containing strings, numbers, bools, nulls
+- Unit test with nested objects (should serialize to JSON)
+- Unit test with empty object
+- Run `cargo test --lib` to verify existing tests pass
+- Run `cargo clippy` to check for warnings
 
 **Success Criteria**:
-- [ ] `run_worktree_clean_orphaned()` moved to new module
-- [ ] Registry discovery logic is pure and testable
-- [ ] Formatting logic is pure and testable
-- [ ] cli.rs imports and calls new module correctly
+- [ ] Variable building logic extracted to pure function
+- [ ] Cyclomatic complexity reduced by ~3
+- [ ] Unit tests added for variable building
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 3: Extract Age-Based Cleanup Logic
+### Phase 2: Extract Timeout Management Logic
 
-**Goal**: Separate age-based worktree cleanup into dedicated module
+**Goal**: Extract timeout registration and unregistration into helper methods.
 
 **Changes**:
-- Create new module `src/cli/commands/worktree/age_cleanup.rs`
-- Move `cleanup_old_worktrees()` function (lines 204-240)
-- Extract age calculation into pure function
-- Extract worktree filtering logic into pure function
-- Separate display formatting from cleanup operations
-- Update `cli.rs` to use new module
-
-**Rationale**: This function (37 lines) handles time-based filtering, a distinct concern from other cleanup operations. Extracting it improves modularity.
+- Create `register_agent_timeout(enforcer: Option<&Arc<TimeoutEnforcer>>, agent_id: &str, item_id: &str, commands: &[WorkflowStep]) -> Option<TimeoutHandle>`
+- Create `register_command_lifecycle(enforcer: Option<&Arc<TimeoutEnforcer>>, agent_id: &str, index: usize, elapsed: Option<Duration>) -> Result<()>`
+- Replace timeout management blocks (lines 868-881, 901-905, 947-955, 1027-1031) with function calls
+- Simplify error handling for timeout operations
 
 **Testing**:
-- Unit tests for age calculation logic
-- Unit tests for worktree filtering by age
-- Mock-based tests for cleanup operations
-- Run `cargo test --lib` to verify no regressions
+- Unit test timeout registration with Some enforcer
+- Unit test timeout registration with None enforcer
+- Unit test command lifecycle tracking
+- Run `cargo test --lib` to verify existing tests pass
 
 **Success Criteria**:
-- [ ] `cleanup_old_worktrees()` moved to new module
-- [ ] Age calculation logic is pure and testable
-- [ ] Filtering logic is pure and testable
-- [ ] cli.rs imports and calls new module correctly
+- [ ] Timeout management logic extracted to 2 helper functions
+- [ ] Cyclomatic complexity reduced by ~4
+- [ ] Nesting depth reduced by 1
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 4: Refactor Main Command Handlers
+### Phase 3: Extract Command Execution Loop
 
-**Goal**: Simplify remaining command handler functions by extracting pure logic
+**Goal**: Extract the command execution loop (lines 892-1004) into a separate method to reduce nesting and complexity.
 
-**Changes in `run_worktree_clean()`**:
-- Extract parameter validation logic into pure function
-- Extract routing logic into pure decision functions
-- Reduce function to simple orchestration of operations
-- Target: < 30 lines, complexity < 5
-
-**Changes in `run_worktree_merge()`**:
-- Extract result formatting into pure function
-- Extract error message construction into pure function
-- Separate success/failure logic paths
-- Target: < 30 lines, complexity < 5
-
-**Changes in `run_worktree_ls()`**:
-- Extract table formatting into pure function
-- Extract session display logic into pure function
-- Target: < 25 lines, complexity < 3
-
-**Rationale**: These handlers currently mix orchestration with formatting and decision logic. Extracting pure functions makes the handlers simple, testable orchestrators.
+**Changes**:
+- Create `execute_agent_commands(handle: &AgentHandle, commands: &[WorkflowStep], item: &Value, item_id: &str, agent_id: &str, env: &ExecutionEnvironment, claude_executor: &Arc<dyn ClaudeExecutor>, subprocess: &Arc<SubprocessManager>, timeout_enforcer: Option<&Arc<TimeoutEnforcer>>, user_interaction: &Arc<dyn UserInteraction>) -> MapReduceResult<(String, Vec<String>, Vec<PathBuf>)>`
+- Return tuple of (output, commits, files_modified)
+- Move variable building call into this function
+- Move step execution loop into this function
+- Keep the main function focused on orchestration
 
 **Testing**:
-- Unit tests for all extracted pure functions
-- Unit tests for parameter validation
-- Unit tests for formatting functions
-- Integration tests verify handler orchestration
-- Run `cargo test --lib` to verify no regressions
+- Integration test with mock commands
+- Test error handling in command loop
+- Test on_failure handler execution
+- Run `cargo test --lib` to verify all tests pass
 
 **Success Criteria**:
-- [ ] All handlers under 30 lines
-- [ ] All handlers with complexity < 5
-- [ ] Pure functions extracted and tested
-- [ ] Formatting logic is reusable
+- [ ] Command execution loop extracted to separate method
+- [ ] Cyclomatic complexity reduced by ~8
+- [ ] Nesting depth reduced by 2
 - [ ] All tests pass
 - [ ] Ready to commit
 
-### Phase 5: Add Comprehensive Test Coverage
+### Phase 4: Extract Merge and Cleanup Logic
 
-**Goal**: Achieve >70% test coverage for all new modules and refactored logic
+**Goal**: Extract merge coordination and cleanup logic (lines 1033-1087) into a focused method.
 
-**Test Additions**:
-- `tests/cli/commands/worktree/mapreduce_cleanup_tests.rs`
-  - Path resolution tests
-  - Configuration building tests
-  - Edge cases (missing $HOME, invalid repo names)
-
-- `tests/cli/commands/worktree/orphaned_cleanup_tests.rs`
-  - Registry file discovery tests
-  - Multi-job registry handling tests
-  - Formatting tests
-  - Edge cases (empty registry, missing files)
-
-- `tests/cli/commands/worktree/age_cleanup_tests.rs`
-  - Age calculation tests
-  - Filtering logic tests
-  - Edge cases (zero age, negative durations)
-
-- `tests/cli/commands/worktree/formatting_tests.rs`
-  - Table formatting tests
-  - Result display tests
-  - Error message construction tests
-
-**Rationale**: Testing pure logic is straightforward and provides confidence in refactoring. Test coverage validates that behavior is preserved.
+**Changes**:
+- Create `merge_and_cleanup_agent(agent_manager: &Arc<dyn AgentLifecycleManager>, merge_queue: &Arc<MergeQueue>, handle: AgentHandle, config: &AgentConfig, result: &AgentResult, env: &ExecutionEnvironment, agent_id: &str, item_id: &str) -> MapReduceResult<bool>`
+- Return bool indicating merge success
+- Consolidate error logging and cleanup handling
+- Simplify the conditional logic for commits vs no-commits
 
 **Testing**:
-- Run `cargo test --lib` for all new tests
-- Run `cargo tarpaulin` to verify coverage >70%
-- Run `just ci` for full validation
+- Test merge with commits (successful merge)
+- Test merge with commits (failed merge)
+- Test cleanup without commits
+- Test cleanup failure handling
+- Run `cargo test --lib` to verify all tests pass
 
 **Success Criteria**:
-- [ ] All new modules have test files
-- [ ] Test coverage >70% for business logic
-- [ ] All edge cases covered
+- [ ] Merge and cleanup logic extracted to separate method
+- [ ] Cyclomatic complexity reduced by ~6
+- [ ] Error handling simplified
 - [ ] All tests pass
 - [ ] Ready to commit
+
+### Phase 5: Final Cleanup and Verification
+
+**Goal**: Clean up the main function, verify complexity targets met, and ensure code quality.
+
+**Changes**:
+- Ensure main function is now a clear orchestration flow:
+  1. Create agent config
+  2. Create agent with worktree
+  3. Register timeout
+  4. Execute commands
+  5. Unregister timeout
+  6. Merge and cleanup
+  7. Return result
+- Add docstring comments to all new helper functions
+- Run full CI suite
+
+**Testing**:
+- Run `cargo test --all` - all tests pass
+- Run `cargo clippy -- -D warnings` - no warnings
+- Run `cargo fmt -- --check` - properly formatted
+- Run `just ci` - full CI checks pass
+- Manually verify cyclomatic complexity with `cargo-geiger` or similar tool
+
+**Success Criteria**:
+- [ ] Main function is clear orchestration with ≤15 cyclomatic complexity
+- [ ] All helper functions documented
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Code properly formatted
+- [ ] Complexity target achieved (≤15 cyclomatic, ≤50 cognitive)
 
 ## Testing Strategy
 
 **For each phase**:
-1. Write tests for extracted pure functions first (TDD approach)
-2. Run `cargo test --lib` after each extraction
-3. Run `cargo clippy` to check for warnings
-4. Run `cargo fmt` to ensure formatting
-5. Verify no behavior changes via integration tests
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run `cargo clippy` to check for warnings
+3. Add unit tests for extracted functions where applicable
+4. Commit working changes
 
 **Final verification**:
 1. `just ci` - Full CI checks
-2. `cargo tarpaulin --out Html` - Generate coverage report
-3. `cargo clippy -- -D warnings` - Zero warnings
-4. Review overall file structure and module organization
-
-**Coverage targets by module**:
-- `mapreduce_cleanup.rs`: >80% (mostly pure logic)
-- `orphaned_cleanup.rs`: >70% (some I/O)
-- `age_cleanup.rs`: >80% (mostly pure logic)
-- `cli.rs`: >60% (orchestration, harder to test)
+2. `cargo test --all` - All tests pass
+3. Manual review of function complexity
+4. Verify all 4-5 extracted functions are focused and testable
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the failure and error messages
-3. Check if the issue is:
-   - Logic error: Fix the extracted code
-   - Integration error: Fix the imports/calls
-   - Test error: Fix the test assumptions
-4. Adjust the plan if necessary
-5. Retry the phase
-
-If multiple phases fail consecutively:
-1. Stop and reassess the approach
-2. Consider smaller extraction steps
-3. Get additional context on the codebase patterns
-4. Resume with adjusted plan
-
-## Post-Implementation Validation
-
-After all phases complete:
-
-1. **Complexity Metrics**:
-   - Run debtmap again to verify score improvement
-   - Expected: Score reduction of ~19 points
-   - Target: No function with complexity >10
-
-2. **Coverage Metrics**:
-   - Run `cargo tarpaulin --out Html`
-   - Expected: Coverage improvement from 0% to >70%
-   - Review uncovered lines for gaps
-
-3. **Code Quality**:
-   - Run `cargo clippy -- -D warnings`
-   - Run `cargo fmt --check`
-   - Review for any remaining `unwrap()` calls (per Spec 101)
-
-4. **Module Structure**:
-   - Verify clear module boundaries
-   - Check for circular dependencies
-   - Ensure public APIs are minimal
+2. Review the failure (test failures, clippy warnings, logic errors)
+3. Adjust the approach (e.g., different function signature, different extraction boundaries)
+4. Retry the phase
 
 ## Notes
 
-**Key Design Principles**:
-- **Separation of Concerns**: I/O at boundaries, pure logic in core
-- **Single Responsibility**: Each module handles one aspect of worktree management
-- **Testability**: Pure functions are easy to test without mocks
-- **Progressive Refactoring**: Each phase is independently valuable
+**Key Complexity Sources**:
+- Multiple nested conditionals (timeout checks, error handling, on_failure)
+- Long command execution loop with variable interpolation
+- Merge and cleanup coordination with error handling
+- Timeout registration/unregistration scattered throughout
 
-**Architecture After Refactoring**:
-```
-src/cli/commands/worktree/
-├── cli.rs (orchestrator, ~100 lines)
-├── mapreduce_cleanup.rs (MapReduce cleanup logic)
-├── orphaned_cleanup.rs (orphaned worktree cleanup)
-├── age_cleanup.rs (time-based cleanup)
-├── operations.rs (existing operations)
-└── utils.rs (existing utilities)
-```
+**Refactoring Approach**:
+- Focus on extracting **orchestration concerns** (timeout, merge) into helper methods
+- Extract **pure logic** (variable building) into testable functions
+- Keep the main function as a **clear sequential flow** of high-level steps
+- Don't try to force test coverage on orchestration code - focus on making it readable
 
-**Potential Challenges**:
-- **Error Handling**: Ensure all error paths preserve context (use `.context()` per Spec 101)
-- **Dependencies**: Some functions have dependencies on WorktreeManager; use trait bounds for testability
-- **User Interaction**: stdin/stdout interactions are harder to test; keep them thin wrappers
-
-**Future Improvements** (out of scope for this debt item):
-- Add integration tests with real worktree operations
-- Consider extracting formatting into a shared formatting module
-- Add builder pattern for complex configuration objects
+**Risk Mitigation**:
+- Each phase is independently testable
+- All changes preserve existing behavior
+- Commit after each phase for easy rollback
+- No changes to public API or function signature

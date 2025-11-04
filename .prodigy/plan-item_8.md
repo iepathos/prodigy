@@ -1,243 +1,210 @@
-# Implementation Plan: Reduce Complexity in ExpressionOptimizer::constant_folding
+# Implementation Plan: Reduce Complexity in handle_commit_verification
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/expression/optimizer/mod.rs:ExpressionOptimizer::constant_folding:128
-**Priority Score**: 32.5
-**Debt Type**: ComplexityHotspot (Cyclomatic: 76, Cognitive: 127)
+**Location**: ./src/cook/workflow/executor.rs:WorkflowExecutor::handle_commit_verification:446
+**Priority Score**: 22.5225
+**Debt Type**: ComplexityHotspot (Cognitive: 81, Cyclomatic: 21)
 **Current Metrics**:
-- Function Length: 169 lines
-- Cyclomatic Complexity: 76
-- Cognitive Complexity: 127
-- Pattern Repetition: 0.978 (high repetition suggests extractable patterns)
+- Function Length: 70 lines
+- Cyclomatic Complexity: 21
+- Cognitive Complexity: 81
+- Nesting Depth: 6
 
-**Issue**: The `constant_folding` method has cyclomatic complexity of 76 and cognitive complexity of 127, making it extremely difficult to test and maintain. The function handles too many Expression variant types in a single massive match statement.
+**Issue**: Reduce complexity from 21 to ~10. High complexity 21/81 makes function hard to test and maintain.
+
+The function has deeply nested conditionals (6 levels) handling multiple scenarios:
+1. No commits created + auto_commit enabled + has changes
+2. No commits created + auto_commit enabled + no changes + commit_required
+3. No commits created + auto_commit disabled + commit_required
+4. Commits created → verify and track metadata
+
+This creates 21 different execution paths, making the code difficult to understand, test, and modify.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 38.0 (from 76 to ~38)
+- Complexity Reduction: 10.5 (from 21 to ~10)
 - Coverage Improvement: 0.0
-- Risk Reduction: 11.375
+- Risk Reduction: 7.88
 
 **Success Criteria**:
-- [ ] Reduce cyclomatic complexity from 76 to ≤20
-- [ ] Extract at least 4 focused helper functions
-- [ ] Each helper function has cyclomatic complexity ≤10
+- [ ] Cyclomatic complexity reduced from 21 to ≤10
+- [ ] Nesting depth reduced from 6 to ≤3
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting
+- [ ] Proper formatting with `cargo fmt`
 
 ## Implementation Phases
 
-### Phase 1: Extract Logical Operators (And, Or, Not)
+### Phase 1: Extract Pure Decision Logic
 
-**Goal**: Extract boolean logic folding into a dedicated function to reduce complexity by ~10
+**Goal**: Extract the decision tree for "no commits created" scenario into a pure function that returns an action enum.
 
 **Changes**:
-- Create `fold_logical_operators()` function in `folding.rs`
-- Move And, Or, Not pattern matching from `constant_folding` to the new function
-- Update `constant_folding` to delegate to `fold_logical_operators` for these cases
-- Ensure recursive calls to `constant_folding` work correctly
+- Create an enum `CommitVerificationAction` representing the possible actions:
+  - `CreateAutoCommit(String)` - with commit message
+  - `RequireCommitError` - should fail with error
+  - `NoAction` - nothing to do
+- Extract function `determine_no_commit_action()` that takes:
+  - `step: &WorkflowStep`
+  - `has_changes: Result<bool>`
+  - Returns `CommitVerificationAction`
+- This function contains the pure decision logic (no I/O, no side effects)
 
 **Testing**:
-- Run `cargo test optimizer` to verify boolean logic still works
+- Run `cargo test --lib` to verify existing tests pass
 - Run `cargo clippy` to check for warnings
 
 **Success Criteria**:
-- [ ] `fold_logical_operators()` function created and tested
-- [ ] And/Or/Not cases removed from `constant_folding`
-- [ ] All tests pass
-- [ ] Complexity reduced by ~10
-- [ ] Ready to commit
-
-### Phase 2: Extract String Operators (Contains, StartsWith, EndsWith, Matches)
-
-**Goal**: Extract string operation folding into a dedicated function to reduce complexity by ~8
-
-**Changes**:
-- Create `fold_string_operators()` function in `folding.rs`
-- Move Contains, StartsWith, EndsWith, Matches pattern matching
-- Update `constant_folding` to delegate string operations
-- Maintain recursive folding of sub-expressions
-
-**Testing**:
-- Run `cargo test optimizer` to verify string operations
-- Check that regex matching still works correctly
-
-**Success Criteria**:
-- [ ] `fold_string_operators()` function created
-- [ ] String operation cases removed from `constant_folding`
-- [ ] All tests pass
-- [ ] Complexity reduced by ~8 additional points
-- [ ] Ready to commit
-
-### Phase 3: Extract Type Check Operators (IsNumber, IsString, IsBool, IsArray, IsObject)
-
-**Goal**: Extract type checking folding into a dedicated function to reduce complexity by ~10
-
-**Changes**:
-- Create `fold_type_checks()` function in `folding.rs`
-- Move IsNumber, IsString, IsBool, IsArray, IsObject pattern matching
-- Consolidate with existing `fold_is_null` and `fold_is_not_null` functions
-- Update `constant_folding` to delegate type checks
-
-**Testing**:
-- Run `cargo test optimizer` to verify type checks work
-- Test edge cases for each type check
-
-**Success Criteria**:
-- [ ] `fold_type_checks()` function created
-- [ ] Type check cases removed from `constant_folding`
-- [ ] All tests pass
-- [ ] Complexity reduced by ~10 additional points
-- [ ] Ready to commit
-
-### Phase 4: Extract Aggregate Functions (Length, Sum, Count, Min, Max, Avg)
-
-**Goal**: Extract aggregate function folding into a dedicated function to reduce complexity by ~12
-
-**Changes**:
-- Create `fold_aggregate_functions()` function in `folding.rs`
-- Move Length, Sum, Count, Min, Max, Avg pattern matching
-- Update `constant_folding` to delegate aggregate functions
-- Maintain recursive folding pattern
-
-**Testing**:
-- Run `cargo test optimizer` to verify aggregates
-- Check that recursive folding still works for nested expressions
-
-**Success Criteria**:
-- [ ] `fold_aggregate_functions()` function created
-- [ ] Aggregate function cases removed from `constant_folding`
-- [ ] All tests pass
-- [ ] Complexity reduced by ~12 additional points
-- [ ] Ready to commit
-
-### Phase 5: Extract Array/Index Operators (Index, ArrayWildcard)
-
-**Goal**: Extract array access folding to complete the refactoring, reducing complexity by ~8
-
-**Changes**:
-- Create `fold_array_operators()` function in `folding.rs`
-- Move Index and ArrayWildcard pattern matching
-- Update `constant_folding` to delegate array operations
-- Verify final complexity is ≤20
-
-**Testing**:
-- Run `cargo test optimizer` to verify all functionality
-- Run `just ci` for full test suite
-- Measure final cyclomatic complexity
-
-**Success Criteria**:
-- [ ] `fold_array_operators()` function created
-- [ ] Array operator cases removed from `constant_folding`
-- [ ] Final cyclomatic complexity ≤20
+- [ ] New pure function with cyclomatic complexity ≤5
 - [ ] All tests pass
 - [ ] No clippy warnings
 - [ ] Ready to commit
 
-## Final Structure
+### Phase 2: Extract Auto-Commit Execution Logic
 
-The `constant_folding` function after Phase 5 should look like:
+**Goal**: Move the auto-commit execution logic into a separate helper function.
 
+**Changes**:
+- Create function `execute_auto_commit()` that takes:
+  - `commit_handler: &CommitHandler`
+  - `working_dir: &Path`
+  - `message: &str`
+  - `step_display: &str`
+  - `commit_required: bool`
+  - Returns `Result<bool>` (true if commit was created)
+- This function handles the auto-commit attempt and error handling
+- Call this function from `handle_commit_verification` when action is `CreateAutoCommit`
+
+**Testing**:
+- Run `cargo test --lib` to verify existing tests pass
+- Run `cargo clippy` to check for warnings
+
+**Success Criteria**:
+- [ ] New helper function with cyclomatic complexity ≤3
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 3: Simplify Main Function Control Flow
+
+**Goal**: Refactor `handle_commit_verification` to use the extracted functions, reducing nesting.
+
+**Changes**:
+- Replace the deeply nested `if head_after == head_before` block with:
+  1. Call `determine_no_commit_action()`
+  2. Match on the action enum
+  3. Execute the appropriate action
+- Early return pattern to avoid else branches
+- Use `?` operator consistently for error propagation
+
+**Expected structure**:
 ```rust
-fn constant_folding(&mut self, expr: Expression) -> Result<Expression> {
-    match expr {
-        // Delegate to specialized folding functions
-        Expression::And(_, _) | Expression::Or(_, _) | Expression::Not(_) => {
-            fold_logical_operators(self, expr)
+if head_after == head_before {
+    match determine_no_commit_action(step, has_uncommitted_changes) {
+        CommitVerificationAction::CreateAutoCommit(message) => {
+            execute_auto_commit(...)?
         }
-        Expression::Equal(left, right) => {
-            let left = self.constant_folding(*left)?;
-            let right = self.constant_folding(*right)?;
-            fold_equal_comparison(&mut self.stats, left, right)
+        CommitVerificationAction::RequireCommitError => {
+            self.handle_no_commits_error(step)?
         }
-        Expression::NotEqual(left, right) => {
-            let left = self.constant_folding(*left)?;
-            let right = self.constant_folding(*right)?;
-            fold_not_equal_comparison(&mut self.stats, left, right)
-        }
-        Expression::GreaterThan(_, _) | Expression::LessThan(_, _)
-        | Expression::GreaterEqual(_, _) | Expression::LessEqual(_, _) => {
-            fold_comparison_operators(self, expr)
-        }
-        Expression::Contains(_, _) | Expression::StartsWith(_, _)
-        | Expression::EndsWith(_, _) | Expression::Matches(_, _) => {
-            fold_string_operators(self, expr)
-        }
-        Expression::IsNull(_) | Expression::IsNotNull(_)
-        | Expression::IsNumber(_) | Expression::IsString(_)
-        | Expression::IsBool(_) | Expression::IsArray(_) | Expression::IsObject(_) => {
-            fold_type_checks(self, expr)
-        }
-        Expression::Length(_) | Expression::Sum(_) | Expression::Count(_)
-        | Expression::Min(_) | Expression::Max(_) | Expression::Avg(_) => {
-            fold_aggregate_functions(self, expr)
-        }
-        Expression::Index(_, _) | Expression::ArrayWildcard(_, _) => {
-            fold_array_operators(self, expr)
-        }
-        // Literals pass through
-        _ => Ok(expr),
+        CommitVerificationAction::NoAction => {}
     }
+    return Ok(false);
 }
+
+// Commits were created - verify and track
+let (_, commits) = commit_handler
+    .verify_and_handle_commits(...)
+    .await?;
+
+workflow_context.variables.insert(...);
+Ok(true)
 ```
 
-This reduces the function to ~30 lines with a cyclomatic complexity of ~10.
+**Testing**:
+- Run `cargo test --lib` to verify existing tests pass
+- Run `cargo clippy` to check for warnings
+- Verify nesting depth is reduced
+
+**Success Criteria**:
+- [ ] Main function has cyclomatic complexity ≤10
+- [ ] Nesting depth ≤3
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 4: Add Unit Tests for Pure Logic
+
+**Goal**: Add unit tests for the new pure function `determine_no_commit_action()`.
+
+**Changes**:
+- Add test module for the new pure function
+- Test all decision paths:
+  - auto_commit=true, has_changes=Ok(true) → CreateAutoCommit
+  - auto_commit=true, has_changes=Ok(false), commit_required=true → RequireCommitError
+  - auto_commit=true, has_changes=Ok(false), commit_required=false → NoAction
+  - auto_commit=true, has_changes=Err(_), commit_required=true → RequireCommitError
+  - auto_commit=true, has_changes=Err(_), commit_required=false → NoAction
+  - auto_commit=false, commit_required=true → RequireCommitError
+  - auto_commit=false, commit_required=false → NoAction
+
+**Testing**:
+- Run `cargo test --lib` to verify all tests pass
+- Run `cargo clippy` to check for warnings
+
+**Success Criteria**:
+- [ ] Test coverage for all decision paths
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+### Phase 5: Final Verification and Documentation
+
+**Goal**: Verify the refactoring achieved the target complexity reduction and add documentation.
+
+**Changes**:
+- Add doc comments to the new functions explaining their purpose
+- Add doc comment to `handle_commit_verification` explaining the refactored flow
+- Run final verification checks
+
+**Testing**:
+- Run `just ci` - Full CI checks
+- Run `cargo clippy` - Verify no warnings
+- Run `cargo fmt --check` - Verify formatting
+- Manually verify cyclomatic complexity using `cargo-geiger` or similar tool
+
+**Success Criteria**:
+- [ ] Cyclomatic complexity reduced from 21 to ≤10
+- [ ] All CI checks pass
+- [ ] Documentation added
+- [ ] Ready to commit
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test optimizer` to verify optimizer tests pass
-2. Run `cargo test --lib` to verify no regressions
-3. Run `cargo clippy` to check for warnings
-4. Manually inspect extracted function for clarity
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run `cargo clippy` to check for warnings
+3. Run `cargo fmt` to ensure proper formatting
 
 **Final verification**:
 1. `just ci` - Full CI checks
-2. `cargo clippy -- -D warnings` - Zero warnings
-3. Visual inspection of `constant_folding` - should be simple dispatch function
-4. Check line count: `constant_folding` should be ≤30 lines
+2. Manual review of cyclomatic complexity reduction
+3. Verify nesting depth is ≤3 (can inspect code manually)
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the test failure or clippy warning
-3. Adjust the extraction strategy
-4. Consider whether the function needs to remain in `mod.rs` vs `folding.rs`
-5. Retry with updated approach
+2. Review the failure logs and error messages
+3. Adjust the implementation approach
+4. Retry the phase with the updated approach
 
 ## Notes
 
-### Key Insights:
-- High pattern repetition (0.978) indicates the code is already well-structured for extraction
-- The function is pure logic with no I/O, making it safe to refactor
-- Each extracted function should take `&mut ExpressionOptimizer` and `Expression` and return `Result<Expression>`
-- The folding functions need access to `optimizer.stats` for metrics tracking
-
-### Function Signatures:
-All extracted functions should follow this pattern:
-```rust
-pub(super) fn fold_xxx_operators(
-    optimizer: &mut ExpressionOptimizer,
-    expr: Expression,
-) -> Result<Expression>
-```
-
-This allows them to:
-- Access and update `optimizer.stats`
-- Recursively call `optimizer.constant_folding()` for nested expressions
-- Return optimized expressions
-
-### Dependencies:
-The extracted functions will be added to `folding.rs` and imported in `mod.rs` similar to the existing:
-- `fold_equal_comparison`
-- `fold_not_equal_comparison`
-- `fold_numeric_comparison`
-- `fold_is_null`
-- `fold_is_not_null`
-
-### Comparison Operators Note:
-The comparison operators (GreaterThan, LessThan, GreaterEqual, LessEqual) are already extracted to `fold_numeric_comparison`, so we just need to ensure `constant_folding` delegates to it consistently.
+- **Focus on decision logic extraction**: The main complexity comes from nested conditionals. Extracting the decision logic into a pure function with an enum return type will significantly reduce cognitive load.
+- **Early returns**: Use early return patterns to avoid else branches and reduce nesting.
+- **Pure functions first**: Extract the pure decision logic before extracting I/O operations. This makes testing easier.
+- **Preserve behavior**: The refactoring must preserve exact behavior. All existing tests must pass after each phase.
+- **Enum over booleans**: Using an enum for the action type is more expressive than multiple boolean returns and easier to extend in the future.

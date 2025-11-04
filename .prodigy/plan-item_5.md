@@ -1,243 +1,215 @@
-# Implementation Plan: Refactor Checkpoint Manager Module
+# Implementation Plan: Reduce Complexity in ResumeExecutor::execute_remaining_steps
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/mapreduce/checkpoint/manager.rs:file:0
-**Priority Score**: 57.28
-**Debt Type**: God Object (File-level)
+**Location**: src/cook/workflow/resume.rs:ResumeExecutor::execute_remaining_steps:575
+**Priority Score**: 28.21
+**Debt Type**: ComplexityHotspot (Cyclomatic: 28, Cognitive: 142)
 **Current Metrics**:
-- Lines of Code: 2283
-- Functions: 73
-- Cyclomatic Complexity: 177 (avg 2.42 per function, max 13)
-- Coverage: 0%
-- God Object Score: 1.0 (Critical severity)
-- Responsibilities: 7 (Construction, Computation, Persistence, Filtering & Selection, Data Access, Validation, Utilities)
-- Struct Ratio: 0.96 (28 structs/enums, 3 implementations)
+- Function Length: 281 lines
+- Cyclomatic Complexity: 28
+- Cognitive Complexity: 142
+- Nesting Depth: 6 levels
 
-**Issue**: Critical god class with CheckpointManager having 22 methods across 7 responsibilities in a single 2283-line file. The module mixes data structures (28 structs/enums), core checkpoint management logic, storage implementation, compression algorithms, and extensive test code. This violates single responsibility principle and makes the code difficult to maintain, test, and understand.
+**Issue**: High complexity (28 cyclomatic, 142 cognitive) makes function hard to test and maintain. The function mixes multiple concerns: step execution, progress tracking, error handling, retry logic, and recovery action processing.
 
 ## Target State
 
-**Expected Impact**:
-- Complexity Reduction: 35.4 points
-- Maintainability Improvement: 5.73 points
-- Test Effort Reduction: 228.3 lines
+**Expected Impact** (from debtmap):
+- Complexity Reduction: 14.0 (target cyclomatic: ~10-14)
+- Coverage Improvement: 0.0
+- Risk Reduction: 9.8735
 
 **Success Criteria**:
-- [ ] Split module into focused sub-modules (<500 lines each)
-- [ ] Separate data structures from implementation logic
-- [ ] Extract compression logic to dedicated module
-- [ ] Move CheckpointManager to focused manager module
+- [ ] Reduce cyclomatic complexity from 28 to ≤14
+- [ ] Reduce cognitive complexity from 142 to ≤70
+- [ ] Extract at least 4 focused helper functions
+- [ ] Reduce nesting depth from 6 to ≤3
 - [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting with `cargo fmt`
-- [ ] Each module has a clear, single responsibility
+- [ ] Proper formatting
 
 ## Implementation Phases
 
-### Phase 1: Extract Data Structures (Types Module)
+### Phase 1: Extract Cleanup Step Construction
 
-**Goal**: Extract all data structure definitions into a dedicated `types.rs` module
-
-**Changes**:
-- Create `src/cook/execution/mapreduce/checkpoint/types.rs`
-- Move 28 structs/enums with their basic trait implementations:
-  - `CheckpointId` (with Display, Default implementations)
-  - `MapReduceCheckpoint`, `CheckpointMetadata`
-  - `CheckpointReason`, `PhaseType`
-  - `ExecutionState`, `PhaseResult`, `MapPhaseResults`
-  - `WorkItemState`, `WorkItem`, `WorkItemProgress`, `CompletedWorkItem`, `FailedWorkItem`, `WorkItemBatch`
-  - `AgentState`, `AgentInfo`, `ResourceAllocation`
-  - `VariableState`, `ResourceState`, `ErrorState`, `DlqItem`
-  - `CheckpointConfig`, `RetentionPolicy`
-  - `ResumeState`, `ResumeStrategy`, `CheckpointInfo`
-- Keep only basic implementations (Display, Default, From)
-- Update `manager.rs` to import from `types` module
-- Update `mod.rs` to re-export public types
-
-**Testing**:
-- Run `cargo test --lib` to verify no breakage
-- Run `cargo clippy` to check for issues
-- Run `cargo fmt` for formatting
-
-**Success Criteria**:
-- [ ] `types.rs` created with ~250 lines
-- [ ] All data structures moved and properly documented
-- [ ] All tests pass without modification
-- [ ] Clean compilation with no warnings
-
-### Phase 2: Extract Storage Implementation
-
-**Goal**: Move checkpoint storage logic to dedicated `storage.rs` module
+**Goal**: Extract the inline cleanup step construction (lines 744-776) into a pure function
 
 **Changes**:
-- Create `src/cook/execution/mapreduce/checkpoint/storage.rs`
-- Move storage-related code:
-  - `CheckpointStorage` trait definition
-  - `CompressionAlgorithm` enum with compress/decompress methods (~90 lines)
-  - `FileCheckpointStorage` struct and implementation (~200 lines)
-- Add proper module documentation
-- Update `manager.rs` imports
-- Update `mod.rs` to expose storage types
+- Create `build_cleanup_step(action: &HandlerCommand) -> WorkflowStep` helper function
+- This function is pure - takes a HandlerCommand, returns a WorkflowStep
+- Move the 30+ line struct construction into this helper
+- Replace inline construction with function call
 
 **Testing**:
-- Run `cargo test --lib checkpoint::storage` to verify storage tests
-- Verify compression algorithm tests pass
-- Check file operations work correctly
+- Run `cargo test --lib` to verify existing tests pass
+- Run `cargo clippy` to check for warnings
+- No new tests needed yet (pure extraction)
 
 **Success Criteria**:
-- [ ] `storage.rs` created with ~350 lines
-- [ ] Storage trait and implementations cleanly separated
-- [ ] All storage-related tests pass
-- [ ] Compression tests pass for all algorithms (None, Gzip, Zstd, Lz4)
-
-### Phase 3: Extract Manager Core Logic
-
-**Goal**: Keep only core checkpoint management logic in `manager.rs`
-
-**Changes**:
-- Refactor `CheckpointManager` to focus on core responsibilities:
-  - Checkpoint creation and metadata management
-  - Resume state building
-  - Checkpoint validation
-  - Retention policy application
-- Move reduce phase checkpoint methods to a new `reduce_checkpoint.rs` helper:
-  - `save_reduce_checkpoint()`
-  - `load_reduce_checkpoint()`
-  - `can_resume_reduce()`
-  - `get_reduce_checkpoint_dir()`
-- Extract complex helper methods to pure functions:
-  - `select_checkpoints_for_deletion()` → pure function
-  - `prepare_work_items_for_resume()` → pure function with pattern matching
-  - `determine_resume_strategy()` → pure function based on phase
-- Reduce `manager.rs` to ~400-500 lines of focused logic
-
-**Testing**:
-- Run full test suite: `cargo test --lib checkpoint`
-- Verify checkpoint creation/loading works
-- Verify resume strategies work correctly
-- Verify retention policies function properly
-
-**Success Criteria**:
-- [ ] `manager.rs` reduced to ~400-500 lines
-- [ ] `reduce_checkpoint.rs` created with ~150 lines
-- [ ] All core checkpoint operations work
-- [ ] All resume strategy tests pass
-- [ ] All validation tests pass
-
-### Phase 4: Reorganize and Document Tests
-
-**Goal**: Move tests to a dedicated test module and improve organization
-
-**Changes**:
-- Create `src/cook/execution/mapreduce/checkpoint/tests/` directory
-- Split tests into focused files:
-  - `tests/checkpoint_ops.rs` - checkpoint creation, loading, listing
-  - `tests/resume_strategies.rs` - resume strategy tests
-  - `tests/storage.rs` - storage and compression tests
-  - `tests/validation.rs` - validation and integrity tests
-  - `tests/retention.rs` - retention policy tests
-- Move helper functions (`create_test_checkpoint()`, `create_test_checkpoint_with_work_items()`) to `tests/helpers.rs`
-- Keep integration-style tests that verify cross-module behavior
-- Reduce duplication in test setup
-
-**Testing**:
-- Run `cargo test --lib checkpoint` to verify all tests still pass
-- Ensure no tests were lost in the migration
-- Verify test organization improves clarity
-
-**Success Criteria**:
-- [ ] Tests moved to dedicated `tests/` directory (~800 lines)
-- [ ] `manager.rs` no longer contains test code
-- [ ] All tests pass in new organization
-- [ ] Test helper functions properly shared
-
-### Phase 5: Final Integration and Verification
-
-**Goal**: Ensure all modules integrate properly and document the new structure
-
-**Changes**:
-- Update `src/cook/execution/mapreduce/checkpoint/mod.rs`:
-  - Add proper module documentation explaining the organization
-  - Re-export public types from appropriate modules
-  - Document the purpose of each sub-module
-- Add module-level documentation to each file:
-  - `types.rs` - "Checkpoint data structures and state types"
-  - `storage.rs` - "Checkpoint storage implementations and compression"
-  - `manager.rs` - "Core checkpoint management and coordination"
-  - `reduce_checkpoint.rs` - "Reduce phase checkpoint utilities"
-- Run full verification:
-  - `cargo test --all` - all tests pass
-  - `cargo clippy -- -D warnings` - no warnings
-  - `cargo fmt --check` - proper formatting
-  - `just ci` - full CI checks
-
-**Testing**:
-- Run complete test suite across all modules
-- Verify no functionality regression
-- Check that public API remains stable
-- Validate documentation coverage
-
-**Success Criteria**:
-- [ ] All modules properly documented
-- [ ] Module structure clearly explained in `mod.rs`
-- [ ] All tests pass (100% of original tests)
+- [ ] New helper function created and used
+- [ ] Reduces main function by ~30 lines
+- [ ] Complexity reduction: -1 to -2 points
+- [ ] All tests pass
 - [ ] No clippy warnings
-- [ ] Proper formatting throughout
-- [ ] Public API unchanged (no breaking changes)
+- [ ] Ready to commit
+
+**Rationale**: This is the easiest extraction with zero risk. The cleanup step construction is completely independent logic that can be tested in isolation.
+
+### Phase 2: Extract Error Handler Execution Logic
+
+**Goal**: Extract error handler execution and processing (lines 668-700) into a focused function
+
+**Changes**:
+- Create `async fn execute_step_error_handler(...) -> Result<ErrorHandlerOutcome>`
+- Enum `ErrorHandlerOutcome { Recovered, Failed, NoHandler }`
+- Move the on_failure handler execution logic into this function
+- Simplify the main function's error handling branch
+
+**Testing**:
+- Run `cargo test --lib` to verify existing tests pass
+- Run `cargo clippy` to check for warnings
+- Consider adding a unit test for the new function if error handler coverage is low
+
+**Success Criteria**:
+- [ ] New async helper function created
+- [ ] ErrorHandlerOutcome enum defined
+- [ ] Main function error handling simplified
+- [ ] Complexity reduction: -3 to -5 points
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+**Rationale**: Error handler execution is a cohesive responsibility that can be cleanly separated. This reduces nesting depth significantly.
+
+### Phase 3: Extract Recovery Action Processing
+
+**Goal**: Extract the large RecoveryAction match statement (lines 708-847) into a dedicated function
+
+**Changes**:
+- Create `async fn process_recovery_action(...) -> Result<RecoveryOutcome>`
+- Enum `RecoveryOutcome { Retry(WorkflowStep), Continue, Abort, RequiresIntervention(String) }`
+- Move the entire match statement and its branches into this function
+- Main function becomes cleaner: just handle the outcome
+
+**Testing**:
+- Run `cargo test --lib` to verify existing tests pass
+- Run `cargo clippy` to check for warnings
+- This is the highest-risk extraction - test thoroughly
+
+**Success Criteria**:
+- [ ] New async function for recovery action processing
+- [ ] RecoveryOutcome enum defined
+- [ ] Main function simplified to outcome handling
+- [ ] Complexity reduction: -6 to -8 points
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+**Rationale**: The RecoveryAction match is the largest complexity hotspot (6 branches, deep nesting). Extracting it provides the most significant complexity reduction.
+
+### Phase 4: Extract Step Execution with Progress Tracking
+
+**Goal**: Extract the step execution logic (lines 632-660) into a reusable function
+
+**Changes**:
+- Create `async fn execute_single_step(...) -> Result<StepExecutionResult>`
+- Struct `StepExecutionResult { success: bool, duration: Duration }`
+- Consolidate progress tracking and step execution logic
+- Main loop becomes cleaner and more readable
+
+**Testing**:
+- Run `cargo test --lib` to verify existing tests pass
+- Run `cargo clippy` to check for warnings
+
+**Success Criteria**:
+- [ ] New async helper function created
+- [ ] StepExecutionResult struct defined
+- [ ] Progress tracking logic encapsulated
+- [ ] Complexity reduction: -2 to -3 points
+- [ ] All tests pass
+- [ ] No clippy warnings
+- [ ] Ready to commit
+
+**Rationale**: This consolidates the successful step execution path, making the main loop focus on flow control rather than implementation details.
+
+### Phase 5: Final Cleanup and Verification
+
+**Goal**: Review the refactored code, optimize flow, and verify all metrics
+
+**Changes**:
+- Review all extracted functions for potential further simplification
+- Ensure consistent error handling patterns
+- Add inline documentation to new helper functions
+- Verify cyclomatic complexity target achieved
+
+**Testing**:
+- Run `just ci` - Full CI checks
+- Run `cargo clippy -- -W clippy::cognitive_complexity` to check cognitive complexity
+- Manual review of code readability
+
+**Success Criteria**:
+- [ ] Cyclomatic complexity ≤14 (target: ~10)
+- [ ] Cognitive complexity ≤70 (target: ~60)
+- [ ] All helper functions have doc comments
+- [ ] Nesting depth ≤3
+- [ ] All CI checks pass
+- [ ] Code review by human (if available)
+- [ ] Ready to commit
+
+**Rationale**: Final verification ensures we've met all targets and the refactored code is production-ready.
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib checkpoint` after changes
-2. Run `cargo clippy` to catch potential issues
-3. Run `cargo fmt` to ensure consistent formatting
-4. Verify compilation with `cargo check`
+1. Run `cargo test --lib` to verify existing tests pass
+2. Run `cargo clippy` to check for warnings
+3. Manually verify the function still behaves correctly
+4. Check git diff to ensure changes are minimal and focused
 
 **Final verification**:
-1. Run `just ci` - Full CI checks
-2. Run `cargo tarpaulin` - Regenerate coverage (should improve from 0%)
-3. Run `debtmap analyze` - Verify god object score improvement
-4. Compare before/after metrics:
-   - File sizes should be <500 lines each
-   - Cyclomatic complexity should be distributed
-   - Struct ratio should normalize across modules
+1. `just ci` - Full CI checks
+2. `cargo clippy -- -W clippy::cognitive_complexity -W clippy::too_many_arguments` - Check complexity metrics
+3. Manual code review for readability and maintainability
 
 ## Rollback Plan
 
 If a phase fails:
-1. Use `git diff` to review changes
-2. Revert the phase with `git restore <files>` or `git reset --hard HEAD~1` if committed
-3. Review the failure and adjust approach
-4. Consider breaking the phase into smaller steps
-5. Retry with refined plan
+1. Revert the phase with `git reset --hard HEAD~1`
+2. Review the failure - check test output and error messages
+3. Adjust the extraction approach:
+   - Smaller extraction if the change was too large
+   - Different function signature if types don't align
+   - Keep more context if dependencies are complex
+4. Retry with adjusted approach
 
-## Module Structure (After Refactoring)
+**Critical safeguard**: Each phase must pass all tests before proceeding. Never proceed with failing tests.
 
-```
-src/cook/execution/mapreduce/checkpoint/
-├── mod.rs                    (~50 lines - module organization and re-exports)
-├── types.rs                  (~250 lines - all data structures)
-├── storage.rs                (~350 lines - storage trait and implementations)
-├── manager.rs                (~450 lines - core checkpoint management)
-├── reduce_checkpoint.rs      (~150 lines - reduce phase helpers)
-└── tests/
-    ├── checkpoint_ops.rs     (~200 lines)
-    ├── resume_strategies.rs  (~150 lines)
-    ├── storage.rs            (~150 lines)
-    ├── validation.rs         (~150 lines)
-    ├── retention.rs          (~100 lines)
-    └── helpers.rs            (~50 lines)
+## Expected Complexity Reduction Timeline
 
-Total: ~1900 lines (vs 2283 original)
-Reduction: ~383 lines (16.7%) through test deduplication and better organization
-```
+- **After Phase 1**: Cyclomatic ~26-27, Cognitive ~130-135 (-1-2 cyclomatic, -7-12 cognitive)
+- **After Phase 2**: Cyclomatic ~21-24, Cognitive ~110-120 (-3-5 cyclomatic, -15-25 cognitive)
+- **After Phase 3**: Cyclomatic ~13-18, Cognitive ~70-90 (-6-8 cyclomatic, -30-50 cognitive)
+- **After Phase 4**: Cyclomatic ~10-15, Cognitive ~55-75 (-2-3 cyclomatic, -10-20 cognitive)
+- **After Phase 5**: Target achieved (≤14 cyclomatic, ≤70 cognitive)
 
 ## Notes
 
-- **Preserve all functionality**: This is a refactoring, not a rewrite. Every test must continue to pass.
-- **No breaking changes**: The public API (`CheckpointManager`, public types) must remain stable.
-- **Incremental commits**: Commit after each successful phase to enable easy rollback.
-- **Focus on separation of concerns**: Each module should have one clear purpose.
-- **Improve testability**: Extracted pure functions are easier to test independently.
-- **Documentation is critical**: Each module needs clear documentation explaining its role.
+**Why This Order?**:
+1. **Phase 1** (cleanup step) - Easiest, zero risk, pure function
+2. **Phase 2** (error handler) - Medium risk, reduces nesting
+3. **Phase 3** (recovery action) - Highest complexity reduction, most impactful
+4. **Phase 4** (step execution) - Consolidates success path
+5. **Phase 5** - Verification and polish
+
+**Functional Programming Principles Applied**:
+- Extracting pure functions (Phase 1: build_cleanup_step)
+- Separating I/O from logic (Phase 2-4: async functions with clear boundaries)
+- Using enum-based outcomes instead of boolean flags
+- Single responsibility per helper function
+
+**Risk Mitigation**:
+- Each phase is independently committable
+- Tests run after every phase
+- Small, focused changes reduce merge conflict risk
+- Rollback plan for each phase

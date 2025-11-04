@@ -1,285 +1,246 @@
-# Implementation Plan: Extract Merge Workflow Orchestration from WorktreeManager
+# Implementation Plan: Refactor data_pipeline.rs - Extract Modules and Reduce File Size
 
 ## Problem Summary
 
-**Location**: ./src/worktree/manager.rs:file:0
-**Priority Score**: 92.77
-**Debt Type**: God Object / High Complexity
+**Location**: ./src/cook/execution/data_pipeline.rs:file:0
+**Priority Score**: 52.19
+**Debt Type**: File-level complexity - Oversized test file
 **Current Metrics**:
-- Lines of Code: 2258
-- Functions: 67 (35 impl methods + 32 test functions)
-- Cyclomatic Complexity: 245 total, 18 max, 3.65 average
-- Coverage: 0%
+- Lines of Code: 2859
+- Functions: 133
+- Cyclomatic Complexity: 321 (avg: 2.41, max: 22)
+- Coverage: 0% (test file - coverage measured externally)
 
-**Issue**: The WorktreeManager is a god object with 35 methods spanning 1297 lines of implementation. While previous refactoring extracted validation, utilities, and queries modules, the core manager still handles too many responsibilities:
-1. Session lifecycle management
-2. Git worktree operations
-3. Merge workflow execution (14 methods, ~400 lines)
-4. Checkpoint management
-5. Cleanup operations
-6. State persistence
+**Issue**: This file is a massive test file (2859 lines) that combines multiple concerns:
+1. Data pipeline orchestration (`DataPipeline` struct)
+2. JSON path parsing and evaluation (`JsonPath` implementation)
+3. Filter expression parsing and evaluation (`FilterExpression` implementation)
+4. Sorting logic (`Sorter` implementation)
+5. Extensive test suite (starting at line 1462, ~1400 lines of tests)
 
-The debtmap analysis recommends extracting 28 methods related to "Utilities" responsibility, but upon code inspection, the **merge workflow execution** is the largest opportunity for extraction with clear boundaries.
+The recommendation is to extract complex functions and reduce the file to under 500 lines by breaking it into focused, single-responsibility modules.
 
 ## Target State
 
-**Expected Impact** (from debtmap):
-- Complexity Reduction: 49.0 points
-- Coverage Improvement: Not applicable (test code)
-- Maintainability Improvement: 9.28 points
+**Expected Impact**:
+- Complexity Reduction: 64.2 points
+- Maintainability Improvement: 5.22 points
+- Reduced Test Effort: 285.9 points saved
 
 **Success Criteria**:
-- [ ] Extract merge workflow orchestration to dedicated module (`merge_orchestrator.rs`)
-- [ ] Reduce WorktreeManager impl block from 1297 lines to ~850 lines
-- [ ] Achieve single responsibility for each module
-- [ ] All existing tests continue to pass
+- [ ] File size reduced from 2859 lines to under 800 lines (main module)
+- [ ] Extract JsonPath to separate module (~300 lines)
+- [ ] Extract FilterExpression to separate module (~700 lines)
+- [ ] Extract Sorter to separate module (~200 lines)
+- [ ] All 133 tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper formatting with `cargo fmt`
+- [ ] Proper module organization under `src/cook/execution/data_pipeline/`
 
 ## Implementation Phases
 
-### Phase 1: Extract Merge Workflow Orchestrator Module
+This refactoring will be done in 5 incremental phases, each extracting a focused component to its own module.
 
-**Goal**: Create new `merge_orchestrator.rs` module to handle all merge workflow execution logic, removing ~450 lines from manager.rs.
+### Phase 1: Create Module Structure and Extract JsonPath
 
-**Changes**:
-- Create `src/worktree/merge_orchestrator.rs`
-- Extract these methods from WorktreeManager into `MergeOrchestrator` struct:
-  - `execute_merge_workflow` (orchestrates merge execution)
-  - `execute_claude_merge` (Claude-assisted merge)
-  - `execute_custom_merge_workflow` (custom workflow execution)
-  - `init_merge_variables` (variable initialization)
-  - `execute_merge_shell_command` (shell command execution)
-  - `execute_merge_claude_command` (Claude command execution)
-  - `interpolate_merge_variables` (variable interpolation - delegates to utilities)
-  - `log_execution_context` (logging)
-  - `log_claude_execution_details` (logging)
-  - `save_merge_checkpoint` (checkpoint creation)
-  - `create_merge_checkpoint_manager` (checkpoint manager setup)
-- Move these to `MergeOrchestrator` with dependency injection for:
-  - `SubprocessManager` (for git/shell commands)
-  - `ClaudeExecutor` (for Claude commands)
-  - Base directory path
-  - Repo path
-  - Verbosity level
-  - Custom merge workflow config
-  - Workflow environment variables
-- Update WorktreeManager to:
-  - Create and use MergeOrchestrator instance
-  - Delegate merge operations to orchestrator
-
-**Testing**:
-- Run `cargo test --lib` to verify existing tests pass
-- Run `cargo clippy` to check for warnings
-
-**Success Criteria**:
-- [ ] `merge_orchestrator.rs` module created with ~450 lines
-- [ ] WorktreeManager reduced by ~450 lines
-- [ ] All merge-related tests pass
-- [ ] No new clippy warnings
-- [ ] Ready to commit
-
-### Phase 2: Extract Session Query Operations
-
-**Goal**: Move session query operations to `manager_queries.rs`, further reducing WorktreeManager complexity.
+**Goal**: Extract the JSON path parsing and evaluation logic to a dedicated module.
 
 **Changes**:
-- Move these methods from WorktreeManager to `manager_queries.rs`:
-  - `list_sessions` (already uses helper methods)
-  - `list_git_worktree_sessions` (git query)
-  - `list_detailed` (enhanced query with workflow info)
-  - `list_metadata_sessions` (metadata query)
-  - `create_worktree_session` (session construction)
-  - `find_session_by_name` (lookup)
-- Update `manager_queries.rs` to accept WorktreeManager context via parameters
-- Change these to free functions or add QueryService struct
-- Update WorktreeManager to delegate to query functions/service
+1. Create `src/cook/execution/data_pipeline/` directory
+2. Create `src/cook/execution/data_pipeline/json_path.rs` with:
+   - `JsonPath` struct and implementation (~200 lines)
+   - `PathComponent` enum
+   - `PathPart` enum (helper for parsing)
+   - All JSON path related helper functions
+3. Create `src/cook/execution/data_pipeline/mod.rs` as new entry point
+4. Update main `data_pipeline.rs` to re-export from the new module structure
+5. Move relevant test helper functions to the json_path module
 
 **Testing**:
-- Run `cargo test --lib --test-threads=1` (for git operations)
-- Verify list operations work correctly
-- Check detailed session info extraction
+- Run `cargo test --lib data_pipeline` to verify all tests pass
+- Run `cargo clippy -- -D warnings` to ensure no new warnings
 
 **Success Criteria**:
-- [ ] Session query methods extracted to `manager_queries.rs`
-- [ ] WorktreeManager reduced by ~200 lines
-- [ ] All list/query tests pass
+- [ ] `src/cook/execution/data_pipeline/json_path.rs` exists with ~200-300 lines
+- [ ] All JSON path tests pass (grep for `test.*json.*path` in test section)
+- [ ] No build errors or clippy warnings
+- [ ] Code compiles and imports work correctly
+
+### Phase 2: Extract FilterExpression to Separate Module
+
+**Goal**: Extract the filter expression parsing and evaluation logic to its own module.
+
+**Changes**:
+1. Create `src/cook/execution/data_pipeline/filter.rs` with:
+   - `FilterExpression` enum (~700 lines total)
+   - `ComparisonOp` enum
+   - `LogicalOp` enum
+   - All parsing logic (parse, try_parse_* methods)
+   - All evaluation logic (evaluate method)
+   - Helper functions for operator detection and value parsing
+2. Update `mod.rs` to include and re-export filter module
+3. Update imports in main data_pipeline module
+
+**Testing**:
+- Run `cargo test --lib data_pipeline::filter` for filter-specific tests
+- Run full test suite to ensure integration works
+- Verify complex filter expressions still work
+
+**Success Criteria**:
+- [ ] `filter.rs` exists with ~700 lines (the bulk of the parsing logic)
+- [ ] All filter tests pass (grep for `test.*filter` patterns)
+- [ ] Complex expressions (AND/OR/NOT/IN/functions) still work
 - [ ] No clippy warnings
-- [ ] Ready to commit
+- [ ] Clean module boundaries with clear public API
 
-### Phase 3: Extract Cleanup Operations Module
+### Phase 3: Extract Sorter to Separate Module
 
-**Goal**: Create `cleanup_operations.rs` module for all cleanup-related logic, separating it from core manager.
+**Goal**: Extract sorting logic to its own focused module.
 
 **Changes**:
-- Create `src/worktree/cleanup_operations.rs`
-- Extract these methods into `CleanupService` struct:
-  - `cleanup_session` (worktree cleanup)
-  - `cleanup_all_sessions` (batch cleanup)
-  - `cleanup_session_after_merge` (post-merge cleanup)
-  - `cleanup_merged_sessions` (merged session cleanup)
-  - `detect_mergeable_sessions` (mergeable detection)
-  - `perform_auto_cleanup` (auto cleanup)
-  - `show_cleanup_diagnostics` (diagnostics)
-  - `show_manual_cleanup_message` (user messaging)
-- Move `CleanupConfig` and `CleanupPolicy` to cleanup module
-- Update WorktreeManager to use CleanupService
-- Inject dependencies: subprocess manager, base_dir, repo_path
+1. Create `src/cook/execution/data_pipeline/sorter.rs` with:
+   - `Sorter` struct (~200 lines)
+   - `SortField` struct
+   - `SortOrder` enum
+   - `NullPosition` enum
+   - All parsing and comparison logic
+2. Update `mod.rs` to include sorter module
+3. Move sorting-related helper functions
 
 **Testing**:
-- Run cleanup-related tests
-- Verify cleanup config tests pass
-- Check merged session detection
+- Run sorter-specific tests
+- Test multi-field sorting
+- Test null handling in various positions
+- Verify DESC/ASC ordering works correctly
 
 **Success Criteria**:
-- [ ] `cleanup_operations.rs` module created with ~350 lines
-- [ ] WorktreeManager reduced by ~350 lines
-- [ ] All cleanup tests pass
+- [ ] `sorter.rs` exists with ~200 lines
+- [ ] All sorting tests pass
+- [ ] Multi-field sort works correctly
+- [ ] Null position handling verified
 - [ ] No clippy warnings
-- [ ] Ready to commit
 
-### Phase 4: Extract State Management Operations
+### Phase 4: Reorganize DataPipeline Core and Tests
 
-**Goal**: Consolidate state persistence operations into a dedicated module, separating pure state management from orchestration.
-
-**Changes**:
-- Create `src/worktree/state_manager.rs`
-- Extract these methods into `StateManager` struct:
-  - `update_session_state` (state updates)
-  - `update_session_state_after_merge` (post-merge update)
-  - `update_checkpoint` (checkpoint updates)
-  - `restore_session` (session restoration)
-  - `mark_session_abandoned` (abandonment marking)
-  - `get_last_successful_command` (command retrieval)
-  - `get_session_state` (state loading)
-  - `load_session_state` (state deserialization)
-- Implement StateManager with:
-  - Base directory path
-  - Atomic file operations (temp file + rename)
-  - Error context wrapping
-- Update WorktreeManager to use StateManager
-
-**Testing**:
-- Run checkpoint update tests
-- Verify session restoration
-- Check atomic file operations
-
-**Success Criteria**:
-- [ ] `state_manager.rs` module created with ~150 lines
-- [ ] WorktreeManager reduced by ~150 lines
-- [ ] All state management tests pass
-- [ ] Atomic updates verified
-- [ ] Ready to commit
-
-### Phase 5: Finalize WorktreeManager Core Responsibilities
-
-**Goal**: Ensure WorktreeManager has clear, focused responsibilities as the main orchestrator.
+**Goal**: Clean up the main data_pipeline module and organize tests by module.
 
 **Changes**:
-- Review remaining WorktreeManager methods:
-  - Keep: `new`, `with_config`, `create_session_worktree`, `merge_session`
-  - Keep: High-level orchestration methods that coordinate between modules
-  - Keep: Methods that require multiple module interactions
-- Update documentation:
-  - Document clear responsibility boundaries
-  - Update module-level docs to reflect new architecture
-  - Add examples of how modules interact
-- Verify separation of concerns:
-  - I/O operations stay at edges (manager coordinates)
-  - Pure functions in utilities/validation modules
-  - State operations in state_manager
-  - Cleanup in cleanup_operations
-  - Merge workflows in merge_orchestrator
-  - Queries in manager_queries
+1. Keep only `DataPipeline` struct and its core methods in `mod.rs`:
+   - `from_config`
+   - `from_full_config`
+   - `process`
+   - `process_streaming`
+   - Helper methods (deduplicate, apply_field_mapping, extract_field_value)
+2. Move tests to module-specific test files:
+   - `json_path/tests.rs` - JSON path tests
+   - `filter/tests.rs` - Filter expression tests
+   - `sorter/tests.rs` - Sorter tests
+   - Keep integration tests in main `mod.rs`
+3. Update module declarations to include test submodules
 
 **Testing**:
-- Run full test suite: `cargo test`
-- Run clippy: `cargo clippy --all-targets`
-- Run formatter: `cargo fmt --check`
-- Verify integration tests pass
+- Run full test suite: `cargo test --lib data_pipeline`
+- Verify test count remains the same (133 tests)
+- Check that integration tests still work correctly
 
 **Success Criteria**:
-- [ ] WorktreeManager has ~300-400 lines of core orchestration
-- [ ] Clear module boundaries documented
-- [ ] All tests pass
-- [ ] No clippy warnings
-- [ ] Code formatted correctly
-- [ ] Ready for final commit
+- [ ] Main `mod.rs` reduced to ~300-400 lines (core orchestration only)
+- [ ] Tests organized by module (easier to navigate)
+- [ ] All 133 tests still pass
+- [ ] Test output shows clear module organization
+- [ ] Integration tests verify end-to-end pipeline functionality
+
+### Phase 5: Final Cleanup and Documentation
+
+**Goal**: Polish the refactored modules, add documentation, and verify quality.
+
+**Changes**:
+1. Add module-level documentation to each file:
+   - Explain module purpose
+   - Document public API
+   - Add usage examples
+2. Review and improve function documentation
+3. Ensure consistent error messages and context
+4. Run full CI checks
+5. Update any outdated comments
+
+**Testing**:
+- Run `just ci` for full CI validation
+- Run `cargo doc --no-deps --open` to verify documentation
+- Run `cargo clippy -- -D warnings` for strict linting
+- Spot-check complex test cases manually
+
+**Success Criteria**:
+- [ ] All modules have comprehensive rustdoc comments
+- [ ] Public API is well-documented with examples
+- [ ] CI passes cleanly (no warnings, all tests pass)
+- [ ] Documentation builds without errors
+- [ ] Code follows Rust API guidelines
+- [ ] No TODO comments or dead code
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Run `cargo fmt` to ensure formatting
-4. Commit with descriptive message
+1. Run module-specific tests: `cargo test --lib data_pipeline::<module>`
+2. Run full data_pipeline tests: `cargo test --lib data_pipeline`
+3. Check for warnings: `cargo clippy -- -D warnings`
+4. Verify formatting: `cargo fmt --check`
 
 **Final verification**:
-1. `cargo test --all` - All tests pass
-2. `cargo clippy --all-targets` - No warnings
-3. `cargo fmt --check` - Properly formatted
-4. Manual review of public API stability
-5. Verify no breaking changes to external callers
+1. `just ci` - Full CI checks (build, test, clippy, fmt)
+2. `cargo test --all` - Ensure no regressions in other modules
+3. Manual spot-check of complex scenarios:
+   - Nested filter expressions with AND/OR/NOT
+   - Multi-field sorting with nulls
+   - Recursive JSON path descent
+   - Large dataset processing
+
+**Test organization validation**:
+- Verify test count: `cargo test --lib data_pipeline -- --list | wc -l` should show ~133 tests
+- Check module coverage: Tests should be distributed across modules
+- Integration tests should remain in main mod.rs
 
 ## Rollback Plan
 
 If a phase fails:
-1. Review the error carefully
-2. Run `git diff` to see what changed
-3. Run `git reset --hard HEAD~1` to revert the commit
-4. Analyze the failure cause
-5. Adjust the plan if needed
-6. Retry the phase with corrections
+1. **Identify the failure**: Check compiler errors, test failures, or clippy warnings
+2. **Revert the phase**: `git reset --hard HEAD~1` to undo the phase commit
+3. **Analyze the issue**:
+   - Missing imports or exports?
+   - Visibility issues (pub vs private)?
+   - Test dependencies not moved?
+   - Circular dependencies?
+4. **Adjust the plan**: Update the phase plan based on the failure
+5. **Retry with fixes**: Implement the corrected approach
+
+**Common issues to watch for**:
+- Forgetting to make types/functions `pub` when moving to a module
+- Missing re-exports in `mod.rs`
+- Test helpers that need to be moved with tests
+- Circular dependencies between modules
+- Use of internal types in public APIs
 
 ## Notes
 
-### Architecture Principles
+**File Structure After Refactoring**:
+```
+src/cook/execution/data_pipeline/
+├── mod.rs              (~300-400 lines - DataPipeline core + integration tests)
+├── json_path.rs        (~200-300 lines - JSON path parsing/evaluation)
+├── filter.rs           (~700 lines - Filter expression parsing/evaluation)
+└── sorter.rs           (~200 lines - Sorting logic)
+```
 
-This refactoring follows these key principles:
+**Total line reduction**: From 2859 lines in one file to ~1400-1600 lines across 4 focused modules, with much better organization.
 
-1. **Separation of Concerns**: Each module has one clear responsibility
-   - `merge_orchestrator`: Merge workflow execution
-   - `manager_queries`: Session queries and listing
-   - `cleanup_operations`: Cleanup logic and policies
-   - `state_manager`: State persistence and updates
-   - `manager_validation`: Pure validation functions (already exists)
-   - `manager_utilities`: String utilities and formatting (already exists)
+**Key principles for this refactoring**:
+1. **No behavior changes**: This is purely structural - all tests must pass
+2. **Clear module boundaries**: Each module has a single, well-defined responsibility
+3. **Preserve test coverage**: All 133 tests move with their corresponding code
+4. **Incremental commits**: Each phase is independently valuable and committable
 
-2. **Dependency Injection**: Modules receive their dependencies explicitly
-   - Easier to test in isolation
-   - Clear dependency graph
-   - No hidden global state
-
-3. **I/O at Edges**: Keep side effects in orchestrator, logic in pure functions
-   - Pure functions in validation/utilities
-   - I/O operations in services (merge, cleanup, state)
-   - WorktreeManager coordinates between services
-
-4. **Incremental Progress**: Each phase is independently valuable
-   - Can commit after each phase
-   - Tests pass after each phase
-   - Clear rollback points
-
-### Expected Line Count Reduction
-
-- **Before**: 2258 lines total (1297 impl + 961 tests)
-- **After Phase 1**: ~1808 lines (merge orchestrator extracted)
-- **After Phase 2**: ~1608 lines (queries extracted)
-- **After Phase 3**: ~1258 lines (cleanup extracted)
-- **After Phase 4**: ~1108 lines (state management extracted)
-- **After Phase 5**: ~1000 lines (final cleanup)
-- **Final Target**: ~1000 lines (300-400 impl + 600-700 tests)
-
-### Complexity Reduction
-
-- **Current**: 35 methods, 245 cyclomatic complexity
-- **Target**: ~8-10 orchestration methods, <100 complexity
-- **Extracted modules**: Each with <10 methods, focused responsibilities
-
-### Why This Approach vs. Debtmap Recommendation
-
-The debtmap recommends extracting 28 methods to `manager_utilities`, but code inspection reveals:
-- Many of those methods are I/O-heavy (not pure utilities)
-- Merge workflow is a cohesive 14-method cluster (~400 lines)
-- Better separation is by responsibility domain, not just method count
-- This approach achieves the same complexity reduction with better boundaries
+**Why this is better**:
+- **Navigability**: Easier to find specific functionality
+- **Testing**: Faster to run module-specific test suites
+- **Maintenance**: Changes are scoped to relevant modules
+- **Compile times**: Incremental compilation benefits from smaller modules
+- **Cognitive load**: Each module is easier to understand in isolation

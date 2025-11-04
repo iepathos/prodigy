@@ -1,238 +1,200 @@
-# Implementation Plan: Split Expression Optimizer God Module
+# Implementation Plan: Reduce Complexity in VariableContext::resolve_variable_impl
 
 ## Problem Summary
 
-**Location**: ./src/cook/execution/expression/optimizer.rs:file:0
-**Priority Score**: 63.90
-**Debt Type**: God Object (God Module)
+**Location**: ./src/cook/execution/variables.rs:VariableContext::resolve_variable_impl:491
+**Priority Score**: 28.795
+**Debt Type**: ComplexityHotspot (Cognitive: 109, Cyclomatic: 31)
 **Current Metrics**:
-- Lines of Code: 1701
-- Functions: 70
-- Cyclomatic Complexity: 210 (avg 3.0, max 76)
-- Coverage: 0.0% (tests are in same file as production code)
+- Function Length: 85 lines
+- Cyclomatic Complexity: 31
+- Cognitive Complexity: 109
+- Nesting Depth: 6
+- Is Pure: false (but should be - it's marked as PureLogic role)
 
-**Issue**: This file contains both production code (lines 1-858) and all unit tests (lines 859-1701) in a single 1701-line module. The debtmap analysis correctly identifies this as a God Module that needs to be split into focused modules. The primary issue is not just size, but the mixing of production code with 842 lines of test code in the same file.
+**Issue**: High complexity 31/109 makes function hard to test and maintain. The function handles 7 different variable types (env, file, cmd, json, date, uuid, standard) in a single large if-else chain with deep nesting, especially in the json: branch.
 
 ## Target State
 
 **Expected Impact** (from debtmap):
-- Complexity Reduction: 42.0 points
-- Maintainability Improvement: 6.39 points
-- Test Effort: 170.1 (complexity of testing after split)
+- Complexity Reduction: 15.5 (from 31 to ~15.5)
+- Coverage Improvement: 0.0 (maintain current coverage)
+- Risk Reduction: 10.07825
 
 **Success Criteria**:
-- [ ] Production code separated from test code
-- [ ] Tests moved to proper test directory following Rust conventions
-- [ ] Helper functions extracted into focused utility modules
-- [ ] All existing tests continue to pass unchanged
+- [ ] Cyclomatic complexity reduced from 31 to ≤15
+- [ ] Cognitive complexity reduced from 109 to ≤50
+- [ ] Nesting depth reduced from 6 to ≤3
+- [ ] All existing tests continue to pass
 - [ ] No clippy warnings
-- [ ] Proper module structure with clear boundaries
-- [ ] Code remains functionally identical (pure refactoring)
+- [ ] Proper formatting with `cargo fmt`
 
 ## Implementation Phases
 
-This refactoring will be done in 5 incremental phases, each independently testable and committable.
+### Phase 1: Extract Variable Type Resolver
 
-### Phase 1: Extract Comparison Folding Functions
-
-**Goal**: Extract the comparison folding helper functions into a dedicated `folding` submodule to reduce the main file size and improve organization.
+**Goal**: Extract the variable type detection logic into a pure function that returns an enum indicating which resolver to use.
 
 **Changes**:
-1. Create new file: `src/cook/execution/expression/optimizer/folding.rs`
-2. Move these functions to the new module:
-   - `fold_equal_comparison` (lines 595-628)
-   - `fold_not_equal_comparison` (lines 630-659)
-   - `NumericComparisonOp` enum (lines 661-668)
-   - `fold_numeric_comparison` (lines 670-706)
-   - `fold_is_null` (lines 708-721)
-   - `fold_is_not_null` (lines 723-736)
-3. Make functions `pub(crate)` or `pub(super)` as needed
-4. Update imports in main optimizer.rs
-5. Create `src/cook/execution/expression/optimizer/mod.rs` if needed
+- Create a `VariableType` enum with variants: `Environment`, `File`, `Command`, `Json`, `Date`, `Uuid`, `Standard`
+- Extract function `parse_variable_type(expr: &str) -> VariableType` that analyzes the prefix
+- This reduces the main function's if-else chain complexity
 
 **Testing**:
-- Run `cargo test --lib optimizer` to ensure all tests pass
-- Verify the functions are accessible from the main optimizer
-
-**Success Criteria**:
-- [ ] ~142 lines moved to new folding.rs module
-- [ ] All optimizer tests pass unchanged
-- [ ] No clippy warnings
-- [ ] Code compiles successfully
-
-### Phase 2: Extract Expression Utility Functions
-
-**Goal**: Extract the expression hashing and equality utility functions into a utilities submodule.
-
-**Changes**:
-1. Create new file: `src/cook/execution/expression/optimizer/utils.rs`
-2. Move these functions to the new module:
-   - `hash_expression` (lines 738-745)
-   - `hash_expression_recursive` (lines 747-811)
-   - `expressions_equal` (lines 813-857)
-3. Make functions `pub(crate)` or `pub(super)` as needed
-4. Update imports in main optimizer.rs
-
-**Testing**:
-- Run `cargo test --lib optimizer` to ensure all tests pass
-- Verify CSE and algebraic simplification still work
-
-**Success Criteria**:
-- [ ] ~120 lines moved to new utils.rs module
-- [ ] All optimizer tests pass unchanged
-- [ ] No clippy warnings
-- [ ] Code compiles successfully
-
-### Phase 3: Move Tests to Separate Test Module
-
-**Goal**: Move all unit tests out of the production code file into a proper test module, following Rust best practices.
-
-**Changes**:
-1. Create new directory: `src/cook/execution/expression/optimizer/tests/`
-2. Move test module (lines 859-1701) to `tests/mod.rs` or split into focused test files:
-   - `tests/constant_folding_tests.rs` - Basic constant folding tests
-   - `tests/comparison_tests.rs` - Comparison operator tests
-   - `tests/type_check_tests.rs` - Type checking tests
-   - `tests/aggregate_tests.rs` - Aggregate function tests
-   - `tests/optimization_tests.rs` - Full optimization pipeline tests
-3. Update test imports to use `super::*` or specific imports
-4. Remove `#[cfg(test)]` block from optimizer.rs
-
-**Testing**:
-- Run `cargo test --lib optimizer` to ensure all tests still pass
-- Verify test organization matches module structure
-
-**Success Criteria**:
-- [ ] All 842 lines of tests moved to separate test files
-- [ ] All 70 test functions pass unchanged
-- [ ] Production code file reduced to ~859 lines
-- [ ] No clippy warnings
-- [ ] Clear test organization by functionality
-
-### Phase 4: Extract Cache-Related Code
-
-**Goal**: Extract the sub-expression cache implementation into its own module for better separation of concerns.
-
-**Changes**:
-1. Create new file: `src/cook/execution/expression/optimizer/cache.rs`
-2. Move these structures and implementations:
-   - `SubExpressionCache` struct (lines 46-53)
-   - `SubExpressionCache` impl (lines 55-82)
-   - `CachedExpression` struct (lines 84-93)
-3. Make types `pub(crate)` as needed
-4. Update optimizer.rs to use the new cache module
-
-**Testing**:
-- Run `cargo test --lib optimizer` to ensure CSE tests pass
-- Verify cache functionality is unchanged
-
-**Success Criteria**:
-- [ ] ~48 lines moved to cache.rs module
-- [ ] All optimizer tests pass unchanged
-- [ ] No clippy warnings
-- [ ] Clear separation of cache concerns
-
-### Phase 5: Organize Module Structure and Documentation
-
-**Goal**: Finalize the module organization with proper exports, documentation, and a clean public API.
-
-**Changes**:
-1. Update `src/cook/execution/expression/optimizer/mod.rs`:
-   - Re-export public types: `OptimizerConfig`, `OptimizationStats`, `ExpressionOptimizer`
-   - Keep internal modules private: `folding`, `utils`, `cache`
-   - Add module-level documentation
-2. Verify the public API remains unchanged:
-   - `ExpressionOptimizer::new()`
-   - `ExpressionOptimizer::with_config()`
-   - `ExpressionOptimizer::optimize()`
-   - All configuration and stats types
-3. Add inline documentation for internal modules
-4. Run full test suite and CI checks
-
-**Testing**:
-- Run `cargo test --all` to ensure all tests pass
-- Run `cargo clippy` to check for warnings
-- Run `just ci` for full CI validation
-- Verify public API accessibility from other modules
-
-**Success Criteria**:
-- [ ] Clean module structure with clear boundaries
-- [ ] Public API unchanged and fully accessible
-- [ ] All tests pass (70 test functions)
-- [ ] No clippy warnings
-- [ ] Module documentation complete
-- [ ] Ready to commit final changes
-
-## Final Module Structure
-
-After all phases:
-
-```
-src/cook/execution/expression/optimizer/
-├── mod.rs                    # Main optimizer, ~500 lines
-├── folding.rs                # Comparison folding functions, ~142 lines
-├── utils.rs                  # Expression utilities, ~120 lines
-├── cache.rs                  # Sub-expression cache, ~48 lines
-└── tests/
-    ├── mod.rs                # Test module setup
-    ├── constant_folding_tests.rs
-    ├── comparison_tests.rs
-    ├── type_check_tests.rs
-    ├── aggregate_tests.rs
-    └── optimization_tests.rs
+```bash
+cargo test --lib variables
+cargo clippy -- -D warnings
 ```
 
-**Total reduction**: From 1 file (1701 lines) to 9 focused modules (avg ~190 lines/module for production code)
+**Success Criteria**:
+- [ ] `parse_variable_type` function created with unit tests
+- [ ] Function has cyclomatic complexity ≤5
+- [ ] All existing tests pass
+- [ ] Ready to commit
+
+### Phase 2: Extract JSON Variable Resolution
+
+**Goal**: Move the complex JSON resolution logic (lines 514-553) into a dedicated async function.
+
+**Changes**:
+- Create `async fn resolve_json_variable(&self, remainder: &str, depth: usize) -> Result<Value>`
+- Extract the entire json: branch logic including:
+  - Finding ":from:" separator
+  - Handling legacy format
+  - Recursive resolution
+  - JSON parsing and path extraction
+- This eliminates the deepest nesting (6 levels) from the main function
+
+**Testing**:
+```bash
+cargo test --lib variables::json
+cargo test --lib variables
+cargo clippy -- -D warnings
+```
+
+**Success Criteria**:
+- [ ] `resolve_json_variable` function created
+- [ ] Nesting depth in main function reduced to ≤4
+- [ ] All existing JSON variable tests pass
+- [ ] Ready to commit
+
+### Phase 3: Create Variable Resolver Dispatch
+
+**Goal**: Replace the large if-else chain with a cleaner dispatch mechanism using the extracted type enum.
+
+**Changes**:
+- Implement `async fn resolve_by_type(&self, var_type: VariableType, expr: &str, depth: usize) -> Result<Value>`
+- Use match statement on `VariableType` to dispatch to appropriate resolver
+- Each branch becomes a single function call instead of inline logic
+- Main function becomes: parse type → resolve by type → cache result
+
+**Testing**:
+```bash
+cargo test --lib variables
+cargo clippy -- -D warnings
+```
+
+**Success Criteria**:
+- [ ] Dispatch function created with clear match arms
+- [ ] Main function reduced to ~30-40 lines
+- [ ] Cyclomatic complexity in main function ≤10
+- [ ] All existing tests pass
+- [ ] Ready to commit
+
+### Phase 4: Extract Caching Logic
+
+**Goal**: Separate the caching concerns from the resolution logic.
+
+**Changes**:
+- Create `async fn resolve_with_cache(&self, expr: &str, depth: usize) -> Result<Value>`
+- Move cache check (lines 492-499) and cache write (lines 566-571) into this wrapper
+- Keep `resolve_variable_impl` focused on pure resolution logic
+- This improves separation of concerns and reduces complexity
+
+**Testing**:
+```bash
+cargo test --lib variables
+cargo clippy -- -D warnings
+```
+
+**Success Criteria**:
+- [ ] Caching logic extracted to wrapper function
+- [ ] `resolve_variable_impl` is now focused on pure resolution
+- [ ] Cache behavior unchanged (tests verify)
+- [ ] Ready to commit
+
+### Phase 5: Final Cleanup and Verification
+
+**Goal**: Ensure all quality metrics are met and code is production-ready.
+
+**Changes**:
+- Add inline documentation for extracted functions
+- Ensure all functions have clear, descriptive names
+- Verify no unwrap() or panic!() calls (per Spec 101)
+- Run full test suite and clippy
+
+**Testing**:
+```bash
+cargo test --all
+cargo clippy -- -D warnings
+cargo fmt --check
+just ci
+```
+
+**Success Criteria**:
+- [ ] Cyclomatic complexity ≤15 (target met)
+- [ ] Cognitive complexity significantly reduced
+- [ ] All tests pass (100% existing coverage maintained)
+- [ ] No clippy warnings
+- [ ] Code properly formatted
+- [ ] Documentation added
 
 ## Testing Strategy
 
 **For each phase**:
-1. Run `cargo test --lib optimizer` to verify existing tests pass
-2. Run `cargo clippy` to check for warnings
-3. Verify code compiles: `cargo build`
-4. Manual inspection of module boundaries
+1. Run `cargo test --lib variables` to verify variable resolution tests pass
+2. Run `cargo clippy -- -D warnings` to check for warnings
+3. Run `cargo fmt` to ensure proper formatting
+4. Commit the working changes
 
 **Final verification**:
-1. `cargo test --all` - All tests pass
-2. `cargo clippy --all-targets` - No warnings
-3. `cargo build --release` - Production build succeeds
-4. `just ci` - Full CI checks pass
-5. Verify optimizer can still be imported and used from other modules
+1. `just ci` - Full CI checks
+2. `cargo test --all` - All tests in workspace
+3. Verify complexity metrics with manual review or tooling
 
 ## Rollback Plan
 
 If a phase fails:
 1. Revert the phase with `git reset --hard HEAD~1`
-2. Review the compilation or test errors
-3. Adjust the module boundaries or imports
-4. Retry the phase with fixes
-
-**Common issues to watch for**:
-- Import visibility (pub vs pub(crate) vs private)
-- Circular dependencies between modules
-- Missing re-exports in mod.rs
-- Test imports not finding the right symbols
+2. Review the failure:
+   - Check test output for specific failures
+   - Review clippy warnings
+   - Examine compilation errors
+3. Adjust the approach:
+   - May need to extract smaller pieces
+   - May need to preserve more of the original structure
+   - May need additional tests before refactoring
+4. Retry with adjusted approach
 
 ## Notes
 
-**Why this approach**:
-- **Phase 1-2**: Extract helper functions first to reduce complexity gradually
-- **Phase 3**: Moving tests is the biggest win (reduces file size by 50%)
-- **Phase 4**: Cache extraction further separates concerns
-- **Phase 5**: Ensures clean final state with proper documentation
+**Key Complexity Sources**:
+1. **7 variable types in one function** - Each type needs different handling
+2. **Deep nesting in JSON branch** - 6 levels deep with multiple conditionals
+3. **Async/cache interleaving** - Cache logic mixed with resolution logic
+4. **No clear separation** - Type detection, resolution, and caching all in one function
 
-**Important considerations**:
-- This is pure refactoring - no behavior changes
-- All 70 existing tests must pass after each phase
-- Module boundaries follow natural function grouping
-- Public API remains unchanged to avoid breaking other code
+**Refactoring Strategy**:
+- Use **Extract Function** pattern for each distinct responsibility
+- Maintain **async/await** throughout (required for cache RwLock)
+- Keep **error handling** consistent using Result and context
+- Preserve **cache behavior** exactly (tests will verify)
+- Follow **functional programming** principles from CLAUDE.md
 
-**Alignment with debtmap recommendation**:
-The debtmap suggested splitting by "data flow" into 3 modules. This plan refines that to 5 modules based on actual responsibility analysis:
-1. **Main optimizer** (mod.rs) - Core optimization logic and orchestration
-2. **Folding** - Constant folding and comparison helpers
-3. **Utils** - Expression hashing and equality checking
-4. **Cache** - Sub-expression caching infrastructure
-5. **Tests** - All unit tests in organized submodules
+**Critical Requirements**:
+- MUST maintain all existing test coverage
+- MUST NOT introduce unwrap() or panic!() (Spec 101)
+- MUST use proper error propagation with context
+- MUST keep each function focused and ≤20 lines where possible
 
-This creates focused modules with <30 functions each (main has 13 methods, folding has 6 functions, utils has 3 functions, cache has 4 methods).
+**Estimated Effort**: 4.65 hours (from debtmap analysis)
