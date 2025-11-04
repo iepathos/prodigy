@@ -338,6 +338,20 @@ impl GitChangeTracker {
         Ok(changes)
     }
 
+    /// Collect commit SHAs between two OIDs
+    fn collect_commits_between(repo: &Repository, from_oid: Oid, to_oid: Oid) -> Result<Vec<String>> {
+        let mut commits = Vec::new();
+        let mut revwalk = repo.revwalk()?;
+        revwalk.push(to_oid)?;
+        revwalk.hide(from_oid)?;
+
+        for oid in revwalk {
+            commits.push(oid?.to_string());
+        }
+
+        Ok(commits)
+    }
+
     /// Calculate changes for the current step
     pub(crate) fn calculate_step_changes(&self) -> Result<StepChanges> {
         let repo = Repository::open(&self.repo_path).context("Failed to open git repository")?;
@@ -354,15 +368,8 @@ impl GitChangeTracker {
                 let last_oid = Oid::from_str(last)?;
                 let current_oid = Oid::from_str(current)?;
 
-                // Get commits between last and current
-                let mut revwalk = repo.revwalk()?;
-                revwalk.push(current_oid)?;
-                revwalk.hide(last_oid)?;
-
-                for oid in revwalk {
-                    let oid = oid?;
-                    changes.commits.push(oid.to_string());
-                }
+                // Collect commits between last and current
+                changes.commits = Self::collect_commits_between(&repo, last_oid, current_oid)?;
 
                 // Calculate diff stats
                 if let (Ok(last_commit), Ok(current_commit)) =
