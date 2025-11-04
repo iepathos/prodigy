@@ -3,7 +3,8 @@
 use crate::cook::execution::expression::ast::Expression;
 use anyhow::Result;
 
-use super::{expressions_equal, OptimizationStats};
+use super::utils::expressions_equal;
+use super::OptimizationStats;
 
 /// Helper function to fold Equal comparisons
 pub(super) fn fold_equal_comparison(
