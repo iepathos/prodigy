@@ -166,6 +166,39 @@ fn parse_number(chars: &mut Peekable<Chars>) -> Result<f64> {
         .map_err(|_| anyhow!("Invalid number: {}", num_str))
 }
 
+/// Convert identifier string to keyword token or Identifier token
+///
+/// Checks if the identifier matches a known keyword (case-insensitive for
+/// operators) and returns the appropriate token type.
+///
+/// # Arguments
+/// * `ident` - The raw identifier string
+///
+/// # Returns
+/// Token::Identifier if not a keyword, otherwise the appropriate keyword token
+fn parse_keyword_or_identifier(ident: String) -> Token {
+    match ident.to_lowercase().as_str() {
+        "true" => Token::Boolean(true),
+        "false" => Token::Boolean(false),
+        "null" => Token::Null,
+        "in" => Token::In,
+        "and" => Token::And,
+        "or" => Token::Or,
+        "not" => Token::Not,
+        "contains" => Token::Contains,
+        "starts_with" | "startswith" => Token::StartsWith,
+        "ends_with" | "endswith" => Token::EndsWith,
+        "matches" => Token::Matches,
+        "length" => Token::Length,
+        "sum" => Token::Sum,
+        "count" => Token::Count,
+        "min" => Token::Min,
+        "max" => Token::Max,
+        "avg" => Token::Avg,
+        _ => Token::Identifier(ident),
+    }
+}
+
 /// Tokenize an expression string into a sequence of tokens
 ///
 /// This is a pure function that converts a string into tokens.
@@ -232,27 +265,8 @@ pub fn tokenize(expr: &str) -> Result<Vec<Token>> {
                     }
                 }
 
-                // Check for keywords (case-insensitive for operators)
-                match ident.to_lowercase().as_str() {
-                    "true" => tokens.push(Token::Boolean(true)),
-                    "false" => tokens.push(Token::Boolean(false)),
-                    "null" => tokens.push(Token::Null),
-                    "in" => tokens.push(Token::In),
-                    "and" => tokens.push(Token::And),
-                    "or" => tokens.push(Token::Or),
-                    "not" => tokens.push(Token::Not),
-                    "contains" => tokens.push(Token::Contains),
-                    "starts_with" | "startswith" => tokens.push(Token::StartsWith),
-                    "ends_with" | "endswith" => tokens.push(Token::EndsWith),
-                    "matches" => tokens.push(Token::Matches),
-                    "length" => tokens.push(Token::Length),
-                    "sum" => tokens.push(Token::Sum),
-                    "count" => tokens.push(Token::Count),
-                    "min" => tokens.push(Token::Min),
-                    "max" => tokens.push(Token::Max),
-                    "avg" => tokens.push(Token::Avg),
-                    _ => tokens.push(Token::Identifier(ident)),
-                }
+                let token = parse_keyword_or_identifier(ident);
+                tokens.push(token);
             }
             _ => {
                 chars.next();
