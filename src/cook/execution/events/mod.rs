@@ -7,6 +7,7 @@ mod event_tests;
 mod event_types;
 mod event_writer;
 pub mod index;
+mod io;
 pub mod retention;
 pub use retention::{RetentionAnalysis, RetentionManager, RetentionPolicy, RetentionStats};
 pub mod streaming;
