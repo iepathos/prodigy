@@ -209,16 +209,18 @@ mod tests {
 
     #[test]
     fn test_generate_commit_message_with_template() {
-        let mut step = WorkflowStep::default();
-        step.commit_config = Some(crate::cook::commit_tracker::CommitConfig {
-            message_template: Some("feat: ${step.name} - ${description}".to_string()),
-            message_pattern: None,
-            sign: false,
-            author: None,
-            include_files: None,
-            exclude_files: None,
-            squash: false,
-        });
+        let step = WorkflowStep {
+            commit_config: Some(crate::cook::commit_tracker::CommitConfig {
+                message_template: Some("feat: ${step.name} - ${description}".to_string()),
+                message_pattern: None,
+                sign: false,
+                author: None,
+                include_files: None,
+                exclude_files: None,
+                squash: false,
+            }),
+            ..Default::default()
+        };
 
         let mut context = WorkflowContext::default();
         context
@@ -231,16 +233,18 @@ mod tests {
 
     #[test]
     fn test_generate_commit_message_with_braced_variables() {
-        let mut step = WorkflowStep::default();
-        step.commit_config = Some(crate::cook::commit_tracker::CommitConfig {
-            message_template: Some("chore: ${step.name} for ${project}".to_string()),
-            message_pattern: None,
-            sign: false,
-            author: None,
-            include_files: None,
-            exclude_files: None,
-            squash: false,
-        });
+        let step = WorkflowStep {
+            commit_config: Some(crate::cook::commit_tracker::CommitConfig {
+                message_template: Some("chore: ${step.name} for ${project}".to_string()),
+                message_pattern: None,
+                sign: false,
+                author: None,
+                include_files: None,
+                exclude_files: None,
+                squash: false,
+            }),
+            ..Default::default()
+        };
 
         let mut context = WorkflowContext::default();
         context
