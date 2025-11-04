@@ -209,4 +209,3 @@ pub enum NullPosition {
     First,
     Last,
 }
-

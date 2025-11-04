@@ -210,7 +210,12 @@ impl FilterExpression {
     }
 
     /// Parse a binary logical expression (AND/OR)
-    pub(crate) fn parse_binary_logical(expr: &str, pos: usize, op_len: usize, op: LogicalOp) -> Result<Self> {
+    pub(crate) fn parse_binary_logical(
+        expr: &str,
+        pos: usize,
+        op_len: usize,
+        op: LogicalOp,
+    ) -> Result<Self> {
         let left = Self::parse(&expr[..pos])?;
         let right = Self::parse(&expr[pos + op_len..])?;
 
@@ -306,7 +311,11 @@ impl FilterExpression {
     }
 
     /// Parse a comparison expression
-    pub(crate) fn parse_comparison_expression(expr: &str, op_str: &str, op_pos: usize) -> Result<Self> {
+    pub(crate) fn parse_comparison_expression(
+        expr: &str,
+        op_str: &str,
+        op_pos: usize,
+    ) -> Result<Self> {
         let field = expr[..op_pos].trim().to_string();
         let value_str = expr[op_pos + op_str.len()..].trim();
         let value = Self::parse_value(value_str)?;
@@ -453,7 +462,9 @@ impl FilterExpression {
     }
 
     /// Pure function: Parse the next path part from character iterator
-    pub(crate) fn parse_next_path_part(chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<PathPart> {
+    pub(crate) fn parse_next_path_part(
+        chars: &mut std::iter::Peekable<std::str::Chars>,
+    ) -> Option<PathPart> {
         // Skip dots
         if chars.peek() == Some(&'.') {
             chars.next();
@@ -469,7 +480,9 @@ impl FilterExpression {
     }
 
     /// Pure function: Parse a field name until we hit '.', '[', or end
-    pub(crate) fn parse_field_name(chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<PathPart> {
+    pub(crate) fn parse_field_name(
+        chars: &mut std::iter::Peekable<std::str::Chars>,
+    ) -> Option<PathPart> {
         let mut field = String::new();
 
         while let Some(&ch) = chars.peek() {
@@ -484,7 +497,9 @@ impl FilterExpression {
     }
 
     /// Pure function: Parse an array index from "\[N\]"
-    pub(crate) fn parse_array_index(chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<PathPart> {
+    pub(crate) fn parse_array_index(
+        chars: &mut std::iter::Peekable<std::str::Chars>,
+    ) -> Option<PathPart> {
         // Consume opening bracket
         chars.next()?;
 
