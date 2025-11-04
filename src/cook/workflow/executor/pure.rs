@@ -367,6 +367,64 @@ pub fn get_available_variable_summary(context: &InterpolationContext) -> String 
 }
 
 // ============================================================================
+// Commit Verification Functions
+// ============================================================================
+
+/// Action to take when no commits were created after a step
+#[derive(Debug, Clone, PartialEq)]
+pub enum CommitVerificationAction {
+    /// Create an auto-commit (message will be generated separately)
+    CreateAutoCommit,
+    /// Fail with commit required error
+    RequireCommitError,
+    /// No action needed
+    NoAction,
+}
+
+/// Determine action when no commits were created after a step
+///
+/// Pure function that encapsulates the decision logic for handling
+/// steps that didn't create commits. Returns an action enum to reduce
+/// cognitive complexity in the caller.
+pub fn determine_no_commit_action(
+    step: &WorkflowStep,
+    has_changes: Result<bool>,
+) -> CommitVerificationAction {
+    if !step.auto_commit {
+        // Auto-commit disabled
+        return if step.commit_required {
+            CommitVerificationAction::RequireCommitError
+        } else {
+            CommitVerificationAction::NoAction
+        };
+    }
+
+    // Auto-commit enabled - check if there are changes
+    match has_changes {
+        Ok(true) => {
+            // Has changes - create auto-commit
+            CommitVerificationAction::CreateAutoCommit
+        }
+        Ok(false) => {
+            // No changes
+            if step.commit_required {
+                CommitVerificationAction::RequireCommitError
+            } else {
+                CommitVerificationAction::NoAction
+            }
+        }
+        Err(_) => {
+            // Failed to check changes
+            if step.commit_required {
+                CommitVerificationAction::RequireCommitError
+            } else {
+                CommitVerificationAction::NoAction
+            }
+        }
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
