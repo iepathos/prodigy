@@ -2,8 +2,24 @@
 //!
 //! This module converts expression strings into sequences of tokens.
 //! The tokenizer is designed to be a pure function with no side effects.
+//!
+//! ## Architecture
+//!
+//! The tokenizer uses a delegation pattern with specialized helper functions:
+//!
+//! - **`tokenize()`**: Main coordinator that iterates through characters
+//! - **`parse_operator()`**: Handles operator tokens with lookahead (==, !=, >=, <=, &&, ||)
+//! - **`parse_string()`**: Parses quoted string literals
+//! - **`parse_number()`**: Parses numeric literals (integers, floats, negative numbers)
+//! - **`parse_identifier()`**: Collects identifier characters (including field paths and array accessors)
+//! - **`parse_keyword_or_identifier()`**: Distinguishes keywords from identifiers
+//!
+//! This design keeps each function focused on a single responsibility, making the code
+//! easier to test, understand, and maintain.
 
 use anyhow::{anyhow, Result};
+use std::iter::Peekable;
+use std::str::Chars;
 
 /// Token types for the lexer
 #[derive(Debug, Clone, PartialEq)]
@@ -50,6 +66,176 @@ pub enum Token {
     Dot,
 }
 
+/// Parse operator tokens (!, !=, =, ==, >, >=, <, <=, &&, ||)
+///
+/// This helper function handles all operator parsing, including lookahead
+/// for multi-character operators.
+///
+/// Returns `Some(Token)` if the character is an operator, `None` otherwise.
+fn parse_operator(ch: char, chars: &mut Peekable<Chars>) -> Result<Option<Token>> {
+    let token = match ch {
+        '!' => {
+            chars.next();
+            if chars.peek() == Some(&'=') {
+                chars.next();
+                Token::NotEqual
+            } else {
+                Token::Not
+            }
+        }
+        '=' => {
+            chars.next();
+            if chars.peek() == Some(&'=') {
+                chars.next();
+                Token::Equal
+            } else {
+                Token::Equal // Single = also means equal
+            }
+        }
+        '>' => {
+            chars.next();
+            if chars.peek() == Some(&'=') {
+                chars.next();
+                Token::GreaterEqual
+            } else {
+                Token::Greater
+            }
+        }
+        '<' => {
+            chars.next();
+            if chars.peek() == Some(&'=') {
+                chars.next();
+                Token::LessEqual
+            } else {
+                Token::Less
+            }
+        }
+        '&' => {
+            chars.next();
+            if chars.peek() == Some(&'&') {
+                chars.next();
+                Token::And
+            } else {
+                return Err(anyhow!("Expected && but got single &"));
+            }
+        }
+        '|' => {
+            chars.next();
+            if chars.peek() == Some(&'|') {
+                chars.next();
+                Token::Or
+            } else {
+                return Err(anyhow!("Expected || but got single |"));
+            }
+        }
+        _ => return Ok(None),
+    };
+    Ok(Some(token))
+}
+
+/// Parse a quoted string literal
+///
+/// Consumes characters from the iterator until the closing quote is found.
+/// The opening quote has already been consumed by the caller.
+///
+/// # Arguments
+/// * `quote` - The quote character (' or ") that opened the string
+/// * `chars` - The character iterator
+///
+/// # Returns
+/// The parsed string content (without quotes)
+fn parse_string(quote: char, chars: &mut Peekable<Chars>) -> String {
+    let mut string = String::new();
+    for ch in chars.by_ref() {
+        if ch == quote {
+            break;
+        }
+        string.push(ch);
+    }
+    string
+}
+
+/// Parse a numeric literal (integer or float, positive or negative)
+///
+/// Consumes numeric characters and returns the parsed number.
+/// The first character (digit or '-') is still in the iterator.
+///
+/// # Arguments
+/// * `chars` - The character iterator
+///
+/// # Returns
+/// The parsed number as f64
+fn parse_number(chars: &mut Peekable<Chars>) -> Result<f64> {
+    let mut num_str = String::new();
+    while let Some(&ch) = chars.peek() {
+        if ch.is_numeric() || ch == '.' || ch == '-' {
+            num_str.push(ch);
+            chars.next();
+        } else {
+            break;
+        }
+    }
+    num_str
+        .parse::<f64>()
+        .map_err(|_| anyhow!("Invalid number: {}", num_str))
+}
+
+/// Convert identifier string to keyword token or Identifier token
+///
+/// Checks if the identifier matches a known keyword (case-insensitive for
+/// operators) and returns the appropriate token type.
+///
+/// # Arguments
+/// * `ident` - The raw identifier string
+///
+/// # Returns
+/// Token::Identifier if not a keyword, otherwise the appropriate keyword token
+fn parse_keyword_or_identifier(ident: String) -> Token {
+    match ident.to_lowercase().as_str() {
+        "true" => Token::Boolean(true),
+        "false" => Token::Boolean(false),
+        "null" => Token::Null,
+        "in" => Token::In,
+        "and" => Token::And,
+        "or" => Token::Or,
+        "not" => Token::Not,
+        "contains" => Token::Contains,
+        "starts_with" | "startswith" => Token::StartsWith,
+        "ends_with" | "endswith" => Token::EndsWith,
+        "matches" => Token::Matches,
+        "length" => Token::Length,
+        "sum" => Token::Sum,
+        "count" => Token::Count,
+        "min" => Token::Min,
+        "max" => Token::Max,
+        "avg" => Token::Avg,
+        _ => Token::Identifier(ident),
+    }
+}
+
+/// Parse an identifier (variable name, field path, or array accessor)
+///
+/// Collects identifier characters including alphanumerics, underscores,
+/// dots (for field paths), brackets (for array access), and wildcards.
+///
+/// # Arguments
+/// * `chars` - The character iterator
+///
+/// # Returns
+/// The raw identifier string (e.g., "user.profile.name" or "items[*].score")
+fn parse_identifier(chars: &mut Peekable<Chars>) -> String {
+    let mut ident = String::new();
+    while let Some(&ch) = chars.peek() {
+        if ch.is_alphanumeric() || ch == '_' || ch == '.' || ch == '[' || ch == ']' || ch == '*' {
+            ident.push(ch);
+            chars.next();
+        } else {
+            break;
+        }
+    }
+    ident
+}
+
 /// Tokenize an expression string into a sequence of tokens
 ///
 /// This is a pure function that converts a string into tokens.
@@ -84,126 +270,25 @@ pub fn tokenize(expr: &str) -> Result<Vec<Token>> {
                 tokens.push(Token::RightParen);
                 chars.next();
             }
-            '!' => {
-                chars.next();
-                if chars.peek() == Some(&'=') {
-                    chars.next();
-                    tokens.push(Token::NotEqual);
-                } else {
-                    tokens.push(Token::Not);
-                }
-            }
-            '=' => {
-                chars.next();
-                if chars.peek() == Some(&'=') {
-                    chars.next();
-                    tokens.push(Token::Equal);
-                } else {
-                    tokens.push(Token::Equal); // Single = also means equal
-                }
-            }
-            '>' => {
-                chars.next();
-                if chars.peek() == Some(&'=') {
-                    chars.next();
-                    tokens.push(Token::GreaterEqual);
-                } else {
-                    tokens.push(Token::Greater);
-                }
-            }
-            '<' => {
-                chars.next();
-                if chars.peek() == Some(&'=') {
-                    chars.next();
-                    tokens.push(Token::LessEqual);
-                } else {
-                    tokens.push(Token::Less);
-                }
-            }
-            '&' => {
-                chars.next();
-                if chars.peek() == Some(&'&') {
-                    chars.next();
-                    tokens.push(Token::And);
-                } else {
-                    return Err(anyhow!("Expected && but got single &"));
-                }
-            }
-            '|' => {
-                chars.next();
-                if chars.peek() == Some(&'|') {
-                    chars.next();
-                    tokens.push(Token::Or);
-                } else {
-                    return Err(anyhow!("Expected || but got single |"));
+            '!' | '=' | '>' | '<' | '&' | '|' => {
+                if let Some(token) = parse_operator(ch, &mut chars)? {
+                    tokens.push(token);
                 }
             }
             '"' | '\'' => {
                 let quote = ch;
                 chars.next();
-                let mut string = String::new();
-                for ch in chars.by_ref() {
-                    if ch == quote {
-                        break;
-                    }
-                    string.push(ch);
-                }
+                let string = parse_string(quote, &mut chars);
                 tokens.push(Token::String(string));
             }
             '0'..='9' | '-' => {
-                let mut num_str = String::new();
-                while let Some(&ch) = chars.peek() {
-                    if ch.is_numeric() || ch == '.' || ch == '-' {
-                        num_str.push(ch);
-                        chars.next();
-                    } else {
-                        break;
-                    }
-                }
-                if let Ok(num) = num_str.parse::<f64>() {
-                    tokens.push(Token::Number(num));
-                } else {
-                    return Err(anyhow!("Invalid number: {}", num_str));
-                }
+                let num = parse_number(&mut chars)?;
+                tokens.push(Token::Number(num));
             }
             _ if ch.is_alphabetic() || ch == '_' => {
-                let mut ident = String::new();
-                while let Some(&ch) = chars.peek() {
-                    if ch.is_alphanumeric()
-                        || ch == '_'
-                        || ch == '.'
-                        || ch == '['
-                        || ch == ']'
-                        || ch == '*'
-                    {
-                        ident.push(ch);
-                        chars.next();
-                    } else {
-                        break;
-                    }
-                }
-
-                // Check for keywords (case-insensitive for operators)
-                match ident.to_lowercase().as_str() {
-                    "true" => tokens.push(Token::Boolean(true)),
-                    "false" => tokens.push(Token::Boolean(false)),
-                    "null" => tokens.push(Token::Null),
-                    "in" => tokens.push(Token::In),
-                    "and" => tokens.push(Token::And),
-                    "or" => tokens.push(Token::Or),
-                    "not" => tokens.push(Token::Not),
-                    "contains" => tokens.push(Token::Contains),
-                    "starts_with" | "startswith" => tokens.push(Token::StartsWith),
-                    "ends_with" | "endswith" => tokens.push(Token::EndsWith),
-                    "matches" => tokens.push(Token::Matches),
-                    "length" => tokens.push(Token::Length),
-                    "sum" => tokens.push(Token::Sum),
-                    "count" => tokens.push(Token::Count),
-                    "min" => tokens.push(Token::Min),
-                    "max" => tokens.push(Token::Max),
-                    "avg" => tokens.push(Token::Avg),
-                    _ => tokens.push(Token::Identifier(ident)),
-                }
+                let ident = parse_identifier(&mut chars);
+                let token = parse_keyword_or_identifier(ident);
+                tokens.push(token);
             }
             _ => {
                 chars.next();
