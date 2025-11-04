@@ -6,17 +6,21 @@ mod event_store;
 mod event_tests;
 mod event_types;
 mod event_writer;
+mod filter;
 pub mod index;
 mod io;
 pub mod retention;
 pub use retention::{RetentionAnalysis, RetentionManager, RetentionPolicy, RetentionStats};
+mod stats;
 pub mod streaming;
 
 pub use event_logger::{EventLogger, EventRecord};
-pub use event_store::{EventFilter, EventStats, EventStore};
+pub use event_store::EventStore;
 pub use event_types::MapReduceEvent;
 pub use event_writer::{EventWriter, FileEventWriter, JsonlEventWriter};
+pub use filter::EventFilter;
 pub use index::{EventIndex, FileOffset};
+pub use stats::EventStats;
 
 use serde::{Deserialize, Serialize};
 

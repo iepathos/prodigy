@@ -1,43 +1,21 @@
 //! Event storage and retrieval functionality
 
+use super::filter::{matches_filter, EventFilter};
 use super::index::{
     build_index_from_events, validate_index_consistency, validate_job_id, EventIndex,
 };
 use super::io::{read_events_from_file_with_offsets, save_index};
+use super::stats::EventStats;
 use super::{EventRecord, MapReduceEvent};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tracing::{info, warn};
-
-/// Event filter for querying events
-#[derive(Debug, Clone, Default)]
-pub struct EventFilter {
-    pub job_id: Option<String>,
-    pub agent_id: Option<String>,
-    pub event_types: Vec<String>,
-    pub time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
-    pub correlation_id: Option<String>,
-    pub limit: Option<usize>,
-}
-
-/// Event statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventStats {
-    pub job_id: String,
-    pub total_events: usize,
-    pub event_counts: HashMap<String, usize>,
-    pub success_count: usize,
-    pub failure_count: usize,
-    pub duration_ms: Option<i64>,
-    pub time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
-}
 
 /// Event handler for replay functionality
 pub type EventHandler = Box<dyn Fn(&EventRecord) -> Result<()> + Send + Sync>;
@@ -133,48 +111,6 @@ impl FileEventStore {
 
         Ok(events)
     }
-
-    /// Apply filter to an event
-    fn matches_filter(&self, event: &EventRecord, filter: &EventFilter) -> bool {
-        // Check job ID
-        if let Some(ref job_id) = filter.job_id {
-            if event.event.job_id() != job_id {
-                return false;
-            }
-        }
-
-        // Check agent ID
-        if let Some(ref agent_id) = filter.agent_id {
-            if event.event.agent_id() != Some(agent_id.as_str()) {
-                return false;
-            }
-        }
-
-        // Check event types
-        if !filter.event_types.is_empty()
-            && !filter
-                .event_types
-                .contains(&event.event.event_name().to_string())
-        {
-            return false;
-        }
-
-        // Check time range
-        if let Some((start, end)) = filter.time_range {
-            if event.timestamp < start || event.timestamp > end {
-                return false;
-            }
-        }
-
-        // Check correlation ID
-        if let Some(ref correlation_id) = filter.correlation_id {
-            if event.correlation_id != *correlation_id {
-                return false;
-            }
-        }
-
-        true
-    }
 }
 
 #[async_trait]
@@ -197,7 +133,7 @@ impl EventStore for FileEventStore {
         for file in files {
             let events = self.read_events_from_file(&file).await?;
             for event in events {
-                if self.matches_filter(&event, &filter) {
+                if matches_filter(&event, &filter) {
                     all_events.push(event);
 
                     // Apply limit if specified
