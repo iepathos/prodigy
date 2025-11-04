@@ -465,10 +465,7 @@ impl WorkflowExecutor {
             // No commits were created - check if auto-commit is enabled
             if step.auto_commit {
                 // Try to create an auto-commit
-                if let Ok(has_changes) = commit_handler
-                    .has_uncommitted_changes(working_dir)
-                    .await
-                {
+                if let Ok(has_changes) = commit_handler.has_uncommitted_changes(working_dir).await {
                     if has_changes {
                         let message = self.generate_commit_message(step, workflow_context);
                         if let Err(e) = commit_handler
@@ -523,9 +520,7 @@ impl WorkflowExecutor {
             Arc::clone(&self.git_operations),
             Arc::clone(&self.user_interaction),
         );
-        commit_handler
-            .handle_commit_squashing(workflow, env)
-            .await;
+        commit_handler.handle_commit_squashing(workflow, env).await;
     }
 
     /// Determine execution flags from environment variables (delegated to pure module)

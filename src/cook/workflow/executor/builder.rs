@@ -452,6 +452,10 @@ impl WorkflowExecutor {
         step: &WorkflowStep,
         context: &WorkflowContext,
     ) -> String {
-        super::commit_handler::generate_commit_message(step, context, &self.get_step_display_name(step))
+        super::commit_handler::generate_commit_message(
+            step,
+            context,
+            &self.get_step_display_name(step),
+        )
     }
 }
