@@ -24,6 +24,8 @@ pub mod git_context;
 #[cfg(test)]
 mod git_context_commit_tests;
 #[cfg(test)]
+mod git_context_diff_tests;
+#[cfg(test)]
 mod git_context_tests;
 #[cfg(test)]
 mod git_context_test_utils;
