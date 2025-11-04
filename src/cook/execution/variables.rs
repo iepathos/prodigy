@@ -98,7 +98,6 @@ pub enum AggregateType {
 
 /// Types of variables based on their prefix or format
 #[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)] // Used in later phases
 enum VariableType {
     /// Environment variable (env.*)
     Environment,
@@ -117,7 +116,6 @@ enum VariableType {
 }
 
 /// Parse the variable type from an expression
-#[allow(dead_code)] // Used in later phases
 fn parse_variable_type(expr: &str) -> VariableType {
     if expr.starts_with("env.") {
         VariableType::Environment
@@ -527,6 +525,53 @@ impl VariableContext {
         Box::pin(async move { self.resolve_variable_impl(expr, depth).await })
     }
 
+    /// Resolve a variable by its detected type
+    async fn resolve_by_type(
+        &self,
+        var_type: VariableType,
+        expr: &str,
+        depth: usize,
+    ) -> Result<Value> {
+        match var_type {
+            VariableType::Environment => {
+                let var_name = expr.strip_prefix("env.").ok_or_else(|| {
+                    anyhow!("Invalid environment variable format: {}", expr)
+                })?;
+                let env_var = EnvVariable::new(var_name.to_string());
+                env_var.evaluate(self)
+            }
+            VariableType::File => {
+                let path = expr
+                    .strip_prefix("file:")
+                    .ok_or_else(|| anyhow!("Invalid file variable format: {}", expr))?;
+                let file_var = FileVariable::new(path.to_string());
+                file_var.evaluate(self)
+            }
+            VariableType::Command => {
+                let command = expr
+                    .strip_prefix("cmd:")
+                    .ok_or_else(|| anyhow!("Invalid command variable format: {}", expr))?;
+                let cmd_var = CommandVariable::new(command.to_string());
+                cmd_var.evaluate(self)
+            }
+            VariableType::Json => {
+                let remainder = expr
+                    .strip_prefix("json:")
+                    .ok_or_else(|| anyhow!("Invalid JSON variable format: {}", expr))?;
+                self.resolve_json_variable(remainder, depth).await
+            }
+            VariableType::Date => {
+                let format = expr
+                    .strip_prefix("date:")
+                    .ok_or_else(|| anyhow!("Invalid date variable format: {}", expr))?;
+                let date_var = DateVariable::new(format.to_string());
+                date_var.evaluate(self)
+            }
+            VariableType::Uuid => UuidVariable.evaluate(self),
+            VariableType::Standard => self.lookup_variable(expr),
+        }
+    }
+
     /// Resolve a JSON variable expression
     /// Format: json:path:from:data_source or json:path:data_source (legacy)
     async fn resolve_json_variable(&self, remainder: &str, depth: usize) -> Result<Value> {
@@ -580,33 +625,16 @@ impl VariableContext {
             }
         }
 
-        // Parse the expression to determine type
-        let value = if let Some(var_name) = expr.strip_prefix("env.") {
-            // Environment variable
-            let env_var = EnvVariable::new(var_name.to_string());
-            env_var.evaluate(self)?
-        } else if let Some(path) = expr.strip_prefix("file:") {
-            // File content
-            let file_var = FileVariable::new(path.to_string());
-            file_var.evaluate(self)?
-        } else if let Some(command) = expr.strip_prefix("cmd:") {
-            // Command output
-            let cmd_var = CommandVariable::new(command.to_string());
-            cmd_var.evaluate(self)?
-        } else if let Some(remainder) = expr.strip_prefix("json:") {
-            // JSON extraction - delegate to specialized function
-            self.resolve_json_variable(remainder, depth).await?
-        } else if let Some(format) = expr.strip_prefix("date:") {
-            // Date formatting
-            let date_var = DateVariable::new(format.to_string());
-            date_var.evaluate(self)?
-        } else if expr == "uuid" {
-            // UUID generation (never cached)
+        // Parse the expression to determine type and resolve accordingly
+        let var_type = parse_variable_type(expr);
+
+        // Special case: UUID is never cached, so return early
+        if var_type == VariableType::Uuid {
             return UuidVariable.evaluate(self);
-        } else {
-            // Standard variable lookup
-            self.lookup_variable(expr)?
-        };
+        }
+
+        // Resolve the variable using the appropriate resolver
+        let value = self.resolve_by_type(var_type, expr, depth).await?;
 
         // Cache expensive computations
         if self.should_cache(expr) {
