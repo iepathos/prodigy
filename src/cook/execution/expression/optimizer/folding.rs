@@ -266,3 +266,23 @@ pub(super) fn fold_type_checks(
         _ => Ok(expr),
     }
 }
+
+/// Helper function to fold aggregate functions (Length, Sum, Count, Min, Max, Avg)
+pub(super) fn fold_aggregate_functions(
+    optimizer: &mut super::ExpressionOptimizer,
+    expr: Expression,
+) -> Result<Expression> {
+    match expr {
+        Expression::Length(inner) => {
+            Ok(Expression::Length(Box::new(optimizer.constant_folding(*inner)?)))
+        }
+        Expression::Sum(inner) => Ok(Expression::Sum(Box::new(optimizer.constant_folding(*inner)?))),
+        Expression::Count(inner) => {
+            Ok(Expression::Count(Box::new(optimizer.constant_folding(*inner)?)))
+        }
+        Expression::Min(inner) => Ok(Expression::Min(Box::new(optimizer.constant_folding(*inner)?))),
+        Expression::Max(inner) => Ok(Expression::Max(Box::new(optimizer.constant_folding(*inner)?))),
+        Expression::Avg(inner) => Ok(Expression::Avg(Box::new(optimizer.constant_folding(*inner)?))),
+        _ => Ok(expr),
+    }
+}

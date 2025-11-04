@@ -204,17 +204,13 @@ impl ExpressionOptimizer {
                 path,
             )),
 
-            // Aggregate functions
-            Expression::Length(inner) => {
-                Ok(Expression::Length(Box::new(self.constant_folding(*inner)?)))
-            }
-            Expression::Sum(inner) => Ok(Expression::Sum(Box::new(self.constant_folding(*inner)?))),
-            Expression::Count(inner) => {
-                Ok(Expression::Count(Box::new(self.constant_folding(*inner)?)))
-            }
-            Expression::Min(inner) => Ok(Expression::Min(Box::new(self.constant_folding(*inner)?))),
-            Expression::Max(inner) => Ok(Expression::Max(Box::new(self.constant_folding(*inner)?))),
-            Expression::Avg(inner) => Ok(Expression::Avg(Box::new(self.constant_folding(*inner)?))),
+            // Delegate aggregate functions to specialized function
+            Expression::Length(_)
+            | Expression::Sum(_)
+            | Expression::Count(_)
+            | Expression::Min(_)
+            | Expression::Max(_)
+            | Expression::Avg(_) => fold_aggregate_functions(self, expr),
 
             // Literals and simple expressions pass through
             _ => Ok(expr),
@@ -477,8 +473,9 @@ mod utils;
 // Import from internal modules
 use cache::SubExpressionCache;
 use folding::{
-    fold_equal_comparison, fold_logical_operators, fold_not_equal_comparison,
-    fold_numeric_comparison, fold_string_operators, fold_type_checks, NumericComparisonOp,
+    fold_aggregate_functions, fold_equal_comparison, fold_logical_operators,
+    fold_not_equal_comparison, fold_numeric_comparison, fold_string_operators, fold_type_checks,
+    NumericComparisonOp,
 };
 use utils::{expressions_equal, hash_expression};
 
