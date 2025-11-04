@@ -705,4 +705,104 @@ mod tests {
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
     }
+
+    // Tests for determine_no_commit_action
+
+    #[test]
+    fn test_determine_no_commit_action_auto_commit_has_changes() {
+        let step = WorkflowStep {
+            auto_commit: true,
+            commit_required: false,
+            ..Default::default()
+        };
+
+        let action = determine_no_commit_action(&step, Ok(true));
+        assert_eq!(action, CommitVerificationAction::CreateAutoCommit);
+    }
+
+    #[test]
+    fn test_determine_no_commit_action_auto_commit_no_changes_commit_required() {
+        let step = WorkflowStep {
+            auto_commit: true,
+            commit_required: true,
+            ..Default::default()
+        };
+
+        let action = determine_no_commit_action(&step, Ok(false));
+        assert_eq!(action, CommitVerificationAction::RequireCommitError);
+    }
+
+    #[test]
+    fn test_determine_no_commit_action_auto_commit_no_changes_not_required() {
+        let step = WorkflowStep {
+            auto_commit: true,
+            commit_required: false,
+            ..Default::default()
+        };
+
+        let action = determine_no_commit_action(&step, Ok(false));
+        assert_eq!(action, CommitVerificationAction::NoAction);
+    }
+
+    #[test]
+    fn test_determine_no_commit_action_auto_commit_check_failed_commit_required() {
+        let step = WorkflowStep {
+            auto_commit: true,
+            commit_required: true,
+            ..Default::default()
+        };
+
+        let action = determine_no_commit_action(&step, Err(anyhow::anyhow!("check failed")));
+        assert_eq!(action, CommitVerificationAction::RequireCommitError);
+    }
+
+    #[test]
+    fn test_determine_no_commit_action_auto_commit_check_failed_not_required() {
+        let step = WorkflowStep {
+            auto_commit: true,
+            commit_required: false,
+            ..Default::default()
+        };
+
+        let action = determine_no_commit_action(&step, Err(anyhow::anyhow!("check failed")));
+        assert_eq!(action, CommitVerificationAction::NoAction);
+    }
+
+    #[test]
+    fn test_determine_no_commit_action_no_auto_commit_required() {
+        let step = WorkflowStep {
+            auto_commit: false,
+            commit_required: true,
+            ..Default::default()
+        };
+
+        // Should fail regardless of has_changes result
+        let action = determine_no_commit_action(&step, Ok(true));
+        assert_eq!(action, CommitVerificationAction::RequireCommitError);
+
+        let action = determine_no_commit_action(&step, Ok(false));
+        assert_eq!(action, CommitVerificationAction::RequireCommitError);
+
+        let action = determine_no_commit_action(&step, Err(anyhow::anyhow!("error")));
+        assert_eq!(action, CommitVerificationAction::RequireCommitError);
+    }
+
+    #[test]
+    fn test_determine_no_commit_action_no_auto_commit_not_required() {
+        let step = WorkflowStep {
+            auto_commit: false,
+            commit_required: false,
+            ..Default::default()
+        };
+
+        // Should be no action regardless of has_changes result
+        let action = determine_no_commit_action(&step, Ok(true));
+        assert_eq!(action, CommitVerificationAction::NoAction);
+
+        let action = determine_no_commit_action(&step, Ok(false));
+        assert_eq!(action, CommitVerificationAction::NoAction);
+
+        let action = determine_no_commit_action(&step, Err(anyhow::anyhow!("error")));
+        assert_eq!(action, CommitVerificationAction::NoAction);
+    }
 }
