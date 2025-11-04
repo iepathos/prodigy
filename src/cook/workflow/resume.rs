@@ -333,6 +333,142 @@ impl ResumeExecutor {
         Ok(())
     }
 
+    /// Load workflow file from path
+    async fn load_workflow_file(workflow_path: &PathBuf) -> Result<WorkflowConfig> {
+        let workflow_content = tokio::fs::read_to_string(workflow_path)
+            .await
+            .context("Failed to read workflow file")?;
+
+        // Parse workflow based on file extension
+        let workflow_config: WorkflowConfig = if workflow_path.extension().and_then(|s| s.to_str())
+            == Some("yml")
+            || workflow_path.extension().and_then(|s| s.to_str()) == Some("yaml")
+        {
+            serde_yaml::from_str(&workflow_content)?
+        } else if workflow_path.extension().and_then(|s| s.to_str()) == Some("json") {
+            serde_json::from_str(&workflow_content)?
+        } else {
+            return Err(anyhow!("Unsupported workflow file format"));
+        };
+
+        Ok(workflow_config)
+    }
+
+    /// Convert WorkflowCommands to WorkflowSteps
+    fn convert_commands_to_steps(
+        commands: Vec<crate::config::WorkflowCommand>,
+    ) -> Vec<WorkflowStep> {
+        commands
+            .into_iter()
+            .map(|cmd| {
+                let mut step = WorkflowStep {
+                    name: None,
+                    claude: None,
+                    shell: None,
+                    test: None,
+                    goal_seek: None,
+                    foreach: None,
+                    write_file: None,
+                    command: None,
+                    handler: None,
+                    capture: None,
+                    capture_format: None,
+                    capture_streams: Default::default(),
+                    output_file: None,
+                    capture_output: crate::cook::workflow::executor::CaptureOutput::Disabled,
+                    timeout: None,
+                    working_dir: None,
+                    env: std::collections::HashMap::new(),
+                    on_failure: None,
+                    retry: None,
+                    on_success: None,
+                    on_exit_code: std::collections::HashMap::new(),
+                    auto_commit: false,
+                    commit_config: None,
+                    commit_required: false,
+                    validate: None,
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
+                    when: None,
+                };
+
+                // Parse command based on enum variant
+                match cmd {
+                    crate::config::WorkflowCommand::Simple(cmd_str) => {
+                        if cmd_str.starts_with("claude:") {
+                            step.claude =
+                                Some(cmd_str.strip_prefix("claude:").unwrap().trim().to_string());
+                        } else if cmd_str.starts_with("shell:") {
+                            step.shell =
+                                Some(cmd_str.strip_prefix("shell:").unwrap().trim().to_string());
+                        } else if !cmd_str.contains(':') {
+                            // Default to shell if no prefix
+                            step.shell = Some(cmd_str);
+                        } else {
+                            // Treat as legacy command
+                            step.command = Some(cmd_str);
+                        }
+                    }
+                    crate::config::WorkflowCommand::WorkflowStep(wf_step) => {
+                        step.claude = wf_step.claude;
+                        step.shell = wf_step.shell;
+                        // Convert TestDebugConfig to OnFailureConfig
+                        if let Some(test_debug) = wf_step.on_failure {
+                            // Create a HandlerCommand from the TestDebugConfig
+                            let handler_cmd = crate::cook::workflow::on_failure::HandlerCommand {
+                                claude: Some(test_debug.claude),
+                                shell: None,
+                                continue_on_error: false,
+                            };
+
+                            step.on_failure = Some(crate::cook::workflow::on_failure::OnFailureConfig::Detailed(
+                                crate::cook::workflow::on_failure::FailureHandlerConfig {
+                                    commands: vec![handler_cmd],
+                                    strategy: crate::cook::workflow::on_failure::HandlerStrategy::default(),
+                                    timeout: None,
+                                    capture: std::collections::HashMap::new(),
+                                    fail_workflow: test_debug.fail_workflow,
+                                    handler_failure_fatal: false,
+                                }
+                            ));
+                        }
+                        // Copy other fields if they exist
+                    }
+                    _ => {
+                        // For other variants, try to convert to a command string
+                        step.command = Some(format!("{:?}", cmd));
+                    }
+                }
+
+                step
+            })
+            .collect()
+    }
+
+    /// Build ExtendedWorkflowConfig from checkpoint and steps
+    fn build_extended_workflow(
+        checkpoint: &WorkflowCheckpoint,
+        steps: Vec<WorkflowStep>,
+    ) -> crate::cook::workflow::executor::ExtendedWorkflowConfig {
+        crate::cook::workflow::executor::ExtendedWorkflowConfig {
+            name: checkpoint
+                .workflow_name
+                .clone()
+                .unwrap_or_else(|| "resumed".to_string()),
+            steps,
+            mode: crate::cook::workflow::executor::WorkflowMode::Sequential,
+            max_iterations: 1,
+            iterate: false,
+            setup_phase: None,    // Not a MapReduce workflow
+            map_phase: None,      // Not a MapReduce workflow
+            reduce_phase: None,   // Not a MapReduce workflow
+            retry_defaults: None, // Would need to be loaded from checkpoint
+            environment: None,    // Would need to be loaded from checkpoint
+        }
+    }
+
     /// Execute workflow from checkpoint with full execution support
     pub async fn execute_from_checkpoint(
         &mut self,
@@ -418,128 +554,9 @@ impl ResumeExecutor {
             .await;
         progress_display.force_update("Loading workflow file and restoring state...");
 
-        let workflow_content = tokio::fs::read_to_string(workflow_path)
-            .await
-            .context("Failed to read workflow file")?;
-
-        // Parse workflow based on type
-        let workflow_config: WorkflowConfig = if workflow_path.extension().and_then(|s| s.to_str())
-            == Some("yml")
-            || workflow_path.extension().and_then(|s| s.to_str()) == Some("yaml")
-        {
-            serde_yaml::from_str(&workflow_content)?
-        } else if workflow_path.extension().and_then(|s| s.to_str()) == Some("json") {
-            serde_json::from_str(&workflow_content)?
-        } else {
-            return Err(anyhow!("Unsupported workflow file format"));
-        };
-
-        // Convert workflow commands to steps
-        let steps = workflow_config
-            .commands
-            .into_iter()
-            .map(|cmd| {
-                let mut step = crate::cook::workflow::executor::WorkflowStep {
-                    name: None,
-                    claude: None,
-                    shell: None,
-                    test: None,
-                    goal_seek: None,
-                    foreach: None,
-                    write_file: None,
-                    command: None,
-                    handler: None,
-                    capture: None,
-                    capture_format: None,
-                    capture_streams: Default::default(),
-                    output_file: None,
-                    capture_output: crate::cook::workflow::executor::CaptureOutput::Disabled,
-                    timeout: None,
-                    working_dir: None,
-                    env: std::collections::HashMap::new(),
-                    on_failure: None,
-                    retry: None,
-                    on_success: None,
-                    on_exit_code: std::collections::HashMap::new(),
-                    auto_commit: false,
-                    commit_config: None,
-                    commit_required: false,
-                    validate: None,
-                    step_validate: None,
-                    skip_validation: false,
-                    validation_timeout: None,
-                    ignore_validation_failure: false,
-                    when: None,
-                };
-
-                // Parse command based on enum variant
-                match cmd {
-                    crate::config::WorkflowCommand::Simple(cmd_str) => {
-                        if cmd_str.starts_with("claude:") {
-                            step.claude =
-                                Some(cmd_str.strip_prefix("claude:").unwrap().trim().to_string());
-                        } else if cmd_str.starts_with("shell:") {
-                            step.shell =
-                                Some(cmd_str.strip_prefix("shell:").unwrap().trim().to_string());
-                        } else if !cmd_str.contains(':') {
-                            // Default to shell if no prefix
-                            step.shell = Some(cmd_str);
-                        } else {
-                            // Treat as legacy command
-                            step.command = Some(cmd_str);
-                        }
-                    }
-                    crate::config::WorkflowCommand::WorkflowStep(wf_step) => {
-                        step.claude = wf_step.claude;
-                        step.shell = wf_step.shell;
-                        // Convert TestDebugConfig to OnFailureConfig
-                        if let Some(test_debug) = wf_step.on_failure {
-                            // Create a HandlerCommand from the TestDebugConfig
-                            let handler_cmd = crate::cook::workflow::on_failure::HandlerCommand {
-                                claude: Some(test_debug.claude),
-                                shell: None,
-                                continue_on_error: false,
-                            };
-
-                            step.on_failure = Some(crate::cook::workflow::on_failure::OnFailureConfig::Detailed(
-                                crate::cook::workflow::on_failure::FailureHandlerConfig {
-                                    commands: vec![handler_cmd],
-                                    strategy: crate::cook::workflow::on_failure::HandlerStrategy::default(),
-                                    timeout: None,
-                                    capture: std::collections::HashMap::new(),
-                                    fail_workflow: test_debug.fail_workflow,
-                                    handler_failure_fatal: false,
-                                }
-                            ));
-                        }
-                        // Copy other fields if they exist
-                    }
-                    _ => {
-                        // For other variants, try to convert to a command string
-                        step.command = Some(format!("{:?}", cmd));
-                    }
-                }
-
-                step
-            })
-            .collect();
-
-        // Convert to extended workflow config
-        let extended_workflow = crate::cook::workflow::executor::ExtendedWorkflowConfig {
-            name: checkpoint
-                .workflow_name
-                .clone()
-                .unwrap_or_else(|| "resumed".to_string()),
-            steps,
-            mode: crate::cook::workflow::executor::WorkflowMode::Sequential,
-            max_iterations: 1,
-            iterate: false,
-            setup_phase: None,    // Not a MapReduce workflow
-            map_phase: None,      // Not a MapReduce workflow
-            reduce_phase: None,   // Not a MapReduce workflow
-            retry_defaults: None, // Would need to be loaded from checkpoint
-            environment: None,    // Would need to be loaded from checkpoint
-        };
+        let workflow_config = Self::load_workflow_file(workflow_path).await?;
+        let steps = Self::convert_commands_to_steps(workflow_config.commands);
+        let extended_workflow = Self::build_extended_workflow(&checkpoint, steps);
 
         // Create execution environment
         let env = ExecutionEnvironment {
