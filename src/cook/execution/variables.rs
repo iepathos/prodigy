@@ -614,7 +614,7 @@ impl VariableContext {
         }
     }
 
-    /// Implementation of resolve_variable
+    /// Implementation of resolve_variable with caching
     async fn resolve_variable_impl(&self, expr: &str, depth: usize) -> Result<Value> {
         // Check cache first
         {
@@ -625,16 +625,8 @@ impl VariableContext {
             }
         }
 
-        // Parse the expression to determine type and resolve accordingly
-        let var_type = parse_variable_type(expr);
-
-        // Special case: UUID is never cached, so return early
-        if var_type == VariableType::Uuid {
-            return UuidVariable.evaluate(self);
-        }
-
-        // Resolve the variable using the appropriate resolver
-        let value = self.resolve_by_type(var_type, expr, depth).await?;
+        // Resolve the variable without caching
+        let value = self.resolve_without_cache(expr, depth).await?;
 
         // Cache expensive computations
         if self.should_cache(expr) {
@@ -644,6 +636,20 @@ impl VariableContext {
         }
 
         Ok(value)
+    }
+
+    /// Resolve a variable without caching - pure resolution logic
+    async fn resolve_without_cache(&self, expr: &str, depth: usize) -> Result<Value> {
+        // Parse the expression to determine type
+        let var_type = parse_variable_type(expr);
+
+        // Special case: UUID is never cached, so handle it directly
+        if var_type == VariableType::Uuid {
+            return UuidVariable.evaluate(self);
+        }
+
+        // Resolve the variable using the appropriate resolver
+        self.resolve_by_type(var_type, expr, depth).await
     }
 
     /// Look up a variable in scopes
