@@ -116,6 +116,7 @@ fn test_legacy_adapter() {
         verbosity: 0,
         quiet: false,
         dry_run: false,
+        params: std::collections::HashMap::new(),
     };
 
     let config = LegacyInputAdapter::from_cook_command(&cmd).unwrap();

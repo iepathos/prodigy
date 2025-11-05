@@ -1,4 +1,6 @@
 use clap::Args;
+use serde_json::Value;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Command-line arguments for the cook command
@@ -80,4 +82,8 @@ pub struct CookCommand {
     /// Dry-run mode - show what would be executed without running
     #[arg(long, help = "Preview commands without executing them")]
     pub dry_run: bool,
+
+    /// Template parameters (not a CLI argument, populated from --param and --param-file)
+    #[arg(skip)]
+    pub params: HashMap<String, Value>,
 }

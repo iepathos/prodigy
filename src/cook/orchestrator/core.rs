@@ -1500,6 +1500,7 @@ mod tests {
             verbosity: 0,
             quiet: false,
             dry_run: false,
+            params: std::collections::HashMap::new(),
         }
     }
 
@@ -2008,6 +2009,7 @@ mod tests {
                 verbosity: 0,
                 quiet: false,
                 dry_run,
+                params: std::collections::HashMap::new(),
             }
         }
 

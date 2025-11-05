@@ -4,6 +4,7 @@
 
 use crate::cli::args::{Commands, TemplateCommand};
 use crate::cli::commands::*;
+use crate::cli::params::{load_param_file, merge_params, parse_cli_params};
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -21,9 +22,22 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
             metrics,
             resume,
             dry_run,
-            params: _,
-            param_file: _,
+            params,
+            param_file,
         }) => {
+            // Parse CLI parameters
+            let cli_params = parse_cli_params(params)?;
+
+            // Load parameters from file if provided
+            let file_params = if let Some(ref param_file_path) = param_file {
+                load_param_file(param_file_path).await?
+            } else {
+                std::collections::HashMap::new()
+            };
+
+            // Merge parameters (CLI takes precedence)
+            let merged_params = merge_params(cli_params, file_params);
+
             // Run is the primary command for workflow execution
             let cook_cmd = crate::cook::command::CookCommand {
                 playbook: workflow,
@@ -38,6 +52,7 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
                 quiet: false,
                 verbosity: verbose,
                 dry_run,
+                params: merged_params,
             };
             crate::cook::cook(cook_cmd).await
         }

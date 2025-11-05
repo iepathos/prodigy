@@ -47,6 +47,7 @@ pub async fn run_exec_command(
         quiet: false,
         verbosity: 0,
         dry_run: false,
+        params: std::collections::HashMap::new(),
     };
 
     crate::cook::cook(cook_cmd).await
@@ -100,6 +101,7 @@ pub async fn run_batch_command(
         quiet: false,
         verbosity: 0,
         dry_run: false,
+        params: std::collections::HashMap::new(),
     };
 
     crate::cook::cook(cook_cmd).await
