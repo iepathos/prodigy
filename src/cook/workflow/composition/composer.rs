@@ -195,14 +195,18 @@ impl WorkflowComposer {
 
     fn apply_parameters(
         &self,
-        _workflow: &mut ComposableWorkflow,
+        workflow: &mut ComposableWorkflow,
         params: &HashMap<String, Value>,
     ) -> Result<()> {
         // Apply parameters throughout the workflow
         // This would involve variable substitution in commands
         tracing::debug!("Applying {} parameters to workflow", params.len());
 
-        // TODO: Implement parameter substitution in commands
+        // Substitute parameters in all commands
+        for command in &mut workflow.config.commands {
+            substitute_parameters_in_command(command, params)
+                .context("Failed to substitute parameters in command")?;
+        }
 
         Ok(())
     }
@@ -494,6 +498,125 @@ impl DependencyResolver {
     }
 }
 
+/// Substitute parameters in a workflow command
+fn substitute_parameters_in_command(
+    command: &mut crate::config::WorkflowCommand,
+    params: &HashMap<String, Value>,
+) -> Result<()> {
+    use crate::config::WorkflowCommand;
+    use regex::Regex;
+
+    // Create regex for ${param} pattern matching
+    let param_regex = Regex::new(r"\$\{([^}]+)\}").context("Failed to create parameter regex")?;
+
+    match command {
+        WorkflowCommand::Simple(ref mut cmd) => {
+            *cmd = substitute_params(&param_regex, cmd, params)?;
+        }
+        WorkflowCommand::Structured(ref mut boxed_cmd) => {
+            // Handle structured command fields
+            substitute_params_in_structured(&param_regex, boxed_cmd, params)?;
+        }
+        WorkflowCommand::WorkflowStep(ref mut boxed_step) => {
+            // Handle workflow step command fields
+            if let Some(ref mut claude) = boxed_step.claude {
+                *claude = substitute_params(&param_regex, claude, params)?;
+            }
+            if let Some(ref mut shell) = boxed_step.shell {
+                *shell = substitute_params(&param_regex, shell, params)?;
+            }
+            // Handle other fields that might contain parameters
+            if let Some(ref mut id) = boxed_step.id {
+                *id = substitute_params(&param_regex, id, params)?;
+            }
+        }
+        WorkflowCommand::SimpleObject(ref mut simple) => {
+            simple.name = substitute_params(&param_regex, &simple.name, params)?;
+            if let Some(ref mut args) = simple.args {
+                for arg in args {
+                    *arg = substitute_params(&param_regex, arg, params)?;
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Substitute parameters in structured command
+fn substitute_params_in_structured(
+    regex: &regex::Regex,
+    cmd: &mut crate::config::Command,
+    params: &HashMap<String, Value>,
+) -> Result<()> {
+    // Substitute in command name
+    cmd.name = substitute_params(regex, &cmd.name, params)?;
+
+    // Substitute in args (args is a Vec, not Option<Vec>)
+    for arg in &mut cmd.args {
+        if let Some(name) = arg.as_literal_mut() {
+            *name = substitute_params(regex, name, params)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Helper to access CommandArg literal value mutably
+trait CommandArgExt {
+    fn as_literal_mut(&mut self) -> Option<&mut String>;
+}
+
+impl CommandArgExt for crate::config::CommandArg {
+    fn as_literal_mut(&mut self) -> Option<&mut String> {
+        match self {
+            crate::config::CommandArg::Literal(ref mut s) => Some(s),
+            crate::config::CommandArg::Variable(_) => None,
+        }
+    }
+}
+
+/// Substitute parameter references in a string
+fn substitute_params(
+    regex: &regex::Regex,
+    text: &str,
+    params: &HashMap<String, Value>,
+) -> Result<String> {
+    let mut result = text.to_string();
+    let mut errors = Vec::new();
+
+    for cap in regex.captures_iter(text) {
+        let param_name = &cap[1];
+        match params.get(param_name) {
+            Some(value) => {
+                let value_str = match value {
+                    Value::String(s) => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    Value::Bool(b) => b.to_string(),
+                    Value::Array(_) | Value::Object(_) => {
+                        // Complex types are serialized as JSON
+                        serde_json::to_string(value).with_context(|| {
+                            format!("Failed to serialize parameter '{}'", param_name)
+                        })?
+                    }
+                    Value::Null => String::new(),
+                };
+
+                result = result.replace(&format!("${{{}}}", param_name), &value_str);
+            }
+            None => {
+                errors.push(format!("Parameter '{}' not found", param_name));
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        anyhow::bail!("Parameter substitution errors: {}", errors.join(", "));
+    }
+
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -542,5 +665,62 @@ mod tests {
 
         // Should detect circular dependency
         assert!(resolver.check_circular_deps(&circular_deps).is_err());
+    }
+
+    #[test]
+    fn test_substitute_params() {
+        use regex::Regex;
+
+        let mut params = HashMap::new();
+        params.insert("target".to_string(), Value::String("app.js".to_string()));
+        params.insert(
+            "count".to_string(),
+            Value::Number(serde_json::Number::from(42)),
+        );
+        params.insert("enabled".to_string(), Value::Bool(true));
+
+        let regex = Regex::new(r"\$\{([^}]+)\}").unwrap();
+
+        // Test simple string substitution
+        let result = substitute_params(&regex, "Process ${target}", &params);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Process app.js");
+
+        // Test number substitution
+        let result = substitute_params(&regex, "Count: ${count}", &params);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Count: 42");
+
+        // Test boolean substitution
+        let result = substitute_params(&regex, "Enabled: ${enabled}", &params);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Enabled: true");
+
+        // Test multiple substitutions
+        let result =
+            substitute_params(&regex, "${target} has ${count} items (${enabled})", &params);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "app.js has 42 items (true)");
+
+        // Test missing parameter
+        let result = substitute_params(&regex, "Missing: ${missing}", &params);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_substitute_parameters_in_command() {
+        use crate::config::WorkflowCommand;
+
+        let mut params = HashMap::new();
+        params.insert("file".to_string(), Value::String("main.rs".to_string()));
+
+        // Test with Simple command
+        let mut cmd = WorkflowCommand::Simple("claude: /refactor ${file}".to_string());
+        let result = substitute_parameters_in_command(&mut cmd, &params);
+        assert!(result.is_ok());
+        match cmd {
+            WorkflowCommand::Simple(s) => assert_eq!(s, "claude: /refactor main.rs"),
+            _ => panic!("Expected Simple command"),
+        }
     }
 }
