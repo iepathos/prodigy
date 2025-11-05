@@ -519,8 +519,10 @@ impl WorkflowComposer {
 
         // Substitute in goal_seek configuration
         if let Some(goal_seek) = &mut step.goal_seek {
-            goal_seek.goal = self.substitute_params_in_string(param_regex, &goal_seek.goal, params)?;
-            goal_seek.validate = self.substitute_params_in_string(param_regex, &goal_seek.validate, params)?;
+            goal_seek.goal =
+                self.substitute_params_in_string(param_regex, &goal_seek.goal, params)?;
+            goal_seek.validate =
+                self.substitute_params_in_string(param_regex, &goal_seek.validate, params)?;
             if let Some(claude) = &mut goal_seek.claude {
                 *claude = self.substitute_params_in_string(param_regex, claude, params)?;
             }
