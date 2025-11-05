@@ -107,10 +107,7 @@ fn test_template_list_long_format() {
     let output = test.run();
 
     // Should list templates in long format
-    assert!(
-        output.exit_code == exit_codes::SUCCESS
-            || output.stdout_contains("No templates")
-    );
+    assert!(output.exit_code == exit_codes::SUCCESS || output.stdout_contains("No templates"));
 }
 
 #[test]
@@ -124,10 +121,7 @@ fn test_template_list_with_tag() {
     let output = test.run();
 
     // Should filter templates by tag
-    assert!(
-        output.exit_code == exit_codes::SUCCESS
-            || output.stdout_contains("No templates")
-    );
+    assert!(output.exit_code == exit_codes::SUCCESS || output.stdout_contains("No templates"));
 }
 
 #[test]
@@ -141,15 +135,11 @@ fn test_template_show() {
 
     // Should show template details or report not found
     assert!(
-        output.exit_code == exit_codes::SUCCESS
-            || output.exit_code == exit_codes::GENERAL_ERROR
+        output.exit_code == exit_codes::SUCCESS || output.exit_code == exit_codes::GENERAL_ERROR
     );
 
     if output.exit_code == exit_codes::GENERAL_ERROR {
-        assert!(
-            output.stderr_contains("not found")
-                || output.stderr_contains("No template")
-        );
+        assert!(output.stderr_contains("not found") || output.stderr_contains("No template"));
     }
 }
 
@@ -164,10 +154,7 @@ fn test_template_show_nonexistent() {
 
     // Should report template not found
     assert_eq!(output.exit_code, exit_codes::GENERAL_ERROR);
-    assert!(
-        output.stderr_contains("not found")
-            || output.stderr_contains("No template")
-    );
+    assert!(output.stderr_contains("not found") || output.stderr_contains("No template"));
 }
 
 #[test]
@@ -198,8 +185,7 @@ fn test_template_delete() {
 
     // Should delete successfully or report not found
     assert!(
-        output.exit_code == exit_codes::SUCCESS
-            || output.exit_code == exit_codes::GENERAL_ERROR
+        output.exit_code == exit_codes::SUCCESS || output.exit_code == exit_codes::GENERAL_ERROR
     );
 }
 
@@ -222,10 +208,7 @@ fn test_template_delete_without_force() {
 
 #[test]
 fn test_template_search() {
-    let mut test = CliTest::new()
-        .arg("template")
-        .arg("search")
-        .arg("test");
+    let mut test = CliTest::new().arg("template").arg("search").arg("test");
 
     let output = test.run();
 
@@ -248,10 +231,7 @@ fn test_template_search_by_tag() {
     let output = test.run();
 
     // Should search templates by tag
-    assert!(
-        output.exit_code == exit_codes::SUCCESS
-            || output.stdout_contains("No templates")
-    );
+    assert!(output.exit_code == exit_codes::SUCCESS || output.stdout_contains("No templates"));
 }
 
 #[test]
@@ -399,10 +379,7 @@ fn test_template_missing_required_args() {
 
     // Should fail with missing required arguments
     assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
-    assert!(
-        output.stderr_contains("required")
-            || output.stderr_contains("PATH")
-    );
+    assert!(output.stderr_contains("required") || output.stderr_contains("PATH"));
 }
 
 #[test]
