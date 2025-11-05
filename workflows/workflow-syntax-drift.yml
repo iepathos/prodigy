@@ -45,5 +45,5 @@ merge:
   - shell: "git fetch origin"
   - claude: "/prodigy-merge-master"
 
-  # Step 3: Merge worktree back to master
-  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+  # Step 3: Merge worktree back to original branch
+  - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
