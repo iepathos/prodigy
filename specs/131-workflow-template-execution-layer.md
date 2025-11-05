@@ -95,6 +95,30 @@ Integrate the existing workflow composition system into Prodigy's workflow execu
 
 ## Technical Details
 
+### Implementation Phases
+
+**Phase 1: Core Integration (This Spec)**
+- Workflow file detection and routing
+- Template composition integration
+- Parameter substitution (${param} syntax)
+- Workflow config conversion
+- Basic error handling
+
+**Phase 2: Enhanced Features (Future Spec)**
+- CLI parameter overrides (--param key=value)
+- Template override application
+- Default value merging
+- Selective import logic
+- Advanced validation
+
+**Phase 3: Advanced Features (Future Specs)**
+- URL-based template sources
+- Template versioning and constraints
+- Template marketplace/registry
+- Remote template caching
+
+This spec focuses exclusively on **Phase 1** to deliver immediate value.
+
 ### Implementation Approach
 
 #### 1. Workflow File Detection
@@ -174,20 +198,29 @@ async fn parse_composable_workflow(
 
 ```rust
 fn create_template_registry() -> Result<TemplateRegistry> {
-    // Look for templates in standard locations
+    // Look for templates in standard locations (following Prodigy global storage pattern)
+    // Priority order:
+    // 1. ~/.prodigy/templates/ (global, shared across repos)
+    // 2. .prodigy/templates/ (project-local)
+    // 3. templates/ (legacy, project-local)
     let template_dirs = vec![
-        PathBuf::from("templates"),
-        PathBuf::from(".prodigy/templates"),
         directories::ProjectDirs::from("com", "prodigy", "prodigy")
             .map(|dirs| dirs.data_dir().join("templates"))
-            .unwrap_or_else(|| PathBuf::from("templates")),
+            .unwrap_or_else(|| PathBuf::from("~/.prodigy/templates")),
+        PathBuf::from(".prodigy/templates"),
+        PathBuf::from("templates"),
     ];
 
-    // Use first existing directory, or create default
+    // Use first existing directory, or create global default
     let template_dir = template_dirs
         .into_iter()
         .find(|dir| dir.exists())
-        .unwrap_or_else(|| PathBuf::from("templates"));
+        .unwrap_or_else(|| {
+            // Default to global storage location
+            directories::ProjectDirs::from("com", "prodigy", "prodigy")
+                .map(|dirs| dirs.data_dir().join("templates"))
+                .unwrap_or_else(|| PathBuf::from("~/.prodigy/templates"))
+        });
 
     let storage = Box::new(FileTemplateStorage::new(template_dir));
     let registry = TemplateRegistry::with_storage(storage);
@@ -205,6 +238,7 @@ fn convert_composed_to_config(
     let workflow = composed.workflow;
 
     Ok(WorkflowConfig {
+        name: workflow.config.name,
         commands: workflow.config.commands,
         env: workflow.config.env,
         secrets: workflow.config.secrets,
@@ -230,8 +264,8 @@ fn extract_workflow_parameters(
         }
     }
 
-    // TODO: Override with CLI parameters when that's implemented
-    // For now, just use defaults
+    // NOTE: CLI parameter overrides will be implemented in Phase 2
+    // Phase 1 uses only defaults from workflow file
 
     // Validate required parameters
     composable.validate_parameters(&params)?;
@@ -263,6 +297,8 @@ fn substitute_parameters_in_step(
     params: &HashMap<String, Value>,
 ) -> Result<()> {
     // Use regex to find ${param} patterns
+    // Note: This regex does not handle nested braces, which is intentional
+    // to keep substitution simple and predictable
     let param_regex = Regex::new(r"\$\{([^}]+)\}").unwrap();
 
     match step {
@@ -295,6 +331,11 @@ fn substitute_params(
             Value::String(s) => s.clone(),
             Value::Number(n) => n.to_string(),
             Value::Bool(b) => b.to_string(),
+            Value::Array(_) | Value::Object(_) => {
+                // Complex types are serialized as JSON
+                serde_json::to_string(value)
+                    .with_context(|| format!("Failed to serialize parameter '{}'", param_name))?
+            }
             _ => value.to_string(),
         };
 
@@ -305,12 +346,56 @@ fn substitute_params(
 }
 ```
 
+**Notes on Parameter Substitution Safety:**
+- Literal `${` can be escaped as `$${` (implementation detail for Phase 2)
+- Complex types (arrays, objects) are JSON-serialized for shell/Claude commands
+- Missing parameters cause immediate failure with clear error message
+- Type coercion is explicit and predictable (no implicit conversions)
+
+### Error Handling
+
+Define structured error types for composition failures:
+
+```rust
+#[derive(Debug, thiserror::Error)]
+pub enum CompositionError {
+    #[error("Template '{0}' not found in registry or file system")]
+    TemplateNotFound(String),
+
+    #[error("Required parameter '{name}' not provided")]
+    MissingParameter { name: String },
+
+    #[error("Parameter '{name}' has invalid value: {reason}")]
+    InvalidParameter { name: String, reason: String },
+
+    #[error("Circular dependency detected: {0}")]
+    CircularDependency(String),
+
+    #[error("Failed to load workflow from {path}: {source}")]
+    WorkflowLoadError {
+        path: PathBuf,
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("Parameter substitution failed in command '{command}': {reason}")]
+    SubstitutionError { command: String, reason: String },
+}
+```
+
+All composition errors should include:
+- File path context where applicable
+- Line numbers for YAML parsing errors
+- Parameter names for validation errors
+- Clear suggestions for resolution
+
 ### Architecture Changes
 
 1. **New Module**: `src/cook/workflow/composer_integration.rs`
    - Houses integration logic between composer and executor
    - Contains conversion functions
    - Manages template registry lifecycle
+   - Defines `CompositionError` type
 
 2. **Modified Module**: `src/cook/mod.rs`
    - Add composable workflow detection
