@@ -63,6 +63,14 @@ pub enum Commands {
         /// Dry-run mode - show what would be executed without running
         #[arg(long, help = "Preview commands without executing them")]
         dry_run: bool,
+
+        /// Template parameters (key=value)
+        #[arg(long = "param", value_name = "KEY=VALUE")]
+        params: Vec<String>,
+
+        /// Parameter file (JSON or YAML)
+        #[arg(long = "param-file")]
+        param_file: Option<PathBuf>,
     },
 
     /// Execute a single command with retry support
@@ -321,6 +329,12 @@ pub enum Commands {
     Clean {
         #[command(subcommand)]
         command: CleanCommands,
+    },
+    /// Manage workflow templates
+    #[command(name = "template")]
+    Template {
+        #[command(subcommand)]
+        action: TemplateCommand,
     },
 }
 
@@ -810,5 +824,84 @@ pub enum CleanCommands {
         /// Skip confirmations
         #[arg(short, long)]
         force: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TemplateCommand {
+    /// Register a new workflow template
+    Register {
+        /// Path to template file
+        path: PathBuf,
+
+        /// Template name (defaults to filename)
+        #[arg(short = 'n', long)]
+        name: Option<String>,
+
+        /// Template description
+        #[arg(short = 'd', long)]
+        description: Option<String>,
+
+        /// Template version
+        #[arg(short = 'v', long, default_value = "1.0.0")]
+        version: String,
+
+        /// Template tags (comma-separated)
+        #[arg(short = 't', long, value_delimiter = ',')]
+        tags: Vec<String>,
+
+        /// Template author
+        #[arg(short = 'a', long)]
+        author: Option<String>,
+    },
+
+    /// List all registered templates
+    List {
+        /// Filter by tag
+        #[arg(short = 't', long)]
+        tag: Option<String>,
+
+        /// Show detailed information
+        #[arg(short = 'l', long)]
+        long: bool,
+    },
+
+    /// Show detailed information about a template
+    Show {
+        /// Template name
+        name: String,
+    },
+
+    /// Delete a registered template
+    Delete {
+        /// Template name
+        name: String,
+
+        /// Skip confirmation prompt
+        #[arg(short = 'f', long)]
+        force: bool,
+    },
+
+    /// Search for templates
+    Search {
+        /// Search query
+        query: String,
+
+        /// Search by tag instead of name
+        #[arg(short = 't', long)]
+        by_tag: bool,
+    },
+
+    /// Validate a template file
+    Validate {
+        /// Path to template file
+        path: PathBuf,
+    },
+
+    /// Initialize template directory structure
+    Init {
+        /// Template directory path (defaults to ./templates)
+        #[arg(default_value = "templates")]
+        path: PathBuf,
     },
 }
