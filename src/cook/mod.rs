@@ -434,6 +434,11 @@ async fn load_playbook_with_mapreduce(
                         Err(anyhow!(error_msg))
                     }
                 }
+            } else if workflow::is_composable_workflow(&content) {
+                // Check if it's a composable workflow (templates, imports, etc.)
+                workflow::parse_composable_workflow(path, &content)
+                    .await
+                    .context("Failed to parse composable workflow")
             } else {
                 // Try to parse as regular workflow
                 match serde_yaml::from_str::<WorkflowConfig>(&content) {

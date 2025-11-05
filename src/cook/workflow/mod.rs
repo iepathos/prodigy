@@ -8,6 +8,7 @@ pub mod checkpoint_path;
 mod checkpoint_tests;
 #[cfg(test)]
 mod commit_tracking_tests;
+pub mod composer_integration;
 pub mod composition;
 #[cfg(test)]
 mod conditional_tests;
@@ -50,6 +51,9 @@ pub mod variables;
 pub use checkpoint::ResumeOptions;
 pub use checkpoint::{CheckpointManager, WorkflowCheckpoint};
 pub use checkpoint_path::{resolve_global_base_dir, CheckpointStorage};
+pub use composer_integration::{
+    is_composable_workflow, parse_composable_workflow, CompositionError,
+};
 pub use composition::{
     ComposableWorkflow, ComposedWorkflow, CompositionMetadata, Parameter, ParameterDefinitions,
     ParameterType, SubWorkflow, SubWorkflowExecutor, SubWorkflowResult, TemplateRegistry,
