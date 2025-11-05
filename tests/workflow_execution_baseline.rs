@@ -8,6 +8,7 @@
 use prodigy::config::{WorkflowCommand, WorkflowConfig};
 use prodigy::cook::command::CookCommand;
 use prodigy::cook::orchestrator::CookConfig;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -27,6 +28,7 @@ fn create_test_config(workflow: WorkflowConfig) -> CookConfig {
             verbosity: 0,
             quiet: false,
             dry_run: false,
+            params: HashMap::new(),
         },
         project_path: Arc::new(PathBuf::from("/tmp/test")),
         workflow: Arc::new(workflow),
@@ -179,6 +181,7 @@ mod mapreduce_workflow {
                 verbosity: 0,
                 quiet: false,
                 dry_run: false,
+                params: HashMap::new(),
             },
             project_path: Arc::new(PathBuf::from("/tmp/test")),
             workflow: Arc::new(workflow),

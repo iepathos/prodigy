@@ -843,7 +843,7 @@ pub enum TemplateCommand {
         description: Option<String>,
 
         /// Template version
-        #[arg(short = 'v', long, default_value = "1.0.0")]
+        #[arg(long, default_value = "1.0.0")]
         version: String,
 
         /// Template tags (comma-separated)
