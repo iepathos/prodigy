@@ -31,7 +31,7 @@ fn test_template_register() {
     let temp_path = test.temp_path();
 
     // Create a template file
-    let template_path = create_test_template(&temp_path, "test-template");
+    let template_path = create_test_template(temp_path, "test-template");
 
     let mut test = test
         .arg("template")
@@ -59,7 +59,7 @@ fn test_template_register_with_metadata() {
     let temp_path = test.temp_path();
 
     // Create a template file
-    let template_path = create_test_template(&temp_path, "metadata-template");
+    let template_path = create_test_template(temp_path, "metadata-template");
 
     let mut test = test
         .arg("template")
@@ -163,7 +163,7 @@ fn test_template_delete() {
     let temp_path = test.temp_path();
 
     // Create and register a template first
-    let template_path = create_test_template(&temp_path, "delete-template");
+    let template_path = create_test_template(temp_path, "delete-template");
 
     // Register it
     let mut register_test = CliTest::new()
@@ -240,7 +240,7 @@ fn test_template_validate() {
     let temp_path = test.temp_path();
 
     // Create a valid template file
-    let template_path = create_test_template(&temp_path, "validate-template");
+    let template_path = create_test_template(temp_path, "validate-template");
 
     let mut test = test
         .arg("template")
