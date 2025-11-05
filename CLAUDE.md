@@ -246,7 +246,7 @@ merge:
     - shell: "git merge origin/main"  # Merge main into worktree first
     - shell: "cargo test"              # Run tests
     - shell: "cargo clippy"            # Run linting
-    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
     - shell: "echo 'Successfully merged ${merge.worktree}'"
   timeout: 600  # 10 minutes timeout for merge operations
 ```
@@ -256,8 +256,10 @@ merge:
 The following variables are available in merge workflows:
 - `${merge.worktree}` - Name of the worktree being merged
 - `${merge.source_branch}` - Source branch (worktree branch)
-- `${merge.target_branch}` - Target branch (usually main or master)
+- `${merge.target_branch}` - Target branch (your original branch, where you started the workflow)
 - `${merge.session_id}` - Session ID for correlation
+
+**Important**: Always pass both `${merge.source_branch}` and `${merge.target_branch}` to the `/prodigy-merge-worktree` command. This ensures the merge targets the branch you were on when you started the workflow, not a hardcoded main/master branch.
 
 ### Claude Merge Streaming
 
@@ -275,7 +277,7 @@ merge:
     - shell: "cargo build --release"
     - shell: "cargo test --all"
     - shell: "cargo fmt --check"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
 ```
 
 #### Conflict Resolution Strategy
@@ -286,7 +288,7 @@ merge:
     - claude: "/resolve-conflicts"
     - shell: "git add -A"
     - shell: "git commit -m 'Merge main and resolve conflicts'"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
 ```
 
 ## MapReduce Workflow Syntax
