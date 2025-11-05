@@ -188,6 +188,7 @@ mod tests {
             verbosity: 0,
             quiet: false,
             dry_run: false,
+            params: std::collections::HashMap::new(),
         };
 
         let (playbook, args, map) = create_workflow_state_base(&command);

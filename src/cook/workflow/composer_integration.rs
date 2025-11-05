@@ -53,6 +53,7 @@ pub fn is_composable_workflow(content: &str) -> bool {
 pub async fn parse_composable_workflow(
     path: &Path,
     content: &str,
+    cli_params: HashMap<String, Value>,
 ) -> Result<(
     WorkflowConfig,
     Option<crate::config::MapReduceWorkflowConfig>,
@@ -62,7 +63,13 @@ pub async fn parse_composable_workflow(
         .with_context(|| format!("Failed to parse composable workflow: {}", path.display()))?;
 
     // Extract parameters from workflow defaults
-    let params = extract_workflow_parameters(&composable)?;
+    let workflow_params = extract_workflow_parameters(&composable)?;
+
+    // Merge CLI parameters with workflow defaults (CLI takes precedence)
+    let mut params = workflow_params;
+    for (key, value) in cli_params {
+        params.insert(key, value);
+    }
 
     // Initialize template registry
     let registry = Arc::new(create_template_registry()?);

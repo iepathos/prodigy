@@ -281,7 +281,7 @@ async fn load_workflow_with_mapreduce(
     Option<crate::config::MapReduceWorkflowConfig>,
 )> {
     // Always load from playbook since it's required
-    load_playbook_with_mapreduce(&cmd.playbook).await
+    load_playbook_with_mapreduce(&cmd.playbook, &cmd.params).await
 }
 
 /// Load workflow configuration (backward compatibility)
@@ -399,6 +399,7 @@ fn format_json_parse_error(e: &serde_json::Error, path: &Path) -> String {
 /// Load workflow configuration from a playbook file with MapReduce support
 async fn load_playbook_with_mapreduce(
     path: &Path,
+    params: &std::collections::HashMap<String, serde_json::Value>,
 ) -> Result<(
     WorkflowConfig,
     Option<crate::config::MapReduceWorkflowConfig>,
@@ -436,7 +437,7 @@ async fn load_playbook_with_mapreduce(
                 }
             } else if workflow::is_composable_workflow(&content) {
                 // Check if it's a composable workflow (templates, imports, etc.)
-                workflow::parse_composable_workflow(path, &content)
+                workflow::parse_composable_workflow(path, &content, params.clone())
                     .await
                     .context("Failed to parse composable workflow")
             } else {
@@ -586,6 +587,7 @@ mod cook_tests {
             verbosity: 0,
             quiet: false,
             dry_run: false,
+            params: std::collections::HashMap::new(),
         };
         let orchestrator = create_orchestrator(temp_dir.path(), &cmd).await.unwrap();
 
@@ -621,6 +623,7 @@ mod cook_tests {
             verbosity: 0,
             quiet: false,
             dry_run: false,
+            params: std::collections::HashMap::new(),
         };
 
         let config = crate::config::Config::default();
@@ -662,7 +665,8 @@ reduce:
             .unwrap();
 
         // Try to load the MapReduce workflow
-        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        let result =
+            load_playbook_with_mapreduce(&playbook_path, &std::collections::HashMap::new()).await;
 
         // Debug the error if it fails
         match &result {
@@ -771,7 +775,8 @@ reduce:
             .unwrap();
 
         // Try to load the MapReduce workflow
-        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        let result =
+            load_playbook_with_mapreduce(&playbook_path, &std::collections::HashMap::new()).await;
 
         // Debug the error if it fails
         match &result {
@@ -857,6 +862,7 @@ reduce:
             verbosity: 0,
             quiet: false,
             dry_run: false,
+            params: std::collections::HashMap::new(),
         };
 
         // Create dummy session and worktree manager (not used in the function)
@@ -899,7 +905,8 @@ map:
             .await
             .unwrap();
 
-        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        let result =
+            load_playbook_with_mapreduce(&playbook_path, &std::collections::HashMap::new()).await;
         assert!(result.is_ok(), "Should parse MapReduce YAML successfully");
 
         let (workflow, mapreduce_config) = result.unwrap();
@@ -923,7 +930,8 @@ map:
             .await
             .unwrap();
 
-        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        let result =
+            load_playbook_with_mapreduce(&playbook_path, &std::collections::HashMap::new()).await;
         assert!(result.is_ok(), "Should parse regular YAML successfully");
 
         let (workflow, mapreduce_config) = result.unwrap();
@@ -946,7 +954,8 @@ map:
             .await
             .unwrap();
 
-        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        let result =
+            load_playbook_with_mapreduce(&playbook_path, &std::collections::HashMap::new()).await;
         assert!(result.is_ok(), "Should parse JSON successfully");
 
         let (workflow, mapreduce_config) = result.unwrap();
@@ -964,7 +973,8 @@ map:
   - shell: "echo test"
 "#;
         tokio::fs::write(&yml_path, workflow_content).await.unwrap();
-        let result = load_playbook_with_mapreduce(&yml_path).await;
+        let result =
+            load_playbook_with_mapreduce(&yml_path, &std::collections::HashMap::new()).await;
         assert!(result.is_ok(), "Should handle .yml extension");
 
         // Test .yaml extension
@@ -972,14 +982,16 @@ map:
         tokio::fs::write(&yaml_path, workflow_content)
             .await
             .unwrap();
-        let result = load_playbook_with_mapreduce(&yaml_path).await;
+        let result =
+            load_playbook_with_mapreduce(&yaml_path, &std::collections::HashMap::new()).await;
         assert!(result.is_ok(), "Should handle .yaml extension");
 
         // Test .json extension
         let json_path = temp_dir.path().join("test.json");
         let json_content = r#"{"commands": [{"shell": "echo test"}]}"#;
         tokio::fs::write(&json_path, json_content).await.unwrap();
-        let result = load_playbook_with_mapreduce(&json_path).await;
+        let result =
+            load_playbook_with_mapreduce(&json_path, &std::collections::HashMap::new()).await;
         assert!(result.is_ok(), "Should handle .json extension");
     }
 
@@ -999,7 +1011,8 @@ mode: mapreduce
             .await
             .unwrap();
 
-        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        let result =
+            load_playbook_with_mapreduce(&playbook_path, &std::collections::HashMap::new()).await;
         assert!(
             result.is_err(),
             "Should fail on invalid MapReduce structure"
@@ -1028,7 +1041,8 @@ invalid_line
             .await
             .unwrap();
 
-        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        let result =
+            load_playbook_with_mapreduce(&playbook_path, &std::collections::HashMap::new()).await;
         assert!(result.is_err(), "Should fail on invalid YAML");
 
         let err = result.unwrap_err();
@@ -1050,7 +1064,8 @@ invalid_line
             .await
             .unwrap();
 
-        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        let result =
+            load_playbook_with_mapreduce(&playbook_path, &std::collections::HashMap::new()).await;
         assert!(result.is_err(), "Should fail on invalid JSON");
 
         let err = result.unwrap_err();
@@ -1066,7 +1081,8 @@ invalid_line
         let temp_dir = TempDir::new().unwrap();
         let playbook_path = temp_dir.path().join("nonexistent.yml");
 
-        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        let result =
+            load_playbook_with_mapreduce(&playbook_path, &std::collections::HashMap::new()).await;
         assert!(result.is_err(), "Should fail on missing file");
 
         let err = result.unwrap_err();
@@ -1091,7 +1107,8 @@ mode: 123
             .await
             .unwrap();
 
-        let result = load_playbook_with_mapreduce(&playbook_path).await;
+        let result =
+            load_playbook_with_mapreduce(&playbook_path, &std::collections::HashMap::new()).await;
         // This might succeed or fail depending on how the parser handles it
         // The main goal is to ensure the function handles it gracefully
         if result.is_err() {

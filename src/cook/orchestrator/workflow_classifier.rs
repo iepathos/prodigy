@@ -114,6 +114,7 @@ mod tests {
                 verbosity: 0,
                 quiet: false,
                 dry_run: false,
+                params: std::collections::HashMap::new(),
             },
             project_path: Arc::new(PathBuf::from("/test")),
             workflow: Arc::new(WorkflowConfig {

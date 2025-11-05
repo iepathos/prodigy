@@ -166,6 +166,117 @@ prodigy worktree ls --detailed --json # Combine detailed info with JSON output
 prodigy worktree clean                # Clean up inactive worktrees
 ```
 
+### Template Management
+
+Prodigy supports reusable workflow templates that can be registered, shared, and invoked with parameters. This enables building a library of common workflows and patterns.
+
+#### Template Commands
+
+```bash
+# Initialize a template directory
+prodigy template init templates/
+
+# Register a template from a file
+prodigy template register my-workflow.yml \
+  --name refactor-pipeline \
+  --description "Refactoring workflow with tests" \
+  --version 1.0.0 \
+  --tags refactor,testing \
+  --author "Your Name"
+
+# List all registered templates
+prodigy template list
+prodigy template list --long           # Show detailed information
+prodigy template list --tag refactor   # Filter by tag
+
+# Show template details
+prodigy template show refactor-pipeline
+
+# Search for templates
+prodigy template search "refactor"
+prodigy template search testing --by-tag
+
+# Validate a template file
+prodigy template validate my-workflow.yml
+
+# Delete a template
+prodigy template delete refactor-pipeline --force
+```
+
+#### Creating Templates
+
+Templates are standard workflow files with parameter definitions:
+
+```yaml
+name: refactor-with-tests
+description: Refactor code and ensure tests pass
+version: 1.0.0
+
+parameters:
+  target:
+    description: File or directory to refactor
+    type: string
+    required: true
+  test_command:
+    description: Command to run tests
+    type: string
+    default: "cargo test"
+
+commands:
+  - claude: "/refactor ${target}"
+  - shell: "${test_command}"
+    on_failure:
+      claude: "/fix-test-failures"
+      max_attempts: 3
+```
+
+#### Using Templates with Parameters
+
+Pass parameters via CLI flags or parameter files:
+
+```bash
+# Pass parameters individually
+prodigy run refactor-pipeline.yml \
+  --param target=src/main.rs \
+  --param test_command="cargo test --all"
+
+# Pass parameters from a JSON file
+prodigy run refactor-pipeline.yml \
+  --param-file params.json
+
+# Pass parameters from a YAML file
+prodigy run refactor-pipeline.yml \
+  --param-file params.yaml
+```
+
+Parameter file example (`params.json`):
+```json
+{
+  "target": "src/main.rs",
+  "test_command": "cargo test --all",
+  "timeout": 300
+}
+```
+
+Parameter file example (`params.yaml`):
+```yaml
+target: src/main.rs
+test_command: cargo test --all
+timeout: 300
+```
+
+**Parameter Type Inference:**
+- Numbers (integer and float) are automatically detected
+- Booleans (`true`/`false`) are parsed correctly
+- Strings are the default type
+- CLI parameters override file parameters
+
+**Parameter Substitution:**
+Parameters are available in commands using `${parameter_name}` syntax:
+- `${target}` - Direct parameter reference
+- `${test_command}` - Parameter with default value
+- CLI and file parameters are merged (CLI takes precedence)
+
 ### Advanced Workflows
 
 #### Retry Configuration

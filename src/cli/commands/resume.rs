@@ -372,6 +372,7 @@ async fn try_resume_regular_workflow(
         verbosity: 0,
         quiet: false,
         dry_run: false,
+        params: std::collections::HashMap::new(),
     };
 
     crate::cook::cook(cook_cmd).await

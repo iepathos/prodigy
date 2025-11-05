@@ -2,8 +2,9 @@
 //!
 //! This module handles routing CLI commands to their respective implementations.
 
-use crate::cli::args::Commands;
+use crate::cli::args::{Commands, TemplateCommand};
 use crate::cli::commands::*;
+use crate::cli::params::{load_param_file, merge_params, parse_cli_params};
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -21,7 +22,22 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
             metrics,
             resume,
             dry_run,
+            params,
+            param_file,
         }) => {
+            // Parse CLI parameters
+            let cli_params = parse_cli_params(params)?;
+
+            // Load parameters from file if provided
+            let file_params = if let Some(ref param_file_path) = param_file {
+                load_param_file(param_file_path).await?
+            } else {
+                std::collections::HashMap::new()
+            };
+
+            // Merge parameters (CLI takes precedence)
+            let merged_params = merge_params(cli_params, file_params);
+
             // Run is the primary command for workflow execution
             let cook_cmd = crate::cook::command::CookCommand {
                 playbook: workflow,
@@ -36,6 +52,7 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
                 quiet: false,
                 verbosity: verbose,
                 dry_run,
+                params: merged_params,
             };
             crate::cook::cook(cook_cmd).await
         }
@@ -179,11 +196,39 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
             let repo_path = std::env::current_dir()?;
             clean::execute(command, &repo_path).await
         }
+        Some(Commands::Template { action }) => execute_template_command(action).await,
         None => {
             // No command provided, show help
             use crate::cli::help::generate_help;
             println!("{}", generate_help());
             Ok(())
         }
+    }
+}
+
+/// Execute template management commands
+async fn execute_template_command(action: TemplateCommand) -> Result<()> {
+    use crate::cli::template::TemplateManager;
+    let manager = TemplateManager::new()?;
+
+    match action {
+        TemplateCommand::Register {
+            path,
+            name,
+            description,
+            version,
+            tags,
+            author,
+        } => {
+            manager
+                .register_template(path, name, description, version, tags, author)
+                .await
+        }
+        TemplateCommand::List { tag, long } => manager.list_templates(tag, long).await,
+        TemplateCommand::Show { name } => manager.show_template(name).await,
+        TemplateCommand::Delete { name, force } => manager.delete_template(name, force).await,
+        TemplateCommand::Search { query, by_tag } => manager.search_templates(query, by_tag).await,
+        TemplateCommand::Validate { path } => manager.validate_template(path).await,
+        TemplateCommand::Init { path } => manager.init_template_directory(path).await,
     }
 }
