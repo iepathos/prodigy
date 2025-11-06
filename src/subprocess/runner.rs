@@ -208,7 +208,9 @@ impl TokioProcessRunner {
     }
 
     /// Configure the command with environment and working directory
-    fn configure_command(command: &ProcessCommand) -> tokio::process::Command {
+    fn configure_command(
+        command: &ProcessCommand,
+    ) -> Result<tokio::process::Command, ProcessError> {
         let mut cmd = tokio::process::Command::new(&command.program);
 
         // Set up process group for proper signal handling on Unix
@@ -225,7 +227,8 @@ impl TokioProcessRunner {
         cmd.env_clear();
 
         // Preserve essential system environment variables that commands depend on
-        Self::preserve_essential_env(&mut cmd);
+        // This MUST succeed - if PATH is missing, fail loudly rather than spawn with no PATH
+        Self::preserve_essential_env(&mut cmd, &command.program)?;
 
         // Add explicitly specified environment variables (these take precedence)
         for (key, value) in &command.env {
@@ -237,21 +240,97 @@ impl TokioProcessRunner {
         }
 
         Self::configure_stdio(&mut cmd, command);
-        cmd
+        Ok(cmd)
     }
 
     /// Preserve essential system environment variables
-    fn preserve_essential_env(cmd: &mut tokio::process::Command) {
-        // Essential variables that most commands need to function
-        let essential_vars = [
-            "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "TERM",
+    /// Returns an error if critical environment variables (like PATH) are missing
+    fn preserve_essential_env(
+        cmd: &mut tokio::process::Command,
+        program: &str,
+    ) -> Result<(), ProcessError> {
+        // PATH is absolutely critical - without it, no commands can be found
+        let critical_vars = ["PATH"];
+
+        // Other important but not critical variables
+        let optional_vars = [
+            "HOME", "USER", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "TERM",
         ];
 
-        for var in &essential_vars {
-            if let Ok(value) = std::env::var(var) {
-                cmd.env(var, value);
+        let mut preserved = Vec::new();
+        let mut optional_failed = Vec::new();
+
+        // Critical variables MUST exist - fail loudly if missing
+        for var in &critical_vars {
+            match std::env::var(var) {
+                Ok(value) => {
+                    cmd.env(var, &value);
+                    preserved.push(var.to_string());
+                    tracing::debug!(
+                        "Preserved critical env var {} for command '{}': {}",
+                        var,
+                        program,
+                        value
+                    );
+                }
+                Err(e) => {
+                    // Log current process environment state for debugging
+                    tracing::error!(
+                        "❌ CRITICAL: Required environment variable {} is not available for command '{}': {:?}",
+                        var,
+                        program,
+                        e
+                    );
+
+                    // Log all available env vars to help diagnose the issue
+                    let available_vars: Vec<String> = std::env::vars().map(|(k, _)| k).collect();
+                    tracing::error!(
+                        "Available environment variables in parent process ({}): {}",
+                        available_vars.len(),
+                        available_vars.join(", ")
+                    );
+
+                    return Err(ProcessError::InternalError {
+                        message: format!(
+                            "Critical environment variable {} is not available (required for '{}' command). \
+                             This indicates environment corruption after long-running execution. \
+                             Error: {:?}",
+                            var, program, e
+                        ),
+                    });
+                }
             }
         }
+
+        // Optional variables can fail silently but we log warnings
+        for var in &optional_vars {
+            match std::env::var(var) {
+                Ok(value) => {
+                    cmd.env(var, value);
+                    preserved.push(var.to_string());
+                }
+                Err(_) => {
+                    optional_failed.push(var.to_string());
+                }
+            }
+        }
+
+        if !optional_failed.is_empty() {
+            tracing::warn!(
+                "Optional env vars not available for '{}': {}",
+                program,
+                optional_failed.join(", ")
+            );
+        }
+
+        tracing::trace!(
+            "Preserved {} env vars for '{}': {}",
+            preserved.len(),
+            program,
+            preserved.join(", ")
+        );
+
+        Ok(())
     }
 
     /// Configure stdio pipes for the process
@@ -403,11 +482,49 @@ impl TokioProcessRunner {
     async fn spawn_configured_process(
         command: &ProcessCommand,
     ) -> Result<tokio::process::Child, ProcessError> {
-        // Configure and spawn the process
-        let mut cmd = Self::configure_command(command);
-        let mut child = cmd.spawn().map_err(|e| ProcessError::SpawnFailed {
-            command: format!("{} {}", command.program, command.args.join(" ")),
-            source: e.into(),
+        // Configure the process - this may fail if critical env vars like PATH are missing
+        let mut cmd = Self::configure_command(command)?;
+
+        // Log command execution for debugging
+        if command.program == "claude" {
+            tracing::debug!(
+                "Spawning claude command: {} (working_dir: {:?})",
+                command.args.join(" "),
+                command.working_dir
+            );
+        }
+
+        // Spawn the process
+        let mut child = cmd.spawn().map_err(|e| {
+            // Enhanced error logging
+            tracing::error!(
+                "Failed to spawn '{}': {:?} (kind: {:?})",
+                command.program,
+                e,
+                e.kind()
+            );
+
+            // If NotFound, log current PATH from parent for debugging
+            if e.kind() == std::io::ErrorKind::NotFound {
+                if let Ok(path) = std::env::var("PATH") {
+                    tracing::error!(
+                        "Command '{}' not found. Parent process PATH: {}",
+                        command.program,
+                        path
+                    );
+                } else {
+                    tracing::error!(
+                        "❌ CRITICAL: Command '{}' not found AND parent process has no PATH! \
+                         This indicates severe environment corruption.",
+                        command.program
+                    );
+                }
+            }
+
+            ProcessError::SpawnFailed {
+                command: format!("{} {}", command.program, command.args.join(" ")),
+                source: e.into(),
+            }
         })?;
 
         // Write stdin if provided
@@ -452,7 +569,7 @@ impl ProcessRunner for TokioProcessRunner {
         Self::log_command_start(&command);
 
         // Configure and spawn the process
-        let mut cmd = Self::configure_command(&command);
+        let mut cmd = Self::configure_command(&command)?;
         let mut child = cmd
             .spawn()
             .map_err(|e| Self::map_spawn_error(e, &command.program))?;
