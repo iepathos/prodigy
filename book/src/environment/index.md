@@ -46,6 +46,203 @@ commands:
 
 ---
 
+## Variable Interpolation
+
+Prodigy supports two syntaxes for referencing environment variables in workflows:
+
+### Simple Syntax: `$VAR`
+
+The simple `$VAR` syntax works for basic variable references:
+
+```yaml
+env:
+  API_URL: https://api.example.com
+  PORT: "3000"
+
+commands:
+  - shell: "curl $API_URL/health"
+  - shell: "echo Server running on port $PORT"
+```
+
+**Use `$VAR` when:**
+- Variable name is standalone (not adjacent to other text)
+- You're passing to shell commands
+- Simple, clear usage without ambiguity
+
+### Bracketed Syntax: `${VAR}`
+
+The bracketed `${VAR}` syntax is preferred for clarity and is required in some cases:
+
+```yaml
+env:
+  PROJECT: my-app
+  VERSION: "1.0.0"
+  ENVIRONMENT: prod
+
+commands:
+  - shell: "deploy-${PROJECT}-${VERSION}.sh"  # Required: adjacent to text
+  - shell: "echo Deploying ${PROJECT} v${VERSION}"  # Preferred: explicit
+  - shell: "mkdir -p /var/log/${PROJECT}/${ENVIRONMENT}"  # Required: in paths
+```
+
+**Use `${VAR}` when:**
+- Variable is adjacent to other text (e.g., `${VAR}-suffix`, `prefix-${VAR}`)
+- Variable is part of a path (e.g., `config/${VAR}/file.json`)
+- Complex expressions or nested usage
+- You want explicit, unambiguous references (recommended)
+
+### When `${VAR}` is Required
+
+**1. Adjacent to text:**
+```yaml
+env:
+  NAME: api
+  VERSION: "2.1"
+
+commands:
+  # Wrong - Shell interprets as variable named "NAME_VERSION"
+  - shell: "echo $NAME_VERSION"
+
+  # Correct - Explicitly separates variables
+  - shell: "echo ${NAME}_${VERSION}"
+```
+
+**2. In file paths:**
+```yaml
+env:
+  ENVIRONMENT: staging
+  PROJECT: my-app
+
+commands:
+  # Preferred - Clear variable boundaries
+  - shell: "cp config.json /etc/${PROJECT}/${ENVIRONMENT}/config.json"
+```
+
+**3. In URLs and complex strings:**
+```yaml
+env:
+  API_BASE: https://api.example.com
+  VERSION: v1
+
+commands:
+  # Required - Variable within URL
+  - shell: "curl ${API_BASE}/${VERSION}/users"
+```
+
+### Interpolation in Different Contexts
+
+**Shell commands:**
+Both syntaxes work, but `${VAR}` is safer:
+```yaml
+env:
+  DATABASE_URL: postgresql://localhost:5432/app
+  TIMEOUT: "30"
+
+commands:
+  - shell: "psql $DATABASE_URL"           # Simple case: $VAR works
+  - shell: "timeout ${TIMEOUT} ./app"     # Preferred: ${VAR} is explicit
+```
+
+**Claude commands:**
+Use `${VAR}` for consistency:
+```yaml
+env:
+  SPEC_FILE: spec-123.md
+  PROJECT_NAME: my-project
+
+commands:
+  - claude: "/implement-spec ${SPEC_FILE} --project ${PROJECT_NAME}"
+```
+
+**File paths:**
+Always use `${VAR}` in paths:
+```yaml
+env:
+  OUTPUT_DIR: /tmp/results
+  TIMESTAMP: "20240101"
+
+commands:
+  - shell: "mkdir -p ${OUTPUT_DIR}/${TIMESTAMP}"
+  - write_file:
+      path: ${OUTPUT_DIR}/${TIMESTAMP}/report.json
+      content: "..."
+```
+
+**MapReduce configurations:**
+Combine with MapReduce variables like `${item}`:
+```yaml
+env:
+  MAX_WORKERS: "10"
+  OUTPUT_PATH: /results
+
+map:
+  max_parallel: ${MAX_WORKERS}
+  agent_template:
+    - shell: "process ${item.file} --output ${OUTPUT_PATH}/${item.id}.result"
+```
+
+### Escaping Variables
+
+If you need a literal `$` character, use shell escaping:
+
+```yaml
+commands:
+  # Using single quotes (no interpolation)
+  - shell: 'echo "Price: $100"'
+
+  # Using double quotes with escape
+  - shell: "echo \"Price: \\$100\""
+
+  # Double $$ for literal $ in some contexts
+  - shell: "echo Price: $$100"
+```
+
+### Best Practices
+
+1. **Prefer `${VAR}` for consistency**: More explicit and works in all cases
+2. **Use `$VAR` only for simple standalone cases**: When passing to shell and no ambiguity
+3. **Always use `${VAR}` in paths**: Prevents parsing issues
+4. **Be consistent within a workflow**: Pick one style and stick to it
+5. **Use quotes for values with spaces**: `env: MESSAGE: "Hello World"`
+
+### Examples Comparison
+
+**Simple case (both work):**
+```yaml
+env:
+  PORT: "3000"
+
+# Both acceptable
+- shell: "echo Port: $PORT"
+- shell: "echo Port: ${PORT}"
+```
+
+**Complex case (requires `${VAR}`):**
+```yaml
+env:
+  PROJECT: api
+  VERSION: "1.0"
+  ENVIRONMENT: prod
+
+# Required - variables adjacent to text and in paths
+- shell: "deploy-${PROJECT}-v${VERSION}.sh --env ${ENVIRONMENT}"
+- shell: "cp /src/config.${ENVIRONMENT}.json /etc/${PROJECT}/config.json"
+```
+
+**Recommended approach (always use `${VAR}`):**
+```yaml
+env:
+  DATABASE: myapp
+  USER: admin
+  HOST: localhost
+
+commands:
+  - shell: "psql -h ${HOST} -U ${USER} -d ${DATABASE}"
+  - shell: "backup-${DATABASE}-$(date +%Y%m%d).sql"
+```
+
+---
+
 
 ## Additional Topics
 
