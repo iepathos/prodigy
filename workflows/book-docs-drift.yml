@@ -46,6 +46,15 @@ map:
     # Step 2: Fix the drift in this chapter/subsection (subsection-aware command)
     - claude: "/prodigy-fix-subsection-drift --project $PROJECT_NAME --json '${item}'"
       commit_required: true
+      validate:
+        claude: "/prodigy-validate-doc-fix --project $PROJECT_NAME --json '${item}' --output .prodigy/validation-result.json"
+        result_file: ".prodigy/validation-result.json"
+        threshold: 100  # Documentation must meet 100% quality standards
+        on_incomplete:
+          claude: "/prodigy-complete-doc-fix --project $PROJECT_NAME --json '${item}' --gaps ${validation.gaps}"
+          max_attempts: 3
+          fail_workflow: false  # Continue even if we can't reach 100%
+          commit_required: true  # Require commit to verify improvements were made
 
   max_parallel: ${MAX_PARALLEL}
 
