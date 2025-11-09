@@ -1,0 +1,82 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "mapreduce",
+  "subsection_id": "error-collection-strategies",
+  "subsection_title": "Error Collection Strategies",
+  "subsection_file": "book/src/mapreduce/error-collection-strategies.md",
+  "feature_mappings": [
+    "error_handling.collection",
+    "mapreduce.error_policy"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Subsection is accurate and well-structured but could benefit from additional context and examples",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Main content",
+      "description": "Missing explanation of how to use error_collection at the top-level workflow vs nested under error_policy",
+      "feature_reference": "mapreduce.error_policy",
+      "fix_suggestion": "Add a note explaining that error_collection can be used either as a top-level convenience field or nested under error_policy block. Both syntaxes are supported for backward compatibility.",
+      "source_reference": "src/config/mapreduce.rs:77 (convenience field), src/cook/workflow/error_policy.rs:152 (nested field)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Examples",
+      "description": "No example showing the top-level convenience syntax for error_collection",
+      "feature_reference": "mapreduce.error_policy",
+      "fix_suggestion": "Add an example showing: 'error_collection: aggregate' at the top level of the workflow (not nested under error_policy)",
+      "source_reference": "src/config/mapreduce.rs:77"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Strategy Behaviors",
+      "description": "Missing information about when errors are actually collected and reported for each strategy",
+      "feature_reference": "error_handling.collection",
+      "fix_suggestion": "Add clarification that: aggregate reports at workflow end, immediate logs via warn! during execution, batched logs when batch size is reached",
+      "source_reference": "src/cook/workflow/error_policy.rs:578-599 (collect_error implementation)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Examples",
+      "description": "No example showing batched syntax with error_policy block",
+      "feature_reference": "error_handling.collection",
+      "fix_suggestion": "Add example showing full error_policy block with batched strategy for completeness",
+      "source_reference": "book/src/error-handling.md:174"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of the three error collection strategies",
+    "Good trade-off descriptions for each strategy",
+    "Accurate YAML syntax for all three strategies",
+    "Appropriate use cases for each strategy",
+    "Concise and focused on the specific feature"
+  ],
+  "improvement_suggestions": [
+    "Add a 'Syntax Flexibility' section explaining both top-level and error_policy nested approaches",
+    "Include a complete example workflow showing error_collection in context with other error_policy fields",
+    "Add cross-reference to 'Error Handling' chapter for comprehensive error policy documentation",
+    "Mention the relationship between error_collection and other error_policy fields (on_item_failure, continue_on_failure)",
+    "Add note about default behavior (aggregate) if error_collection is not specified"
+  ],
+  "cross_references": [
+    "error-handling",
+    "dead-letter-queue-dlq",
+    "circuit-breaker-configuration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T19:37:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "error collection",
+      "aggregate errors",
+      "immediate reporting",
+      "batched reporting"
+    ],
+    "validation_focus": "Check error collection strategies documented"
+  }
+}

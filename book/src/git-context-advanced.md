@@ -93,7 +93,9 @@ Track cumulative changes across all steps:
 
 ## Pattern Filtering
 
-Filter git context variables using glob patterns with the `:pattern` modifier syntax:
+Filter git context variables using glob patterns with the `:pattern` modifier syntax.
+
+> **⚠️ Note**: Pattern filtering and format modifiers are mutually exclusive. When using a pattern, the output will be in the default space-separated format. For other formats, use shell post-processing (see [Workarounds for Combined Filtering and Formatting](#workarounds-for-combined-filtering-and-formatting)).
 
 ### Basic Pattern Filtering
 
@@ -156,7 +158,9 @@ For complex filtering, use multiple variable references or shell commands:
 
 ## Format Modifiers
 
-Customize how git context variables are formatted:
+Customize how git context variables are formatted.
+
+> **⚠️ Important Limitation**: Format modifiers and glob patterns cannot be combined in a single variable reference. Use either a format keyword (`:json`, `:lines`, `:csv`) OR a pattern (`:*.rs`, `:src/**`), but not both. See [Modifier Precedence and Limitations](#modifier-precedence-and-limitations) for details and workarounds.
 
 ### Default Format (Space-Separated)
 
@@ -203,22 +207,66 @@ Use `:csv` or `:comma` for comma-separated output:
 # Output: src/main.rs,src/lib.rs,tests/test.rs
 ```
 
-### Combining Format and Pattern
+### Modifier Precedence and Limitations
 
-Apply both pattern filtering and format modifiers using the `:pattern:format` syntax:
+**IMPORTANT**: Format modifiers and glob patterns are **mutually exclusive**. Each variable reference can use **either** a format keyword (json, lines, csv, comma) **OR** a glob pattern, but not both.
+
+The modifier after the colon is processed as follows:
+1. If it matches a format keyword (`json`, `lines`, `newline`, `csv`, `comma`), it's used as the format
+2. Otherwise, if it contains glob characters (`*` or `?`), it's treated as a pattern
+3. Otherwise, the default space-separated format is used
+
+**Valid Syntax Examples:**
 
 ```yaml
-# JSON array of Rust files
-- shell: "echo ${step.files_changed:*.rs:json}"
+# Pattern only (default space-separated format)
+- shell: "echo ${step.files_changed:*.rs}"
+# Output: src/main.rs src/lib.rs
 
-# Newline-separated source files
-- shell: "echo ${workflow.files_added:src/**:lines}"
-
-# CSV of modified test files
-- shell: "echo ${step.files_modified:**/*_test.rs:csv}"
+# Format only (all files)
+- shell: "echo ${step.files_changed:json}"
+# Output: ["src/main.rs","src/lib.rs","tests/test.rs"]
 ```
 
-**Note**: The syntax supports exactly one pattern and one format modifier per variable reference. You cannot chain multiple patterns or formats. For more complex filtering, use shell commands to post-process the output.
+**Invalid Syntax (will not work as expected):**
+
+```yaml
+# INCORRECT: Attempting to combine pattern and format
+- shell: "echo ${step.files_changed:*.rs:json}"
+# What happens: The string "*.rs:json" is treated as a single pattern
+# No files will match because no filename ends with ":json"
+```
+
+### Workarounds for Combined Filtering and Formatting
+
+When you need both pattern filtering and custom formatting, use shell post-processing:
+
+```yaml
+# Get filtered files as JSON array using jq
+- shell: "echo ${step.files_changed:*.rs} | xargs -n1 | jq -R | jq -s"
+# Output: ["src/main.rs","src/lib.rs"]
+
+# Get filtered files as newlines (natural behavior)
+- shell: "echo ${step.files_changed:*.rs} | tr ' ' '\n'"
+# Output:
+# src/main.rs
+# src/lib.rs
+
+# Get filtered files as CSV
+- shell: "echo ${step.files_changed:src/**/*.rs} | tr ' ' ','"
+# Output: src/main.rs,src/lib.rs
+
+# More robust: handle spaces in filenames
+- shell: |
+    files=(${step.files_changed:*.rs})
+    printf '%s\n' "${files[@]}" | jq -R | jq -s
+
+# Combine multiple patterns with format
+- shell: |
+    rust="${step.files_changed:*.rs}"
+    toml="${step.files_changed:*.toml}"
+    echo "$rust $toml" | xargs -n1 | jq -R | jq -s
+```
 
 ## Use Cases
 
@@ -233,7 +281,9 @@ Review only source code changes:
 
 - shell: |
     echo "Reviewing ${step.commit_count} commits"
-    echo "Changed files: ${step.files_changed:src/**/*.rs:lines}"
+    # Use shell command to convert to newlines
+    echo "Changed files:"
+    echo "${step.files_changed:src/**/*.rs}" | tr ' ' '\n'
 ```
 
 ### Documentation Updates
@@ -366,16 +416,41 @@ reduce:
 
 **Solution**: Check if git tracking is active and verify patterns
 
+### Combined Pattern and Format Not Working
+
+**Issue**: Trying to combine pattern and format syntax like `${var:*.rs:json}` produces no output or unexpected results
+
+**Cause**: The implementation only supports a single modifier—either a format keyword (json, lines, csv, comma, newline) OR a glob pattern. These are mutually exclusive and cannot be combined in one variable reference.
+
+**What happens**: When you write `${step.files_changed:*.rs:json}`, the entire string `*.rs:json` is treated as a single pattern. Since no filename ends with `:json`, the pattern matches no files and returns empty.
+
+**Solution**: Use one of these approaches:
+
+1. **Choose one modifier** (pattern OR format):
+```yaml
+# Pattern only (default space-separated)
+- shell: "echo ${step.files_changed:*.rs}"
+
+# Format only (all files)
+- shell: "echo ${step.files_changed:json}"
+```
+
+2. **Use shell post-processing** for combined filtering and formatting:
+```yaml
+# Filter with pattern, then format with jq
+- shell: "echo ${step.files_changed:*.rs} | xargs -n1 | jq -R | jq -s"
+
+# Filter with pattern, then convert to CSV
+- shell: "echo ${step.files_changed:*.rs} | tr ' ' ','"
+```
+
+See [Workarounds for Combined Filtering and Formatting](#workarounds-for-combined-filtering-and-formatting) for more examples.
+
 ### Format Modifier Not Working
 
 **Issue**: Format modifier produces unexpected output
 
-```yaml
-# Verify correct syntax: variable:pattern:format
-- shell: "echo ${step.files_added:*.rs:json}"
-```
-
-**Solution**: Ensure proper syntax with colon separators and valid format name (json, lines, csv)
+**Solution**: Ensure you're using only a format keyword (json, lines, csv, comma, newline) without any glob patterns. Verify the syntax is `${variable:format}` with a single colon and valid format name.
 
 ### Variables Not Interpolating
 

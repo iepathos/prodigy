@@ -15,6 +15,13 @@
   on_failure:
     claude: "/fix-warnings ${shell.output}"
 
+# With nested failure handlers (multi-level error recovery)
+- shell: "cargo test"
+  on_failure:
+    claude: "/debug-test-failures ${shell.output}"
+    on_failure:
+      shell: "notify-team.sh 'Tests failed and debugging unsuccessful'"
+
 # With timeout
 - shell: "cargo bench"
   timeout: 600  # seconds
@@ -171,7 +178,7 @@ Create or overwrite files with content from variables or literals. Supports text
 
 Validate implementation completeness with automatic retry.
 
-> **Deprecation Notice**: The `command` field in ValidationConfig is deprecated. Use `shell` instead for shell commands or `claude` for Claude commands. The `command` field is still supported for backward compatibility but will be removed in a future version.
+> **Warning:** The `command` field in ValidationConfig is deprecated. Use `shell` instead for shell commands or `claude` for Claude commands. The `command` field is still supported for backward compatibility but will be removed in a future version.
 
 ```yaml
 - claude: "/implement-auth-spec"
@@ -249,19 +256,94 @@ All command types support these common fields:
 | `timeout` | number | Command timeout in seconds |
 | `commit_required` | boolean | Whether command should create a git commit |
 | `when` | string | Conditional execution expression |
-| `capture` | string | Variable name to capture command output (replaces deprecated `capture_output: true`) |
+| `cwd` | string | Working directory for command execution (supports variable interpolation) |
+| `env` | object | Step-level environment variable overrides (key-value pairs) |
+| `capture` | string | Variable name to capture command output (preferred over deprecated `capture_output`) |
 | `capture_format` | enum | Format: `string` (default), `number`, `json`, `lines`, `boolean` (see examples below) |
 | `capture_streams` | string | Reserved for future YAML syntax - not yet available in workflows |
 | `on_success` | object | Command to run on success |
 | `on_failure` | object | OnFailureConfig with nested command, max_attempts, fail_workflow, strategy |
+| `on_exit_code` | object | Map specific exit codes to different handlers (e.g., `1: compile error, 2: lint error`) |
 | `validate` | object | Validation configuration |
 | `output_file` | string | Redirect command output to a file |
 
+### Working Directory (cwd) Examples
+
+Control the working directory for individual commands:
+
+```yaml
+# Run tests in a specific subdirectory
+- shell: "cargo test"
+  cwd: "crates/prodigy-core"
+
+# Use variable interpolation
+- shell: "npm install"
+  cwd: "${project_dir}/frontend"
+
+# Multi-project workflows
+- shell: "make build"
+  cwd: "services/${service_name}"
+```
+
+### Step-Level Environment Variables (env) Examples
+
+Override environment variables for specific commands:
+
+```yaml
+# Set custom PATH for a command
+- shell: "rustfmt --check src/**/*.rs"
+  env:
+    PATH: "/custom/bin:${PATH}"
+    RUST_LOG: "debug"
+
+# Configure command-specific settings
+- shell: "cargo build"
+  env:
+    CARGO_TARGET_DIR: "target/custom"
+    RUSTFLAGS: "-D warnings"
+
+# Use secrets in step-level env
+- claude: "/deploy-service"
+  env:
+    API_KEY: "${secrets.api_key}"
+    ENVIRONMENT: "production"
+```
+
+### Exit Code Handlers (on_exit_code) Examples
+
+Map specific exit codes to different handlers:
+
+```yaml
+# Handle different compilation errors
+- shell: "cargo build"
+  on_exit_code:
+    1:
+      claude: "/fix-compile-errors ${shell.output}"
+    101:
+      shell: "rustup update"
+
+# Different handlers for different lint severities
+- shell: "cargo clippy -- -D warnings"
+  on_exit_code:
+    1:
+      claude: "/fix-clippy-warnings ${shell.output}"
+    2:
+      shell: "cargo fmt --all"
+
+# Tool-specific error handling
+- shell: "custom-validator.sh"
+  on_exit_code:
+    127:
+      shell: "install-validator.sh"
+    1:
+      claude: "/fix-validation-errors"
+```
+
 ### CaptureStreams Configuration
 
-**Note:** While `capture_streams` functionality is implemented internally in Prodigy's execution engine, it is not yet exposed in the YAML workflow syntax. The field exists in the configuration structs but is currently stored as a string placeholder.
+> **Note:** While `capture_streams` functionality is implemented internally in Prodigy's execution engine, it is not yet exposed in the YAML workflow syntax. This is a planned feature for fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured. The field exists in the configuration structs but is currently stored as a string placeholder for future use.
 
-**Current Approach:** Use the `capture` and `capture_format` fields to control output capture:
+**Current Approach:** Use the `capture` and `capture_format` fields to control output capture, which cover most common use cases:
 
 ```yaml
 # Capture stdout as string (most common use case)
@@ -315,35 +397,48 @@ The `capture_format` field controls how captured output is parsed:
 
 ### Deprecated Fields
 
-These fields are deprecated but still supported for backward compatibility:
+> **Warning:** The following fields are deprecated but still supported for backward compatibility. They will be removed in a future version. Please migrate to the recommended alternatives.
 
-- `test:` - Use `shell:` with `on_failure:` instead
-- `command:` in ValidationConfig - Use `shell:` instead
-- Nested `commands:` in `agent_template` and `reduce` - Use direct array format instead
-- Legacy variable aliases (`$ARG`, `$ARGUMENT`, `$FILE`, `$FILE_PATH`) - Use modern `${item.*}` syntax
+These fields are deprecated:
+
+- `test:` - **Use `shell:` with `on_failure:` instead**
+- `command:` in ValidationConfig - **Use `shell:` instead**
+- Nested `commands:` in `agent_template` and `reduce` - **Use direct array format instead**
+- Legacy variable aliases (`$ARG`, `$ARGUMENT`, `$FILE`, `$FILE_PATH`) - **Use modern `${item.*}` syntax**
+- `capture_output:` (boolean or string) - **Use `capture:` field instead**
 
 **Migration: capture_output to capture**
 
-The old `capture_output: true/false` syntax is deprecated. It used a boolean value to enable/disable output capture, but didn't specify where the output was stored, making it unclear and harder to reference in later commands.
+The `capture_output` field supports both Boolean and String variants but is deprecated in favor of the simpler `capture` field:
 
-Old syntax (deprecated):
+**Deprecated syntax (still supported):**
 ```yaml
+# Boolean variant - captures to default variable
 - shell: "ls -la | wc -l"
   capture_output: true
+
+# String variant - captures to named variable
+- shell: "git rev-parse HEAD"
+  capture_output: "commit_hash"
 ```
 
-New syntax (recommended):
+**Recommended syntax:**
 ```yaml
+# Use capture field with explicit variable name
 - shell: "ls -la | wc -l"
   capture: "file_count"
+
+- shell: "git rev-parse HEAD"
+  capture: "commit_hash"
 ```
 
-**Why the change?** The modern `capture` field requires an explicit variable name, making workflows more maintainable:
-- **Explicit is better than implicit**: Variable names are self-documenting
+**Why the change?** The modern `capture` field is clearer and more consistent:
+- **Explicit is better than implicit**: Variable names are self-documenting (no boolean variant confusion)
+- **Single responsibility**: One field (`capture`) instead of two behaviors (`capture_output` boolean vs string)
 - **Easier refactoring**: Clear what each command produces
 - **Better error messages**: References to undefined variables are clearer
 
-You can then reference the captured value using `${file_count}` in subsequent commands. The boolean `capture_output` field is retained for backward compatibility but should not be used in new workflows.
+You can then reference the captured value using `${file_count}` or `${commit_hash}` in subsequent commands. The `capture_output` field (both Boolean and String variants) is retained for backward compatibility but should not be used in new workflows.
 
 ---
 
@@ -373,9 +468,10 @@ These fields are documented here for reference when working on Prodigy's source 
 ## Cross-References
 
 For more information on related topics:
-- **Variable Interpolation**: See the Variables chapter for details on using captured outputs like `${variable_name}` in subsequent commands
-- **Error Handling**: See the Error Handling chapter for advanced `on_failure` strategies and retry patterns
-- **MapReduce Workflows**: See the MapReduce chapter for large-scale parallel command execution
+- **Variable Interpolation**: See the [Variables chapter](./variables.md#captured-variables) for details on using captured outputs like `${variable_name}` in subsequent commands
+- **Environment Variables**: See the [Environment Variables chapter](./environment.md#step-level-environment-variables) for global env, secrets, and profiles
+- **Error Handling**: See the [Error Handling chapter](./error-handling.md#on-failure-handlers) for advanced `on_failure` strategies and retry patterns
+- **MapReduce Workflows**: See the [MapReduce chapter](./mapreduce.md#map-phase) for large-scale parallel command execution with agent templates
 
 **Example: Using Captured Output in Subsequent Commands**
 

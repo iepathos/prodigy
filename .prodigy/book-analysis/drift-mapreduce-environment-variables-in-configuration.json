@@ -1,0 +1,118 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "mapreduce",
+  "subsection_id": "environment-variables-in-configuration",
+  "subsection_title": "Environment Variables in Configuration",
+  "subsection_file": "book/src/mapreduce/environment-variables-in-configuration.md",
+  "feature_mappings": [
+    "environment.mapreduce",
+    "environment.variables"
+  ],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Subsection provides basic overview but is missing critical environment variable features (secrets, profiles, env_files) that are essential for production MapReduce workflows. Documentation is incomplete and may mislead users about available capabilities.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Configuration Fields",
+      "description": "Secrets configuration is completely missing from documentation despite being a core environment feature",
+      "feature_reference": "environment.secrets",
+      "fix_suggestion": "Add section explaining secrets field with syntax, masking behavior, and provider support (vault, aws-secrets, env)",
+      "source_reference": "src/config/mapreduce.rs:30, src/cook/environment/config.rs:86-96"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Configuration Fields",
+      "description": "Profiles are mentioned but not explained for MapReduce workflows",
+      "feature_reference": "environment.profiles",
+      "fix_suggestion": "Add section showing profiles syntax for MapReduce, activation with --profile flag, and example with dev/prod profiles",
+      "source_reference": "src/config/mapreduce.rs:38, src/cook/environment/config.rs:116-124"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Configuration Fields",
+      "description": "env_files field not documented for loading .env files",
+      "feature_reference": "environment.env_files",
+      "fix_suggestion": "Add documentation for env_files field showing how to load .env files with precedence rules",
+      "source_reference": "src/config/mapreduce.rs:34"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Usage Example",
+      "description": "Variable interpolation syntax explanation is incomplete",
+      "current_content": "Shows only $VAR syntax in some places and ${VAR} in others without explanation",
+      "should_be": "Explain both $VAR and ${VAR} syntaxes are supported, when to use each (${VAR} for complex expressions, $VAR for simple cases)",
+      "fix_suggestion": "Add interpolation syntax section explaining both forms and when to use each",
+      "source_reference": "features.json environment.global_env.interpolation"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Usage Example",
+      "description": "Setup syntax shows deprecated nested commands structure",
+      "current_content": "setup:\n  timeout: \"$SETUP_TIMEOUT\"\n  commands:\n    - shell: \"prepare-data.sh\"",
+      "should_be": "setup:\n  timeout: \"$SETUP_TIMEOUT\"\n  - shell: \"prepare-data.sh\"",
+      "fix_suggestion": "Update example to show direct array syntax under setup (preferred), note that nested commands: is deprecated",
+      "source_reference": "features.json mapreduce.configuration.setup"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Best Practices",
+      "description": "No guidance on when to use env vs secrets or security considerations",
+      "fix_suggestion": "Add best practices section covering: when to use secrets vs env, security considerations, profile usage for multi-environment deployment, env_files for local development",
+      "source_reference": "features.json environment.secrets.masking"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Examples",
+      "description": "No example showing step-level environment overrides",
+      "feature_reference": "environment.step_env",
+      "fix_suggestion": "Add brief example showing step-level env overrides that inherit from global env",
+      "source_reference": "src/cook/environment/config.rs:126-"
+    }
+  ],
+  "positive_aspects": [
+    "Clear title and introduction explaining purpose",
+    "Good list of supported fields that use environment variables",
+    "Working example showing basic env variable usage",
+    "Practical examples of running with different values",
+    "References Variables chapter for comprehensive documentation"
+  ],
+  "improvement_suggestions": [
+    "Expand subsection to cover all MapReduce-specific environment features (secrets, profiles, env_files)",
+    "Add syntax examples for each environment configuration type",
+    "Include security best practices section for secrets handling",
+    "Show complete example with env, secrets, profiles, and env_files together",
+    "Add troubleshooting section for common environment variable issues",
+    "Clarify relationship between this subsection and the Variables chapter (this should focus on MapReduce-specific aspects)",
+    "Add cross-reference to security or secrets section if one exists"
+  ],
+  "cross_references": [
+    "variables",
+    "setup-phase",
+    "map-phase-configuration",
+    "reduce-phase"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T19:37:34Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "environment variables",
+      "configuration",
+      "parameterization"
+    ],
+    "topics_missing": [
+      "secrets",
+      "profiles",
+      "env_files",
+      "security"
+    ],
+    "validation_focus": "Check environment variable configuration in MapReduce workflows"
+  }
+}

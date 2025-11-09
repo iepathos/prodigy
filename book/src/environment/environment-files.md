@@ -67,3 +67,130 @@ If an env file specified in `env_files` does not exist or contains invalid synta
 
 ---
 
+### Integration with Profiles and Secrets
+
+Environment files work seamlessly with other environment features like profiles and secrets management.
+
+**Combining env_files with profiles:**
+
+```yaml
+# Base configuration in .env file
+env_files:
+  - .env
+
+# Profile-specific overrides
+profiles:
+  dev:
+    API_URL: http://localhost:3000
+    DEBUG: "true"
+  prod:
+    API_URL: https://api.production.com
+    DEBUG: "false"
+
+commands:
+  - shell: "echo $API_URL"  # Uses profile value if active, otherwise .env value
+```
+
+The precedence order is:
+1. Profile-specific values (if profile active)
+2. Global `env` field values
+3. Environment file values (later files override earlier)
+4. Parent process environment
+
+**Loading secrets from env_files:**
+
+Environment files can contain secrets, but you must explicitly mark them as secrets in the workflow configuration:
+
+```yaml
+# .env.secrets file
+API_KEY=sk-abc123xyz
+DATABASE_PASSWORD=secret-password
+
+# Workflow configuration
+env_files:
+  - .env.secrets
+
+secrets:
+  API_KEY:
+    secret: true
+    # Value loaded from .env.secrets, but marked as secret for masking
+  DATABASE_PASSWORD:
+    secret: true
+```
+
+**Note:** Variables loaded from env_files are NOT automatically masked. You must explicitly mark them as secrets in the `secrets` section for masking in logs.
+
+**Complete integration example:**
+
+```yaml
+# Layered configuration strategy
+env_files:
+  - .env                # Base configuration
+  - .env.local          # Local overrides (gitignored)
+  - .env.${ENVIRONMENT} # Environment-specific (e.g., .env.production)
+
+env:
+  PROJECT_NAME: my-project
+  VERSION: "1.0.0"
+
+secrets:
+  API_KEY:
+    secret: true
+    # Loaded from env file but masked in logs
+  DATABASE_URL:
+    secret: true
+
+profiles:
+  dev:
+    MAX_WORKERS: "2"
+    TIMEOUT: "60"
+  prod:
+    MAX_WORKERS: "20"
+    TIMEOUT: "30"
+
+commands:
+  - shell: "echo 'Project: $PROJECT_NAME v$VERSION'"
+  - shell: "echo 'Workers: $MAX_WORKERS, Timeout: $TIMEOUT'"
+  - shell: "curl -H 'Authorization: Bearer ***' $API_URL"  # API_KEY masked
+```
+
+**Best practices for organizing env files:**
+
+1. **.env**: Base configuration, safe to commit (no secrets)
+2. **.env.local**: Personal overrides, add to .gitignore
+3. **.env.production / .env.staging / .env.dev**: Environment-specific, may contain encrypted secrets
+4. **.env.secrets**: Sensitive values, NEVER commit, always in .gitignore
+
+**Precedence example:**
+
+```bash
+# .env (base)
+API_URL=http://localhost:3000
+MAX_WORKERS=5
+TIMEOUT=30
+
+# .env.production (overrides)
+API_URL=https://api.production.com
+MAX_WORKERS=20
+```
+
+```yaml
+env_files:
+  - .env
+  - .env.production  # Overrides API_URL and MAX_WORKERS
+
+env:
+  TIMEOUT: "60"      # Overrides TIMEOUT from both files
+
+profiles:
+  prod:
+    MAX_WORKERS: "50"  # Overrides MAX_WORKERS when --profile prod used
+```
+
+Final values when running with `--profile prod`:
+- `API_URL`: `https://api.production.com` (from .env.production)
+- `MAX_WORKERS`: `50` (from prod profile - highest precedence)
+- `TIMEOUT`: `60` (from global env field - overrides files)
+
+---
+

@@ -1,4 +1,161 @@
 ## Checkpoint and Resume
 
-MapReduce workflows automatically save checkpoints to enable resumption after interruption.
+Prodigy provides comprehensive checkpoint and resume capabilities for MapReduce workflows, ensuring work can be recovered from any point of failure. Checkpoints are automatically created during workflow execution, preserving all state needed to continue from where you left off. This enables resilient workflows that can survive interruptions, crashes, or planned pauses without losing progress.
+
+### Checkpoint Behavior
+
+Checkpoints are automatically created at strategic points during workflow execution:
+
+**Setup Phase Checkpointing**:
+- Checkpoint created after successful setup completion
+- Preserves setup output, generated artifacts, and environment state
+- Stored as `setup-checkpoint.json`
+- Resume restarts setup from beginning (idempotent operations recommended)
+
+**Map Phase Checkpointing**:
+- Checkpoints created after processing configurable number of work items
+- Tracks completed, in-progress, and pending work items
+- Stores agent results and failure details for recovery
+- Resume continues from last successful checkpoint
+- In-progress items are moved back to pending on resume
+- Stored as `map-checkpoint-{timestamp}.json`
+
+**Reduce Phase Checkpointing**:
+- Checkpoint created after each reduce command execution
+- Tracks completed steps, step results, variables, and map results
+- Enables resume from any point in reduce phase execution
+- Resume continues from last completed step
+- Stored as `reduce-checkpoint-v1-{timestamp}.json`
+
+### Resume Commands
+
+MapReduce jobs can be resumed using either session IDs or job IDs:
+
+```bash
+# Resume using session ID
+prodigy resume session-mapreduce-1234567890
+
+# Resume using job ID
+prodigy resume-job mapreduce-1234567890
+
+# Unified resume command (auto-detects ID type)
+prodigy resume mapreduce-1234567890
+```
+
+**Session-Job Mapping**:
+- Bidirectional mapping stored in `~/.prodigy/state/{repo_name}/mappings/`
+- Maps session IDs to job IDs and vice versa
+- Created when MapReduce workflow starts
+- Enables resume with either identifier
+
+### State Preservation
+
+All critical state is preserved across resume operations:
+
+**Variables and Context**:
+- Workflow variables preserved across resume
+- Captured outputs from setup and reduce phases
+- Environment variables maintained
+- Map results available to reduce phase after resume
+
+**Work Item State**:
+- **Completed items**: Preserved with full results
+- **In-progress items**: Moved back to pending on resume
+- **Failed items**: Tracked with retry counts and error details
+- **Pending items**: Continue processing from where left off
+
+**Agent State**:
+- Active agent information preserved
+- Resource allocation tracked
+- Worktree paths recorded for cleanup
+
+### Resume Strategies
+
+Based on checkpoint state and phase, different resume strategies apply:
+
+- **Setup Phase**: Restart setup from beginning (idempotent operations recommended)
+- **Map Phase**: Continue from last checkpoint, re-process in-progress items
+- **Reduce Phase**: Continue from last completed step
+- **Validate and Continue**: Verify checkpoint integrity before resuming
+
+### Storage Structure
+
+Checkpoints are stored in a structured directory hierarchy:
+
+```
+~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/
+├── setup-checkpoint.json           # Setup phase results
+├── map-checkpoint-{timestamp}.json  # Map phase progress
+├── reduce-checkpoint-v1-{timestamp}.json  # Reduce phase progress
+└── job-state.json                  # Overall job state
+```
+
+### Concurrent Resume Protection
+
+Prodigy prevents multiple resume processes from running on the same session/job simultaneously using an RAII-based locking mechanism:
+
+**Lock Behavior**:
+- Resume automatically acquires exclusive lock before starting
+- Lock creation is atomic - fails if another process holds the lock
+- Lock automatically released when resume completes or fails (RAII pattern)
+- Stale locks (from crashed processes) are automatically detected and cleaned up
+
+**Lock Metadata**:
+Lock files contain:
+- Process ID (PID) of the holding process
+- Hostname where the process is running
+- Timestamp when lock was acquired
+- Job/session ID being locked
+
+**Lock Storage**:
+```
+~/.prodigy/resume_locks/
+├── session-abc123.lock
+├── mapreduce-xyz789.lock
+└── ...
+```
+
+**Error Messages**:
+If a resume is blocked by an active lock:
+
+```bash
+$ prodigy resume <job_id>
+Error: Resume already in progress for job <job_id>
+Lock held by: PID 12345 on hostname (acquired 2025-01-11 10:30:00 UTC)
+Please wait for the other process to complete, or use --force to override.
+```
+
+**Stale Lock Detection**:
+- Platform-specific process existence check (Unix: `kill -0`, Windows: `tasklist`)
+- If holding process is no longer running, lock is automatically removed
+- New resume attempt succeeds after stale lock cleanup
+
+For more details on concurrent resume protection, see [Concurrent Resume Protection (Spec 140)](../advanced/concurrent-resume-protection.md).
+
+### Example Resume Workflow
+
+Here's a typical workflow for resuming an interrupted MapReduce job:
+
+1. **Workflow interrupted** during reduce phase (e.g., laptop closed, terminal killed)
+2. **Find job ID** with `prodigy sessions list` or `prodigy resume-job list`
+3. **Resume execution** using `prodigy resume <session-or-job-id>`
+4. **Prodigy loads checkpoint** from `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`
+5. **Reconstructs execution state** with all variables, work items, and progress
+6. **Continues from last completed step** in reduce phase (or re-processes in-progress map items)
+
+### Best Practices
+
+**Designing Resumable Workflows**:
+- Make setup commands idempotent (safe to run multiple times)
+- Avoid side effects that can't be safely repeated
+- Use descriptive work item IDs for easier debugging
+- Test resume behavior by intentionally interrupting workflows
+
+**Troubleshooting Resume Issues**:
+- Check checkpoint files exist: `ls ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`
+- Verify checkpoint integrity with `prodigy checkpoints validate <job_id>`
+- Review event logs: `prodigy events <job_id>`
+- Check for stale locks: `ls ~/.prodigy/resume_locks/`
+
+For more information on session management, see [Session Management](../core-concepts/session-management.md). For failed item tracking, see [Dead Letter Queue (DLQ)](./dead-letter-queue-dlq.md).
 

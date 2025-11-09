@@ -1,0 +1,362 @@
+[
+  {
+    "id": "workflow-basics",
+    "title": "Workflow Basics",
+    "file": "book/src/workflow-basics.md",
+    "topics": [
+      "Standard workflows",
+      "Basic structure",
+      "Command execution"
+    ],
+    "validation": "Check basic workflow syntax and structure documentation",
+    "type": "single-file"
+  },
+  {
+    "id": "checkpoint-and-resume",
+    "title": "Checkpoint and Resume",
+    "file": "book/src/mapreduce/checkpoint-and-resume.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "checkpoints",
+      "resume",
+      "state management",
+      "recovery"
+    ],
+    "validation": "Check checkpoint structure and resume behavior documented",
+    "feature_mapping": [
+      "mapreduce.checkpoint",
+      "mapreduce.resume"
+    ]
+  },
+  {
+    "id": "dead-letter-queue-dlq",
+    "title": "Dead Letter Queue (DLQ)",
+    "file": "book/src/mapreduce/dead-letter-queue-dlq.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "failed items",
+      "retry",
+      "DLQ",
+      "error handling"
+    ],
+    "validation": "Check DLQ structure and retry commands documented",
+    "feature_mapping": [
+      "mapreduce.dlq",
+      "error_handling.dlq"
+    ]
+  },
+  {
+    "id": "environment-variables-in-configuration",
+    "title": "Environment Variables in Configuration",
+    "file": "book/src/mapreduce/environment-variables-in-configuration.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "environment variables",
+      "secrets",
+      "profiles",
+      "configuration"
+    ],
+    "validation": "Check environment variable configuration in MapReduce workflows",
+    "feature_mapping": [
+      "environment.mapreduce",
+      "environment.variables"
+    ]
+  },
+  {
+    "id": "error-collection-strategies",
+    "title": "Error Collection Strategies",
+    "file": "book/src/mapreduce/error-collection-strategies.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "error collection",
+      "aggregate errors",
+      "fail fast"
+    ],
+    "validation": "Check error collection strategies documented",
+    "feature_mapping": [
+      "error_handling.collection",
+      "mapreduce.error_policy"
+    ]
+  },
+  {
+    "id": "event-tracking",
+    "title": "Event Tracking",
+    "file": "book/src/mapreduce/event-tracking.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "events",
+      "monitoring",
+      "observability",
+      "debugging"
+    ],
+    "validation": "Check event tracking and monitoring features",
+    "feature_mapping": [
+      "mapreduce.events",
+      "observability.events"
+    ]
+  },
+  {
+    "id": "global-storage-architecture",
+    "title": "Global Storage Architecture",
+    "file": "book/src/mapreduce/global-storage-architecture.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "storage",
+      "global state",
+      "worktree isolation"
+    ],
+    "validation": "Check global storage architecture documented",
+    "feature_mapping": [
+      "storage.global",
+      "mapreduce.storage"
+    ]
+  },
+  {
+    "id": "setup-phase-advanced",
+    "title": "Setup Phase Advanced",
+    "file": "book/src/mapreduce/setup-phase-advanced.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "setup phase",
+      "initialization",
+      "preprocessing"
+    ],
+    "validation": "Check advanced setup phase features",
+    "feature_mapping": [
+      "mapreduce.setup",
+      "mapreduce.phases"
+    ]
+  },
+  {
+    "id": "backoff-strategies",
+    "title": "Backoff Strategies",
+    "file": "book/src/mapreduce/backoff-strategies.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "retry",
+      "backoff",
+      "exponential",
+      "fibonacci"
+    ],
+    "validation": "Check retry backoff strategies documented",
+    "feature_mapping": [
+      "retry.backoff",
+      "mapreduce.retry"
+    ]
+  },
+  {
+    "id": "workflow-format-comparison",
+    "title": "Workflow Format Comparison",
+    "file": "book/src/mapreduce/workflow-format-comparison.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "syntax",
+      "formats",
+      "comparison"
+    ],
+    "validation": "Check workflow format comparisons",
+    "feature_mapping": [
+      "mapreduce.syntax",
+      "workflow.formats"
+    ]
+  },
+  {
+    "id": "commands",
+    "title": "Command Types",
+    "file": "book/src/commands.md",
+    "topics": [
+      "Shell commands",
+      "Claude commands",
+      "Goal-seeking",
+      "Foreach",
+      "Validation"
+    ],
+    "validation": "Check all command types and their fields are documented",
+    "type": "single-file"
+  },
+  {
+    "id": "variables",
+    "title": "Variables and Interpolation",
+    "file": "book/src/variables.md",
+    "topics": [
+      "Standard variables",
+      "Output variables",
+      "MapReduce variables",
+      "Custom capture"
+    ],
+    "validation": "Check all variable types and interpolation syntax",
+    "type": "single-file"
+  },
+  {
+    "id": "environment",
+    "title": "Environment Configuration",
+    "file": "book/src/environment.md",
+    "topics": [
+      "Global environment",
+      "Secrets management",
+      "Profiles",
+      "Step-level environment"
+    ],
+    "validation": "Check environment configuration options and syntax",
+    "type": "single-file"
+  },
+  {
+    "id": "advanced",
+    "title": "Advanced Features",
+    "file": "book/src/advanced.md",
+    "topics": [
+      "Conditional execution",
+      "Output capture formats",
+      "Nested conditionals",
+      "Timeouts"
+    ],
+    "validation": "Check advanced features match implementation",
+    "type": "single-file"
+  },
+  {
+    "id": "error-handling",
+    "title": "Error Handling",
+    "file": "book/src/error-handling.md",
+    "topics": [
+      "Workflow-level errors",
+      "Command-level errors",
+      "DLQ",
+      "Circuit breaker",
+      "Retry config"
+    ],
+    "validation": "Check error handling policies and configurations",
+    "type": "single-file"
+  },
+  {
+    "id": "examples",
+    "title": "Examples",
+    "file": "book/src/examples.md",
+    "topics": [
+      "Practical workflows",
+      "Use cases",
+      "Best practices"
+    ],
+    "validation": "Check examples are valid and work with current syntax",
+    "type": "single-file"
+  },
+  {
+    "id": "troubleshooting",
+    "title": "Troubleshooting",
+    "file": "book/src/troubleshooting.md",
+    "topics": [
+      "Common issues",
+      "Debug tips",
+      "FAQ"
+    ],
+    "validation": "Check troubleshooting covers common user issues",
+    "type": "single-file"
+  },
+  {
+    "id": "automated-documentation",
+    "title": "Automated Documentation",
+    "file": "book/src/automated-documentation.md",
+    "topics": [
+      "mdBook setup",
+      "Book workflow configuration",
+      "Feature analysis",
+      "GitHub Actions integration",
+      "Customization examples"
+    ],
+    "validation": "Check that setup instructions are complete, configuration examples are valid, and GitHub Actions workflows are current",
+    "type": "single-file"
+  },
+  {
+    "id": "retry-configuration",
+    "title": "Retry Configuration",
+    "file": "book/src/retry-configuration.md",
+    "topics": [
+      "Retry defaults",
+      "Backoff strategies",
+      "Exponential backoff",
+      "Fibonacci backoff",
+      "Retry budget",
+      "Conditional retry",
+      "Jitter"
+    ],
+    "validation": "Check retry configuration options match RetryConfig struct and backoff strategies are documented",
+    "type": "single-file"
+  },
+  {
+    "id": "composition",
+    "title": "Workflow Composition",
+    "file": "book/src/composition.md",
+    "topics": [
+      "Workflow imports",
+      "Template definitions",
+      "Template parameters",
+      "Workflow extension",
+      "Template usage"
+    ],
+    "validation": "Check composition features match implementation and syntax examples are valid",
+    "type": "single-file"
+  },
+  {
+    "id": "configuration",
+    "title": "Configuration",
+    "file": "book/src/configuration.md",
+    "topics": [
+      "Config file locations",
+      "Precedence rules",
+      "Claude settings",
+      "Worktree settings",
+      "Storage settings",
+      "Retry defaults"
+    ],
+    "validation": "Check configuration structure matches Settings struct and precedence is correctly documented",
+    "type": "single-file"
+  },
+  {
+    "id": "git-context-advanced",
+    "title": "Advanced Git Context",
+    "file": "book/src/git-context-advanced.md",
+    "topics": [
+      "Pattern filtering",
+      "Format modifiers",
+      "File patterns",
+      "Combined filters",
+      "Git context variables"
+    ],
+    "validation": "Check that pattern filtering syntax, format modifiers, and file pattern options are documented",
+    "type": "single-file"
+  },
+  {
+    "id": "mapreduce-worktree-architecture",
+    "title": "MapReduce Worktree Architecture",
+    "file": "book/src/mapreduce-worktree-architecture.md",
+    "topics": [
+      "Worktree hierarchy",
+      "Branch naming",
+      "Merge flow",
+      "Agent merge",
+      "MapReduce to parent merge",
+      "Parent to master merge",
+      "Debugging",
+      "Verification"
+    ],
+    "validation": "Check that worktree isolation, branch naming conventions, merge flows, and debugging strategies are documented",
+    "type": "single-file"
+  }
+]
