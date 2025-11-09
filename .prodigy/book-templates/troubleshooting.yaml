@@ -1,0 +1,84 @@
+name: "Troubleshooting"
+chapter_types:
+  - "troubleshooting"
+  - "debugging"
+  - "common issues"
+  - "faq"
+
+subsection_structure:
+  - name: "Overview"
+    aliases:
+      - "Introduction"
+      - "Getting Help"
+    topics:
+      - "debugging"
+      - "help"
+      - "support"
+    order: 1
+    required: true
+
+  - name: "Common Issues"
+    aliases:
+      - "Frequent Problems"
+      - "Known Issues"
+    topics:
+      - "common issues"
+      - "frequent problems"
+      - "errors"
+      - "failures"
+    order: 2
+    required: true
+
+  - name: "Error Messages"
+    aliases:
+      - "Error Reference"
+      - "Error Codes"
+    topics:
+      - "error messages"
+      - "error codes"
+      - "exceptions"
+    order: 3
+    required: false
+
+  - name: "Debugging Tools"
+    aliases:
+      - "Debug Mode"
+      - "Diagnostic Tools"
+    topics:
+      - "debugging"
+      - "diagnostics"
+      - "logs"
+      - "verbose mode"
+    order: 4
+    required: false
+
+  - name: "Getting Help"
+    aliases:
+      - "Support"
+      - "Resources"
+    topics:
+      - "support"
+      - "community"
+      - "reporting bugs"
+      - "resources"
+    order: 5
+    required: false
+
+naming_rules:
+  - prefer: "Troubleshooting"
+    over:
+      - "Debugging"
+      - "Common Issues"
+  - prefer: "Common Issues"
+    over:
+      - "Frequent Problems"
+
+validation_rules:
+  required_subsections:
+    - "Overview"
+    - "Common Issues"
+  optional_subsections:
+    - "Error Messages"
+    - "Debugging Tools"
+    - "Getting Help"
+  max_subsections: 6

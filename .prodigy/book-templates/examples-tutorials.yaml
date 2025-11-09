@@ -1,0 +1,86 @@
+name: "Examples and Tutorials"
+chapter_types:
+  - "examples"
+  - "tutorials"
+  - "guides"
+  - "recipes"
+
+subsection_structure:
+  - name: "Overview"
+    aliases:
+      - "Introduction"
+      - "About Examples"
+    topics:
+      - "examples overview"
+      - "how to use"
+      - "structure"
+    order: 1
+    required: true
+
+  - name: "Basic Examples"
+    aliases:
+      - "Simple Examples"
+      - "Getting Started Examples"
+    topics:
+      - "basic"
+      - "simple"
+      - "beginner"
+      - "hello world"
+    order: 2
+    required: true
+
+  - name: "Advanced Examples"
+    aliases:
+      - "Complex Examples"
+      - "Real-World Examples"
+    topics:
+      - "advanced"
+      - "complex"
+      - "real-world"
+      - "production"
+    order: 3
+    required: false
+
+  - name: "Tutorials"
+    aliases:
+      - "Step-by-Step Guides"
+      - "Walkthroughs"
+    topics:
+      - "tutorials"
+      - "guides"
+      - "step-by-step"
+      - "walkthrough"
+    order: 4
+    required: false
+
+  - name: "Recipes"
+    aliases:
+      - "Common Patterns"
+      - "Best Practices"
+    topics:
+      - "recipes"
+      - "patterns"
+      - "best practices"
+      - "tips"
+    order: 5
+    required: false
+
+naming_rules:
+  - prefer: "Examples"
+    over:
+      - "Example"
+      - "Samples"
+  - prefer: "Tutorials"
+    over:
+      - "Tutorial"
+      - "Guides"
+
+validation_rules:
+  required_subsections:
+    - "Overview"
+    - "Basic Examples"
+  optional_subsections:
+    - "Advanced Examples"
+    - "Tutorials"
+    - "Recipes"
+  max_subsections: 6
