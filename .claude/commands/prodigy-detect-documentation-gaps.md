@@ -55,26 +55,30 @@ This helps match feature categories against documented topics accurately.
 
 For each feature area in features.json:
 1. Extract the feature category name (e.g., "mapreduce", "command_types", "environment")
-2. Check if ANY existing chapter covers this feature area
-3. Look for both exact matches and partial matches in:
-   - Chapter IDs
-   - Chapter titles
-   - Chapter topics list
+2. Check if ANY existing chapter OR subsection covers this feature area
+3. Look for matches in:
+   - Chapter IDs and subsection IDs
+   - Chapter titles and subsection titles
+   - Chapter topics list and subsection topics
    - Section headings in markdown files
+   - Subsection feature_mapping arrays (if present)
 
 **Classify Gaps by Severity:**
 
-**High Severity (Missing Chapter):**
+**High Severity (Missing Chapter/Subsection):**
 - Feature area exists in features.json
-- No corresponding chapter found in documentation
+- No corresponding chapter OR subsection found
 - Major user-facing capability with no guidance
-- Example: "agent_merge" feature exists but no chapter documents it
+- Example: "agent_merge" feature exists but no chapter/subsection documents it
 
-**Medium Severity (Incomplete Chapter):**
-- Chapter exists for the feature area
+**Medium Severity (Incomplete Chapter/Subsection):**
+- Chapter or multi-subsection structure exists for the feature area
 - But specific sub-capabilities are missing
-- Chapter topics list doesn't cover all feature categories
-- Example: "retry_configuration" chapter exists but doesn't document "jitter" or "retry_budget"
+- Could be addressed by:
+  - Adding a new subsection to existing multi-subsection chapter
+  - Expanding an existing subsection
+  - Adding content to single-file chapter
+- Example: "mapreduce" chapter exists but missing "performance_tuning" subsection
 
 **Low Severity (Minor Gap):**
 - Edge cases or advanced features not documented
@@ -88,17 +92,19 @@ Create a structured JSON report documenting all gaps found:
 {
   "analysis_date": "<current-timestamp>",
   "features_analyzed": <total-feature-areas>,
-  "documented_topics": <count-of-chapters>,
+  "documented_topics": <count-of-chapters-and-subsections>,
   "gaps_found": <count-of-gaps>,
   "gaps": [
     {
       "severity": "high|medium|low",
-      "type": "missing_chapter|incomplete_chapter",
+      "type": "missing_chapter|missing_subsection|incomplete_chapter|incomplete_subsection",
       "feature_category": "<feature-area-name>",
       "feature_description": "<brief-description>",
       "recommended_chapter_id": "<chapter-id>",
       "recommended_title": "<chapter-title>",
-      "recommended_location": "<file-path>"
+      "recommended_location": "<file-path>",
+      "parent_chapter_id": "<parent-id-if-subsection>",
+      "is_subsection": true|false
     }
   ],
   "actions_taken": []
@@ -151,28 +157,79 @@ Create a structured JSON report documenting all gaps found:
 }
 ```
 
+### Phase 4a: Generate Subsection Definitions for Missing Subsections
+
+**For Each Medium Severity Gap (Missing Subsection in Existing Chapter):**
+
+When a gap can be filled by adding a subsection to an existing multi-subsection chapter:
+
+1. **Identify Target Chapter:**
+   - Determine which existing chapter should contain this subsection
+   - Check if chapter is already `type: "multi-subsection"`
+   - If chapter is `type: "single-file"`, consider migration (see Phase 10)
+
+2. **Generate Subsection ID:**
+   - Convert feature category to kebab-case
+   - Example: "performance_tuning" → "performance-tuning"
+   - Example: "agent_isolation" → "agent-isolation"
+   - Ensure uniqueness within chapter's subsections
+
+3. **Generate Subsection Title:**
+   - Convert to title case with spaces
+   - Example: "performance_tuning" → "Performance Tuning"
+   - Example: "agent_isolation" → "Agent Isolation"
+
+4. **Determine Subsection File Path:**
+   - Use pattern: `${book_src}/${parent_chapter_id}/${subsection_id}.md`
+   - Example: "book/src/mapreduce/performance-tuning.md"
+   - Ensure parent directory exists (it should if chapter is multi-subsection)
+
+5. **Extract Topics from Features:**
+   - Look at feature capabilities in features.json
+   - Convert to topic names relevant to subsection
+   - Example: For "performance_tuning" with capabilities ["parallelism", "resource_limits"]
+   - Topics: ["parallel execution", "resource management", "performance optimization"]
+
+6. **Define Feature Mapping:**
+   - List specific feature paths this subsection should document
+   - Example: `["mapreduce.performance", "mapreduce.resource_limits"]`
+   - This enables focused drift detection
+
+7. **Define Validation Criteria:**
+   - Create validation string based on subsection focus
+   - Example: "Check performance tuning options and best practices documented"
+   - Include references to relevant configuration
+
+8. **Create Subsection Definition Structure:**
+```json
+{
+  "id": "<subsection-id>",
+  "title": "<subsection-title>",
+  "file": "<subsection-file-path>",
+  "topics": ["<topic-1>", "<topic-2>", ...],
+  "validation": "<validation-criteria>",
+  "feature_mapping": ["<feature-path-1>", "<feature-path-2>", ...],
+  "auto_generated": true,
+  "source_feature": "<feature-category>"
+}
+```
+
 ### Phase 5: Update Chapter Definitions File
 
 **Read Existing Chapters:**
 Load the current contents of the chapters JSON file (e.g., workflows/data/prodigy-chapters.json)
 
+**For New Chapters:**
+
 **Check for Duplicates:**
-For each new chapter definition:
 - Verify the chapter ID doesn't already exist
 - Check that the file path isn't already in use
 - Normalize and compare titles to avoid near-duplicates
 
 **Append New Chapters:**
-Add new chapter definitions to the chapters array
-
-**Write Updated File:**
-Write the complete chapters JSON back to disk with proper formatting:
-- Use 2-space indentation
-- Maintain JSON structure
-- Preserve existing chapters
+- Add new chapter definitions to the chapters array
 
 **Record Action:**
-Add to actions_taken in gap report:
 ```json
 {
   "action": "created_chapter_definition",
@@ -181,9 +238,44 @@ Add to actions_taken in gap report:
 }
 ```
 
+**For New Subsections:**
+
+**Find Target Chapter:**
+- Locate the parent chapter by ID in chapters array
+- Verify chapter type is "multi-subsection"
+- If chapter is "single-file", log warning and skip (requires migration first)
+
+**Check for Duplicate Subsections:**
+- Check if subsection ID already exists in chapter's subsections array
+- Verify file path is unique within chapter
+- Compare titles to avoid near-duplicates
+
+**Append Subsection to Chapter:**
+- Add subsection definition to chapter's subsections array
+- Maintain array order (alphabetical or logical)
+
+**Record Action:**
+```json
+{
+  "action": "created_subsection_definition",
+  "chapter_id": "<parent-chapter-id>",
+  "subsection_id": "<subsection-id>",
+  "file_path": "workflows/data/prodigy-chapters.json"
+}
+```
+
+**Write Updated File:**
+Write the complete chapters JSON back to disk with proper formatting:
+- Use 2-space indentation
+- Maintain JSON structure
+- Preserve existing chapters and subsections
+- Keep subsection order within chapters
+
 ### Phase 6: Create Stub Markdown Files
 
-**For Each New Chapter:**
+**For Each New Chapter and Subsection:**
+
+**For New Chapters:**
 
 1. **Determine Stub Content:**
    Generate markdown following this template structure:
@@ -256,7 +348,88 @@ Add to actions_taken in gap report:
 ```json
 {
   "action": "created_stub_file",
-  "file_path": "<file-path>"
+  "file_path": "<file-path>",
+  "type": "chapter"
+}
+```
+
+**For New Subsections:**
+
+1. **Determine Stub Content:**
+   Generate markdown following this subsection template:
+
+```markdown
+# {Subsection Title}
+
+{Brief introduction explaining this specific aspect of the parent chapter}
+
+## Overview
+
+{Focused description of what this subsection covers within the chapter context}
+
+## Configuration
+
+{If applicable, specific configuration options for this feature}
+
+```yaml
+# Example configuration
+```
+
+## Usage
+
+### Basic Usage
+
+{Simple example demonstrating the core functionality}
+
+```yaml
+# Example
+```
+
+### Advanced Usage
+
+{More complex examples if applicable}
+
+## Best Practices
+
+- {Best practice 1}
+- {Best practice 2}
+- {Best practice 3}
+
+## Common Issues
+
+**Issue**: {Common problem specific to this subsection}
+**Solution**: {How to fix}
+
+## Related Subsections
+
+- [Related Subsection 1](../related-subsection.md)
+- [Related Subsection 2](../another-subsection.md)
+```
+
+2. **Customize Content for Subsection:**
+   - Use subsection title from definition
+   - Reference feature_mapping features from features.json
+   - Include subsection-specific topics
+   - Add cross-references to related subsections
+   - Keep content focused on subsection scope
+
+3. **Create Subsection File:**
+   - Write stub markdown to subsection file path
+   - Ensure parent chapter directory exists (e.g., book/src/mapreduce/)
+   - Use proper markdown formatting
+
+4. **Validate Markdown:**
+   - Ensure valid markdown syntax
+   - Check won't break mdbook build
+   - Verify cross-references use correct paths
+
+5. **Record Action:**
+```json
+{
+  "action": "created_stub_file",
+  "file_path": "<subsection-file-path>",
+  "type": "subsection",
+  "parent_chapter_id": "<parent-chapter-id>"
 }
 ```
 
@@ -272,23 +445,41 @@ Identify sections:
 - Advanced Topics (complex features)
 - Reference (examples, troubleshooting)
 
-**Classify New Chapters:**
-For each new chapter, determine appropriate section:
-- Basic workflow features → User Guide
-- Advanced features (retry, error handling, composition) → Advanced Topics
-- Examples and troubleshooting → Reference
+**For New Chapters:**
 
-**Determine Insertion Point:**
-Within the appropriate section:
-- Maintain alphabetical order by title
-- Or maintain logical order based on dependencies
-- Insert after similar topics
+1. **Classify New Chapters:**
+   - Basic workflow features → User Guide
+   - Advanced features (retry, error handling, composition) → Advanced Topics
+   - Examples and troubleshooting → Reference
 
-**Insert Chapter Entries:**
-Add entries in markdown list format:
-```markdown
-- [Chapter Title](chapter-file.md)
-```
+2. **Determine Insertion Point:**
+   - Maintain alphabetical order by title
+   - Or maintain logical order based on dependencies
+   - Insert after similar topics
+
+3. **Insert Chapter Entries:**
+   Add entries in markdown list format:
+   ```markdown
+   - [Chapter Title](chapter-file.md)
+   ```
+
+**For New Subsections:**
+
+1. **Locate Parent Chapter:**
+   - Find the parent chapter entry in SUMMARY.md
+   - Check if chapter already has nested subsections
+
+2. **Add Subsection as Nested List Item:**
+   ```markdown
+   - [Parent Chapter](parent/index.md)
+     - [Subsection 1](parent/subsection-1.md)
+     - [New Subsection](parent/new-subsection.md)
+   ```
+
+3. **Maintain Subsection Order:**
+   - Keep alphabetical or logical ordering within chapter
+   - Ensure indentation is correct (2-4 spaces)
+   - Follow existing subsection format in SUMMARY.md
 
 **Write Updated SUMMARY.md:**
 Write the modified SUMMARY.md back to disk
@@ -297,7 +488,11 @@ Write the modified SUMMARY.md back to disk
 ```json
 {
   "action": "updated_summary",
-  "file_path": "book/src/SUMMARY.md"
+  "file_path": "book/src/SUMMARY.md",
+  "items_added": [
+    {"type": "chapter", "id": "..."},
+    {"type": "subsection", "parent": "...", "id": "..."}
+  ]
 }
 ```
 
