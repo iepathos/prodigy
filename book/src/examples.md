@@ -88,6 +88,12 @@ reduce:
 
 **Note:** JSONPath `"$[*]"` matches all items in the root array. Since the setup phase creates an array of `{path: ...}` objects, each map agent receives an `item` object with `item.path` available for use in commands.
 
+**Advanced JSONPath Patterns:**
+- `$.items[*]` - Extract items from nested object
+- `$.items[*].files[*]` - Extract from nested arrays (flattens results)
+- `$.items[?(@.priority > 5)]` - Filter items by condition
+- `$[?(@.severity == 'critical')]` - Filter array by field value
+
 ---
 
 ## Example 5: Conditional Deployment
@@ -158,14 +164,15 @@ env:
 
 # Secrets (automatically masked in logs)
 secrets:
-  # Simple format - just the secret value
-  API_KEY: "${SECRET_API_KEY}"
+  API_KEY:
+    secret: true
+    value: "${SECRET_API_KEY}"
 
-  # OR provider format - fetch from external secret store
-  # API_KEY:
-  #   provider: env
-  #   key: SECRET_API_KEY
-  #   version: latest  # optional
+  # Optional: Add provider for external secret stores
+  # DB_PASSWORD:
+  #   secret: true
+  #   value: "${DB_PASSWORD}"
+  #   provider: "vault"  # Optional: external secret store
 
 # Environment profiles for different contexts
 # Note: Variables go directly under the profile name, not nested under 'env'
@@ -225,6 +232,14 @@ map:
   sort_by: "item.priority DESC"
   max_items: 20
   max_parallel: 5
+  distinct: "item.id"  # Prevent duplicate work items based on ID field
+
+  # Advanced timeout configuration (optional)
+  timeout_config:
+    agent_timeout_secs: 600  # 10 minutes per agent
+    # Additional timeout levels for fine-grained control:
+    # item_timeout_secs: 300  # 5 minutes per item
+    # phase_timeout_secs: 3600  # 1 hour for entire map phase
 
   agent_template:
     - claude: "/fix-debt-item '${item.description}'"
@@ -246,6 +261,31 @@ error_policy:
 ```
 
 **Note:** The entire `error_policy` block is optional with sensible defaults. If not specified, failed items go to the Dead Letter Queue (`on_item_failure: dlq`), workflow continues despite failures (`continue_on_failure: true`), and errors are aggregated at the end (`error_collection: aggregate`). Use `max_failures` or `failure_threshold` to fail fast if too many items fail.
+
+**Resuming MapReduce Workflows:**
+MapReduce jobs can be resumed using either the session ID or job ID:
+```bash
+# Resume using session ID
+prodigy resume session-mapreduce-1234567890
+
+# Resume using job ID
+prodigy resume-job mapreduce-1234567890
+
+# Unified resume command (auto-detects ID type)
+prodigy resume mapreduce-1234567890
+```
+The bidirectional session-job mapping is stored in `~/.prodigy/state/{repo_name}/mappings/` and created when the workflow starts.
+
+**Debugging Failed Agents:**
+When agents fail, DLQ entries include a `json_log_location` field pointing to the Claude JSON log file for debugging:
+```bash
+# View failed items and their log locations
+prodigy dlq show <job_id> | jq '.items[].failure_history[].json_log_location'
+
+# Inspect the Claude interaction for a failed agent
+cat <json_log_location> | jq
+```
+This allows you to see exactly what tools Claude invoked and why the agent failed.
 
 ---
 
@@ -346,6 +386,20 @@ error_policy:
     NODE_ENV: production
   working_dir: "frontend/"
 ```
+
+**Troubleshooting MapReduce Cleanup:**
+If agent worktree cleanup fails (due to disk full, permission errors, etc.), use the orphaned worktree cleanup command:
+```bash
+# List and clean orphaned worktrees for a specific job
+prodigy worktree clean-orphaned <job_id>
+
+# Dry run to preview what would be cleaned
+prodigy worktree clean-orphaned <job_id> --dry-run
+
+# Force cleanup without confirmation
+prodigy worktree clean-orphaned <job_id> --force
+```
+Note: Agent execution status is independent of cleanup status. If an agent completes successfully but cleanup fails, the agent is still marked as successful and results are preserved.
 
 **Future capabilities** (not yet implemented, but planned):
 - **Git context variables**: Access `files_modified`, `files_added` from git operations
