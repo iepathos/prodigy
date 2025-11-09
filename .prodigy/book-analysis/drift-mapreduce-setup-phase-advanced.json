@@ -1,0 +1,102 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "mapreduce",
+  "subsection_id": "setup-phase-advanced",
+  "subsection_title": "Setup Phase Advanced",
+  "subsection_file": "book/src/mapreduce/setup-phase-advanced.md",
+  "feature_mappings": [
+    "mapreduce.setup",
+    "mapreduce.phases"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Subsection covers basic setup configuration but missing several important details about execution context, use cases, and cross-references to related features. The examples are accurate but incomplete.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Setup Phase Fields",
+      "description": "Missing 'use_cases' documentation from features.json showing when to use setup phase",
+      "feature_reference": "mapreduce.phases.setup.use_cases",
+      "fix_suggestion": "Add a 'Common Use Cases' section listing: 'Generate work items', 'Initialize environment', 'Download data', 'Prepare configuration'",
+      "source_reference": "features.json:43 (mapreduce.phases.setup.use_cases)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Setup Phase Execution",
+      "description": "Missing critical execution context: setup runs once in parent worktree before map phase begins",
+      "feature_reference": "mapreduce.phases.setup.execution",
+      "fix_suggestion": "Add 'Execution Context' section explaining: 'Runs once in parent worktree before map phase begins' with worktree isolation benefits",
+      "source_reference": "features.json:41 (mapreduce.phases.setup.execution)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Capture Outputs",
+      "description": "CaptureConfig format is documented but lacks context about when to use simple vs detailed format",
+      "feature_reference": "mapreduce.configuration.setup.capture_outputs",
+      "fix_suggestion": "Add guidance: Use simple format (command_index: number) for basic stdout capture. Use detailed CaptureConfig for JSON extraction, size limits, or custom sources",
+      "source_reference": "features.json:74 (mapreduce.configuration.setup.capture_outputs)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Timeout Configuration",
+      "description": "Documentation shows timeout examples but doesn't explain timeout supports both string and number formats, plus environment variable interpolation",
+      "feature_reference": "mapreduce.configuration.setup.timeout",
+      "fix_suggestion": "Add note: 'Timeout accepts numeric seconds (300) or string with env var (${SETUP_TIMEOUT})'",
+      "source_reference": "features.json:73 (mapreduce.configuration.setup.timeout)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Cross-References",
+      "description": "No links to related subsections for worktree isolation, environment variables, or checkpoint/resume",
+      "feature_reference": "mapreduce.worktree_architecture",
+      "fix_suggestion": "Add 'See Also' section with links to: Worktree Isolation, Environment Variables, Checkpoint and Resume, Setup Checkpointing",
+      "source_reference": "features.json:94-101 (mapreduce.worktree_architecture)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Setup Phase Checkpointing",
+      "description": "No mention that setup phase creates checkpoint after successful completion for resume capability",
+      "feature_reference": "session_management.checkpoints.setup_checkpoint",
+      "fix_suggestion": "Add note: 'Setup phase creates checkpoint after successful completion, preserving outputs and artifacts for workflow resume'",
+      "source_reference": "features.json:458 (session_management.checkpoints.setup_checkpoint)"
+    }
+  ],
+  "positive_aspects": [
+    "Clear examples showing both simple and full configuration formats",
+    "Good documentation of CaptureConfig with all fields explained",
+    "Accurate field descriptions matching implementation",
+    "Clean YAML examples that are syntactically correct"
+  ],
+  "improvement_suggestions": [
+    "Add 'Common Use Cases' section with practical examples of when to use setup phase",
+    "Include 'Execution Context' section explaining parent worktree execution and isolation",
+    "Add 'Best Practices' section: idempotent operations, timeout sizing, output capture patterns",
+    "Include troubleshooting tips: timeout too short, capture_outputs index errors, env var resolution",
+    "Add cross-references to related subsections for comprehensive understanding",
+    "Consider adding complete end-to-end example showing setup → map → reduce flow"
+  ],
+  "cross_references": [
+    "worktree-isolation",
+    "environment-variables",
+    "checkpoint-and-resume",
+    "map-phase-configuration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-09T19:37:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "setup phase",
+      "initialization",
+      "preprocessing",
+      "timeout configuration",
+      "output capture"
+    ],
+    "validation_focus": "Check advanced setup phase features"
+  }
+}
