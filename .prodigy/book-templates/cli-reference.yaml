@@ -1,0 +1,71 @@
+name: "CLI Reference"
+chapter_types:
+  - "cli"
+  - "command line"
+  - "commands"
+  - "reference"
+
+subsection_structure:
+  - name: "Overview"
+    aliases:
+      - "Introduction"
+      - "CLI Basics"
+    topics:
+      - "command line"
+      - "cli overview"
+      - "getting started"
+    order: 1
+    required: true
+
+  - name: "Global Options"
+    aliases:
+      - "Global Flags"
+      - "Common Options"
+    topics:
+      - "global flags"
+      - "common options"
+      - "help"
+      - "version"
+    order: 2
+    required: false
+
+  - name: "Commands"
+    aliases:
+      - "Available Commands"
+      - "Command Reference"
+    topics:
+      - "commands"
+      - "subcommands"
+      - "operations"
+    order: 3
+    required: true
+
+  - name: "Examples"
+    aliases:
+      - "Usage Examples"
+      - "Common Use Cases"
+    topics:
+      - "examples"
+      - "usage"
+      - "recipes"
+      - "patterns"
+    order: 4
+    required: false
+
+naming_rules:
+  - prefer: "CLI Reference"
+    over:
+      - "Command Line"
+      - "Commands"
+  - prefer: "Global Options"
+    over:
+      - "Global Flags"
+
+validation_rules:
+  required_subsections:
+    - "Overview"
+    - "Commands"
+  optional_subsections:
+    - "Global Options"
+    - "Examples"
+  max_subsections: 5

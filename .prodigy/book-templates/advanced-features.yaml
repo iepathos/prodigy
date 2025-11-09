@@ -1,0 +1,96 @@
+name: "Advanced Features"
+chapter_types:
+  - "advanced"
+  - "features"
+  - "advanced topics"
+
+subsection_structure:
+  - name: "Getting Started"
+    aliases:
+      - "Overview"
+      - "Introduction"
+      - "Quick Start"
+    topics:
+      - "introduction"
+      - "overview"
+      - "basics"
+      - "quick start"
+    order: 1
+    required: true
+
+  - name: "Configuration"
+    aliases:
+      - "Setup"
+      - "Configuration Options"
+      - "Settings"
+    topics:
+      - "configuration"
+      - "settings"
+      - "options"
+      - "customization"
+    order: 2
+    required: false
+
+  - name: "State Management"
+    aliases:
+      - "Runtime Behavior"
+      - "Execution State"
+      - "Checkpoint and Resume"
+    topics:
+      - "state"
+      - "runtime"
+      - "checkpoint"
+      - "resume"
+      - "recovery"
+    order: 3
+    required: false
+
+  - name: "Performance"
+    aliases:
+      - "Optimization"
+      - "Performance Tuning"
+      - "Scaling"
+    topics:
+      - "performance"
+      - "optimization"
+      - "tuning"
+      - "scaling"
+      - "efficiency"
+    order: 4
+    required: false
+
+  - name: "Examples"
+    aliases:
+      - "Use Cases"
+      - "Real-World Examples"
+      - "Troubleshooting"
+    topics:
+      - "examples"
+      - "use cases"
+      - "troubleshooting"
+      - "common issues"
+    order: 5
+    required: false
+
+naming_rules:
+  - prefer: "Getting Started"
+    over:
+      - "Quick Start"
+      - "Introduction"
+  - prefer: "Configuration"
+    over:
+      - "Setup"
+      - "Settings"
+  - prefer: "State Management"
+    over:
+      - "Runtime Behavior"
+
+validation_rules:
+  required_subsections:
+    - "Getting Started"
+  optional_subsections:
+    - "Configuration"
+    - "State Management"
+    - "Performance"
+    - "Examples"
+  max_subsections: 8

@@ -1,0 +1,87 @@
+name: "API Documentation"
+chapter_types:
+  - "api"
+  - "reference"
+  - "api reference"
+  - "library"
+
+subsection_structure:
+  - name: "Overview"
+    aliases:
+      - "Introduction"
+      - "API Basics"
+    topics:
+      - "api overview"
+      - "getting started"
+      - "authentication"
+    order: 1
+    required: true
+
+  - name: "Core Types"
+    aliases:
+      - "Data Types"
+      - "Structures"
+    topics:
+      - "types"
+      - "structures"
+      - "models"
+      - "schemas"
+    order: 2
+    required: false
+
+  - name: "API Methods"
+    aliases:
+      - "Functions"
+      - "Operations"
+      - "Endpoints"
+    topics:
+      - "methods"
+      - "functions"
+      - "operations"
+      - "endpoints"
+    order: 3
+    required: true
+
+  - name: "Error Handling"
+    aliases:
+      - "Errors"
+      - "Exception Handling"
+    topics:
+      - "errors"
+      - "exceptions"
+      - "error codes"
+      - "failures"
+    order: 4
+    required: false
+
+  - name: "Examples"
+    aliases:
+      - "Usage Examples"
+      - "Code Samples"
+    topics:
+      - "examples"
+      - "samples"
+      - "usage"
+      - "recipes"
+    order: 5
+    required: false
+
+naming_rules:
+  - prefer: "API Documentation"
+    over:
+      - "API Reference"
+      - "API"
+  - prefer: "API Methods"
+    over:
+      - "Functions"
+      - "Operations"
+
+validation_rules:
+  required_subsections:
+    - "Overview"
+    - "API Methods"
+  optional_subsections:
+    - "Core Types"
+    - "Error Handling"
+    - "Examples"
+  max_subsections: 6

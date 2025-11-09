@@ -1,0 +1,91 @@
+name: "Configuration Reference"
+chapter_types:
+  - "configuration"
+  - "config"
+  - "settings"
+  - "options"
+
+subsection_structure:
+  - name: "Overview"
+    aliases:
+      - "Introduction"
+      - "Configuration Basics"
+    topics:
+      - "configuration overview"
+      - "how to configure"
+      - "config files"
+    order: 1
+    required: true
+
+  - name: "Configuration Options"
+    aliases:
+      - "Settings"
+      - "Available Options"
+      - "Parameters"
+    topics:
+      - "options"
+      - "parameters"
+      - "settings"
+      - "flags"
+    order: 2
+    required: true
+
+  - name: "Environment Variables"
+    aliases:
+      - "Env Vars"
+      - "Environment"
+      - "ENV Configuration"
+    topics:
+      - "environment variables"
+      - "env vars"
+      - "environment"
+      - "secrets"
+    order: 3
+    required: false
+
+  - name: "Configuration Files"
+    aliases:
+      - "Config Files"
+      - "File Format"
+      - "YAML Configuration"
+    topics:
+      - "config files"
+      - "yaml"
+      - "json"
+      - "toml"
+      - "file format"
+    order: 4
+    required: false
+
+  - name: "Examples"
+    aliases:
+      - "Sample Configurations"
+      - "Example Configs"
+      - "Common Patterns"
+    topics:
+      - "examples"
+      - "samples"
+      - "common patterns"
+      - "use cases"
+    order: 5
+    required: false
+
+naming_rules:
+  - prefer: "Configuration"
+    over:
+      - "Config"
+      - "Settings"
+  - prefer: "Environment Variables"
+    over:
+      - "Env Vars"
+      - "Environment"
+
+validation_rules:
+  required_subsections:
+    - "Overview"
+    - "Configuration Options"
+  optional_subsections:
+    - "Environment Variables"
+    - "Configuration Files"
+    - "Examples"
+  max_subsections: 6

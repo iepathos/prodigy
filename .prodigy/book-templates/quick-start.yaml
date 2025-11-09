@@ -1,0 +1,86 @@
+name: "Quick Start"
+chapter_types:
+  - "getting started"
+  - "quick start"
+  - "introduction"
+  - "tutorial"
+
+subsection_structure:
+  - name: "Overview"
+    aliases:
+      - "Introduction"
+      - "What is X"
+      - "About"
+    topics:
+      - "purpose"
+      - "goals"
+      - "use cases"
+      - "overview"
+    order: 1
+    required: true
+
+  - name: "Installation"
+    aliases:
+      - "Setup"
+      - "Getting Started"
+      - "Installing"
+    topics:
+      - "install"
+      - "setup"
+      - "dependencies"
+      - "prerequisites"
+    order: 2
+    required: false
+
+  - name: "First Example"
+    aliases:
+      - "Hello World"
+      - "Quick Start"
+      - "Basic Example"
+      - "Your First"
+    topics:
+      - "simple example"
+      - "basic usage"
+      - "hello world"
+      - "first steps"
+    order: 3
+    required: true
+
+  - name: "Next Steps"
+    aliases:
+      - "Learn More"
+      - "Where to Go"
+      - "Additional Resources"
+      - "Further Reading"
+    topics:
+      - "links"
+      - "further reading"
+      - "advanced topics"
+      - "next steps"
+    order: 4
+    required: false
+
+naming_rules:
+  - prefer: "Quick Start"
+    over:
+      - "Getting Started"
+      - "Quickstart"
+      - "Quick Guide"
+  - prefer: "Installation"
+    over:
+      - "Setup"
+      - "Installing"
+      - "Install Guide"
+  - prefer: "Overview"
+    over:
+      - "Introduction"
+      - "About"
+
+validation_rules:
+  required_subsections:
+    - "Overview"
+    - "First Example"
+  optional_subsections:
+    - "Installation"
+    - "Next Steps"
+  max_subsections: 5
