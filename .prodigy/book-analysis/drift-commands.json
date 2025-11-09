@@ -1,66 +1,113 @@
 {
+  "item_type": "chapter",
   "chapter_id": "commands",
   "chapter_title": "Command Types",
   "chapter_file": "book/src/commands.md",
-  "drift_detected": false,
-  "severity": "low",
-  "quality_assessment": "Excellent chapter with comprehensive coverage of all command types. Well-organized with clear examples, best practices, and troubleshooting guidance. Only minor improvements needed.",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Chapter provides good coverage of basic command types with clear examples, but is missing several important fields available in the implementation (cwd, on_exit_code, step-level env). Examples are accurate and well-structured, but incomplete field documentation limits user awareness of advanced capabilities.",
   "issues": [
     {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Command Reference - Command Fields table",
+      "description": "Missing documentation for 'cwd' field for per-command working directory control",
+      "feature_reference": "advanced_features.working_directory",
+      "fix_suggestion": "Add 'cwd' field to Command Fields table with description: 'Working directory for command execution (string)' and example showing usage",
+      "source_reference": "features.json:advanced_features.working_directory, src/config/command.rs line 354"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Command Reference - Command Fields table",
+      "description": "Missing documentation for 'on_exit_code' field for mapping specific exit codes to different handlers",
+      "feature_reference": "error_handling.command_level.on_exit_code",
+      "fix_suggestion": "Add 'on_exit_code' field to Command Fields table and provide example showing exit code mapping (e.g., '1: compile error, 2: lint error, 127: missing tool')",
+      "source_reference": "features.json:error_handling.command_level.on_exit_code"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Command Reference - Command Fields table",
+      "description": "Missing documentation for step-level 'env' field for command-specific environment variables",
+      "feature_reference": "environment.step_env",
+      "fix_suggestion": "Add 'env' field to Command Fields table with description about step-level environment variable overrides and example",
+      "source_reference": "features.json:environment.step_env, src/config/command.rs:CommandMetadata.env line 145"
+    },
+    {
       "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Command Fields Reference",
-      "description": "capture_streams field mentioned but marked as 'reserved for future YAML syntax'",
-      "current_content": "capture_streams | string | Reserved for future YAML syntax - not yet available in workflows",
-      "should_be": "Clarify that capture_streams functionality exists internally but is not exposed in YAML yet, and point users to capture + capture_format as the current approach",
-      "fix_suggestion": "The chapter already correctly documents this as a future feature and provides current alternatives (capture + capture_format). This is accurate and user-helpful.",
-      "source_reference": "src/config/command.rs and features.json capture_streams section"
+      "severity": "medium",
+      "section": "Command Reference - Command Fields table",
+      "description": "The 'capture' field is documented but the relationship with 'capture_output' (CaptureOutputConfig) is not fully explained in the table",
+      "current_content": "capture | string | Variable name to capture command output (replaces deprecated `capture_output: true`)",
+      "should_be": "Explain that CaptureOutputConfig supports both Boolean (deprecated) and String (variable name) variants",
+      "fix_suggestion": "Update the capture field documentation to clarify both capture: variable_name (preferred) and capture_output: true/variable_name (deprecated) are supported",
+      "source_reference": "src/config/command.rs:CaptureOutputConfig enum lines 404-411"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Shell Commands - on_failure",
+      "description": "Documentation mentions nested on_failure handlers but doesn't show concrete example",
+      "feature_reference": "error_handling.command_level.on_failure.nesting",
+      "fix_suggestion": "Add example showing on_failure handler with its own nested on_failure for multi-level error recovery (e.g., test fails → debug, debug fails → notify team)",
+      "source_reference": "features.json:error_handling.command_level.on_failure.nesting line 389"
     },
     {
       "type": "unclear_content",
       "severity": "low",
-      "section": "Technical Notes",
-      "description": "Internal implementation fields section could be more clearly separated from user-facing content",
-      "current_content": "<details> section with internal fields like handler, retry, env, auto_commit",
-      "should_be": "This is already properly formatted in a collapsed <details> block. No changes needed.",
-      "fix_suggestion": "The chapter correctly isolates internal implementation details in a collapsible section marked 'for contributors'. This is good documentation practice.",
-      "source_reference": "Lines 352-369 in book/src/commands.md"
+      "section": "Command Reference - CaptureStreams Configuration",
+      "description": "The note says 'capture_streams' is 'not yet exposed in YAML syntax' but doesn't indicate when it will be available or priority",
+      "fix_suggestion": "Either provide a timeline/issue reference for when capture_streams will be available or clarify it's a long-term planned feature",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand.capture_streams line 395-396"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Deprecated Fields",
+      "description": "Deprecation warnings could be more prominent with warning boxes instead of inline mentions",
+      "fix_suggestion": "Add markdown warning/note boxes for deprecated features (test:, command: in ValidationConfig, capture_output) using > **Note:** or > **Warning:** syntax",
+      "source_reference": "book/src/commands.md lines 174, 320"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Cross-References",
+      "description": "Cross-references mention chapters but don't provide specific anchor links for easy navigation",
+      "current_content": "See the Variables chapter for details on using captured outputs",
+      "should_be": "See the [Variables chapter](./variables.md#captured-variables) for details on using captured outputs",
+      "fix_suggestion": "Add specific markdown links with anchors to referenced sections in Variables, Error Handling, and MapReduce chapters",
+      "source_reference": "book/src/commands.md lines 376-378"
     }
   ],
   "positive_aspects": [
-    "Comprehensive coverage of all command types: shell, claude, goal_seek, foreach, write_file, validation",
-    "Excellent examples for each command type with realistic use cases",
-    "Clear documentation of all field parameters with types and defaults",
-    "Deprecation notices prominently displayed (e.g., validation 'command' field, 'test:' command, capture_output)",
-    "Best practices section for write_file command",
-    "Troubleshooting guidance for goal_seek command",
-    "Clear migration guide for deprecated features (capture_output to capture)",
-    "Capture format examples with all five formats (string, number, json, lines, boolean)",
-    "Cross-references to related chapters (Variables, Error Handling, MapReduce)",
-    "Well-organized command reference table with all common fields",
-    "Technical notes section properly separated for contributors",
-    "Accurate reflection of current codebase implementation"
+    "Clear, practical examples for each command type (shell, claude, goal_seek, foreach, write_file, validation)",
+    "Good explanation of deprecation migration paths (test → shell with on_failure, capture_output → capture)",
+    "Helpful troubleshooting section for goal_seek command with common issues and solutions",
+    "Well-organized command reference table that clearly lists most available fields",
+    "Detailed capture format examples showing string, number, json, lines, boolean formats",
+    "Good coverage of validation command with both old and new syntax examples",
+    "Technical notes section appropriately separates internal implementation details from user-facing config",
+    "Examples are syntactically correct and match actual implementation"
   ],
   "improvement_suggestions": [
-    "Consider adding a 'Quick Reference' section at the top with command syntax summary",
-    "Could add more complex real-world examples combining multiple command types",
-    "Consider adding a comparison table showing when to use each command type",
-    "Could expand on the 'analyze' command type with more examples (currently minimal coverage)",
-    "Consider adding a section on command composition patterns"
+    "Add 'cwd', 'on_exit_code', and 'env' fields to the Command Fields table with usage examples",
+    "Provide concrete example of nested on_failure handlers for multi-level error recovery",
+    "Add warning boxes for deprecated features to make them more visible to readers",
+    "Convert generic cross-references to specific markdown links with section anchors",
+    "Consider adding a 'Common Patterns' section showing realistic multi-command workflows",
+    "Add examples combining multiple command features (e.g., shell with capture, on_failure, timeout, when)",
+    "Clarify timeline or priority for capture_streams YAML syntax availability"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-02",
+    "analyzed_at": "2025-11-09T19:45:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Shell commands",
       "Claude commands",
       "Goal-seeking",
-      "Foreach loops",
-      "Write file operations",
-      "Validation commands",
-      "Command fields reference",
-      "Capture formats",
-      "Deprecated features"
+      "Foreach",
+      "Validation"
     ],
     "validation_focus": "Check all command types and their fields are documented",
     "command_types_verified": [
@@ -71,8 +118,10 @@
       "write_file",
       "validation"
     ],
-    "all_fields_documented": true,
-    "examples_work": true,
-    "deprecations_noted": true
+    "missing_fields_identified": [
+      "cwd",
+      "on_exit_code",
+      "env (step-level)"
+    ]
   }
 }
