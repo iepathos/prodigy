@@ -26,7 +26,7 @@ This architecture provides complete isolation, allowing parallel agents to work 
 
 Created at the start of MapReduce workflow execution:
 
-**Location**: `~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}` (or anonymous worktree path if session_id not specified)
+**Location**: `~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}`
 
 **Purpose**:
 - Isolates all workflow execution from main repository
@@ -34,9 +34,11 @@ Created at the start of MapReduce workflow execution:
 - Hosts reduce phase execution
 - Serves as merge target for agent results
 
-**Branch**: `prodigy-session-mapreduce-{timestamp}`
+**Branch**: Follows `prodigy-{session-id}` pattern
 
-**Note**: MapReduce coordinators typically create named session worktrees, but individual agents may use anonymous worktrees from the pool if no session context is provided.
+**Named vs Anonymous Worktrees**:
+- **Named Worktrees**: MapReduce coordinators typically create named session worktrees with explicit session IDs (e.g., `session-mapreduce-20250112_143052`). These have predictable paths and are easy to track.
+- **Anonymous Worktrees**: When agents call `acquire_session` without session context, they may receive anonymous worktrees from the pre-allocated pool. "Anonymous" means the worktree comes from a pool rather than being created with a specific name, which enables efficient resource reuse.
 
 ### Child Worktrees
 
@@ -49,7 +51,15 @@ Created for each map agent:
 - Independent failure handling
 - Parallel execution safety
 
-**Branch**: `prodigy-agent-{session_id}-{item_id}` (branched from parent worktree)
+**Branch**: Follows `prodigy-{worktree-name}` pattern (branched from parent worktree)
+
+**Resource Management**: Agent worktrees can be acquired through two strategies:
+
+1. **Worktree Pool** (preferred): Agents first attempt to acquire pre-allocated worktrees from a `WorktreePool`. This reduces creation overhead and enables efficient resource reuse.
+
+2. **Direct Creation** (fallback): If the pool is exhausted or unavailable, agents fall back to creating dedicated worktrees via `WorktreeManager`.
+
+The `acquire_session` method implements this pool-first strategy, ensuring optimal resource utilization while maintaining isolation guarantees.
 
 **Note**: The `agent_id` in the location path encodes the work item information. Agent worktrees are created dynamically as map agents execute.
 
@@ -59,19 +69,28 @@ Prodigy uses consistent branch naming to track worktree relationships:
 
 ### Parent Worktree Branch
 
-Format: `prodigy-session-mapreduce-YYYYMMDD_HHMMSS`
+Format: `prodigy-{session-id}`
+
+The branch name follows the universal worktree pattern where all worktrees use `prodigy-{name}`. For MapReduce workflows, the session ID itself includes the timestamp, so the full branch name looks like:
 
 Example: `prodigy-session-mapreduce-20250112_143052`
 
+This is `prodigy-` + the session ID `session-mapreduce-20250112_143052`
+
 ### Agent Worktree Branch
 
-Format: `prodigy-agent-{session_id}-{item_id}`
+Format: `prodigy-{worktree-name}`
 
-Example: `prodigy-agent-session-abc123-xyz456`
+Agent worktrees follow the same universal `prodigy-{name}` branch naming pattern as parent worktrees. The difference is in how the worktree name is constructed - agent names typically encode both the job and agent information.
 
-**Components**:
-- `session_id`: MapReduce agent session identifier
-- `item_id`: Work item identifier from the map phase
+Example: `prodigy-mapreduce-agent-mapreduce-20251109_193734_agent_22`
+
+This is `prodigy-` + the worktree name `mapreduce-agent-mapreduce-20251109_193734_agent_22`
+
+**Worktree Name Components**:
+- `mapreduce-agent-`: Indicates this is a MapReduce agent worktree
+- `{job_id}`: The MapReduce job identifier
+- `_agent_{n}`: Sequential agent number within the job
 
 ## Merge Flow
 
@@ -214,6 +233,32 @@ git log
 cd ~/.prodigy/worktrees/{project}/agent-*
 git log --oneline
 ```
+
+### Finding Agent Worktree Paths
+
+Agent worktrees may be **named** (direct creation) or **anonymous** (from pool). To correlate agent IDs to worktree paths:
+
+**Named Worktrees** (predictable paths):
+```bash
+# Pattern: ~/.prodigy/worktrees/{project}/mapreduce-agent-{job_id}_agent_{n}
+cd ~/.prodigy/worktrees/{project}/mapreduce-agent-*
+```
+
+**Anonymous Worktrees** (pool-allocated):
+```bash
+# List all worktrees and correlate by branch name
+git worktree list
+
+# Look for branches matching agent pattern
+git branch -a | grep prodigy-mapreduce-agent
+```
+
+**WorktreeInfo Tracking**: Prodigy captures worktree metadata in `WorktreeInfo` structs containing:
+- `name`: Worktree identifier
+- `path`: Full filesystem path
+- `branch`: Git branch name
+
+This information is logged in MapReduce events and can be inspected via `prodigy events {job_id}` to correlate agent IDs to worktree paths.
 
 ### Common Debugging Scenarios
 
