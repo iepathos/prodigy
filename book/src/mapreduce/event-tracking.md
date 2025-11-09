@@ -77,7 +77,9 @@ Each event is wrapped in an `EventRecord` with rich metadata:
 - `timestamp` - When the event occurred (UTC)
 - `correlation_id` - Links related events across agents and phases
 - `event` - The actual event data (varies by type)
-- `metadata` - Runtime context (host, process ID, thread)
+- `metadata` - Runtime context (host, process ID, thread). This field is extensible and supports custom fields via the `log_with_metadata` method for application-specific tracking needs.
+
+**Source**: EventRecord definition in src/cook/execution/events/event_logger.rs:17-25
 
 ### Event Storage
 
@@ -88,9 +90,13 @@ Each event is wrapped in an `EventRecord` with rich metadata:
 Events are stored in JSONL (JSON Lines) format with one event per line.
 
 **Buffering:**
-- Events are buffered (default: 1000 events or 5 seconds)
+- Events are buffered in memory before being written to disk
+- **Default buffer size**: 1000 events
+- **Default flush interval**: 5 seconds
 - Background flush task runs automatically
-- Configurable buffer size and flush interval
+- Buffer size and flush interval are configurable
+
+**Source**: EventLogger configuration in src/cook/execution/events/event_logger.rs:44-45
 
 **File Rotation:**
 - Log files automatically rotate at 100MB (configurable)
@@ -181,6 +187,10 @@ prodigy events clean --max-size 100MB
 # Archive instead of delete
 prodigy events clean --older-than 7d --archive --archive-path /backup/events
 ```
+
+**Note**: Cleanup operations require user confirmation unless running in automation mode (`PRODIGY_AUTOMATION=true`) or using `--dry-run` to preview changes.
+
+**Source**: Cleanup confirmation logic in src/cli/events/mod.rs:591-627
 
 ### Debugging with Events
 
