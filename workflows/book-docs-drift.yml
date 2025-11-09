@@ -57,6 +57,13 @@ reduce:
       claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
       commit_required: true
 
+  # Organize large chapters into subsections for better readability
+  - shell: "python3 scripts/organize_chapters.py --book-dir ${BOOK_DIR} --min-h2-sections 6 --min-lines 400"
+    commit_required: true
+
+  # Verify mdbook still builds after reorganization
+  - shell: "cd book && mdbook build"
+
   # Clean up temporary analysis files
   - shell: "rm -rf ${ANALYSIS_DIR}"
   - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"

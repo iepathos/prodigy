@@ -387,5 +387,5 @@ reduce:
 
 - [Variables and Interpolation](variables.md) - Basic variable usage and interpolation syntax
 - [Workflow Basics](workflow-basics.md) - Git integration fundamentals and workflow structure
-- [MapReduce Workflows](mapreduce.md) - Using git context in parallel jobs
+- [MapReduce Workflows](mapreduce/index.md) - Using git context in parallel jobs
 - [Conditional Execution](conditionals.md) - Using git context with `when:` conditions

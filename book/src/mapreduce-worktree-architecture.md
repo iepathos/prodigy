@@ -329,6 +329,6 @@ git log --oneline | grep "Merge"
 
 ## See Also
 
-- [MapReduce Workflows](mapreduce.md) - MapReduce workflow basics
+- [MapReduce Workflows](mapreduce/index.md) - MapReduce workflow basics
 - [Error Handling](error-handling.md) - Handling merge failures
 - [Troubleshooting](troubleshooting.md) - General troubleshooting guide
