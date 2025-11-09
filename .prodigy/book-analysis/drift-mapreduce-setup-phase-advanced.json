@@ -9,93 +9,82 @@
     "mapreduce.phases"
   ],
   "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "Subsection covers basic setup configuration but missing several important details about execution context, use cases, and cross-references to related features. The examples are accurate but incomplete.",
+  "severity": "low",
+  "quality_assessment": "The subsection provides excellent coverage of setup phase configuration with accurate examples and clear explanations. The documentation correctly covers both simple and full configuration formats, timeout options, and capture_outputs. Minor improvements needed for completeness around capture source options, multiline handling clarity, and error handling guidance.",
   "issues": [
     {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Setup Phase Fields",
-      "description": "Missing 'use_cases' documentation from features.json showing when to use setup phase",
-      "feature_reference": "mapreduce.phases.setup.use_cases",
-      "fix_suggestion": "Add a 'Common Use Cases' section listing: 'Generate work items', 'Initialize environment', 'Download data', 'Prepare configuration'",
-      "source_reference": "features.json:43 (mapreduce.phases.setup.use_cases)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Setup Phase Execution",
-      "description": "Missing critical execution context: setup runs once in parent worktree before map phase begins",
-      "feature_reference": "mapreduce.phases.setup.execution",
-      "fix_suggestion": "Add 'Execution Context' section explaining: 'Runs once in parent worktree before map phase begins' with worktree isolation benefits",
-      "source_reference": "features.json:41 (mapreduce.phases.setup.execution)"
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Configuration Formats",
+      "description": "The capture_outputs documentation shows 'source' options but doesn't explain the difference between 'both' and 'combined'",
+      "current_content": "source: stdout           # stdout, stderr, both, combined",
+      "should_be": "The CaptureSource enum includes: Stdout, Stderr, Both, Combined. 'both' and 'combined' serve different purposes based on the implementation.",
+      "fix_suggestion": "Add clarification: 'source' can be stdout (default), stderr, both, or combined. Explain when to use each option.",
+      "source_reference": "src/cook/execution/variable_capture.rs:96-104"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Capture Outputs",
-      "description": "CaptureConfig format is documented but lacks context about when to use simple vs detailed format",
-      "feature_reference": "mapreduce.configuration.setup.capture_outputs",
-      "fix_suggestion": "Add guidance: Use simple format (command_index: number) for basic stdout capture. Use detailed CaptureConfig for JSON extraction, size limits, or custom sources",
-      "source_reference": "features.json:74 (mapreduce.configuration.setup.capture_outputs)"
+      "section": "Configuration Formats",
+      "description": "Multiline handling options are listed but not explained",
+      "current_content": "multiline: preserve      # preserve, join, first_line, last_line, array",
+      "should_be": "Should explain what each option does:\n- preserve: Keep all lines with newlines (default)\n- join: Join lines with spaces\n- first_line: Take only first line\n- last_line: Take only last line\n- array: Return as JSON array of lines",
+      "fix_suggestion": "Add a sub-section explaining each multiline handling option with brief examples or a reference to what each does",
+      "source_reference": "src/cook/execution/variable_capture.rs:117-129"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Timeout Configuration",
-      "description": "Documentation shows timeout examples but doesn't explain timeout supports both string and number formats, plus environment variable interpolation",
-      "feature_reference": "mapreduce.configuration.setup.timeout",
-      "fix_suggestion": "Add note: 'Timeout accepts numeric seconds (300) or string with env var (${SETUP_TIMEOUT})'",
-      "source_reference": "features.json:73 (mapreduce.configuration.setup.timeout)"
+      "section": "Configuration Formats",
+      "description": "Missing documentation of 'pattern' field in CaptureConfig",
+      "fix_suggestion": "Add documentation for the optional 'pattern' field which allows regex extraction from output. Example:\npattern: \"^Result: (.+)$\"  # Extract using regex capture group",
+      "source_reference": "src/cook/execution/variable_capture.rs:29"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Cross-References",
-      "description": "No links to related subsections for worktree isolation, environment variables, or checkpoint/resume",
-      "feature_reference": "mapreduce.worktree_architecture",
-      "fix_suggestion": "Add 'See Also' section with links to: Worktree Isolation, Environment Variables, Checkpoint and Resume, Setup Checkpointing",
-      "source_reference": "features.json:94-101 (mapreduce.worktree_architecture)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Setup Phase Checkpointing",
-      "description": "No mention that setup phase creates checkpoint after successful completion for resume capability",
-      "feature_reference": "session_management.checkpoints.setup_checkpoint",
-      "fix_suggestion": "Add note: 'Setup phase creates checkpoint after successful completion, preserving outputs and artifacts for workflow resume'",
-      "source_reference": "features.json:458 (session_management.checkpoints.setup_checkpoint)"
+      "section": "Best Practices",
+      "description": "Missing guidance on error handling in setup phase",
+      "fix_suggestion": "Add best practice: 'Setup Command Failures: If a setup command fails, the entire workflow stops. Design setup commands to fail fast with clear error messages. Use default values in capture_outputs to handle optional data gracefully.'",
+      "source_reference": "src/cook/execution/mapreduce/phases/setup.rs:39-43"
     }
   ],
   "positive_aspects": [
-    "Clear examples showing both simple and full configuration formats",
-    "Good documentation of CaptureConfig with all fields explained",
-    "Accurate field descriptions matching implementation",
-    "Clean YAML examples that are syntactically correct"
+    "Excellent coverage of both simple array and full configuration formats",
+    "Clear and accurate documentation of timeout configuration supporting both numeric and string (env var) formats",
+    "Well-structured 'Common Use Cases' section with practical examples",
+    "Comprehensive 'Best Practices' section covering idempotent operations, timeout sizing, and output capture patterns",
+    "Good cross-references to related subsections (Worktree Isolation, Environment Variables, Checkpoint and Resume)",
+    "Correct explanation of execution context: runs once in parent worktree before map phase",
+    "Accurate documentation of checkpoint creation after successful completion",
+    "Clear examples showing both Simple and Detailed CaptureConfig formats",
+    "Proper documentation of all SetupPhaseConfig fields (commands, timeout, capture_outputs)"
   ],
   "improvement_suggestions": [
-    "Add 'Common Use Cases' section with practical examples of when to use setup phase",
-    "Include 'Execution Context' section explaining parent worktree execution and isolation",
-    "Add 'Best Practices' section: idempotent operations, timeout sizing, output capture patterns",
-    "Include troubleshooting tips: timeout too short, capture_outputs index errors, env var resolution",
-    "Add cross-references to related subsections for comprehensive understanding",
-    "Consider adding complete end-to-end example showing setup → map → reduce flow"
+    "Add brief explanation of multiline handling options (table or bulleted list)",
+    "Clarify the difference between 'both' and 'combined' capture sources",
+    "Document the optional 'pattern' field for regex extraction in CaptureConfig",
+    "Add error handling best practice about setup command failures",
+    "Consider adding a complex example showing regex extraction or JSON path usage",
+    "Add note about the relationship between captured variables and how they become available in map/reduce phases (${var_name})"
   ],
   "cross_references": [
     "worktree-isolation",
-    "environment-variables",
+    "environment-variables-in-configuration",
     "checkpoint-and-resume",
     "map-phase-configuration"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-09T19:37:00Z",
+    "analyzed_at": "2025-01-11T23:43:36Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "setup phase",
-      "initialization",
-      "preprocessing",
-      "timeout configuration",
-      "output capture"
+      "setup phase configuration",
+      "timeout control",
+      "variable capture",
+      "execution context",
+      "checkpoint creation",
+      "idempotent operations",
+      "best practices"
     ],
     "validation_focus": "Check advanced setup phase features"
   }
