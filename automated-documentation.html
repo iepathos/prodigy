@@ -397,7 +397,17 @@ EOF
 
 - [Troubleshooting](troubleshooting.md)
 </code></pre>
-<h3 id="step-7-create-the-workflow"><a class="header" href="#step-7-create-the-workflow">Step 7: Create the Workflow</a></h3>
+<h3 id="step-7-configure-gitignore"><a class="header" href="#step-7-configure-gitignore">Step 7: Configure .gitignore</a></h3>
+<p>Add mdbook build output to your <code>.gitignore</code>:</p>
+<pre><code class="language-bash"># Add to your .gitignore file
+cat &gt;&gt; .gitignore &lt;&lt;EOF
+
+# mdbook build output
+book/book/
+EOF
+</code></pre>
+<p>This prevents the generated HTML, CSS, and JavaScript files from being committed to version control. Only the source files (<code>book/src/*.md</code> and <code>book/book.toml</code>) should be tracked in git, similar to how <code>target/</code> is ignored for Rust builds.</p>
+<h3 id="step-8-create-the-workflow"><a class="header" href="#step-8-create-the-workflow">Step 8: Create the Workflow</a></h3>
 <p>Create <code>workflows/book-docs-drift.yml</code>:</p>
 <pre><code class="language-yaml">name: book-docs-drift-detection
 mode: mapreduce
@@ -514,7 +524,7 @@ merge:
       commit_required: true
 </code></pre>
 <p>Note: This workflow uses the modern direct array syntax for <code>agent_template</code> and <code>reduce</code>. The nested <code>{commands: [...]}</code> format is deprecated and will generate warnings. Always prefer the direct array syntax shown above.</p>
-<h3 id="step-8-run-the-workflow"><a class="header" href="#step-8-run-the-workflow">Step 8: Run the Workflow</a></h3>
+<h3 id="step-9-run-the-workflow"><a class="header" href="#step-9-run-the-workflow">Step 9: Run the Workflow</a></h3>
 <pre><code class="language-bash"># Run the documentation workflow
 prodigy run workflows/book-docs-drift.yml
 
