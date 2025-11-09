@@ -741,6 +741,7 @@ Gap detection is successful when:
 - Book builds without errors
 - No duplicate chapters created
 - Changes are committed cleanly
+- **`.prodigy/book-analysis/flattened-items.json` file is created** (REQUIRED)
 
 ### Output Format
 
@@ -795,3 +796,16 @@ Gaps Found: 2
   The map phase will now process these new chapters to populate content.
   Review the generated stubs and customize as needed.
 ```
+
+## FINAL CHECKLIST
+
+Before completing this command, verify:
+
+1. ✅ Gap report saved to `.prodigy/book-analysis/gap-report.json`
+2. ✅ **`.prodigy/book-analysis/flattened-items.json` created (MANDATORY - even if no gaps found)**
+3. ✅ Chapter definitions updated (if gaps found)
+4. ✅ Stub files created (if gaps found)
+5. ✅ SUMMARY.md updated (if gaps found)
+6. ✅ Changes committed (if any files modified)
+
+**CRITICAL**: Step 2 (flattened-items.json) is REQUIRED for the workflow to proceed to the map phase. This file must contain all chapters and subsections in a flat array format, ready for parallel processing.
