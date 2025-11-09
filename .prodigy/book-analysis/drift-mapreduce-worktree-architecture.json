@@ -1,69 +1,73 @@
 {
+  "item_type": "chapter",
   "chapter_id": "mapreduce-worktree-architecture",
   "chapter_title": "MapReduce Worktree Architecture",
   "chapter_file": "book/src/mapreduce-worktree-architecture.md",
   "drift_detected": true,
   "severity": "medium",
-  "quality_assessment": "Chapter accurately documents worktree hierarchy, branch naming, and merge flows. Main issues are minor inaccuracies in branch format and incomplete coverage of Claude-assisted merge features. The chapter provides good value for understanding the architecture.",
+  "quality_assessment": "Chapter provides good coverage of worktree architecture but has some inaccuracies in branch naming conventions and missing details about worktree pool usage. The merge queue documentation is accurate. Main issues are format discrepancies and incomplete explanation of resource management strategies.",
   "issues": [
     {
-      "type": "incorrect_example",
+      "type": "incorrect_examples",
       "severity": "medium",
-      "section": "Agent Worktree Branch (line 64)",
-      "description": "Branch format shows 'agent-{job_id}-{agent_id}-item-{item_index}' but actual implementation generates 'prodigy-agent-{session_id}-{item_id}'",
-      "current_content": "Format: `agent-{job_id}-{agent_id}-item-{item_index}`\n\nExample: `agent-mapreduce-20250112_143052_agent_5-item_3`",
-      "should_be": "Format: `prodigy-agent-{session_id}-{item_id}`\n\nExample: `prodigy-agent-session-123-abc`",
-      "fix_suggestion": "Update branch format to match actual implementation in generate_agent_branch_name() function. The actual format is simpler and doesn't include a separate agent_id or item_index.",
-      "source_reference": "src/cook/execution/mapreduce/utils.rs:192-194"
+      "section": "Branch Naming Conventions - Parent Worktree Branch",
+      "description": "Documentation shows format 'prodigy-session-mapreduce-YYYYMMDD_HHMMSS' but code uses simpler 'prodigy-{name}' pattern where name IS the full session ID including the timestamp",
+      "current_content": "Format: `prodigy-session-mapreduce-YYYYMMDD_HHMMSS`\n\nExample: `prodigy-session-mapreduce-20250112_143052`",
+      "should_be": "Format: `prodigy-{session-name}` where session-name is the full session identifier\n\nExample: `prodigy-session-mapreduce-20250112_143052` (the branch is 'prodigy-' + the session name 'session-mapreduce-20250112_143052')",
+      "fix_suggestion": "Update branch naming format to reflect actual implementation: All worktrees use 'prodigy-{name}' pattern. The complexity is in the session name itself (which includes timestamp), not in the branch template. Clarify that 'prodigy-session-mapreduce-YYYYMMDD_HHMMSS' is correct as a concrete example, but the general pattern is just 'prodigy-{session-id}'.",
+      "source_reference": "src/worktree/builder.rs:178 - let branch = format!(\"prodigy-{name}\");"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Branch Naming Conventions - Agent Worktree Branch",
+      "description": "Documentation shows format 'prodigy-agent-{session_id}-{item_id}' but this should follow the same 'prodigy-{name}' pattern used everywhere",
+      "current_content": "Format: `prodigy-agent-{session_id}-{item_id}`\n\nExample: `prodigy-agent-session-abc123-xyz456`",
+      "should_be": "Format: `prodigy-{worktree-name}` where worktree-name encodes agent and item information\n\nExample: `prodigy-mapreduce-agent-mapreduce-20251109_193734_agent_22` (following the same 'prodigy-{name}' pattern)",
+      "fix_suggestion": "Clarify that all worktrees (parent and child) use the same 'prodigy-{name}' branch naming pattern. The difference is only in how the worktree name/session-id is constructed. For agents, the name is typically 'mapreduce-agent-{job_id}_agent_{n}'.",
+      "source_reference": "src/worktree/builder.rs:178 - all worktrees use same pattern"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Agent Merge Details",
-      "description": "Chapter doesn't document Claude-assisted merge capability for handling conflicts",
-      "should_add": "Document that merge queue automatically invokes Claude (/prodigy-merge-worktree) when conflicts are detected, with fallback to manual resolution",
-      "fix_suggestion": "Add subsection under 'Agent Merge Details' explaining automatic conflict resolution: 'If a standard git merge fails with conflicts, the merge queue automatically invokes Claude using the /prodigy-merge-worktree command to resolve conflicts. If Claude resolution fails, the agent is marked as failed and added to the DLQ.'",
-      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:84-136"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Merge Queue",
-      "description": "Queue format example doesn't show all status fields used in actual implementation",
-      "current_content": "Shows only 'pending', 'merged', 'failed' arrays",
-      "should_add": "Add note that merge requests include agent_id, branch_name, item_id, and env context",
-      "fix_suggestion": "Update queue format documentation to note: 'Queue processes MergeRequest objects containing agent_id, branch_name, item_id, and execution environment. Processing is FIFO with automatic conflict detection.'",
-      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:18-31"
+      "section": "Worktree Hierarchy - Child Worktrees",
+      "description": "Documentation doesn't mention worktree pool as a resource management strategy for agents",
+      "fix_suggestion": "Add explanation that agents can acquire worktrees from a pool (WorktreePool) for better resource management, or fall back to creating dedicated worktrees via WorktreeManager. The acquire_session method tries pool first, then falls back to direct manager creation.",
+      "source_reference": "src/cook/execution/mapreduce/resources/worktree.rs:39-82 - acquire_session method with pool-first strategy"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Parent Worktree (line 29)",
-      "description": "Location path shows 'session-mapreduce-{timestamp}' but doesn't mention fallback to anonymous worktrees",
-      "current_content": "**Location**: `~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}`",
-      "should_be": "**Location**: `~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}` (or anonymous worktree path if session_id not specified)",
-      "fix_suggestion": "Add note about anonymous worktree allocation: 'MapReduce coordinators typically create named session worktrees, but individual agents may use anonymous worktrees from the pool if no session context is provided.'",
-      "source_reference": "src/cook/execution/mapreduce/resources/worktree.rs:38-83"
+      "section": "Worktree Hierarchy - Parent Worktree",
+      "description": "Note about 'anonymous worktree path if session_id not specified' is unclear about when this happens and what it means",
+      "fix_suggestion": "Clarify that MapReduce coordinators typically create named session worktrees, while individual agents may use anonymous worktrees from the pool when they call acquire_session. Explain that 'anonymous' means the worktree comes from a pre-allocated pool rather than being created with a specific name.",
+      "source_reference": "src/cook/execution/mapreduce/resources/worktree.rs:42 - WorktreeRequest::Anonymous"
+    },
+    {
+      "type": "accurate_but_confusing",
+      "severity": "low",
+      "section": "Merge Queue - Queue Architecture",
+      "description": "Chapter correctly states queue is in-memory and not persisted, which matches implementation",
+      "current_content": "**Queue Architecture**: Merge queue is managed in-memory by a background worker task. Merge requests are processed sequentially via an unbounded channel, eliminating MERGE_HEAD race conditions. Queue state is not persisted - merge operations are atomic.",
+      "verification": "This is accurate per the code",
+      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:41-73 - confirms in-memory queue with background worker"
+    },
+    {
+      "type": "accurate_content",
+      "severity": "none",
+      "section": "Automatic Conflict Resolution",
+      "description": "Chapter accurately documents Claude-assisted merge for conflict resolution",
+      "current_content": "If a standard git merge fails with conflicts, the merge queue automatically invokes Claude using the `/prodigy-merge-worktree` command to resolve conflicts intelligently",
+      "verification": "This matches the implementation exactly",
+      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:88-100 - Claude fallback on merge failure"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Child Worktrees",
-      "description": "Location format shows 'agent-{job_id}-{agent_id}-item-{n}' but implementation uses 'mapreduce-agent-{config.id}'",
-      "current_content": "**Location**: `~/.prodigy/worktrees/{project}/agent-{job_id}-{agent_id}-item-{n}`",
-      "should_be": "**Location**: `~/.prodigy/worktrees/{project}/mapreduce-agent-{agent_id}` (where agent_id encodes the work item information)",
-      "fix_suggestion": "Update location format to match implementation and clarify that session_id is constructed as 'mapreduce-agent-{id}' where id is the agent configuration id",
-      "source_reference": "src/cook/execution/mapreduce/agent/lifecycle.rs:101"
-    },
-    {
-      "type": "outdated_information",
-      "severity": "low",
-      "section": "Merge Queue (line 125)",
-      "description": "Queue location path uses old state format, but chapter correctly uses new global storage paths",
-      "current_content": "**Queue Location**: `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/merge_queue.json`",
-      "should_be": "Queue is managed in-memory with background worker, not persisted to disk as JSON file",
-      "fix_suggestion": "Update to clarify: 'Merge queue is managed in-memory by a background worker task. Merge requests are processed sequentially via an unbounded channel, eliminating MERGE_HEAD race conditions. Queue state is not persisted - merge operations are atomic.'",
-      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:41-46"
+      "section": "Debugging MapReduce Worktrees",
+      "description": "Missing explanation of how to find worktree paths when using worktree pool vs direct creation",
+      "fix_suggestion": "Add section explaining that agent worktrees may be anonymous (from pool) or named (direct creation), and how to correlate agent IDs to worktree paths for debugging. Mention the WorktreeInfo struct that captures name, path, and branch for tracking.",
+      "source_reference": "src/cook/execution/mapreduce/resources/worktree.rs:161-182 - WorktreeInfo struct"
     }
   ],
   "positive_aspects": [
