@@ -9,16 +9,18 @@ Prodigy has two retry systems that work together:
 1. **Enhanced Retry System** - Rich, configurable retry with multiple backoff strategies, jitter, circuit breakers, and conditional retry (from `src/cook/retry_v2.rs`)
 2. **Workflow-Level Retry** - Simpler retry configuration for workflow-level error policies (from `src/cook/workflow/error_policy.rs`)
 
-This chapter focuses on the enhanced retry system which provides comprehensive retry capabilities.
+This chapter focuses on the enhanced retry system which provides comprehensive retry capabilities. Circuit breakers prevent cascading failures by temporarily stopping retries when a threshold of consecutive failures is reached.
 
 ## RetryConfig Structure
+
+This table documents the enhanced retry system (`retry_v2::RetryConfig`). For workflow-level retry configuration, see the [Workflow-Level vs Command-Level Retry](workflow-level-vs-command-level-retry.md) subsection.
 
 The `RetryConfig` struct controls retry behavior with the following fields:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `attempts` | `u32` | `3` | Maximum number of retry attempts |
-| `backoff` | `BackoffStrategy` | `Exponential` | Strategy for calculating delays between retries |
+| `backoff` | `BackoffStrategy` | `Exponential (base: 2.0)` | Strategy for calculating delays between retries |
 | `initial_delay` | `Duration` | `1s` | Initial delay before first retry |
 | `max_delay` | `Duration` | `30s` | Maximum delay between any two retries |
 | `jitter` | `bool` | `false` | Whether to add randomness to delays |
