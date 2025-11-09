@@ -1,111 +1,148 @@
 {
+  "item_type": "chapter",
   "chapter_id": "variables",
   "chapter_title": "Variables and Interpolation",
-  "chapter_file": "book/src/variables.md",
+  "chapter_file": "book/src/variables/index.md",
   "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "The chapter is comprehensive and well-structured with excellent examples. Most content is accurate, but has some minor inconsistencies with naming conventions and missing details about variable aliases. The map.results documentation is particularly strong.",
+  "severity": "critical",
+  "quality_assessment": "Chapter structure is well-designed with clear index and subsection organization, but implementation is critically incomplete. The index provides excellent overview with phase availability table, but all four subsection files are essentially empty placeholders (2-5 lines each). This renders the chapter unusable for learning Prodigy's variable system.",
   "issues": [
     {
       "type": "missing_content",
-      "severity": "medium",
-      "section": "Validation Variables",
-      "description": "Chapter documents 'validation.missing_count' as a numeric variable, but this doesn't appear in features.json validation variables section",
-      "current_content": "- `${validation.missing_count}` - Number of missing requirements (numeric)",
-      "should_be": "Verify if validation.missing_count is actually implemented in ValidationResult struct, or if users should use ${validation.missing} array and get length in shell",
-      "fix_suggestion": "Either confirm this variable exists in ValidationResult structure or update to show: 'To get count of missing requirements, use shell commands: echo \"${validation.missing}\" | wc -w'",
-      "source_reference": "features.json:variables.validation (lines 164-169), src/cook/workflow/validation.rs"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Validation Variables",
-      "description": "Chapter correctly notes that validation.completion and validation.completion_percentage are equivalent but doesn't provide guidance on which to prefer",
-      "current_content": "**Note**: `validation.completion` and `validation.completion_percentage` are equivalent - both return the numeric completion percentage value.",
-      "should_add": "Recommend which variable name is preferred in new workflows",
-      "fix_suggestion": "Update note to: 'Use validation.completion_percentage in new workflows for clarity. validation.completion is supported as a shorter alias.'",
-      "source_reference": "features.json:variables.validation, src/cook/workflow/executor.rs:2138"
+      "severity": "critical",
+      "section": "Available Variables",
+      "description": "Subsection file 'available-variables.md' is completely empty except for heading (3 lines total)",
+      "feature_reference": "variables.standard, variables.workflow_context, variables.step_context, variables.item_variables, variables.mapreduce, variables.git_context, variables.merge_variables, variables.validation_variables",
+      "fix_suggestion": "Document all built-in variable categories with tables and examples:\n\n**Standard Variables:**\n- last.output, last.exit_code, shell.output, claude.output\n\n**Workflow Context:**\n- workflow.name, workflow.id, workflow.iteration\n\n**Step Context:**\n- step.name, step.index\n\n**Item Variables (Map phase only):**\n- item (full object), item.* (nested field access)\n- item_index, item_total\n\n**MapReduce Variables (Reduce phase):**\n- map.total, map.successful, map.failed, map.results, map.key, worker.id\n\n**Git Context Variables:**\n- step.files_added, step.files_modified, step.files_deleted, step.commits\n- workflow.commits, workflow.commit_count\n- Format modifiers: :json, :newline, :comma, :*.rs (glob filtering)\n\n**Merge Variables (Merge phase):**\n- merge.worktree, merge.source_branch, merge.target_branch, merge.session_id\n\n**Validation Variables:**\n- validation.completion, validation.gaps, validation.status\n\nInclude availability by phase and practical examples for each category.",
+      "source_reference": ".prodigy/book-analysis/features.json:192-250, src/cook/execution/variables.rs:1-200"
     },
     {
       "type": "missing_content",
-      "severity": "low",
-      "section": "Git Context Variables",
-      "description": "Chapter doesn't document git.files.modified, git.files.added, git.files.deleted, git.changed_files variables from features.json",
-      "current_content": "Only documents step.* and workflow.* file tracking variables",
-      "should_add": "Document the git.* file tracking variables that show current git status (different from step.* which show changes during execution)",
-      "fix_suggestion": "Add subsection: 'Git Status Variables: ${git.files.modified}, ${git.files.added}, ${git.files.deleted}, ${git.changed_files} - Current git repository status (use git diff to populate these)'",
-      "source_reference": "features.json:variables.git_context (lines 171-178)"
+      "severity": "critical",
+      "section": "Custom Variable Capture",
+      "description": "Subsection file 'custom-variable-capture.md' contains only 5 lines: heading + one-sentence description. No actual documentation.",
+      "feature_reference": "variables.captured_variables, command_types.shell.features, command_types.claude.features",
+      "fix_suggestion": "Document the complete capture_output system:\n\n**Syntax Options:**\n```yaml\n# Option 1: No capture\ncapture_output: false\n\n# Option 2: Boolean - use default variable name\nshell: \"cargo test\"\ncapture_output: true  # Creates ${shell.output}\n\n# Option 3: Custom variable name\nshell: \"ls -la | wc -l\"\ncapture_output: \"file_count\"  # Creates ${file_count}\n```\n\n**Default Variable Names:**\n- Shell commands → shell.output\n- Claude commands → claude.output\n- Handler commands → handler.output\n\n**Capture Formats:**\n- string: Raw output (default)\n- json: Parse as JSON, access with ${var.field}\n- lines: Array of lines\n- number: Parse as numeric\n- boolean: Parse as boolean or use exit status\n\n**Metadata Fields:**\n- ${var.stderr}: Error output\n- ${var.exit_code}: Command exit code\n- ${var.success}: Boolean success status\n- ${var.duration}: Execution time in seconds\n\n**Capture Streams:**\n```yaml\ncapture_streams:\n  stdout: true   # default\n  stderr: true   # include stderr\n  exit_code: true  # default\n  success: true  # default\n  duration: true  # default\n```\n\n**Scoping:**\n- Setup phase captures available in map and reduce\n- Map phase captures only available within that agent\n- Reduce phase captures available to remaining reduce steps\n\n**Examples:**\nShow complete examples for setup, map, and reduce phases using capture.",
+      "source_reference": "src/config/command.rs:406-411, .prodigy/book-analysis/features.json:251-274, examples/capture-output-custom-vars.yml"
     },
     {
-      "type": "outdated_information",
-      "severity": "low",
-      "section": "Output Variables - shell.stdout note",
-      "description": "Chapter includes note about shell.output being correct (not shell.stdout), but there's no reference to shell.stdout anywhere in the chapter that would cause confusion",
-      "current_content": "**Note**: `${shell.output}` is the correct variable name for shell command output. The code uses `shell.output`, not `shell.stdout`.",
-      "should_be": "Remove this note as it addresses a non-existent confusion, or reframe it more positively",
-      "fix_suggestion": "Remove note entirely, or reframe as: 'Shell command output is captured in ${shell.output}, providing the complete stdout from the last shell command executed.'",
-      "source_reference": "book/src/variables.md:64"
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Troubleshooting Variable Interpolation",
+      "description": "Subsection file 'troubleshooting-variable-interpolation.md' is completely empty except for heading (2 lines total)",
+      "feature_reference": "troubleshooting.common_issues.Variables not interpolating",
+      "fix_suggestion": "Document common variable interpolation issues and solutions:\n\n**Issue: Variables not interpolating (literal ${var} appears)**\n- **Cause:** Variable name typo, case mismatch, or doesn't exist\n- **Solution:** Check spelling, verify variable is set in scope, use verbose mode (-v) to debug\n\n**Issue: Variable empty or undefined**\n- **Cause:** Used before being set, wrong phase, or command failed\n- **Solution:** Verify command succeeded, check phase availability table, ensure capture_output is set\n\n**Issue: Phase-specific variable not available**\n- **Cause:** Using ${item.*} in reduce, or ${map.results} in map phase\n- **Solution:** Refer to phase availability table in index, restructure workflow\n\n**Issue: Nested field access fails**\n- **Cause:** JSON format not specified, or field doesn't exist\n- **Solution:** Use capture_format: json, verify field exists with jq\n\n**Issue: Git context variables empty**\n- **Cause:** No commits created, or not in git repository\n- **Solution:** Ensure commands create commits, check commit_required: true\n\n**Debugging Techniques:**\n- Use `-v` flag to see variable values during execution\n- Echo variables in shell commands to verify values\n- Check Claude JSON logs for variable resolution\n- Verify variables in checkpoint files for resume issues\n\n**Syntax Issues:**\n- Prefer ${VAR} syntax over $VAR for reliability\n- Use quotes around interpolated strings in YAML\n- Escape special characters in variable names",
+      "source_reference": ".prodigy/book-analysis/features.json:698-708, book/src/troubleshooting/"
     },
     {
-      "type": "unclear_content",
-      "severity": "low",
-      "section": "Capture Streams - Default Behavior",
-      "description": "Example shows all capture_streams fields but the default behavior note comes after the example, making it less prominent",
-      "current_content": "Example first, then note: 'Default Behavior: By default, stdout, exit_code, success, and duration are captured'",
-      "should_be": "Explain default behavior before showing full configuration example",
-      "fix_suggestion": "Restructure to: 'By default, stdout, exit_code, success, and duration are captured. To customize:\n```yaml\ncapture_streams:\n  stderr: true  # Add stderr to defaults\n```'",
-      "source_reference": "book/src/variables.md:336-356"
+      "type": "missing_content",
+      "severity": "high",
+      "section": "See Also",
+      "description": "Subsection file 'see-also.md' contains only heading and empty space (2 lines total)",
+      "feature_reference": "N/A",
+      "fix_suggestion": "Add useful cross-references with context:\n\n**Related Documentation:**\n- **[Environment Variables](../environment/)** - For env variable configuration, secrets, and profiles\n- **[Git Context Advanced](../git-context-advanced.md)** - Deep dive into git variable formats and filtering\n- **[MapReduce Workflows](../mapreduce/)** - Using item.* and map.* variables in distributed processing\n- **[Commands](../commands.md)** - Command-specific capture_output configuration\n- **[Examples](../examples.md)** - Real-world variable usage patterns\n- **[Troubleshooting](../troubleshooting/)** - Debugging workflows with variable issues\n\n**External Resources:**\n- JSONPath syntax for json_path in MapReduce input extraction\n- Glob pattern syntax for git context filtering",
+      "source_reference": "book/src/variables/see-also.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Git Context Format Modifiers",
+      "description": "Index mentions format modifiers in table but no detailed documentation exists in any subsection",
+      "feature_reference": "variables.git_context_formats",
+      "fix_suggestion": "Add detailed section (could go in Available Variables or separate subsection) covering:\n\n**Format Modifiers:**\n- Default (space-separated): `${step.files_added}`\n- JSON array: `${step.files_added:json}`\n- Newline-separated: `${step.files_added:newline}`\n- Comma-separated: `${step.files_added:comma}`\n\n**Glob Filtering:**\n- Filter by extension: `${step.files_added:*.rs}`\n- Filter by directory: `${step.files_added:src/**/*.rs}`\n- Multiple patterns: `${step.files_added:*.rs,*.toml}`\n\n**Use Cases:**\n- JSON format for passing to jq or script processing\n- Newline format for feeding to xargs or while loops\n- Glob filtering for language-specific operations\n\n**Examples:**\n```yaml\n# Format Rust files as JSON array\n- shell: \"echo '${step.files_added:*.rs:json}' | jq .\"\n\n# Process each file on separate line\n- shell: |\n    echo '${step.files_modified:newline}' | while read file; do\n      cargo fmt \"$file\"\n    done\n```",
+      "source_reference": ".prodigy/book-analysis/features.json:233-239, src/cook/workflow/git_context.rs:27-42"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Variable Interpolation Syntax",
+      "description": "No documentation of ${var} vs $VAR syntax differences and when to use each",
+      "feature_reference": "environment.global_env.interpolation",
+      "fix_suggestion": "Add syntax section explaining:\n\n**Interpolation Syntax:**\n- `${VAR}` - Preferred syntax, works in all contexts\n- `$VAR` - Shell-style, simpler but may have limitations\n\n**When to use ${VAR}:**\n- In YAML values with special characters\n- For nested field access: `${item.nested.field}`\n- When combining with text: `prefix_${var}_suffix`\n- For complex expressions with format modifiers\n\n**When $VAR works:**\n- Simple variable names in shell commands\n- Environment variables in shell context\n- Quick substitutions without special characters\n\n**Best Practice:** Always use `${VAR}` syntax for consistency and reliability.",
+      "source_reference": ".prodigy/book-analysis/features.json:280"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Variable Scoping and Precedence",
+      "description": "Index mentions variables but doesn't explain scoping rules or what happens with name conflicts",
+      "feature_reference": "variables scoping",
+      "fix_suggestion": "Add section explaining:\n\n**Variable Scope by Phase:**\n- Setup: Variables available in map and reduce phases\n- Map: Variables only available within that specific agent execution\n- Reduce: Variables available to subsequent reduce steps\n- Merge: Only merge.* variables plus inherited workflow context\n\n**Variable Precedence (highest to lowest):**\n1. Custom captured variables (capture_output)\n2. Phase-specific built-in variables (item.*, map.*)\n3. Step context variables (step.*)\n4. Workflow context variables (workflow.*)\n5. Environment variables\n\n**Shadowing:**\nCustom captures can shadow built-in variable names. Example:\n```yaml\nshell: \"custom command\"\ncapture_output: \"item\"  # Shadows ${item} in map phase - not recommended!\n```\n\n**Best Practices:**\n- Use descriptive custom variable names to avoid shadowing\n- Check phase availability before using variables\n- Document expected variables at workflow start",
+      "source_reference": "src/cook/execution/variables.rs:1-200"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "System Variables - WORKTREE",
-      "description": "Chapter documents WORKTREE variable but doesn't explain it's derived from PRODIGY_WORKTREE environment variable",
-      "current_content": "- `${WORKTREE}` - Name of the current worktree (if running in a Prodigy worktree session)",
-      "should_add": "Clarify that Prodigy automatically sets this when creating isolated worktrees",
-      "fix_suggestion": "Expand: '${WORKTREE} - Name of current worktree (automatically set by Prodigy when running in isolated worktree, e.g., session-abc123)'",
-      "source_reference": "src/cook/workflow/executor/context.rs:371-374"
+      "severity": "medium",
+      "section": "Reduce Phase Access to Item Data",
+      "description": "Index has good note about reduce phase accessing item data via ${map.results}, but could be expanded with examples",
+      "current_content": "**Reduce Phase Access to Item Data**: In reduce phase, individual item variables (${item.*}) are not directly available, but you can access all item data through ${map.results} which contains the aggregated results from all map agents.",
+      "should_add": "Concrete examples showing how to extract item data from map.results",
+      "fix_suggestion": "Expand with examples:\n```yaml\nreduce:\n  # Example 1: Count items with specific property\n  - shell: |\n      echo '${map.results}' | jq '[.[] | select(.type == \"error\")] | length'\n    capture_output: \"error_count\"\n  \n  # Example 2: Extract all file paths processed\n  - shell: |\n      echo '${map.results}' | jq -r '.[].item.path'\n    capture_output: \"all_paths\"\n  \n  # Example 3: Aggregate numeric field\n  - shell: |\n      echo '${map.results}' | jq '[.[].coverage] | add / length'\n    capture_output: \"avg_coverage\"\n```",
+      "source_reference": "book/src/variables/index.md:25-26"
     }
   ],
   "positive_aspects": [
-    "Excellent variable availability table showing which variables work in which phases (setup/map/reduce/merge)",
-    "Outstanding documentation of map.results limitations and best practices for write_file vs shell/Claude",
-    "Comprehensive coverage of all variable categories: standard, output, MapReduce, validation, git, merge, system",
-    "Clear examples throughout showing practical usage patterns",
-    "Strong troubleshooting section with common errors and solutions",
-    "Accurate documentation of capture formats (string, number, json, lines, boolean)",
-    "Good explanation of capture streams with all available options",
-    "Helpful notes about variable scope and precedence",
-    "Clear migration guidance for legacy aliases ($ARG, $FILE)",
-    "Well-structured nested JSON field access examples"
+    "Excellent index structure with clear overview of variable systems",
+    "Outstanding phase availability table showing which variables work in each phase",
+    "Clear distinction between built-in and custom captured variables",
+    "Important warning about phase-specific variable availability",
+    "Valuable note about reduce phase accessing item data through map.results",
+    "Well-organized subsection structure (would be excellent once populated)",
+    "Good use of cross-references to other documentation sections"
   ],
   "improvement_suggestions": [
-    "Add a 'Quick Reference' table at the end with all variables categorized by phase",
-    "Include examples combining multiple variable types in a single command",
-    "Add visual diagram showing variable lifecycle through workflow phases",
-    "Expand debugging section with examples of using -v flag to see variable values",
-    "Add section on performance implications of large variables like map.results",
-    "Include cross-references to related chapters (Commands, MapReduce) for deeper context",
-    "Add examples showing variable composition and advanced interpolation patterns"
+    "Populate all four empty subsection files with comprehensive content (highest priority)",
+    "Add extensive examples showing variables in real-world workflows",
+    "Include side-by-side comparisons of format modifier outputs",
+    "Add troubleshooting flowchart for variable interpolation issues",
+    "Consider adding a quick reference card/cheat sheet for all variables",
+    "Document best practices for variable naming conventions",
+    "Show debugging techniques using verbose mode and Claude logs",
+    "Add advanced examples combining multiple variable types",
+    "Include performance notes for large variables like map.results",
+    "Cross-reference to Examples chapter showing variable patterns",
+    "Add migration guide from older variable syntax if applicable",
+    "Consider adding interactive examples or a variables playground reference"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-02",
+    "analyzed_at": "2025-01-11T20:00:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "Standard variables (workflow.*, step.*)",
-      "Output variables (shell.output, claude.output, last.*)",
-      "MapReduce variables (item.*, map.*, worker.id)",
-      "System variables (PROJECT_ROOT, WORKTREE, git.branch, git.commit)",
-      "Validation variables (validation.*)",
-      "Git context variables (step.*, workflow.*)",
-      "Merge variables (merge.*)",
-      "Custom variable capture",
-      "Capture formats",
-      "Capture streams",
-      "Variable scope and precedence",
-      "Legacy aliases",
-      "Troubleshooting"
+      "Built-in variables overview",
+      "Custom capture overview",
+      "Phase-specific availability",
+      "Variable interpolation (mentioned but not documented)"
     ],
-    "validation_focus": "Check all variable types and interpolation syntax"
+    "validation_focus": "Check all variable types and interpolation syntax",
+    "subsections_analyzed": [
+      {
+        "file": "index.md",
+        "status": "Good overview, needs expansion",
+        "line_count": 35
+      },
+      {
+        "file": "available-variables.md",
+        "status": "Empty placeholder",
+        "line_count": 3
+      },
+      {
+        "file": "custom-variable-capture.md",
+        "status": "Nearly empty, 1 sentence only",
+        "line_count": 5
+      },
+      {
+        "file": "troubleshooting-variable-interpolation.md",
+        "status": "Empty placeholder",
+        "line_count": 2
+      },
+      {
+        "file": "see-also.md",
+        "status": "Empty placeholder",
+        "line_count": 2
+      }
+    ],
+    "total_content_lines": 47,
+    "estimated_required_lines": 800,
+    "completion_percentage": 6
   }
 }
