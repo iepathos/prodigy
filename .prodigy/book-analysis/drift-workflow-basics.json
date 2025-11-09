@@ -1,89 +1,103 @@
 {
+  "item_type": "chapter",
   "chapter_id": "workflow-basics",
   "chapter_title": "Workflow Basics",
   "chapter_file": "book/src/workflow-basics.md",
-  "drift_detected": false,
-  "severity": "good",
-  "quality_assessment": "Chapter is comprehensive, accurate, and well-structured. All core features are correctly documented with accurate syntax. Examples match implementation. Only minor enhancements possible for advanced features.",
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Chapter file does not exist - critical documentation gap for fundamental workflow concepts",
   "issues": [
     {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Environment Configuration",
-      "description": "Chapter documents basic env configuration but doesn't cover advanced EnvValue types (dynamic, conditional)",
-      "current_content": "env:\n  NODE_ENV: production\n  DATABASE_URL: postgres://localhost/mydb",
-      "should_add": "Document EnvValue types: Static (plain string), Dynamic (command-based with caching), Conditional (expression-based)",
-      "fix_suggestion": "Add subsection on advanced environment variable types with examples for dynamic and conditional env vars",
-      "source_reference": "src/cook/environment/config.rs:EnvValue enum with Static, Dynamic, Conditional variants"
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Entire Chapter",
+      "description": "The workflow-basics.md file does not exist. This is a fundamental chapter that should document basic workflow structure, command execution, and sequential workflows.",
+      "fix_suggestion": "Create book/src/workflow-basics.md with comprehensive documentation of standard workflow features",
+      "source_reference": "src/config/workflow.rs, src/config/command.rs, examples/standard-workflow.yml"
     },
     {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Secret Variables",
-      "description": "Chapter shows basic secret syntax but doesn't cover SecretValue providers beyond env reference",
-      "current_content": "secrets:\n  API_KEY: \"${env:SECRET_API_KEY}\"",
-      "should_add": "Document SecretValue structure with provider types: env, file, vault, aws, custom",
-      "fix_suggestion": "Add examples for different secret providers (file:path/to/secret, vault:secret/path, aws:secret-name)",
-      "source_reference": "features.json:environment.secrets.providers with env, file, vault, aws, custom"
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Workflow Structure",
+      "description": "Missing documentation for workflow configuration formats: direct command array (simple), full config with name/env/merge (comprehensive), and legacy commands field format",
+      "fix_suggestion": "Document all three workflow formats with examples showing when to use each",
+      "source_reference": "src/config/workflow.rs:41-114 WorkflowConfig deserializer"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Command Types",
+      "description": "Missing documentation for command types: shell, claude, test, goal_seek, foreach, write_file, and handler commands",
+      "fix_suggestion": "Create section explaining each command type with syntax examples and use cases",
+      "source_reference": "src/config/command.rs WorkflowStepCommand, src/cook/workflow/normalized.rs:43-55 StepCommand enum"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Command Syntax",
+      "description": "Missing documentation for command syntax formats: Simple strings, Structured format (WorkflowStep), and SimpleObject format",
+      "fix_suggestion": "Document command syntax progression from simple to complex with examples",
+      "source_reference": "src/config/command.rs:570-621 WorkflowCommand enum"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Sequential Execution",
+      "description": "Missing documentation for how commands execute sequentially, one at a time, with output capture",
+      "fix_suggestion": "Explain sequential execution model, command ordering, and state flow between commands",
+      "source_reference": "features.json workflow_basics.execution_model"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Variable Interpolation",
+      "description": "Missing documentation for variable syntax ${VAR} and $VAR formats",
+      "fix_suggestion": "Document variable interpolation syntax and scope in basic workflows",
+      "source_reference": "src/core/workflow/mod.rs:17-32 interpolate_variables"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Environment Variables",
+      "description": "Missing documentation for env, secrets, env_files, and profiles fields in workflow config",
+      "fix_suggestion": "Add section on environment configuration at workflow level",
+      "source_reference": "src/config/workflow.rs:20-34 WorkflowConfig env fields"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Environment Configuration",
-      "description": "Chapter doesn't mention 'clear_env' option in StepEnvironment for clearing parent environment",
-      "should_add": "Document 'clear_env' option: Clear parent environment before applying step env (default: false)",
-      "fix_suggestion": "Add note in 'Step-Level Environment Overrides' section about clear_env option",
-      "source_reference": "src/cook/environment/config.rs:StepEnvironment with 'clear_env' field"
+      "section": "Merge Workflows",
+      "description": "Missing documentation for optional custom merge workflow configuration",
+      "fix_suggestion": "Document merge workflow field for worktree integration",
+      "source_reference": "src/config/workflow.rs:36-38 WorkflowConfig merge field"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Step-Level Fields",
+      "description": "Missing documentation for step-level configuration: timeout, working_dir, env, commit_required, when clauses",
+      "fix_suggestion": "Document per-step configuration options for fine-grained control",
+      "source_reference": "src/cook/workflow/normalized.rs:28-40 NormalizedStep"
     }
   ],
-  "positive_aspects": [
-    "Clear structure progressing from simple to complex workflows",
-    "Accurate simple array format documentation matching WorkflowConfig deserializer",
-    "Comprehensive coverage of all core command types (shell, claude, goal_seek, foreach, validate, write_file, analyze)",
-    "Correct field names throughout - uses 'capture_output' not 'capture'",
-    "Accurate documentation of command-level options (id, commit_required, timeout, output_file)",
-    "Excellent coverage of conditional execution with 'when' clause",
-    "Thorough explanation of error handling with on_failure and on_success",
-    "Complete and accurate output capture documentation with all formats (string, json, lines, number, boolean)",
-    "Accurate capture_streams documentation (stdout, stderr, both)",
-    "Good coverage of output capture metadata (exit_code, success, duration, stderr)",
-    "Accurate merge workflow documentation with all merge variables",
-    "Environment profiles correctly documented with activation via --profile flag",
-    "Good examples throughout showing practical usage patterns",
-    "Correct deprecation notice for 'test:' command",
-    "Working directory control properly documented with both cwd and working_dir",
-    "Links to other chapters for deeper dives into specific topics",
-    "Available Fields table is accurate and complete",
-    "Full Format structure matches WorkflowConfig struct exactly"
-  ],
+  "positive_aspects": [],
   "improvement_suggestions": [
-    "Add subsection on advanced environment variable types (dynamic, conditional) with examples",
-    "Expand secret configuration to show different provider types beyond env reference",
-    "Document 'clear_env' option for step-level environment control",
-    "Consider adding a troubleshooting subsection for common workflow issues",
-    "Add note about EnvValue enum allowing static strings, dynamic commands, or conditional values",
-    "Include example of dynamic env var with caching configuration",
-    "Add cross-reference to Environment chapter (which likely covers EnvValue in depth)"
+    "Start with simplest workflow format (direct array of shell commands) to show ease of use",
+    "Progress from simple to complex, building on concepts incrementally",
+    "Include real-world example workflow showing multiple command types",
+    "Add comparison table showing when to use different workflow formats",
+    "Cross-reference advanced features (MapReduce, error handling) to later chapters",
+    "Include troubleshooting section for common beginner mistakes",
+    "Show how workflow basics relate to git worktree isolation",
+    "Explain commit tracking and audit trail from the start"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11",
+    "analyzed_at": "2025-01-11T19:38:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Standard workflows",
       "Basic structure",
-      "Command execution",
-      "Simple vs full format",
-      "Command types (shell, claude, goal_seek, foreach, validate, write_file, analyze)",
-      "Command-level options",
-      "Conditional execution",
-      "Error handling",
-      "Output capture with formats",
-      "Environment configuration",
-      "Secrets management",
-      "Environment files",
-      "Environment profiles",
-      "Step-level environment overrides",
-      "Merge workflows"
+      "Command execution"
     ],
     "validation_focus": "Check basic workflow syntax and structure documentation"
   }
