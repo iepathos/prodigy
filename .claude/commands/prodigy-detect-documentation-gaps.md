@@ -214,7 +214,7 @@ When a gap can be filled by adding a subsection to an existing multi-subsection 
 }
 ```
 
-### Phase 5: Update Chapter Definitions File
+### Phase 5: Update Chapter Definitions File and Generate Flattened Output
 
 **Read Existing Chapters:**
 Load the current contents of the chapters JSON file (e.g., workflows/data/prodigy-chapters.json)
@@ -264,12 +264,70 @@ Load the current contents of the chapters JSON file (e.g., workflows/data/prodig
 }
 ```
 
-**Write Updated File:**
+**Write Updated Chapter Definitions:**
 Write the complete chapters JSON back to disk with proper formatting:
 - Use 2-space indentation
 - Maintain JSON structure
 - Preserve existing chapters and subsections
 - Keep subsection order within chapters
+
+**Generate Flattened Items Array for Map Phase:**
+Create `.prodigy/book-analysis/flattened-items.json` containing a flattened array of all work items:
+
+For each chapter in the updated chapters array:
+- If `type == "multi-subsection"`: Extract each subsection and add parent metadata:
+  ```json
+  {
+    "id": "<subsection-id>",
+    "title": "<subsection-title>",
+    "file": "<subsection-file>",
+    "topics": [...],
+    "validation": "...",
+    "feature_mapping": [...],
+    "parent_chapter_id": "<parent-chapter-id>",
+    "parent_chapter_title": "<parent-chapter-title>",
+    "type": "subsection"
+  }
+  ```
+- If `type == "single-file"`: Include the chapter as-is with type marker:
+  ```json
+  {
+    "id": "<chapter-id>",
+    "title": "<chapter-title>",
+    "file": "<chapter-file>",
+    "topics": [...],
+    "validation": "...",
+    "type": "single-file"
+  }
+  ```
+
+Write the flattened array to `.prodigy/book-analysis/flattened-items.json`:
+```json
+[
+  {
+    "id": "workflow-basics",
+    "title": "Workflow Basics",
+    "file": "book/src/workflow-basics.md",
+    "topics": [...],
+    "validation": "...",
+    "type": "single-file"
+  },
+  {
+    "id": "checkpoint-and-resume",
+    "title": "Checkpoint and Resume",
+    "file": "book/src/mapreduce/checkpoint-and-resume.md",
+    "topics": [...],
+    "validation": "...",
+    "feature_mapping": [...],
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection"
+  },
+  ...
+]
+```
+
+This flattened format is ready for direct consumption by the map phase without additional processing.
 
 ### Phase 6: Create Stub Markdown Files
 

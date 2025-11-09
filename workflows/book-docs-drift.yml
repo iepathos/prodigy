@@ -29,24 +29,9 @@ setup:
   - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
 
   # Step 2: Detect documentation gaps and create missing chapters/subsections
+  # Also generates flattened-items.json for map phase (single-file chapters + subsections with parent metadata)
   # Note: May not commit if no gaps found, which is a successful outcome
   - claude: "/prodigy-detect-documentation-gaps --project $PROJECT_NAME --config $PROJECT_CONFIG --features $FEATURES_PATH --chapters $CHAPTERS_FILE --book-dir $BOOK_DIR"
-
-  # Step 3: Flatten chapters and subsections into single array for map phase
-  # This preprocessing step adds parent_chapter_id to subsections and marks item types
-  - shell: |
-      jq '.chapters | map(
-        if .type == "multi-subsection" then
-          . as $parent | .subsections | map(. + {
-            parent_chapter_id: $parent.id,
-            parent_chapter_title: $parent.title,
-            type: "subsection"
-          })
-        else
-          [. + {type: (.type // "single-file")}]
-        end
-      ) | flatten' ${CHAPTERS_FILE} > ${ANALYSIS_DIR}/flattened-items.json
-    commit_required: false
 
 # Map phase: Analyze and fix each book chapter/subsection for drift
 map:
