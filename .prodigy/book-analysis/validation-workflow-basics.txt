@@ -1,0 +1,67 @@
+# Validation Summary for Workflow Basics
+
+## Content Metrics
+- Lines of content: 640 (minimum: 100) ✓
+- Headings: 55 (minimum: 5) ✓
+- Code examples: 57 (minimum: 3) ✓
+- Source references: 12 (minimum: 2) ✓
+
+## Drift Issues Resolved
+- Critical: 0/0 ✓
+- High: 6/6 ✓
+  1. ✓ Removed test command documentation, added deprecation notice
+  2. ✓ Added write_file command documentation with real example
+  3. ✓ Added validate command documentation with real example
+  4. ✓ Removed handler command section (doesn't exist)
+  5. ✓ Removed working_dir field documentation (doesn't exist)
+  6. ✓ Removed step-level env field documentation (only workflow-level)
+- Medium: 4/4 ✓
+  7. ✓ Updated foreach syntax to match ForeachConfig implementation
+  8. ✓ Updated goal_seek syntax to match GoalSeekConfig implementation
+  9. ✓ Documented capture field as simple alternative to capture_output
+  10. ✓ Replaced allow_failure with continue_on_error
+- Low: 2/2 ✓
+  11. ✓ Added note about analyze command (internal use)
+  12. ✓ Documented capture_streams and output_file fields
+
+## Code Validation
+- All struct fields verified: ✓
+  - WorkflowStepCommand: src/config/command.rs:319
+  - WriteFileConfig: src/config/command.rs:280
+  - ForeachConfig: src/config/command.rs:191
+  - GoalSeekConfig: src/cook/goal_seek/mod.rs:15
+  - ValidationConfig: src/cook/workflow/validation.rs:12
+- All enum variants verified: ✓
+  - WriteFileFormat: text, json, yaml
+  - ForeachInput: Command, List
+- All examples have source attribution: ✓
+  - All command type definitions reference source code
+  - Real-world examples from workflows/ directory
+  - Type definitions linked with file:line references
+- All referenced files exist: ✓
+  - src/config/command.rs
+  - src/cook/goal_seek/mod.rs
+  - src/cook/workflow/validation.rs
+  - workflows/debtmap-reduce.yml
+  - workflows/implement.yml
+  - workflows/goal-seeking-examples.yml
+
+## Improvements Made
+- Added Command Type Reference table
+- Documented all 6 supported command types
+- Removed 3 non-existent features (test, handler, working_dir, step-env)
+- Updated syntax for foreach and goal_seek to match implementation
+- Added comprehensive output capture documentation
+- All examples grounded in actual source code
+- Source file references for all type definitions
+
+## Quality Gates
+✓ Meets minimum content requirements (640 lines vs 100 minimum)
+✓ All critical issues resolved (0 critical issues)
+✓ All high severity issues resolved (6/6 fixed)
+✓ All medium severity issues resolved (4/4 fixed)
+✓ All low severity issues resolved (2/2 fixed)
+✓ All examples grounded in codebase
+✓ All source references validated
+
+Status: READY TO COMMIT
