@@ -9,121 +9,98 @@
     "mapreduce.storage"
   ],
   "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Subsection is extremely minimal (only 10 lines) and missing critical details about the storage architecture, directory structure, and how different components use global storage",
+  "severity": "medium",
+  "quality_assessment": "Good overall structure and explanation (189 lines). The documentation accurately describes the global storage architecture, directory structure, and benefits. However, there are several documented CLI commands that don't exist in the implementation, creating misleading content for users. The core concepts and actual implemented features are well documented.",
   "issues": [
     {
-      "type": "missing_content",
+      "type": "incorrect_examples",
       "severity": "high",
-      "section": "Directory Structure",
-      "description": "Missing detailed documentation of the complete directory structure under ~/.prodigy/",
-      "feature_reference": "storage_architecture.global_storage.structure",
-      "fix_suggestion": "Add complete directory tree showing all subdirectories: events, dlq, state, worktrees, sessions, resume_locks, logs, with descriptions of what each contains",
-      "source_reference": "src/storage/global.rs:35-150"
+      "section": "Storage Maintenance",
+      "description": "Documents 'prodigy storage health' command that doesn't exist",
+      "current_content": "# Verify storage is accessible and operational\nprodigy storage health",
+      "should_be": "Command does not exist in CLI implementation",
+      "fix_suggestion": "Remove the 'prodigy storage health' command example. The health_check() method exists in GlobalStorage but is not exposed via CLI.",
+      "source_reference": "src/storage/global.rs:115 (health_check method exists but no CLI command)"
     },
     {
-      "type": "missing_content",
+      "type": "incorrect_examples",
       "severity": "high",
-      "section": "Storage Paths",
-      "description": "Missing documentation of specific path patterns used for different data types",
-      "feature_reference": "storage_architecture.global_storage.structure",
-      "fix_suggestion": "Document the exact path patterns: events/{repo_name}/{job_id}/events-{timestamp}.jsonl, dlq/{repo_name}/{job_id}/dlq.json, state/{repo_name}/mapreduce/jobs/{job_id}/, etc.",
-      "source_reference": "src/storage/global.rs:35-150, .prodigy/book-analysis/features.json:487-493"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Repository Isolation",
-      "description": "Missing explanation of how repository name is used to isolate storage between different projects",
-      "feature_reference": "storage_architecture.global_storage",
-      "fix_suggestion": "Explain that storage is organized by repository name (extracted from project path) to enable multiple projects to use global storage without conflicts",
-      "source_reference": "src/storage/mod.rs:40-59"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Storage Configuration",
-      "description": "Missing documentation of PRODIGY_HOME environment variable for customizing storage location",
-      "feature_reference": "storage_architecture.global_storage",
-      "fix_suggestion": "Add section explaining that PRODIGY_HOME environment variable can override default ~/.prodigy location (useful for testing and custom deployments)",
-      "source_reference": "src/storage/mod.rs:61-78"
+      "section": "Storage Maintenance",
+      "description": "Documents 'prodigy dlq clean --completed' flag that doesn't exist",
+      "current_content": "# Clean completed jobs (no DLQ items)\nprodigy dlq clean --completed",
+      "should_be": "Flag does not exist in DLQ CLI commands",
+      "fix_suggestion": "Remove this example or clarify what DLQ cleaning operations are actually available. The DLQ commands that exist are: show, retry, clear.",
+      "source_reference": "src/cli/commands/dlq.rs (no --completed flag found)"
     },
     {
       "type": "incomplete_explanation",
       "severity": "medium",
-      "section": "Benefits",
-      "description": "Benefits are listed but not explained in detail or with examples",
-      "current_content": "- **Cross-worktree event aggregation**: Multiple worktrees working on the same job share event logs",
-      "should_be": "Benefits should include concrete examples of how each benefit works in practice",
-      "fix_suggestion": "Expand each benefit with examples: 'Cross-worktree event aggregation: When you have multiple worktrees processing the same MapReduce job, all agents write to ~/.prodigy/events/{repo_name}/{job_id}/, enabling unified monitoring across all agents'",
-      "source_reference": ".prodigy/book-analysis/features.json:485-486"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Storage Components",
-      "description": "Missing detailed explanation of what each storage component (events, dlq, state, etc.) contains and how it's used",
-      "feature_reference": "storage_architecture.global_storage.structure",
-      "fix_suggestion": "Add subsections for each storage component: Events (JSONL logs with agent lifecycle), DLQ (failed items with retry metadata), State (checkpoints and job state), Worktrees (git worktrees for sessions), Sessions (unified session tracking), Resume Locks (concurrent protection)",
-      "source_reference": "src/storage/global.rs:35-150"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Cross-References",
-      "description": "Missing cross-references to related subsections that provide more detail",
-      "feature_reference": "mapreduce.capabilities",
-      "fix_suggestion": "Add cross-references to Event Tracking subsection, Dead Letter Queue subsection, and Checkpoint and Resume subsection for detailed information about those storage components",
-      "source_reference": "book/src/mapreduce/event-tracking.md, book/src/mapreduce/dead-letter-queue-dlq.md, book/src/mapreduce/checkpoint-and-resume.md"
+      "section": "Repository Isolation",
+      "description": "Doesn't explain how repo_name is extracted from project path",
+      "feature_reference": "storage.extract_repo_name",
+      "fix_suggestion": "Add brief explanation that repo_name is derived from the project directory name using extract_repo_name() function, which canonicalizes the path and extracts the final component.",
+      "source_reference": "src/storage/mod.rs:42-59"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Examples",
-      "description": "No examples showing actual directory contents or how to inspect global storage",
-      "feature_reference": "storage_architecture.global_storage",
-      "fix_suggestion": "Add examples showing: 1) Sample output of `ls ~/.prodigy/`, 2) How to find job data for a specific job_id, 3) How to check disk usage of global storage",
-      "source_reference": "src/storage/global.rs"
+      "section": "Storage Components > State",
+      "description": "Missing documentation for session-job ID mapping stored in state/mappings/",
+      "feature_reference": "storage.session_job_mapping",
+      "fix_suggestion": "Add brief mention in the State section that state directory includes session-job ID mappings (in state/{repo_name}/mappings/) for bidirectional resume lookup",
+      "source_reference": "src/storage/session_job_mapping.rs"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Migration from Local Storage",
-      "description": "No mention of legacy local storage (.prodigy/ in project) vs global storage",
-      "feature_reference": "storage_architecture.global_storage",
-      "fix_suggestion": "Add brief note that global storage (~/.prodigy/) replaced legacy local storage (.prodigy/ in project) and that global storage is now the default",
-      "source_reference": "CLAUDE.md:85-95"
+      "section": "Directory Structure",
+      "description": "Sessions directory shown but not explained in Storage Components",
+      "feature_reference": "storage.sessions",
+      "fix_suggestion": "The sessions/ directory appears in the structure diagram and is briefly mentioned under Storage Components. Consider expanding the Sessions section with more detail about unified session tracking.",
+      "source_reference": "src/unified_session/storage.rs"
     }
   ],
   "positive_aspects": [
-    "Clear opening statement about location (~/.prodigy/)",
-    "Good high-level benefits listed",
-    "Correct information about cross-worktree aggregation"
+    "Clear explanation of global storage benefits (cross-worktree aggregation, persistent state, centralized monitoring)",
+    "Comprehensive directory structure diagram with all major components",
+    "Good coverage of PRODIGY_HOME environment variable usage and examples",
+    "Excellent cross-references to related subsections (Event Tracking, DLQ, Checkpoint and Resume)",
+    "Practical examples for inspecting and maintaining storage (du, ls, find)",
+    "Clear explanation of repository isolation using {repo_name} path components",
+    "Well-organized Storage Components section explaining each directory's purpose",
+    "Good coverage of all storage directories: events, dlq, state, worktrees, sessions, resume_locks, logs"
   ],
   "improvement_suggestions": [
-    "Expand to include complete directory structure with visual tree diagram",
-    "Add detailed subsections for each storage component (events, dlq, state, etc.)",
-    "Include examples of inspecting and managing global storage",
-    "Add cross-references to subsections that detail specific storage components",
-    "Document PRODIGY_HOME environment variable for customization",
-    "Explain repository isolation mechanism (repo_name in paths)",
-    "Add troubleshooting section for storage-related issues (disk full, permissions, etc.)"
+    "Verify all CLI commands exist before documenting them - consider adding a validation step in the workflow",
+    "Add a note about which storage operations are programmatic-only vs exposed via CLI",
+    "Consider adding troubleshooting section for storage-related issues (permissions, disk space, corrupt files)",
+    "Add example of using list_all_repositories() method programmatically since no CLI command exists",
+    "Expand the repository isolation section to explain the extract_repo_name() function behavior",
+    "Add more detail about session-job ID mappings stored in state/mappings/",
+    "Consider documenting the storage cleanup and retention policies more explicitly"
   ],
   "cross_references": [
     "event-tracking",
     "dead-letter-queue-dlq",
-    "checkpoint-and-resume"
+    "checkpoint-and-resume",
+    "worktree-isolation"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T00:00:00Z",
+    "analyzed_at": "2025-01-11T12:00:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "storage",
-      "global state",
-      "worktree isolation"
+      "global storage architecture",
+      "directory structure",
+      "storage components",
+      "repository isolation",
+      "PRODIGY_HOME configuration"
     ],
     "validation_focus": "Check global storage architecture documented",
-    "current_length": "10 lines",
-    "recommended_length": "100-150 lines with structure, components, and examples"
+    "current_length": "189 lines",
+    "code_references": [
+      "src/storage/global.rs:1-206",
+      "src/storage/mod.rs:1-334",
+      "src/storage/session_job_mapping.rs"
+    ]
   }
 }

@@ -70,8 +70,11 @@ Job state and checkpoints enable resume and recovery:
 
 - **Path pattern**: `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`
 - **Content**: Setup checkpoints, map phase progress, reduce phase state, job metadata
+- **Additional storage**: Session-job ID mappings stored in `state/{repo_name}/mappings/` for bidirectional resume lookup (session ID ↔ job ID)
 - **Usage**: Resume interrupted jobs, track execution progress, recover from failures
 - **Cross-reference**: See [Checkpoint and Resume](./checkpoint-and-resume.md) for checkpoint structure and resume behavior
+
+The state directory includes session-job ID mappings (src/storage/session_job_mapping.rs) that enable resume operations to work with either session IDs or job IDs, providing flexibility in workflow recovery.
 
 #### Worktrees
 Isolated git worktrees for parallel execution:
@@ -81,11 +84,15 @@ Isolated git worktrees for parallel execution:
 - **Usage**: Isolated execution environment, parallel agent processing, clean separation from main repo
 
 #### Sessions
-Unified session tracking for all workflow executions:
+Unified session tracking for all workflow executions (src/unified_session/):
 
 - **Path pattern**: `~/.prodigy/sessions/{session-id}.json`
-- **Content**: Session status, timing data, workflow metadata, checkpoint references
-- **Usage**: Track active sessions, resume interrupted workflows, monitor execution time
+- **Content**: Session status (Running, Paused, Completed, Failed), timing data, workflow metadata, checkpoint references, execution progress
+- **Session types**: Workflow sessions and MapReduce sessions with phase-specific data
+- **Usage**: Track active sessions, resume interrupted workflows, monitor execution time, correlate with job IDs
+- **Integration**: Works with session-job mappings for flexible resume operations
+
+The unified session system provides a single source of truth for all workflow executions, whether standard workflows or MapReduce jobs. Each session file contains complete metadata about the execution state, progress, and timing information.
 
 #### Resume Locks
 Concurrent resume protection to prevent conflicts:
@@ -96,12 +103,18 @@ Concurrent resume protection to prevent conflicts:
 
 ### Repository Isolation
 
-Storage is automatically organized by repository name (extracted from your project path) to enable multiple projects to use global storage without conflicts:
+Storage is automatically organized by repository name (extracted from your project path) to enable multiple projects to use global storage without conflicts.
 
-- Repository name is derived from the project directory name (e.g., `/path/to/my-project` → `my-project`)
+The repository name is determined using the `extract_repo_name()` function (src/storage/mod.rs:42-59), which:
+1. Canonicalizes the project path to resolve symlinks
+2. Extracts the final path component as the repository name
+3. Example: `/path/to/my-project` → `my-project`
+
+Key isolation features:
 - All storage paths include `{repo_name}` to isolate data between repositories
 - You can work on multiple Prodigy projects simultaneously without storage collisions
 - Each repository has independent events, DLQ, state, and worktrees
+- Repository names are consistent even when accessing via symlinks (due to canonicalization)
 
 ### Configuration
 
@@ -167,22 +180,27 @@ Clean up old job data:
 # Remove old event logs (older than 30 days)
 find ~/.prodigy/events -type d -mtime +30 -exec rm -rf {} +
 
-# Clean completed jobs (no DLQ items)
-prodigy dlq clean --completed
+# Clear processed DLQ items for a workflow
+prodigy dlq clear <workflow_id>
 
-# Remove orphaned worktrees
+# Remove orphaned worktrees after failed cleanup
 prodigy worktree clean-orphaned <job_id>
 ```
 
-Check storage health:
+Monitor storage and sessions:
 ```bash
-# Verify storage is accessible and operational
-prodigy storage health
-
-# List active sessions
+# List active sessions and their status
 prodigy sessions list
 
-# Show resume locks (detect stuck jobs)
+# View DLQ statistics for a workflow
+prodigy dlq stats --workflow-id <workflow_id>
+
+# Check resume locks (detect stuck jobs)
 ls ~/.prodigy/resume_locks/
+
+# List all repositories using global storage
+ls ~/.prodigy/events/
 ```
+
+**Note**: The `health_check()` method exists in the GlobalStorage implementation (src/storage/global.rs:115) but is not currently exposed as a CLI command. It's used internally for programmatic health verification.
 
