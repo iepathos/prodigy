@@ -265,72 +265,13 @@ Load the current contents of the chapters JSON file (e.g., workflows/data/prodig
 ```
 
 **Write Updated Chapter Definitions:**
-Write the complete chapters JSON back to disk with proper formatting:
+Write the complete chapters JSON back to disk with proper formatting (if any gaps were found):
 - Use 2-space indentation
 - Maintain JSON structure
 - Preserve existing chapters and subsections
 - Keep subsection order within chapters
 
-**Generate Flattened Items Array for Map Phase:**
-
-**CRITICAL**: This step must ALWAYS execute, even if no gaps were found. The map phase requires this file to process all chapters for drift detection.
-
-Create `.prodigy/book-analysis/flattened-items.json` containing a flattened array of all work items:
-
-For each chapter in the updated chapters array (or existing chapters if no gaps found):
-- If `type == "multi-subsection"`: Extract each subsection and add parent metadata:
-  ```json
-  {
-    "id": "<subsection-id>",
-    "title": "<subsection-title>",
-    "file": "<subsection-file>",
-    "topics": [...],
-    "validation": "...",
-    "feature_mapping": [...],
-    "parent_chapter_id": "<parent-chapter-id>",
-    "parent_chapter_title": "<parent-chapter-title>",
-    "type": "subsection"
-  }
-  ```
-- If `type == "single-file"`: Include the chapter as-is with type marker:
-  ```json
-  {
-    "id": "<chapter-id>",
-    "title": "<chapter-title>",
-    "file": "<chapter-file>",
-    "topics": [...],
-    "validation": "...",
-    "type": "single-file"
-  }
-  ```
-
-Write the flattened array to `.prodigy/book-analysis/flattened-items.json`:
-```json
-[
-  {
-    "id": "workflow-basics",
-    "title": "Workflow Basics",
-    "file": "book/src/workflow-basics.md",
-    "topics": [...],
-    "validation": "...",
-    "type": "single-file"
-  },
-  {
-    "id": "checkpoint-and-resume",
-    "title": "Checkpoint and Resume",
-    "file": "book/src/mapreduce/checkpoint-and-resume.md",
-    "topics": [...],
-    "validation": "...",
-    "feature_mapping": [...],
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
-    "type": "subsection"
-  },
-  ...
-]
-```
-
-This flattened format is ready for direct consumption by the map phase without additional processing.
+**Note**: The flattened-items.json generation has moved to Phase 8 to ensure it always executes.
 
 ### Phase 6: Create Stub Markdown Files
 
@@ -557,15 +498,51 @@ Write the modified SUMMARY.md back to disk
 }
 ```
 
-### Phase 8: Save Gap Report and Commit Changes
+### Phase 8: Save Gap Report, Generate Flattened Items, and Commit Changes
 
-**Write Gap Report:**
+**STEP 1: Generate Flattened Items for Map Phase (MANDATORY)**
+
+This step MUST execute regardless of whether gaps were found:
+
+1. Read the chapters file from `--chapters` parameter
+2. Process each chapter to create flattened array:
+   - For `type == "multi-subsection"`: Extract each subsection with parent metadata
+   - For `type == "single-file"`: Include chapter with type marker
+3. Write to `.prodigy/book-analysis/flattened-items.json`
+
+Example structure:
+```json
+[
+  {
+    "id": "workflow-basics",
+    "title": "Workflow Basics",
+    "file": "book/src/workflow-basics.md",
+    "topics": [...],
+    "validation": "...",
+    "type": "single-file"
+  },
+  {
+    "id": "checkpoint-and-resume",
+    "title": "Checkpoint and Resume",
+    "file": "book/src/mapreduce/checkpoint-and-resume.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [...],
+    "feature_mapping": [...]
+  }
+]
+```
+
+**STEP 2: Write Gap Report**
+
 Save the gap report to disk for auditing:
 - Path: `.prodigy/book-analysis/gap-report.json` (or equivalent for project)
 - Include all gaps found and actions taken
 - Use proper JSON formatting
 
-**Display Summary to User:**
+**STEP 3: Display Summary to User**
+
 Print a formatted summary:
 ```
 📊 Documentation Gap Analysis
@@ -582,12 +559,13 @@ Gaps Found: {count}
   • {chapter_id} - Missing: {missing_topics}
 
 ✅ Actions Taken:
-  ✓ Created {count} chapter definitions
-  ✓ Created {count} stub files
-  ✓ Updated SUMMARY.md
+  ✓ Generated flattened-items.json for map phase
+  ✓ Created {count} chapter definitions (if gaps found)
+  ✓ Created {count} stub files (if gaps found)
+  ✓ Updated SUMMARY.md (if gaps found)
 
 📝 Next Steps:
-  The map phase will now process these new chapters to populate content.
+  The map phase will now process these chapters to detect drift.
 ```
 
 **Stage and Commit Changes:**
