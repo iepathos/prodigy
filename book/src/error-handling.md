@@ -98,6 +98,8 @@ For complex error handling scenarios with multiple commands and fine-grained con
 - `shell` or `claude` - The command to execute
 - `continue_on_error` - Continue to next handler command even if this fails
 
+> **Simpler Alternative:** For basic cases, you can use the Advanced format shown earlier instead of the detailed handler configuration. The Advanced format allows `shell` and `claude` fields directly without wrapping in a `commands` array: `on_failure: { shell: "command", fail_workflow: false, max_attempts: 3 }`.
+
 ### Success Handling
 
 Execute commands when a step succeeds. The `on_success` field accepts a full WorkflowStep configuration with all available fields.
@@ -132,7 +134,7 @@ Success handlers are useful for post-processing actions that should only occur w
 - **Artifact Archiving:** Archive build artifacts, logs, or generated files for later use
 - **External System Updates:** Update issue trackers, deployment records, or configuration management systems
 
-The handler receives access to step outputs via the `capture` field, allowing you to process results or pass data to subsequent steps.
+The handler receives access to step outputs via the `capture` field, allowing you to process results or pass data to subsequent steps. For example, using `capture: "metrics"` creates a `${metrics}` variable containing the handler output, which can be used in later workflow steps for processing or decision-making.
 
 ### Commit Requirements
 
@@ -228,6 +230,20 @@ HalfOpen → Closed (after success_threshold successes)
 HalfOpen → Open (if any half_open_request fails)
 ```
 
+**Monitoring Circuit Breaker State:**
+
+To check the circuit breaker state during MapReduce execution, monitor the event logs:
+
+```bash
+# View circuit breaker events for a job
+prodigy events list <job_id> | grep -i circuit
+
+# Watch for circuit state changes in real-time
+prodigy events watch <job_id>
+```
+
+Circuit breaker state transitions are logged as `CircuitOpen` and `CircuitClosed` events, allowing you to track when the circuit opens due to failures and when it recovers.
+
 ### Retry Configuration with Backoff
 
 Configure automatic retry behavior for failed items:
@@ -281,7 +297,7 @@ backoff:
 
 **Important:** All duration values use humantime format (e.g., `1s`, `100ms`, `2m`, `30s`), not milliseconds.
 
-> **Note on Serialization:** BackoffStrategy accepts Duration values in humantime format (`1s`, `100ms`, `2m`) for convenience. Only CircuitBreakerConfig's `timeout` field explicitly requires humantime format via serde attribute - other Duration fields use standard serialization but accept humantime strings.
+> **Note:** All duration values use humantime format (e.g., `1s`, `100ms`, `2m`, `30s`) for consistency. This applies to both BackoffStrategy delays and CircuitBreakerConfig timeout.
 
 ### Error Metrics
 
