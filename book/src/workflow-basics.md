@@ -1,0 +1,736 @@
+# Workflow Basics
+
+Prodigy workflows define automated sequences of commands that execute in an isolated git worktree. This chapter covers the fundamentals of standard workflows: structure, command types, execution model, and basic configuration.
+
+## Why Workflows?
+
+Workflows provide:
+- **Automation**: Execute complex multi-step processes consistently
+- **Isolation**: Changes happen in a dedicated worktree, keeping your main repository clean
+- **Auditability**: Every command creates a git commit with full history
+- **Reproducibility**: Define once, run anywhere with the same results
+
+## Workflow Structure
+
+Prodigy supports three workflow configuration formats, from simplest to most comprehensive.
+
+### Simple Array Format
+
+The quickest way to create a workflow - just list your commands:
+
+```yaml
+# simple-workflow.yml
+- shell: echo "Step 1: Analyze code"
+- shell: cargo check
+- shell: cargo test
+- shell: echo "All checks passed!"
+```
+
+This format is perfect for:
+- Quick automation tasks
+- Learning Prodigy basics
+- Scripts without environment configuration
+
+### Full Configuration Format
+
+For production workflows with environment variables, secrets, and custom merge logic:
+
+```yaml
+# production-workflow.yml
+name: code-quality-check
+mode: standard
+
+env:
+  PROJECT_NAME: myproject
+  LOG_LEVEL: info
+
+secrets:
+  API_KEY:
+    secret: true
+    value: "sk-abc123"
+
+commands:
+  - shell: echo "Running $PROJECT_NAME quality checks"
+  - shell: cargo clippy -- -D warnings
+  - shell: cargo test --all
+  - shell: cargo fmt --check
+
+merge:
+  commands:
+    - shell: cargo build --release
+    - shell: echo "Merging to ${merge.target_branch}"
+  timeout: 300
+```
+
+This format provides:
+- Named workflows for clarity
+- Global environment variables
+- Secret masking in logs
+- Custom merge validation
+- Profile support for different environments
+
+### Legacy Commands Field Format
+
+Prodigy maintains backward compatibility with the original format:
+
+```yaml
+# legacy-workflow.yml
+commands:
+  - shell: cargo check
+  - shell: cargo test
+```
+
+**Note**: This format is deprecated. Use the simple array or full configuration format instead.
+
+## Command Types
+
+Prodigy supports several command types, each designed for specific use cases.
+
+### Shell Commands
+
+Execute shell commands with full access to the worktree environment:
+
+```yaml
+- shell: echo "Hello from Prodigy"
+- shell: cargo build --release
+- shell: |
+    if [ -f README.md ]; then
+      echo "Documentation exists"
+    else
+      echo "Missing documentation"
+    fi
+```
+
+Shell commands support:
+- Single-line commands
+- Multi-line scripts (using `|` for literal blocks)
+- Variable interpolation
+- Full bash syntax and features
+
+### Claude Commands
+
+Execute Claude Code commands via the CLI:
+
+```yaml
+- claude: /analyze-code
+- claude: "/fix-issue '${item.path}'"
+- claude: /generate-docs --format markdown
+```
+
+Claude commands:
+- Must start with `/` (slash command syntax)
+- Can reference workflow variables
+- Stream output in verbose mode
+- Create detailed JSON logs for debugging
+
+See [Claude Integration](./claude-integration.md) for detailed information on using Claude commands in workflows.
+
+### Test Commands
+
+Execute tests with automatic failure analysis:
+
+```yaml
+- test: cargo test --all
+  on_failure:
+    debug_command: cargo test --verbose
+    collect_artifacts:
+      - target/debug/test-results.xml
+      - logs/*.log
+```
+
+Test commands provide:
+- Automatic test result tracking
+- Debug command execution on failure
+- Artifact collection for CI/CD
+- Detailed failure reporting
+
+### Goal-Seek Commands
+
+Run validation with automatic retry until success criteria met:
+
+```yaml
+- goal_seek:
+    description: "Code passes all quality checks"
+    validation:
+      command: cargo clippy -- -D warnings
+      success_criteria:
+        exit_code: 0
+    fix_command: claude /fix-clippy-warnings
+    max_attempts: 3
+```
+
+Goal-seek commands enable:
+- Iterative improvement workflows
+- Automatic error correction
+- Validation-driven development
+- Quality gate enforcement
+
+### Foreach Commands
+
+Iterate over items with nested command sequences:
+
+```yaml
+- foreach:
+    items: ["src/main.rs", "src/lib.rs", "src/utils.rs"]
+    variable: file
+    commands:
+      - shell: echo "Processing ${file}"
+      - shell: rustfmt ${file}
+      - shell: cargo check --bin ${file}
+```
+
+Foreach commands support:
+- Array iteration
+- Variable binding
+- Nested command execution
+- Dynamic workflow generation
+
+### Handler Commands
+
+Execute custom handlers for advanced workflows:
+
+```yaml
+- handler:
+    name: custom-validator
+    attributes:
+      severity: high
+      timeout: 300
+```
+
+Handlers enable:
+- Plugin-style extensibility
+- Custom command types
+- Advanced integration scenarios
+
+## Command Syntax Formats
+
+Commands can be specified in three formats, progressing from simple to complex.
+
+### Simple String Format
+
+The most concise syntax for basic commands:
+
+```yaml
+- shell: echo "Hello World"
+- claude: /analyze-code
+```
+
+Prodigy parses these strings into structured commands internally.
+
+### Structured Format (WorkflowStep)
+
+Add configuration like timeouts, environment variables, and handlers:
+
+```yaml
+- shell: cargo test
+  timeout: 300
+  env:
+    RUST_BACKTRACE: "1"
+  on_failure:
+    - shell: cargo test --verbose
+```
+
+This format provides:
+- Per-step timeout control
+- Step-level environment variables
+- Error handling configuration
+- Output capture declarations
+
+### SimpleObject Format
+
+For commands requiring explicit argument parsing:
+
+```yaml
+- name: analyze-file
+  args:
+    - "${file.path}"
+    - "--verbose"
+  commit_required: true
+```
+
+## Sequential Execution Model
+
+Prodigy executes commands sequentially, one at a time, with these guarantees:
+
+**Order Preservation**: Commands execute in the exact order defined in your workflow file.
+
+**Output Capture**: Each command's stdout, stderr, and exit code are captured and available to subsequent commands.
+
+**State Flow**: Variables and environment configuration flow from one command to the next:
+
+```yaml
+- shell: echo "build-123"
+  capture: build_id
+
+- shell: echo "Deploying build ${build_id}"
+  # Outputs: "Deploying build build-123"
+```
+
+**Commit Tracking**: By default, successful commands create git commits with descriptive messages:
+
+```
+commit abc123
+Author: Prodigy Workflow
+Date: 2025-01-11
+
+Step 2: cargo test
+
+Command: cargo test
+Exit code: 0
+Duration: 3.2s
+```
+
+**Failure Handling**: When a command fails:
+1. Execution stops (unless `allow_failure: true` or `on_failure` handler configured)
+2. Error details captured in logs
+3. Worktree preserved for debugging
+4. No merge to main repository occurs
+
+## Variable Interpolation
+
+Prodigy supports two variable syntax formats for referencing values in commands:
+
+**Braced Format** (`${VAR}`): Explicit and recommended for clarity:
+
+```yaml
+- shell: echo "Processing ${PROJECT_NAME} version ${VERSION}"
+- shell: test -f ${item.path}
+```
+
+**Unbraced Format** (`$VAR`): Shell-style, shorter but less explicit:
+
+```yaml
+- shell: echo "Project: $PROJECT_NAME"
+```
+
+### Variable Scopes
+
+**Workflow-level variables**: Defined in `env` block, available to all commands:
+
+```yaml
+env:
+  PROJECT_NAME: prodigy
+  VERSION: "1.0.0"
+
+commands:
+  - shell: echo "$PROJECT_NAME v$VERSION"
+```
+
+**Captured variables**: Outputs from previous commands:
+
+```yaml
+- shell: git rev-parse HEAD
+  capture: commit_hash
+
+- shell: echo "Current commit: ${commit_hash}"
+```
+
+**Built-in variables**: Provided by Prodigy for special contexts:
+- MapReduce: `${item.*}`, `${map.results}`, `${map.total}`
+- Merge: `${merge.source_branch}`, `${merge.target_branch}`, `${merge.worktree}`
+
+See [Variable Reference](./variables-and-interpolation.md) for complete documentation.
+
+## Environment Configuration
+
+Configure environment variables at the workflow level for consistent execution:
+
+### Plain Environment Variables
+
+```yaml
+env:
+  PROJECT_NAME: prodigy
+  RUST_BACKTRACE: "1"
+  LOG_LEVEL: debug
+
+commands:
+  - shell: cargo test
+```
+
+All commands inherit these variables automatically.
+
+### Secret Variables
+
+Mask sensitive values in logs and output:
+
+```yaml
+secrets:
+  DATABASE_URL:
+    secret: true
+    value: "postgresql://user:password@localhost/db"
+  API_KEY:
+    secret: true
+    value: "sk-abc123"
+
+commands:
+  - shell: curl -H "Authorization: Bearer ${API_KEY}" https://api.example.com
+```
+
+Secret values are replaced with `***` in all logs, errors, and output.
+
+### Environment Files
+
+Load variables from `.env` files:
+
+```yaml
+env_files:
+  - .env
+  - .env.local
+
+commands:
+  - shell: echo "Using database $DATABASE_URL"
+```
+
+### Environment Profiles
+
+Define different configurations for dev, staging, and production:
+
+```yaml
+profiles:
+  dev:
+    API_URL: http://localhost:3000
+    DEBUG: "true"
+  staging:
+    API_URL: https://staging.api.example.com
+    DEBUG: "false"
+  prod:
+    API_URL: https://api.example.com
+    DEBUG: "false"
+
+commands:
+  - shell: curl $API_URL/health
+```
+
+Activate a profile:
+```bash
+prodigy run workflow.yml --profile prod
+```
+
+See [Environment Variables](./environment-variables.md) for comprehensive coverage.
+
+## Step-Level Configuration
+
+Individual commands can override workflow-level settings:
+
+### Timeout
+
+Set maximum execution time per command (in seconds):
+
+```yaml
+- shell: cargo build --release
+  timeout: 600  # 10 minutes
+```
+
+### Working Directory
+
+Change directory for a specific command:
+
+```yaml
+- shell: npm install
+  working_dir: frontend/
+```
+
+### Step Environment
+
+Add or override environment variables:
+
+```yaml
+- shell: cargo test
+  env:
+    RUST_BACKTRACE: full
+    RUST_LOG: debug
+```
+
+### Commit Required
+
+Control whether the step must create a git commit:
+
+```yaml
+- shell: cargo fmt
+  commit_required: false  # Don't require changes
+```
+
+### Conditional Execution
+
+Execute step only if condition evaluates to true:
+
+```yaml
+- shell: cargo build --release
+  when: "${tests_passed}"  # Only run if tests_passed is true
+```
+
+## Custom Merge Workflows
+
+By default, Prodigy prompts to merge worktree changes back to your original branch. You can customize this process with a merge workflow:
+
+```yaml
+name: main-workflow
+commands:
+  - shell: cargo test
+  - shell: cargo clippy
+
+merge:
+  commands:
+    - shell: git fetch origin
+    - shell: git merge origin/main
+    - shell: cargo test  # Verify after merge
+    - shell: cargo build --release
+  timeout: 600
+```
+
+### Merge Variables
+
+Special variables available in merge workflows:
+
+- `${merge.worktree}`: Name of the worktree (e.g., `session-abc123`)
+- `${merge.source_branch}`: Branch in the worktree
+- `${merge.target_branch}`: Your original branch (where you were when workflow started)
+- `${merge.session_id}`: Session ID for correlation
+
+Example usage:
+
+```yaml
+merge:
+  commands:
+    - shell: echo "Merging ${merge.worktree} to ${merge.target_branch}"
+    - shell: git diff ${merge.target_branch}..${merge.source_branch}
+    - shell: cargo test --all
+```
+
+**Important**: Always merge to `${merge.target_branch}`, not a hardcoded branch name. This ensures changes merge back to wherever you started (master, feature branch, etc.).
+
+See [Merge Workflows](./merge-workflows.md) for advanced patterns.
+
+## Running Workflows
+
+### Basic Execution
+
+Run a workflow file:
+
+```bash
+prodigy run workflow.yml
+```
+
+Prodigy will:
+1. Create an isolated git worktree
+2. Execute commands sequentially
+3. Commit each successful step
+4. Prompt to merge changes back to your branch
+
+### With Arguments
+
+Pass arguments to your workflow:
+
+```bash
+prodigy run workflow.yml --arg FILE=src/main.rs
+```
+
+Reference in workflow:
+```yaml
+- shell: rustfmt $FILE
+```
+
+### With Profiles
+
+Activate an environment profile:
+
+```bash
+prodigy run workflow.yml --profile prod
+```
+
+### Verbose Mode
+
+See detailed execution including Claude streaming output:
+
+```bash
+prodigy run workflow.yml -v
+```
+
+### Resume Interrupted Workflows
+
+If execution is interrupted, resume from checkpoint:
+
+```bash
+prodigy resume
+```
+
+See [Checkpoint and Resume](./checkpoint-and-resume.md) for details.
+
+## Worktree Isolation
+
+All workflows execute in isolated git worktrees located in `~/.prodigy/worktrees/{repo-name}/`:
+
+**Benefits:**
+- Main repository remains clean during execution
+- Safe experimentation without affecting your working tree
+- Multiple workflows can run in parallel (different sessions)
+- Full git history preserved for debugging
+
+**Lifecycle:**
+1. Workflow starts → Worktree created from current branch
+2. Commands execute → Changes committed in worktree
+3. Workflow completes → Prompt to merge to original branch
+4. After merge → Worktree cleaned up
+
+**Verification:**
+
+After running a workflow, your main repository is unchanged:
+
+```bash
+git status
+# nothing to commit, working tree clean
+```
+
+Changes are in the worktree:
+
+```bash
+cd ~/.prodigy/worktrees/{repo}/session-{id}/
+git log  # See workflow commits
+```
+
+## Troubleshooting Common Issues
+
+### Command Not Found
+
+**Symptom**: `command not found: my-tool`
+
+**Solution**: Ensure the command is available in your `PATH` or use absolute paths:
+
+```yaml
+- shell: /usr/local/bin/my-tool
+```
+
+### Variable Not Substituted
+
+**Symptom**: Output shows `${VAR}` instead of the value
+
+**Solution**: Ensure variable is defined before use:
+
+```yaml
+env:
+  VAR: value
+
+commands:
+  - shell: echo "${VAR}"  # Correct
+```
+
+### Workflow Won't Resume
+
+**Symptom**: `prodigy resume` reports no sessions
+
+**Solution**: Check session state:
+
+```bash
+prodigy sessions list
+```
+
+If no sessions, the workflow completed or checkpoint wasn't saved.
+
+### Permission Denied in Worktree
+
+**Symptom**: Cannot write files in worktree
+
+**Solution**: Check worktree permissions:
+
+```bash
+ls -la ~/.prodigy/worktrees/{repo}/session-{id}/
+```
+
+### Merge Conflicts
+
+**Symptom**: Merge to main branch fails with conflicts
+
+**Solution**: Use custom merge workflow to handle conflicts:
+
+```yaml
+merge:
+  commands:
+    - shell: git fetch origin
+    - shell: git merge origin/main || true
+    - claude: /resolve-conflicts
+    - shell: git add -A
+    - shell: git commit -m "Resolve merge conflicts"
+```
+
+## Best Practices
+
+### Keep Workflows Simple
+
+Break complex automation into multiple small workflows rather than one large workflow:
+
+**Good:**
+```yaml
+# lint.yml
+- shell: cargo clippy
+- shell: cargo fmt --check
+
+# test.yml
+- shell: cargo test --all
+
+# deploy.yml
+- shell: cargo build --release
+```
+
+**Avoid:**
+```yaml
+# monolithic-workflow.yml with 50+ steps
+```
+
+### Use Descriptive Names
+
+Name workflows and capture variables clearly:
+
+```yaml
+name: code-quality-check  # Clear purpose
+
+commands:
+  - shell: git rev-parse HEAD
+    capture: current_commit  # Descriptive name
+```
+
+### Test Workflows Locally
+
+Always test workflows locally before running in CI/CD:
+
+```bash
+prodigy run workflow.yml -v  # Verbose output for debugging
+```
+
+### Leverage Variable Capture
+
+Capture important values for reuse and debugging:
+
+```yaml
+- shell: cargo test 2>&1 | grep -E 'test result:' | grep -oE '[0-9]+ passed'
+  capture: tests_passed
+
+- shell: echo "Passed ${tests_passed} tests"
+```
+
+### Use Timeouts
+
+Prevent workflows from hanging indefinitely:
+
+```yaml
+- shell: cargo build --release
+  timeout: 600  # 10 minutes max
+```
+
+### Clean Up Resources
+
+Include cleanup steps at the end of workflows:
+
+```yaml
+- shell: rm -rf target/debug  # Clean build artifacts
+- shell: docker-compose down  # Stop test services
+```
+
+## Next Steps
+
+Now that you understand workflow basics, explore:
+
+- **[MapReduce Workflows](./mapreduce-overview.md)**: Parallel processing for large-scale tasks
+- **[Error Handling](./error-handling.md)**: Advanced failure recovery and retry strategies
+- **[Output Capture](./output-capture.md)**: Working with command outputs and variables
+- **[Environment Variables](./environment-variables.md)**: Comprehensive environment configuration
+- **[Claude Integration](./claude-integration.md)**: Leveraging Claude Code in workflows
