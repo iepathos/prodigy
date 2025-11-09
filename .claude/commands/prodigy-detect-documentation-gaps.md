@@ -272,9 +272,12 @@ Write the complete chapters JSON back to disk with proper formatting:
 - Keep subsection order within chapters
 
 **Generate Flattened Items Array for Map Phase:**
+
+**CRITICAL**: This step must ALWAYS execute, even if no gaps were found. The map phase requires this file to process all chapters for drift detection.
+
 Create `.prodigy/book-analysis/flattened-items.json` containing a flattened array of all work items:
 
-For each chapter in the updated chapters array:
+For each chapter in the updated chapters array (or existing chapters if no gaps found):
 - If `type == "multi-subsection"`: Extract each subsection and add parent metadata:
   ```json
   {
@@ -641,8 +644,11 @@ Gap detection should be idempotent:
 **Validation:**
 If gap detection runs and finds no gaps:
 - Print message: "✅ No documentation gaps found - all features are documented"
-- Do not modify any files
+- Do not modify chapter definitions file
+- **IMPORTANT**: Still generate flattened-items.json from existing chapters for map phase
 - Exit successfully
+
+**CRITICAL**: The flattened-items.json file must ALWAYS be generated, even when no gaps are found. This file is required by the map phase to process all chapters for drift detection. Generate it from the existing chapters.json file in Phase 5, regardless of whether gaps were detected.
 
 ### Error Handling
 
