@@ -1,84 +1,100 @@
 {
-  "analysis_date": "2025-11-02T00:00:00Z",
-  "features_analyzed": 14,
-  "documented_topics": 16,
+  "analysis_date": "2025-01-11T00:00:00Z",
+  "features_analyzed": 13,
+  "documented_topics": 23,
   "gaps_found": 0,
   "gaps": [],
-  "actions_taken": [],
+  "actions_taken": [
+    {
+      "action": "generated_flattened_items",
+      "file_path": ".prodigy/book-analysis/flattened-items.json",
+      "items_count": 23,
+      "description": "Generated flattened items file for map phase processing (includes 10 subsections from mapreduce chapter and 13 single-file chapters)"
+    }
+  ],
   "summary": "All feature areas from features.json are documented with corresponding chapters. No missing chapters or documentation gaps detected.",
   "coverage_details": {
     "workflow_basics": {
       "status": "documented",
       "chapter_id": "workflow-basics",
-      "chapter_file": "book/src/workflow-basics.md"
+      "chapter_type": "single-file"
     },
     "mapreduce": {
       "status": "documented",
       "chapter_id": "mapreduce",
-      "chapter_file": "book/src/mapreduce.md"
+      "chapter_type": "multi-subsection",
+      "subsections_count": 9,
+      "subsections": [
+        "checkpoint-and-resume",
+        "dead-letter-queue-dlq",
+        "environment-variables-in-configuration",
+        "error-collection-strategies",
+        "event-tracking",
+        "global-storage-architecture",
+        "setup-phase-advanced",
+        "backoff-strategies",
+        "workflow-format-comparison"
+      ]
     },
     "command_types": {
       "status": "documented",
       "chapter_id": "commands",
-      "chapter_file": "book/src/commands.md",
-      "subcategories_documented": ["shell", "claude", "goal_seek", "foreach", "write_file", "analyze", "validation"]
+      "chapter_type": "single-file"
     },
     "variables": {
       "status": "documented",
       "chapter_id": "variables",
-      "chapter_file": "book/src/variables.md"
+      "chapter_type": "single-file"
     },
     "environment": {
       "status": "documented",
       "chapter_id": "environment",
-      "chapter_file": "book/src/environment.md"
+      "chapter_type": "single-file"
     },
     "advanced_features": {
       "status": "documented",
       "chapter_id": "advanced",
-      "chapter_file": "book/src/advanced.md"
+      "chapter_type": "single-file"
     },
     "error_handling": {
       "status": "documented",
       "chapter_id": "error-handling",
-      "chapter_file": "book/src/error-handling.md",
-      "subcategories_documented": ["workflow_level", "command_level", "retry", "circuit_breaker", "dlq"]
+      "chapter_type": "single-file"
     },
     "retry_configuration": {
       "status": "documented",
       "chapter_id": "retry-configuration",
-      "chapter_file": "book/src/retry-configuration.md",
-      "subcategories_documented": ["retry_defaults", "backoff_strategies", "retry_budget", "conditional_retry", "jitter"]
+      "chapter_type": "single-file"
     },
     "workflow_composition": {
       "status": "documented",
       "chapter_id": "composition",
-      "chapter_file": "book/src/composition.md"
+      "chapter_type": "single-file"
     },
-    "configuration_system": {
+    "configuration": {
       "status": "documented",
       "chapter_id": "configuration",
-      "chapter_file": "book/src/configuration.md"
+      "chapter_type": "single-file"
     },
     "git_context_advanced": {
       "status": "documented",
       "chapter_id": "git-context-advanced",
-      "chapter_file": "book/src/git-context-advanced.md"
+      "chapter_type": "single-file"
     },
     "automated_documentation": {
       "status": "documented",
       "chapter_id": "automated-documentation",
-      "chapter_file": "book/src/automated-documentation.md"
+      "chapter_type": "single-file"
     },
     "mapreduce_worktree_architecture": {
       "status": "documented",
       "chapter_id": "mapreduce-worktree-architecture",
-      "chapter_file": "book/src/mapreduce-worktree-architecture.md"
+      "chapter_type": "single-file"
     }
   },
   "recommendations": [
     "Continue to monitor feature additions in future releases",
-    "Update gap detection to run periodically as codebase evolves",
-    "Consider adding more granular feature tracking for subcategories"
+    "Run gap detection periodically as codebase evolves",
+    "Map phase will now process all 23 items (13 chapters + 10 subsections) for drift detection"
   ]
 }
