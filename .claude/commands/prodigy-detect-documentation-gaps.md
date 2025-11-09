@@ -169,20 +169,50 @@ When a gap can be filled by adding a subsection to an existing multi-subsection 
 
 Before creating any subsection definition, perform content availability validation:
 
+**STEP 0a: Discover Codebase Structure**
+
+```bash
+# Discover test locations (common patterns)
+TEST_DIRS=$(find . -type d -name "*test*" -o -name "*spec*" | grep -v node_modules | grep -v .git | head -5)
+
+# Discover example/workflow/config locations
+EXAMPLE_DIRS=$(find . -type d -name "*example*" -o -name "*workflow*" -o -name "*sample*" -o -name "*config*" | grep -v node_modules | grep -v .git | head -5)
+
+# Discover primary source locations
+SOURCE_DIRS=$(find . -type f \( -name "*.rs" -o -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.go" -o -name "*.java" \) | sed 's|/[^/]*$||' | sort -u | grep -v node_modules | grep -v .git | head -10)
+```
+
+**STEP 0b: Count Potential Content Sources (Language-Agnostic)**
+
 ```bash
 # 1. Count potential content sources in codebase
 FEATURE_CATEGORY="<feature-category-name>"
-STRUCT_COUNT=$(rg "struct.*${FEATURE_CATEGORY}" src/ --type rust -c | awk '{s+=$1} END {print s}')
-ENUM_COUNT=$(rg "enum.*${FEATURE_CATEGORY}" src/ --type rust -c | awk '{s+=$1} END {print s}')
-FUNCTION_COUNT=$(rg "fn.*${FEATURE_CATEGORY}" src/ --type rust -c | awk '{s+=$1} END {print s}')
-TEST_COUNT=$(rg "${FEATURE_CATEGORY}" tests/ --type rust -c | awk '{s+=$1} END {print s}')
-WORKFLOW_COUNT=$(rg "${FEATURE_CATEGORY}" workflows/ --type yaml -c | awk '{s+=$1} END {print s}')
 
-TOTAL_MENTIONS=$((STRUCT_COUNT + ENUM_COUNT + FUNCTION_COUNT + TEST_COUNT + WORKFLOW_COUNT))
+# Type definitions (struct, class, interface, enum, type)
+TYPE_COUNT=$(rg "(struct|class|interface|type|enum).*${FEATURE_CATEGORY}" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
+
+# Function/method definitions
+FUNCTION_COUNT=$(rg "(fn|function|def|func|public|private).*${FEATURE_CATEGORY}" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
+
+# Test mentions (search in discovered test directories)
+TEST_COUNT=0
+for test_dir in $TEST_DIRS; do
+  count=$(rg "${FEATURE_CATEGORY}" "$test_dir" --hidden -c 2>/dev/null | awk '{s+=$1} END {print s}')
+  TEST_COUNT=$((TEST_COUNT + count))
+done
+
+# Example/config file mentions (search in discovered example directories)
+EXAMPLE_COUNT=0
+for example_dir in $EXAMPLE_DIRS; do
+  count=$(rg "${FEATURE_CATEGORY}" "$example_dir" --hidden -c 2>/dev/null | awk '{s+=$1} END {print s}')
+  EXAMPLE_COUNT=$((EXAMPLE_COUNT + count))
+done
+
+TOTAL_MENTIONS=$((TYPE_COUNT + FUNCTION_COUNT + TEST_COUNT + EXAMPLE_COUNT))
 
 # 2. Estimate potential content lines
-# Rule of thumb: Each struct = ~30 lines docs, each enum = ~20 lines, each workflow example = ~40 lines
-ESTIMATED_LINES=$((STRUCT_COUNT * 30 + ENUM_COUNT * 20 + FUNCTION_COUNT * 10 + WORKFLOW_COUNT * 40 + TEST_COUNT * 15))
+# Rule of thumb: Each type = ~30 lines docs, each function = ~10 lines, each example = ~40 lines
+ESTIMATED_LINES=$((TYPE_COUNT * 30 + FUNCTION_COUNT * 10 + EXAMPLE_COUNT * 40 + TEST_COUNT * 15))
 ```
 
 **Content Sufficiency Thresholds:**
@@ -191,14 +221,13 @@ ESTIMATED_LINES=$((STRUCT_COUNT * 30 + ENUM_COUNT * 20 + FUNCTION_COUNT * 10 + W
 - `TOTAL_MENTIONS >= 5` - Feature mentioned in at least 5 places in codebase
 - `ESTIMATED_LINES >= 50` - Can generate at least 50 lines of grounded documentation
 - At least ONE of:
-  - `STRUCT_COUNT >= 1` (has configuration struct)
-  - `ENUM_COUNT >= 1` (has enum variants)
-  - `WORKFLOW_COUNT >= 1` (has real workflow example)
+  - `TYPE_COUNT >= 1` (has configuration type/struct/class)
+  - `EXAMPLE_COUNT >= 1` (has real example/config file)
 
 **SHOULD HAVE (for good subsection):**
 - `TOTAL_MENTIONS >= 10`
 - `ESTIMATED_LINES >= 100`
-- `STRUCT_COUNT >= 1 AND WORKFLOW_COUNT >= 1` (both config and example)
+- `TYPE_COUNT >= 1 AND EXAMPLE_COUNT >= 1` (both type definition and example)
 
 **Decision Tree:**
 
@@ -240,21 +269,25 @@ ESTIMATED_LINES=$((STRUCT_COUNT * 30 + ENUM_COUNT * 20 + FUNCTION_COUNT * 10 + W
 These meta-subsections have different validation:
 
 ```bash
-# For "best-practices" subsection
-BEST_PRACTICE_COUNT=$(rg "best.practice|pattern|guideline" src/ tests/ workflows/ -i -c | awk '{s+=$1} END {print s}')
+# For "best-practices" subsection (search across codebase)
+BEST_PRACTICE_COUNT=$(rg "best.practice|pattern|guideline" --hidden --iglob '!.git' --iglob '!node_modules' -i -c | awk '{s+=$1} END {print s}')
 
 # For "troubleshooting" subsection
-ERROR_COUNT=$(rg "error|warn|fail" src/ --type rust -c | awk '{s+=$1} END {print s}')
-ISSUE_COUNT=$(rg "TODO|FIXME|XXX" src/ -c | awk '{s+=$1} END {print s}')
+ERROR_COUNT=$(rg "error|warn|fail" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
+ISSUE_COUNT=$(rg "TODO|FIXME|XXX" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
 
-# For "examples" subsection
-EXAMPLE_WORKFLOW_COUNT=$(find workflows/ -name "*.yml" -o -name "*.yaml" | wc -l)
+# For "examples" subsection (search discovered example directories)
+EXAMPLE_FILE_COUNT=0
+for example_dir in $EXAMPLE_DIRS; do
+  count=$(find "$example_dir" -type f \( -name "*.yml" -o -name "*.yaml" -o -name "*.json" -o -name "*.toml" \) 2>/dev/null | wc -l)
+  EXAMPLE_FILE_COUNT=$((EXAMPLE_FILE_COUNT + count))
+done
 ```
 
 **Requirements for meta-subsections:**
 - **Best Practices:** `BEST_PRACTICE_COUNT >= 3` OR documented patterns in code
 - **Troubleshooting:** `ERROR_COUNT >= 10` OR `ISSUE_COUNT >= 5`
-- **Examples:** `EXAMPLE_WORKFLOW_COUNT >= 2` real workflow files
+- **Examples:** `EXAMPLE_FILE_COUNT >= 2` real example/config files
 
 **If meta-subsection doesn't meet threshold:**
 - **DO NOT create separate subsection**
@@ -312,8 +345,8 @@ EXAMPLE_WORKFLOW_COUNT=$(find workflows/ -name "*.yml" -o -name "*.yaml" | wc -l
   "content_estimate": {
     "estimated_lines": ESTIMATED_LINES,
     "total_mentions": TOTAL_MENTIONS,
-    "struct_count": STRUCT_COUNT,
-    "workflow_count": WORKFLOW_COUNT,
+    "type_count": TYPE_COUNT,
+    "example_count": EXAMPLE_COUNT,
     "test_count": TEST_COUNT
   }
 }

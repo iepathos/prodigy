@@ -111,104 +111,143 @@ From the drift report issues, identify what requires code validation:
 - Function signatures
 - Workflow examples
 
-**Step 2: Search for Source Definitions**
+**Step 2: Discover Codebase Structure**
+
+**CRITICAL: Do not assume project structure. Discover it first.**
+
+Before searching for feature code, understand the codebase organization:
+
+```bash
+# Discover test locations (common patterns)
+TEST_DIRS=$(find . -type d -name "*test*" -o -name "*spec*" | grep -v node_modules | grep -v .git | head -5)
+
+# Discover example/workflow locations (common patterns)
+EXAMPLE_DIRS=$(find . -type d -name "*example*" -o -name "*workflow*" -o -name "*sample*" | grep -v node_modules | grep -v .git | head -5)
+
+# Discover source code locations (exclude common non-source directories)
+SOURCE_DIRS=$(find . -type f \( -name "*.rs" -o -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.go" -o -name "*.java" \) | sed 's|/[^/]*$||' | sort -u | grep -v node_modules | grep -v .git | head -10)
+```
+
+**Step 3: Search for Source Definitions (Language-Agnostic)**
 
 For each feature being documented, **MANDATORY searches:**
 
-**A. Find Struct Definitions:**
-```bash
-# Search for the actual struct in source code
-rg "struct\s+${StructName}" src/ --type rust
+**A. Find Type/Struct/Class Definitions:**
 
-# Extract field names and types
-rg "pub\s+\w+:" src/path/to/file.rs -A 5
-
-# Example: For retry configuration
-rg "struct\s+RetryConfig" src/ --type rust
-rg "pub\s+(max_attempts|backoff|initial_delay):" src/config/ -A 2
+Use Claude's Explore agent for intelligent discovery:
+```
+Task: Find the definition of ${StructName} in the codebase
+- Search for struct, class, interface, or type definitions
+- Look in source directories discovered above
+- Return file path and line numbers
 ```
 
-**B. Find Enum Variants:**
+Fallback to direct search if needed:
 ```bash
-# Search for enum definitions
-rg "enum\s+${EnumName}" src/ --type rust
+# Language-agnostic patterns for type definitions
+# Rust: struct, enum
+# Python: class, TypedDict, dataclass
+# TypeScript: interface, type, class
+# Go: struct, interface
+rg "(struct|class|interface|type|enum)\s+${StructName}" --hidden --iglob '!.git' -A 10
+```
 
-# Get all variants
-rg "^\s+\w+," src/path/to/enum.rs
-
-# Example: For backoff strategies
-rg "enum\s+BackoffStrategy" src/ --type rust
+**B. Find Field/Property Definitions:**
+```bash
+# After finding the type definition file, extract fields
+# This works across many languages (struct fields, class properties, interface members)
+rg "^\s*\w+:" ${TYPE_DEFINITION_FILE} -A 2
 ```
 
 **C. Find Real Usage in Tests:**
-```bash
-# Search test files for actual usage
-rg "${FeatureName}" tests/ --type rust -A 10
 
-# Example: How RetryConfig is actually constructed
-rg "RetryConfig\s*\{" tests/ -A 10
+Use Claude's Explore agent for intelligent test discovery:
+```
+Task: Find test files that use ${FeatureName}
+- Search in test directories discovered above
+- Look for instantiation, usage, or assertion patterns
+- Return relevant code snippets with context
 ```
 
-**D. Find Real Workflow Examples:**
+Fallback to direct search:
 ```bash
-# Search existing workflows for real examples
-rg "${yaml_field_name}" workflows/ --type yaml -A 5
+# Search discovered test directories
+for test_dir in $TEST_DIRS; do
+  rg "${FeatureName}" "$test_dir" -A 10 --hidden
+done
+```
 
-# Example: Find retry configuration in real workflows
-rg "retry:" workflows/ -A 5
-rg "max_attempts:" workflows/ -A 2
+**D. Find Real Examples/Workflows:**
+
+Use Claude's Explore agent for example discovery:
+```
+Task: Find example files or workflows that demonstrate ${FeatureName}
+- Search in example/workflow directories
+- Look for YAML, JSON, TOML config files
+- Look for documented code examples
+- Return file paths and relevant sections
+```
+
+Fallback to direct search:
+```bash
+# Search discovered example directories for config usage
+for example_dir in $EXAMPLE_DIRS; do
+  rg "${yaml_field_name}" "$example_dir" -A 5 --hidden
+done
 ```
 
 **E. Find Existing Documentation Examples:**
 ```bash
-# Check if other chapters have validated examples
-rg "${feature_name}" book/src/ --type md -A 10
+# Check if other documentation has validated examples
+rg "${feature_name}" book/src/ -A 10 --hidden
 
 # Only reuse these if they reference source code
 ```
 
-**Step 3: Validate All Examples**
+**Step 4: Validate All Examples**
 
-**For YAML Examples:**
+**For Configuration Examples (YAML/JSON/TOML):**
 ```bash
-# Check field names exist in struct
-# Pattern: For each field in YAML example, verify it exists in source
+# Check field names exist in type definition
+# Pattern: For each field in config example, verify it exists in source
 
 # Example validation:
-# YAML shows:   retry_config:
-# Source check: rg "pub retry_config:" src/
+# Config shows:   retry_config:
+# Source check: rg "retry_config" --hidden --iglob '!.git' -w
 # Result:       MUST FIND MATCH or DON'T USE
+
+# Verify the field is actually a configuration field, not a random match
 ```
 
 **For Code Examples:**
 ```bash
-# Verify enum variants exist
-# Pattern: Check each variant mentioned
+# Verify variants/values exist in type definitions
+# Pattern: Check each value/variant mentioned
 
 # Example:
 # Docs show:   backoff: exponential
-# Source check: rg "Exponential" src/config/retry.rs
-# Result:       MUST MATCH EXACTLY (case-sensitive)
+# Source check: rg "exponential|Exponential" --hidden --iglob '!.git' -w
+# Result:       MUST FIND MATCH (case-insensitive search, but document exact case from source)
 ```
 
 **For CLI Commands:**
 ```bash
-# Verify command syntax from help text
-# Pattern: Run actual command if possible, or check CLI parser
+# Verify command syntax from help text or parser code
+# Pattern: Look for CLI argument definitions
 
 # Example:
 # Docs show:   prodigy run workflow.yml --profile prod
-# Source check: rg "profile" src/cli.rs
-# Result:       Verify flag exists and format is correct
+# Source check: rg "profile.*flag|flag.*profile|arg.*profile" --hidden --iglob '!.git' -i
+# Result:       Verify flag exists and document exact syntax from source
 ```
 
-**Step 4: Extract Real Examples**
+**Step 5: Extract Real Examples**
 
 **Template for Code-Grounded Examples:**
 ```markdown
 ## Configuration
 
-The `RetryConfig` struct defines retry behavior (src/config/retry.rs:45):
+The `RetryConfig` type defines retry behavior (path/to/config.file:45):
 
 \`\`\`yaml
 retry_config:
@@ -218,16 +257,16 @@ retry_config:
   max_delay_ms: 60000       # Maximum delay cap (default: 60000)
 \`\`\`
 
-**Source**: Extracted from `RetryConfig` struct in src/config/retry.rs:45-52
+**Source**: Extracted from configuration type definition in path/to/config.file:45-52
 
-**Backoff Strategies** (from src/config/retry.rs:BackoffStrategy enum):
+**Backoff Strategies** (from path/to/types.file:BackoffStrategy definition):
 - `exponential` - Delay doubles each retry (2^n * initial_delay)
 - `linear` - Delay increases linearly (n * initial_delay)
 - `fibonacci` - Delay follows fibonacci sequence
 
 ## Real-World Example
 
-From tests/integration/retry_test.rs:78-92:
+From path/to/test/file:78-92:
 
 \`\`\`yaml
 name: reliable-workflow
@@ -239,37 +278,41 @@ retry_config:
 \`\`\`
 ```
 
-**Step 5: Rules for Content Creation**
+**Note**: Replace generic paths with actual discovered file paths from Step 2-3.
+
+**Step 6: Rules for Content Creation**
 
 **ALWAYS:**
-- Include source file references for all examples (e.g., "src/config/retry.rs:45")
-- Link to actual test files for real-world examples
-- Verify field names match struct definitions exactly
-- Verify enum variants match source code exactly (case-sensitive)
-- Extract examples from actual workflow files in workflows/
-- Note which features are optional vs required based on struct definition
+- Include source file references for all examples (e.g., "path/to/config.file:45")
+- Link to actual test/example files for real-world usage
+- Verify field/property names match type definitions exactly
+- Verify enum/constant values match source code exactly (document exact case from source)
+- Extract examples from actual configuration/example files discovered in Step 2
+- Note which features are optional vs required based on type definition
+- Use language-agnostic terminology (type instead of struct, property instead of field)
 
 **NEVER:**
-- Invent plausible-looking YAML syntax
-- Guess field names or types
+- Invent plausible-looking syntax (YAML, JSON, code examples)
+- Guess field/property names or types
 - Create examples from "common patterns" unless proven in codebase
 - Use syntax from other tools or projects
 - Assume features exist without verification
 - Document features that don't exist in the codebase
+- Assume file locations or project structure
 
 **If No Example Exists:**
 ```markdown
 ## Usage
 
-This feature is defined in src/path/to/file.rs but no example workflows currently use it.
+This feature is defined in path/to/implementation.file but no examples currently demonstrate it.
 
-See the struct definition for available fields:
-- [Source Code](../src/path/to/file.rs:line)
+See the type definition for available configuration:
+- [Source Code](../path/to/implementation.file:line)
 
-**Note**: If you implement a workflow using this feature, please contribute an example!
+**Note**: If you use this feature, consider contributing a documented example!
 ```
 
-**Step 6: Create Evidence File**
+**Step 7: Create Evidence File**
 
 For each subsection/chapter, create a temporary evidence file documenting sources:
 
@@ -279,25 +322,31 @@ cat > .prodigy/book-analysis/evidence-${ITEM_ID}.md <<EOF
 # Evidence for ${ITEM_TITLE}
 
 ## Source Definitions Found
-- RetryConfig struct: src/config/retry.rs:45
-- BackoffStrategy enum: src/config/retry.rs:88
-- retry_config field: src/config/workflow.rs:123
+- RetryConfig type: path/to/config.file:45
+- BackoffStrategy type: path/to/types.file:88
+- retry_config property: path/to/workflow-config.file:123
 
 ## Test Examples Found
-- tests/integration/retry_test.rs:78 (complete workflow)
-- tests/unit/config_test.rs:45 (struct construction)
+- path/to/test/retry_test.file:78 (complete workflow)
+- path/to/test/config_test.file:45 (type construction)
 
-## Workflow Examples Found
-- workflows/prodigy-ci.yml:23 (retry_config usage)
+## Configuration Examples Found
+- path/to/examples/ci-workflow.yml:23 (retry_config usage)
+- path/to/examples/sample.json:15 (JSON config example)
 
 ## Documentation References
 - book/src/error-handling.md:156 (related concept)
 
 ## Validation Results
-✓ All YAML fields verified against struct
-✓ All enum variants match source
-✓ CLI syntax verified against clap definitions
-✗ No real-world workflow examples found (using test example instead)
+✓ All config fields verified against type definition
+✓ All enum/constant values match source
+✓ CLI syntax verified against parser definitions
+✗ No real-world examples found (using test example instead)
+
+## Discovery Notes
+- Test directories found: ${TEST_DIRS}
+- Example directories found: ${EXAMPLE_DIRS}
+- Source directories searched: ${SOURCE_DIRS}
 EOF
 ```
 
@@ -462,7 +511,8 @@ HIGH_ISSUES=$(jq '.issues[] | select(.severity == "high")' ${DRIFT_REPORT} | jq 
 1. **Check if content genuinely doesn't exist in codebase:**
    ```bash
    # Count how many source files relate to this feature
-   SOURCE_FILE_COUNT=$(rg "${feature_name}" src/ tests/ -l | wc -l)
+   # Use discovered directories from Phase 3.5 Step 2
+   SOURCE_FILE_COUNT=$(rg "${feature_name}" --hidden --iglob '!.git' --iglob '!node_modules' -l | wc -l)
 
    # If < 3 source files, feature may be too small for subsection
    ```
@@ -503,9 +553,9 @@ HIGH_ISSUES=$(jq '.issues[] | select(.severity == "high")' ${DRIFT_REPORT} | jq 
    $(jq '.issues[] | "- [\(.severity)] \(.description)"' ${DRIFT_REPORT})
 
    ## Searches Performed
-   - Searched src/ for structs: ${SEARCHES_DONE}
-   - Searched tests/ for examples: ${TEST_SEARCHES}
-   - Searched workflows/ for usage: ${WORKFLOW_SEARCHES}
+   - Searched for type definitions: ${SEARCHES_DONE}
+   - Searched test directories for examples: ${TEST_SEARCHES}
+   - Searched example/config directories for usage: ${EXAMPLE_SEARCHES}
 
    ## Next Steps
    1. Verify feature is implemented (check if feature_mapping is correct)
@@ -541,10 +591,11 @@ For each code example in the updated documentation:
 # Verify example has source attribution
 grep -q "Source:" ${ITEM_FILE} || echo "WARNING: Example missing source attribution"
 
-# Verify example references actual files
-grep "src/" ${ITEM_FILE} | while read -r source_ref; do
-  # Extract file path from reference
-  FILE_PATH=$(echo "$source_ref" | grep -oP 'src/[^:)]+')
+# Verify example references actual files (extract file paths from markdown)
+# Look for patterns like: path/to/file.ext:line or [Source Code](path/to/file.ext)
+grep -oE '\([^)]*\.[a-z]{2,4}(:[0-9]+)?\)|\b[a-zA-Z0-9_./\-]+\.[a-z]{2,4}:[0-9]+' ${ITEM_FILE} | while read -r source_ref; do
+  # Extract file path (remove parentheses, line numbers, etc)
+  FILE_PATH=$(echo "$source_ref" | sed 's/[():].*//g')
   if [ -n "$FILE_PATH" ] && [ ! -f "$FILE_PATH" ]; then
     echo "ERROR: Referenced file does not exist: $FILE_PATH"
   fi
