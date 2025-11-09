@@ -28,22 +28,38 @@ setup:
   # Note: May not commit if features haven't changed since last analysis
   - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
 
-  # Step 2: Detect documentation gaps and create missing chapters
+  # Step 2: Detect documentation gaps and create missing chapters/subsections
   # Note: May not commit if no gaps found, which is a successful outcome
   - claude: "/prodigy-detect-documentation-gaps --project $PROJECT_NAME --config $PROJECT_CONFIG --features $FEATURES_PATH --chapters $CHAPTERS_FILE --book-dir $BOOK_DIR"
 
-# Map phase: Analyze and fix each book chapter for drift
+  # Step 3: Flatten chapters and subsections into single array for map phase
+  # This preprocessing step adds parent_chapter_id to subsections and marks item types
+  - shell: |
+      jq '.chapters | map(
+        if .type == "multi-subsection" then
+          . as $parent | .subsections | map(. + {
+            parent_chapter_id: $parent.id,
+            parent_chapter_title: $parent.title,
+            type: "subsection"
+          })
+        else
+          [. + {type: (.type // "single-file")}]
+        end
+      ) | flatten' ${CHAPTERS_FILE} > ${ANALYSIS_DIR}/flattened-items.json
+    commit_required: false
+
+# Map phase: Analyze and fix each book chapter/subsection for drift
 map:
-  input: "${CHAPTERS_FILE}"
-  json_path: "$.chapters[*]"
+  input: "${ANALYSIS_DIR}/flattened-items.json"
+  json_path: "$[*]"
 
   agent_template:
-    # Step 1: Analyze the chapter for drift
-    - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
+    # Step 1: Analyze the chapter/subsection for drift (subsection-aware command)
+    - claude: "/prodigy-analyze-subsection-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
       commit_required: true
 
-    # Step 2: Fix the drift in this chapter
-    - claude: "/prodigy-fix-chapter-drift --project $PROJECT_NAME --chapter-id ${item.id}"
+    # Step 2: Fix the drift in this chapter/subsection (subsection-aware command)
+    - claude: "/prodigy-fix-subsection-drift --project $PROJECT_NAME --json '${item}'"
       commit_required: true
 
   max_parallel: ${MAX_PARALLEL}
