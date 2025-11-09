@@ -1,88 +1,179 @@
 {
+  "item_type": "chapter",
   "chapter_id": "configuration",
   "chapter_title": "Configuration",
-  "chapter_file": "book/src/configuration.md",
+  "chapter_file": "book/src/configuration/index.md",
   "drift_detected": true,
-  "severity": "low",
-  "quality_assessment": "Chapter is comprehensive, well-structured, and highly accurate. The documentation correctly explains configuration precedence including environment variable merging. Only very minor issues with implementation details that are actually correctly documented. Overall excellent documentation quality.",
+  "severity": "critical",
+  "quality_assessment": "Configuration chapter is severely incomplete - index file and subsections are mostly empty stubs. Critical information about configuration structure, precedence rules, file locations, and settings is missing. The existing code shows rich configuration systems (GlobalConfig, ProjectConfig, WorkflowConfig, StorageConfig) that are completely undocumented.",
   "issues": [
     {
-      "type": "correct_but_confusing",
-      "severity": "low",
-      "section": "Storage Configuration - MemoryConfig default note",
-      "description": "Chapter note on line 304 says 'Note: MemoryConfig also has a max_memory field with the same 100MB default' but this could be interpreted as comparing two different defaults when they're actually the same",
-      "current_content": "Line 304: 'Max file size before rotation (100MB). Note: MemoryConfig also has a max_memory field with the same 100MB default.'",
-      "should_be": "The note is factually correct but might confuse readers into thinking there's a discrepancy. Both FileConfig.max_file_size and MemoryConfig.max_memory default to 100MB",
-      "fix_suggestion": "Rephrase to be clearer: 'Max file size before rotation (100MB, same as MemoryConfig.max_memory default)'",
-      "source_reference": "src/storage/config.rs:103-111 (MemoryConfig::default uses 100MB), src/storage/config.rs:196-198 (default_max_file_size)"
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Configuration File Locations",
+      "description": "Index page mentions search hierarchy but provides no details",
+      "feature_reference": "config.loader",
+      "fix_suggestion": "Document the complete file search hierarchy: CLI flags > Environment variables > Project config (.prodigy/config.yml) > Global config (~/.prodigy/config.yml) > Defaults",
+      "source_reference": "src/config/mod.rs:Config, src/config/loader.rs"
     },
     {
-      "type": "implementation_detail_exposed",
-      "severity": "low",
-      "section": "Project Configuration - variables field type",
-      "description": "Chapter exposes internal implementation detail (toml::Table) which users don't need to know",
-      "current_content": "Line 169: 'Custom project variables as YAML map (internally stored as toml::Table for backward compatibility - users can ignore this detail)'",
-      "should_be": "Users should just see this as a YAML map. The toml::Table detail is an implementation artifact",
-      "fix_suggestion": "Simplify to: 'Custom project variables as YAML map' - remove the internal storage detail entirely",
-      "source_reference": "src/config/mod.rs:73 (variables: Option<toml::Table>)"
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Configuration Precedence Rules",
+      "description": "Subsection file is completely empty except header",
+      "feature_reference": "config.precedence",
+      "fix_suggestion": "Document precedence: CLI flags (highest) > Env vars > Project config > Global config > Defaults (lowest). Show examples of how settings override each other.",
+      "source_reference": "src/config/mod.rs:102-154 (merge_env_vars, get_claude_api_key, get_auto_commit)"
     },
     {
-      "type": "no_issue_code_comment_only",
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Global Configuration Structure",
+      "description": "Subsection file is empty stub with no configuration details",
+      "feature_reference": "config.global",
+      "fix_suggestion": "Document GlobalConfig struct fields: prodigy_home, default_editor, log_level, claude_api_key, max_concurrent_specs, auto_commit, plugins. Include YAML examples and field descriptions.",
+      "source_reference": "src/config/mod.rs:45-99 (GlobalConfig struct and Default impl)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Project Configuration Structure",
+      "description": "Subsection file is empty stub",
+      "feature_reference": "config.project",
+      "fix_suggestion": "Document ProjectConfig struct: name, description, version, spec_dir, claude_api_key, auto_commit, variables. Show how project settings override global settings.",
+      "source_reference": "src/config/mod.rs:61-74 (ProjectConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Storage Configuration",
+      "description": "Subsection file is empty stub",
+      "feature_reference": "storage.config",
+      "fix_suggestion": "Document StorageConfig: backend types (File, Memory), FileConfig (base_dir, use_global, enable_file_locks, max_file_size), retry policy, cache config. Explain use_global=true default for ~/.prodigy/ storage.",
+      "source_reference": "src/storage/config.rs:23-241 (StorageConfig, FileConfig, RetryPolicy, CacheConfig)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Environment Variables",
+      "description": "Subsection file is empty stub - no environment variables documented",
+      "feature_reference": "config.environment",
+      "fix_suggestion": "Document all recognized environment variables: PRODIGY_CLAUDE_API_KEY, PRODIGY_LOG_LEVEL, PRODIGY_EDITOR, PRODIGY_AUTO_COMMIT, PRODIGY_STORAGE_TYPE, PRODIGY_STORAGE_BASE_PATH, PRODIGY_AUTOMATION, PRODIGY_CLAUDE_STREAMING",
+      "source_reference": "src/config/mod.rs:111-131 (merge_env_vars), src/storage/config.rs:244-286 (from_env)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Workflow Configuration",
+      "description": "Subsection file is empty stub",
+      "feature_reference": "config.workflow",
+      "fix_suggestion": "Document WorkflowConfig structure and how workflows are configured. Cross-reference to workflow-basics chapter for detailed workflow syntax.",
+      "source_reference": "src/config/workflow.rs"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Default Values Reference",
+      "description": "Table shows some defaults but missing many fields and explanations",
+      "feature_reference": "config.defaults",
+      "fix_suggestion": "Expand defaults table to include all configuration fields. Add descriptions explaining what each setting controls. Include units for timing values.",
+      "source_reference": "src/config/mod.rs:88-99, src/storage/config.rs:183-226"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Index Page",
+      "description": "Quick start examples show config but don't explain structure or fields",
+      "current_content": "Shows minimal config.yml and workflow.yml examples without explanation",
+      "fix_suggestion": "Add explanations of what each field does in the quick start examples. Link to detailed subsections for each configuration area.",
+      "source_reference": "book/src/configuration/index.md:6-21"
+    },
+    {
+      "type": "missing_content",
       "severity": "low",
-      "section": "Configuration File Locations - Legacy TOML references in code",
-      "description": "Code comments still reference .toml files, but chapter correctly documents only YAML is supported",
-      "current_content": "Chapter correctly documents YAML-only requirement on lines 59-66",
-      "should_be": "Chapter is correct. Code comments at src/config/mod.rs:49, :64 should be updated to .yml",
-      "fix_suggestion": "No change needed in chapter. This is a code documentation issue. Chapter correctly documents YAML requirement.",
-      "source_reference": "src/config/mod.rs:49, :64 (comments say 'config.toml' but should say 'config.yml')"
+      "section": "Plugin Configuration",
+      "description": "PluginConfig struct exists in code but not documented anywhere",
+      "feature_reference": "config.plugins",
+      "fix_suggestion": "Add subsection or note about plugin configuration: enabled, directory, auto_load fields",
+      "source_reference": "src/config/mod.rs:76-86 (PluginConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Complete Configuration Examples",
+      "description": "Subsection mentioned in index but file is empty stub",
+      "feature_reference": "config.examples",
+      "fix_suggestion": "Provide complete, real-world configuration examples showing global config, project config, and workflow config working together",
+      "source_reference": "book/src/configuration/complete-configuration-examples.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Best Practices",
+      "description": "Subsection mentioned but file is empty stub",
+      "feature_reference": "config.best_practices",
+      "fix_suggestion": "Document configuration best practices: when to use global vs project config, managing secrets, organizing multi-project setups",
+      "source_reference": "book/src/configuration/best-practices.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Troubleshooting",
+      "description": "Subsection mentioned but file is empty stub",
+      "feature_reference": "config.troubleshooting",
+      "fix_suggestion": "Add common configuration issues: precedence confusion, file not found errors, env var conflicts, invalid YAML syntax",
+      "source_reference": "book/src/configuration/troubleshooting.md"
     }
   ],
   "positive_aspects": [
-    "Excellent comprehensive coverage of all configuration types (Global, Project, Workflow, Storage)",
-    "CORRECT precedence documentation - properly explains environment variable merging happens before project config check (lines 86-108)",
-    "Clear table format for field documentation with types, defaults, and descriptions",
-    "Good progression from Quick Start to advanced configuration",
-    "Helpful complete examples showing minimal and full-featured setups side-by-side",
-    "Thorough environment variables documentation with correct precedence ordering",
-    "Practical troubleshooting section with validation tips and common errors",
-    "Excellent migration guide from TOML to YAML with before/after examples",
-    "Best practices section covers security (API keys) and configuration level usage well",
-    "Complete default values reference table for easy lookup",
-    "Well-organized section structure with clear headings",
-    "Format Support section correctly states YAML is required and TOML is rejected",
-    "Storage environment variables section (lines 414-419) correctly documents multiple variable name fallbacks"
+    "Index page has good structure with subsection links",
+    "Quick start examples are concise and show minimal config needed",
+    "Default values reference table format is clear (though incomplete)",
+    "Subsection organization is logical (precedence, structure, storage, etc.)"
   ],
   "improvement_suggestions": [
-    "Add a visual diagram showing the complete configuration precedence flow with environment variable merging",
-    "Include example of checking which config values are active using debug logging (PRODIGY_LOG_LEVEL=debug)",
-    "Add cross-references to related workflow and MapReduce configuration chapters",
-    "Consider adding a FAQ section for common configuration questions",
-    "Add note about where to find the prodigy_home directory on different platforms (macOS, Linux, Windows)",
-    "Consider adding a callout box highlighting the precedence order for quick reference",
-    "Add example showing what validation error users see when using TOML file"
+    "Fill in all empty subsection stub files with actual content",
+    "Add YAML examples for every configuration structure (GlobalConfig, ProjectConfig, etc.)",
+    "Create a complete configuration reference with all fields documented",
+    "Add diagrams showing configuration precedence flow",
+    "Include migration guide from old TOML format (mentioned in related docs)",
+    "Add troubleshooting section for common configuration issues",
+    "Link configuration docs to relevant implementation specs",
+    "Show how configuration affects different Prodigy features (workflows, MapReduce, storage)"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-12",
+    "analyzed_at": "2025-01-11T00:00:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Config file locations",
       "Precedence rules",
-      "Claude settings",
-      "Global configuration",
-      "Project configuration",
+      "Global config structure",
+      "Project config structure",
       "Workflow configuration",
-      "Storage settings",
-      "Retry defaults",
+      "Storage configuration",
       "Environment variables",
-      "File storage",
-      "Memory storage",
-      "Cache configuration",
-      "Best practices",
-      "Migration guide",
-      "Troubleshooting",
-      "Format validation",
-      "YAML requirement"
+      "Default values"
     ],
-    "validation_focus": "Check configuration structure matches Settings struct and precedence is correctly documented"
+    "validation_focus": "Check configuration structure matches Settings struct and precedence is correctly documented",
+    "subsections_analyzed": [
+      "index.md",
+      "configuration-precedence-rules.md",
+      "global-configuration-structure.md", 
+      "project-configuration-structure.md",
+      "storage-configuration.md",
+      "workflow-configuration.md",
+      "environment-variables.md",
+      "default-values-reference.md",
+      "complete-configuration-examples.md",
+      "best-practices.md",
+      "troubleshooting.md"
+    ],
+    "implementation_sources": [
+      "src/config/mod.rs",
+      "src/config/loader.rs",
+      "src/config/workflow.rs",
+      "src/storage/config.rs",
+      "src/app/config.rs"
+    ]
   }
 }
