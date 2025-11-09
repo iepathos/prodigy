@@ -237,7 +237,22 @@ Update `book/src/SUMMARY.md`:
 - [Troubleshooting](troubleshooting.md)
 ```
 
-### Step 7: Create the Workflow
+### Step 7: Configure .gitignore
+
+Add mdbook build output to your `.gitignore`:
+
+```bash
+# Add to your .gitignore file
+cat >> .gitignore <<EOF
+
+# mdbook build output
+book/book/
+EOF
+```
+
+This prevents the generated HTML, CSS, and JavaScript files from being committed to version control. Only the source files (`book/src/*.md` and `book/book.toml`) should be tracked in git, similar to how `target/` is ignored for Rust builds.
+
+### Step 8: Create the Workflow
 
 Create `workflows/book-docs-drift.yml`:
 
@@ -362,7 +377,7 @@ map:
 
 Note: This workflow uses the modern direct array syntax for `agent_template` and `reduce`. The nested `{commands: [...]}` format is deprecated and will generate warnings. Always prefer the direct array syntax shown above.
 
-### Step 8: Run the Workflow
+### Step 9: Run the Workflow
 
 ```bash
 # Run the documentation workflow
