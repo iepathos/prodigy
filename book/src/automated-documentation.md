@@ -1124,6 +1124,305 @@ This documentation you're reading is maintained by the same workflow described h
 
 Study these files for a complete working example.
 
+## Documentation Versioning
+
+For projects that need to serve multiple documentation versions (e.g., users on different software releases), Prodigy supports versioned documentation deployment. This allows users to select which version of the docs they want to view using a dropdown selector.
+
+### Overview
+
+Versioned documentation consists of three components:
+
+1. **Version Selector UI** (Spec 154) - Frontend dropdown for switching between versions
+2. **Versioned Deployment** (Spec 155) - GitHub Actions workflow to deploy multiple versions
+3. **Version-Aware Workflow** (Spec 156) - Enhanced book workflow that operates on specific versions
+
+### Architecture
+
+```
+Git Repository
+├── Tags: v0.2.6, v0.2.5, v0.2.4
+│
+├── Workflows
+│   └── book-docs-drift.yml (version-aware)
+│
+└── GitHub Pages (gh-pages branch)
+    ├── index.html → redirects to /latest/
+    ├── versions.json
+    ├── latest/ → v0.2.6
+    ├── v0.2.6/
+    ├── v0.2.5/
+    └── v0.2.4/
+```
+
+### Quick Setup for Versioned Docs
+
+**Step 1: Add Version Selector UI**
+
+Copy theme files to enable version switching:
+
+```bash
+# Download version selector components
+curl -o book/theme/version-selector.js https://raw.githubusercontent.com/yourorg/prodigy/main/book/theme/version-selector.js
+curl -o book/theme/version-selector.css https://raw.githubusercontent.com/yourorg/prodigy/main/book/theme/version-selector.css
+```
+
+Update `book/book.toml`:
+
+```toml
+[output.html]
+additional-css = ["theme/version-selector.css"]
+additional-js = ["theme/version-selector.js"]
+```
+
+**Step 2: Create versions.json**
+
+Create a `versions.json` file at your documentation root (this will be generated automatically by the deployment workflow):
+
+```json
+{
+  "latest": "v0.2.6",
+  "versions": [
+    {
+      "version": "v0.2.6",
+      "path": "/v0.2.6/",
+      "label": "v0.2.6 (Latest)",
+      "released": "2025-01-15"
+    },
+    {
+      "version": "v0.2.5",
+      "path": "/v0.2.5/",
+      "label": "v0.2.5",
+      "released": "2025-01-10"
+    }
+  ]
+}
+```
+
+**Step 3: Make Workflow Version-Aware**
+
+Update your `book-docs-drift.yml` to accept a VERSION parameter:
+
+```yaml
+env:
+  # Version configuration (defaults to "latest" if not provided)
+  VERSION: "${VERSION:-latest}"
+
+  # Project configuration
+  PROJECT_NAME: "YourProject"
+  PROJECT_CONFIG: ".myproject/book-config.json"
+
+  # Version-aware paths
+  ANALYSIS_DIR: ".myproject/book-analysis/${VERSION}"
+  FEATURES_PATH: "${ANALYSIS_DIR}/features.json"
+
+  # Book-specific settings
+  BOOK_DIR: "book"
+  CHAPTERS_FILE: "workflows/data/chapters.json"
+  MAX_PARALLEL: "3"
+```
+
+**Step 4: Add Deployment Workflow**
+
+Create `.github/workflows/deploy-docs-versioned.yml`:
+
+```yaml
+name: Deploy Versioned Documentation
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on version tags
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g., v0.2.6)'
+        required: true
+
+jobs:
+  deploy-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.version || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Setup Prodigy
+        run: cargo install --path .
+
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: 'latest'
+
+      - name: Run book workflow
+        run: prodigy run workflows/book-docs-drift.yml
+        env:
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./book/book
+          destination_dir: ${{ github.event.inputs.version || github.ref_name }}
+          keep_files: true
+          commit_message: "docs: deploy ${{ github.event.inputs.version || github.ref_name }}"
+```
+
+**Step 5: Deploy Your First Version**
+
+```bash
+# Tag a release
+git tag v1.0.0
+git push --tags
+
+# GitHub Actions automatically builds and deploys to /v1.0.0/
+# Or trigger manually via workflow_dispatch
+```
+
+### How It Works
+
+1. **On Tag Push**: GitHub Actions triggers when you push a version tag
+2. **Checkout Tag**: Workflow checks out the tagged commit
+3. **Run Book Workflow**: Prodigy generates docs for that specific version
+4. **Deploy to Subdirectory**: Docs deployed to `gh-pages:/vX.Y.Z/`
+5. **Update versions.json**: Metadata file updated with new version
+6. **Update /latest/**: If this is the newest version, /latest/ is updated
+
+### Version Selector Usage
+
+Once deployed, users see a dropdown in the navigation bar:
+
+```
+┌─────────────────────────────────────┐
+│  Your Project Documentation         │
+│  ┌─────────────────┐                │
+│  │ v0.2.6 ▼        │  ← Version dropdown
+│  │  v0.2.6 (Latest)│                │
+│  │  v0.2.5         │                │
+│  │  v0.2.4         │                │
+│  └─────────────────┘                │
+└─────────────────────────────────────┘
+```
+
+Clicking a version navigates to that version, preserving the current page path.
+
+### Managing Multiple Versions
+
+**Keep All Versions**:
+```yaml
+# Deploy keeps all previous versions
+keep_files: true
+```
+
+**Cleanup Old Versions** (manual):
+```bash
+# Checkout gh-pages branch
+git checkout gh-pages
+
+# Remove old version
+git rm -r v0.1.0/
+
+# Update versions.json
+./scripts/generate-versions-json.sh > versions.json
+
+git commit -m "docs: remove v0.1.0"
+git push
+```
+
+**Rebuild All Versions** (e.g., after theme update):
+```bash
+# Manually trigger workflow for each version
+gh workflow run deploy-docs-versioned.yml -f version=v0.2.6
+gh workflow run deploy-docs-versioned.yml -f version=v0.2.5
+gh workflow run deploy-docs-versioned.yml -f version=v0.2.4
+```
+
+### Customization for Different Projects
+
+The versioning system is designed to be reusable. Key configuration points:
+
+**Workflow Variables**:
+```yaml
+env:
+  VERSION: "${VERSION:-latest}"           # Version to build
+  BOOK_DIR: "book"                         # Path to mdBook directory
+  ANALYSIS_DIR: ".myproject/book-analysis/${VERSION}"  # Version-scoped analysis
+```
+
+**Deployment Paths**:
+```yaml
+destination_dir: ${{ github.event.inputs.version }}  # Deploy to /vX.Y.Z/
+keep_files: true                                      # Preserve other versions
+```
+
+**Version Retention**:
+- Keep last 5 versions (disk space optimization)
+- Keep all major versions (v1.0.0, v2.0.0)
+- Archive very old versions (move to separate branch)
+
+### Troubleshooting Versioned Docs
+
+**Issue: Version selector not appearing**
+
+**Cause**: Theme files not loaded or versions.json missing
+
+**Solution**:
+```bash
+# Verify theme files exist
+ls book/theme/version-selector.*
+
+# Verify versions.json is served
+curl https://yourorg.github.io/yourproject/versions.json
+
+# Check browser console for JavaScript errors
+```
+
+**Issue: Wrong version shown in docs**
+
+**Cause**: VERSION env var not passed to workflow
+
+**Solution**:
+```yaml
+# Ensure VERSION is passed in deployment workflow
+env:
+  VERSION: ${{ github.event.inputs.version || github.ref_name }}
+```
+
+**Issue: Links broken when switching versions**
+
+**Cause**: Page doesn't exist in target version
+
+**Solution**: Version selector includes fallback logic to redirect to index if page missing. This is expected behavior for new chapters.
+
+### Best Practices for Versioned Documentation
+
+1. **Tag Releases Consistently**: Use semver tags (vX.Y.Z) for automatic deployment
+2. **Document Breaking Changes**: Clearly mark API changes between versions
+3. **Version Badges**: Include version in page headers/footers
+4. **Retention Policy**: Define how many versions to keep (disk space)
+5. **Latest Pointer**: Always keep /latest/ updated to newest version
+6. **Test Deployment**: Use workflow_dispatch to test deployments before tagging
+
+### Integration with Automated Documentation
+
+Versioned docs work seamlessly with the automated book workflow:
+
+- **Drift Detection**: Runs on version-specific code, not latest
+- **Feature Inventory**: Scoped to tagged version
+- **Examples**: Use APIs available in that version
+- **Parallel Workflows**: Can run drift detection for multiple versions concurrently
+
+### References
+
+- **Spec 154**: mdBook Version Selector UI
+- **Spec 155**: Versioned Documentation Deployment
+- **Spec 156**: Version-Aware Book Workflow
+
 ## Next Steps
 
 1. **Set up the basics**: Follow the Quick Start to get a minimal book running
@@ -1131,7 +1430,8 @@ Study these files for a complete working example.
 3. **Run the workflow**: Generate your first automated update
 4. **Refine iteratively**: Review output and improve configuration
 5. **Automate**: Set up GitHub Actions for continuous documentation
-6. **Extend**: Add more chapters as your project grows
+6. **Add versioning** (optional): Enable multi-version documentation for releases
+7. **Extend**: Add more chapters as your project grows
 
 ## Benefits
 
@@ -1143,5 +1443,6 @@ This approach provides:
 - ✅ **Accurate examples** - Extracted from actual code
 - ✅ **Version control** - All changes tracked in git
 - ✅ **Easy to customize** - Configuration-based, works for any project
+- ✅ **Multi-version support** - Serve docs for multiple releases simultaneously
 
 The same commands that maintain Prodigy's documentation can maintain yours.
