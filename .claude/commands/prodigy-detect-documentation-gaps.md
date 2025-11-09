@@ -707,17 +707,32 @@ Gaps Found: {count}
 ```
 
 **Stage and Commit Changes:**
+
+**CRITICAL**: The flattened-items.json file MUST be committed, as the map phase depends on it.
+
 If running in automation mode (PRODIGY_AUTOMATION=true):
+
+**If gaps were found:**
 1. Stage all modified files:
    - Updated prodigy-chapters.json
    - New stub markdown files
    - Updated SUMMARY.md
    - Gap report
+   - **flattened-items.json (REQUIRED)**
 
 2. Create commit with message:
    - Format: "docs: auto-discover missing chapters for [feature names]"
    - Example: "docs: auto-discover missing chapters for agent-merge-workflows, circuit-breaker"
    - Include brief summary of actions taken
+
+**If NO gaps were found (still need to commit flattened-items.json):**
+1. Stage generated files:
+   - flattened-items.json (REQUIRED for map phase)
+   - Gap report (shows 0 gaps found)
+
+2. Create commit with message:
+   - Format: "docs: regenerate flattened-items.json for drift detection (no gaps found)"
+   - Include count of chapters/subsections to be processed
 
 ### Phase 9: Validation and Quality Checks
 
