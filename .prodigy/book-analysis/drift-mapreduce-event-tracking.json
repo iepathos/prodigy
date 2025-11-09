@@ -1,0 +1,170 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "mapreduce",
+  "subsection_id": "event-tracking",
+  "subsection_title": "Event Tracking",
+  "subsection_file": "book/src/mapreduce/event-tracking.md",
+  "feature_mappings": ["mapreduce.events", "observability.events"],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Subsection is severely incomplete and missing most event tracking features. Documentation shows minimal event types and outdated command syntax, while implementation has comprehensive event tracking with 25+ event types, correlation IDs, metadata, buffering, and advanced CLI commands.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Events Tracked",
+      "description": "Documentation shows only 5 basic event categories, but implementation has 25+ detailed event types including job lifecycle, agent lifecycle, checkpoint, worktree, performance, DLQ, and Claude-specific events",
+      "feature_reference": "mapreduce.events",
+      "fix_suggestion": "Add comprehensive list of all event types with descriptions: JobStarted, JobCompleted, JobFailed, JobPaused, JobResumed, AgentStarted, AgentProgress, AgentCompleted, AgentFailed, AgentRetrying, CheckpointCreated, CheckpointLoaded, CheckpointFailed, WorktreeCreated, WorktreeMerged, WorktreeCleaned, QueueDepthChanged, MemoryPressure, DLQItemAdded, DLQItemRemoved, DLQItemsReprocessed, DLQItemsEvicted, DLQAnalysisGenerated, ClaudeToolInvoked, ClaudeTokenUsage, ClaudeSessionStarted, ClaudeMessage",
+      "source_reference": "src/cook/execution/events/event_types.rs:9-170"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Event Log Format",
+      "description": "Documentation doesn't mention EventRecord wrapper structure with id, timestamp, correlation_id, event, and metadata fields",
+      "feature_reference": "mapreduce.events",
+      "fix_suggestion": "Document EventRecord structure: Each event is wrapped with UUID, timestamp, correlation_id for tracking related events, and metadata (host, pid, thread)",
+      "source_reference": "src/cook/execution/events/event_logger.rs:16-25"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Event Storage",
+      "description": "Missing documentation about event buffering, flush intervals, buffer size limits, and background flush task",
+      "feature_reference": "mapreduce.events",
+      "fix_suggestion": "Add section on event buffering: Events are buffered (default 1000 events or 5 seconds) before being flushed to disk. Background flush task runs automatically.",
+      "source_reference": "src/cook/execution/events/event_logger.rs:38-67"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Event Storage",
+      "description": "Documentation doesn't mention file rotation feature (100MB default) or compression",
+      "feature_reference": "mapreduce.events",
+      "fix_suggestion": "Document event file rotation: Log files automatically rotate at 100MB (configurable) with optional compression",
+      "source_reference": "src/cook/execution/events/event_writer.rs:61-112"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Viewing Events",
+      "description": "Command syntax is incorrect - implementation uses 'prodigy events ls' (with subcommands), not 'prodigy events <job_id>'",
+      "current_content": "prodigy events <job_id>",
+      "should_be": "prodigy events ls --job-id <job_id>",
+      "fix_suggestion": "Update to correct CLI syntax with subcommands: ls, stats, search, follow, clean, export",
+      "source_reference": "src/cli/args.rs:458-555"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Viewing Events",
+      "description": "Missing documentation for 'prodigy events stats' command for event statistics and grouping",
+      "feature_reference": "observability.events",
+      "fix_suggestion": "Add section documenting 'prodigy events stats' command with --group-by option (job_id, event_type, agent_id)",
+      "source_reference": "src/cli/args.rs:486-495"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Viewing Events",
+      "description": "Missing documentation for 'prodigy events search' command for pattern-based event searching",
+      "feature_reference": "observability.events",
+      "fix_suggestion": "Add section documenting 'prodigy events search <pattern>' command with regex support and field filtering",
+      "source_reference": "src/cli/args.rs:496-508"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Viewing Events",
+      "description": "Missing documentation for 'prodigy events clean' command with retention policies",
+      "feature_reference": "observability.events",
+      "fix_suggestion": "Add section documenting event cleanup with --older-than, --max-events, --max-size, --archive options",
+      "source_reference": "src/cli/args.rs:523-555"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Viewing Events",
+      "description": "Follow command syntax is incorrect - implementation uses 'prodigy events follow' not 'prodigy events <job_id> --follow'",
+      "current_content": "prodigy events <job_id> --follow",
+      "should_be": "prodigy events follow --job-id <job_id>",
+      "fix_suggestion": "Update to correct CLI syntax for follow command",
+      "source_reference": "src/cli/args.rs:509-522"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Correlation IDs",
+      "description": "Missing documentation about correlation IDs for tracking related events across agents and phases",
+      "feature_reference": "mapreduce.events",
+      "fix_suggestion": "Add section explaining correlation IDs: Each workflow run has a correlation_id that links all related events, making it easy to trace execution flow",
+      "source_reference": "src/cook/execution/events/event_logger.rs:126-136"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Event Types",
+      "description": "Missing documentation about Claude-specific observability events (tool invocations, token usage, sessions, messages)",
+      "feature_reference": "observability.events",
+      "fix_suggestion": "Add section on Claude observability: ClaudeToolInvoked, ClaudeTokenUsage, ClaudeSessionStarted, ClaudeMessage events provide deep visibility into AI agent behavior",
+      "source_reference": "src/cook/execution/events/event_types.rs:144-169"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Event Types",
+      "description": "Missing documentation about performance monitoring events (QueueDepthChanged, MemoryPressure)",
+      "feature_reference": "mapreduce.events",
+      "fix_suggestion": "Add section on performance events: QueueDepthChanged tracks pending/active/completed work items, MemoryPressure monitors resource usage",
+      "source_reference": "src/cook/execution/events/event_types.rs:107-118"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Event Structure",
+      "description": "Missing documentation about event metadata fields (id, timestamp, correlation_id, metadata with host/pid/thread)",
+      "feature_reference": "mapreduce.events",
+      "fix_suggestion": "Add section documenting EventRecord structure with all metadata fields for debugging and analysis",
+      "source_reference": "src/cook/execution/events/event_logger.rs:246-260"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "CLI Commands",
+      "description": "Missing documentation about --limit, --event-type, --agent-id filtering options for events ls command",
+      "feature_reference": "observability.events",
+      "fix_suggestion": "Document filtering options: --job-id, --event-type, --agent-id, --since, --limit for precise event queries",
+      "source_reference": "src/cli/args.rs:461-485"
+    }
+  ],
+  "positive_aspects": [
+    "Correct global storage location (~/.prodigy/events/{repo_name}/{job_id}/)",
+    "Mentions JSONL format which is accurate",
+    "Mentions cross-worktree event aggregation which is a key feature",
+    "Basic structure is present, just needs expansion"
+  ],
+  "improvement_suggestions": [
+    "Add comprehensive reference table of all 25+ event types with field descriptions",
+    "Include example event JSON for each major event category (job, agent, checkpoint, DLQ, Claude)",
+    "Document EventRecord wrapper structure with metadata fields",
+    "Add section on event filtering and querying with CLI examples",
+    "Document event buffering and flush behavior",
+    "Add section on event file rotation and retention",
+    "Document correlation IDs and how they link related events",
+    "Add examples of using events for debugging common issues",
+    "Document performance monitoring events for production observability",
+    "Include troubleshooting guide for event-related issues"
+  ],
+  "cross_references": [
+    "observability",
+    "checkpoint-and-resume",
+    "dead-letter-queue-dlq"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": ["events", "monitoring", "observability", "debugging"],
+    "validation_focus": "Check event tracking and monitoring features"
+  }
+}
