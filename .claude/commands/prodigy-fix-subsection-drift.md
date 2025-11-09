@@ -97,6 +97,212 @@ For each issue in the drift report:
 3. **Medium severity** - Incomplete explanations, minor inaccuracies
 4. **Low severity** - Style issues, missing cross-references
 
+### Phase 3.5: Extract Real Examples from Codebase (MANDATORY)
+
+**CRITICAL: ALL documentation content must be grounded in actual codebase implementation.**
+
+**Step 1: Identify What Needs Code Examples**
+
+From the drift report issues, identify what requires code validation:
+- Struct definitions and field names
+- YAML syntax and configuration options
+- CLI command syntax
+- Enum variants
+- Function signatures
+- Workflow examples
+
+**Step 2: Search for Source Definitions**
+
+For each feature being documented, **MANDATORY searches:**
+
+**A. Find Struct Definitions:**
+```bash
+# Search for the actual struct in source code
+rg "struct\s+${StructName}" src/ --type rust
+
+# Extract field names and types
+rg "pub\s+\w+:" src/path/to/file.rs -A 5
+
+# Example: For retry configuration
+rg "struct\s+RetryConfig" src/ --type rust
+rg "pub\s+(max_attempts|backoff|initial_delay):" src/config/ -A 2
+```
+
+**B. Find Enum Variants:**
+```bash
+# Search for enum definitions
+rg "enum\s+${EnumName}" src/ --type rust
+
+# Get all variants
+rg "^\s+\w+," src/path/to/enum.rs
+
+# Example: For backoff strategies
+rg "enum\s+BackoffStrategy" src/ --type rust
+```
+
+**C. Find Real Usage in Tests:**
+```bash
+# Search test files for actual usage
+rg "${FeatureName}" tests/ --type rust -A 10
+
+# Example: How RetryConfig is actually constructed
+rg "RetryConfig\s*\{" tests/ -A 10
+```
+
+**D. Find Real Workflow Examples:**
+```bash
+# Search existing workflows for real examples
+rg "${yaml_field_name}" workflows/ --type yaml -A 5
+
+# Example: Find retry configuration in real workflows
+rg "retry:" workflows/ -A 5
+rg "max_attempts:" workflows/ -A 2
+```
+
+**E. Find Existing Documentation Examples:**
+```bash
+# Check if other chapters have validated examples
+rg "${feature_name}" book/src/ --type md -A 10
+
+# Only reuse these if they reference source code
+```
+
+**Step 3: Validate All Examples**
+
+**For YAML Examples:**
+```bash
+# Check field names exist in struct
+# Pattern: For each field in YAML example, verify it exists in source
+
+# Example validation:
+# YAML shows:   retry_config:
+# Source check: rg "pub retry_config:" src/
+# Result:       MUST FIND MATCH or DON'T USE
+```
+
+**For Code Examples:**
+```bash
+# Verify enum variants exist
+# Pattern: Check each variant mentioned
+
+# Example:
+# Docs show:   backoff: exponential
+# Source check: rg "Exponential" src/config/retry.rs
+# Result:       MUST MATCH EXACTLY (case-sensitive)
+```
+
+**For CLI Commands:**
+```bash
+# Verify command syntax from help text
+# Pattern: Run actual command if possible, or check CLI parser
+
+# Example:
+# Docs show:   prodigy run workflow.yml --profile prod
+# Source check: rg "profile" src/cli.rs
+# Result:       Verify flag exists and format is correct
+```
+
+**Step 4: Extract Real Examples**
+
+**Template for Code-Grounded Examples:**
+```markdown
+## Configuration
+
+The `RetryConfig` struct defines retry behavior (src/config/retry.rs:45):
+
+\`\`\`yaml
+retry_config:
+  max_attempts: 3           # Maximum retry attempts (default: 3)
+  initial_delay_ms: 100     # Initial delay in milliseconds (default: 100)
+  backoff: exponential      # Backoff strategy: exponential, linear, fibonacci
+  max_delay_ms: 60000       # Maximum delay cap (default: 60000)
+\`\`\`
+
+**Source**: Extracted from `RetryConfig` struct in src/config/retry.rs:45-52
+
+**Backoff Strategies** (from src/config/retry.rs:BackoffStrategy enum):
+- `exponential` - Delay doubles each retry (2^n * initial_delay)
+- `linear` - Delay increases linearly (n * initial_delay)
+- `fibonacci` - Delay follows fibonacci sequence
+
+## Real-World Example
+
+From tests/integration/retry_test.rs:78-92:
+
+\`\`\`yaml
+name: reliable-workflow
+retry_config:
+  max_attempts: 5
+  initial_delay_ms: 500
+  backoff: exponential
+  max_delay_ms: 30000
+\`\`\`
+```
+
+**Step 5: Rules for Content Creation**
+
+**ALWAYS:**
+- Include source file references for all examples (e.g., "src/config/retry.rs:45")
+- Link to actual test files for real-world examples
+- Verify field names match struct definitions exactly
+- Verify enum variants match source code exactly (case-sensitive)
+- Extract examples from actual workflow files in workflows/
+- Note which features are optional vs required based on struct definition
+
+**NEVER:**
+- Invent plausible-looking YAML syntax
+- Guess field names or types
+- Create examples from "common patterns" unless proven in codebase
+- Use syntax from other tools or projects
+- Assume features exist without verification
+- Document features that don't exist in the codebase
+
+**If No Example Exists:**
+```markdown
+## Usage
+
+This feature is defined in src/path/to/file.rs but no example workflows currently use it.
+
+See the struct definition for available fields:
+- [Source Code](../src/path/to/file.rs:line)
+
+**Note**: If you implement a workflow using this feature, please contribute an example!
+```
+
+**Step 6: Create Evidence File**
+
+For each subsection/chapter, create a temporary evidence file documenting sources:
+
+```bash
+# Create evidence file
+cat > .prodigy/book-analysis/evidence-${ITEM_ID}.md <<EOF
+# Evidence for ${ITEM_TITLE}
+
+## Source Definitions Found
+- RetryConfig struct: src/config/retry.rs:45
+- BackoffStrategy enum: src/config/retry.rs:88
+- retry_config field: src/config/workflow.rs:123
+
+## Test Examples Found
+- tests/integration/retry_test.rs:78 (complete workflow)
+- tests/unit/config_test.rs:45 (struct construction)
+
+## Workflow Examples Found
+- workflows/prodigy-ci.yml:23 (retry_config usage)
+
+## Documentation References
+- book/src/error-handling.md:156 (related concept)
+
+## Validation Results
+✓ All YAML fields verified against struct
+✓ All enum variants match source
+✓ CLI syntax verified against clap definitions
+✗ No real-world workflow examples found (using test example instead)
+EOF
+```
+
+This evidence file helps verify all content is grounded and provides audit trail.
+
 ### Phase 4: Fix the Documentation
 
 **Read Current File:**
@@ -199,6 +405,199 @@ Read the markdown file from the drift report.
 - Field names and types are correct
 - Examples parse correctly
 - CLI commands match current syntax
+
+### Phase 5.5: Validate Minimum Content Requirements (MANDATORY)
+
+**CRITICAL: Subsections and chapters MUST meet minimum quality standards before committing.**
+
+**Step 1: Count Lines and Content**
+
+```bash
+# Get actual content line count (excluding blank lines and single-word headers)
+LINE_COUNT=$(grep -v '^$' ${ITEM_FILE} | grep -v '^#\s*$' | wc -l)
+HEADING_COUNT=$(grep '^##' ${ITEM_FILE} | wc -l)
+CODE_BLOCK_COUNT=$(grep '```' ${ITEM_FILE} | wc -l)
+```
+
+**Step 2: Minimum Content Thresholds**
+
+**For Subsections:**
+- **Minimum 50 lines** of actual content (excluding blank lines)
+- **Minimum 3 level-2 headings** (## sections)
+- **Minimum 2 code examples** (``` blocks)
+- **Minimum 1 source reference** to codebase files
+
+**For Single-File Chapters:**
+- **Minimum 100 lines** of actual content
+- **Minimum 5 level-2 headings**
+- **Minimum 3 code examples**
+- **Minimum 2 source references**
+
+**Step 3: Content Completeness Check**
+
+**Verify all drift issues addressed:**
+```bash
+# Count issues by severity from drift report
+CRITICAL_ISSUES=$(jq '.issues[] | select(.severity == "critical")' ${DRIFT_REPORT} | jq -s length)
+HIGH_ISSUES=$(jq '.issues[] | select(.severity == "high")' ${DRIFT_REPORT} | jq -s length)
+
+# ALL critical and high severity issues MUST be resolved
+# Check that updated file addresses each issue's section
+```
+
+**Required sections for subsections:**
+- Overview/Introduction (what this subsection covers)
+- Configuration or Syntax (if applicable)
+- At least one practical example
+- Best practices or common patterns (if material exists in codebase)
+- Cross-references to related subsections (if applicable)
+
+**Step 4: Validation Decision Tree**
+
+**If content meets ALL thresholds:**
+- Proceed to Phase 6 (commit)
+
+**If content is too short (< 50 lines for subsection, < 100 for chapter):**
+
+1. **Check if content genuinely doesn't exist in codebase:**
+   ```bash
+   # Count how many source files relate to this feature
+   SOURCE_FILE_COUNT=$(rg "${feature_name}" src/ tests/ -l | wc -l)
+
+   # If < 3 source files, feature may be too small for subsection
+   ```
+
+2. **If feature is genuinely small (<3 source files, <50 lines possible):**
+   - Add a prominent note at the top:
+   ```markdown
+   # ${SUBSECTION_TITLE}
+
+   > **Note**: This feature has minimal implementation. Consider reviewing:
+   > - ${PARENT_CHAPTER_ID}/index.md for overview
+   > - Source: src/path/to/implementation.rs
+
+   ## Overview
+
+   ${Brief description}
+
+   ## Configuration
+
+   ${Minimal config example from source}
+
+   ## See Also
+
+   - [Related feature](../related.md)
+   ```
+   - Add warning to commit message: "MINIMAL CONTENT - feature has limited implementation"
+
+3. **If content SHOULD exist but you couldn't find it:**
+   - DO NOT COMMIT stub/minimal content
+   - Instead, create a TODO file:
+   ```bash
+   cat > ${ITEM_FILE}.TODO <<EOF
+   # TODO: ${SUBSECTION_TITLE}
+
+   This subsection needs substantial content but insufficient material was found in the codebase.
+
+   ## Issues Identified (from drift report)
+   $(jq '.issues[] | "- [\(.severity)] \(.description)"' ${DRIFT_REPORT})
+
+   ## Searches Performed
+   - Searched src/ for structs: ${SEARCHES_DONE}
+   - Searched tests/ for examples: ${TEST_SEARCHES}
+   - Searched workflows/ for usage: ${WORKFLOW_SEARCHES}
+
+   ## Next Steps
+   1. Verify feature is implemented (check if feature_mapping is correct)
+   2. If implemented, search with different keywords
+   3. If not implemented, remove subsection or mark as "Planned Feature"
+   4. If implemented but undocumented in code, add rustdoc first
+
+   ## Drift Report
+   See: ${DRIFT_REPORT}
+   EOF
+   ```
+   - Log error message:
+   ```
+   ❌ Cannot fix ${ITEM_TYPE} '${ITEM_TITLE}': insufficient content found in codebase
+
+   Created TODO file: ${ITEM_FILE}.TODO
+
+   Possible reasons:
+   1. Feature not yet implemented
+   2. Feature_mapping in chapter definition is incorrect
+   3. Search keywords need adjustment
+   4. Feature exists but needs better code documentation
+
+   Recommended action: Review drift report and verify feature exists
+   ```
+   - EXIT WITHOUT COMMITTING
+
+**Step 5: Example Quality Validation**
+
+For each code example in the updated documentation:
+
+```bash
+# Verify example has source attribution
+grep -q "Source:" ${ITEM_FILE} || echo "WARNING: Example missing source attribution"
+
+# Verify example references actual files
+grep "src/" ${ITEM_FILE} | while read -r source_ref; do
+  # Extract file path from reference
+  FILE_PATH=$(echo "$source_ref" | grep -oP 'src/[^:)]+')
+  if [ -n "$FILE_PATH" ] && [ ! -f "$FILE_PATH" ]; then
+    echo "ERROR: Referenced file does not exist: $FILE_PATH"
+  fi
+done
+```
+
+**All examples MUST:**
+- Have a source attribution comment (e.g., "Source: src/config/retry.rs:45")
+- Reference files that actually exist
+- Use field names that exist in source code
+- Use enum variants that match source code exactly
+
+**Step 6: Validation Summary**
+
+Create validation summary for commit message:
+
+```bash
+cat > .prodigy/book-analysis/validation-${ITEM_ID}.txt <<EOF
+# Validation Summary for ${ITEM_TITLE}
+
+## Content Metrics
+- Lines of content: ${LINE_COUNT} (minimum: ${MIN_LINES})
+- Headings: ${HEADING_COUNT} (minimum: ${MIN_HEADINGS})
+- Code examples: ${CODE_BLOCK_COUNT} (minimum: ${MIN_EXAMPLES})
+- Source references: ${SOURCE_REF_COUNT} (minimum: ${MIN_SOURCES})
+
+## Drift Issues Resolved
+- Critical: ${CRITICAL_FIXED}/${CRITICAL_ISSUES}
+- High: ${HIGH_FIXED}/${HIGH_ISSUES}
+- Medium: ${MEDIUM_FIXED}/${MEDIUM_ISSUES}
+- Low: ${LOW_FIXED}/${LOW_ISSUES}
+
+## Code Validation
+- All struct fields verified: ${STRUCT_VALIDATION}
+- All enum variants verified: ${ENUM_VALIDATION}
+- All examples have source attribution: ${SOURCE_ATTRIBUTION}
+- All referenced files exist: ${FILE_EXISTENCE}
+
+## Quality Gates
+✓ Meets minimum content requirements
+✓ All critical issues resolved
+✓ All high severity issues resolved
+✓ All examples grounded in codebase
+✓ All source references validated
+
+Status: READY TO COMMIT
+EOF
+```
+
+**If ANY quality gate fails:**
+- DO NOT proceed to commit
+- Create detailed TODO file explaining what's missing
+- Exit with error message showing validation failures
 
 ### Phase 6: Commit the Fix
 

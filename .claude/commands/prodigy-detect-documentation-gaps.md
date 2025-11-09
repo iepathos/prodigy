@@ -163,6 +163,104 @@ Create a structured JSON report documenting all gaps found:
 
 When a gap can be filled by adding a subsection to an existing multi-subsection chapter:
 
+**STEP 0: Validate Subsection Necessity (MANDATORY)**
+
+**CRITICAL: Do not create subsections for features with insufficient content.**
+
+Before creating any subsection definition, perform content availability validation:
+
+```bash
+# 1. Count potential content sources in codebase
+FEATURE_CATEGORY="<feature-category-name>"
+STRUCT_COUNT=$(rg "struct.*${FEATURE_CATEGORY}" src/ --type rust -c | awk '{s+=$1} END {print s}')
+ENUM_COUNT=$(rg "enum.*${FEATURE_CATEGORY}" src/ --type rust -c | awk '{s+=$1} END {print s}')
+FUNCTION_COUNT=$(rg "fn.*${FEATURE_CATEGORY}" src/ --type rust -c | awk '{s+=$1} END {print s}')
+TEST_COUNT=$(rg "${FEATURE_CATEGORY}" tests/ --type rust -c | awk '{s+=$1} END {print s}')
+WORKFLOW_COUNT=$(rg "${FEATURE_CATEGORY}" workflows/ --type yaml -c | awk '{s+=$1} END {print s}')
+
+TOTAL_MENTIONS=$((STRUCT_COUNT + ENUM_COUNT + FUNCTION_COUNT + TEST_COUNT + WORKFLOW_COUNT))
+
+# 2. Estimate potential content lines
+# Rule of thumb: Each struct = ~30 lines docs, each enum = ~20 lines, each workflow example = ~40 lines
+ESTIMATED_LINES=$((STRUCT_COUNT * 30 + ENUM_COUNT * 20 + FUNCTION_COUNT * 10 + WORKFLOW_COUNT * 40 + TEST_COUNT * 15))
+```
+
+**Content Sufficiency Thresholds:**
+
+**MUST HAVE (to create subsection):**
+- `TOTAL_MENTIONS >= 5` - Feature mentioned in at least 5 places in codebase
+- `ESTIMATED_LINES >= 50` - Can generate at least 50 lines of grounded documentation
+- At least ONE of:
+  - `STRUCT_COUNT >= 1` (has configuration struct)
+  - `ENUM_COUNT >= 1` (has enum variants)
+  - `WORKFLOW_COUNT >= 1` (has real workflow example)
+
+**SHOULD HAVE (for good subsection):**
+- `TOTAL_MENTIONS >= 10`
+- `ESTIMATED_LINES >= 100`
+- `STRUCT_COUNT >= 1 AND WORKFLOW_COUNT >= 1` (both config and example)
+
+**Decision Tree:**
+
+**If TOTAL_MENTIONS < 5 OR ESTIMATED_LINES < 50:**
+- **DO NOT create subsection**
+- **Instead:** Add note to gap report:
+  ```json
+  {
+    "action": "skipped_subsection_creation",
+    "feature_category": "${FEATURE_CATEGORY}",
+    "reason": "insufficient_content",
+    "details": {
+      "total_mentions": TOTAL_MENTIONS,
+      "estimated_lines": ESTIMATED_LINES,
+      "recommendation": "Merge into parent chapter section or mark as planned feature"
+    }
+  }
+  ```
+- **Alternative:** Add as a section within parent chapter's index.md, not separate subsection
+- **Log warning:** "⚠ Skipping subsection '${SUBSECTION_TITLE}': only ${TOTAL_MENTIONS} mentions, ${ESTIMATED_LINES} estimated lines"
+
+**If TOTAL_MENTIONS >= 5 AND ESTIMATED_LINES >= 50 BUT < 100:**
+- Create subsection with "MINIMAL" flag
+- Add to subsection metadata:
+  ```json
+  {
+    "content_warning": "minimal",
+    "estimated_lines": ESTIMATED_LINES,
+    "total_mentions": TOTAL_MENTIONS
+  }
+  ```
+- This signals to fix phase that limited content is expected
+
+**If TOTAL_MENTIONS >= 10 AND ESTIMATED_LINES >= 100:**
+- Proceed with full subsection creation (continue to Step 1 below)
+
+**Special Case: "Best Practices", "Troubleshooting", "Examples" Subsections**
+
+These meta-subsections have different validation:
+
+```bash
+# For "best-practices" subsection
+BEST_PRACTICE_COUNT=$(rg "best.practice|pattern|guideline" src/ tests/ workflows/ -i -c | awk '{s+=$1} END {print s}')
+
+# For "troubleshooting" subsection
+ERROR_COUNT=$(rg "error|warn|fail" src/ --type rust -c | awk '{s+=$1} END {print s}')
+ISSUE_COUNT=$(rg "TODO|FIXME|XXX" src/ -c | awk '{s+=$1} END {print s}')
+
+# For "examples" subsection
+EXAMPLE_WORKFLOW_COUNT=$(find workflows/ -name "*.yml" -o -name "*.yaml" | wc -l)
+```
+
+**Requirements for meta-subsections:**
+- **Best Practices:** `BEST_PRACTICE_COUNT >= 3` OR documented patterns in code
+- **Troubleshooting:** `ERROR_COUNT >= 10` OR `ISSUE_COUNT >= 5`
+- **Examples:** `EXAMPLE_WORKFLOW_COUNT >= 2` real workflow files
+
+**If meta-subsection doesn't meet threshold:**
+- **DO NOT create separate subsection**
+- **Instead:** Add brief section to parent chapter's index.md
+- **Example:** "## Best Practices" section with 3-5 bullets, not separate file
+
 1. **Identify Target Chapter:**
    - Determine which existing chapter should contain this subsection
    - Check if chapter is already `type: "multi-subsection"`
@@ -210,7 +308,14 @@ When a gap can be filled by adding a subsection to an existing multi-subsection 
   "validation": "<validation-criteria>",
   "feature_mapping": ["<feature-path-1>", "<feature-path-2>", ...],
   "auto_generated": true,
-  "source_feature": "<feature-category>"
+  "source_feature": "<feature-category>",
+  "content_estimate": {
+    "estimated_lines": ESTIMATED_LINES,
+    "total_mentions": TOTAL_MENTIONS,
+    "struct_count": STRUCT_COUNT,
+    "workflow_count": WORKFLOW_COUNT,
+    "test_count": TEST_COUNT
+  }
 }
 ```
 
