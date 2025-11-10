@@ -3,143 +3,67 @@
   "chapter_id": "configuration",
   "chapter_title": "Configuration",
   "chapter_file": "book/src/configuration/index.md",
-  "drift_detected": true,
-  "severity": "critical",
-  "quality_assessment": "Configuration chapter is severely incomplete - index file and subsections are mostly empty stubs. Critical information about configuration structure, precedence rules, file locations, and settings is missing. The existing code shows rich configuration systems (GlobalConfig, ProjectConfig, WorkflowConfig, StorageConfig) that are completely undocumented.",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "The Configuration chapter is well-structured and accurately reflects the implementation. The multi-subsection approach provides excellent organization. Minor improvements could enhance clarity.",
   "issues": [
     {
       "type": "missing_content",
-      "severity": "high",
-      "section": "Configuration File Locations",
-      "description": "Index page mentions search hierarchy but provides no details",
-      "feature_reference": "config.loader",
-      "fix_suggestion": "Document the complete file search hierarchy: CLI flags > Environment variables > Project config (.prodigy/config.yml) > Global config (~/.prodigy/config.yml) > Defaults",
-      "source_reference": "src/config/mod.rs:Config, src/config/loader.rs"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Configuration Precedence Rules",
-      "description": "Subsection file is completely empty except header",
-      "feature_reference": "config.precedence",
-      "fix_suggestion": "Document precedence: CLI flags (highest) > Env vars > Project config > Global config > Defaults (lowest). Show examples of how settings override each other.",
-      "source_reference": "src/config/mod.rs:102-154 (merge_env_vars, get_claude_api_key, get_auto_commit)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Global Configuration Structure",
-      "description": "Subsection file is empty stub with no configuration details",
-      "feature_reference": "config.global",
-      "fix_suggestion": "Document GlobalConfig struct fields: prodigy_home, default_editor, log_level, claude_api_key, max_concurrent_specs, auto_commit, plugins. Include YAML examples and field descriptions.",
-      "source_reference": "src/config/mod.rs:45-99 (GlobalConfig struct and Default impl)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Project Configuration Structure",
-      "description": "Subsection file is empty stub",
-      "feature_reference": "config.project",
-      "fix_suggestion": "Document ProjectConfig struct: name, description, version, spec_dir, claude_api_key, auto_commit, variables. Show how project settings override global settings.",
-      "source_reference": "src/config/mod.rs:61-74 (ProjectConfig struct)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Storage Configuration",
-      "description": "Subsection file is empty stub",
-      "feature_reference": "storage.config",
-      "fix_suggestion": "Document StorageConfig: backend types (File, Memory), FileConfig (base_dir, use_global, enable_file_locks, max_file_size), retry policy, cache config. Explain use_global=true default for ~/.prodigy/ storage.",
-      "source_reference": "src/storage/config.rs:23-241 (StorageConfig, FileConfig, RetryPolicy, CacheConfig)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Environment Variables",
-      "description": "Subsection file is empty stub - no environment variables documented",
-      "feature_reference": "config.environment",
-      "fix_suggestion": "Document all recognized environment variables: PRODIGY_CLAUDE_API_KEY, PRODIGY_LOG_LEVEL, PRODIGY_EDITOR, PRODIGY_AUTO_COMMIT, PRODIGY_STORAGE_TYPE, PRODIGY_STORAGE_BASE_PATH, PRODIGY_AUTOMATION, PRODIGY_CLAUDE_STREAMING",
-      "source_reference": "src/config/mod.rs:111-131 (merge_env_vars), src/storage/config.rs:244-286 (from_env)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Workflow Configuration",
-      "description": "Subsection file is empty stub",
-      "feature_reference": "config.workflow",
-      "fix_suggestion": "Document WorkflowConfig structure and how workflows are configured. Cross-reference to workflow-basics chapter for detailed workflow syntax.",
-      "source_reference": "src/config/workflow.rs"
+      "severity": "low",
+      "section": "Quick Start",
+      "description": "Index shows YAML config example but code also supports reading workflow.yml from .prodigy directory",
+      "feature_reference": "configuration.file_locations",
+      "fix_suggestion": "Clarify that workflows can be in .prodigy/workflow.yml or explicit path, not just config.yml",
+      "source_reference": "src/config/loader.rs:46-50"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Default Values Reference",
-      "description": "Table shows some defaults but missing many fields and explanations",
-      "feature_reference": "config.defaults",
-      "fix_suggestion": "Expand defaults table to include all configuration fields. Add descriptions explaining what each setting controls. Include units for timing values.",
-      "source_reference": "src/config/mod.rs:88-99, src/storage/config.rs:183-226"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Index Page",
-      "description": "Quick start examples show config but don't explain structure or fields",
-      "current_content": "Shows minimal config.yml and workflow.yml examples without explanation",
-      "fix_suggestion": "Add explanations of what each field does in the quick start examples. Link to detailed subsections for each configuration area.",
-      "source_reference": "book/src/configuration/index.md:6-21"
+      "severity": "low",
+      "section": "Configuration File Locations",
+      "description": "Documentation mentions workflow files but doesn't clarify the difference between config.yml and workflow.yml clearly enough",
+      "feature_reference": "configuration.file_locations",
+      "fix_suggestion": "Add a clearer distinction: config.yml contains project settings, workflow.yml contains workflow definitions. Show both can be in .prodigy/",
+      "source_reference": "src/config/loader.rs:85-104"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Plugin Configuration",
-      "description": "PluginConfig struct exists in code but not documented anywhere",
-      "feature_reference": "config.plugins",
-      "fix_suggestion": "Add subsection or note about plugin configuration: enabled, directory, auto_load fields",
-      "source_reference": "src/config/mod.rs:76-86 (PluginConfig struct)"
+      "section": "Global Configuration Structure",
+      "description": "Documentation doesn't mention the Config struct hierarchy (Config > GlobalConfig, ProjectConfig, WorkflowConfig)",
+      "feature_reference": "configuration.global_configuration_structure",
+      "fix_suggestion": "Add a brief architectural note explaining the three-tier config structure",
+      "source_reference": "src/config/mod.rs:38-43"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Complete Configuration Examples",
-      "description": "Subsection mentioned in index but file is empty stub",
-      "feature_reference": "config.examples",
-      "fix_suggestion": "Provide complete, real-world configuration examples showing global config, project config, and workflow config working together",
-      "source_reference": "book/src/configuration/complete-configuration-examples.md"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Best Practices",
-      "description": "Subsection mentioned but file is empty stub",
-      "feature_reference": "config.best_practices",
-      "fix_suggestion": "Document configuration best practices: when to use global vs project config, managing secrets, organizing multi-project setups",
-      "source_reference": "book/src/configuration/best-practices.md"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Troubleshooting",
-      "description": "Subsection mentioned but file is empty stub",
-      "feature_reference": "config.troubleshooting",
-      "fix_suggestion": "Add common configuration issues: precedence confusion, file not found errors, env var conflicts, invalid YAML syntax",
-      "source_reference": "book/src/configuration/troubleshooting.md"
+      "section": "Index",
+      "description": "Minimal workflow example in index doesn't show the slash command syntax clearly",
+      "current_content": "commands:\n  - prodigy-code-review",
+      "should_be": "commands:\n  - prodigy-code-review  # or /prodigy-code-review",
+      "fix_suggestion": "Add comment showing slash prefix is optional in workflow files",
+      "source_reference": "book/src/configuration/index.md:19"
     }
   ],
   "positive_aspects": [
-    "Index page has good structure with subsection links",
-    "Quick start examples are concise and show minimal config needed",
-    "Default values reference table format is clear (though incomplete)",
-    "Subsection organization is logical (precedence, structure, storage, etc.)"
+    "Excellent multi-subsection organization separating concerns clearly",
+    "Storage Configuration subsection is comprehensive and matches implementation well",
+    "Configuration Precedence Rules clearly explains the 5-level hierarchy",
+    "Global Configuration Structure documents all fields from GlobalConfig struct accurately",
+    "Good use of cross-references between subsections",
+    "Examples are clear and show realistic use cases",
+    "Complete Configuration Examples subsection provides comprehensive reference",
+    "Migration guide helps users transition from TOML to YAML",
+    "Default Values Reference provides single source of truth for defaults",
+    "Environment Variables subsection accurately documents PRODIGY_* variables"
   ],
   "improvement_suggestions": [
-    "Fill in all empty subsection stub files with actual content",
-    "Add YAML examples for every configuration structure (GlobalConfig, ProjectConfig, etc.)",
-    "Create a complete configuration reference with all fields documented",
-    "Add diagrams showing configuration precedence flow",
-    "Include migration guide from old TOML format (mentioned in related docs)",
-    "Add troubleshooting section for common configuration issues",
-    "Link configuration docs to relevant implementation specs",
-    "Show how configuration affects different Prodigy features (workflows, MapReduce, storage)"
+    "Add a config architecture diagram showing Config > {GlobalConfig, ProjectConfig, WorkflowConfig}",
+    "Clarify in index that config.yml != workflow.yml (different purposes)",
+    "Add troubleshooting section for common config issues: 'Config not found', 'Wrong precedence', etc.",
+    "Consider adding validation section: what makes a valid config, common validation errors",
+    "Add note about ConfigLoader search behavior: explicit path > .prodigy/workflow.yml > defaults",
+    "Include example of using 'prodigy config show' to debug effective configuration"
   ],
   "metadata": {
     "analyzed_at": "2025-01-11T00:00:00Z",
@@ -147,33 +71,20 @@
     "topics_covered": [
       "Config file locations",
       "Precedence rules",
-      "Global config structure",
-      "Project config structure",
+      "Global configuration",
+      "Project configuration",
       "Workflow configuration",
       "Storage configuration",
       "Environment variables",
-      "Default values"
+      "Default values",
+      "Migration from TOML to YAML"
     ],
     "validation_focus": "Check configuration structure matches Settings struct and precedence is correctly documented",
-    "subsections_analyzed": [
-      "index.md",
-      "configuration-precedence-rules.md",
-      "global-configuration-structure.md", 
-      "project-configuration-structure.md",
-      "storage-configuration.md",
-      "workflow-configuration.md",
-      "environment-variables.md",
-      "default-values-reference.md",
-      "complete-configuration-examples.md",
-      "best-practices.md",
-      "troubleshooting.md"
-    ],
-    "implementation_sources": [
-      "src/config/mod.rs",
-      "src/config/loader.rs",
-      "src/config/workflow.rs",
-      "src/storage/config.rs",
-      "src/app/config.rs"
+    "implementation_references": [
+      "src/config/mod.rs:38-154 - Config, GlobalConfig, ProjectConfig structs",
+      "src/config/loader.rs:11-112 - ConfigLoader precedence implementation",
+      "src/core/config/mod.rs:1-146 - Pure config parsing functions",
+      "src/storage/config.rs:1-100 - Storage configuration types"
     ]
   }
 }
