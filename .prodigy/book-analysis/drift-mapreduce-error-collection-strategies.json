@@ -8,10 +8,38 @@
     "error_handling.collection",
     "mapreduce.error_policy"
   ],
-  "drift_detected": false,
-  "severity": "none",
-  "quality_assessment": "Documentation is accurate and comprehensive. Content correctly describes all three error collection strategies (aggregate, immediate, batched) with proper syntax examples, use cases, and trade-offs. The subsection properly focuses on its mapped features (error_handling.collection and mapreduce.error_policy) without straying into other error handling topics. No drift detected.",
-  "issues": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is accurate and comprehensive with one broken cross-reference. Content correctly describes all three error collection strategies (aggregate, immediate, batched) with proper syntax examples, use cases, and trade-offs. The subsection properly focuses on its mapped features without straying into other error handling topics. Minor issue: broken link to circuit-breaker-configuration.md which does not exist.",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "Cross-References",
+      "description": "Found 1 broken internal link in See also section (line 99)",
+      "broken_links": [
+        {
+          "link_text": "Circuit Breaker Configuration",
+          "target_path": "circuit-breaker-configuration.md",
+          "expected_file": "book/src/mapreduce/circuit-breaker-configuration.md",
+          "reason": "File does not exist",
+          "current_location": "book/src/mapreduce/error-collection-strategies.md:99"
+        }
+      ],
+      "fix_suggestion": "Circuit breaker feature is implemented (src/cook/workflow/error_policy.rs:46-88, CircuitBreakerConfig struct) but subsection documentation does not exist. Either create circuit-breaker-configuration.md subsection or remove the cross-reference link until that documentation is written.",
+      "source_reference": "src/cook/workflow/error_policy.rs:46-88"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Batched Strategy",
+      "description": "Batched error collection clears buffer after reporting, but documentation doesn't explicitly mention buffer clearing behavior",
+      "current_content": "When N errors collected, logs the entire batch via `warn!` level logging\n- Batch buffer is cleared after logging",
+      "should_be": "When N errors collected, logs the entire batch via `warn!` level logging and clears the buffer",
+      "fix_suggestion": "Line 64 mentions 'Batch buffer is cleared after logging' but could be more explicit in the main description at line 63-64. Consider rewording to emphasize the buffer clearing happens automatically.",
+      "source_reference": "src/cook/workflow/error_policy.rs:587-596"
+    }
+  ],
   "positive_aspects": [
     "Clearly documents both top-level and nested syntax for error_collection configuration in dedicated 'Syntax Flexibility' section (lines 5-35)",
     "Provides detailed descriptions of all three strategies: aggregate, immediate, and batched with proper YAML examples (lines 37-67)",
@@ -19,22 +47,37 @@
     "Shows correct batched syntax with size parameter (batched:N) at line 61",
     "Complete example combining error collection with other error policy features (lines 69-95)",
     "Accurate note about default behavior (aggregate) at line 97",
-    "Proper cross-references to related subsections (Error Handling, DLQ, Circuit Breaker) at line 99",
     "Examples match actual implementation in src/cook/workflow/error_policy.rs:578-599",
-    "Explains when errors are reported for each strategy (lines 42-46 for aggregate, 50-56 for immediate, 59-66 for batched)"
+    "Explains when errors are reported for each strategy (lines 42-46 for aggregate, 50-56 for immediate, 59-66 for batched)",
+    "Error Handling and DLQ cross-references are valid and point to existing documentation"
   ],
   "improvement_suggestions": [
+    "Fix broken link to circuit-breaker-configuration.md - either create the subsection or remove the reference",
+    "Consider making buffer clearing more explicit in batched strategy description",
     "Consider adding a troubleshooting section for common error collection scenarios",
     "Could include an example showing how collected errors are displayed/accessed in workflow output",
     "Might benefit from a visual comparison table of the three strategies (feature matrix showing: when errors are logged, memory usage, visibility, best use cases)"
   ],
   "cross_references": [
-    "error-handling",
-    "dead-letter-queue-dlq",
-    "circuit-breaker-configuration"
+    {
+      "target": "../error-handling.md",
+      "status": "valid",
+      "description": "Main error handling chapter"
+    },
+    {
+      "target": "dead-letter-queue-dlq.md",
+      "status": "valid",
+      "description": "DLQ subsection for failed item handling"
+    },
+    {
+      "target": "circuit-breaker-configuration.md",
+      "status": "broken",
+      "description": "Circuit breaker subsection does not exist - feature is implemented but not documented",
+      "note": "Circuit breaker is implemented in src/cook/workflow/error_policy.rs but documentation subsection is missing"
+    }
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T12:00:00Z",
+    "analyzed_at": "2025-01-11T10:00:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "error collection",
@@ -44,13 +87,18 @@
       "error policy configuration"
     ],
     "validation_focus": "Check error collection strategies documented",
-    "implementation_references": [
+    "implementation_files_reviewed": [
       "src/cook/workflow/error_policy.rs:36-44 (ErrorCollectionStrategy enum)",
-      "src/cook/workflow/error_policy.rs:152 (error_collection field)",
+      "src/cook/workflow/error_policy.rs:152 (error_collection field in WorkflowErrorPolicy)",
       "src/cook/workflow/error_policy.rs:578-599 (collect_error implementation)",
       "src/config/mapreduce.rs:75-77 (top-level convenience field)",
       "src/config/mapreduce.rs:480-497 (YAML parsing for error_collection)",
       "src/cook/workflow/error_policy_tests.rs:204-242 (test coverage)"
-    ]
+    ],
+    "link_validation": {
+      "total_internal_links": 3,
+      "broken_links": 1,
+      "valid_links": 2
+    }
   }
 }
