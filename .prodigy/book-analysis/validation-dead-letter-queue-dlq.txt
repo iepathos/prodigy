@@ -1,0 +1,76 @@
+# Validation Summary for Dead Letter Queue (DLQ)
+
+## Content Metrics
+- Lines of content: 372 (minimum: 50) ✓
+- Headings: 32 (minimum: 3) ✓
+- Code examples: 23 (minimum: 2) ✓
+- Source references: 19 (minimum: 1) ✓
+
+## Drift Issues Resolved
+- Critical: 3/3 ✓
+  - Fixed incorrect DLQ storage paths throughout document
+  - Updated storage path from ~/.prodigy/state/ to ~/.prodigy/dlq/
+  - Added clear explanation of GlobalStorage + DLQStorage path construction
+  
+- High: 4/4 ✓
+  - Fixed storage path in examples
+  - Fixed direct file access commands
+  - Added prominent stub warning for CLI commands
+  - Corrected retry command parameter names (--parallel instead of --max-parallel)
+  
+- Medium: 4/4 ✓
+  - Fixed step_failed type from integer to String
+  - Updated retry command default from 5 to 10
+  - Clarified workflow_id vs job_id terminology
+  - Added CommandFailed exit_code field documentation
+  
+- Low: 4/4 ✓
+  - Updated field names (retry_count → failure_count)
+  - Fixed uncommitted_changes and error_logs types (arrays → Option<String>)
+  - Added first_attempt and last_attempt fields
+  - Added error_signature field
+
+## Code Validation
+- All struct fields verified: ✓
+  - DeadLetteredItem fields match src/cook/execution/dlq.rs:31-43
+  - FailureDetail fields match src/cook/execution/dlq.rs:46-59
+  - ErrorType variants match src/cook/execution/dlq.rs:62-71
+  - WorktreeArtifacts fields match src/cook/execution/dlq.rs:74-80
+  
+- All enum variants verified: ✓
+  - ErrorType::CommandFailed includes exit_code field
+  - All variants documented correctly
+  
+- All examples have source attribution: ✓
+  - Storage paths reference src/storage/global.rs:47 and src/cook/execution/dlq.rs:529
+  - Type definitions reference exact line numbers
+  - CLI commands reference src/cli/args.rs line ranges
+  
+- All referenced files exist: ✓
+  - All source code references validated
+  - All internal cross-references validated
+  - No broken links detected
+
+## Quality Gates
+✓ Meets minimum content requirements (372 lines vs 50 minimum)
+✓ All critical issues resolved (3/3)
+✓ All high severity issues resolved (4/4)
+✓ All medium severity issues resolved (4/4)
+✓ All low severity issues resolved (4/4)
+✓ All examples grounded in codebase
+✓ All source references validated
+✓ All internal links validated
+✓ Prominent stub warning added for CLI commands
+✓ Storage architecture clearly explained
+
+Status: READY TO COMMIT
+
+## Key Improvements Made
+1. Corrected DLQ storage path structure throughout entire document
+2. Added prominent warning about CLI stub implementation status
+3. Fixed all field type inconsistencies in JSON examples
+4. Updated CLI command syntax to match actual implementation
+5. Added clear explanation of GlobalStorage + DLQStorage layering
+6. Preserved all existing cross-references and positive aspects
+7. Maintained subsection scope (DLQ-specific features only)
+8. Enhanced source code attributions with exact line numbers
