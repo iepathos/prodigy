@@ -5,8 +5,24 @@
   "chapter_file": "book/src/environment/index.md",
   "drift_detected": true,
   "severity": "high",
-  "quality_assessment": "Chapter structure is well-organized with good architecture overview, but several subsections are incomplete or nearly empty. The index.md and core subsections (environment-files.md, secrets-management.md, environment-profiles.md, per-command-environment-overrides.md, environment-precedence.md) are accurate and well-written. However, three subsections are stubs with no meaningful content: mapreduce-environment-variables.md, best-practices.md, and common-patterns.md. This creates a poor user experience with broken expectations.",
+  "quality_assessment": "Chapter structure is well-organized with good architecture overview, but has significant drift issues. The secret management examples show incorrect syntax that doesn't match the SecretValue enum implementation. Several subsections are stubs with no meaningful content: mapreduce-environment-variables.md, best-practices.md, and common-patterns.md. The incorrect secret syntax examples appear in multiple places throughout the book and would cause user errors.",
   "issues": [
+    {
+      "type": "incorrect_examples",
+      "severity": "critical",
+      "section": "Secrets Management and Environment Files",
+      "description": "Documentation shows incorrect secret syntax 'secret: true' with 'value' field that doesn't match SecretValue enum implementation",
+      "current_content": "secrets:\n  API_KEY:\n    secret: true\n    value: \"sk-abc123\"",
+      "should_be": "secrets:\n  API_KEY: \"sk-abc123\"  # Simple string format (SecretValue::Simple)\n  # OR provider-based:\n  DATABASE_URL:\n    provider: env\n    key: \"DB_CONNECTION\"",
+      "fix_suggestion": "Update all secret examples to match SecretValue enum which has two variants: Simple(String) for direct values, and Provider{provider, key, version} for provider-based secrets. The 'secret: true' syntax does not exist in the code.",
+      "source_reference": "src/cook/environment/config.rs:86-96 (SecretValue enum with Simple and Provider variants)",
+      "locations": [
+        "book/src/workflow-basics.md (lines 48-50, 491-496)",
+        "book/src/environment/environment-files.md (lines 114-118)",
+        "book/src/mapreduce/environment-variables-in-configuration.md",
+        "book/src/examples.md"
+      ]
+    },
     {
       "type": "missing_content",
       "severity": "high",
@@ -81,7 +97,7 @@
     "Consider adding diagrams showing environment resolution flow and precedence order"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T19:40:00Z",
+    "analyzed_at": "2025-11-09T23:43:36Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Global environment",
