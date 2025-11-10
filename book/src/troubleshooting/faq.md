@@ -34,13 +34,13 @@ To retry items that failed during MapReduce execution:
 
 ```bash
 # View failed items
-prodigy dlq show <job_id>
+prodigy dlq list --job-id <job_id>
 
 # Retry all failed items
 prodigy dlq retry <job_id>
 
 # Retry with custom parallelism
-prodigy dlq retry <job_id> --max-parallel 10
+prodigy dlq retry <job_id> --parallel 10
 
 # Dry run to preview retry
 prodigy dlq retry <job_id> --dry-run
@@ -180,14 +180,14 @@ Event logs use a global storage architecture:
 # List events for a job
 prodigy events ls --job-id <job_id>
 
-# Follow events in real-time
-prodigy events follow --job-id <job_id>
-
 # Show event statistics
 prodigy events stats
 
 # View detailed event timeline
 cat ~/.prodigy/events/{repo_name}/{job_id}/events-*.jsonl
+
+# For real-time monitoring, tail the event file:
+tail -f ~/.prodigy/events/{repo_name}/{job_id}/events-*.jsonl
 ```
 
 **Source**: src/cli/commands/events.rs:22-98

@@ -1,0 +1,84 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "troubleshooting",
+  "subsection_id": "faq",
+  "subsection_title": "FAQ",
+  "subsection_file": "book/src/troubleshooting/faq.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "FAQ is comprehensive and well-structured, but has command syntax inconsistencies that need correction",
+  "issues": [
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "How do I retry failed DLQ items?",
+      "description": "FAQ shows 'prodigy dlq show <job_id>' but the actual CLI command is 'prodigy dlq list'",
+      "current_content": "prodigy dlq show <job_id>",
+      "should_be": "prodigy dlq list <job_id>",
+      "fix_suggestion": "Update command to use 'prodigy dlq list' which matches the actual CLI implementation",
+      "source_reference": "src/cli/args.rs:578 (DlqCommands::List)"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "How do I retry failed DLQ items?",
+      "description": "FAQ shows '--max-parallel' flag but the actual CLI flag is '--parallel'",
+      "current_content": "prodigy dlq retry <job_id> --max-parallel 10",
+      "should_be": "prodigy dlq retry <job_id> --parallel 10",
+      "fix_suggestion": "Update flag to use '--parallel' which is the actual flag name in DlqCommands::Retry",
+      "source_reference": "src/cli/args.rs:653 (parallel: usize field)"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Where are event logs stored?",
+      "description": "FAQ shows 'prodigy events follow' but this command does not exist in the CLI",
+      "current_content": "prodigy events follow --job-id <job_id>",
+      "should_be": "Remove this example or note it's not implemented",
+      "fix_suggestion": "Either implement 'prodigy events follow' command or remove this example and only show working commands like 'prodigy events ls --job-id <job_id>'",
+      "source_reference": "src/cli/args.rs:458 (EventCommands enum - no Follow variant)"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of common troubleshooting scenarios",
+    "Well-organized with clear question-answer format",
+    "Includes practical code examples for most questions",
+    "Good cross-references to detailed documentation sections",
+    "Covers both basic and advanced troubleshooting topics",
+    "Includes helpful tips like checking json_log_location for debugging",
+    "Provides good context about file locations and system behavior",
+    "All internal documentation links are valid and working"
+  ],
+  "improvement_suggestions": [
+    "Verify all CLI commands match actual implementation",
+    "Add a question about how to debug streaming output issues",
+    "Include a question about MapReduce agent failures and how to debug them",
+    "Add troubleshooting for common git worktree issues",
+    "Consider adding a 'Common Errors' section with error messages and solutions",
+    "Add examples of common error patterns and how to resolve them"
+  ],
+  "cross_references": [
+    "mapreduce/checkpoint-and-resume.md",
+    "environment/index.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-09T21:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Variable interpolation debugging",
+      "Checkpoint resume failures",
+      "DLQ item retry",
+      "MapReduce item discovery",
+      "Claude execution logs",
+      "Command not found errors",
+      "Orphaned worktree cleanup",
+      "Environment variable resolution",
+      "Timeout errors",
+      "Event log storage"
+    ],
+    "validation_focus": "Check faq documentation matches implementation",
+    "internal_links_validated": true,
+    "broken_links_count": 0
+  }
+}
