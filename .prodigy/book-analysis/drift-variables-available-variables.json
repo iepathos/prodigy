@@ -1,0 +1,147 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "variables",
+  "subsection_id": "available-variables",
+  "subsection_title": "Available Variables",
+  "subsection_file": "book/src/variables/available-variables.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Subsection is comprehensive but missing several important variable categories that exist in implementation",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Merge Variables",
+      "description": "Missing git context variables that are available in merge phase: commits, commit_count, modified_files, file_count, file_list, commit_ids",
+      "current_content": "Only documents basic merge variables: worktree, source_branch, target_branch, session_id",
+      "should_include": "merge.commits (JSON array), merge.commit_count, merge.modified_files (JSON array), merge.file_count, merge.file_list (comma-separated), merge.commit_ids (comma-separated)",
+      "fix_suggestion": "Add a 'Merge Git Context Variables' subsection documenting the additional git tracking variables available during merge phase",
+      "source_reference": "src/worktree/merge_orchestrator.rs:340-420"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Computed Variables",
+      "description": "Missing entire category of computed/dynamic variables that are evaluated at runtime",
+      "should_include": "Environment variables (env.*), file content (file:path), command output (cmd:command), JSON path extraction (json:path:from:var), date formatting (date:format), UUID generation (uuid)",
+      "fix_suggestion": "Add new 'Computed Variables' section documenting all dynamic variable types with examples for each",
+      "source_reference": "src/cook/execution/variables.rs:100-146"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "MapReduce Variables",
+      "description": "Missing map.results_json alias and individual result indexing capability",
+      "current_content": "Documents map.results but not the alternative syntax or indexed access",
+      "should_include": "map.results_json (alias), map.results[index] for accessing individual results, map.results[index].field for nested access",
+      "fix_suggestion": "Add explanation of indexed access to map results: ${map.results[0]}, ${map.results[0].field}",
+      "source_reference": "src/cook/execution/mapreduce/utils.rs:114-121, src/cook/execution/mapreduce/reduce_phase.rs:146"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Item Variables",
+      "description": "Missing documentation of arbitrary field access pattern for JSON objects",
+      "current_content": "Shows specific fields like item.path, item.name, but not general pattern",
+      "should_include": "Explanation that ${item.*} can access any field in JSON objects: ${item.custom_field}, ${item.metadata.author}, etc.",
+      "fix_suggestion": "Add explanation that item.* supports accessing any field present in the JSON work item, not just the predefined ones",
+      "source_reference": "src/cook/workflow/variables.rs:16-23, nested property access in interpolation engine"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Git Context Variables",
+      "description": "Format modifiers section shows glob filtering examples but doesn't explain that this applies to all git context variables",
+      "current_content": "Shows examples for files_added and files_modified but doesn't state general applicability",
+      "should_include": "Clear statement that format modifiers (:json, :lines, :csv, :*.ext) work on all git context variables that return lists",
+      "fix_suggestion": "Add a note at the beginning of Format Modifiers section: 'These format modifiers work with all git context variables that return file or commit lists'",
+      "source_reference": "Format modifier implementation in variables.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Variable Precedence",
+      "description": "Missing mention of computed variables in precedence hierarchy",
+      "current_content": "Lists 6 precedence levels but omits computed variables",
+      "should_include": "Computed variables (env.*, file:*, cmd:*, etc.) in precedence order",
+      "fix_suggestion": "Add computed variables to precedence list, likely at priority level 7 (lowest, after environment variables)",
+      "source_reference": "Variable scoping implementation in variables.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Legacy Variables",
+      "description": "No mention of legacy variable aliases that still work for backwards compatibility",
+      "should_include": "${ARG}/${ARGUMENT} (alias for ${item.value}), ${FILE}/${FILE_PATH} (alias for ${item.path})",
+      "fix_suggestion": "Add a note or callout box mentioning legacy aliases that are still supported but deprecated",
+      "source_reference": "src/cook/workflow/variables.rs legacy alias definitions"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Template Caching",
+      "description": "Explains template caching but doesn't mention that computed variables (cmd:*, file:*) have their own caching behavior",
+      "current_content": "Says 'Template caching is transparent'",
+      "should_include": "Note that expensive computed operations (file reads, command execution) are cached separately from template parsing",
+      "fix_suggestion": "Add clarification that computed variables have dual caching: template cache + operation result cache",
+      "source_reference": "src/cook/execution/variables.rs caching implementation for expensive operations"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of standard variables (last.output, shell.output, claude.output)",
+    "Excellent documentation of git context variables with format modifiers",
+    "Clear examples showing nested field access: ${item.nested.field}",
+    "Good explanation of default value syntax: ${var:-default}",
+    "Detailed parent context resolution explanation with inheritance chain diagram",
+    "Well-documented variable scoping by phase with clear availability table",
+    "Template caching section provides good performance context",
+    "Validation variables documented (completion, gaps, status)",
+    "Strong examples throughout showing real-world usage patterns"
+  ],
+  "improvement_suggestions": [
+    "Add 'Computed Variables' section documenting env.*, file:*, cmd:*, json:*, date:*, uuid",
+    "Expand merge variables section to include all git context variables available during merge",
+    "Document indexed access to map.results: ${map.results[0]}, ${map.results[0].field}",
+    "Add note about legacy variable aliases (ARG, ARGUMENT, FILE, FILE_PATH)",
+    "Clarify that ${item.*} can access any JSON field, not just predefined ones",
+    "Add callout box or warning about computed variable caching behavior",
+    "Consider adding a 'Complete Variable Reference' appendix with every variable listed",
+    "Add troubleshooting section for common variable interpolation errors"
+  ],
+  "cross_references": [
+    "interpolation-syntax",
+    "environment-variables"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-10T03:45:00Z",
+    "feature_inventory": "features.json",
+    "topics_covered": [
+      "Available Variables",
+      "Standard Variables",
+      "Workflow Context Variables",
+      "Step Context Variables",
+      "Item Variables",
+      "MapReduce Variables",
+      "Git Context Variables",
+      "Merge Variables",
+      "Validation Variables",
+      "Variable Interpolation Syntax",
+      "Default Values",
+      "Interpolation Modes",
+      "Variable Scoping",
+      "Parent Context Resolution",
+      "Template Caching"
+    ],
+    "validation_focus": "Check available variables documentation matches implementation",
+    "implementation_files_analyzed": [
+      "src/cook/execution/interpolation.rs",
+      "src/cook/execution/variables.rs",
+      "src/cook/workflow/variables.rs",
+      "src/cook/execution/mapreduce/command/interpolation.rs",
+      "src/worktree/merge_orchestrator.rs",
+      "src/cook/execution/mapreduce/utils.rs",
+      "src/cook/execution/mapreduce/reduce_phase.rs"
+    ]
+  }
+}
