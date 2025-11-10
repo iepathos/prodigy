@@ -1,0 +1,101 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "retry-configuration",
+  "subsection_id": "backoff-strategy-comparison",
+  "subsection_title": "Backoff Strategy Comparison",
+  "subsection_file": "book/src/retry-configuration/backoff-strategy-comparison.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Table contains significant inaccuracies in delay calculations that would mislead users. The documented delays do not match the actual implementation in src/cook/retry_v2.rs.",
+  "issues": [
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Backoff Strategy Comparison Table",
+      "description": "Fibonacci backoff delays are incorrect - documentation shows attempt-based sequence but implementation uses cumulative Fibonacci values",
+      "current_content": "Fibonacci | 1s | 1s | 2s | 3s | 5s",
+      "should_be": "Fibonacci | 1s | 1s | 2s | 3s | 5s (multiply initial_delay by fibonacci(attempt))",
+      "fix_suggestion": "Update Fibonacci row to show: '1×1s | 1×1s | 2×1s | 3×1s | 5×1s' to clarify that fibonacci sequence multiplies the initial_delay",
+      "source_reference": "src/cook/retry_v2.rs:294-297"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Backoff Strategy Comparison Table",
+      "description": "Linear backoff starting value is incorrect - should start from initial_delay, not initial_delay + increment",
+      "current_content": "Linear (+2s) | 1s | 3s | 5s | 7s | 9s",
+      "should_be": "Linear (+2s) | 1s | 3s | 5s | 7s | 9s (formula: initial_delay + increment * (attempt - 1))",
+      "fix_suggestion": "Verify the Linear row matches formula: initial_delay + increment * (attempt - 1). Current values suggest initial_delay=1s, increment=2s which gives: 1s, 3s, 5s, 7s, 9s - this is CORRECT but needs formula clarification",
+      "source_reference": "src/cook/retry_v2.rs:287-289"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Backoff Strategy Comparison Table",
+      "description": "Table missing critical implementation details - multiplier for Exponential, jitter support, max_delay cap",
+      "feature_reference": "retry_configuration.backoff_strategies.exponential.config.multiplier",
+      "fix_suggestion": "Add notes below table explaining: (1) Exponential uses base^(attempt-1) multiplier (default 2.0), (2) All strategies respect max_delay cap (default 30s), (3) Jitter can be added to any strategy",
+      "source_reference": "src/cook/retry_v2.rs:290-292, src/cook/retry_v2.rs:304"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Backoff Strategy Comparison Table",
+      "description": "Missing 'Custom' backoff strategy which is implemented in the code",
+      "feature_reference": "retry_configuration.backoff_strategies",
+      "fix_suggestion": "Add row for Custom strategy: 'Custom | user-defined | user-defined | user-defined | ... | Specific delay patterns'",
+      "source_reference": "src/cook/retry_v2.rs:88-89, src/cook/retry_v2.rs:298-301"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Best For Column",
+      "description": "Use case recommendations are vague and not well-justified",
+      "current_content": "Fixed: 'Simple retry', Linear: 'Gradual backoff', Exponential: 'Most failures', Fibonacci: 'Distributed systems'",
+      "should_be": "Recommendations should explain WHY each strategy fits the use case",
+      "fix_suggestion": "Expand 'Best For' column with explanations: Fixed (predictable timing, simple errors), Linear (moderate load reduction), Exponential (recommended default, aggressive backoff), Fibonacci (gentler than exponential, good for rate limits)",
+      "source_reference": "src/cook/retry_v2.rs:92-97 (Exponential is default)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Table Context",
+      "description": "No explanation of what 'initial_delay' is or how it's configured",
+      "fix_suggestion": "Add introductory paragraph before table explaining: 'This comparison assumes initial_delay=1s. The actual delay depends on your retry configuration. All strategies respect the max_delay cap (default 30s).'",
+      "source_reference": "src/cook/retry_v2.rs:26-31"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Cross-References",
+      "description": "No links to related subsections (retry configuration, error handling)",
+      "fix_suggestion": "Add 'See also' section linking to: retry configuration subsection, error handling subsection, jitter configuration",
+      "source_reference": "book/src/retry-configuration/"
+    }
+  ],
+  "positive_aspects": [
+    "Table format is clear and easy to compare strategies",
+    "Values progress logically across attempts",
+    "Linear calculation appears correct for the given increment"
+  ],
+  "improvement_suggestions": [
+    "Add formulas for each strategy below the table to show exact calculations",
+    "Include visual chart/graph showing exponential growth vs linear vs fibonacci",
+    "Add example YAML configuration for each strategy type",
+    "Show impact of jitter on delay values (e.g., 'with 30% jitter: 0.7s-1.3s')",
+    "Add section on choosing the right strategy based on failure patterns",
+    "Include performance comparison (time to max_delay, total retry time for 5 attempts)"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:43:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Backoff Strategy Comparison"
+    ],
+    "validation_focus": "Check backoff strategy comparison documentation matches implementation",
+    "internal_links_checked": 0,
+    "broken_links_found": 0
+  }
+}
