@@ -1,0 +1,151 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "environment",
+  "subsection_id": "common-patterns",
+  "subsection_title": "Common Patterns",
+  "subsection_file": "book/src/environment/common-patterns.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Documentation shows extensive patterns that are NOT IMPLEMENTED in current codebase. Many features shown in examples do not exist in actual implementation.",
+  "issues": [
+    {
+      "type": "missing_feature_implementation",
+      "severity": "high",
+      "section": "Multi-Environment Deployment Pattern",
+      "description": "Documentation shows 'secrets' with provider-based configuration (provider: vault), but SecretValue enum only supports Simple(String) and Provider formats. The example syntax 'secrets: { DATABASE_PASSWORD: { provider: vault, key: ... } }' is valid but NOT demonstrated in any working examples or tests.",
+      "current_content": "secrets:\n  DATABASE_PASSWORD:\n    provider: vault\n    key: secret/data/db/${PROFILE}",
+      "should_be": "The pattern is technically correct per SecretValue enum definition, but needs clarification that secret providers are DESIGNED but not yet FUNCTIONAL. No vault/AWS integration exists.",
+      "fix_suggestion": "Add prominent note: 'Secret providers (vault, aws) are planned features. Currently only Simple string secrets are fully supported. Use environment variables for secrets: DATABASE_PASSWORD: \"${DATABASE_PASSWORD}\"'",
+      "source_reference": "src/cook/environment/config.rs:86-112 (SecretProvider enum defined but no provider implementation exists)"
+    },
+    {
+      "type": "missing_feature_implementation",
+      "severity": "high",
+      "section": "Secrets Management Pattern",
+      "description": "Shows AWS and Vault secret providers as working examples, implying they are functional. No actual provider implementation exists in codebase.",
+      "current_content": "AWS_ACCESS_KEY:\n    provider: aws\n    key: prod/aws-credentials/access_key",
+      "should_be": "Remove or clearly mark as 'Future Feature' examples",
+      "fix_suggestion": "Replace AWS/Vault examples with working pattern using environment variables. Add 'Coming Soon' section for planned provider support.",
+      "source_reference": "src/cook/environment/ - no provider implementation files exist"
+    },
+    {
+      "type": "missing_feature_implementation",
+      "severity": "high",
+      "section": "Environment Variable Composition Pattern",
+      "description": "Shows layered env_files loading with ${ENVIRONMENT} variable interpolation in file paths, but no evidence this interpolation works in env_files field",
+      "current_content": "env_files:\n  - .env\n  - .env.${ENVIRONMENT}\n  - .env.local",
+      "should_be": "Verify if env_files supports variable interpolation or use static file lists",
+      "fix_suggestion": "Test and document whether env_files field supports ${VAR} interpolation. If not supported, show static file pattern or conditional loading approach.",
+      "source_reference": "src/config/workflow.rs:29 (env_files: Option<Vec<PathBuf>> - no interpolation logic shown)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "CI/CD Integration Pattern",
+      "description": "Shows 'when' conditional syntax that may not be implemented for shell commands in standard workflows",
+      "current_content": "- shell: \"cargo build --release\"\n    when: \"${CI_MODE} == 'true'\"",
+      "should_be": "Verify 'when' clause support in WorkflowCommand or use alternative conditional approach",
+      "fix_suggestion": "Confirm 'when' clause is implemented for shell commands. If not, show alternative pattern using goal_seek or separate workflow profiles.",
+      "source_reference": "src/config/command.rs - need to verify 'when' field exists in shell command config"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Template Parameterization Pattern",
+      "description": "Shows capture_output and capture_format features that may not be documented elsewhere",
+      "current_content": "capture_output: coverage_result\n    capture_format: json",
+      "should_be": "Cross-reference to documentation explaining capture feature",
+      "fix_suggestion": "Add link to variable capture documentation or inline explanation of how captured variables are used",
+      "source_reference": "src/config/command.rs - verify these fields exist"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "All Patterns",
+      "description": "No examples show env_files actually being loaded or how dotenv format files are processed",
+      "fix_suggestion": "Add example showing .env file contents and how values are loaded into workflow",
+      "source_reference": "src/config/workflow.rs:29"
+    },
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "Cross-References",
+      "description": "Found 4 broken internal link(s) - referenced files do not exist",
+      "broken_links": [
+        {
+          "link_text": "Best Practices",
+          "original_target": "best-practices.md",
+          "current_file": "book/src/environment/common-patterns.md",
+          "expected_path": "book/src/environment/best-practices.md",
+          "exists": false,
+          "suggestion": "File does not exist. Create best-practices.md subsection or link to different location."
+        },
+        {
+          "link_text": "Environment Profiles",
+          "original_target": "environment-profiles.md",
+          "current_file": "book/src/environment/common-patterns.md",
+          "expected_path": "book/src/environment/environment-profiles.md",
+          "exists": false,
+          "suggestion": "File does not exist. Create environment-profiles.md subsection or update link."
+        },
+        {
+          "link_text": "Secrets Management",
+          "original_target": "secrets-management.md",
+          "current_file": "book/src/environment/common-patterns.md",
+          "expected_path": "book/src/environment/secrets-management.md",
+          "exists": false,
+          "suggestion": "File does not exist. Create secrets-management.md subsection or update link."
+        },
+        {
+          "link_text": "MapReduce Environment Variables",
+          "original_target": "mapreduce-environment-variables.md",
+          "current_file": "book/src/environment/common-patterns.md",
+          "expected_path": "book/src/environment/mapreduce-environment-variables.md",
+          "exists": false,
+          "suggestion": "File does not exist. May need to link to mapreduce chapter instead: ../mapreduce/environment-variables.md"
+        }
+      ],
+      "fix_suggestion": "Update links to point to existing files or create the referenced subsections. Consider linking to parent chapter index pages if subsections don't exist yet."
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive real-world patterns covering many use cases",
+    "Clear YAML examples with inline comments",
+    "Good progression from simple to complex patterns",
+    "Practical CI/CD and deployment examples",
+    "Feature flag pattern is useful and well-explained"
+  ],
+  "improvement_suggestions": [
+    "Clearly distinguish between implemented features and planned/future features",
+    "Add 'Implementation Status' badges or notes to each pattern",
+    "Include working examples that can be copy-pasted and run immediately",
+    "Show both the ideal pattern and the current workaround where features are incomplete",
+    "Add troubleshooting section for common pattern issues",
+    "Link to actual test files demonstrating working patterns",
+    "Provide minimal working example before showing complex patterns"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Multi-Environment Deployment",
+      "Secrets Management", 
+      "Profile-Based Configuration",
+      "Environment Variable Composition",
+      "CI/CD Integration",
+      "Local Development",
+      "Template Parameterization",
+      "Regional Configuration",
+      "Feature Flags"
+    ],
+    "validation_focus": "Check common patterns documentation matches implementation",
+    "implementation_gaps": [
+      "Secret provider integration (vault, aws) - DESIGNED but NOT IMPLEMENTED",
+      "env_files variable interpolation - UNCLEAR if supported",
+      "when clause for shell commands - NEEDS VERIFICATION",
+      "capture_output and capture_format - EXISTS but needs cross-reference"
+    ]
+  }
+}
