@@ -1,0 +1,144 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "workflow-basics",
+  "subsection_id": "command-level-options",
+  "subsection_title": "Command-Level Options",
+  "subsection_file": "book/src/workflow-basics/command-level-options.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Documentation is essentially empty with only a title. Critical documentation missing for all command-level options including timeout, capture_output, on_failure, on_success, when, capture_format, capture_streams, output_file, and environment variables.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "All Content",
+      "description": "Documentation file contains only title and empty statement - no actual documentation exists",
+      "current_content": "Only contains: '## Command-Level Options\n\nAll command types support additional fields for advanced control:\n\n'",
+      "should_be": "Complete documentation of all command-level options with examples",
+      "fix_suggestion": "Add comprehensive documentation covering: timeout, capture_output (boolean and variable name), capture_format (string, json, lines, number, boolean), capture_streams (stdout, stderr, both), output_file, on_failure (with TestDebugConfig), on_success, when (conditional execution), and env (command-level environment variables)",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand (lines 366-401)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "timeout",
+      "description": "timeout option not documented",
+      "fix_suggestion": "Add section explaining timeout field (type: u64, unit: seconds) for command execution timeout",
+      "source_reference": "src/config/command.rs:383 (timeout: Option<u64>)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "capture_output",
+      "description": "capture_output option not documented",
+      "fix_suggestion": "Document capture_output with both boolean and variable name forms. Explain CaptureOutputConfig enum with Boolean(bool) and Variable(String) variants",
+      "source_reference": "src/config/command.rs:367-368, src/config/command.rs:403-411 (CaptureOutputConfig)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "capture_format",
+      "description": "capture_format option not documented",
+      "fix_suggestion": "Document capture_format field with supported values: string (default), json, lines, number, boolean. Explain how output is parsed based on format",
+      "source_reference": "src/config/command.rs:391-392"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "capture_streams",
+      "description": "capture_streams option not documented",
+      "fix_suggestion": "Document capture_streams field with values: stdout (default), stderr, both. Explain which output streams are captured",
+      "source_reference": "src/config/command.rs:394-396"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "output_file",
+      "description": "output_file option not documented",
+      "fix_suggestion": "Document output_file for redirecting command output to a file path",
+      "source_reference": "src/config/command.rs:398-400"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "on_failure",
+      "description": "on_failure handler not documented",
+      "fix_suggestion": "Document on_failure field (type: TestDebugConfig) with fields: claude (command to run), max_attempts (default: 3), fail_workflow (default: false), commit_required (default: true)",
+      "source_reference": "src/config/command.rs:370-372, src/config/command.rs:166-183 (TestDebugConfig)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "on_success",
+      "description": "on_success handler not documented",
+      "fix_suggestion": "Document on_success field (type: Box<WorkflowStepCommand>) for executing another command on success",
+      "source_reference": "src/config/command.rs:374-376"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "when",
+      "description": "Conditional execution via 'when' field not documented",
+      "fix_suggestion": "Document when clause for conditional command execution based on boolean expressions",
+      "source_reference": "src/config/command.rs:387-388"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "env",
+      "description": "Command-level environment variables not documented",
+      "fix_suggestion": "Document env field (HashMap<String, String>) for per-command environment variable overrides",
+      "source_reference": "src/config/command.rs:143-145 (CommandMetadata.env)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "commit_required",
+      "description": "commit_required flag not documented",
+      "fix_suggestion": "Document commit_required field (default: false) to specify whether command must create git commits",
+      "source_reference": "src/config/command.rs:354-356"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "validate",
+      "description": "validate configuration not documented",
+      "fix_suggestion": "Document validate field for implementation completeness validation with automatic gap filling",
+      "source_reference": "src/config/command.rs:378-380"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "id",
+      "description": "Command ID field not documented",
+      "fix_suggestion": "Document id field for referencing command outputs in workflow variables",
+      "source_reference": "src/config/command.rs:351-352"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Examples",
+      "description": "No examples provided for any command-level options",
+      "fix_suggestion": "Add practical examples showing: timeout usage, output capture with variable names, on_failure for test debugging, conditional execution with when, command-level environment variables"
+    }
+  ],
+  "positive_aspects": [
+    "Section title is correct and matches structure",
+    "Statement correctly indicates these are fields for all command types"
+  ],
+  "improvement_suggestions": [
+    "Add comprehensive examples section showing real-world usage patterns",
+    "Include a comparison table of all available options with their types and defaults",
+    "Add cross-references to specific command types (shell, claude, goal_seek) showing how options apply",
+    "Include troubleshooting section for common issues (timeout too short, capture_format mismatch, etc.)",
+    "Add best practices section (when to use timeouts, how to choose capture_format, etc.)"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T08:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [],
+    "validation_focus": "Check command-level options documentation matches implementation"
+  }
+}
