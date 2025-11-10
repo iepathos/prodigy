@@ -21,40 +21,47 @@ parameters:
 
 ### Parameter Structure
 
-Each parameter can specify detailed validation and metadata:
+Parameters are organized into `required` and `optional` arrays. Each parameter specifies its type, description, and validation rules:
 
 ```yaml
 parameters:
-  definitions:
-    environment:
+  required:
+    - name: environment
       type: String
       description: "Target environment for deployment"
       validation: "matches('^(dev|staging|prod)$')"
 
-    port:
+    - name: version
+      type: String
+      description: "Application version to deploy"
+
+  optional:
+    - name: port
       type: Number
       description: "Server port number"
       default: 8080
 
-    enable_ssl:
+    - name: enable_ssl
       type: Boolean
       description: "Enable SSL/TLS"
       default: true
 
-    allowed_hosts:
+    - name: allowed_hosts
       type: Array
       description: "List of allowed hostnames"
       default: ["localhost"]
 
-    config:
+    - name: config
       type: Object
       description: "Configuration object"
       default: {"timeout": 30}
 
-    data:
+    - name: data
       type: Any
       description: "Free-form data of any type"
 ```
+
+**Source**: `ParameterDefinitions` structure in src/cook/workflow/composition/mod.rs:97-107
 
 ### Parameter Types
 
@@ -81,23 +88,51 @@ Prodigy supports six parameter types with validation (defined in src/cook/workfl
 
 ### Default Values
 
-Parameters can specify default values used when no value is provided:
+Parameters can specify default values used when no value is provided. Defaults can be set at two levels:
+
+**Parameter-Level Defaults** (in parameter definition):
 
 ```yaml
 parameters:
-  definitions:
-    timeout:
+  optional:
+    - name: timeout
       type: Number
+      description: "Operation timeout in seconds"
       default: 300
 
-    log_level:
+    - name: log_level
       type: String
+      description: "Logging verbosity"
       default: "info"
 
-    retry_enabled:
+    - name: retry_enabled
       type: Boolean
+      description: "Enable retry logic"
       default: true
 ```
+
+**Workflow-Level Defaults** (applies to all sub-workflows):
+
+```yaml
+name: parent-workflow
+
+defaults:
+  environment: "development"
+  debug_mode: true
+  timeout: 600
+
+parameters:
+  optional:
+    - name: environment
+      type: String
+      default: "production"  # Overridden by workflow defaults
+
+    - name: timeout
+      type: Number
+      default: 300  # Overridden by workflow defaults
+```
+
+**Source**: `defaults` field in src/cook/workflow/composition/mod.rs:204, `default` field in src/cook/workflow/composition/mod.rs:123-124
 
 ### Validation Expressions
 
@@ -125,12 +160,30 @@ parameters:
 
 **Via Command Line:**
 ```bash
-# Individual parameters
+# Individual parameters (with automatic type inference)
 prodigy run workflow.yml --param environment=production --param timeout=600
 
 # From JSON file
 prodigy run workflow.yml --param-file params.json
 ```
+
+**Automatic Type Inference:**
+
+When using `--param` flags, Prodigy automatically infers parameter types:
+- **Numbers**: `--param port=8080` → parsed as Number (i64 or f64)
+- **Booleans**: `--param debug=true` → parsed as Boolean
+- **Strings**: `--param name=app` → parsed as String (default if no other type matches)
+
+```bash
+# These are automatically typed correctly:
+prodigy run workflow.yml \
+  --param port=8080 \           # Number
+  --param timeout=30.5 \        # Number (float)
+  --param debug=true \          # Boolean
+  --param environment=prod      # String
+```
+
+**Source**: `parse_param_value` function in src/cli/params.rs:51-72
 
 **params.json:**
 ```json
@@ -150,19 +203,25 @@ prodigy run workflow.yml --param-file params.json
 
 ### Using Parameters in Workflows
 
-Parameters are referenced using `${param_name}` syntax:
+Parameters are interpolated into commands using the standard variable interpolation system with `${param_name}` syntax. This is the same syntax used for all workflow variables (captured outputs, environment variables, etc.).
 
 ```yaml
 parameters:
   required:
-    - app_name
-    - deploy_env
+    - name: app_name
+      type: String
+    - name: deploy_env
+      type: String
 
 commands:
   - shell: "echo Deploying ${app_name} to ${deploy_env}"
   - shell: "kubectl apply -f k8s/${deploy_env}/deployment.yml"
   - claude: "/deploy ${app_name} --environment ${deploy_env}"
 ```
+
+Parameters are resolved during variable interpolation before command execution, making them available everywhere workflow variables are supported.
+
+**Source**: Variable interpolation system in src/cook/workflow/variables.rs
 
 ### Complete Example
 
@@ -171,22 +230,23 @@ name: database-migration
 mode: standard
 
 parameters:
-  definitions:
-    database_url:
+  required:
+    - name: database_url
       type: String
       description: "Database connection string"
       validation: "matches('^postgres://')"
 
-    migration_version:
+    - name: migration_version
       type: String
       description: "Target migration version"
 
-    dry_run:
+  optional:
+    - name: dry_run
       type: Boolean
       description: "Run in dry-run mode"
       default: false
 
-    timeout:
+    - name: timeout
       type: Number
       description: "Migration timeout in seconds"
       default: 300
@@ -233,5 +293,5 @@ Error: Parameter validation failed
 
 - [Template System](template-system.md) - Use parameters in templates
 - [Default Values](default-values.md) - Set workflow-level defaults
-- [CLI Integration](#cli-integration) - Command-line parameter usage
+- [Providing Parameter Values](#providing-parameter-values) - Command-line parameter usage
 
