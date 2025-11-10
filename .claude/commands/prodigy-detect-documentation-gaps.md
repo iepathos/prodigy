@@ -307,6 +307,46 @@ ESTIMATED_LINES=$((TYPE_COUNT * 30 + FUNCTION_COUNT * 10 + EXAMPLE_COUNT * 40 + 
 
 These meta-subsections have different validation:
 
+**CRITICAL: Prevent Meta-Sections in Feature Chapters**
+
+Before creating meta-subsections, check if the parent chapter is appropriate:
+
+```bash
+# Identify chapter type
+CHAPTER_ID="<parent-chapter-id>"
+CHAPTER_TITLE="<parent-chapter-title>"
+
+# Feature-focused chapters that should NOT have meta-sections as subsections
+FEATURE_CHAPTERS=("advanced" "commands" "cli")
+
+# Check if this is a feature chapter
+IS_FEATURE_CHAPTER=false
+for feature_chapter in "${FEATURE_CHAPTERS[@]}"; do
+  if [[ "$CHAPTER_ID" == "$feature_chapter" ]] || [[ "$CHAPTER_TITLE" =~ "Advanced Features" ]] || [[ "$CHAPTER_TITLE" =~ "Commands" ]]; then
+    IS_FEATURE_CHAPTER=true
+    break
+  fi
+done
+
+# Skip meta-sections for feature chapters
+if [ "$IS_FEATURE_CHAPTER" = "true" ]; then
+  echo "SKIP: Chapter '$CHAPTER_TITLE' is feature-focused - meta-sections not appropriate"
+  # Do not create best-practices.md, common-patterns.md, etc.
+  continue
+fi
+```
+
+**Why Feature Chapters Should Not Have Meta-Sections:**
+- Feature chapters list capabilities/features, not unified topics
+- "Best Practices" in a feature chapter is too broad and generic
+- "Common Patterns" should be in workflow-basics or topic-specific chapters
+- Appropriate locations:
+  - Unified topic chapters (environment, retry-configuration, composition) ✅
+  - Root-level guides (workflow-basics.md, error-handling.md) ✅
+  - Feature-focused chapters (advanced, commands) ❌
+
+**For Appropriate Chapters:**
+
 ```bash
 # For "best-practices" subsection (search across codebase)
 BEST_PRACTICE_COUNT=$(rg "best.practice|pattern|guideline" --hidden --iglob '!.git' --iglob '!node_modules' -i -c | awk '{s+=$1} END {print s}')
