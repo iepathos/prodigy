@@ -1,0 +1,191 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "mapreduce",
+  "subsection_id": "backoff-strategies",
+  "subsection_title": "Backoff Strategies",
+  "subsection_file": "book/src/mapreduce/backoff-strategies.md",
+  "feature_mappings": [
+    "retry.backoff",
+    "mapreduce.retry"
+  ],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Subsection is critically incomplete - contains only a header and one partial sentence. All content about backoff strategies, YAML configuration, and MapReduce-specific retry behavior is missing. This is unacceptable for production documentation.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Backoff Strategies Overview",
+      "description": "File contains only header 'Backoff Strategies' and incomplete sentence about enum-based configuration. No actual strategy documentation exists.",
+      "feature_reference": "retry_v2.rs:BackoffStrategy, error_policy.rs:BackoffStrategy",
+      "fix_suggestion": "Document all backoff strategies available in both implementations: Fixed, Linear, Exponential, Fibonacci, and Custom (retry_v2 only). Explain when to use each in MapReduce context.",
+      "source_reference": "src/cook/retry_v2.rs:73-90, src/cook/workflow/error_policy.rs:108-120"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Fixed Backoff",
+      "description": "Fixed backoff strategy not documented - no explanation of constant delay behavior",
+      "feature_reference": "BackoffStrategy::Fixed",
+      "fix_suggestion": "Add section explaining Fixed backoff uses constant delay between retries. Show two forms: simple 'backoff: fixed' (uses default delay) and explicit delay configuration for error_policy.rs version.",
+      "source_reference": "src/cook/retry_v2.rs:75, src/cook/workflow/error_policy.rs:110"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Linear Backoff",
+      "description": "Linear backoff strategy with increment parameter not documented",
+      "feature_reference": "BackoffStrategy::Linear",
+      "fix_suggestion": "Document Linear backoff increases delay linearly. Show YAML syntax for increment field. Explain difference between retry_v2 (increment only) and error_policy (initial + increment).",
+      "source_reference": "src/cook/retry_v2.rs:77-80, src/cook/workflow/error_policy.rs:112-115"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Exponential Backoff",
+      "description": "Exponential backoff strategy not documented - missing multiplier/base configuration",
+      "feature_reference": "BackoffStrategy::Exponential",
+      "fix_suggestion": "Document Exponential backoff as the DEFAULT strategy. Show retry_v2 uses 'base' multiplier (default 2.0) while error_policy uses 'multiplier'. Include YAML examples for both implementations.",
+      "source_reference": "src/cook/retry_v2.rs:82-85, src/cook/workflow/error_policy.rs:117"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Fibonacci Backoff",
+      "description": "Fibonacci backoff strategy not documented",
+      "feature_reference": "BackoffStrategy::Fibonacci",
+      "fix_suggestion": "Explain Fibonacci backoff uses sequence (1, 1, 2, 3, 5, 8, 13...) multiplied by initial_delay. Ideal for distributed systems and MapReduce workloads. Show YAML syntax.",
+      "source_reference": "src/cook/retry_v2.rs:87, src/cook/workflow/error_policy.rs:119"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Custom Backoff (retry_v2 only)",
+      "description": "Custom backoff strategy with explicit delay sequence not documented",
+      "feature_reference": "BackoffStrategy::Custom",
+      "fix_suggestion": "Document Custom backoff allows explicit delay list. Only available in retry_v2 implementation. Show YAML example with delays array using humantime format.",
+      "source_reference": "src/cook/retry_v2.rs:88-89"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "MapReduce Integration",
+      "description": "No explanation of how backoff strategies integrate with MapReduce retry configuration",
+      "feature_reference": "timeout_config, retry_config in map phase",
+      "fix_suggestion": "Explain that backoff is configured in retry_config which can be part of timeout_config or error_policy at workflow level. Show complete MapReduce YAML example with retry_config containing backoff strategy.",
+      "source_reference": "src/config/mapreduce.rs:273, src/cook/workflow/error_policy.rs:160"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "YAML Syntax Examples",
+      "description": "No YAML examples showing how to configure backoff in MapReduce workflows",
+      "feature_reference": "retry_config.backoff field",
+      "fix_suggestion": "Add comprehensive YAML examples for each strategy in MapReduce map phase configuration. Show both simple (string) and complex (object with parameters) forms.",
+      "source_reference": "src/cook/retry_v2.rs:71 (#[serde(rename_all = \"snake_case\")])"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Default Behavior",
+      "description": "Default backoff strategy not documented",
+      "feature_reference": "BackoffStrategy::default()",
+      "fix_suggestion": "Clearly state that Exponential backoff with base/multiplier 2.0 is the default if no backoff specified. Document the defaults for initial_delay (1s) and max_delay.",
+      "source_reference": "src/cook/retry_v2.rs:92-97, src/cook/workflow/error_policy.rs:122-128"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Integration with RetryConfig Fields",
+      "description": "Relationship between backoff, initial_delay, max_delay, and jitter not explained",
+      "feature_reference": "RetryConfig structure",
+      "fix_suggestion": "Explain how backoff strategy uses initial_delay as base, respects max_delay cap, and interacts with jitter. Show complete RetryConfig YAML example with all fields.",
+      "source_reference": "src/cook/retry_v2.rs:16-52"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Implementation Variants",
+      "description": "Two different BackoffStrategy implementations exist but differences not explained",
+      "feature_reference": "retry_v2 vs error_policy implementations",
+      "fix_suggestion": "Clarify that retry_v2.rs is the newer, more comprehensive implementation with Custom strategy and better defaults. error_policy.rs is simpler with different parameter names (multiplier vs base).",
+      "source_reference": "src/cook/retry_v2.rs:73-90, src/cook/workflow/error_policy.rs:108-120"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "MapReduce-Specific Use Cases",
+      "description": "No guidance on which backoff strategy to use for different MapReduce scenarios",
+      "feature_reference": "MapReduce retry patterns",
+      "fix_suggestion": "Add best practices section: use Fibonacci for distributed MapReduce jobs, Exponential for API calls, Linear for database retries, Fixed for quick retries. Include examples of each.",
+      "source_reference": "Best practices inference from implementation patterns"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Fibonacci Implementation Details",
+      "description": "Fibonacci sequence calculation not explained",
+      "feature_reference": "fibonacci() function in retry_v2",
+      "fix_suggestion": "Add note explaining fibonacci sequence starts at 0,1 and each value is multiplied by initial_delay. Mention that sequence is bounded by max_delay.",
+      "source_reference": "src/cook/retry_v2.rs:424-440"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Troubleshooting",
+      "description": "No troubleshooting guidance for backoff configuration issues",
+      "feature_reference": "Common backoff misconfigurations",
+      "fix_suggestion": "Add troubleshooting section covering: delays too long/short, max_delay being ignored, Custom delays array edge cases, humantime format errors.",
+      "source_reference": "Common user errors inference"
+    }
+  ],
+  "positive_aspects": [
+    "Subsection properly linked in table of contents",
+    "File exists in correct location (book/src/mapreduce/backoff-strategies.md)",
+    "Header is present and correctly formatted",
+    "Mention of enum-based configuration hints at correct approach"
+  ],
+  "improvement_suggestions": [
+    "Add visual timeline diagrams showing delay progression for each strategy (Fixed: flat, Linear: ramp, Exponential: curve, Fibonacci: stepped curve)",
+    "Create comparison table showing strategy characteristics: growth rate, use cases, MapReduce suitability",
+    "Include complete MapReduce workflow YAML example with retry_config and backoff configuration",
+    "Add cross-reference to Retry Configuration main section for full RetryConfig documentation",
+    "Link to DLQ subsection explaining what happens when retries exhaust",
+    "Show how backoff state is preserved in MapReduce checkpoints for resume capability",
+    "Provide performance comparison of strategies for different failure patterns",
+    "Include code examples from tests showing expected behavior",
+    "Add warning about Custom backoff edge cases (empty delays array, exceeding array bounds)",
+    "Document interaction with timeout_config - backoff delays count toward agent timeout"
+  ],
+  "cross_references": [
+    "basic-retry-configuration",
+    "dead-letter-queue-dlq",
+    "checkpoint-and-resume",
+    "timeout-configuration",
+    "error-collection-strategies"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "retry",
+      "backoff",
+      "exponential",
+      "fibonacci"
+    ],
+    "validation_focus": "Check retry backoff strategies documented",
+    "implementation_files": [
+      "src/cook/retry_v2.rs",
+      "src/cook/workflow/error_policy.rs",
+      "src/config/mapreduce.rs",
+      "src/cook/execution/mapreduce/timeout.rs"
+    ],
+    "test_coverage": [
+      "src/cook/retry_v2.rs:test_backoff_fixed",
+      "src/cook/retry_v2.rs:test_backoff_linear",
+      "src/cook/retry_v2.rs:test_backoff_exponential",
+      "src/cook/retry_v2.rs:test_backoff_fibonacci",
+      "src/cook/retry_v2.rs:fibonacci() implementation"
+    ]
+  }
+}
