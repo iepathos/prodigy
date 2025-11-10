@@ -1,0 +1,75 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "advanced",
+  "subsection_id": "step-identification",
+  "subsection_title": "Step Identification",
+  "subsection_file": "book/src/advanced/step-identification.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Documentation describes a feature (step ID-based variable references) that appears to not be fully implemented in the codebase. The `id` field exists but step outputs are tracked by numeric index, not custom IDs.",
+  "issues": [
+    {
+      "type": "missing_implementation",
+      "severity": "critical",
+      "section": "Available Step Reference Fields",
+      "description": "Documentation shows examples like ${test-step.output}, ${build.exit_code}, ${lint.success}, ${bench.duration}, but implementation tracks steps by numeric index (step_0, step_1) not by custom ID",
+      "current_content": "Table shows ${step-id.output}, ${step-id.exit_code}, ${step-id.success}, ${step-id.duration}",
+      "should_be": "Either implement step ID-based variable resolution or update documentation to reflect actual implementation (step_0.output, etc.)",
+      "fix_suggestion": "Verify if step ID-based variable resolution is implemented. If not, update all examples to use numeric step indices or mark this as a future feature.",
+      "source_reference": "src/cook/session/state.rs:step_outputs HashMap uses numeric index, not custom IDs"
+    },
+    {
+      "type": "incomplete_implementation",
+      "severity": "high",
+      "section": "Basic Step IDs",
+      "description": "Code examples show id field and usage like ${test-step.output}, but actual implementation may not support referencing by custom ID",
+      "current_content": "Examples use custom IDs like 'test-step', 'build', 'lint' for variable references",
+      "should_be": "Clarify whether custom IDs work for variable references or if numeric indices must be used",
+      "fix_suggestion": "Test if ${test-step.output} actually works when step has id: 'test-step'. If not, update examples to show actual implementation.",
+      "source_reference": "src/cook/session/state.rs:restore_from_state uses step_index, not custom ID"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "medium",
+      "section": "When to Use Step IDs",
+      "description": "All examples assume step ID-based variable resolution works, but it's unclear if this is actually implemented",
+      "fix_suggestion": "Add note about implementation status, or verify feature works and document actual syntax",
+      "source_reference": "src/cook/workflow/normalized.rs:WorkflowStep has name field (converted from id) but may not be used for variable resolution"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Available Step Reference Fields",
+      "description": "Documentation doesn't explain how to actually use step IDs - whether it's the name field, id field, or some other mechanism",
+      "fix_suggestion": "Add section explaining the relationship between id field, step name, and variable references",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand has id field, but usage for variable resolution unclear"
+    }
+  ],
+  "positive_aspects": [
+    "Clear table showing available fields",
+    "Good progression from basic to complex use cases",
+    "Practical examples for different scenarios",
+    "Clear guidance on when NOT to use step IDs",
+    "No broken internal links detected"
+  ],
+  "improvement_suggestions": [
+    "Verify implementation status of step ID-based variable resolution",
+    "If feature exists, add more details on how it works internally",
+    "If feature doesn't exist, either implement it or update docs to reflect reality",
+    "Add troubleshooting section for common step ID issues",
+    "Include example of viewing available step variables at runtime"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Step Identification",
+      "Available Step Reference Fields",
+      "Basic Step IDs",
+      "When to Use Step IDs"
+    ],
+    "validation_focus": "Check step identification documentation matches implementation"
+  }
+}
