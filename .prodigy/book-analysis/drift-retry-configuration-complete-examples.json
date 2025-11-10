@@ -1,0 +1,118 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "retry-configuration",
+  "subsection_id": "complete-examples",
+  "subsection_title": "Complete Examples",
+  "subsection_file": "book/src/retry-configuration/complete-examples.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Documentation file does not exist - must be created from scratch",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Entire File",
+      "description": "Complete Examples subsection file does not exist in the codebase",
+      "current_content": null,
+      "should_be": "Complete markdown file with comprehensive retry configuration examples",
+      "fix_suggestion": "Create book/src/retry-configuration/complete-examples.md with examples covering: Basic Retry with Exponential Backoff, Exponential Backoff with Jitter, Conditional Retry with Error Matchers, Retry Budget, Fallback patterns, Continue on Failure, Rate Limit Handling, Custom Pattern Matching, Fibonacci Backoff, Linear Backoff, Fixed Delay, Complex Multi-Command Workflow, and MapReduce with Retry",
+      "feature_reference": "retry_configuration.backoff_strategies, retry_configuration.conditional_retry, retry_configuration.retry_budget, retry_configuration.jitter",
+      "source_reference": "src/cook/retry_v2.rs (complete retry implementation)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Parent Directory",
+      "description": "Parent directory book/src/retry-configuration/ does not exist",
+      "fix_suggestion": "Create the retry-configuration directory structure within book/src/ to organize retry-related subsections",
+      "source_reference": "Multi-subsection chapter pattern"
+    },
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "Cross-References",
+      "description": "If file is created, it will reference non-existent sibling subsections",
+      "broken_links": [
+        {
+          "link_text": "Basic Retry Configuration",
+          "target": "./basic-retry-configuration.md",
+          "expected_path": "book/src/retry-configuration/basic-retry-configuration.md",
+          "status": "would be broken - file does not exist",
+          "suggested_fix": "Create basic-retry-configuration.md subsection"
+        },
+        {
+          "link_text": "Backoff Strategies",
+          "target": "./backoff-strategies.md",
+          "expected_path": "book/src/retry-configuration/backoff-strategies.md",
+          "status": "would be broken - file does not exist",
+          "suggested_fix": "Create backoff-strategies.md subsection"
+        },
+        {
+          "link_text": "Conditional Retry with Error Matchers",
+          "target": "./conditional-retry-with-error-matchers.md",
+          "expected_path": "book/src/retry-configuration/conditional-retry-with-error-matchers.md",
+          "status": "would be broken - file does not exist",
+          "suggested_fix": "Create conditional-retry-with-error-matchers.md subsection"
+        },
+        {
+          "link_text": "Failure Actions",
+          "target": "./failure-actions.md",
+          "expected_path": "book/src/retry-configuration/failure-actions.md",
+          "status": "would be broken - file does not exist",
+          "suggested_fix": "Create failure-actions.md subsection"
+        },
+        {
+          "link_text": "Best Practices",
+          "target": "./best-practices.md",
+          "expected_path": "book/src/retry-configuration/best-practices.md",
+          "status": "would be broken - file does not exist",
+          "suggested_fix": "Create best-practices.md subsection"
+        }
+      ],
+      "fix_suggestion": "Either create all referenced subsections or update cross-references to point to existing documentation"
+    }
+  ],
+  "positive_aspects": [
+    "Implementation exists in src/cook/retry_v2.rs with comprehensive retry features",
+    "Feature inventory documents retry configuration thoroughly",
+    "Clear feature mapping available for documentation generation"
+  ],
+  "improvement_suggestions": [
+    "Create complete retry-configuration chapter structure with index.md and subsections",
+    "Ensure examples are tested and match actual implementation syntax",
+    "Include troubleshooting section for common retry pitfalls",
+    "Add visual diagrams for backoff strategy comparisons",
+    "Provide copy-paste ready YAML examples for each use case",
+    "Cross-reference related error-handling and MapReduce documentation"
+  ],
+  "cross_references": [
+    "error-handling",
+    "mapreduce",
+    "workflow-basics"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:42:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Complete Examples",
+      "Basic Retry with Exponential Backoff",
+      "Exponential Backoff with Jitter",
+      "Conditional Retry with Error Matchers",
+      "Retry Budget",
+      "Fallback on Failure",
+      "Continue on Failure",
+      "Rate Limit Handling",
+      "Custom Pattern Matching",
+      "Fibonacci Backoff",
+      "Linear Backoff",
+      "Fixed Delay",
+      "Complex Multi-Command Workflow",
+      "MapReduce with DLQ and Retry",
+      "Testing Retry Configuration"
+    ],
+    "validation_focus": "Check complete examples documentation matches implementation",
+    "file_exists": false,
+    "directory_exists": false
+  }
+}
