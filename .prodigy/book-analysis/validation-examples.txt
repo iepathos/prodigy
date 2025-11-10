@@ -1,82 +1,53 @@
-# Validation Summary for Examples
+# Validation Summary for Examples Chapter
 
 ## Content Metrics
-- Lines of content: 473 (minimum: 100) ✓
-- Headings: 11 (minimum: 5) ✓
-- Code examples: 20 (minimum: 3) ✓
-- Source references: 6 (minimum: 2) ✓
+- Lines of content: 712 (minimum: 100 for chapters)
+- Level-2 headings (##): 14 (minimum: 5)
+- Code examples (``` blocks): 32 (minimum: 3)
+- Source references: 18 (minimum: 2)
 
 ## Drift Issues Resolved
-- Critical: 0/0
-- High: 2/2
-  - Fixed Example 7 secrets syntax (merged into env block)
-  - Added Example 11 for custom merge workflows
-- Medium: 4/4
-  - Fixed timeout_config comments (removed unimplemented fields)
-  - Fixed max_attempts placement (already correct at step level)
-  - Added distinct field explanation
-  - Added session-job ID mapping explanation
-- Low: 4/4
-  - Moved git context variables from "Future" to working examples
-  - Added git context pattern filtering examples
-  - Git context fully documented with all variables
-  - Added source references for all new content
+- High severity: 1/1 ✓
+  - Fixed goal_seek example with complete documentation and validation
+- Medium severity: 2/2 ✓
+  - Added Example 11: Circuit Breaker configuration
+  - Added Example 12: Retry backoff strategies
+- Low severity: 3/3 ✓
+  - Added Example 13: Workflow composition (marked as preview)
+  - Verified working_dir field name and added detailed examples
+  - Documented git context pattern filtering (both syntaxes explained)
 
 ## Code Validation
 - All struct fields verified: ✓
-  - EnvironmentConfig: src/cook/environment/config.rs:12-36
-  - SecretValue: src/cook/environment/config.rs:84-96
-  - MergeWorkflow: src/config/mapreduce.rs:84-94
-  - TimeoutConfig: src/cook/execution/mapreduce/timeout.rs:38-63
-  - GitChangeTracker: src/cook/workflow/git_context.rs:86-99
-
+  - CircuitBreakerConfig: failure_threshold, success_threshold, timeout, half_open_requests
+  - BackoffStrategy: Fixed, Linear, Exponential, Fibonacci, Custom
+  - RetryConfig: max_attempts, backoff, initial_delay, max_delay, jitter, etc.
+  - GoalSeekConfig: goal, validate, threshold, max_attempts, timeout_seconds, etc.
 - All enum variants verified: ✓
-  - EnvValue variants match source
-  - SecretValue variants match source
-  - Git context variables match implementation
-
+  - BackoffStrategy variants match src/cook/retry_v2.rs:70-98
+  - CircuitState variants match error_policy.rs:240-249
 - All examples have source attribution: ✓
-  - 6 source references added
-  - All references link to actual source files
-  - Test files and example workflows cited
-
+  - 18+ source references to actual codebase files with line numbers
 - All referenced files exist: ✓
-  - src/cook/environment/config.rs
-  - src/config/mapreduce.rs
-  - src/cook/workflow/git_context.rs
-  - src/cook/execution/mapreduce/timeout.rs
-  - tests/environment_workflow_test.rs
-  - tests/merge_workflow_integration.rs
-  - workflows/mapreduce-env-example.yml
 
 ## Quality Gates
-✓ Meets minimum content requirements (473 lines, 11 headings, 20 examples)
+✓ Meets minimum content requirements (712 lines vs 100 minimum)
 ✓ All critical issues resolved (0 critical in original report)
-✓ All high severity issues resolved (2/2)
-✓ All medium severity issues resolved (4/4)
-✓ All low severity issues resolved (4/4)
+✓ All high severity issues resolved (1/1)
+✓ All medium severity issues resolved (2/2)
+✓ All low severity issues resolved (3/3)
 ✓ All examples grounded in codebase
 ✓ All source references validated
+✓ Added versioning note at top
+✓ Added 3 new examples (circuit breaker, retry, composition)
+✓ Enhanced goal_seek example with complete documentation
+
+## New Content Added
+1. Example 2 enhancement: Complete goal_seek documentation with validation script format
+2. Example 11: Circuit Breaker for Resilient Error Handling (NEW)
+3. Example 12: Retry Configuration with Backoff Strategies (NEW)
+4. Example 13: Workflow Composition Preview (NEW)
+5. Example 10 enhancement: working_dir field documentation with source references
+6. Chapter intro: Versioning note and validation timestamp
 
 Status: READY TO COMMIT
-
-## Key Improvements
-1. Example 7: Corrected secrets syntax - secrets go in env block with secret:true flag
-2. Example 8: Removed unimplemented timeout fields, added cleanup_grace_period
-3. Example 10: Moved git context from "Future" to working examples with full documentation
-4. Example 11: Added comprehensive custom merge workflow example (NEW)
-5. Added deduplication explanation for distinct field
-6. Added session-job ID mapping explanation
-7. All examples now include source file references
-8. Added 6 source attributions linking to implementation files
-
-## Files Modified
-- book/src/examples.md (updated with all fixes)
-- .prodigy/book-analysis/evidence-examples.md (evidence file created)
-- .prodigy/book-analysis/validation-examples.txt (this file)
-
-## Total Issues Fixed
-- 2 high severity
-- 4 medium severity
-- 4 low severity
-- 10 total drift issues resolved
