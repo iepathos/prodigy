@@ -104,10 +104,51 @@ Customize which streams and metadata are captured using `capture_streams`:
     duration: true    # default: true
 ```
 
-**Use Cases:**
-- `stderr: true` - Capture error messages for debugging
-- `stderr: false` - Exclude noise from stderr
-- `duration: true` - Track performance metrics
+**Default Behavior Explained:**
+
+**Source:** src/cook/workflow/variables.rs:269-291
+
+- `stdout: true` - Command output is captured (default)
+- `stderr: false` - Error output is NOT captured by default (prevents noise from warnings)
+- `exit_code: true` - Exit code is always captured
+- `success: true` - Boolean success status (exit_code == 0) is always captured
+- `duration: true` - Execution duration is always captured
+
+**When stderr is false (default):**
+- Error output is discarded
+- Only stdout is captured in the variable
+- Use this when stderr contains progress bars, warnings, or noise
+
+**When stderr is true:**
+- Both stdout and stderr are combined in the captured output
+- Useful for debugging failures or when errors contain useful information
+
+**Common Patterns:**
+```yaml
+# Capture both stdout and stderr for debugging
+- shell: "cargo build 2>&1"
+  capture_output: "build_output"
+  capture_streams:
+    stdout: true
+    stderr: true  # Override default to capture errors
+
+# Only capture exit code for validation (no output)
+- shell: "test -f config.toml"
+  capture_output: "config_exists"
+  capture_streams:
+    stdout: false  # Don't capture output
+    stderr: false
+    exit_code: true  # Just check if it succeeded
+    success: true    # Get boolean result
+
+# Capture output but measure performance
+- shell: "cargo test --lib"
+  capture_output: "test_results"
+  capture_streams:
+    stdout: true
+    stderr: false
+    duration: true  # Track how long tests took
+```
 
 ### Variable Scoping
 
@@ -265,6 +306,75 @@ reduce:
 5. **Document expected structure**: Comment complex JSON captures
 6. **Avoid shadowing built-ins**: Don't name variables `item`, `map`, or `workflow`
 7. **Clean up large captures**: Don't keep unnecessary data in scope
+
+#### Choosing Between capture_format: json and Manual Parsing
+
+**Use capture_format: json when:**
+- You need to access nested fields directly: `${metadata.workspace.root}`
+- The JSON structure is stable and well-defined
+- You want simple field access without complex transformations
+- The command always outputs valid JSON
+
+**Example:**
+```yaml
+- shell: "cargo metadata --format-version 1"
+  capture_output: "metadata"
+  capture_format: "json"
+
+# Access fields directly
+- shell: "cd ${metadata.workspace_root}"
+- shell: "echo 'Package: ${metadata.packages[0].name}'"
+```
+
+**Use manual jq parsing when:**
+- You need complex filtering or transformations
+- You want to extract only specific fields (reduce memory)
+- The JSON structure varies or is deeply nested
+- You need to combine or reshape data
+- You want error handling for invalid JSON
+
+**Example:**
+```yaml
+# Complex transformation with jq
+- shell: |
+    cargo test --format json 2>&1 | \
+      jq -s '[.[] | select(.type == "test")] |
+             group_by(.event) |
+             map({event: .[0].event, count: length})'
+  capture_output: "test_summary"
+  capture_format: "json"
+
+# Filter to specific data only
+- shell: |
+    cargo metadata --format-version 1 | \
+      jq '.packages[] | select(.name == "prodigy") | {name, version, edition}'
+  capture_output: "prodigy_info"
+  capture_format: "json"
+```
+
+**Combined Approach:**
+```yaml
+# Capture full JSON for direct field access
+- shell: "cargo metadata --format-version 1"
+  capture_output: "metadata"
+  capture_format: "json"
+
+# Access simple fields directly (fast, no jq needed)
+- shell: "echo 'Workspace: ${metadata.workspace_root}'"
+
+# Use jq for complex operations on the same data
+- shell: |
+    echo '${metadata}' | jq '.packages[] | select(.name == "prodigy")'
+  capture_output: "prodigy_package"
+  capture_format: "json"
+```
+
+**Performance Considerations:**
+- **capture_format: json** parses once, enables direct field access
+- **Manual jq** can filter early to reduce memory for large JSON
+- **Combined approach** gives both direct access and complex queries
+
+**Source:** Examples from book/src/variables/custom-variable-capture.md:143-161, 289-297
 
 ### Common Patterns
 

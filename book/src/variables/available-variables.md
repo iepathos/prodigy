@@ -192,6 +192,69 @@ Prodigy supports two interpolation syntaxes:
 
 **Best Practice:** Always use `${VAR}` syntax for consistency and reliability.
 
+#### Default Values
+
+Provide fallback values for undefined or missing variables using the `:-` syntax (bash/shell convention):
+
+**Syntax:** `${variable:-default_value}`
+
+**Source:** src/cook/execution/interpolation.rs:277
+
+**Examples:**
+```yaml
+# Use default if variable is undefined
+- shell: "echo 'Timeout: ${timeout:-600}'"
+  # Output: "Timeout: 600" if timeout is not defined
+
+# Fallback for optional configuration
+- shell: "cargo build --profile ${build_profile:-dev}"
+  # Uses "dev" profile if build_profile not set
+
+# Default for MapReduce variables
+- shell: "echo 'Processed ${map.successful:-0} items'"
+  # Shows "0" if map.successful is not available
+```
+
+**Behavior with Interpolation Modes:**
+- **Non-strict mode (default):** Uses default value if variable is undefined
+- **Strict mode:** Default value syntax prevents errors for optional variables
+
+#### Interpolation Modes
+
+Prodigy supports two modes for handling undefined variables:
+
+**Non-strict Mode (Default):**
+- Leaves placeholders unresolved when variable is undefined
+- Example: `${undefined}` remains as `${undefined}` in output
+- With default: `${undefined:-fallback}` becomes `fallback`
+- Use case: Workflows that can handle partial variable resolution
+
+**Strict Mode:**
+- Fails immediately on undefined variables
+- Example: `${undefined}` causes workflow to fail with comprehensive error
+- Error message lists all available variables for debugging
+- Use case: Production workflows requiring all variables to be properly defined
+
+**Source:** src/cook/execution/interpolation.rs:16-17, 104-137
+
+**Configuration:**
+Strict mode is configured per InterpolationEngine instance and controlled at the workflow execution level.
+
+**Best Practice:** Use strict mode during development to catch variable name typos and scope issues early. Use default values (`${var:-default}`) for truly optional configuration.
+
+**Examples:**
+```yaml
+# Non-strict mode (graceful degradation)
+- shell: "echo 'Config: ${optional_config:-none}'"
+  # Works even if optional_config is undefined
+
+# Strict mode (fail fast)
+# If required_var is undefined, workflow stops with error:
+# "Variable interpolation failed: required_var not found.
+#  Available variables: workflow.name, workflow.id, step.index, ..."
+- shell: "echo 'Required: ${required_var}'"
+```
+
 ### Variable Scoping and Precedence
 
 #### Scope by Phase
@@ -227,6 +290,61 @@ Prodigy supports two interpolation syntaxes:
   capture_output: "custom_result"
 ```
 
+#### Parent Context Resolution
+
+Variable resolution walks up a parent context chain when variables are not found in the current context. This enables variable inheritance across workflow phases and nested contexts.
+
+**Source:** src/cook/execution/interpolation.rs:200-226, InterpolationContext struct at :376-381
+
+**Resolution Order:**
+1. Check current context
+2. If not found, check parent context
+3. If not found in parent, check parent's parent
+4. Continue until variable is found or no parent exists
+5. If not found and has default value, use default
+6. If not found in strict mode, fail with error listing available variables
+
+**Benefits:**
+- Nested workflow contexts inherit variables from parent workflows
+- Foreach loops access both loop-level and workflow-level variables
+- Map agents access setup phase variables
+- Reduce phase accesses both map results and setup variables
+
+**Example:**
+```yaml
+setup:
+  - shell: "pwd"
+    capture_output: "workspace_root"  # Available to all agents via parent context
+  - shell: "git rev-parse HEAD"
+    capture_output: "base_commit"     # Also inherited by map agents
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+  agent_template:
+    - shell: "echo 'processing ${item.name}'"
+      capture_output: "item_status"  # Only in this agent's context
+    - shell: "cd ${workspace_root}"  # Resolved from parent (setup) context
+    - shell: "git diff ${base_commit}" # Also from parent context
+    - shell: "echo 'Status: ${item_status}'" # From current agent context
+
+reduce:
+  # Can access setup variables but NOT individual agent's item_status
+  - shell: "cd ${workspace_root}"  # From setup phase parent context
+  - shell: "echo 'Base: ${base_commit}'"  # Also from setup phase
+```
+
+**Context Hierarchy:**
+```
+Setup Context (workspace_root, base_commit)
+    ↓ parent
+Map Agent Context (item, item_status, workspace_root*, base_commit*)
+    ↓ parent
+Reduce Context (map.results, workspace_root*, base_commit*)
+```
+
+*Inherited from parent context
+
 ### Reduce Phase Access to Item Data
 
 In the reduce phase, individual item variables (`${item.*}`) are not directly available, but you can access all item data through `${map.results}`, which contains the aggregated results from all map agents.
@@ -254,4 +372,41 @@ reduce:
       echo '${map.results}' | jq '[.[] | select(.item.priority > 5) | .item.name]'
     capture_output: "high_priority_items"
 ```
+
+### Performance: Template Caching
+
+Prodigy automatically caches parsed variable templates for performance optimization. When the same variable template is used multiple times, the template is parsed once and reused for subsequent interpolations.
+
+**Source:** src/cook/execution/interpolation.rs:18-19, 68-75
+
+**How It Works:**
+- First use: Template is parsed and cached
+- Subsequent uses: Cached template is reused (no re-parsing)
+- Cache key: Exact template string
+- Automatic: No configuration needed
+
+**Benefits:**
+- **Faster interpolation** for repeated templates
+- **Reduced CPU usage** in large MapReduce workflows
+- **Lower latency** for high-frequency variable interpolation
+
+**When It Matters Most:**
+- MapReduce workflows with many work items (>100)
+- Workflows with complex nested variable expressions
+- High-frequency variable interpolation in loops
+- Templates with multiple variables and nested field access
+
+**Example Performance Impact:**
+```yaml
+# Without caching: Parse template 1000 times
+# With caching: Parse template once, reuse 1000 times
+map:
+  input: "items.json"  # 1000 items
+  json_path: "$.items[*]"
+  agent_template:
+    # This template is parsed once, then reused for all 1000 items
+    - shell: "process ${item.path} --priority ${item.metadata.priority:-5}"
+```
+
+**Note:** Template caching is transparent - you don't need to do anything to benefit from it. The cache persists for the lifetime of the InterpolationEngine (typically the entire workflow execution).
 
