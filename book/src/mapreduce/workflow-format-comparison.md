@@ -86,12 +86,20 @@ Secrets support two formats (defined in `src/cook/environment/config.rs:86-95`):
    ```yaml
    secrets:
      API_KEY:
-       provider: env          # Providers: env, file
+       provider: env          # Providers: env, file, vault, aws
        key: "GITHUB_TOKEN"    # Source key/path
        version: "v1"          # Optional version
    ```
 
-Both formats mask secret values in logs. The Simple format is convenient for environment variables, while Provider format supports file-based secrets and versioning.
+**Available Providers** (defined in `src/cook/environment/config.rs:101-109`):
+- `env` - Environment variables (most common)
+- `file` - File-based secrets
+- `vault` - HashiCorp Vault integration
+- `aws` - AWS Secrets Manager integration
+
+Both formats mask secret values in logs. The Simple format is convenient for environment variables, while Provider format supports advanced secret management systems like Vault and AWS Secrets Manager.
+
+**Note**: For detailed Vault and AWS provider configuration, see [Secrets Management](../environment/secrets-management.md) and [Environment Variables in Configuration](./environment-variables-in-configuration.md).
 
 **Source**: Example workflow at `workflows/mapreduce-env-example.yml:23-26`
 
