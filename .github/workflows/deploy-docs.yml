@@ -28,13 +28,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # Sync navigation and handle intro.md → index.md conversion
-      - name: Sync mdbook → mkdocs navigation
-        if: env.DEPLOY_FORMAT == 'mkdocs'
-        run: |
-          pip install pyyaml
-          python scripts/mdbook-mkdocs-sync.py --rename-files
-
       # Build mdbook
       - name: Setup mdBook
         if: env.DEPLOY_FORMAT == 'mdbook'
