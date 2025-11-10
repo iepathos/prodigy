@@ -246,12 +246,20 @@ commands:
 
 ## Additional Topics
 
-See also:
-- [MapReduce Environment Variables](mapreduce-environment-variables.md)
-- [Environment Files](environment-files.md)
-- [Secrets Management](secrets-management.md)
-- [Environment Profiles](environment-profiles.md)
-- [Per-Command Environment Overrides](per-command-environment-overrides.md)
-- [Environment Precedence](environment-precedence.md)
-- [Best Practices](best-practices.md)
-- [Common Patterns](common-patterns.md)
+### Environment Configuration Subsections
+
+- [MapReduce Environment Variables](mapreduce-environment-variables.md) - Environment variables specific to MapReduce workflows
+- [Environment Files](environment-files.md) - Using .env files for configuration
+- [Secrets Management](secrets-management.md) - Handling sensitive data securely
+- [Environment Profiles](environment-profiles.md) - Profile-based configuration for different environments
+- [Per-Command Environment Overrides](per-command-environment-overrides.md) - Step-level environment customization
+- [Environment Precedence](environment-precedence.md) - Understanding variable resolution order
+- [Best Practices](best-practices.md) - Recommended patterns and approaches
+- [Common Patterns](common-patterns.md) - Real-world usage examples
+
+### Related Chapters
+
+- [MapReduce Workflows](../mapreduce/index.md) - Parallel processing with environment configuration
+- [Variables and Interpolation](../variables/index.md) - Understanding variable syntax and usage
+- [Configuration](../configuration/index.md) - Overall workflow and project configuration
+- [Workflow Configuration](../configuration/workflow-configuration.md) - Complete workflow file structure
