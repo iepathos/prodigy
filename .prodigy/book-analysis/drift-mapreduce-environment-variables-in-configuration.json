@@ -4,133 +4,99 @@
   "subsection_id": "environment-variables-in-configuration",
   "subsection_title": "Environment Variables in Configuration",
   "subsection_file": "book/src/mapreduce/environment-variables-in-configuration.md",
-  "feature_mappings": ["environment.global_env", "environment.secrets", "environment.profiles", "environment.env_files", "environment.step_env"],
+  "feature_mappings": [
+    "environment.mapreduce",
+    "environment.variables"
+  ],
   "drift_detected": true,
   "severity": "medium",
-  "quality_assessment": "Good overall coverage with accurate examples, but broken cross-references need fixing and some terminology clarification needed",
+  "quality_assessment": "Subsection is comprehensive and well-structured with excellent source references and examples. The main issue is inconsistent secret syntax documentation that may confuse users. The documentation shows a `secret: true` flag format that doesn't match the actual workflow examples which use provider-based syntax. Otherwise, coverage is thorough with accurate technical details, complete examples, and helpful cross-references.",
   "issues": [
     {
-      "type": "broken_links",
-      "severity": "high",
-      "section": "Cross-References",
-      "description": "All 4 cross-reference links point to non-existent files",
-      "broken_links": [
-        {
-          "link_text": "Variables Chapter",
-          "link_target": "./variables.md",
-          "expected_file": "book/src/mapreduce/variables.md",
-          "actual_location": "../variables/index.md",
-          "fix": "Change to ../variables/index.md"
-        },
-        {
-          "link_text": "Setup Phase",
-          "link_target": "./setup-phase.md",
-          "expected_file": "book/src/mapreduce/setup-phase.md",
-          "actual_location": "./setup-phase-advanced.md",
-          "fix": "Change to ./setup-phase-advanced.md"
-        },
-        {
-          "link_text": "Map Phase Configuration",
-          "link_target": "./map-phase-configuration.md",
-          "expected_file": "book/src/mapreduce/map-phase-configuration.md",
-          "actual_location": "Not found - may be in index.md",
-          "fix": "Either create dedicated subsection or link to ./index.md#map-phase or remove this link"
-        },
-        {
-          "link_text": "Reduce Phase",
-          "link_target": "./reduce-phase.md",
-          "expected_file": "book/src/mapreduce/reduce-phase.md",
-          "actual_location": "Not found - may be in index.md",
-          "fix": "Either create dedicated subsection or link to ./index.md#reduce-phase or remove this link"
-        }
-      ],
-      "fix_suggestion": "Update cross-reference section to link to actual file locations. Consider whether map/reduce phase configuration warrants dedicated subsections or if they should be covered in index.md.",
-      "validation_required": true
-    },
-    {
-      "type": "incorrect_examples",
+      "type": "inconsistent_examples",
       "severity": "medium",
-      "section": "Configuration Fields - Secrets",
-      "description": "Documentation shows secret provider syntax that may not be fully implemented",
-      "current_content": "secrets:\n  DB_PASSWORD:\n    provider: vault\n    key: \"database/prod/password\"\n    version: \"v2\"",
-      "should_be": "Verify if provider-based secrets are implemented. Features.json says 'providers: Support for secret providers (planned)'",
-      "fix_suggestion": "Either mark provider-based secrets as 'planned/future' or verify implementation exists. Current simple format (${env:VAR}) appears to be the working syntax.",
-      "source_reference": "features.json:environment.secrets.providers"
+      "section": "Secrets Configuration",
+      "description": "Documentation shows secret syntax with `secret: true` flag, but actual workflow examples use provider-based syntax without the secret flag",
+      "current_content": "API_KEY:\n  secret: true\n  value: \"${env:SECRET_API_KEY}\"",
+      "actual_usage_in_workflows": "secrets:\n  API_KEY: \"${env:SECRET_API_KEY}\"\n\nor\n\nsecrets:\n  API_TOKEN:\n    provider: env\n    key: \"GITHUB_TOKEN\"",
+      "fix_suggestion": "Show both syntaxes with clear explanation:\n1. Simple syntax: secrets:\n     API_KEY: \"${env:SECRET_API_KEY}\"\n2. Provider syntax: secrets:\n     API_TOKEN:\n       provider: env\n       key: \"GITHUB_TOKEN\"\n\nClarify that the `secret: true` flag is for env block secrets, not the separate secrets block.",
+      "source_reference": "workflows/mapreduce-env-example.yml:23-26, workflows/environment-example.yml:21-23"
     },
     {
-      "type": "inconsistent_terminology",
+      "type": "unclear_content",
       "severity": "low",
-      "section": "Configuration Fields - Secrets vs Basic Environment",
-      "description": "The distinction between 'env' block and 'secrets' block may confuse users",
-      "current_content": "Documentation shows both 'env' and 'secrets' as separate top-level blocks",
-      "should_be": "Clarify that secrets use special syntax within env block based on actual implementation",
-      "fix_suggestion": "Review actual workflow configuration structure in code. Based on features.json, secrets appear to be marked within the env structure with secret: true flag, not necessarily a separate top-level block.",
-      "source_reference": "features.json:environment.secrets.structure - 'SecretValue type with value and secret flag'"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Variable Interpolation",
-      "description": "Missing explanation of interpolation in env values themselves",
-      "feature_reference": "environment.global_env.interpolation",
-      "fix_suggestion": "Add example showing how env values can reference other env variables or system environment variables. Example: API_URL: \"${BASE_URL}/api/v1\"",
-      "source_reference": "features.json:environment.global_env.interpolation"
+      "section": "Secrets Configuration",
+      "description": "Mixing of `env` block secrets (with secret: true flag) and `secrets` block (dedicated secrets section) may confuse users about which approach to use",
+      "current_content": "Lines 27-40 show secrets within env block with secret: true flag, but workflows use separate secrets: block",
+      "should_be": "Clearly differentiate between:\n1. Dedicated `secrets:` top-level block (recommended for secrets)\n2. Inline secrets in `env:` block with `secret: true` flag (for backwards compatibility)",
+      "fix_suggestion": "Add a subsection explaining the two approaches:\n**Approach 1: Dedicated Secrets Block (Recommended)**\n```yaml\nsecrets:\n  API_KEY: \"${env:SECRET_API_KEY}\"\n```\n\n**Approach 2: Inline Secrets in Env Block**\n```yaml\nenv:\n  API_KEY:\n    secret: true\n    value: \"${env:SECRET_API_KEY}\"\n```",
+      "source_reference": "src/config/workflow.rs:24-26 (secrets field), src/cook/environment/config.rs:84-96 (SecretValue enum)"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Running with Different Configurations",
-      "description": "Example shows command-line env override but doesn't explain precedence clearly",
-      "current_content": "MAX_WORKERS=10 prodigy run workflow.yml --profile prod",
-      "should_be": "Explain that command-line env vars override profile values",
-      "fix_suggestion": "Add note about precedence: 'Command-line environment variables override profile settings, which override the base env block.'",
-      "source_reference": "features.json:environment.step_env.precedence"
+      "section": "Variable Interpolation in Environment Values",
+      "description": "Section mentions interpolation in env values but doesn't show concrete examples of environment variables referencing other environment variables",
+      "current_content": "Lines 121-132 discuss interpolation but examples shown are generic",
+      "should_be": "Show real working example from actual workflow:\nenv:\n  PROJECT_NAME: \"my-project\"\n  OUTPUT_DIR: \"output\"\n  REPORT_FORMAT: \"json\"\n  # Environment variable referencing other env vars\n  REPORT_PATH: \"${OUTPUT_DIR}/${PROJECT_NAME}-summary.${REPORT_FORMAT}\"",
+      "fix_suggestion": "Add practical example showing environment variable composition as seen in workflows/mapreduce-env-example.yml:78",
+      "source_reference": "workflows/mapreduce-env-example.yml:78"
     }
   ],
   "positive_aspects": [
-    "Clear structure with all four configuration types explained",
-    "Excellent complete example showing all features together",
-    "Good best practices section covering security and organizational concerns",
-    "Accurate representation of secret masking behavior",
-    "Practical running examples for different scenarios",
-    "Step-level environment override section is accurate"
+    "Comprehensive coverage of all environment configuration features",
+    "Excellent source code references (e.g., src/config/workflow.rs:11-39)",
+    "Includes test file references for validation (tests/mapreduce_env_execution_test.rs)",
+    "Clear explanation of environment precedence order",
+    "Complete working example demonstrating all features (lines 175-243)",
+    "Detailed best practices section covering security and usage patterns",
+    "Good debugging section with verbose output examples",
+    "All internal cross-reference links are valid and correctly formatted",
+    "Thorough documentation of advanced features (clear_env, temporary, working_dir)",
+    "Well-structured with logical progression from basic to advanced topics"
   ],
   "improvement_suggestions": [
-    "Fix all cross-reference links to point to actual files",
-    "Clarify whether provider-based secrets are implemented or planned",
-    "Consider adding a visual diagram showing environment precedence hierarchy",
-    "Add troubleshooting section for common environment variable issues",
-    "Include example of using environment variables in max_parallel field",
-    "Show how to verify which environment values are active (debugging aid)",
-    "Link to the main Environment Configuration chapter for more comprehensive coverage"
+    "Clarify the two secret configuration approaches (dedicated secrets: block vs env: block with secret: true)",
+    "Add a comparison table showing when to use each secret configuration approach",
+    "Include more examples of environment variable composition (vars referencing other vars)",
+    "Add a troubleshooting subsection for common environment variable issues",
+    "Show example of using profiles with command-line override: MAX_WORKERS=10 prodigy run workflow.yml --profile prod",
+    "Add note about case sensitivity of environment variable names",
+    "Include example of debugging environment variable resolution with -vv flag output"
   ],
   "cross_references": [
-    "../variables/index.md",
-    "./setup-phase-advanced.md",
-    "./index.md",
-    "../environment/index.md",
-    "../environment/mapreduce-environment-variables.md",
-    "../environment/secrets-management.md",
-    "../environment/environment-profiles.md"
+    "variables/index.md - Complete guide to environment variables and interpolation",
+    "environment/index.md - Detailed environment management patterns",
+    "environment/mapreduce-environment-variables.md - MapReduce-specific environment features",
+    "environment/secrets-management.md - Security best practices for secrets",
+    "environment/environment-profiles.md - Multi-environment deployment patterns",
+    "setup-phase-advanced.md - Using environment variables in setup commands",
+    "index.md - Main MapReduce workflow documentation"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T00:00:00Z",
+    "analyzed_at": "2025-01-11T07:30:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "environment variables",
-      "secrets management",
+      "secrets",
       "profiles",
-      "env_files",
-      "step-level overrides",
-      "variable interpolation"
+      "configuration",
+      "variable interpolation",
+      "environment precedence",
+      "step-level environment"
     ],
     "validation_focus": "Check environment variable configuration in MapReduce workflows",
-    "features_analyzed": {
-      "global_env": "Covered with static, dynamic, and interpolation aspects",
-      "secrets": "Covered with caveats about provider implementation status",
-      "profiles": "Well documented with activation examples",
-      "env_files": "Documented with precedence rules",
-      "step_env": "Documented with precedence and isolation"
-    }
+    "internal_links_validated": 7,
+    "broken_links_found": 0,
+    "source_files_referenced": [
+      "src/config/workflow.rs",
+      "src/cook/environment/config.rs",
+      "src/cook/environment/manager.rs",
+      "tests/mapreduce_env_execution_test.rs",
+      "tests/environment_workflow_test.rs",
+      "workflows/mapreduce-env-example.yml",
+      "workflows/environment-example.yml",
+      "examples/test-sensitive-masking.yml"
+    ]
   }
 }
