@@ -1,0 +1,107 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "composition",
+  "subsection_id": "sub-workflows",
+  "subsection_title": "Sub-Workflows",
+  "subsection_file": "book/src/composition/sub-workflows.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is highly accurate and well-structured, with only minor missing details about execution behavior and variable naming conventions",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Sub-Workflow Configuration",
+      "description": "Documentation shows 'name' field in sub_workflows array but implementation uses HashMap key for naming",
+      "current_content": "sub_workflows:\n  - name: \"validation\"\n    source: \"path/to/workflow.yml\"",
+      "should_be": "sub_workflows:\n  validation:  # Name is the HashMap key\n    source: \"path/to/workflow.yml\"",
+      "fix_suggestion": "Update example syntax to show HashMap-based naming (using key-value pairs instead of array with 'name' field)",
+      "source_reference": "src/cook/workflow/composition/composer.rs:646, tests/workflow_composition_test.rs:152-173"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Sub-Workflow Result",
+      "description": "SubWorkflowResult struct includes 'logs' field that is not documented",
+      "fix_suggestion": "Add 'logs: Vec<String>' field to SubWorkflowResult documentation showing execution logs",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:64"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Sub-Workflow Result",
+      "description": "Missing 'name' field in SubWorkflowResult documentation",
+      "fix_suggestion": "The documented SubWorkflowResult shows 'name: String' field but the actual struct does not have this field (name is tracked separately in HashMap key)",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:48-65"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Working Directory Isolation",
+      "description": "Documentation shows working_dir feature but implementation notes it's not yet implemented",
+      "fix_suggestion": "Add note that working_dir is parsed but not yet applied (WorkflowContext lacks working_directory field)",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:104-107"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Parallel Execution",
+      "description": "Documentation doesn't explain how parallel sub-workflows are scheduled or how the parent waits for completion",
+      "fix_suggestion": "Add brief explanation that parallel sub-workflows use tokio::spawn for concurrent execution and parent waits for all via join",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:179-226"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Parent-Child Context Isolation",
+      "description": "Missing detail that sub-context variables are cleared before copying inputs",
+      "fix_suggestion": "Add note that sub-workflow starts with empty variable scope, then explicit inputs are copied from parent",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:242-262"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent structure with clear progression from basic to advanced topics",
+    "Comprehensive examples covering all major use cases",
+    "Accurate struct field documentation matches implementation",
+    "Source code references are precise and helpful",
+    "Implementation status note is honest and clear",
+    "Good use of complete workflow examples",
+    "Error handling configuration is well explained",
+    "Timeout configuration examples are clear",
+    "All internal cross-references are valid (no broken links)"
+  ],
+  "improvement_suggestions": [
+    "Fix YAML syntax to show HashMap-based naming (key: value) instead of array with name field",
+    "Add 'logs' field to SubWorkflowResult documentation",
+    "Remove 'name' field from SubWorkflowResult (it's not in the actual struct)",
+    "Clarify working_dir implementation status with inline note",
+    "Add brief explanation of parallel execution scheduling mechanism",
+    "Document that sub-workflows start with cleared variable scope",
+    "Consider adding troubleshooting section for common sub-workflow issues",
+    "Add example showing how to access sub-workflow outputs by name (e.g., ${sub_name.output_var})"
+  ],
+  "cross_references": [
+    "template-system",
+    "parameter-definitions",
+    "workflow-extension-inheritance"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Sub-Workflows",
+      "Basic Sub-Workflow Syntax",
+      "Sub-Workflow Configuration",
+      "Parent-Child Context Isolation",
+      "Output Variable Extraction",
+      "Parallel Execution",
+      "Error Handling",
+      "Timeout Configuration",
+      "Working Directory Isolation"
+    ],
+    "validation_focus": "Check sub-workflows documentation matches implementation",
+    "internal_links_validated": true,
+    "broken_links_found": 0
+  }
+}
