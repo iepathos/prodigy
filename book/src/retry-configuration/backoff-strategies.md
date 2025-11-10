@@ -1,10 +1,14 @@
 ## Backoff Strategies
 
+> **Note**: This subsection documents the **enhanced retry system** (`retry_v2::RetryConfig`) used for command-level retry configuration. For workflow-level retry (MapReduce error policies), see [Workflow-Level vs Command-Level Retry](./workflow-level-vs-command-level-retry.md). The enhanced system provides more sophisticated backoff options and features.
+
 Prodigy supports five backoff strategies for controlling delay between retries. Backoff strategies determine how the delay between retry attempts increases over time, helping to avoid overwhelming systems while maximizing chances of success.
 
 All backoff strategies use `initial_delay` as the base delay and respect the `max_delay` cap. Delays are calculated per attempt and can be combined with [jitter](jitter-for-distributed-systems.md) to avoid thundering herd problems.
 
-**Default Strategy**: If no backoff strategy is specified, Prodigy uses **Exponential** backoff with a base of 2.0.
+**Source**: BackoffStrategy enum defined in `src/cook/retry_v2.rs:70-98`
+
+**Default Strategy**: If no backoff strategy is specified, Prodigy uses **Exponential** backoff with a base of 2.0 (src/cook/retry_v2.rs:92-98).
 
 ### Fixed Backoff
 
