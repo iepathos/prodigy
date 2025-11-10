@@ -1,0 +1,80 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "variables",
+  "subsection_id": "see-also",
+  "subsection_title": "See Also",
+  "subsection_file": "book/src/variables/see-also.md",
+  "feature_mappings": [],
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Subsection provides excellent cross-references and accurate quick reference information. All internal links are valid. Minor enhancement suggestions for completeness.",
+  "issues": [
+    {
+      "type": "enhancement",
+      "severity": "low",
+      "section": "Quick Reference - Git Context Variables",
+      "description": "Quick reference lists format modifiers (:json, :lines, :csv, :*.ext) but implementation supports additional formats",
+      "current_content": "Format modifiers: :json, :lines, :csv, :*.ext",
+      "feature_reference": "variables.git_context.formats",
+      "fix_suggestion": "Add :comma and :newline format modifiers to the quick reference list for completeness. The implementation supports: default (space-separated), :json, :newline, :comma, and :*.ext (pattern filtering)",
+      "source_reference": "src/cook/workflow/git_context.rs:format_output"
+    },
+    {
+      "type": "enhancement",
+      "severity": "low",
+      "section": "Quick Reference - Phase-Specific Variables",
+      "description": "Missing worker.id variable in map phase listing",
+      "feature_reference": "variables.mapreduce_specific.worker_id",
+      "fix_suggestion": "Add worker.id to the Map phase variables list: 'Map: item.*, item_index, item_total, worker.id + inherited setup captures'. The worker.id provides the parallel worker ID for the current agent.",
+      "source_reference": "src/mapreduce/mod.rs:worker_context"
+    },
+    {
+      "type": "enhancement",
+      "severity": "low",
+      "section": "Key Concepts",
+      "description": "Metadata fields list could include validation variables",
+      "current_content": "All captured variables include .success, .exit_code, .stderr, and .duration fields",
+      "feature_reference": "variables.validation_variables",
+      "fix_suggestion": "Consider adding a note about validation-specific metadata: validation.completion, validation.gaps, validation.status for goal_seek commands",
+      "source_reference": "src/cook/goal_seek/mod.rs:validation_context"
+    }
+  ],
+  "positive_aspects": [
+    "All 6 internal cross-references are valid and properly linked",
+    "Excellent coverage of related documentation topics (Environment, Git Context, MapReduce, Commands, Examples, Troubleshooting)",
+    "Clear categorization of concepts (Built-in vs Custom, Phase Availability, Scoping, Format Modifiers, Metadata)",
+    "Helpful external resource links for JSONPath, Glob patterns, and jq",
+    "Comprehensive quick reference covering all major variable categories",
+    "Accurate phase-specific variable listings",
+    "Good coverage of git context variables and format modifiers",
+    "Clear explanation of custom capture metadata fields"
+  ],
+  "improvement_suggestions": [
+    "Add workflow metadata variables (workflow.name, workflow.id, workflow.iteration) to the quick reference",
+    "Include step metadata variables (step.name, step.index) in the quick reference",
+    "Consider adding a 'Common Patterns' section with typical variable usage examples",
+    "Add cross-reference to Git Context Advanced chapter for advanced filtering techniques"
+  ],
+  "cross_references": [
+    "environment",
+    "git-context-advanced",
+    "mapreduce",
+    "commands",
+    "examples",
+    "troubleshooting"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T20:30:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Related Documentation",
+      "Key Concepts",
+      "External Resources",
+      "Quick Reference"
+    ],
+    "validation_focus": "Check see also documentation matches implementation",
+    "internal_links_validated": 6,
+    "broken_links_found": 0,
+    "subsection_type": "navigation_reference"
+  }
+}
