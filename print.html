@@ -223,6 +223,171 @@
 <li><a href="commands.html">Command Types</a> - Explore available command types</li>
 <li><a href="examples.html">Examples</a> - See real-world workflows</li>
 </ul>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<p>This guide covers installing Prodigy and the prerequisite tools needed to run AI-powered workflow automation.</p>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<p>Before installing Prodigy, ensure you have:</p>
+<p><strong>Required:</strong></p>
+<ul>
+<li><strong>Claude Code CLI</strong> - Prodigy executes Claude commands via the Claude Code CLI
+<ul>
+<li>Install from: https://github.com/anthropics/claude-code</li>
+<li>Verify: <code>claude --version</code></li>
+</ul>
+</li>
+<li><strong>Rust 1.70+</strong> - Required for building Prodigy from source
+<ul>
+<li>Install from: https://rustup.rs/</li>
+<li>Verify: <code>rustc --version</code></li>
+<li>Source: Cargo.toml:4 (edition = “2021” requires Rust 1.56+, recommended 1.70+)</li>
+</ul>
+</li>
+</ul>
+<p><strong>Required for MapReduce Workflows:</strong></p>
+<ul>
+<li><strong>Git 2.25+</strong> - Required for worktree isolation and parallel execution
+<ul>
+<li>Install from: https://git-scm.com/</li>
+<li>Verify: <code>git --version</code></li>
+<li>Note: Git worktrees are used to isolate parallel work in MapReduce workflows</li>
+</ul>
+</li>
+</ul>
+<p><strong>Optional:</strong></p>
+<ul>
+<li><strong>mdBook</strong> - Required only for documentation workflows
+<ul>
+<li>Install: <code>cargo install mdbook</code></li>
+<li>Verify: <code>mdbook --version</code></li>
+</ul>
+</li>
+<li><strong>jq</strong> - Useful for inspecting JSON outputs and DLQ items
+<ul>
+<li>Install from: https://jqlang.github.io/jq/</li>
+</ul>
+</li>
+</ul>
+<h2 id="using-cargo-recommended"><a class="header" href="#using-cargo-recommended">Using Cargo (Recommended)</a></h2>
+<p>The simplest way to install Prodigy is via Cargo, Rust’s package manager:</p>
+<pre><code class="language-bash">cargo install prodigy
+</code></pre>
+<p>This command:</p>
+<ol>
+<li>Downloads the latest version from crates.io</li>
+<li>Compiles the binary with optimizations</li>
+<li>Installs to <code>~/.cargo/bin/prodigy</code> (ensure this is in your PATH)</li>
+</ol>
+<p><strong>Verify installation:</strong></p>
+<pre><code class="language-bash">prodigy --version
+# Expected output: prodigy 0.2.7
+</code></pre>
+<p><strong>Source</strong>: README.md:51-55</p>
+<h2 id="from-source"><a class="header" href="#from-source">From Source</a></h2>
+<p>To install the latest development version or contribute to Prodigy, build from source:</p>
+<pre><code class="language-bash"># Clone the repository
+git clone https://github.com/iepathos/prodigy
+cd prodigy
+
+# Build and install
+cargo build --release
+cargo install --path .
+</code></pre>
+<p><strong>Build process:</strong></p>
+<ol>
+<li><code>cargo build --release</code> compiles with optimizations (takes 3-5 minutes)</li>
+<li>Binary is created at <code>target/release/prodigy</code></li>
+<li><code>cargo install --path .</code> copies binary to <code>~/.cargo/bin/</code></li>
+</ol>
+<p><strong>Verify installation:</strong></p>
+<pre><code class="language-bash">prodigy --version
+</code></pre>
+<p><strong>Source</strong>: README.md:57-66</p>
+<h2 id="optional-man-pages"><a class="header" href="#optional-man-pages">Optional: Man Pages</a></h2>
+<p>Prodigy includes comprehensive man pages for CLI reference. Install them with:</p>
+<pre><code class="language-bash">./scripts/install-man-pages.sh
+</code></pre>
+<p>This installs man pages to <code>/usr/local/share/man/man1/</code>. After installation:</p>
+<pre><code class="language-bash"># View main Prodigy documentation
+man prodigy
+
+# View specific command documentation
+man prodigy-run
+man prodigy-resume
+man prodigy-dlq
+</code></pre>
+<p><strong>Source</strong>: README.md:68-69, scripts/install-man-pages.sh</p>
+<h2 id="verification"><a class="header" href="#verification">Verification</a></h2>
+<p>After installation, verify Prodigy is working correctly:</p>
+<p><strong>Check version:</strong></p>
+<pre><code class="language-bash">prodigy --version
+</code></pre>
+<p><strong>View available commands:</strong></p>
+<pre><code class="language-bash">prodigy --help
+</code></pre>
+<p><strong>Test basic functionality:</strong></p>
+<pre><code class="language-bash"># Initialize Claude commands
+prodigy init
+
+# Should create .claude/commands/ directory
+ls -la .claude/commands/
+</code></pre>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="command-not-found-prodigy"><a class="header" href="#command-not-found-prodigy">Command not found: prodigy</a></h3>
+<p><strong>Cause</strong>: <code>~/.cargo/bin</code> is not in your PATH</p>
+<p><strong>Fix</strong>: Add to your shell profile (~/.bashrc, ~/.zshrc, etc.):</p>
+<pre><code class="language-bash">export PATH="$HOME/.cargo/bin:$PATH"
+</code></pre>
+<p>Then reload: <code>source ~/.bashrc</code> (or restart terminal)</p>
+<h3 id="cargo-command-not-found"><a class="header" href="#cargo-command-not-found">cargo: command not found</a></h3>
+<p><strong>Cause</strong>: Rust toolchain not installed</p>
+<p><strong>Fix</strong>: Install Rust via rustup:</p>
+<pre><code class="language-bash">curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+</code></pre>
+<h3 id="build-fails-with-linker-not-found"><a class="header" href="#build-fails-with-linker-not-found">Build fails with “linker not found”</a></h3>
+<p><strong>Cause</strong>: Missing C compiler/linker (required by some Rust dependencies)</p>
+<p><strong>Fix</strong>:</p>
+<ul>
+<li><strong>macOS</strong>: Install Xcode Command Line Tools: <code>xcode-select --install</code></li>
+<li><strong>Linux</strong>: Install build essentials: <code>sudo apt-get install build-essential</code> (Debian/Ubuntu)</li>
+<li><strong>Windows</strong>: Install Visual Studio Build Tools</li>
+</ul>
+<h3 id="permission-denied-when-installing-man-pages"><a class="header" href="#permission-denied-when-installing-man-pages">Permission denied when installing man pages</a></h3>
+<p><strong>Cause</strong>: <code>/usr/local/share/man/man1/</code> requires elevated permissions</p>
+<p><strong>Fix</strong>: Run with sudo:</p>
+<pre><code class="language-bash">sudo ./scripts/install-man-pages.sh
+</code></pre>
+<h2 id="platform-specific-notes"><a class="header" href="#platform-specific-notes">Platform-Specific Notes</a></h2>
+<p><strong>macOS:</strong></p>
+<ul>
+<li>Xcode Command Line Tools recommended for best compatibility</li>
+<li>Man pages install to <code>/usr/local/share/man/man1/</code> by default</li>
+<li>Homebrew users: Cargo is included with <code>brew install rust</code></li>
+</ul>
+<p><strong>Linux:</strong></p>
+<ul>
+<li>Build essentials package required for compilation</li>
+<li>Man pages may require sudo for installation</li>
+<li>Consider using system package manager if available</li>
+</ul>
+<p><strong>Windows:</strong></p>
+<ul>
+<li>Visual Studio Build Tools required for Rust compilation</li>
+<li>Consider using WSL2 for better compatibility with git worktrees</li>
+<li>Man pages not supported on Windows (use <code>prodigy --help</code> instead)</li>
+</ul>
+<h2 id="next-steps-1"><a class="header" href="#next-steps-1">Next Steps</a></h2>
+<p>After installation, explore Prodigy’s features:</p>
+<p><strong>Getting Started:</strong></p>
+<ul>
+<li><a href="intro.html">Introduction</a> - Overview of Prodigy’s capabilities</li>
+<li><a href="workflow-basics/index.html">Workflow Basics</a> - Learn how to write workflows</li>
+</ul>
+<p><strong>Popular Use Cases:</strong></p>
+<ul>
+<li><a href="automated-documentation/index.html">Automated Documentation</a> - Keep docs synchronized with code</li>
+<li><a href="mapreduce/index.html">MapReduce Workflows</a> - Parallel processing at scale</li>
+<li><a href="examples.html">Examples</a> - See real-world workflow examples</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="workflow-basics"><a class="header" href="#workflow-basics">Workflow Basics</a></h1>
 <p>This chapter covers the fundamentals of creating Prodigy workflows. You’ll learn about workflow structure, basic commands, and configuration options.</p>
 <h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
@@ -1234,7 +1399,7 @@ Validation commands should output JSON matching this structure:</p>
     capture_output: "metadata"
     capture_format: "json"
 </code></pre>
-<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h2 id="troubleshooting-1"><a class="header" href="#troubleshooting-1">Troubleshooting</a></h2>
 <h3 id="command-times-out"><a class="header" href="#command-times-out">Command Times Out</a></h3>
 <p><strong>Problem</strong>: Command exceeds timeout and is terminated</p>
 <p><strong>Solutions</strong>:</p>
@@ -1657,13 +1822,13 @@ merge:
 <li>Validate changes with CI checks</li>
 <li>Use proper merge parameters</li>
 </ul>
-<h3 id="next-steps-1"><a class="header" href="#next-steps-1">Next Steps</a></h3>
+<h3 id="next-steps-2"><a class="header" href="#next-steps-2">Next Steps</a></h3>
 <ul>
 <li><a href="workflow-basics/../error-handling.html">Error Handling</a> - Add <code>on_failure</code> handlers for robust workflows</li>
 <li><a href="workflow-basics/../variables/available-variables.html">Variable Interpolation</a> - Use dynamic values in commands</li>
 <li><a href="workflow-basics/../advanced/index.html">Advanced Features</a> - Explore goal-seeking, validation, and more</li>
 </ul>
-<div style="break-before: page; page-break-before: always;"></div><h2 id="next-steps-2"><a class="header" href="#next-steps-2">Next Steps</a></h2>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="next-steps-3"><a class="header" href="#next-steps-3">Next Steps</a></h2>
 <p>Now that you understand basic workflows, explore these topics:</p>
 <h3 id="within-workflow-basics"><a class="header" href="#within-workflow-basics">Within Workflow Basics</a></h3>
 <p>Continue learning about workflow fundamentals:</p>
@@ -2372,7 +2537,7 @@ Backoff delays count toward the agent’s overall timeout. If you configure:</p>
 <li>Fibonacci backoff with initial_delay: 10s</li>
 </ul>
 <p>Total delay could be: 10s + 10s + 20s + 30s + 50s = 120s of retries, leaving 180s for actual work.</p>
-<h3 id="troubleshooting-1"><a class="header" href="#troubleshooting-1">Troubleshooting</a></h3>
+<h3 id="troubleshooting-2"><a class="header" href="#troubleshooting-2">Troubleshooting</a></h3>
 <p><strong>Delays too long</strong>:</p>
 <ul>
 <li>Reduce <code>initial_delay</code> or <code>base</code>/<code>multiplier</code></li>
@@ -3080,7 +3245,7 @@ prodigy events search "&lt;correlation_id&gt;"
 # Find correlation_id from recent job
 prodigy events ls --job-id &lt;job_id&gt; --limit 1
 </code></pre>
-<h3 id="troubleshooting-2"><a class="header" href="#troubleshooting-2">Troubleshooting</a></h3>
+<h3 id="troubleshooting-3"><a class="header" href="#troubleshooting-3">Troubleshooting</a></h3>
 <p><strong>Events not being written:</strong></p>
 <ul>
 <li>Check event file permissions in <code>~/.prodigy/events/{repo_name}/{job_id}/</code></li>
@@ -6880,7 +7045,7 @@ secrets:
 </ul>
 </li>
 </ol>
-<h3 id="troubleshooting-3"><a class="header" href="#troubleshooting-3">Troubleshooting</a></h3>
+<h3 id="troubleshooting-4"><a class="header" href="#troubleshooting-4">Troubleshooting</a></h3>
 <h4 id="issue-secret-not-found-in-environment"><a class="header" href="#issue-secret-not-found-in-environment">Issue: “Secret not found in environment”</a></h4>
 <p><strong>Cause</strong>: Secret key doesn’t exist in environment variables</p>
 <p><strong>Solution</strong>:</p>
@@ -7071,7 +7236,7 @@ commands:
       LOG_LEVEL: debug  # Override for this step only
 </code></pre>
 <p>See <a href="environment/per-command-environment-overrides.html">Per-Command Environment Overrides</a> for step-level overrides.</p>
-<h3 id="troubleshooting-4"><a class="header" href="#troubleshooting-4">Troubleshooting</a></h3>
+<h3 id="troubleshooting-5"><a class="header" href="#troubleshooting-5">Troubleshooting</a></h3>
 <p><strong>Profile not applied</strong>:</p>
 <ul>
 <li>Verify profile name matches exactly (case-sensitive)</li>
@@ -7150,7 +7315,7 @@ commands:
 </ul>
 <p>This struct may be exposed in future versions to provide more structured per-step environment control directly in YAML syntax, eliminating the need for shell-based workarounds. However, currently it is <strong>not exposed</strong> in WorkflowStepCommand, so all per-command environment changes must use shell syntax as demonstrated above.</p>
 <p><strong>Source</strong>: <code>src/cook/environment/config.rs:126-144</code></p>
-<h2 id="troubleshooting-5"><a class="header" href="#troubleshooting-5">Troubleshooting</a></h2>
+<h2 id="troubleshooting-6"><a class="header" href="#troubleshooting-6">Troubleshooting</a></h2>
 <h3 id="environment-variable-not-taking-effect"><a class="header" href="#environment-variable-not-taking-effect">Environment Variable Not Taking Effect</a></h3>
 <p><strong>Problem</strong>: Shell environment override doesn’t apply to command</p>
 <p><strong>Cause</strong>: Quote escaping or shell evaluation order issues</p>
@@ -9245,7 +9410,7 @@ export PRODIGY_STORAGE_PATH=/custom/path
 <li><strong>Coexistence</strong>: Old local storage is ignored once global storage is active</li>
 </ol>
 <p><strong>Note</strong>: Global storage is the default and recommended approach. Local storage is deprecated.</p>
-<h3 id="troubleshooting-6"><a class="header" href="#troubleshooting-6">Troubleshooting</a></h3>
+<h3 id="troubleshooting-7"><a class="header" href="#troubleshooting-7">Troubleshooting</a></h3>
 <p><strong>Issue</strong>: “Failed to acquire storage lock”
 <strong>Solution</strong>: Check for stuck processes, wait for lock release, or disable locking temporarily</p>
 <p><strong>Issue</strong>: “Storage directory not writable”
@@ -10829,7 +10994,7 @@ cleanup:
 <li><a href="configuration/complete-configuration-examples.html">Complete Configuration Examples</a> - Real-world examples</li>
 <li><a href="configuration/troubleshooting.html">Troubleshooting</a> - Common configuration issues</li>
 </ul>
-<div style="break-before: page; page-break-before: always;"></div><h2 id="troubleshooting-7"><a class="header" href="#troubleshooting-7">Troubleshooting</a></h2>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="troubleshooting-8"><a class="header" href="#troubleshooting-8">Troubleshooting</a></h2>
 <p>Common configuration issues and their solutions.</p>
 <h3 id="configuration-file-issues"><a class="header" href="#configuration-file-issues">Configuration File Issues</a></h3>
 <h4 id="configuration-file-not-found"><a class="header" href="#configuration-file-not-found">“Configuration file not found”</a></h4>
@@ -11574,7 +11739,7 @@ yamllint .prodigy/config.yml
 # Run a simple workflow to verify settings work
 prodigy run test-workflow.yml
 </code></pre>
-<h3 id="troubleshooting-8"><a class="header" href="#troubleshooting-8">Troubleshooting</a></h3>
+<h3 id="troubleshooting-9"><a class="header" href="#troubleshooting-9">Troubleshooting</a></h3>
 <p><strong>“Invalid YAML syntax” error:</strong></p>
 <ul>
 <li>Check indentation (must be 2 spaces, no tabs)</li>
@@ -12023,7 +12188,7 @@ prodigy run test-workflow.yml
 </li>
 </ol>
 <p><strong>Source</strong>: Implementation in <code>src/cook/expression/mod.rs:187-200</code> and <code>src/cook/orchestrator/execution_pipeline.rs:650-654</code></p>
-<h3 id="troubleshooting-9"><a class="header" href="#troubleshooting-9">Troubleshooting</a></h3>
+<h3 id="troubleshooting-10"><a class="header" href="#troubleshooting-10">Troubleshooting</a></h3>
 <p><strong>“Variable not found” errors:</strong></p>
 <ul>
 <li>Ensure the step has completed before referencing its outputs</li>
@@ -13184,7 +13349,7 @@ reduce:
 <li>Workflow-level tracking maintains cumulative state without re-scanning git history</li>
 <li>Variable resolution is fast since values are pre-computed strings</li>
 </ul>
-<h2 id="troubleshooting-10"><a class="header" href="#troubleshooting-10">Troubleshooting</a></h2>
+<h2 id="troubleshooting-11"><a class="header" href="#troubleshooting-11">Troubleshooting</a></h2>
 <h3 id="filter-not-matching-any-files"><a class="header" href="#filter-not-matching-any-files">Filter Not Matching Any Files</a></h3>
 <p><strong>Issue</strong>: Your grep filter doesn’t match any files</p>
 <pre><code class="language-yaml"># Debug: Echo the unfiltered variable first
@@ -15597,7 +15762,7 @@ prodigy run team-workflow.yml
 # Example 6: Progressive composition
 prodigy run full-ci.yml --param deploy_env=staging
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h2 id="troubleshooting-11"><a class="header" href="#troubleshooting-11">Troubleshooting</a></h2>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="troubleshooting-12"><a class="header" href="#troubleshooting-12">Troubleshooting</a></h2>
 <p>Common issues with workflow composition and their solutions.</p>
 <h3 id="circular-dependency-errors"><a class="header" href="#circular-dependency-errors">Circular Dependency Errors</a></h3>
 <p><strong>Error:</strong></p>
@@ -18874,7 +19039,7 @@ println!("Failed: {}", metrics.failed_attempts);
 <li><a href="retry-configuration/./failure-actions.html">Failure Actions</a> - Handling final failures</li>
 <li><a href="retry-configuration/./complete-examples.html">Complete Examples</a> - Real-world retry configurations</li>
 </ul>
-<div style="break-before: page; page-break-before: always;"></div><h2 id="troubleshooting-12"><a class="header" href="#troubleshooting-12">Troubleshooting</a></h2>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="troubleshooting-13"><a class="header" href="#troubleshooting-13">Troubleshooting</a></h2>
 <p>Common retry configuration issues and their solutions.</p>
 <h3 id="issue-retries-not-triggering"><a class="header" href="#issue-retries-not-triggering">Issue: Retries Not Triggering</a></h3>
 <p><strong>Symptoms</strong>:</p>
@@ -19462,7 +19627,7 @@ println!("Success rate: {}/{}",
 <li>Retry metrics and monitoring (src/cook/retry_v2.rs:399-422)</li>
 <li>Performance tracking and debugging</li>
 </ul>
-<h2 id="next-steps-3"><a class="header" href="#next-steps-3">Next Steps</a></h2>
+<h2 id="next-steps-4"><a class="header" href="#next-steps-4">Next Steps</a></h2>
 <ul>
 <li>For practical examples, see the <a href="retry-configuration/complete-examples.html">Complete Examples</a> subsection</li>
 <li>For configuration details, see the <a href="retry-configuration/basic-retry-configuration.html">Basic Retry Configuration</a> subsection</li>
@@ -20212,7 +20377,7 @@ git log --oneline | grep "Merge"
 <li><strong>Event Logs</strong>: Review event logs for merge failures: <code>prodigy events {job_id}</code></li>
 <li><strong>DLQ Review</strong>: Check failed items that might indicate merge issues</li>
 </ul>
-<h2 id="troubleshooting-13"><a class="header" href="#troubleshooting-13">Troubleshooting</a></h2>
+<h2 id="troubleshooting-14"><a class="header" href="#troubleshooting-14">Troubleshooting</a></h2>
 <h3 id="worktree-creation-fails"><a class="header" href="#worktree-creation-fails">Worktree Creation Fails</a></h3>
 <p><strong>Issue</strong>: Cannot create parent or child worktree
 <strong>Solution</strong>: Check disk space, verify git repository is valid, ensure no existing worktree with same name</p>
@@ -20258,8 +20423,8 @@ git log --oneline | grep "Merge"
 <h2 id="quick-start-3"><a class="header" href="#quick-start-3">Quick Start</a></h2>
 <p>Ready to get started? Here’s the fastest path:</p>
 <ol>
-<li><strong><a href="automated-documentation/installation.html">Install prerequisites</a></strong> - Prodigy, mdBook, Claude Code CLI, Git</li>
-<li><strong><a href="automated-documentation/quick-start.html">Follow the Quick Start guide</a></strong> - 15-20 minute setup</li>
+<li><strong><a href="automated-documentation/../installation.html">Install Prodigy</a></strong> - Prodigy, Claude Code CLI, Rust</li>
+<li><strong><a href="automated-documentation/quick-start.html">Follow the Quick Start guide</a></strong> - 15-20 minute setup for automated docs</li>
 <li><strong>Or dive deeper with the <a href="automated-documentation/tutorial.html">Tutorial</a></strong> - 30 minute comprehensive walkthrough</li>
 </ol>
 <p>Choose your path based on your time and experience level</p>
@@ -20335,7 +20500,6 @@ git log --oneline | grep "Merge"
 <h2 id="additional-topics-8"><a class="header" href="#additional-topics-8">Additional Topics</a></h2>
 <h3 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h3>
 <ul>
-<li><a href="automated-documentation/installation.html">Installation</a> - Prerequisites and setup</li>
 <li><a href="automated-documentation/quick-start.html">Quick Start</a> - 15-20 minute guide</li>
 <li><a href="automated-documentation/tutorial.html">Tutorial</a> - 30 minute comprehensive walkthrough</li>
 </ul>
@@ -20355,150 +20519,10 @@ git log --oneline | grep "Merge"
 <li><a href="automated-documentation/troubleshooting.html">Troubleshooting</a> - Common issues and solutions</li>
 <li><a href="automated-documentation/real-world-example-prodigys-own-documentation.html">Real-World Example: Prodigy’s Own Documentation</a> - Case study</li>
 </ul>
-<div style="break-before: page; page-break-before: always;"></div><h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
-<p>This guide covers installing Prodigy, the prerequisite tools, and optional components for automated documentation workflows.</p>
-<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
-<p>Before installing Prodigy, ensure you have:</p>
-<p><strong>Required:</strong></p>
-<ul>
-<li><strong>Claude Code CLI</strong> - Prodigy executes Claude commands via the Claude Code CLI
-<ul>
-<li>Install from: https://github.com/anthropics/claude-code</li>
-<li>Verify: <code>claude --version</code></li>
-</ul>
-</li>
-<li><strong>Rust 1.70+</strong> - Required for building Prodigy from source
-<ul>
-<li>Install from: https://rustup.rs/</li>
-<li>Verify: <code>rustc --version</code></li>
-<li>Source: Cargo.toml:4 (edition = “2021” requires Rust 1.56+, recommended 1.70+)</li>
-</ul>
-</li>
-</ul>
-<p><strong>Optional:</strong></p>
-<ul>
-<li><strong>Git 2.25+</strong> - Required for worktree management features</li>
-<li><strong>jq</strong> - Useful for working with JSON outputs and DLQ inspection</li>
-</ul>
-<h2 id="using-cargo-recommended"><a class="header" href="#using-cargo-recommended">Using Cargo (Recommended)</a></h2>
-<p>The simplest way to install Prodigy is via Cargo, Rust’s package manager:</p>
-<pre><code class="language-bash">cargo install prodigy
-</code></pre>
-<p>This command:</p>
-<ol>
-<li>Downloads the latest version from crates.io</li>
-<li>Compiles the binary with optimizations</li>
-<li>Installs to <code>~/.cargo/bin/prodigy</code> (ensure this is in your PATH)</li>
-</ol>
-<p><strong>Verify installation:</strong></p>
-<pre><code class="language-bash">prodigy --version
-# Expected output: prodigy 0.2.7
-</code></pre>
-<p><strong>Source</strong>: README.md:51-55</p>
-<h2 id="from-source"><a class="header" href="#from-source">From Source</a></h2>
-<p>To install the latest development version or contribute to Prodigy, build from source:</p>
-<pre><code class="language-bash"># Clone the repository
-git clone https://github.com/iepathos/prodigy
-cd prodigy
-
-# Build and install
-cargo build --release
-cargo install --path .
-</code></pre>
-<p><strong>Build process:</strong></p>
-<ol>
-<li><code>cargo build --release</code> compiles with optimizations (takes 3-5 minutes)</li>
-<li>Binary is created at <code>target/release/prodigy</code></li>
-<li><code>cargo install --path .</code> copies binary to <code>~/.cargo/bin/</code></li>
-</ol>
-<p><strong>Verify installation:</strong></p>
-<pre><code class="language-bash">prodigy --version
-</code></pre>
-<p><strong>Source</strong>: README.md:57-66</p>
-<h2 id="optional-man-pages"><a class="header" href="#optional-man-pages">Optional: Man Pages</a></h2>
-<p>Prodigy includes comprehensive man pages for CLI reference. Install them with:</p>
-<pre><code class="language-bash">./scripts/install-man-pages.sh
-</code></pre>
-<p>This installs man pages to <code>/usr/local/share/man/man1/</code>. After installation:</p>
-<pre><code class="language-bash"># View main Prodigy documentation
-man prodigy
-
-# View specific command documentation
-man prodigy-run
-man prodigy-resume
-man prodigy-dlq
-</code></pre>
-<p><strong>Source</strong>: README.md:68-69, scripts/install-man-pages.sh</p>
-<h2 id="verification"><a class="header" href="#verification">Verification</a></h2>
-<p>After installation, verify Prodigy is working correctly:</p>
-<p><strong>Check version:</strong></p>
-<pre><code class="language-bash">prodigy --version
-</code></pre>
-<p><strong>View available commands:</strong></p>
-<pre><code class="language-bash">prodigy --help
-</code></pre>
-<p><strong>Test basic functionality:</strong></p>
-<pre><code class="language-bash"># Initialize Claude commands
-prodigy init
-
-# Should create .claude/commands/ directory
-ls -la .claude/commands/
-</code></pre>
-<h2 id="troubleshooting-14"><a class="header" href="#troubleshooting-14">Troubleshooting</a></h2>
-<h3 id="command-not-found-prodigy"><a class="header" href="#command-not-found-prodigy">Command not found: prodigy</a></h3>
-<p><strong>Cause</strong>: <code>~/.cargo/bin</code> is not in your PATH</p>
-<p><strong>Fix</strong>: Add to your shell profile (~/.bashrc, ~/.zshrc, etc.):</p>
-<pre><code class="language-bash">export PATH="$HOME/.cargo/bin:$PATH"
-</code></pre>
-<p>Then reload: <code>source ~/.bashrc</code> (or restart terminal)</p>
-<h3 id="cargo-command-not-found"><a class="header" href="#cargo-command-not-found">cargo: command not found</a></h3>
-<p><strong>Cause</strong>: Rust toolchain not installed</p>
-<p><strong>Fix</strong>: Install Rust via rustup:</p>
-<pre><code class="language-bash">curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-</code></pre>
-<h3 id="build-fails-with-linker-not-found"><a class="header" href="#build-fails-with-linker-not-found">Build fails with “linker not found”</a></h3>
-<p><strong>Cause</strong>: Missing C compiler/linker (required by some Rust dependencies)</p>
-<p><strong>Fix</strong>:</p>
-<ul>
-<li><strong>macOS</strong>: Install Xcode Command Line Tools: <code>xcode-select --install</code></li>
-<li><strong>Linux</strong>: Install build essentials: <code>sudo apt-get install build-essential</code> (Debian/Ubuntu)</li>
-<li><strong>Windows</strong>: Install Visual Studio Build Tools</li>
-</ul>
-<h3 id="permission-denied-when-installing-man-pages"><a class="header" href="#permission-denied-when-installing-man-pages">Permission denied when installing man pages</a></h3>
-<p><strong>Cause</strong>: <code>/usr/local/share/man/man1/</code> requires elevated permissions</p>
-<p><strong>Fix</strong>: Run with sudo:</p>
-<pre><code class="language-bash">sudo ./scripts/install-man-pages.sh
-</code></pre>
-<h2 id="platform-specific-notes"><a class="header" href="#platform-specific-notes">Platform-Specific Notes</a></h2>
-<p><strong>macOS:</strong></p>
-<ul>
-<li>Xcode Command Line Tools recommended for best compatibility</li>
-<li>Man pages install to <code>/usr/local/share/man/man1/</code> by default</li>
-<li>Homebrew users: Cargo is included with <code>brew install rust</code></li>
-</ul>
-<p><strong>Linux:</strong></p>
-<ul>
-<li>Build essentials package required for compilation</li>
-<li>Man pages may require sudo for installation</li>
-<li>Consider using system package manager if available</li>
-</ul>
-<p><strong>Windows:</strong></p>
-<ul>
-<li>Visual Studio Build Tools required for Rust compilation</li>
-<li>Consider using WSL2 for better compatibility with git worktrees</li>
-<li>Man pages not supported on Windows (use <code>prodigy --help</code> instead)</li>
-</ul>
-<h2 id="next-steps-4"><a class="header" href="#next-steps-4">Next Steps</a></h2>
-<p>After installation, see:</p>
-<ul>
-<li><a href="automated-documentation/quick-start.html">Quick Start</a> - Create your first automated documentation workflow</li>
-<li><a href="automated-documentation/understanding-the-workflow.html">Understanding the Workflow</a> - Learn how the automation works</li>
-<li><a href="automated-documentation/index.html">index.md</a> - Overview of automated documentation features</li>
-</ul>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="quick-start-4"><a class="header" href="#quick-start-4">Quick Start</a></h2>
 <p>This guide walks you through setting up your first automated documentation workflow. You’ll create a basic mdBook structure, configure Prodigy to analyze your codebase, and run the workflow to generate up-to-date documentation.</p>
 <p><strong>Time Required</strong>: 15-20 minutes</p>
-<p><strong>Prerequisites</strong>: Ensure you have completed the <a href="automated-documentation/installation.html">Installation</a> steps before proceeding.</p>
+<p><strong>Prerequisites</strong>: Ensure you have <a href="automated-documentation/../installation.html">installed Prodigy</a> before proceeding.</p>
 <hr />
 <h2 id="step-1-initialize-your-book-structure"><a class="header" href="#step-1-initialize-your-book-structure">Step 1: Initialize Your Book Structure</a></h2>
 <p>First, create the basic mdBook directory structure for your documentation:</p>
@@ -20927,7 +20951,6 @@ prodigy run workflows/book-docs-drift.yml
 <hr />
 <h2 id="related-topics-8"><a class="header" href="#related-topics-8">Related Topics</a></h2>
 <ul>
-<li><a href="automated-documentation/installation.html">Installation</a> - Installing prerequisites and Prodigy</li>
 <li><a href="automated-documentation/understanding-the-workflow.html">Understanding the Workflow</a> - Deep dive into how it works</li>
 <li><a href="automated-documentation/github-actions-integration.html">GitHub Actions Integration</a> - Automate in CI/CD</li>
 <li><a href="automated-documentation/troubleshooting.html">Troubleshooting</a> - Solutions to common issues</li>
@@ -20943,15 +20966,14 @@ prodigy run workflows/book-docs-drift.yml
 <li>Understood all three phases: setup, map, and reduce</li>
 </ul>
 <h3 id="prerequisites-1"><a class="header" href="#prerequisites-1">Prerequisites</a></h3>
-<p>Before starting, ensure you have completed the <strong><a href="automated-documentation/installation.html">Installation</a></strong> guide with all prerequisites installed:</p>
+<p>Before starting, ensure you have <a href="automated-documentation/../installation.html">installed Prodigy</a> and the required tools:</p>
 <ul>
-<li>Rust and Cargo</li>
-<li>Prodigy</li>
+<li>Prodigy (via <code>cargo install prodigy</code>)</li>
 <li>Claude Code CLI</li>
-<li>mdBook</li>
+<li>mdBook (for building documentation)</li>
 <li>Git (initialized repository)</li>
 </ul>
-<p>If you haven’t installed these yet, visit the <a href="automated-documentation/installation.html">Installation guide</a> first</p>
+<p>If you haven’t installed these yet, visit the <a href="automated-documentation/../installation.html">Installation guide</a> first</p>
 <h3 id="step-1-initialize-your-book-structure-1"><a class="header" href="#step-1-initialize-your-book-structure-1">Step 1: Initialize Your Book Structure</a></h3>
 <p>If you don’t already have an mdBook, create one:</p>
 <pre><code class="language-bash"># Create book directory and initialize
@@ -21578,8 +21600,8 @@ prodigy dlq retry &lt;job_id&gt; --max-parallel 5
 <p><strong>Scalability</strong>: Successfully processes large documentation sets (tested with 50+ chapters).</p>
 <h2 id="see-also-32"><a class="header" href="#see-also-32">See Also</a></h2>
 <ul>
-<li><a href="automated-documentation/quick-start-30-minutes.html">Quick Start (30 Minutes)</a> - Get started with automated documentation</li>
-<li><a href="automated-documentation/installation.html">Installation</a> - Set up the workflow</li>
+<li><a href="automated-documentation/tutorial.html">Tutorial</a> - Complete 30-minute walkthrough</li>
+<li><a href="automated-documentation/../installation.html">Installation</a> - Set up Prodigy and prerequisites</li>
 <li><a href="automated-documentation/automatic-gap-detection.html">Automatic Gap Detection</a> - How the workflow finds missing documentation</li>
 <li><a href="automated-documentation/advanced-configuration.html">Advanced Configuration</a> - Customize workflow behavior</li>
 <li><a href="automated-documentation/troubleshooting.html">Troubleshooting</a> - Common issues and solutions</li>
