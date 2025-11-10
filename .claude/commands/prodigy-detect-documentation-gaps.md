@@ -49,41 +49,59 @@ Create normalized versions of all documented topics:
 
 This helps match feature categories against documented topics accurately.
 
-### Phase 3: Identify Documentation Gaps
+### Phase 3: Identify Documentation Gaps Using Hierarchy
 
-**Compare Features Against Documentation:**
+**Compare Features Against Documentation Using Type and Structure:**
 
 For each feature area in features.json:
-1. Extract the feature category name (e.g., "mapreduce", "command_types", "environment")
-2. Check if ANY existing chapter OR subsection covers this feature area
-3. Look for matches in:
-   - Chapter IDs and subsection IDs
-   - Chapter titles and subsection titles
-   - Chapter topics list and subsection topics
-   - Section headings in markdown files
-   - Subsection feature_mapping arrays (if present)
 
-**Classify Gaps by Severity:**
+**Step 1: Check Feature Type**
+1. Read the `type` field from the feature
+2. If `type: "meta"` → **SKIP** - Meta-content should not have chapters
+3. If `type: "major_feature"` → Continue to step 2
+4. If no type field → Assume major_feature for backward compatibility
 
-**High Severity (Missing Chapter/Subsection):**
-- Feature area exists in features.json
-- No corresponding chapter OR subsection found
-- Major user-facing capability with no guidance
-- Example: "agent_merge" feature exists but no chapter/subsection documents it
+**Step 2: Check for Existing Chapter**
+1. Extract the feature category name (the JSON key, e.g., "authentication", "data_processing", "api_endpoints")
+2. Normalize the name (lowercase, remove underscores/hyphens)
+3. Check if ANY existing chapter matches:
+   - Chapter ID matches (e.g., "authentication" chapter for authentication feature)
+   - Chapter title contains feature name (fuzzy match)
+   - Chapter topics include feature name
 
-**Medium Severity (Incomplete Chapter/Subsection):**
-- Chapter or multi-subsection structure exists for the feature area
-- But specific sub-capabilities are missing
-- Could be addressed by:
-  - Adding a new subsection to existing multi-subsection chapter
-  - Expanding an existing subsection
-  - Adding content to single-file chapter
-- Example: "mapreduce" chapter exists but missing "performance_tuning" subsection
+**Step 3: Determine Gap Type**
+- If no chapter found → **High severity gap** (missing chapter)
+- If chapter found → Check for subsection gaps (step 4)
 
-**Low Severity (Minor Gap):**
-- Edge cases or advanced features not documented
-- Internal APIs exposed to users
-- Less common use cases
+**Step 4: Check for Subsection Gaps (Only for Multi-Subsection Chapters)**
+1. Count second-level items in the feature structure
+   - Example: If feature has nested objects like `phases` and `core_capabilities`, count total items across all nested groups
+2. If feature has 5+ second-level items AND chapter exists as `type: "multi-subsection"`:
+   - For each second-level item, check if corresponding subsection exists
+   - If subsection missing → **Medium severity gap** (missing subsection)
+3. If feature has < 5 second-level items → No subsection gaps (document in single-file)
+4. If chapter is `type: "single-file"` → No subsection gaps (preserve structure)
+
+**Use Hierarchy and Type to Classify Gaps:**
+
+**High Severity (Missing Major Feature Chapter):**
+- Feature has `type: "major_feature"` in features.json
+- No corresponding chapter found in chapters.json
+- Should create a new single-file chapter
+- Example: "authentication" is major_feature but no chapter exists
+
+**Medium Severity (Missing Subsection in Multi-Subsection Chapter):**
+- Parent feature is documented with multi-subsection chapter
+- Parent has 5+ second-level capabilities in features.json
+- Specific second-level capability is not documented as subsection
+- Should create new subsection
+- Example: "data_processing" chapter exists with subsections, but "batch_operations" subsection missing
+
+**Low Severity (Content Gap - Not a Structure Issue):**
+- Chapter exists but may have outdated content
+- Will be handled by drift detection in map phase
+- Don't create new chapters/subsections for this
+- Example: "api_endpoints" chapter exists but missing new "pagination" feature details
 
 **Generate Gap Report:**
 
@@ -157,252 +175,101 @@ Create a structured JSON report documenting all gaps found:
 }
 ```
 
-### Phase 4a: Generate Subsection Definitions for Missing Subsections
+### Phase 4a: Determine Subsection Creation Using Hierarchy
 
 **For Each Medium Severity Gap (Missing Subsection in Existing Chapter):**
 
-When a gap can be filled by adding a subsection to an existing multi-subsection chapter:
+Use the hierarchical features.json structure to determine if a subsection should be created.
 
-**STEP 0: Validate Subsection Necessity (MANDATORY)**
+**STEP 1: Check Feature Type - Skip Meta Content**
 
-**CRITICAL: Do not create subsections for features with insufficient content.**
+1. Read the feature from features.json
+2. Check if `type: "meta"` → **SKIP entirely, never create chapters/subsections**
+3. If `type: "major_feature"` → Continue evaluation
 
-**CRITICAL: Do not fragment well-written existing single-file chapters.**
+**STEP 2: Evaluate Subsection Necessity Using Structure**
 
-Before creating any subsection definition, perform content availability validation:
+Count second-level capabilities under the major feature:
 
-**STEP 0-PRECHECK: Check if Existing Single-File Chapter Should Be Preserved**
+**For features with nested structure:**
+- Count total second-level items across all nested groups
+- Example: If feature has nested objects like `phases` (3 items) and `core_capabilities` (3 items) = 6 total second-level items
 
-```bash
-# Before proposing subsections for a chapter, check if it already exists as a complete single file
-EXISTING_FILE="${BOOK_SRC}/${chapter_id}.md"
+**Subsection Creation Rules:**
+- **5+ second-level capabilities** → Consider multi-subsection structure
+- **3-4 second-level capabilities** → Keep as single-file chapter with H2 sections
+- **1-2 second-level capabilities** → Definitely single-file, document inline
 
-if [ -f "$EXISTING_FILE" ]; then
-  EXISTING_LINES=$(wc -l < "$EXISTING_FILE")
-  EXISTING_H2_COUNT=$(grep -c '^## ' "$EXISTING_FILE" || echo 0)
+**STEP 3: Check Existing Chapter Structure**
 
-  # Heuristic: If chapter is moderate size and well-organized, KEEP IT SINGLE-FILE
-  if [ "$EXISTING_LINES" -lt 1000 ] && [ "$EXISTING_H2_COUNT" -lt 10 ]; then
-    echo "✓ Chapter ${chapter_id} is well-structured as single file"
-    echo "  - ${EXISTING_LINES} lines of content"
-    echo "  - ${EXISTING_H2_COUNT} major sections"
-    echo "✓ PRESERVING single-file structure - will NOT create subsections"
+Before creating subsections:
+1. Check if chapter already exists in chapters.json
+2. If exists and is `type: "single-file"` → **Preserve it**, don't fragment
+3. If exists and is `type: "multi-subsection"` → OK to add subsections
+4. If doesn't exist → Create as single-file by default
 
-    # Skip subsection creation for this chapter entirely
-    SKIP_SUBSECTION_CREATION=true
-    continue
-  fi
+**STEP 4: Prevent Meta-Subsection Creation**
 
-  # If chapter is large and complex, subsections may help
-  if [ "$EXISTING_LINES" -ge 1000 ] || [ "$EXISTING_H2_COUNT" -ge 10 ]; then
-    echo "ℹ Chapter ${chapter_id} is large (${EXISTING_LINES} lines, ${EXISTING_H2_COUNT} sections)"
-    echo "ℹ Subsections may improve readability - proceeding with validation"
-  fi
-fi
-```
+**NEVER create these as separate subsections:**
+- "Best Practices"
+- "Troubleshooting"
+- "Common Patterns"
+- "Examples"
 
-**Preservation Guidelines:**
+These should be H2 sections within chapter files, not separate subsections.
 
-- **ALWAYS preserve single-file chapters < 1000 lines**
-- **NEVER create subsections just for the sake of organization**
-- **Only create subsections when they genuinely improve navigation for large chapters**
-- **Remember: The original flat structure at https://iepathos.github.io/prodigy/ worked well for smaller chapters**
+**Rationale:**
+- Meta-content applies across features, not isolated to one area
+- Creates navigation confusion (mixes "what" with "how")
+- Better as sections in parent chapter or root-level guides
 
-**STEP 0a: Discover Codebase Structure**
+**STEP 5: Conservative Subsection Creation**
 
-```bash
-# Discover test locations (common patterns)
-TEST_DIRS=$(find . -type d -name "*test*" -o -name "*spec*" | grep -v node_modules | grep -v .git | head -5)
+Only create subsections when ALL conditions met:
+1. Parent feature has `type: "major_feature"`
+2. Parent has 5+ second-level capabilities
+3. Subsection represents a distinct capability (e.g., "checkpoint_resume", "dlq")
+4. Subsection is NOT meta-content
+5. Parent chapter is already `type: "multi-subsection"` OR doesn't exist yet
 
-# Discover example/workflow/config locations
-EXAMPLE_DIRS=$(find . -type d -name "*example*" -o -name "*workflow*" -o -name "*sample*" -o -name "*config*" | grep -v node_modules | grep -v .git | head -5)
+**STEP 6: Generate Subsection Definition**
 
-# Discover primary source locations
-SOURCE_DIRS=$(find . -type f \( -name "*.rs" -o -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.go" -o -name "*.java" \) | sed 's|/[^/]*$||' | sort -u | grep -v node_modules | grep -v .git | head -10)
-```
+Only if all conditions in STEP 5 are met:
 
-**STEP 0b: Count Potential Content Sources (Language-Agnostic)**
-
-```bash
-# 1. Count potential content sources in codebase
-FEATURE_CATEGORY="<feature-category-name>"
-
-# Type definitions (struct, class, interface, enum, type)
-TYPE_COUNT=$(rg "(struct|class|interface|type|enum).*${FEATURE_CATEGORY}" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
-
-# Function/method definitions
-FUNCTION_COUNT=$(rg "(fn|function|def|func|public|private).*${FEATURE_CATEGORY}" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
-
-# Test mentions (search in discovered test directories)
-TEST_COUNT=0
-for test_dir in $TEST_DIRS; do
-  count=$(rg "${FEATURE_CATEGORY}" "$test_dir" --hidden -c 2>/dev/null | awk '{s+=$1} END {print s}')
-  TEST_COUNT=$((TEST_COUNT + count))
-done
-
-# Example/config file mentions (search in discovered example directories)
-EXAMPLE_COUNT=0
-for example_dir in $EXAMPLE_DIRS; do
-  count=$(rg "${FEATURE_CATEGORY}" "$example_dir" --hidden -c 2>/dev/null | awk '{s+=$1} END {print s}')
-  EXAMPLE_COUNT=$((EXAMPLE_COUNT + count))
-done
-
-TOTAL_MENTIONS=$((TYPE_COUNT + FUNCTION_COUNT + TEST_COUNT + EXAMPLE_COUNT))
-
-# 2. Estimate potential content lines
-# Rule of thumb: Each type = ~30 lines docs, each function = ~10 lines, each example = ~40 lines
-ESTIMATED_LINES=$((TYPE_COUNT * 30 + FUNCTION_COUNT * 10 + EXAMPLE_COUNT * 40 + TEST_COUNT * 15))
-```
-
-**Content Sufficiency Thresholds:**
-
-**MUST HAVE (to create subsection):**
-- `TOTAL_MENTIONS >= 5` - Feature mentioned in at least 5 places in codebase
-- `ESTIMATED_LINES >= 50` - Can generate at least 50 lines of grounded documentation
-- At least ONE of:
-  - `TYPE_COUNT >= 1` (has configuration type/struct/class)
-  - `EXAMPLE_COUNT >= 1` (has real example/config file)
-
-**SHOULD HAVE (for good subsection):**
-- `TOTAL_MENTIONS >= 10`
-- `ESTIMATED_LINES >= 100`
-- `TYPE_COUNT >= 1 AND EXAMPLE_COUNT >= 1` (both type definition and example)
-
-**Decision Tree:**
-
-**If TOTAL_MENTIONS < 5 OR ESTIMATED_LINES < 50:**
-- **DO NOT create subsection**
-- **Instead:** Add note to gap report:
-  ```json
-  {
-    "action": "skipped_subsection_creation",
-    "feature_category": "${FEATURE_CATEGORY}",
-    "reason": "insufficient_content",
-    "details": {
-      "total_mentions": TOTAL_MENTIONS,
-      "estimated_lines": ESTIMATED_LINES,
-      "recommendation": "Merge into parent chapter section or mark as planned feature"
-    }
-  }
-  ```
-- **Alternative:** Add as a section within parent chapter's index.md, not separate subsection
-- **Log warning:** "⚠ Skipping subsection '${SUBSECTION_TITLE}': only ${TOTAL_MENTIONS} mentions, ${ESTIMATED_LINES} estimated lines"
-
-**If TOTAL_MENTIONS >= 5 AND ESTIMATED_LINES >= 50 BUT < 100:**
-- Create subsection with "MINIMAL" flag
-- Add to subsection metadata:
-  ```json
-  {
-    "content_warning": "minimal",
-    "estimated_lines": ESTIMATED_LINES,
-    "total_mentions": TOTAL_MENTIONS
-  }
-  ```
-- This signals to fix phase that limited content is expected
-
-**If TOTAL_MENTIONS >= 10 AND ESTIMATED_LINES >= 100:**
-- Proceed with full subsection creation (continue to Step 1 below)
-
-**Special Case: "Best Practices", "Troubleshooting", "Examples" Subsections**
-
-These meta-subsections have different validation:
-
-**CRITICAL: Prevent Meta-Sections in Feature Chapters**
-
-Before creating "Best Practices", "Common Patterns", or "Troubleshooting" subsections, evaluate if the parent chapter is appropriate:
-
-**Check if the chapter is feature-focused:**
-1. **Chapter ID** is one of: `advanced`, `commands`, `cli`
-2. **Chapter title** contains: "Advanced Features", "Commands", "Command Reference", "CLI Reference"
-3. **Chapter structure** is a collection of disparate features/capabilities rather than a unified topic
-
-**If the chapter is feature-focused, SKIP meta-section creation:**
-- Do NOT create `best-practices.md`, `common-patterns.md`, or similar meta-files
-- Log: "SKIP: Chapter '{chapter_title}' is feature-focused - meta-sections not appropriate"
-- These chapters should only contain feature/capability subsections
-
-**Why Feature Chapters Should Not Have Meta-Sections:**
-- Feature chapters list capabilities, not unified topics requiring holistic guidance
-- "Best Practices" for disparate features is too broad and generic
-- "Common Patterns" belongs in workflow-basics or topic-specific chapters
-- Creates organizational confusion (mixes "what" with "how to use well")
-
-**Appropriate Locations for Meta-Sections:**
-- **Unified topic chapters** (environment, retry-configuration, composition) ✅
-  - Specific guidance for a cohesive topic
-- **Root-level guides** (workflow-basics.md, error-handling.md) ✅
-  - General workflow guidance
-- **Feature-focused chapters** (advanced, commands) ❌
-  - Only feature/capability subsections
-
-**Only proceed with meta-subsection creation if the chapter is NOT feature-focused.**
-
-**For Appropriate Chapters:**
-
-```bash
-# For "best-practices" subsection (search across codebase)
-BEST_PRACTICE_COUNT=$(rg "best.practice|pattern|guideline" --hidden --iglob '!.git' --iglob '!node_modules' -i -c | awk '{s+=$1} END {print s}')
-
-# For "troubleshooting" subsection
-ERROR_COUNT=$(rg "error|warn|fail" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
-ISSUE_COUNT=$(rg "TODO|FIXME|XXX" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
-
-# For "examples" subsection (search discovered example directories)
-EXAMPLE_FILE_COUNT=0
-for example_dir in $EXAMPLE_DIRS; do
-  count=$(find "$example_dir" -type f \( -name "*.yml" -o -name "*.yaml" -o -name "*.json" -o -name "*.toml" \) 2>/dev/null | wc -l)
-  EXAMPLE_FILE_COUNT=$((EXAMPLE_FILE_COUNT + count))
-done
-```
-
-**Requirements for meta-subsections:**
-- **Best Practices:** `BEST_PRACTICE_COUNT >= 3` OR documented patterns in code
-- **Troubleshooting:** `ERROR_COUNT >= 10` OR `ISSUE_COUNT >= 5`
-- **Examples:** `EXAMPLE_FILE_COUNT >= 2` real example/config files
-
-**If meta-subsection doesn't meet threshold:**
-- **DO NOT create separate subsection**
-- **Instead:** Add brief section to parent chapter's index.md
-- **Example:** "## Best Practices" section with 3-5 bullets, not separate file
-
-1. **Identify Target Chapter:**
-   - Determine which existing chapter should contain this subsection
-   - Check if chapter is already `type: "multi-subsection"`
-   - If chapter is `type: "single-file"`, consider migration (see Phase 10)
-
-2. **Generate Subsection ID:**
+1. **Generate Subsection ID:**
    - Convert feature category to kebab-case
-   - Example: "performance_tuning" → "performance-tuning"
-   - Example: "agent_isolation" → "agent-isolation"
+   - Example: "batch_operations" → "batch-operations"
+   - Example: "rate_limiting" → "rate-limiting"
    - Ensure uniqueness within chapter's subsections
 
-3. **Generate Subsection Title:**
+2. **Generate Subsection Title:**
    - Convert to title case with spaces
-   - Example: "performance_tuning" → "Performance Tuning"
-   - Example: "agent_isolation" → "Agent Isolation"
+   - Example: "batch_operations" → "Batch Operations"
+   - Example: "rate_limiting" → "Rate Limiting"
 
-4. **Determine Subsection File Path:**
+3. **Determine Subsection File Path:**
    - Use pattern: `${book_src}/${parent_chapter_id}/${subsection_id}.md`
-   - Example: "book/src/mapreduce/performance-tuning.md"
-   - Ensure parent directory exists (it should if chapter is multi-subsection)
+   - Example: `${book_src}/data-processing/batch-operations.md`
+   - Ensure parent directory exists
 
-5. **Extract Topics from Features:**
-   - Look at feature capabilities in features.json
+4. **Extract Topics from Feature Description:**
+   - Look at the feature's description and capabilities in features.json
    - Convert to topic names relevant to subsection
-   - Example: For "performance_tuning" with capabilities ["parallelism", "resource_limits"]
-   - Topics: ["parallel execution", "resource management", "performance optimization"]
+   - Example: For "batch_operations" with features ["parallel_processing", "error_recovery"]
+   - Topics: ["Parallel processing", "Error recovery", "Status tracking"]
 
-6. **Define Feature Mapping:**
+5. **Define Feature Mapping:**
    - List specific feature paths this subsection should document
-   - Example: `["mapreduce.performance", "mapreduce.resource_limits"]`
-   - This enables focused drift detection
+   - Use the JSON path from features.json
+   - Example: `["data_processing.core_capabilities.batch_operations"]`
+   - This enables focused drift detection in map phase
 
-7. **Define Validation Criteria:**
+6. **Define Validation Criteria:**
    - Create validation string based on subsection focus
-   - Example: "Check performance tuning options and best practices documented"
-   - Include references to relevant configuration
+   - Example: "Check that batch operations and error recovery are documented with examples"
+   - Reference the feature's capabilities
 
-8. **Create Subsection Definition Structure:**
+7. **Create Subsection Definition Structure:**
 ```json
 {
   "id": "<subsection-id>",
@@ -412,21 +279,14 @@ done
   "validation": "<validation-criteria>",
   "feature_mapping": ["<feature-path-1>", "<feature-path-2>", ...],
   "auto_generated": true,
-  "source_feature": "<feature-category>",
-  "content_estimate": {
-    "estimated_lines": ESTIMATED_LINES,
-    "total_mentions": TOTAL_MENTIONS,
-    "type_count": TYPE_COUNT,
-    "example_count": EXAMPLE_COUNT,
-    "test_count": TEST_COUNT
-  }
+  "source_feature": "<feature-category>"
 }
 ```
 
 ### Phase 5: Update Chapter Definitions File and Generate Flattened Output
 
 **Read Existing Chapters:**
-Load the current contents of the chapters JSON file (e.g., workflows/data/prodigy-chapters.json)
+Load the current contents of the chapters JSON file specified by `--chapters` parameter
 
 **For New Chapters:**
 
@@ -443,7 +303,7 @@ Load the current contents of the chapters JSON file (e.g., workflows/data/prodig
 {
   "action": "created_chapter_definition",
   "chapter_id": "<chapter-id>",
-  "file_path": "workflows/data/prodigy-chapters.json"
+  "file_path": "<chapters-file-path from --chapters parameter>"
 }
 ```
 
@@ -469,7 +329,7 @@ Load the current contents of the chapters JSON file (e.g., workflows/data/prodig
   "action": "created_subsection_definition",
   "chapter_id": "<parent-chapter-id>",
   "subsection_id": "<subsection-id>",
-  "file_path": "workflows/data/prodigy-chapters.json"
+  "file_path": "<chapters-file-path from --chapters parameter>"
 }
 ```
 
@@ -626,13 +486,13 @@ Write the complete chapters JSON back to disk with proper formatting (if any gap
 
 3. **Create Subsection File:**
    - Write stub markdown to subsection file path
-   - Ensure parent chapter directory exists (e.g., book/src/mapreduce/)
+   - Ensure parent chapter directory exists (e.g., book/src/{parent-chapter-id}/)
    - Use proper markdown formatting
 
 4. **Validate Markdown:**
    - Ensure valid markdown syntax
    - Check won't break mdbook build
-   - Verify cross-references use correct paths
+   - Verify cross-references use correct relative paths
 
 5. **Record Action:**
 ```json
@@ -783,25 +643,28 @@ This step MUST execute regardless of whether gaps were found:
 2. Process each chapter to create flattened array:
    - For `type == "multi-subsection"`: Extract each subsection with parent metadata
    - For `type == "single-file"`: Include chapter with type marker
-3. Write to `.prodigy/book-analysis/flattened-items.json`
+3. Determine output path from config:
+   - Extract `book_dir` from `--config` parameter
+   - Create analysis directory: `.{project_lowercase}/book-analysis/`
+   - Write to `${analysis_dir}/flattened-items.json`
 
 Example structure:
 ```json
 [
   {
-    "id": "workflow-basics",
-    "title": "Workflow Basics",
-    "file": "book/src/workflow-basics.md",
+    "id": "authentication",
+    "title": "Authentication",
+    "file": "book/src/authentication.md",
     "topics": [...],
     "validation": "...",
     "type": "single-file"
   },
   {
-    "id": "checkpoint-and-resume",
-    "title": "Checkpoint and Resume",
-    "file": "book/src/mapreduce/checkpoint-and-resume.md",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
+    "id": "batch-operations",
+    "title": "Batch Operations",
+    "file": "book/src/data-processing/batch-operations.md",
+    "parent_chapter_id": "data-processing",
+    "parent_chapter_title": "Data Processing",
     "type": "subsection",
     "topics": [...],
     "feature_mapping": [...]
@@ -812,7 +675,8 @@ Example structure:
 **STEP 2: Write Gap Report**
 
 Save the gap report to disk for auditing:
-- Path: `.prodigy/book-analysis/gap-report.json` (or equivalent for project)
+- Use same analysis directory as flattened-items.json
+- Path: `${analysis_dir}/gap-report.json`
 - Include all gaps found and actions taken
 - Use proper JSON formatting
 
@@ -851,7 +715,7 @@ If running in automation mode (PRODIGY_AUTOMATION=true):
 
 **If gaps were found:**
 1. Stage all modified files:
-   - Updated prodigy-chapters.json
+   - Updated chapters.json file (from --chapters parameter)
    - New stub markdown files
    - Updated SUMMARY.md
    - Gap report
@@ -859,7 +723,7 @@ If running in automation mode (PRODIGY_AUTOMATION=true):
 
 2. Create commit with message:
    - Format: "docs: auto-discover missing chapters for [feature names]"
-   - Example: "docs: auto-discover missing chapters for agent-merge-workflows, circuit-breaker"
+   - Example: "docs: auto-discover missing chapters for authentication, rate-limiting"
    - Include brief summary of actions taken
 
 **If NO gaps were found (still need to commit flattened-items.json):**
@@ -1023,22 +887,22 @@ The command should output progress and results clearly:
    ✓ Parsed SUMMARY.md structure
 
 📊 Comparing features against documentation...
-   ✓ Analyzed workflow_basics: documented ✓
-   ✓ Analyzed mapreduce: documented ✓
-   ⚠ Analyzed agent_merge: not documented (gap detected)
-   ✓ Analyzed command_types: documented ✓
-   ⚠ Analyzed circuit_breaker: not documented (gap detected)
+   ✓ Analyzed authentication: documented ✓
+   ✓ Analyzed data_processing: documented ✓
+   ⚠ Analyzed rate_limiting: not documented (gap detected)
+   ✓ Analyzed api_endpoints: documented ✓
+   ⚠ Analyzed caching: not documented (gap detected)
 
 📝 Creating missing chapters...
-   ✓ Generated definition: agent-merge-workflows
-   ✓ Created stub: book/src/agent-merge-workflows.md
-   ✓ Generated definition: circuit-breaker
-   ✓ Created stub: book/src/circuit-breaker.md
+   ✓ Generated definition: rate-limiting
+   ✓ Created stub: book/src/rate-limiting.md
+   ✓ Generated definition: caching
+   ✓ Created stub: book/src/caching.md
    ✓ Updated SUMMARY.md
 
 💾 Committing changes...
    ✓ Staged 4 files
-   ✓ Committed: docs: auto-discover missing chapters for agent-merge-workflows, circuit-breaker
+   ✓ Committed: docs: auto-discover missing chapters for rate-limiting, caching
 ```
 
 **Final Summary:**
@@ -1051,11 +915,11 @@ Documented Topics: 10
 Gaps Found: 2
 
 🔴 High Severity Gaps (Missing Chapters): 2
-  • agent_merge - Custom merge workflows for map agents
-  • circuit_breaker - Workflow error circuit breaking
+  • rate_limiting - Request rate limiting and throttling
+  • caching - Response caching strategies
 
 ✅ Actions Taken:
-  ✓ Created 2 chapter definitions in workflows/data/prodigy-chapters.json
+  ✓ Created 2 chapter definitions in chapters file
   ✓ Created 2 stub files in book/src/
   ✓ Updated book/src/SUMMARY.md
   ✓ Committed changes
@@ -1069,10 +933,10 @@ Gaps Found: 2
 
 Before completing this command, verify:
 
-1. ✅ Gap report saved to `.prodigy/book-analysis/gap-report.json`
-2. ✅ **`.prodigy/book-analysis/flattened-items.json` created (MANDATORY - even if no gaps found)**
-3. ✅ Chapter definitions updated (if gaps found)
-4. ✅ Stub files created (if gaps found)
+1. ✅ Gap report saved to `${analysis_dir}/gap-report.json`
+2. ✅ **`${analysis_dir}/flattened-items.json` created (MANDATORY - even if no gaps found)**
+3. ✅ Chapter definitions updated in chapters file (if gaps found)
+4. ✅ Stub files created in book/src/ (if gaps found)
 5. ✅ SUMMARY.md updated (if gaps found)
 6. ✅ Changes committed (if any files modified)
 

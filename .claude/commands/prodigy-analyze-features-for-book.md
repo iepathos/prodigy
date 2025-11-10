@@ -64,160 +64,99 @@ Based on the project configuration:
 - Pattern: `.prodigy/book-analysis/features.json`
 
 **Action Required:**
-Use the Write tool to create a JSON file at the determined path with this structure:
+Analyze the codebase to discover its features, then create a JSON file at the determined path with a hierarchical structure.
+
+**Structure Requirements:**
+
+1. **Top-level features** should have `type: "major_feature"`
+2. **Meta-content** (best practices, troubleshooting, examples) should have `type: "meta"`
+3. **Capabilities** should be nested under their parent features
+4. **Use 2-3 levels maximum** to avoid over-fragmentation
+
+**Discovery Process:**
+
+1. Read the `analysis_targets` from book-config.json
+2. For each analysis target:
+   - Read the source files specified
+   - Identify the main user-facing capabilities
+   - Group related capabilities together
+   - Determine if this is a major feature or meta-content
+
+3. Create feature hierarchy:
+   - **Major features**: Core capabilities users interact with directly
+   - **Nested capabilities**: Sub-features that belong under a major feature (5+ items → consider subsections)
+   - **Meta-content**: Best practices, troubleshooting, examples (never create chapters)
+
+**Example Structure** (adapt based on what you discover in the codebase):
 
 ```json
 {
-  "workflow_basics": {
-    "structure": {
-      "simple_array": "Direct command array",
-      "full_config": "With env, secrets, profiles"
-    },
-    "execution_model": "Sequential command execution",
-    "commit_tracking": "Git integration for audit trail"
-  },
-  "mapreduce": {
-    "phases": ["setup", "map", "reduce"],
+  "feature_name_1": {
+    "type": "major_feature",
+    "description": "Brief description of what this feature does",
     "capabilities": {
-      "parallel_execution": true,
-      "work_distribution": "Automatic across agents",
-      "result_aggregation": "In reduce phase",
-      "checkpoint_resume": true
-    },
-    "configuration": {
-      "setup": ["commands", "timeout", "capture_outputs"],
-      "map": ["input", "json_path", "agent_template", "max_parallel", "filter", "sort_by"],
-      "reduce": ["commands", "aggregation"]
+      "capability_1": "Description",
+      "capability_2": "Description"
     }
   },
-  "command_types": {
-    "shell": {
-      "description": "Execute shell commands",
-      "common_fields": ["shell", "timeout", "capture", "on_failure"],
-      "use_cases": ["Build", "Test", "Deploy", "Data processing"]
-    },
-    "claude": {
-      "description": "Execute Claude AI commands",
-      "common_fields": ["claude", "commit_required", "validate"],
-      "use_cases": ["Code generation", "Analysis", "Refactoring"]
-    },
-    "goal_seek": {
-      "description": "Iterative refinement to reach quality threshold",
-      "fields": ["goal", "validate", "threshold", "max_attempts"],
-      "use_cases": ["Coverage improvement", "Performance optimization"]
-    },
-    "foreach": {
-      "description": "Iterate over lists with optional parallelism",
-      "fields": ["input", "do", "parallel", "continue_on_error"],
-      "use_cases": ["File processing", "Batch operations"]
-    }
-  },
-  "variables": {
-    "standard": {
-      "shell.output": "Last shell command output",
-      "claude.output": "Last Claude command output",
-      "last.output": "Last command output (any type)",
-      "last.exit_code": "Exit code from last command"
-    },
-    "mapreduce": {
-      "item": "Current work item in map phase",
-      "item.*": "Access item fields with wildcard",
-      "map.total": "Total items processed",
-      "map.successful": "Successfully processed items",
-      "map.failed": "Failed items",
-      "map.results": "Aggregated results"
-    },
-    "validation": {
-      "validation.completion": "Completion percentage",
-      "validation.gaps": "Missing requirements",
-      "validation.status": "Status (complete/incomplete/failed)"
-    }
-  },
-  "environment": {
-    "global_env": "Static and dynamic variables",
-    "secrets": "Masked in logs, supports providers",
-    "profiles": "Environment-specific configurations",
-    "step_env": "Command-level overrides"
-  },
-  "advanced_features": {
-    "conditional_execution": "when: expression",
-    "output_capture": ["string", "number", "json", "lines", "boolean"],
-    "nested_handlers": "on_success, on_failure, on_exit_code",
-    "timeout_control": "Command and workflow level",
-    "working_directory": "Per-command cwd control"
-  },
-  "error_handling": {
-    "workflow_level": {
-      "on_item_failure": ["dlq", "retry", "skip", "stop"],
-      "error_collection": ["aggregate", "immediate", "batched"],
-      "circuit_breaker": true,
-      "max_failures": "Stop after N failures"
-    },
-    "command_level": {
-      "on_failure": "Nested command execution",
-      "on_success": "Success handlers",
-      "on_exit_code": "Map exit codes to actions",
-      "retry_config": "With exponential backoff"
-    }
-  },
-  "best_practices": {
-    "workflow_design": [
-      "Keep workflows simple and focused",
-      "Use validation for quality gates",
-      "Handle errors gracefully",
-      "Capture important outputs"
-    ],
-    "mapreduce": [
-      "Set appropriate parallelism",
-      "Use DLQ for failed items",
-      "Monitor with events",
-      "Design idempotent work items"
-    ],
-    "testing": [
-      "Include test steps in workflows",
-      "Use on_failure for debugging",
-      "Validate before deploying"
-    ]
-  },
-  "common_patterns": [
-    {
-      "name": "Build and Test",
-      "description": "Standard CI workflow",
-      "example": "workflows/examples/build-test.yml"
-    },
-    {
-      "name": "Parallel Processing",
-      "description": "MapReduce for independent items",
-      "example": "workflows/examples/parallel-review.yml"
-    },
-    {
-      "name": "Goal Seeking",
-      "description": "Iterative improvement to threshold",
-      "example": "workflows/examples/coverage-improvement.yml"
-    }
-  ],
-  "troubleshooting": {
-    "common_issues": [
-      {
-        "issue": "Variables not interpolating",
-        "solution": "Check ${} syntax and variable availability"
+  "feature_name_2": {
+    "type": "major_feature",
+    "description": "Complex feature with multiple aspects",
+    "phases": {
+      "phase_1": {
+        "description": "First phase description",
+        "capabilities": ["cap1", "cap2"]
       },
-      {
-        "issue": "MapReduce items not found",
-        "solution": "Verify JSONPath expression"
-      },
-      {
-        "issue": "Timeout errors",
-        "solution": "Increase timeout or optimize commands"
+      "phase_2": {
+        "description": "Second phase description",
+        "capabilities": ["cap3", "cap4"]
       }
-    ]
+    },
+    "core_capabilities": {
+      "capability_name": {
+        "description": "What this capability enables",
+        "features": ["feature1", "feature2"]
+      }
+    }
+  },
+  "meta_content": {
+    "type": "meta",
+    "description": "Cross-cutting content embedded in feature chapters",
+    "best_practices": {
+      "category_1": ["practice1", "practice2"],
+      "category_2": ["practice1", "practice2"]
+    },
+    "common_patterns": [
+      {
+        "name": "Pattern Name",
+        "description": "Pattern description",
+        "example": "path/to/example"
+      }
+    ],
+    "troubleshooting": {
+      "common_issues": [
+        {
+          "issue": "Problem description",
+          "solution": "How to fix"
+        }
+      ]
+    }
   },
   "version_info": {
-    "analyzed_version": "0.2.0+",
-    "analysis_date": "2025-01-XX"
+    "analyzed_version": "extracted from codebase",
+    "analysis_date": "current date"
   }
 }
 ```
+
+**Important Guidelines:**
+
+- Feature names should be generic (e.g., "parallel_processing" not "prodigy_mapreduce")
+- Descriptions should focus on WHAT users can do, not HOW it's implemented
+- Group features logically based on user workflows
+- Limit nesting to 2-3 levels maximum
+- Mark meta-content explicitly with `type: "meta"`
+- Include only user-facing features (no internal implementation details)
 
 ### Phase 4: Analysis Method
 
@@ -255,14 +194,15 @@ The features.json file should:
 **CRITICAL: This step requires a commit to be created.**
 
 After creating the features.json file:
-1. Add the file to git: `git add .{project_lowercase}/book-analysis/features.json`
-2. Create a commit with a descriptive message:
+
+1. Stage the features.json file for commit
+2. Create a commit with this descriptive message format:
    ```
    chore: analyze {project_name} features for book documentation
 
    Generated comprehensive feature inventory covering:
-   - [List key areas analyzed]
+   - [List the major feature areas you analyzed, e.g., "workflow_basics, mapreduce, command_types"]
 
    This analysis will be used to detect documentation drift.
    ```
-3. Verify the commit was created successfully with `git log -1`
+3. Verify the commit was created successfully by checking the git log
