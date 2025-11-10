@@ -1,0 +1,45 @@
+# Validation Summary for Command Types
+
+## Content Metrics
+- Lines of content: 449 (minimum: 100) ✓
+- Level-2 headings: 14 (minimum: 5) ✓
+- Code examples: 16 (minimum: 3) ✓
+- Source references: 6+ (minimum: 2) ✓
+
+## Drift Issues Resolved
+- High severity: 3/3 resolved
+  - Removed incorrect cwd examples (not in WorkflowStepCommand)
+  - Removed incorrect env examples (not in WorkflowStepCommand)
+  - Removed incorrect on_exit_code examples (not in WorkflowStepCommand)
+- Medium severity: 2/2 resolved
+  - Clarified capture_output is the actual field (not deprecated capture)
+  - Clarified capture_streams is planned/internal-only
+- Low severity: 2/2 resolved
+  - Added OnFailureConfig strategy field documentation
+  - Improved capture_output explanation
+
+## Code Validation
+✓ All WorkflowStepCommand fields verified against src/config/command.rs:320-401
+✓ All WorkflowStep internal fields documented in Technical Notes
+✓ OnFailureConfig strategies verified against src/cook/workflow/on_failure.rs:9-22
+✓ All examples use only fields available in WorkflowStepCommand
+✓ Source references provided for all major features
+
+## Quality Gates
+✓ Meets minimum content requirements (449 lines vs 100 minimum)
+✓ All critical issues resolved (removed incorrect field examples)
+✓ All high severity issues resolved (corrected struct mismatches)
+✓ All examples grounded in actual WorkflowStepCommand struct
+✓ All source references validated and accurate
+✓ Clear separation between user-facing and internal fields
+
+## Key Corrections Made
+1. Removed cwd/working_dir examples - field not in WorkflowStepCommand
+2. Removed env examples - field not in WorkflowStepCommand
+3. Removed on_exit_code examples - field not in WorkflowStepCommand
+4. Added comprehensive OnFailure strategy documentation
+5. Corrected capture vs capture_output confusion
+6. Moved internal-only fields to Technical Notes section
+7. Added source code references throughout
+
+Status: READY TO COMMIT

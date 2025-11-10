@@ -8,7 +8,7 @@
 
 # With output capture
 - shell: "ls -la | wc -l"
-  capture: "file_count"
+  capture_output: "file_count"
 
 # With failure handling
 - shell: "cargo clippy"
@@ -46,7 +46,7 @@
 
 # With output capture
 - claude: "/prodigy-generate-plan"
-  capture: "implementation_plan"
+  capture_output: "implementation_plan"
 ```
 
 ## 3. Goal-Seeking Commands
@@ -256,113 +256,75 @@ All command types support these common fields:
 | `timeout` | number | Command timeout in seconds |
 | `commit_required` | boolean | Whether command should create a git commit |
 | `when` | string | Conditional execution expression |
-| `cwd` | string | Working directory for command execution (supports variable interpolation) |
-| `env` | object | Step-level environment variable overrides (key-value pairs) |
-| `capture` | string | Variable name to capture command output (preferred over deprecated `capture_output`) |
+| `capture_output` | boolean/string | Capture command output (boolean for default "output" var, string for custom name) |
 | `capture_format` | enum | Format: `string` (default), `number`, `json`, `lines`, `boolean` (see examples below) |
-| `capture_streams` | string | Reserved for future YAML syntax - not yet available in workflows |
 | `on_success` | object | Command to run on success |
-| `on_failure` | object | OnFailureConfig with nested command, max_attempts, fail_workflow, strategy |
-| `on_exit_code` | object | Map specific exit codes to different handlers (e.g., `1: compile error, 2: lint error`) |
+| `on_failure` | object | OnFailureConfig with nested command, max_attempts, fail_workflow, strategy (see below) |
 | `validate` | object | Validation configuration |
 | `output_file` | string | Redirect command output to a file |
 
-### Working Directory (cwd) Examples
+### OnFailure Handler Configuration
 
-Control the working directory for individual commands:
+The `on_failure` field accepts an `OnFailureConfig` which supports multiple configuration formats and strategies:
 
+**Source**: src/cook/workflow/on_failure.rs:67-115
+
+**Simple Format - Single Command:**
 ```yaml
-# Run tests in a specific subdirectory
+- shell: "cargo clippy"
+  on_failure:
+    claude: "/fix-warnings ${shell.output}"
+```
+
+**Advanced Format - With Strategy and Control:**
+```yaml
 - shell: "cargo test"
-  cwd: "crates/prodigy-core"
-
-# Use variable interpolation
-- shell: "npm install"
-  cwd: "${project_dir}/frontend"
-
-# Multi-project workflows
-- shell: "make build"
-  cwd: "services/${service_name}"
+  on_failure:
+    claude: "/debug-test-failures ${shell.output}"
+    strategy: recovery          # recovery, fallback, cleanup, or custom
+    max_retries: 3              # Maximum retry attempts (default: 1)
+    fail_workflow: false        # Continue workflow even after failure handling
 ```
 
-### Step-Level Environment Variables (env) Examples
+**Handler Strategies** (src/cook/workflow/on_failure.rs:9-22):
+- `recovery` (default) - Try to fix the problem and retry
+- `fallback` - Use alternative approach
+- `cleanup` - Clean up resources before failing
+- `custom` - Custom handler logic
 
-Override environment variables for specific commands:
-
+**Nested Failure Handlers:**
 ```yaml
-# Set custom PATH for a command
-- shell: "rustfmt --check src/**/*.rs"
-  env:
-    PATH: "/custom/bin:${PATH}"
-    RUST_LOG: "debug"
-
-# Configure command-specific settings
-- shell: "cargo build"
-  env:
-    CARGO_TARGET_DIR: "target/custom"
-    RUSTFLAGS: "-D warnings"
-
-# Use secrets in step-level env
-- claude: "/deploy-service"
-  env:
-    API_KEY: "${secrets.api_key}"
-    ENVIRONMENT: "production"
-```
-
-### Exit Code Handlers (on_exit_code) Examples
-
-Map specific exit codes to different handlers:
-
-```yaml
-# Handle different compilation errors
-- shell: "cargo build"
-  on_exit_code:
-    1:
-      claude: "/fix-compile-errors ${shell.output}"
-    101:
-      shell: "rustup update"
-
-# Different handlers for different lint severities
-- shell: "cargo clippy -- -D warnings"
-  on_exit_code:
-    1:
-      claude: "/fix-clippy-warnings ${shell.output}"
-    2:
-      shell: "cargo fmt --all"
-
-# Tool-specific error handling
-- shell: "custom-validator.sh"
-  on_exit_code:
-    127:
-      shell: "install-validator.sh"
-    1:
-      claude: "/fix-validation-errors"
+- shell: "cargo test"
+  on_failure:
+    claude: "/debug-test-failures ${shell.output}"
+    on_failure:
+      shell: "notify-team.sh 'Tests failed and debugging unsuccessful'"
 ```
 
 ### CaptureStreams Configuration
 
-> **Note:** While `capture_streams` functionality is implemented internally in Prodigy's execution engine, it is not yet exposed in the YAML workflow syntax. This is a planned feature for fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured. The field exists in the configuration structs but is currently stored as a string placeholder for future use.
+> **Note:** While `capture_streams` is defined in WorkflowStepCommand (src/config/command.rs:396), it is reserved for future YAML syntax and not yet fully functional. This is a planned feature for fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured.
 
-**Current Approach:** Use the `capture` and `capture_format` fields to control output capture, which cover most common use cases:
+**Current Approach:** Use the `capture_output` (deprecated) or `capture_format` fields to control output capture, which cover most common use cases:
 
 ```yaml
 # Capture stdout as string (most common use case)
 - shell: "cargo test"
-  capture: "test_output"
+  capture_output: "test_output"
   capture_format: "string"
 
 # Capture exit status as boolean
 - shell: "cargo test"
-  capture: "test_passed"
+  capture_output: "test_passed"
   capture_format: "boolean"
 
 # Capture and parse JSON output
 - shell: "cargo metadata --format-version 1"
-  capture: "project_info"
+  capture_output: "project_info"
   capture_format: "json"
 ```
 
-**Future Enhancement:** A future version will expose `capture_streams` in YAML syntax to provide fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured. Until then, use the `capture` and `capture_format` fields which cover most common use cases.
+**Future Enhancement:** A future version will expose `capture_streams` in YAML syntax to provide fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured. Until then, use the `capture_output` and `capture_format` fields which cover most common use cases.
 
 ### Capture Format Examples
 
@@ -405,40 +367,26 @@ These fields are deprecated:
 - `command:` in ValidationConfig - **Use `shell:` instead**
 - Nested `commands:` in `agent_template` and `reduce` - **Use direct array format instead**
 - Legacy variable aliases (`$ARG`, `$ARGUMENT`, `$FILE`, `$FILE_PATH`) - **Use modern `${item.*}` syntax**
-- `capture_output:` (boolean or string) - **Use `capture:` field instead**
 
-**Migration: capture_output to capture**
+**Using capture_output Field**
 
-The `capture_output` field supports both Boolean and String variants but is deprecated in favor of the simpler `capture` field:
+The `capture_output` field supports both Boolean and String variants:
 
-**Deprecated syntax (still supported):**
+**Source**: src/config/command.rs:375-377
+
 ```yaml
-# Boolean variant - captures to default variable
-- shell: "ls -la | wc -l"
-  capture_output: true
-
-# String variant - captures to named variable
+# String variant - captures to named variable (recommended)
 - shell: "git rev-parse HEAD"
   capture_output: "commit_hash"
-```
 
-**Recommended syntax:**
-```yaml
-# Use capture field with explicit variable name
+# Boolean variant - captures to default "output" variable
 - shell: "ls -la | wc -l"
-  capture: "file_count"
-
-- shell: "git rev-parse HEAD"
-  capture: "commit_hash"
+  capture_output: true
 ```
 
-**Why the change?** The modern `capture` field is clearer and more consistent:
-- **Explicit is better than implicit**: Variable names are self-documenting (no boolean variant confusion)
-- **Single responsibility**: One field (`capture`) instead of two behaviors (`capture_output` boolean vs string)
-- **Easier refactoring**: Clear what each command produces
-- **Better error messages**: References to undefined variables are clearer
+**Note**: The internal WorkflowStep struct (src/cook/workflow/executor/data_structures.rs:75) uses a `capture` field, but this is not exposed in the user-facing YAML WorkflowStepCommand struct. Use `capture_output` for capturing command output in YAML workflows.
 
-You can then reference the captured value using `${file_count}` or `${commit_hash}` in subsequent commands. The `capture_output` field (both Boolean and String variants) is retained for backward compatibility but should not be used in new workflows.
+You can then reference the captured value using `${commit_hash}` or `${output}` in subsequent commands.
 
 ---
 
@@ -447,11 +395,11 @@ You can then reference the captured value using `${file_count}` or `${commit_has
 <details>
 <summary>Internal Implementation Fields (for contributors)</summary>
 
-The following fields are used internally during workflow execution but are NOT part of the YAML configuration syntax. These are implementation details managed by Prodigy's execution engine, not user-facing configuration options:
+The following fields exist in the internal WorkflowStep struct (src/cook/workflow/executor/data_structures.rs:35-157) but are NOT available in the user-facing WorkflowStepCommand YAML syntax (src/config/command.rs:320-401). These are implementation details managed by Prodigy's execution engine during workflow execution:
 
+**Execution Control Fields (Internal Only):**
 - `handler` - Internal HandlerStep for execution routing
 - `retry` - Internal RetryConfig for automatic retry logic
-- `env` - Not available (use shell environment syntax: `ENV=value command`)
 - `auto_commit` - Internal commit tracking
 - `commit_config` - Internal commit configuration
 - `step_validate` - Internal validation state
@@ -459,7 +407,15 @@ The following fields are used internally during workflow execution but are NOT p
 - `validation_timeout` - Internal validation timing
 - `ignore_validation_failure` - Internal validation handling
 
-These fields are documented here for reference when working on Prodigy's source code, but should not be used in workflow YAML files.
+**Environment and Context Fields (Planned/Not Yet Exposed):**
+- `working_dir` / `cwd` - Working directory control (WorkflowStep:99, not in WorkflowStepCommand)
+- `env` - Environment variable overrides (WorkflowStep:103, not in WorkflowStepCommand)
+- `on_exit_code` - Exit code specific handlers (WorkflowStep:119, not in WorkflowStepCommand)
+- `capture` - Variable name for output (WorkflowStep:75, use `capture_output` in YAML instead)
+
+**Why the separation?** WorkflowStepCommand defines what users can write in YAML. WorkflowStep is the internal runtime representation with additional fields populated during execution. Some features exist in the execution layer but aren't yet exposed in the YAML syntax.
+
+**If you need these features**: Consider using shell-level environment syntax (`ENV=value command`) or running commands in subdirectories using `cd` in your shell command. These planned features may be exposed in future versions of Prodigy.
 
 </details>
 
