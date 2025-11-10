@@ -1,0 +1,82 @@
+# Validation Summary for Examples
+
+## Content Metrics
+- Lines of content: 473 (minimum: 100) ✓
+- Headings: 11 (minimum: 5) ✓
+- Code examples: 20 (minimum: 3) ✓
+- Source references: 6 (minimum: 2) ✓
+
+## Drift Issues Resolved
+- Critical: 0/0
+- High: 2/2
+  - Fixed Example 7 secrets syntax (merged into env block)
+  - Added Example 11 for custom merge workflows
+- Medium: 4/4
+  - Fixed timeout_config comments (removed unimplemented fields)
+  - Fixed max_attempts placement (already correct at step level)
+  - Added distinct field explanation
+  - Added session-job ID mapping explanation
+- Low: 4/4
+  - Moved git context variables from "Future" to working examples
+  - Added git context pattern filtering examples
+  - Git context fully documented with all variables
+  - Added source references for all new content
+
+## Code Validation
+- All struct fields verified: ✓
+  - EnvironmentConfig: src/cook/environment/config.rs:12-36
+  - SecretValue: src/cook/environment/config.rs:84-96
+  - MergeWorkflow: src/config/mapreduce.rs:84-94
+  - TimeoutConfig: src/cook/execution/mapreduce/timeout.rs:38-63
+  - GitChangeTracker: src/cook/workflow/git_context.rs:86-99
+
+- All enum variants verified: ✓
+  - EnvValue variants match source
+  - SecretValue variants match source
+  - Git context variables match implementation
+
+- All examples have source attribution: ✓
+  - 6 source references added
+  - All references link to actual source files
+  - Test files and example workflows cited
+
+- All referenced files exist: ✓
+  - src/cook/environment/config.rs
+  - src/config/mapreduce.rs
+  - src/cook/workflow/git_context.rs
+  - src/cook/execution/mapreduce/timeout.rs
+  - tests/environment_workflow_test.rs
+  - tests/merge_workflow_integration.rs
+  - workflows/mapreduce-env-example.yml
+
+## Quality Gates
+✓ Meets minimum content requirements (473 lines, 11 headings, 20 examples)
+✓ All critical issues resolved (0 critical in original report)
+✓ All high severity issues resolved (2/2)
+✓ All medium severity issues resolved (4/4)
+✓ All low severity issues resolved (4/4)
+✓ All examples grounded in codebase
+✓ All source references validated
+
+Status: READY TO COMMIT
+
+## Key Improvements
+1. Example 7: Corrected secrets syntax - secrets go in env block with secret:true flag
+2. Example 8: Removed unimplemented timeout fields, added cleanup_grace_period
+3. Example 10: Moved git context from "Future" to working examples with full documentation
+4. Example 11: Added comprehensive custom merge workflow example (NEW)
+5. Added deduplication explanation for distinct field
+6. Added session-job ID mapping explanation
+7. All examples now include source file references
+8. Added 6 source attributions linking to implementation files
+
+## Files Modified
+- book/src/examples.md (updated with all fixes)
+- .prodigy/book-analysis/evidence-examples.md (evidence file created)
+- .prodigy/book-analysis/validation-examples.txt (this file)
+
+## Total Issues Fixed
+- 2 high severity
+- 4 medium severity
+- 4 low severity
+- 10 total drift issues resolved
