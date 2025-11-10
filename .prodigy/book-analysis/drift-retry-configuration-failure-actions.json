@@ -1,0 +1,123 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "retry-configuration",
+  "subsection_id": "failure-actions",
+  "subsection_title": "Failure Actions",
+  "subsection_file": "book/src/retry-configuration/failure-actions.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "CRITICAL: Subsection documents a feature (`retry_config` with `on_failure` at command level) that is NOT implemented in the codebase. This will cause user confusion and workflow failures.",
+  "issues": [
+    {
+      "type": "non_existent_feature",
+      "severity": "critical",
+      "section": "Entire Document",
+      "description": "The entire subsection documents `retry_config` with `on_failure` field for command-level retry configuration, but this feature does NOT exist in the codebase",
+      "current_content": "Documents retry_config.on_failure: stop|continue|fallback syntax for commands",
+      "should_be": "Remove or clearly mark as future/planned feature, OR document the actual on_failure mechanism that exists (TestDebugConfig for shell commands)",
+      "fix_suggestion": "CRITICAL FIX REQUIRED: Either (1) Remove this entire subsection as it documents non-existent features, OR (2) Add a prominent banner stating this is a planned feature for future implementation, OR (3) Rewrite to document the ACTUAL on_failure mechanism that exists in WorkflowStepCommand.on_failure (which is TestDebugConfig, not FailureAction)",
+      "source_reference": "src/config/command.rs:371-372 shows on_failure: Option<TestDebugConfig>, NOT Option<FailureAction>. The FailureAction enum exists in src/cook/retry_v2.rs:153-165 but is never used in command execution"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "critical",
+      "section": "Available Failure Actions",
+      "description": "Documents three FailureAction variants (Stop, Continue, Fallback) that are defined in retry_v2.rs but NOT integrated into workflow command execution",
+      "current_content": "Shows YAML examples like 'retry_config:\\n  on_failure: stop'",
+      "should_be": "Document the actual TestDebugConfig on_failure mechanism, or remove section entirely",
+      "fix_suggestion": "The retry_v2::FailureAction enum exists but is not wired into WorkflowStepCommand. The actual command-level on_failure uses TestDebugConfig for shell commands only. Either implement the feature or document what actually exists.",
+      "source_reference": "src/cook/retry_v2.rs:153-165 defines FailureAction enum, but grep shows zero usage in command execution logic"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "critical",
+      "section": "All YAML Examples",
+      "description": "Every YAML example in the document shows retry_config syntax that will not work",
+      "current_content": "Examples show 'retry_config:\\n  attempts: 3\\n  on_failure: stop'",
+      "should_be": "Show actual supported syntax or clearly mark as non-functional",
+      "fix_suggestion": "All examples are broken. The retry_config field is not defined in WorkflowStepCommand. Users copying these examples will experience parse errors or the configuration will be silently ignored.",
+      "source_reference": "src/config/command.rs:320-400 WorkflowStepCommand definition lacks retry_config field"
+    },
+    {
+      "type": "misleading_content",
+      "severity": "critical",
+      "section": "Combining with Error Matchers",
+      "description": "Documents combining on_failure with error matchers (retry_on), but retry_config is not available at command level",
+      "current_content": "Shows retry_config with both retry_on and on_failure fields",
+      "should_be": "Remove section or rewrite for actual implementation",
+      "fix_suggestion": "Error matchers (retry_on) are part of RetryConfig in retry_v2.rs, but RetryConfig is not available at the command level in workflows. This section describes theoretical functionality that cannot be used.",
+      "source_reference": "src/cook/retry_v2.rs:43 defines retry_on field, but command-level retry config is not implemented"
+    },
+    {
+      "type": "misleading_content",
+      "severity": "critical",
+      "section": "Fallback Command Requirements",
+      "description": "Provides detailed guidance on fallback commands, but fallback functionality is not implemented",
+      "current_content": "Shows examples like 'on_failure:\\n  fallback:\\n    command: \"cat cached-data.json\"'",
+      "should_be": "Remove section or clearly mark as planned feature",
+      "fix_suggestion": "The Fallback variant exists in the enum but is never executed. Users will expect this to work based on the documentation.",
+      "source_reference": "src/cook/retry_v2.rs:164 defines Fallback variant, but no executor code handles it"
+    },
+    {
+      "type": "implementation_mismatch",
+      "severity": "high",
+      "section": "Implementation Details",
+      "description": "Shows Rust code for FailureAction enum that exists but is unused",
+      "current_content": "Shows the actual enum definition from retry_v2.rs",
+      "should_be": "Clarify that this enum is defined but not yet integrated into command execution",
+      "fix_suggestion": "Add note: 'Note: This enum is defined in the codebase but is not yet integrated into workflow command execution. It is planned for future implementation.' OR remove if there's no plan to implement.",
+      "source_reference": "src/cook/retry_v2.rs:153-165"
+    },
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "Cross-References",
+      "description": "Found 0 broken internal links",
+      "broken_links": [],
+      "fix_suggestion": "All cross-references are valid"
+    }
+  ],
+  "positive_aspects": [
+    "Well-structured and clearly written",
+    "Good examples showing different use cases",
+    "Includes best practices section",
+    "Proper source code references (though to unused code)",
+    "Clear explanation of behavior for each variant",
+    "Good use of YAML examples (even though they don't work)"
+  ],
+  "improvement_suggestions": [
+    "URGENT: Add a prominent warning banner at the top: 'WARNING: This feature is currently NOT implemented in Prodigy. The retry_config field with on_failure is defined in code but not yet integrated into workflow command execution. This documentation represents planned functionality.'",
+    "Alternative: Completely rewrite to document the ACTUAL on_failure mechanism that exists (TestDebugConfig on shell commands)",
+    "If keeping as planned feature docs, move to a 'Future Features' or 'Roadmap' chapter",
+    "Add implementation tracking issue number if this is planned work",
+    "Consider documenting the actual retry behavior that DOES exist (if any) for workflow commands"
+  ],
+  "cross_references": [
+    "basic-retry-configuration",
+    "conditional-retry-with-error-matchers",
+    "best-practices",
+    "complete-examples"
+  ],
+  "validation_notes": [
+    "The FailureAction enum IS defined in src/cook/retry_v2.rs:153-165",
+    "The FailureAction enum IS set as default in RetryConfig::default() at line 65",
+    "BUT: grep for usage of retry_v2::FailureAction shows ZERO actual usage in command execution",
+    "The WorkflowStepCommand struct has 'on_failure: Option<TestDebugConfig>' NOT 'retry_config: Option<RetryConfig>'",
+    "No retry_config field exists in WorkflowStepCommand, SimpleCommand, or Command structs",
+    "The workflow::error_policy module has a DIFFERENT FailureAction enum for internal MapReduce error handling",
+    "All YAML examples in this document will fail to work as documented"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-09T22:30:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Failure Actions",
+      "Available Failure Actions",
+      "Combining with Error Matchers",
+      "Fallback Command Requirements",
+      "Multiple Failure Actions in Workflow"
+    ],
+    "validation_focus": "Check failure actions documentation matches implementation"
+  }
+}
