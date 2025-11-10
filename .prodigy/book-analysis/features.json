@@ -7,15 +7,23 @@
   },
   "workflow_basics": {
     "structure": {
-      "simple_array": "Direct command array format for straightforward workflows",
-      "full_config": "Object format with env, secrets, profiles, and merge configuration",
+      "simple_array": "Direct command array - commands: [ ... ]",
+      "full_config": "With name, env, secrets, profiles, merge configuration",
+      "direct_array_format": "Workflow can be just an array of commands for simple cases",
       "supported_formats": ["YAML", "JSON"]
     },
     "execution_model": {
-      "sequential": "Commands execute in order",
+      "sequential": "Commands execute in order by default",
+      "parallel_support": "Foreach with parallel configuration for concurrent execution",
+      "step_isolation": "Each step can have its own environment and working directory",
       "commit_tracking": "Automatic git integration tracks all changes",
       "worktree_isolation": "Each workflow runs in isolated git worktree",
       "session_management": "UnifiedSession tracks state across execution"
+    },
+    "commit_tracking": {
+      "automatic": "Git integration tracks changes from each command",
+      "audit_trail": "Full history of modifications with commit messages",
+      "git_context_variables": "Access to files_added, files_modified, files_deleted, commits"
     },
     "command_types_supported": ["claude", "shell", "goal_seek", "foreach", "write_file", "validate"],
     "workflow_naming": "Optional name field for identification"
@@ -25,17 +33,23 @@
       "setup": {
         "description": "Optional preparation phase before map",
         "features": ["command execution", "timeout control", "variable capture"],
-        "configuration": ["commands", "timeout", "capture_outputs"]
+        "configuration": ["commands", "timeout", "capture_outputs"],
+        "formats": ["Direct array of commands (preferred)", "Config object with timeout and capture_outputs"]
       },
       "map": {
-        "description": "Parallel processing of work items",
-        "features": ["parallel execution", "work distribution", "agent worktrees", "agent merge"],
-        "configuration": ["input", "json_path", "agent_template", "max_parallel", "filter", "sort_by", "max_items", "offset", "distinct", "agent_timeout_secs", "timeout_config"]
+        "description": "Parallel processing of work items in isolated agent worktrees",
+        "features": ["parallel execution", "work distribution", "agent worktrees", "agent merge to parent"],
+        "required": ["input", "agent_template"],
+        "configuration": ["input", "json_path", "agent_template", "max_parallel", "filter", "sort_by", "max_items", "offset", "distinct", "agent_timeout_secs", "timeout_config"],
+        "agent_template_formats": ["Direct array of commands (preferred)", "Nested commands object (deprecated)"],
+        "work_item_access": "Access item fields via ${item.field} in commands"
       },
       "reduce": {
-        "description": "Aggregation phase after map completes",
-        "features": ["access to map results", "sequential execution"],
-        "configuration": ["commands", "timeout_secs"]
+        "description": "Aggregation phase after map completes, runs in parent worktree",
+        "features": ["access to map results", "sequential execution", "aggregation"],
+        "configuration": ["commands", "timeout_secs"],
+        "formats": ["Direct array of commands (preferred)", "Nested commands object (deprecated)"],
+        "map_results_access": "Access aggregated results via ${map.results}, ${map.total}, ${map.successful}, ${map.failed}"
       },
       "merge": {
         "description": "Custom merge workflow for worktree integration",
@@ -48,462 +62,557 @@
       "work_distribution": "Automatic distribution across agents based on max_parallel",
       "result_aggregation": "Map results available as ${map.results} in reduce",
       "checkpoint_resume": "Full checkpoint and resume support for all phases",
-      "worktree_hierarchy": "Parent worktree for setup/reduce, child worktrees for agents",
-      "agent_merge": "Agents merge to parent worktree, parent merges to master",
-      "dlq_support": "Failed items sent to Dead Letter Queue for retry",
-      "event_streaming": "Real-time event tracking for monitoring",
-      "cleanup_failure_handling": "Graceful handling of worktree cleanup failures"
+      "worktree_isolation": "All phases execute in isolated worktrees, not main repo",
+      "agent_isolation": "Each map agent runs in child worktree branched from parent",
+      "automatic_merge": "Agent changes merge back to parent worktree automatically"
     },
-    "input_processing": {
-      "json_path": "JSONPath expressions for item extraction",
-      "filter": "Filter items with expressions",
-      "sort_by": "Sort items before processing (field ASC/DESC)",
-      "max_items": "Limit number of items to process",
-      "offset": "Skip initial items",
-      "distinct": "Deduplicate items by field"
+    "isolation": {
+      "parent_worktree": "Single worktree for setup, reduce, and aggregation",
+      "agent_worktrees": "Each agent runs in child worktree branched from parent",
+      "merge_flow": "Agent → Parent → User prompt to merge to original branch",
+      "main_repo_safety": "Main repository never modified during workflow execution"
     },
-    "configuration": {
-      "max_parallel": "Number of concurrent agents (supports env vars)",
-      "agent_timeout_secs": "Timeout per agent execution",
-      "timeout_config": "Advanced timeout configuration",
-      "error_policy": "Workflow-level error handling",
-      "environment": "Shared environment variables across phases"
+    "branch_tracking": {
+      "original_branch": "Tracks user's branch at workflow start",
+      "merge_target": "Merges back to original branch, not hardcoded main/master",
+      "parent_branch": "prodigy-session-{session-id}",
+      "agent_branches": "prodigy-agent-{agent-id}-{timestamp}"
     }
   },
   "command_types": {
-    "claude": {
-      "description": "Execute Claude AI commands via CLI",
-      "fields": ["claude", "commit_required", "validate", "when"],
-      "features": ["JSON streaming output", "log location tracking", "verbose mode control"],
-      "use_cases": ["Code generation", "Analysis", "Refactoring", "Review", "Documentation"]
-    },
     "shell": {
-      "description": "Execute shell commands",
-      "fields": ["shell", "timeout", "capture_output", "capture_format", "capture_streams", "on_failure", "output_file", "when"],
-      "features": ["Output capture", "Error handling", "Timeout control", "Exit code tracking"],
-      "use_cases": ["Build", "Test", "Deploy", "Data processing", "Validation"]
+      "description": "Execute shell commands with full bash support",
+      "common_fields": ["shell", "timeout", "capture_output", "on_failure", "on_success", "when", "cwd", "output_file", "capture_format", "capture_streams"],
+      "use_cases": ["Build", "Test", "Deploy", "Data processing", "File operations"],
+      "output_capture": "Supports multiple formats (string, json, lines, number, boolean)",
+      "streams": "Can capture stdout, stderr, exit_code, success, duration"
+    },
+    "claude": {
+      "description": "Execute Claude AI commands via slash commands",
+      "common_fields": ["claude", "commit_required", "validate", "on_failure", "timeout", "when"],
+      "use_cases": ["Code generation", "Analysis", "Refactoring", "Documentation", "Code review"],
+      "commit_tracking": "Can require commits with commit_required: true",
+      "streaming": "JSON streaming enabled by default for auditability"
     },
     "goal_seek": {
       "description": "Iterative refinement to reach quality threshold",
-      "fields": ["goal", "claude", "shell", "validate", "threshold", "max_attempts", "timeout_seconds", "fail_on_incomplete"],
-      "features": ["Score-based convergence", "Automatic retry", "Progress tracking"],
-      "use_cases": ["Coverage improvement", "Performance optimization", "Quality gates"]
+      "fields": ["goal", "validate", "threshold", "max_attempts", "on_incomplete", "fail_workflow"],
+      "use_cases": ["Coverage improvement", "Performance optimization", "Quality gates"],
+      "validation": "Custom validation command with result_file and threshold"
     },
     "foreach": {
       "description": "Iterate over lists with optional parallelism",
-      "fields": ["foreach", "do", "parallel", "continue_on_error", "max_items"],
-      "features": ["Parallel execution", "Error handling", "Item filtering"],
-      "use_cases": ["File processing", "Batch operations", "Multi-target deployment"]
+      "fields": ["foreach (input)", "do", "parallel", "continue_on_error", "max_items"],
+      "input_types": ["Command output", "Static list"],
+      "parallel_config": ["Boolean (true/false)", "Specific count (number)"],
+      "use_cases": ["File processing", "Batch operations", "Multi-item workflows"]
     },
     "write_file": {
-      "description": "Write content to files with format support",
+      "description": "Write files with format validation and variable interpolation",
       "fields": ["path", "content", "format", "mode", "create_dirs"],
       "formats": ["text", "json", "yaml"],
-      "features": ["Variable interpolation", "JSON validation", "YAML formatting", "Permission control"],
-      "use_cases": ["Configuration generation", "Report creation", "Data export"]
+      "use_cases": ["Generate config files", "Write reports", "Create data files"],
+      "interpolation": "Content and path support variable interpolation"
     },
     "validate": {
-      "description": "Check implementation completeness",
-      "fields": ["validate", "threshold", "on_incomplete"],
-      "features": ["Requirement tracking", "Gap detection", "Completion scoring"],
-      "use_cases": ["Spec validation", "Documentation checks", "Feature completeness"]
+      "description": "Validation configuration for checking implementation completeness",
+      "fields": ["claude (command)", "result_file", "threshold", "on_incomplete"],
+      "on_incomplete": ["claude (command)", "max_attempts", "fail_workflow", "commit_required"],
+      "use_cases": ["Quality gates", "Implementation verification", "Test coverage validation"]
     }
   },
   "variables": {
     "standard": {
-      "last.output": "Output from last command",
+      "shell.output": "Last shell command output",
+      "claude.output": "Last Claude command output",
+      "last.output": "Last command output (any type)",
       "last.exit_code": "Exit code from last command",
-      "shell.output": "Output from last shell command",
-      "claude.output": "Output from last Claude command",
-      "item": "Current work item (all execution modes)",
-      "item_index": "Zero-based index of current item",
-      "item_total": "Total number of items"
-    },
-    "mapreduce": {
-      "item.*": "Access work item fields (e.g., ${item.path}, ${item.name})",
-      "map.results": "Aggregated results from map phase",
-      "map.total": "Total items in map phase",
-      "map.successful": "Successfully processed items",
-      "map.failed": "Failed items",
-      "worker.id": "Parallel worker ID",
-      "map.key": "Key for map output"
-    },
-    "validation": {
-      "validation.completion": "Completion percentage (0-100)",
-      "validation.gaps": "Missing requirements",
-      "validation.status": "Status (complete/incomplete/failed)",
-      "validation.missing_count": "Number of missing items"
-    },
-    "git_context": {
-      "git.branch": "Current git branch",
-      "git.commit": "Current commit hash",
-      "git.modified_files": "List of modified files",
-      "git.staged_files": "List of staged files",
-      "git.unstaged_files": "List of unstaged files"
-    },
-    "merge": {
-      "merge.worktree": "Name of worktree being merged",
-      "merge.source_branch": "Source branch (worktree branch)",
-      "merge.target_branch": "Target branch (original branch)",
-      "merge.session_id": "Session ID for correlation"
-    },
-    "workflow_metadata": {
       "workflow.name": "Workflow name",
       "workflow.id": "Workflow ID",
       "workflow.iteration": "Current iteration number",
       "step.name": "Current step name",
       "step.index": "Current step index"
     },
-    "capture_formats": ["string", "json", "lines", "number", "boolean"],
-    "interpolation": {
-      "syntax": ["${var}", "$VAR"],
-      "nested_access": "${map.results.status}",
-      "defaults": "${var|default:fallback}"
-    }
+    "mapreduce": {
+      "item": "Current work item in map phase (full object)",
+      "item.*": "Access item fields with dot notation (e.g., ${item.path}, ${item.name})",
+      "item_index": "Zero-based index of current item",
+      "item_total": "Total number of items",
+      "map.total": "Total items processed",
+      "map.successful": "Successfully processed items",
+      "map.failed": "Failed items",
+      "map.results": "Aggregated results (as JSON)",
+      "worker.id": "Parallel worker ID",
+      "map.key": "Key for map output"
+    },
+    "git_context": {
+      "step.files_added": "Files added in current step",
+      "step.files_modified": "Files modified in current step",
+      "step.files_deleted": "Files deleted in current step",
+      "step.files_changed": "All changed files (added + modified + deleted)",
+      "step.commits": "Commit SHAs from current step",
+      "step.commit_count": "Number of commits in step",
+      "step.insertions": "Lines inserted in step",
+      "step.deletions": "Lines deleted in step",
+      "workflow.files_added": "All files added in workflow",
+      "workflow.files_modified": "All files modified in workflow",
+      "workflow.files_deleted": "All files deleted in workflow",
+      "workflow.commits": "All commits in workflow",
+      "workflow.commit_count": "Total commits in workflow"
+    },
+    "git_context_formats": {
+      "space_separated": "Default - ${step.files_added}",
+      "json_array": "${step.files_added:json}",
+      "newline_separated": "${step.files_added:lines}",
+      "comma_separated": "${step.files_added:csv}",
+      "glob_filtered": "${step.files_added:*.rs} - Filter by pattern"
+    },
+    "merge": {
+      "merge.worktree": "Name of worktree being merged",
+      "merge.source_branch": "Source branch (worktree branch)",
+      "merge.target_branch": "Target branch (original branch where workflow started)",
+      "merge.session_id": "Session ID for correlation"
+    },
+    "validation": {
+      "validation.completion": "Completion percentage from validation",
+      "validation.gaps": "Missing requirements from validation",
+      "validation.status": "Status (complete/incomplete/failed)"
+    },
+    "capture_formats": ["string", "json", "lines", "number", "boolean"]
   },
   "environment": {
     "global_env": {
-      "description": "Workflow-level environment variables",
-      "features": ["Static values", "Variable interpolation", "Profile-specific values"]
+      "static": "Plain key-value pairs in env block",
+      "dynamic": "Environment variable references ($VAR or ${VAR})",
+      "interpolation": "Variable interpolation in values"
     },
     "secrets": {
-      "description": "Masked in logs and output",
-      "features": ["Secret masking", "Provider support", "Profile-specific secrets"],
-      "fields": ["secret", "value", "provider"]
+      "secret_marking": "Mark variables as secret: true for masking in logs",
+      "providers": "Support for secret providers (planned)",
+      "masking": "Automatic masking in command output, logs, events, checkpoints",
+      "structure": "SecretValue type with value and secret flag"
     },
     "profiles": {
-      "description": "Environment-specific configurations",
-      "use_cases": ["dev", "staging", "production"],
-      "activation": "--profile flag on CLI"
+      "default": "Default value used if no profile specified",
+      "named_profiles": "Environment-specific values (dev, staging, prod)",
+      "activation": "Activate with --profile flag on command line"
     },
     "step_env": {
-      "description": "Command-level environment overrides",
-      "features": ["Per-command variables", "Inherit from global", "Temporary scope"]
+      "command_level": "Override environment per-command",
+      "precedence": "Step env > Workflow env > System env",
+      "isolation": "Each step can have independent environment"
     },
     "env_files": {
-      "description": "Load variables from .env files",
-      "format": "dotenv format",
-      "features": ["Multiple files", "Variable expansion", "Profile-specific"]
+      "dotenv": "Load from .env files",
+      "multiple": "Support for multiple env files",
+      "precedence": "Later files override earlier ones"
     }
   },
   "advanced_features": {
     "conditional_execution": {
-      "when": "Expression-based conditional execution",
-      "examples": ["${env} == 'production'", "${build.success} == true"],
-      "features": ["Variable comparison", "Boolean logic", "Complex expressions"]
+      "when_clause": "Execute step only if condition is true",
+      "syntax": "when: \"${variable} == value\"",
+      "use_cases": ["Environment-specific steps", "Skip on conditions", "Feature flags"]
     },
     "output_capture": {
-      "formats": ["string", "json", "lines", "number", "boolean"],
-      "streams": ["stdout", "stderr", "exit_code", "success", "duration"],
-      "features": ["Named capture", "Format conversion", "Nested access"],
-      "variable_names": "Custom variable names for captured output"
+      "formats": ["string (default)", "json", "lines", "number", "boolean"],
+      "variable_naming": "capture_output: \"var_name\" to name the variable",
+      "streams": "stdout, stderr, exit_code, success, duration",
+      "nested_access": "Access captured fields with dot notation",
+      "capture_config": "CaptureConfig with command index and format"
     },
     "nested_handlers": {
-      "on_success": "Execute on command success",
-      "on_failure": "Execute on command failure",
-      "on_exit_code": "Map exit codes to handlers",
-      "features": ["Nested command execution", "Error recovery", "Conditional flow"]
+      "on_success": "Execute command on success",
+      "on_failure": "Execute command on failure with max_attempts",
+      "on_exit_code": "Map specific exit codes to actions",
+      "chaining": "Handlers can have their own handlers"
     },
     "timeout_control": {
-      "levels": ["command", "workflow", "phase", "agent"],
-      "features": ["Graceful termination", "Timeout propagation", "Custom timeout handling"]
+      "command_timeout": "timeout: N (in seconds) per command",
+      "workflow_timeout": "Global timeout for entire workflow",
+      "setup_timeout": "Timeout for setup phase",
+      "agent_timeout": "Timeout per map agent",
+      "merge_timeout": "Timeout for merge workflow"
     },
     "working_directory": {
-      "cwd": "Per-command working directory",
-      "features": ["Relative paths", "Variable interpolation", "Automatic directory creation"]
-    },
-    "git_context_advanced": {
-      "pattern_filtering": "Filter files by glob patterns",
-      "format_modifiers": "Transform file paths",
-      "combined_filters": "Multiple filter criteria",
-      "examples": ["${git.modified_files|pattern:**/*.rs}", "${git.staged_files|basename}"]
-    },
-    "workflow_composition": {
-      "imports": "Import and reuse workflow templates",
-      "extends": "Inherit from base workflows",
-      "parameters": "Parameterized workflow templates",
-      "sub_workflows": "Nested workflow execution",
-      "registry": "Template storage and versioning",
-      "features": ["Template reuse", "Version control", "Parameter validation"]
+      "per_command": "cwd: \"/path\" to set working directory",
+      "interpolation": "Supports variable interpolation",
+      "platform_aware": "Cross-platform path handling with PathResolver"
     }
   },
   "error_handling": {
     "workflow_level": {
-      "on_item_failure": {
-        "options": ["dlq", "retry", "skip", "stop", "custom"],
-        "description": "Action to take when work item fails"
-      },
-      "error_collection": {
-        "strategies": ["aggregate", "immediate", "batched"],
-        "description": "How to collect and report errors"
-      },
+      "on_item_failure": ["dlq (default)", "retry", "skip", "stop", "custom"],
+      "error_collection": ["aggregate", "immediate", "batched"],
       "circuit_breaker": {
-        "features": ["Failure threshold", "Success threshold", "Timeout", "Half-open state"],
-        "description": "Prevent cascading failures"
+        "enabled": "Optional circuit breaker configuration",
+        "failure_threshold": "Number of failures to trigger open state (default: 5)",
+        "success_threshold": "Number of successes to close circuit (default: 3)",
+        "timeout": "Cooldown before attempting to close (default: 30s)",
+        "half_open_requests": "Requests allowed in half-open state (default: 3)"
       },
-      "max_failures": "Stop after N failures",
-      "failure_threshold": "Stop after failure rate exceeds threshold (0.0-1.0)",
-      "continue_on_failure": "Whether to continue after failures"
+      "max_failures": "Stop workflow after N failures",
+      "failure_threshold": "Stop if failure rate exceeds threshold (0.0-1.0)",
+      "continue_on_failure": "Continue processing after failures (default: true)"
     },
     "command_level": {
       "on_failure": {
-        "description": "Nested command to execute on failure",
-        "features": ["Error recovery", "Debugging", "Retry logic"],
-        "fields": ["claude", "max_attempts", "fail_workflow", "commit_required"]
+        "description": "Nested command execution on failure",
+        "fields": ["claude (command)", "max_attempts", "fail_workflow", "commit_required"],
+        "deprecated_test": "test: command syntax deprecated, use shell: with on_failure instead"
       },
-      "on_success": {
-        "description": "Execute command on success",
-        "features": ["Success handlers", "Conditional flow"]
-      },
-      "on_exit_code": {
-        "description": "Map exit codes to actions",
-        "features": ["Custom exit code handling", "Conditional execution"]
+      "on_success": "Success handlers for conditional flow",
+      "on_exit_code": "Map exit codes to specific actions",
+      "retry_config": {
+        "max_attempts": "Maximum retry attempts (default: 3)",
+        "backoff": ["fixed", "linear", "exponential (default)", "fibonacci"]
       }
     },
-    "retry_configuration": {
-      "max_attempts": "Maximum retry attempts",
-      "backoff_strategies": {
-        "fixed": "Fixed delay between retries",
-        "linear": "Linear increase in delay",
-        "exponential": "Exponential backoff",
-        "fibonacci": "Fibonacci sequence delays"
-      },
-      "retry_budget": "Limit total retry attempts across workflow",
-      "conditional_retry": "Retry only on specific errors",
-      "jitter": "Add randomness to backoff"
-    },
-    "dlq": {
-      "description": "Dead Letter Queue for failed items",
-      "features": ["Failure tracking", "Retry support", "Error analysis", "Parallel retry"],
-      "commands": ["prodigy dlq show", "prodigy dlq retry", "prodigy dlq clear"]
+    "dead_letter_queue": {
+      "automatic": "Failed items sent to DLQ automatically with on_item_failure: dlq",
+      "location": "~/.prodigy/dlq/{repo_name}/{job_id}/",
+      "retry_command": "prodigy dlq retry <job_id>",
+      "parallel_retry": "Supports --max-parallel for retry operations",
+      "structure": "DeadLetteredItem with item data, error details, failure history"
     }
+  },
+  "retry_configuration": {
+    "retry_defaults": {
+      "max_attempts": "Global default retry attempts (default: 3)",
+      "backoff_strategy": "Default backoff strategy (exponential)"
+    },
+    "backoff_strategies": {
+      "fixed": "Fixed delay between retries - Fixed { delay: Duration }",
+      "linear": "Linear increase - Linear { initial: Duration, increment: Duration }",
+      "exponential": "Exponential backoff - Exponential { initial: Duration, multiplier: f64 } (default: 2.0)",
+      "fibonacci": "Fibonacci sequence delays - Fibonacci { initial: Duration }"
+    },
+    "retry_budget": {
+      "description": "Limit total retry attempts across workflow",
+      "use_case": "Prevent excessive retries in large MapReduce jobs"
+    },
+    "conditional_retry": {
+      "exit_codes": "Retry only on specific exit codes",
+      "error_patterns": "Retry based on error message patterns"
+    },
+    "jitter": {
+      "description": "Random jitter to prevent thundering herd",
+      "use_case": "Distributed systems with many parallel workers"
+    }
+  },
+  "workflow_composition": {
+    "template_system_architecture": {
+      "registry": "TemplateRegistry for storing and discovering workflow templates",
+      "storage": "TemplateStorage for persisting templates to disk/registry",
+      "composer": "WorkflowComposer for loading, merging, and composing workflows"
+    },
+    "composable_workflows": {
+      "description": "Build complex workflows from reusable components",
+      "features": ["imports", "extends", "templates", "parameters", "sub-workflows"]
+    },
+    "imports": {
+      "description": "Import other workflow files",
+      "fields": ["path", "alias", "selective"],
+      "use_case": "Reuse common workflow components"
+    },
+    "inheritance_extends": {
+      "description": "Extend from base workflow",
+      "syntax": "extends: \"path/to/base.yml\"",
+      "use_case": "Override specific parts of base workflow"
+    },
+    "parameters": {
+      "required": "Must be provided when using template",
+      "optional": "Can have default values",
+      "types": ["string", "number", "boolean", "array", "object", "any"],
+      "validation": "Custom validation expressions"
+    },
+    "sub_workflows": {
+      "description": "Define named sub-workflows within a workflow",
+      "execution": "SubWorkflowExecutor for running sub-workflows",
+      "isolation": "Sub-workflows have independent variable scope"
+    },
+    "template_metadata": {
+      "description": "Metadata about workflow templates",
+      "fields": ["name", "description", "version", "author", "tags"]
+    },
+    "implementation_status": "Partially implemented - core composition logic exists, CLI integration pending (Spec 131-133)"
   },
   "configuration": {
     "file_locations": {
       "global": "~/.prodigy/config.toml",
       "project": ".prodigy/config.toml",
-      "precedence": "project > global > defaults"
+      "workflow": "Inline in workflow YAML"
+    },
+    "precedence": {
+      "order": "Workflow config > Project config > Global config > Defaults",
+      "environment": "Step env > Workflow env > System env"
     },
     "claude_settings": {
-      "streaming": "Enable/disable JSON streaming",
-      "console_output": "Force console output in automation",
-      "log_location": "Custom log location"
+      "streaming": "JSON streaming enabled by default for auditability",
+      "console_output": "Controlled by verbosity flags and PRODIGY_CLAUDE_CONSOLE_OUTPUT",
+      "log_location": "~/.local/state/claude/logs/session-{session_id}.json",
+      "verbosity": "Default: clean output, -v: streaming JSON, -vv/-vvv: debug/trace"
     },
     "worktree_settings": {
-      "location": "Custom worktree directory",
-      "cleanup": "Automatic cleanup on completion",
-      "branch_naming": "Custom branch naming pattern"
+      "base_path": "~/.prodigy/worktrees/{repo_name}/",
+      "cleanup": "Automatic cleanup after successful merge",
+      "orphaned_registry": "~/.prodigy/orphaned_worktrees/ for failed cleanup",
+      "branch_naming": "prodigy-session-{id} for parent, prodigy-agent-{id}-{timestamp} for agents"
     },
     "storage_settings": {
-      "mode": ["local", "global"],
-      "location": "Custom storage directory",
-      "event_storage": "Event log location"
+      "global_storage": "~/.prodigy/ for events, DLQ, state (default)",
+      "local_storage": ".prodigy/ in project (legacy)",
+      "events": "~/.prodigy/events/{repo_name}/{job_id}/",
+      "dlq": "~/.prodigy/dlq/{repo_name}/{job_id}/",
+      "state": "~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/",
+      "sessions": "~/.prodigy/sessions/ for UnifiedSession tracking"
     },
     "retry_defaults": {
-      "max_attempts": "Default retry attempts",
-      "backoff": "Default backoff strategy",
-      "timeout": "Default command timeout"
+      "max_attempts": "Default retry attempts (3)",
+      "backoff": "Default backoff strategy (exponential)"
+    }
+  },
+  "git_context_advanced": {
+    "pattern_filtering": {
+      "glob_patterns": "${step.files_added:*.rs} - Match Rust files only",
+      "multiple_patterns": "Combine patterns with OR logic",
+      "exclusion": "Exclude patterns with ! prefix (planned)"
+    },
+    "format_modifiers": {
+      "json": "JSON array format - ${step.files_added:json}",
+      "lines": "Newline-separated - ${step.files_added:lines}",
+      "csv": "Comma-separated - ${step.files_added:csv}",
+      "space": "Space-separated (default) - ${step.files_added}"
+    },
+    "file_patterns": {
+      "extension": "*.rs, *.toml, *.md",
+      "directory": "src/**/*.rs",
+      "complex": "src/**/{lib,mod}.rs"
+    },
+    "combined_filters": {
+      "description": "Combine format and pattern filtering",
+      "example": "${step.files_added:json:*.rs}",
+      "use_case": "Get JSON array of only Rust files added"
+    },
+    "scope": {
+      "step": "Changes in current step only",
+      "workflow": "Aggregate changes across all steps",
+      "commit_based": "Track via git commits, not working directory"
+    }
+  },
+  "automated_documentation": {
+    "workflow_setup": {
+      "description": "book-docs-drift.yml orchestrates full documentation pipeline",
+      "phases": ["setup (analyze features)", "map (fix drift per chapter)", "reduce (rebuild and validate)"]
+    },
+    "book_config_structure": {
+      "location": ".prodigy/book-config.json",
+      "fields": ["project_name", "project_type", "book_dir", "book_src", "analysis_targets", "chapter_file", "custom_analysis"]
+    },
+    "chapter_definitions": {
+      "location": "workflows/data/prodigy-chapters.json",
+      "structure": "Array of chapters with sections and priority",
+      "usage": "Drives gap detection and drift analysis"
+    },
+    "claude_commands": {
+      "analyze_features": "/prodigy-analyze-features-for-book - Extract features from codebase",
+      "detect_gaps": "/prodigy-detect-documentation-gaps - Find missing chapters/sections",
+      "analyze_drift": "/prodigy-analyze-subsection-drift - Check chapter for drift",
+      "fix_drift": "/prodigy-fix-subsection-drift - Update chapter content",
+      "validate_fix": "/prodigy-validate-doc-fix - Verify documentation quality",
+      "fix_build_errors": "/prodigy-fix-book-build-errors - Fix mdBook build issues"
+    },
+    "mapreduce_phases": {
+      "setup": "Analyze features, detect gaps, generate work items (flattened-items.json)",
+      "map": "Each agent processes one chapter/subsection for drift",
+      "reduce": "Rebuild book, fix build errors, cleanup analysis files"
+    },
+    "customization": {
+      "analysis_targets": "Configure which areas to analyze with source_files and feature_categories",
+      "feature_categories": "Define categories per area",
+      "include_examples": "Toggle example extraction",
+      "include_troubleshooting": "Toggle troubleshooting section generation",
+      "include_best_practices": "Toggle best practices section generation"
+    }
+  },
+  "mapreduce_worktree_architecture": {
+    "worktree_hierarchy": {
+      "parent": "Single worktree for entire MapReduce workflow (session-xxx)",
+      "agents": "Child worktrees (agent-N) branch from parent for each map item",
+      "isolation": "Main repository never modified during workflow"
+    },
+    "branch_naming": {
+      "parent": "prodigy-session-{session-id}",
+      "agents": "prodigy-agent-{agent-id}-{timestamp}",
+      "tracking": "Parent tracks user's original branch for merge target"
+    },
+    "merge_flow": {
+      "agent_to_parent": "Each agent merges changes back to parent worktree",
+      "parent_to_master": "User prompted to merge parent to original branch at end",
+      "automatic_cleanup": "Successful merges trigger worktree cleanup"
+    },
+    "agent_merge": {
+      "coordination": "MergeQueue serializes agent merges to parent",
+      "conflict_handling": "Conflicts cause agent failure and DLQ entry",
+      "merge_variables": "Agent results passed to reduce via ${map.results}"
+    },
+    "parent_to_master_merge": {
+      "timing": "After reduce phase completes successfully",
+      "prompt": "User confirms merge to original branch",
+      "custom_workflow": "Optional merge: block in YAML for custom merge logic"
+    },
+    "debugging": {
+      "list_worktrees": "prodigy worktree ls",
+      "inspect_parent": "cd ~/.prodigy/worktrees/{repo}/session-xxx",
+      "inspect_agent": "cd ~/.prodigy/worktrees/{repo}/agent-N",
+      "view_merge_queue": "Check logs for MergeQueue events"
+    },
+    "verification": {
+      "parent_isolation": "git status in main repo should be clean",
+      "parent_changes": "All agent changes merged to parent worktree",
+      "agent_cleanup": "Agent worktrees removed after successful merge"
     }
   },
   "best_practices": {
     "workflow_design": [
-      "Keep workflows simple and focused on single responsibility",
-      "Use validation steps for quality gates",
+      "Keep workflows simple and focused on single purpose",
+      "Use validation for quality gates and threshold checks",
       "Handle errors gracefully with on_failure handlers",
-      "Capture important outputs for debugging",
-      "Use descriptive names for commands and variables",
-      "Leverage environment variables for configuration",
-      "Use profiles for environment-specific behavior"
+      "Capture important outputs for debugging and reporting",
+      "Use environment variables for parameterization",
+      "Leverage git context variables for change tracking"
     ],
     "mapreduce": [
       "Set appropriate parallelism based on resource constraints",
-      "Use DLQ for failed items to enable retry",
-      "Monitor execution with event logs",
-      "Design idempotent work items for safe retry",
-      "Use setup phase for shared data preparation",
-      "Filter and sort items to optimize processing order",
-      "Use distinct to avoid duplicate work",
-      "Set agent timeouts to prevent hanging agents"
+      "Use DLQ for failed items instead of stopping workflow",
+      "Monitor with events for visibility into execution",
+      "Design idempotent work items for retry safety",
+      "Use setup phase for shared initialization",
+      "Filter and sort work items for optimal processing order",
+      "Use distinct to deduplicate items by field"
     ],
     "testing": [
-      "Include test steps in workflows",
-      "Use on_failure for automatic debugging",
-      "Validate before deploying changes",
-      "Test with small batches before full runs",
-      "Use dry-run mode when available"
+      "Include test steps in workflows with on_failure handlers",
+      "Use goal_seek for iterative improvement to thresholds",
+      "Validate before deploying or merging",
+      "Use shell commands with validation for quality gates"
     ],
     "error_handling": [
-      "Set appropriate failure thresholds",
-      "Use circuit breakers for external dependencies",
-      "Collect errors for analysis",
-      "Provide meaningful error messages",
-      "Use DLQ for automatic retry capabilities"
+      "Set continue_on_failure: true for MapReduce resilience",
+      "Use circuit breakers for external service calls",
+      "Configure appropriate retry strategies with backoff",
+      "Monitor failure thresholds to prevent runaway costs",
+      "Use error_collection: aggregate for batch error reporting"
     ],
-    "performance": [
-      "Optimize max_parallel for your workload",
-      "Use filters to reduce work items",
-      "Set appropriate timeouts",
-      "Use checkpoints for long-running workflows",
-      "Monitor resource usage with events"
+    "security": [
+      "Mark sensitive variables as secret: true",
+      "Use env_files for local development secrets",
+      "Use profiles for environment-specific configuration",
+      "Never commit secrets to version control",
+      "Use secret providers for production deployments (planned)"
     ]
   },
   "common_patterns": [
     {
       "name": "Build and Test",
-      "description": "Standard CI workflow with validation",
-      "structure": "build -> test -> validate -> deploy",
-      "features": ["error handling", "output capture", "conditional execution"]
+      "description": "Standard CI workflow with failure recovery",
+      "example": "workflows/implement-with-tests.yml",
+      "pattern": "Build → Test → On failure: Debug and fix → Retry"
     },
     {
       "name": "Parallel Processing",
-      "description": "MapReduce for independent work items",
-      "structure": "setup -> map (parallel) -> reduce",
-      "features": ["parallel execution", "result aggregation", "DLQ"]
+      "description": "MapReduce for independent items",
+      "example": "workflows/mapreduce-example.yml",
+      "pattern": "Setup: Generate items → Map: Process each item → Reduce: Aggregate results"
     },
     {
       "name": "Goal Seeking",
-      "description": "Iterative improvement to quality threshold",
-      "structure": "goal_seek with validate",
-      "features": ["threshold-based", "automatic retry", "convergence detection"]
+      "description": "Iterative improvement to threshold",
+      "example": "workflows/coverage.yml",
+      "pattern": "Set goal → Execute → Validate → If incomplete: Refine → Retry"
     },
     {
-      "name": "Multi-Environment Deployment",
-      "description": "Deploy to multiple environments with profiles",
-      "structure": "foreach environments with profiles",
-      "features": ["profile switching", "parallel deployment", "rollback"]
+      "name": "Documentation Maintenance",
+      "description": "Automated documentation drift detection and fixing",
+      "example": "workflows/book-docs-drift.yml",
+      "pattern": "Analyze features → Detect gaps → Map: Fix each chapter → Reduce: Build and validate"
     },
     {
-      "name": "Documentation Automation",
-      "description": "Automated book documentation workflow",
-      "structure": "analyze features -> detect drift -> fix gaps -> validate",
-      "features": ["gap detection", "MapReduce for chapters", "validation"]
+      "name": "Environment-Specific Deployment",
+      "description": "Use profiles for multi-environment workflows",
+      "example": "workflows/environment-example.yml",
+      "pattern": "Load profile → Configure environment → Deploy → Validate"
+    },
+    {
+      "name": "Conditional Workflow",
+      "description": "Skip steps based on conditions",
+      "pattern": "Check condition → when: clause decides execution → Conditional branches"
     }
   ],
   "troubleshooting": {
     "common_issues": [
       {
         "issue": "Variables not interpolating",
-        "causes": ["Incorrect syntax", "Variable not captured", "Scope issues"],
-        "solutions": [
-          "Check ${} syntax is correct",
-          "Verify variable is available in scope",
-          "Use capture_output to capture command output",
-          "Check variable names match exactly"
-        ]
+        "symptoms": "Literal ${variable} appears in output",
+        "solution": "Check variable name spelling, ensure variable is set before use, verify scope (step vs workflow vs map)"
       },
       {
         "issue": "MapReduce items not found",
-        "causes": ["Invalid JSONPath", "Empty input file", "Wrong input format"],
-        "solutions": [
-          "Verify JSONPath expression with online tools",
-          "Check input file exists and has content",
-          "Ensure input is valid JSON",
-          "Use json_path field explicitly"
-        ]
+        "symptoms": "No work items in map phase",
+        "solution": "Verify JSONPath expression with jq, check input file exists, ensure setup phase completed successfully"
       },
       {
         "issue": "Timeout errors",
-        "causes": ["Agent taking too long", "Network issues", "Resource constraints"],
-        "solutions": [
-          "Increase agent_timeout_secs",
-          "Optimize agent commands",
-          "Reduce max_parallel to lower resource usage",
-          "Check network connectivity"
-        ]
+        "symptoms": "Commands killed after timeout",
+        "solution": "Increase timeout value, optimize command performance, split into smaller steps"
       },
       {
-        "issue": "Worktree cleanup failures",
-        "causes": ["File locks", "Permission issues", "Disk full"],
-        "solutions": [
-          "Check for running processes using worktree",
-          "Verify file permissions",
-          "Ensure sufficient disk space",
-          "Use 'prodigy worktree clean-orphaned' to retry cleanup"
-        ]
+        "issue": "Merge conflicts in MapReduce",
+        "symptoms": "Agent merge failures, DLQ entries",
+        "solution": "Ensure work items are truly independent, check for overlapping file modifications, review agent isolation"
       },
       {
-        "issue": "DLQ items not retrying",
-        "causes": ["Missing job ID", "Invalid item data", "Workflow changed"],
-        "solutions": [
-          "Verify job ID with 'prodigy dlq show'",
-          "Check DLQ item format",
-          "Use --dry-run to preview retry",
-          "Ensure workflow file still exists"
-        ]
+        "issue": "Secrets visible in logs",
+        "symptoms": "Sensitive data in command output",
+        "solution": "Mark variables with secret: true in secrets block, verify masking is working, check all log locations"
       },
       {
-        "issue": "Resume not working",
-        "causes": ["No checkpoint found", "Corrupted state", "Session mismatch"],
-        "solutions": [
-          "Check ~/.prodigy/state/ for checkpoints",
-          "Verify session ID matches",
-          "Use 'prodigy sessions list' to find sessions",
-          "Check for concurrent resume locks"
-        ]
+        "issue": "Git context variables empty",
+        "symptoms": "${step.files_added} returns empty",
+        "solution": "Ensure commands create commits, check commit_required flag, verify git repository is initialized"
+      },
+      {
+        "issue": "Resume fails after interruption",
+        "symptoms": "Cannot resume workflow from checkpoint",
+        "solution": "Check ~/.prodigy/state/ for checkpoint files, verify session ID, use prodigy resume-job for MapReduce"
+      },
+      {
+        "issue": "Orphaned worktrees after failure",
+        "symptoms": "Worktrees not cleaned up",
+        "solution": "Use prodigy worktree clean-orphaned <job_id>, check orphaned registry at ~/.prodigy/orphaned_worktrees/"
+      },
+      {
+        "issue": "Concurrent resume lock",
+        "symptoms": "Resume blocked with 'already in progress' error",
+        "solution": "Wait for other process to complete, check lock file at ~/.prodigy/resume_locks/, verify process is running with ps, remove stale locks if process crashed"
       }
     ]
   },
-  "mapreduce_worktree_architecture": {
-    "worktree_hierarchy": {
-      "parent_worktree": "Created from original branch, runs setup and reduce",
-      "agent_worktrees": "Child worktrees branch from parent, process individual items",
-      "isolation": "Each agent has independent git state and filesystem"
-    },
-    "branch_naming": {
-      "parent": "prodigy-session-{session_id}",
-      "agent": "agent-{agent_id}-{session_id}",
-      "original_branch": "Branch user was on when workflow started"
-    },
-    "merge_flow": {
-      "agent_to_parent": "Agents merge changes to parent after completion",
-      "parent_to_original": "Parent merges to original branch with user confirmation",
-      "conflict_resolution": "Custom merge workflow for validation and conflict handling"
-    },
-    "debugging": {
-      "verify_main_clean": "git status in main repo should show clean",
-      "verify_parent_changes": "cd to parent worktree and check git log",
-      "verify_agent_work": "cd to agent worktree to inspect changes",
-      "event_logs": "Check ~/.prodigy/events/{repo}/{job_id}/ for execution events"
-    }
-  },
-  "automated_documentation": {
-    "workflow_setup": {
-      "workflow_file": "MapReduce workflow for parallel chapter processing",
-      "phases": ["analyze features", "detect drift per chapter", "fix gaps", "validate"],
-      "features": ["gap detection", "drift detection", "automatic fixes", "validation loop"]
-    },
-    "book_config_structure": {
-      "project_name": "Display name of project",
-      "book_dir": "Book root directory",
-      "analysis_targets": "Areas to analyze with source files and categories",
-      "chapter_file": "Chapter definitions JSON",
-      "custom_analysis": "Options for examples, best practices, troubleshooting"
-    },
-    "claude_commands": {
-      "analyze_features": "Comprehensive feature inventory from codebase",
-      "analyze_drift": "Detect missing features in chapter",
-      "fix_drift": "Add missing content to chapter",
-      "fix_build_errors": "Resolve mdBook build issues"
-    },
-    "customization": {
-      "analysis_targets": "Configure which code areas to analyze",
-      "chapter_definitions": "Define book structure and expected content",
-      "feature_categories": "Specify what features to extract per area",
-      "depth_levels": "Control thoroughness (quick, medium, very thorough)"
-    }
-  },
-  "spec_coverage": [
-    "101: Error Handling Guidelines",
-    "110: Branch Tracking",
-    "120: Environment Variables",
-    "121: Claude Command Observability",
-    "126: Viewing Claude Execution Logs",
-    "127: Worktree Isolation",
-    "131: Workflow Template Execution Layer",
-    "132: Workflow Template CLI Interface",
-    "133: Workflow Template Integration Polish",
-    "134: MapReduce Checkpoint and Resume",
-    "136: Cleanup Failure Handling",
-    "140: Concurrent Resume Protection"
-  ]
+  "version_info": {
+    "analyzed_version": "0.3.0+",
+    "analysis_date": "2025-01-11",
+    "spec_coverage": [
+      "Spec 101: Error Handling Guidelines",
+      "Spec 110: Branch Tracking",
+      "Spec 120: Environment Variables",
+      "Spec 121: Claude Command Observability",
+      "Spec 126: Viewing Claude Execution Logs",
+      "Spec 127: Worktree Isolation",
+      "Spec 128: Immutable Environment Context",
+      "Spec 131-133: Workflow Template System",
+      "Spec 134: MapReduce Checkpoint and Resume",
+      "Spec 136: Cleanup Failure Handling",
+      "Spec 140: Concurrent Resume Protection"
+    ]
+  }
 }
