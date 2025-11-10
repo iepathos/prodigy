@@ -79,6 +79,28 @@ Whether to automatically commit changes after successful command execution.
 auto_commit: false
 ```
 
+#### `storage`
+
+**Type**: Object (optional)
+**Default**: File storage in `~/.prodigy`
+
+Storage backend configuration for events, DLQ, state, and worktrees. See [Storage Configuration](storage-configuration.md) for details.
+
+```yaml
+storage:
+  backend: file
+  backend_config:
+    base_dir: ~/.prodigy
+    repository_grouping: true
+```
+
+**Storage Fields**:
+- `backend`: Storage type (`file` or `memory`)
+- `backend_config.base_dir`: Base directory for file storage
+- `backend_config.repository_grouping`: Group data by repository name (default: true)
+
+See [Storage Configuration](storage-configuration.md) for complete documentation.
+
 #### `plugins`
 
 **Type**: Object (optional)
@@ -96,6 +118,12 @@ log_level: info
 claude_api_key: "sk-ant-api03-..."
 max_concurrent_specs: 2
 auto_commit: true
+
+storage:
+  backend: file
+  backend_config:
+    base_dir: /Users/username/.prodigy
+    repository_grouping: true
 
 plugins:
   enabled: true
