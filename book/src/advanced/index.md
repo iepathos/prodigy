@@ -113,20 +113,7 @@ The `on_failure` configuration supports:
 
 **Note**: These defaults come from the `TestDebugConfig` which provides sensible defaults for error recovery workflows.
 
-**Multi-Step Remediation:**
-
-For complex error recovery, use the `commands` array to execute multiple remediation steps in sequence:
-
-```yaml
-- shell: "cargo test"
-  on_failure:
-    commands:
-      - claude: "/analyze-test-failures"
-      - shell: "cargo fmt"
-      - claude: "/verify-fixes"
-    max_attempts: 3
-    fail_workflow: true
-```
+**Source**: TestDebugConfig struct definition (src/config/command.rs:168-183)
 
 ### Nested Conditionals
 
@@ -141,6 +128,8 @@ Chain multiple levels of conditional execution:
       on_failure:
         claude: "/debug-failures '${shell.output}'"
 ```
+
+**Note**: For multi-step error recovery, nest individual `on_failure` handlers at each step rather than using a commands array. The `TestDebugConfig` supports only a single `claude` command per handler.
 
 ---
 
@@ -160,6 +149,31 @@ Capture output to a named variable using the `capture_output` field:
 # Reference in later steps
 - shell: "echo 'Commit: ${commit_hash}'"
 ```
+
+### Command-Agnostic Capture
+
+The `last.*` variables capture output from any command type without needing explicit `capture_output`:
+
+```yaml
+# Shell command output
+- shell: "cargo test"
+  # Output automatically available as ${last.output} and ${last.exit_code}
+
+# Use in next command (any type)
+- claude: "/analyze ${last.output}"
+
+# Or reference in conditional
+- shell: "notify-failure.sh"
+  when: "${last.exit_code != 0}"
+```
+
+**Available Variables:**
+- `${last.output}` - Output from the last command of any type (shell, claude, etc.)
+- `${last.exit_code}` - Exit code from the last command
+
+These variables work across all command types, making them ideal for generic workflows where you don't want to hard-code command-specific variables like `${shell.output}` or `${claude.output}`.
+
+**Source**: Variable constants defined in src/cook/workflow/variables.rs:35-36
 
 ### Capture Formats
 
@@ -191,6 +205,10 @@ Control how output is parsed with `capture_format`:
   capture_output: "has_readme"
   capture_format: "boolean"
 ```
+
+> **Error Handling:** If parsing fails (e.g., non-numeric output with `capture_format: number`), the command will fail with a descriptive error. Use `capture_format: string` (default) when output format is unreliable.
+
+**Source**: CaptureFormat enum (src/cook/workflow/variables.rs:260-265)
 
 ### Stream Capture Control
 
@@ -238,14 +256,14 @@ The `capture_streams` field supports two formats for flexible output capture.
 
 **Format Flexibility:**
 
-The `capture_streams` field supports two distinct formats:
+The `capture_streams` field accepts two formats:
 
-1. **Simple string format** (`"stdout"`, `"stderr"`, `"both"`) - Stored as `Option<String>` in the config layer, best for basic stream selection
-2. **Structured object format** - Parsed into the `CaptureStreams` struct during execution, providing fine-grained control over `exit_code`, `success`, and `duration` capture
+1. **Simple string** (`"stdout"`, `"stderr"`, `"both"`) - Stored as `Option<String>` in YAML config, best for basic stream selection
+2. **Structured object** - Parsed into `CaptureStreams` struct during execution, enables fine-grained control over `exit_code`, `success`, and `duration` capture
 
-Use the simple format for basic cases, and the structured format when you need detailed execution metadata.
+Use simple format for basic cases, structured format when you need detailed execution metadata.
 
-**Source**: WorkflowStepCommand.capture_streams (src/config/command.rs:396), CaptureStreams struct (src/cook/workflow/variables.rs:268-292)
+**Source**: WorkflowStepCommand.capture_streams field (src/config/command.rs:396), CaptureStreams struct (src/cook/workflow/variables.rs:268-292)
 
 ### Output File Redirection
 
