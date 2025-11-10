@@ -15,9 +15,6 @@
     "id": "checkpoint-and-resume",
     "title": "Checkpoint and Resume",
     "file": "book/src/mapreduce/checkpoint-and-resume.md",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
-    "type": "subsection",
     "topics": [
       "checkpoints",
       "resume",
@@ -25,6 +22,9 @@
       "recovery"
     ],
     "validation": "Check checkpoint structure and resume behavior documented",
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "mapreduce.checkpoint",
       "mapreduce.resume"
@@ -34,9 +34,6 @@
     "id": "dead-letter-queue-dlq",
     "title": "Dead Letter Queue (DLQ)",
     "file": "book/src/mapreduce/dead-letter-queue-dlq.md",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
-    "type": "subsection",
     "topics": [
       "failed items",
       "retry",
@@ -44,6 +41,9 @@
       "error handling"
     ],
     "validation": "Check DLQ structure and retry commands documented",
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "mapreduce.dlq",
       "error_handling.dlq"
@@ -53,9 +53,6 @@
     "id": "environment-variables-in-configuration",
     "title": "Environment Variables in Configuration",
     "file": "book/src/mapreduce/environment-variables-in-configuration.md",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
-    "type": "subsection",
     "topics": [
       "environment variables",
       "secrets",
@@ -63,6 +60,9 @@
       "configuration"
     ],
     "validation": "Check environment variable configuration in MapReduce workflows",
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "environment.mapreduce",
       "environment.variables"
@@ -72,15 +72,15 @@
     "id": "error-collection-strategies",
     "title": "Error Collection Strategies",
     "file": "book/src/mapreduce/error-collection-strategies.md",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
-    "type": "subsection",
     "topics": [
       "error collection",
       "aggregate errors",
       "fail fast"
     ],
     "validation": "Check error collection strategies documented",
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "error_handling.collection",
       "mapreduce.error_policy"
@@ -90,9 +90,6 @@
     "id": "event-tracking",
     "title": "Event Tracking",
     "file": "book/src/mapreduce/event-tracking.md",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
-    "type": "subsection",
     "topics": [
       "events",
       "monitoring",
@@ -100,6 +97,9 @@
       "debugging"
     ],
     "validation": "Check event tracking and monitoring features",
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "mapreduce.events",
       "observability.events"
@@ -109,15 +109,15 @@
     "id": "global-storage-architecture",
     "title": "Global Storage Architecture",
     "file": "book/src/mapreduce/global-storage-architecture.md",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
-    "type": "subsection",
     "topics": [
       "storage",
       "global state",
       "worktree isolation"
     ],
     "validation": "Check global storage architecture documented",
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "storage.global",
       "mapreduce.storage"
@@ -127,15 +127,15 @@
     "id": "setup-phase-advanced",
     "title": "Setup Phase Advanced",
     "file": "book/src/mapreduce/setup-phase-advanced.md",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
-    "type": "subsection",
     "topics": [
       "setup phase",
       "initialization",
       "preprocessing"
     ],
     "validation": "Check advanced setup phase features",
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "mapreduce.setup",
       "mapreduce.phases"
@@ -145,9 +145,6 @@
     "id": "backoff-strategies",
     "title": "Backoff Strategies",
     "file": "book/src/mapreduce/backoff-strategies.md",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
-    "type": "subsection",
     "topics": [
       "retry",
       "backoff",
@@ -155,6 +152,9 @@
       "fibonacci"
     ],
     "validation": "Check retry backoff strategies documented",
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "retry.backoff",
       "mapreduce.retry"
@@ -164,15 +164,15 @@
     "id": "workflow-format-comparison",
     "title": "Workflow Format Comparison",
     "file": "book/src/mapreduce/workflow-format-comparison.md",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
-    "type": "subsection",
     "topics": [
       "syntax",
       "formats",
       "comparison"
     ],
     "validation": "Check workflow format comparisons",
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "mapreduce.syntax",
       "workflow.formats"
@@ -340,7 +340,9 @@
       "Git context variables"
     ],
     "validation": "Check that pattern filtering syntax, format modifiers, and file pattern options are documented",
-    "type": "single-file"
+    "type": "single-file",
+    "auto_generated": true,
+    "source_feature": "git_context_advanced"
   },
   {
     "id": "mapreduce-worktree-architecture",
@@ -357,6 +359,8 @@
       "Verification"
     ],
     "validation": "Check that worktree isolation, branch naming conventions, merge flows, and debugging strategies are documented",
-    "type": "single-file"
+    "type": "single-file",
+    "auto_generated": true,
+    "source_feature": "mapreduce_worktree_architecture"
   }
 ]

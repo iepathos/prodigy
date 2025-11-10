@@ -1,7 +1,7 @@
 {
-  "analysis_date": "2025-01-11T00:00:00Z",
-  "features_analyzed": 13,
-  "documented_topics": 23,
+  "analysis_date": "2025-11-10T01:16:25Z",
+  "features_analyzed": 16,
+  "documented_topics": 24,
   "gaps_found": 0,
   "gaps": [],
   "actions_taken": [
@@ -9,92 +9,30 @@
       "action": "generated_flattened_items",
       "file_path": ".prodigy/book-analysis/flattened-items.json",
       "items_count": 23,
-      "description": "Generated flattened items file for map phase processing (includes 10 subsections from mapreduce chapter and 13 single-file chapters)"
+      "description": "Generated flattened array of all chapters and subsections for map phase processing"
+    },
+    {
+      "action": "gap_analysis_complete",
+      "result": "no_gaps_found",
+      "description": "All 16 feature areas are covered by existing documentation chapters/subsections"
     }
   ],
-  "summary": "All feature areas from features.json are documented with corresponding chapters. No missing chapters or documentation gaps detected.",
-  "coverage_details": {
-    "workflow_basics": {
-      "status": "documented",
-      "chapter_id": "workflow-basics",
-      "chapter_type": "single-file"
-    },
-    "mapreduce": {
-      "status": "documented",
-      "chapter_id": "mapreduce",
-      "chapter_type": "multi-subsection",
-      "subsections_count": 9,
-      "subsections": [
-        "checkpoint-and-resume",
-        "dead-letter-queue-dlq",
-        "environment-variables-in-configuration",
-        "error-collection-strategies",
-        "event-tracking",
-        "global-storage-architecture",
-        "setup-phase-advanced",
-        "backoff-strategies",
-        "workflow-format-comparison"
-      ]
-    },
-    "command_types": {
-      "status": "documented",
-      "chapter_id": "commands",
-      "chapter_type": "single-file"
-    },
-    "variables": {
-      "status": "documented",
-      "chapter_id": "variables",
-      "chapter_type": "single-file"
-    },
-    "environment": {
-      "status": "documented",
-      "chapter_id": "environment",
-      "chapter_type": "single-file"
-    },
-    "advanced_features": {
-      "status": "documented",
-      "chapter_id": "advanced",
-      "chapter_type": "single-file"
-    },
-    "error_handling": {
-      "status": "documented",
-      "chapter_id": "error-handling",
-      "chapter_type": "single-file"
-    },
-    "retry_configuration": {
-      "status": "documented",
-      "chapter_id": "retry-configuration",
-      "chapter_type": "single-file"
-    },
-    "workflow_composition": {
-      "status": "documented",
-      "chapter_id": "composition",
-      "chapter_type": "single-file"
-    },
-    "configuration": {
-      "status": "documented",
-      "chapter_id": "configuration",
-      "chapter_type": "single-file"
-    },
-    "git_context_advanced": {
-      "status": "documented",
-      "chapter_id": "git-context-advanced",
-      "chapter_type": "single-file"
-    },
-    "automated_documentation": {
-      "status": "documented",
-      "chapter_id": "automated-documentation",
-      "chapter_type": "single-file"
-    },
-    "mapreduce_worktree_architecture": {
-      "status": "documented",
-      "chapter_id": "mapreduce-worktree-architecture",
-      "chapter_type": "single-file"
-    }
-  },
-  "recommendations": [
-    "Continue to monitor feature additions in future releases",
-    "Run gap detection periodically as codebase evolves",
-    "Map phase will now process all 23 items (13 chapters + 10 subsections) for drift detection"
-  ]
+  "coverage_summary": {
+    "workflow_basics": "Documented in workflow-basics chapter",
+    "mapreduce": "Documented in mapreduce chapter with 9 subsections",
+    "command_types": "Documented in commands chapter",
+    "variables": "Documented in variables chapter",
+    "environment": "Documented in environment chapter",
+    "advanced_features": "Documented in advanced chapter",
+    "error_handling": "Documented in error-handling chapter",
+    "retry_configuration": "Documented in retry-configuration chapter",
+    "workflow_composition": "Documented in composition chapter",
+    "configuration": "Documented in configuration chapter",
+    "git_context_advanced": "Documented in git-context-advanced chapter",
+    "automated_documentation": "Documented in automated-documentation chapter",
+    "mapreduce_worktree_architecture": "Documented in mapreduce-worktree-architecture chapter",
+    "best_practices": "Covered in examples chapter",
+    "common_patterns": "Covered in examples chapter",
+    "troubleshooting": "Documented in troubleshooting chapter"
+  }
 }
