@@ -1,0 +1,125 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "advanced",
+  "subsection_id": "common-patterns",
+  "subsection_title": "Common Patterns",
+  "subsection_file": "book/src/advanced/common-patterns.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good pattern examples with clear explanations, but some syntax issues and missing modern features. Patterns are generally sound but could benefit from validation command updates and newer Prodigy features.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Parallel Processing with Aggregation",
+      "description": "Example uses deprecated foreach syntax and shows incorrect nested structure",
+      "current_content": "foreach:\n  foreach: \"find src -name '*.rs'\"\n  parallel: 10",
+      "should_be": "foreach: \"find src -name '*.rs'\"\nparallel: 10",
+      "fix_suggestion": "Remove redundant nesting of 'foreach' key. The foreach command should be directly under the step, not nested under another foreach key. Also note that foreach is for iteration, not the primary use case for parallel processing - MapReduce workflows are preferred for true parallel processing.",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand::Foreach"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Common Patterns",
+      "description": "Missing MapReduce pattern which is the primary parallel processing approach in Prodigy",
+      "fix_suggestion": "Add a MapReduce pattern showing the preferred approach for massive parallel processing with setup/map/reduce phases, work distribution, and result aggregation. This is more powerful than foreach for large-scale operations.",
+      "source_reference": "features.json:common_patterns - 'Parallel Processing' pattern"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Multi-Stage Validation",
+      "description": "Validation pattern shows commands array but doesn't explain validation output format requirements",
+      "fix_suggestion": "Add explanation that validation commands must return JSON with completion_percentage, status, and gaps fields. Show example validation output format.",
+      "source_reference": "features.json:command_types.validation.validation_output"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Gradual Quality Improvement",
+      "description": "Goal seek pattern shows threshold validation but doesn't explain the required output format",
+      "fix_suggestion": "Clarify that validation command must output 'score: N' where N is 0-100. The current example just shows 'quality-check.sh' without explaining the expected output format.",
+      "source_reference": "features.json:command_types.goal_seek.validation_output_format"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Error Handling Patterns",
+      "description": "No patterns showing circuit breaker or DLQ retry usage",
+      "fix_suggestion": "Add pattern for circuit breaker error handling and DLQ retry workflow, which are important advanced features for production resilience.",
+      "source_reference": "features.json:error_handling.workflow_level.circuit_breaker"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Environment Management Patterns",
+      "description": "No patterns showing profile-based workflows or secret management",
+      "fix_suggestion": "Add pattern demonstrating environment profiles (dev/staging/prod) and secret variable usage, which are common in production workflows.",
+      "source_reference": "features.json:environment.profiles"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Conditional Deployment",
+      "description": "Pattern uses when clause with JSON comparison but doesn't explain capture_format: json requirement",
+      "fix_suggestion": "Add note that 'capture_format: json' is required to parse test output as JSON object for field access in when clauses.",
+      "source_reference": "features.json:variables.capture_formats.json"
+    },
+    {
+      "type": "missing_best_practices",
+      "severity": "low",
+      "section": "Test-Fix-Verify Loop",
+      "description": "Pattern doesn't mention commit_required field for Claude commands",
+      "fix_suggestion": "Add note about commit_required: true to ensure fixes create commits for audit trail. This is especially important in test-fix loops.",
+      "source_reference": "features.json:command_types.claude.fields.commit_required"
+    }
+  ],
+  "positive_aspects": [
+    "Clear, self-documenting pattern names that explain purpose",
+    "Good variety of patterns covering different use cases",
+    "Code examples are readable and well-formatted",
+    "Each pattern includes explanation of what it does",
+    "Use Cases sections help readers understand when to apply patterns",
+    "Progressive complexity from simple to advanced patterns",
+    "Pattern Components sections break down key elements"
+  ],
+  "improvement_suggestions": [
+    "Add MapReduce pattern as the primary parallel processing approach",
+    "Fix foreach syntax to remove redundant nesting",
+    "Add validation output format requirements to validation patterns",
+    "Include goal_seek output format explanation",
+    "Add circuit breaker and DLQ patterns for error handling",
+    "Include environment profile pattern for multi-environment workflows",
+    "Add cross-references to related sections (error handling, validation, MapReduce)",
+    "Consider adding a 'When to Use' section comparing foreach vs MapReduce for parallelism",
+    "Add note about commit_required for audit trails in automated fixing patterns"
+  ],
+  "cross_references": [
+    "error-handling",
+    "validation",
+    "environment-variables",
+    "mapreduce"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-10T04:53:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Test-Fix-Verify Loop",
+      "Parallel Processing with Aggregation",
+      "Gradual Quality Improvement",
+      "Conditional Deployment",
+      "Multi-Stage Validation",
+      "Progressive Enhancement",
+      "Fail-Fast with Early Validation",
+      "Multi-Environment Workflow",
+      "Retry with Backoff",
+      "Data Pipeline",
+      "Feature Flag Workflow"
+    ],
+    "validation_focus": "Check common patterns documentation matches implementation",
+    "total_internal_links": 0,
+    "broken_links": 0
+  }
+}
