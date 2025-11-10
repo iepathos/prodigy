@@ -126,8 +126,9 @@ profiles:
 
 setup:
   timeout: "300"
-  - shell: "echo Processing $PROJECT_NAME v$VERSION"
-  - shell: "curl -H 'Authorization: Bearer ${API_KEY}' $API_URL/init"
+  commands:
+    - shell: "echo Processing $PROJECT_NAME v$VERSION"
+    - shell: "curl -H 'Authorization: Bearer ${API_KEY}' $API_URL/init"
 
 map:
   input: "items.json"
