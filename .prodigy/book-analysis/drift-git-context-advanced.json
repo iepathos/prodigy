@@ -4,102 +4,111 @@
   "chapter_title": "Advanced Git Context",
   "chapter_file": "book/src/git-context-advanced.md",
   "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Chapter contains critical inaccuracies about combining pattern and format modifiers. Lines 206-222 document a :pattern:format syntax that does NOT work in the actual implementation. The code only supports a single modifier - either pattern OR format, not both simultaneously. This will cause user confusion and broken workflows. The rest of the chapter is accurate and well-written.",
+  "severity": "critical",
+  "quality_assessment": "Documentation describes features that are NOT implemented in the codebase. The chapter documents pattern filtering and format modifiers for git context variables, but the actual implementation does not support these features. This is misleading documentation that will cause user errors.",
   "issues": [
     {
-      "type": "incorrect_information",
-      "severity": "high",
-      "section": "Combining Format and Pattern (lines 206-222)",
-      "description": "Documentation claims pattern and format can be combined with :pattern:format syntax, but implementation only supports single modifier",
-      "current_content": "Apply both pattern filtering and format modifiers using the `:pattern:format` syntax:\n\n```yaml\n# JSON array of Rust files\n- shell: \"echo ${step.files_changed:*.rs:json}\"\n\n# Newline-separated source files\n- shell: \"echo ${workflow.files_added:src/**:lines}\"\n\n# CSV of modified test files\n- shell: \"echo ${step.files_modified:**/*_test.rs:csv}\"\n```\n\n**Note**: The syntax supports exactly one pattern and one format modifier per variable reference.",
-      "should_be": "The implementation only supports ONE modifier after the colon - either a format keyword (json, lines, csv, comma, newline) OR a glob pattern (containing * or ?). These are mutually exclusive. You cannot combine both in a single variable reference.",
-      "fix_suggestion": "Completely rewrite section. Remove all examples showing :pattern:format syntax. Add examples showing workarounds using shell commands for cases where both filtering and formatting are needed. Be explicit that only ONE modifier is supported.",
-      "source_reference": "src/cook/workflow/git_context.rs:211-234 (parse_variable_path extracts single modifier after first colon), lines 196-209 (format and pattern extraction are separate, not combined)"
+      "type": "documented_but_not_implemented",
+      "severity": "critical",
+      "section": "Pattern Filtering",
+      "description": "Documentation claims git context variables support pattern filtering with syntax like ${step.files_added:*.rs} but this is NOT implemented",
+      "current_content": "Filter git context variables using glob patterns with the :pattern modifier syntax.\n\n```yaml\n# Only Rust files added in this step\n- shell: \"echo ${step.files_added:*.rs}\"\n```",
+      "actual_implementation": "Git context variables are added to InterpolationContext as simple space-separated strings. No pattern filtering is applied. The GitChangeTracker.resolve_variable() method supports patterns, but it is NEVER called during workflow execution.",
+      "fix_suggestion": "Either: (1) Remove all pattern filtering documentation until it's implemented, OR (2) Implement pattern filtering by calling git_tracker.resolve_variable() during interpolation instead of pre-formatting variables as strings",
+      "source_reference": "src/cook/workflow/executor/context.rs:106-136 (variables added as simple strings), src/cook/workflow/git_context.rs:489-505 (resolve_variable exists but unused)"
     },
     {
-      "type": "incorrect_examples",
-      "severity": "high",
-      "section": "Combining Format and Pattern",
-      "description": "All three examples will not work as documented - they will fail or produce unexpected results",
-      "current_content": "${step.files_changed:*.rs:json}\n${workflow.files_added:src/**:lines}\n${step.files_modified:**/*_test.rs:csv}",
-      "should_be": "These examples will not work. The string '*.rs:json' will be treated as a SINGLE modifier. Since it contains '*', extract_glob_pattern will treat the entire string (including ':json') as a glob pattern, which will fail to match any files because no filename ends with ':json'.",
-      "fix_suggestion": "Replace with accurate examples: 1) Pattern only: ${step.files_changed:*.rs} 2) Format only: ${step.files_changed:json} 3) Workaround for both: echo ${step.files_changed:*.rs} | jq -R | jq -s",
-      "source_reference": "src/cook/workflow/git_context.rs:489-505 (resolve_variable calls both extract_glob_pattern and parse_variable_format on the SAME modifier string), lines 554-559 (single pattern parameter passed to filter_files)"
+      "type": "documented_but_not_implemented",
+      "severity": "critical",
+      "section": "Format Modifiers",
+      "description": "Documentation claims git context variables support format modifiers like :json, :lines, :csv but this is NOT implemented",
+      "current_content": "### JSON Format\n\nUse `:json` for JSON array output:\n\n```yaml\n- shell: \"echo ${step.files_added:json}\"\n# Output: [\"src/main.rs\",\"src/lib.rs\",\"tests/test.rs\"]\n```",
+      "actual_implementation": "All git context variables are pre-formatted as space-separated strings when added to the context. The GitChangeTracker.format_file_list() method exists but is never used during variable resolution.",
+      "fix_suggestion": "Either: (1) Remove all format modifier documentation, OR (2) Implement custom resolver in InterpolationEngine to support modifiers on git context variables",
+      "source_reference": "src/cook/workflow/executor/context.rs:106-172 (all variables formatted as space-separated), src/cook/workflow/git_context.rs:477-486 (format_file_list exists but unused)"
     },
     {
-      "type": "incorrect_information",
-      "severity": "medium",
-      "section": "Combining Format and Pattern - Note (line 221)",
-      "description": "The note claims 'one pattern and one format modifier' which implies both are supported, but they're actually mutually exclusive",
-      "current_content": "**Note**: The syntax supports exactly one pattern and one format modifier per variable reference. You cannot chain multiple patterns or formats.",
-      "should_be": "The modifier after the colon can be EITHER a format keyword OR a glob pattern, not both. If the modifier matches a format keyword (json, lines, newline, csv, comma), it's used as format. Otherwise, if it contains glob characters (* or ?), it's treated as a pattern. Otherwise, the default space-separated format is used.",
-      "fix_suggestion": "Rewrite note to accurately explain mutual exclusion and precedence. Clarify that :*.rs:json is not valid syntax - the implementation will try to use '*.rs:json' as a pattern, which won't match files.",
-      "source_reference": "src/cook/workflow/git_context.rs:197-209 (parse_variable_format returns SpaceSeparated if not a keyword; extract_glob_pattern checks for glob chars in same string)"
+      "type": "documented_but_not_implemented",
+      "severity": "high",
+      "section": "Modifier Precedence and Limitations",
+      "description": "Documentation explains complex rules for combining patterns and formats that don't exist in implementation",
+      "current_content": "**IMPORTANT**: Format modifiers and glob patterns are **mutually exclusive**. Each variable reference can use **either** a format keyword (json, lines, csv, comma) **OR** a glob pattern, but not both.",
+      "actual_implementation": "Neither patterns NOR formats are supported in variable interpolation. This entire section documents non-existent functionality.",
+      "fix_suggestion": "Remove this entire section until the feature is implemented",
+      "source_reference": "src/cook/workflow/executor/context.rs:96-172"
+    },
+    {
+      "type": "documented_but_not_implemented",
+      "severity": "high",
+      "section": "Workarounds for Combined Filtering and Formatting",
+      "description": "Provides workarounds for a feature that doesn't exist",
+      "current_content": "When you need both pattern filtering and custom formatting, use shell post-processing:\n\n```yaml\n# Get filtered files as JSON array using jq\n- shell: \"echo ${step.files_changed:*.rs} | xargs -n1 | jq -R | jq -s\"\n```",
+      "actual_implementation": "The workaround is needed because patterns don't work at all, not because they can't be combined with formats. Users need to do ALL filtering in shell, not just combined filtering+formatting.",
+      "fix_suggestion": "Rewrite to explain that ALL filtering must be done in shell commands, not just combined operations",
+      "source_reference": "src/cook/workflow/executor/context.rs:96-172"
+    },
+    {
+      "type": "missing_limitation_documentation",
+      "severity": "high",
+      "section": "Overview",
+      "description": "Documentation doesn't explain that git context variables are pre-formatted and cannot be customized",
+      "current_content": "Variables are automatically available for interpolation in all commands",
+      "should_be": "Variables are available as space-separated strings only. Custom formatting requires shell post-processing.",
+      "fix_suggestion": "Add prominent notice at the top explaining current limitations and that advanced features are planned but not yet implemented",
+      "source_reference": "src/cook/workflow/executor/context.rs:106-172"
     },
     {
       "type": "incomplete_explanation",
       "severity": "medium",
-      "section": "Format Modifiers (lines 158-205)",
-      "description": "Section doesn't explain that formats and patterns are mutually exclusive modifiers",
-      "current_content": "Sections show format examples (json, lines, csv) and pattern examples separately, but don't clarify they can't be combined",
-      "should_be": "Add prominent note at start: 'Format modifiers and glob patterns are mutually exclusive. Each variable reference can use either a format keyword OR a pattern, not both.'",
-      "fix_suggestion": "Add warning box or highlighted note at the beginning of Format Modifiers section explaining the mutual exclusion. Reference the Pattern Filtering section for how to use patterns instead of formats.",
-      "source_reference": "src/cook/workflow/git_context.rs:489-560 (resolve_variable architecture)"
+      "section": "How Git Tracking Works",
+      "description": "Doesn't explain that git context is added to the InterpolationContext as pre-formatted strings",
+      "current_content": "Variables are automatically available for interpolation in all commands",
+      "should_be": "Git context variables are pre-formatted as space-separated strings and added to the interpolation context before each step execution. Custom formatting is not currently supported.",
+      "fix_suggestion": "Add technical details about how variables are actually populated and why modifiers aren't supported",
+      "source_reference": "src/cook/workflow/executor/context.rs:96-172"
     },
     {
-      "type": "missing_content",
+      "type": "incorrect_examples",
+      "severity": "critical",
+      "section": "Use Cases - Code Review Workflows, Documentation Updates, Test Verification, Conditional Execution",
+      "description": "All examples showing pattern filtering will NOT work as documented",
+      "current_content": "```yaml\n- claude: \"/review-changes\"\n  args:\n    files: \"${step.files_changed:src/**/*.rs}\"\n```",
+      "should_be": "```yaml\n# Pattern filtering not supported - use shell instead\n- shell: |\n    files=$(echo \"${step.files_changed}\" | tr ' ' '\\n' | grep 'src/.*\\.rs$')\n    echo \"$files\"\n```",
+      "fix_suggestion": "Rewrite all use case examples to use shell post-processing for filtering instead of non-existent :pattern syntax",
+      "source_reference": "src/cook/workflow/executor/context.rs:96-172"
+    },
+    {
+      "type": "misleading_troubleshooting",
       "severity": "medium",
-      "section": "Troubleshooting",
-      "description": "Missing troubleshooting entry for the common mistake of trying to combine pattern and format",
-      "fix_suggestion": "Add new troubleshooting entry: **Issue**: Combined pattern and format syntax not working (e.g., ${var:*.rs:json}). **Cause**: Implementation only supports single modifier - either format OR pattern. **Solution**: Choose one modifier type. For complex cases, use shell post-processing: echo ${step.files_changed:*.rs} | jq -R | jq -s",
-      "source_reference": "src/cook/workflow/git_context.rs:211-234"
-    },
-    {
-      "type": "missing_feature_in_code",
-      "severity": "low",
-      "section": "Format Modifiers",
-      "description": "features.json claims format modifiers (basename, dirname, extension, relative, count) that are not implemented in code",
-      "current_content": "Chapter documents: json, lines/newline, csv/comma (accurate)",
-      "features_json_claims": "basename, dirname, extension, relative, count, list, json",
-      "actual_implementation": "Only json, lines/newline, csv/comma, and default space-separated are implemented",
-      "fix_suggestion": "features.json should be corrected to match actual implementation. Chapter is already correct.",
-      "source_reference": "src/cook/workflow/git_context.rs:184-194 (VariableFormat enum)"
-    },
-    {
-      "type": "missing_feature_in_code",
-      "severity": "low",
-      "section": "Pattern Filtering",
-      "description": "features.json claims regex patterns and exclusion patterns that are not implemented",
-      "current_content": "Chapter correctly documents glob patterns only",
-      "features_json_claims": "regex_patterns, exclusions with ! prefix, include_exclude combined filters",
-      "actual_implementation": "Only glob patterns using glob::Pattern",
-      "fix_suggestion": "features.json should be corrected. Chapter is already accurate.",
-      "source_reference": "src/cook/workflow/git_context.rs:166-176 (filter_files uses glob::Pattern::new)"
+      "section": "Troubleshooting - Combined Pattern and Format Not Working",
+      "description": "Troubleshooting suggests the issue is combining features, when actually neither feature works",
+      "current_content": "**Issue**: Trying to combine pattern and format syntax like `${var:*.rs:json}` produces no output or unexpected results\n\n**Cause**: The implementation only supports a single modifier",
+      "should_be": "**Issue**: Pattern and format modifiers don't work at all\n\n**Cause**: These features are documented but not yet implemented. Git context variables are pre-formatted as space-separated strings.",
+      "fix_suggestion": "Rewrite troubleshooting to explain the actual limitation",
+      "source_reference": "src/cook/workflow/executor/context.rs:96-172"
     }
   ],
   "positive_aspects": [
-    "Clear explanation of pattern filtering with glob syntax (lines 94-141)",
-    "Accurate documentation of format modifiers when used individually (lines 158-205)",
-    "Comprehensive variable reference table (lines 73-92)",
-    "Excellent use case examples for code review, documentation, testing (lines 223-287)",
-    "Good troubleshooting section covering most common issues (lines 331-385)",
-    "Accurate description of when git tracking is active/inactive (lines 20-29)",
-    "Proper examples of individual pattern usage: ${step.files_added:*.rs}",
-    "Proper examples of individual format usage: ${step.files_added:json}"
+    "Accurate documentation of GitChangeTracker API and methods (even though they're not used in workflows)",
+    "Clear explanation of automatic git tracking initialization and lifecycle",
+    "Good documentation of available variables (step.*, workflow.*)",
+    "Accurate variable reference table showing all supported variables",
+    "Well-organized structure with clear sections",
+    "Good explanation of when git tracking is active vs inactive",
+    "Comprehensive use case examples (though they need correction)"
   ],
   "improvement_suggestions": [
-    "CRITICAL: Remove or completely rewrite 'Combining Format and Pattern' section (lines 206-222)",
-    "Add new section explaining modifier precedence and mutual exclusion clearly",
-    "Update all examples that show :pattern:format syntax to use accurate single-modifier syntax",
-    "Add dedicated 'Workarounds' section showing how to achieve combined filtering and formatting using shell pipes",
-    "Add comparison table showing 'Valid Syntax' vs 'Invalid Syntax' for variable references",
-    "Include example showing what happens when you try :*.rs:json (treated as malformed pattern)",
-    "Add note in Pattern Filtering section that patterns are mutually exclusive with format keywords",
-    "Consider adding flowchart or decision tree: 'How to choose between pattern and format modifier'"
+    "Add a prominent \"Current Limitations\" section at the top explaining that pattern filtering and format modifiers are planned but not yet implemented",
+    "Update all examples to show only what actually works (space-separated format only)",
+    "Add shell post-processing examples as the recommended approach for filtering and formatting",
+    "Remove or mark as \"Future\" the sections on pattern filtering, format modifiers, and modifier precedence",
+    "Add a roadmap section explaining when advanced features will be implemented",
+    "Include actual working examples showing shell-based filtering and formatting",
+    "Clarify the difference between GitChangeTracker's internal capabilities and what's exposed to workflows",
+    "Add source code references to help users understand implementation details"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T20:15:00Z",
+    "analyzed_at": "2025-01-09T23:43:36Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Pattern filtering",
@@ -109,10 +118,11 @@
       "Git context variables"
     ],
     "validation_focus": "Check that pattern filtering syntax, format modifiers, and file pattern options are documented",
-    "source_files_reviewed": [
-      "src/cook/workflow/git_context.rs (lines 184-560)",
-      "src/cook/workflow/git_utils.rs (filter_files implementation)"
-    ],
-    "key_finding": "The :pattern:format syntax documented in lines 206-222 is INCORRECT and will not work. Implementation only supports single modifier (either pattern OR format, not both)."
+    "critical_findings": [
+      "Pattern filtering documented but NOT implemented",
+      "Format modifiers documented but NOT implemented",
+      "GitChangeTracker.resolve_variable() exists but is never called",
+      "Variables pre-formatted as strings, no runtime customization possible"
+    ]
   }
 }

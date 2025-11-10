@@ -1,10 +1,22 @@
 # Advanced Git Context
 
-Advanced git context features enable powerful filtering and formatting of git information in your workflows. This chapter covers automatic git tracking, variable modifiers, format options, and pattern filtering.
+This chapter covers automatic git tracking and git context variables in Prodigy workflows. Learn how to access file changes, commits, and modification statistics, and how to filter and format this data using shell commands.
+
+> **⚠️ Current Implementation Status**
+>
+> Git context variables are currently provided as **space-separated strings only**. Advanced features like pattern filtering (`:*.rs`) and format modifiers (`:json`, `:lines`) are **not yet implemented** in the variable interpolation system, though the underlying infrastructure exists.
+>
+> **For filtering and formatting**, use shell post-processing commands like `grep`, `tr`, `jq`, and `xargs`. See [Shell-Based Filtering and Formatting](#shell-based-filtering-and-formatting) for practical examples.
 
 ## Overview
 
 Prodigy automatically tracks git changes throughout workflow execution and exposes them through variables. No configuration is needed—git context variables are available out-of-the-box in any git repository. You can access file changes, commits, and modification statistics at both the step and workflow level.
+
+**What you get:**
+- Automatic tracking of all git changes during workflow execution
+- Variables for step-level changes (current command) and workflow-level changes (cumulative)
+- Simple space-separated format ready for shell commands
+- Full integration with MapReduce workflows
 
 ## How Git Tracking Works
 
@@ -12,10 +24,23 @@ Prodigy automatically tracks git changes throughout workflow execution and expos
 
 Git context is automatically tracked when you run workflows in a git repository:
 
-- **GitChangeTracker** is initialized at workflow start
-- Each step's changes are tracked between `begin_step` and `complete_step`
-- Variables are automatically available for interpolation in all commands
+- **GitChangeTracker** is initialized at workflow start (src/cook/workflow/git_context.rs)
+- Each step's changes are tracked between `begin_step` and `complete_step` calls
+- Variables are pre-formatted as space-separated strings and added to the interpolation context
 - No YAML configuration needed—tracking happens transparently
+
+**Technical Details** (src/cook/workflow/executor/context.rs:96-172):
+
+When preparing the interpolation context for each command, git variables are added like this:
+
+```rust
+// Variables are pre-formatted as space-separated strings
+context.set("step.files_added", Value::String(changes.files_added.join(" ")));
+context.set("step.files_modified", Value::String(changes.files_modified.join(" ")));
+// ... etc for all git context variables
+```
+
+This means custom formatting must be done using shell commands after variable interpolation.
 
 ### When Tracking is Active
 
@@ -91,215 +116,188 @@ Track cumulative changes across all steps:
 | `workflow.insertions` | Workflow | Total lines added in workflow |
 | `workflow.deletions` | Workflow | Total lines deleted in workflow |
 
-## Pattern Filtering
+## Shell-Based Filtering and Formatting
 
-Filter git context variables using glob patterns with the `:pattern` modifier syntax.
-
-> **⚠️ Note**: Pattern filtering and format modifiers are mutually exclusive. When using a pattern, the output will be in the default space-separated format. For other formats, use shell post-processing (see [Workarounds for Combined Filtering and Formatting](#workarounds-for-combined-filtering-and-formatting)).
-
-### Basic Pattern Filtering
-
-```yaml
-# Only Rust files added in this step
-- shell: "echo ${step.files_added:*.rs}"
-
-# Only source files changed in workflow
-- shell: "echo ${workflow.files_changed:src/**/*.rs}"
-
-# Multiple file types
-- shell: "echo ${step.files_modified:**/*.{rs,toml}}"
-
-# Module files only
-- shell: "echo ${workflow.files_added:**/mod.rs}"
-```
-
-### Pattern Syntax
-
-Use glob patterns to match files precisely:
-
-- `*` - Match any characters except `/`
-- `**` - Match any characters including `/`
-- `?` - Match single character
-- `{a,b}` - Match either `a` or `b`
-- `[abc]` - Match character class
-
-**Note**: Prodigy uses glob patterns only. Regular expressions (regex) are not supported for pattern filtering. Use glob syntax for all file matching operations.
-
-**Examples:**
-
-```yaml
-# Match Rust and TOML files
-- shell: "echo ${step.files_changed:**/*.{rs,toml}}"
-
-# Match module files in src/
-- shell: "echo ${workflow.files_added:src/**/mod.rs}"
-
-# Match integration tests
-- shell: "echo ${step.files_modified:tests/integration/**}"
-
-# Match any test files
-- shell: "echo ${workflow.files_changed:**/*_test.rs}"
-```
-
-### Combining Filters
-
-For complex filtering, use multiple variable references or shell commands:
-
-```yaml
-# Pass different file sets to different commands
-- shell: "cargo fmt $(echo ${step.files_changed:*.rs})"
-- shell: "markdownlint $(echo ${step.files_changed:*.md})"
-
-# Combine with shell filtering
-- shell: |
-    files="${workflow.files_changed:src/**/*.rs}"
-    echo "$files" | grep -v test | xargs cargo clippy
-```
-
-## Format Modifiers
-
-Customize how git context variables are formatted.
-
-> **⚠️ Important Limitation**: Format modifiers and glob patterns cannot be combined in a single variable reference. Use either a format keyword (`:json`, `:lines`, `:csv`) OR a pattern (`:*.rs`, `:src/**`), but not both. See [Modifier Precedence and Limitations](#modifier-precedence-and-limitations) for details and workarounds.
+Since git context variables are provided as space-separated strings, all filtering and formatting must be done using shell commands. This section shows practical patterns for common tasks.
 
 ### Default Format (Space-Separated)
 
-By default, variables are space-separated:
+Git context variables are always formatted as space-separated strings:
 
 ```yaml
 - shell: "echo ${step.files_changed}"
 # Output: src/main.rs src/lib.rs tests/test.rs
 ```
 
-### JSON Format
-
-Use `:json` for JSON array output:
+This format works well with most shell commands:
 
 ```yaml
-- shell: "echo ${step.files_added:json}"
-# Output: ["src/main.rs","src/lib.rs","tests/test.rs"]
+# Pass directly to commands
+- shell: "cargo fmt ${step.files_changed}"
+- shell: "git add ${workflow.files_modified}"
 
-# Parse with jq
-- shell: "echo ${workflow.commits:json} | jq -r '.[]'"
+# Use in loops
+- shell: |
+    for file in ${step.files_added}; do
+      echo "Processing $file"
+    done
 ```
 
-### Newline-Separated Format
+### Filtering by File Extension
 
-Use `:lines` or `:newline` for one item per line:
+Use `grep` to filter files by extension or pattern:
 
 ```yaml
-- shell: "echo ${step.files_changed:lines}"
+# Only Rust files
+- shell: |
+    rust_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$')
+    echo "$rust_files"
+# Output:
+# src/main.rs
+# src/lib.rs
+
+# Only files in src/ directory
+- shell: |
+    src_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '^src/')
+    echo "$src_files"
+
+# Multiple extensions (Rust or TOML)
+- shell: |
+    filtered=$(echo "${step.files_modified}" | tr ' ' '\n' | grep -E '\.(rs|toml)$')
+    echo "$filtered"
+
+# Pass filtered files to a command
+- shell: |
+    rust_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$' | tr '\n' ' ')
+    if [ -n "$rust_files" ]; then
+      cargo fmt $rust_files
+    fi
+```
+
+### Converting to JSON Format
+
+Use `jq` to convert space-separated files to JSON arrays:
+
+```yaml
+# Convert to JSON array
+- shell: "echo ${step.files_added} | tr ' ' '\n' | jq -R | jq -s"
+# Output: ["src/main.rs","src/lib.rs","tests/test.rs"]
+
+# Filter AND convert to JSON
+- shell: |
+    echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$' | jq -R | jq -s
+# Output: ["src/main.rs","src/lib.rs"]
+
+# Pretty-print JSON
+- shell: |
+    echo "${workflow.files_modified}" | tr ' ' '\n' | jq -R | jq -s '.'
+```
+
+### Converting to Newline-Separated Format
+
+Use `tr` to convert space-separated to newline-separated:
+
+```yaml
+# One file per line
+- shell: "echo ${step.files_changed} | tr ' ' '\n'"
 # Output:
 # src/main.rs
 # src/lib.rs
 # tests/test.rs
 
-# Useful with xargs
-- shell: "echo ${workflow.files_modified:lines} | xargs -I {} cp {} backup/"
+# Useful with xargs for parallel processing
+- shell: |
+    echo "${workflow.files_modified}" | tr ' ' '\n' | xargs -I {} cp {} backup/
+
+# Count files
+- shell: "echo ${step.files_added} | tr ' ' '\n' | wc -l"
 ```
 
-### Comma-Separated Format
+### Converting to CSV Format
 
-Use `:csv` or `:comma` for comma-separated output:
+Use `tr` to convert to comma-separated values:
 
 ```yaml
-- shell: "echo ${step.files_added:csv}"
+# Comma-separated
+- shell: "echo ${step.files_added} | tr ' ' ','"
 # Output: src/main.rs,src/lib.rs,tests/test.rs
+
+# CSV with filtering
+- shell: |
+    echo "${step.files_changed}" | tr ' ' '\n' | grep '\.md$' | tr '\n' ',' | sed 's/,$//'
+# Output: README.md,CHANGELOG.md
 ```
 
-### Modifier Precedence and Limitations
+### Combining Filtering and Formatting
 
-**IMPORTANT**: Format modifiers and glob patterns are **mutually exclusive**. Each variable reference can use **either** a format keyword (json, lines, csv, comma) **OR** a glob pattern, but not both.
-
-The modifier after the colon is processed as follows:
-1. If it matches a format keyword (`json`, `lines`, `newline`, `csv`, `comma`), it's used as the format
-2. Otherwise, if it contains glob characters (`*` or `?`), it's treated as a pattern
-3. Otherwise, the default space-separated format is used
-
-**Valid Syntax Examples:**
+Practical examples combining multiple operations:
 
 ```yaml
-# Pattern only (default space-separated format)
-- shell: "echo ${step.files_changed:*.rs}"
-# Output: src/main.rs src/lib.rs
+# Get Rust files as JSON
+- shell: |
+    echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$' | jq -R | jq -s
 
-# Format only (all files)
-- shell: "echo ${step.files_changed:json}"
-# Output: ["src/main.rs","src/lib.rs","tests/test.rs"]
-```
+# Get source files as comma-separated list
+- shell: |
+    echo "${workflow.files_modified}" | tr ' ' '\n' | grep '^src/' | tr '\n' ',' | sed 's/,$//'
 
-**Invalid Syntax (will not work as expected):**
-
-```yaml
-# INCORRECT: Attempting to combine pattern and format
-- shell: "echo ${step.files_changed:*.rs:json}"
-# What happens: The string "*.rs:json" is treated as a single pattern
-# No files will match because no filename ends with ":json"
-```
-
-### Workarounds for Combined Filtering and Formatting
-
-When you need both pattern filtering and custom formatting, use shell post-processing:
-
-```yaml
-# Get filtered files as JSON array using jq
-- shell: "echo ${step.files_changed:*.rs} | xargs -n1 | jq -R | jq -s"
-# Output: ["src/main.rs","src/lib.rs"]
-
-# Get filtered files as newlines (natural behavior)
-- shell: "echo ${step.files_changed:*.rs} | tr ' ' '\n'"
+# Count files by extension
+- shell: |
+    echo "${workflow.files_changed}" | tr ' ' '\n' | sed 's/.*\.//' | sort | uniq -c
 # Output:
-# src/main.rs
-# src/lib.rs
-
-# Get filtered files as CSV
-- shell: "echo ${step.files_changed:src/**/*.rs} | tr ' ' ','"
-# Output: src/main.rs,src/lib.rs
-
-# More robust: handle spaces in filenames
-- shell: |
-    files=(${step.files_changed:*.rs})
-    printf '%s\n' "${files[@]}" | jq -R | jq -s
-
-# Combine multiple patterns with format
-- shell: |
-    rust="${step.files_changed:*.rs}"
-    toml="${step.files_changed:*.toml}"
-    echo "$rust $toml" | xargs -n1 | jq -R | jq -s
+#    5 md
+#    12 rs
+#    3 toml
 ```
 
 ## Use Cases
 
 ### Code Review Workflows
 
-Review only source code changes:
+Review only source code changes using shell filtering:
 
 ```yaml
-- claude: "/review-changes"
-  args:
-    files: "${step.files_changed:src/**/*.rs}"
-
+# Filter to only Rust source files before review
 - shell: |
-    echo "Reviewing ${step.commit_count} commits"
-    # Use shell command to convert to newlines
-    echo "Changed files:"
-    echo "${step.files_changed:src/**/*.rs}" | tr ' ' '\n'
+    rust_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '^src/.*\.rs$' | tr '\n' ' ')
+    if [ -n "$rust_files" ]; then
+      echo "Rust files changed: $rust_files"
+    fi
+
+# Pass filtered files to Claude for review
+- shell: |
+    src_changes=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '^src/')
+    if [ -n "$src_changes" ]; then
+      echo "$src_changes" > /tmp/review-files.txt
+      # Then use /tmp/review-files.txt in your review command
+    fi
+
+- shell: "echo Reviewing ${step.commit_count} commits"
 ```
 
 ### Documentation Updates
 
-Work with documentation changes:
+Work with documentation changes using filtering:
 
 ```yaml
-- claude: "/update-docs"
-  args:
-    docs: "${workflow.files_changed:**/*.md}"
+# Find markdown files that changed
+- shell: |
+    md_files=$(echo "${workflow.files_changed}" | tr ' ' '\n' | grep '\.md$' | tr '\n' ' ')
+    if [ -n "$md_files" ]; then
+      echo "Documentation files changed: $md_files"
+      markdownlint $md_files
+    fi
 
-- shell: "markdownlint ${step.files_modified:*.md}"
+# List changed docs in newline format
+- shell: |
+    echo "${workflow.files_modified}" | tr ' ' '\n' | grep '\.md$'
 
-# Check if docs were updated
-- when: "${workflow.files_changed:**/*.md}"
-  shell: "echo Documentation was updated"
+# Check if any docs were updated
+- shell: |
+    doc_count=$(echo "${workflow.files_changed}" | tr ' ' '\n' | grep '\.md$' | wc -l)
+    if [ "$doc_count" -gt 0 ]; then
+      echo "Documentation was updated ($doc_count files)"
+    fi
 ```
 
 ### Test Verification
@@ -308,32 +306,49 @@ Focus on test-related changes:
 
 ```yaml
 # Run tests for changed test files
-- shell: "cargo test $(echo ${step.files_changed:**/*_test.rs})"
+- shell: |
+    test_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '_test\.rs$' | tr '\n' ' ')
+    if [ -n "$test_files" ]; then
+      cargo test $test_files
+    fi
 
-# Verify test coverage
-- when: "${step.files_added:tests/**}"
-  claude: "/verify-test-coverage"
+# Verify test coverage for new files in tests/
+- shell: |
+    new_tests=$(echo "${step.files_added}" | tr ' ' '\n' | grep '^tests/')
+    if [ -n "$new_tests" ]; then
+      echo "New test files added:"
+      echo "$new_tests"
+      # Run coverage analysis
+    fi
 ```
 
 ### Conditional Execution
 
-Use git context in conditional logic:
+Use git context with shell conditions:
 
 ```yaml
-# Only run if Rust files changed
-- when: "${step.files_changed:*.rs}"
-  shell: "cargo clippy"
+# Only run clippy if Rust files changed
+- shell: |
+    has_rust=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$')
+    if [ -n "$has_rust" ]; then
+      cargo clippy
+    fi
 
-# Run different linters based on changes
-- when: "${workflow.files_changed:*.rs}"
-  shell: "cargo fmt --check"
+# Run different linters based on file types
+- shell: |
+    if echo "${workflow.files_changed}" | tr ' ' '\n' | grep -q '\.rs$'; then
+      cargo fmt --check
+    fi
 
-- when: "${workflow.files_changed:*.md}"
-  shell: "markdownlint **/*.md"
+    if echo "${workflow.files_changed}" | tr ' ' '\n' | grep -q '\.md$'; then
+      markdownlint **/*.md
+    fi
 
 # Check commit count
-- when: "${step.commit_count} > 1"
-  shell: "echo Multiple commits detected"
+- shell: |
+    if [ "${step.commit_count}" -gt 1 ]; then
+      echo "Multiple commits detected (${step.commit_count})"
+    fi
 ```
 
 ### MapReduce Workflows
@@ -364,99 +379,178 @@ reduce:
 
 ## Best Practices
 
-- **Use Pattern Filtering**: Filter variables to only relevant files using glob patterns
-- **Choose Appropriate Format**: Use `:json` for parsing, `:lines` for iteration, default for simple commands
+- **Use Shell Filtering**: Filter variables to only relevant files using `grep`, `tr`, and other shell utilities
+- **Choose Appropriate Format**: Convert to JSON with `jq`, newlines with `tr`, or CSV for different use cases
 - **Scope Appropriately**: Use `step.*` for current changes, `workflow.*` for cumulative tracking
-- **Combine with Conditionals**: Use `when:` to execute steps only when relevant files change
-- **Test Your Patterns**: Verify patterns match intended files with `echo ${var:pattern}`
-- **Document Intent**: Add comments explaining why specific patterns are used
+- **Handle Empty Results**: Always check if filtered results are non-empty before using them
+- **Test Your Filters**: Debug with `echo` commands to verify filtering works as expected
+- **Document Intent**: Add comments explaining complex shell filtering pipelines
+- **Combine Operations**: Chain `tr`, `grep`, and `jq` for powerful filtering and formatting
 
 ## Performance Considerations
 
-- Git operations are performed once per step and cached
-- Pattern filtering is efficient using compiled glob patterns
-- Variables are computed on-demand during interpolation
-- Workflow-level tracking maintains cumulative state without re-scanning
+- Git operations are performed once per step and cached (src/cook/workflow/git_context.rs)
+- Variables are pre-formatted when added to the interpolation context
+- Shell filtering happens at runtime, so complex filters may add overhead
+- Workflow-level tracking maintains cumulative state without re-scanning git history
+- Variable resolution is fast since values are pre-computed strings
 
 ## Troubleshooting
 
-### Pattern Not Matching Files
+### Filter Not Matching Any Files
 
-**Issue**: Your pattern doesn't match any files
+**Issue**: Your grep filter doesn't match any files
 
 ```yaml
 # Debug: Echo the unfiltered variable first
 - shell: "echo All files: ${step.files_changed}"
-- shell: "echo Filtered: ${step.files_changed:*.rs}"
+- shell: |
+    filtered=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$')
+    echo "Filtered: $filtered"
 ```
 
-**What happens**: When a pattern matches no files, the variable resolves to an empty string. This is not an error—it's expected behavior when no files match the pattern.
+**What happens**: When a filter matches no files, the variable is empty. This is expected behavior.
+
+**Solution**: Always check if filtered results are non-empty:
 
 ```yaml
-# Example: No Python files in a Rust project
-- shell: "echo Python files: ${step.files_changed:*.py}"
-# Output: Python files:
-# (empty - no error)
-
-# Use conditionals to handle empty results
-- when: "${step.files_changed:*.rs}"
-  shell: "cargo fmt"  # Only runs if Rust files changed
+- shell: |
+    rust_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$' | tr '\n' ' ')
+    if [ -n "$rust_files" ]; then
+      cargo fmt $rust_files
+    else
+      echo "No Rust files changed"
+    fi
 ```
 
-**Solution**: Use `git ls-files` to verify file paths match your pattern, or use conditionals to handle empty results gracefully
-
-### Empty Variables
+### Empty Git Context Variables
 
 **Issue**: Git context variables are empty
 
 **Possible causes:**
 - Not running in a git repository
 - No commits have been made in the current step
-- Pattern filter is too restrictive
+- Git tracking not initialized
 
-**Solution**: Check if git tracking is active and verify patterns
+**Solution**: Verify git tracking is active:
 
-### Combined Pattern and Format Not Working
-
-**Issue**: Trying to combine pattern and format syntax like `${var:*.rs:json}` produces no output or unexpected results
-
-**Cause**: The implementation only supports a single modifier—either a format keyword (json, lines, csv, comma, newline) OR a glob pattern. These are mutually exclusive and cannot be combined in one variable reference.
-
-**What happens**: When you write `${step.files_changed:*.rs:json}`, the entire string `*.rs:json` is treated as a single pattern. Since no filename ends with `:json`, the pattern matches no files and returns empty.
-
-**Solution**: Use one of these approaches:
-
-1. **Choose one modifier** (pattern OR format):
 ```yaml
-# Pattern only (default space-separated)
+# Check if variables are populated
+- shell: |
+    echo "Step files changed: ${step.files_changed}"
+    echo "Workflow files changed: ${workflow.files_changed}"
+    echo "Commit count: ${step.commit_count}"
+```
+
+If all are empty, check:
+1. Are you in a git repository? (`git status`)
+2. Has the step made any commits yet?
+3. Is git tracking active for this workflow type?
+
+### Pattern Syntax Not Working
+
+**Issue**: Trying to use `:*.rs` or `:json` modifiers produces errors or unexpected results
+
+**Cause**: Pattern filtering and format modifiers are **not implemented** in variable interpolation. Git context variables are always space-separated strings.
+
+**What you tried** (doesn't work):
+```yaml
+# These do NOT work - modifiers not implemented
 - shell: "echo ${step.files_changed:*.rs}"
-
-# Format only (all files)
-- shell: "echo ${step.files_changed:json}"
+- shell: "echo ${step.files_added:json}"
+- shell: "echo ${workflow.files_modified:lines}"
 ```
 
-2. **Use shell post-processing** for combined filtering and formatting:
+**Solution**: Use shell commands for all filtering and formatting:
+
 ```yaml
-# Filter with pattern, then format with jq
-- shell: "echo ${step.files_changed:*.rs} | xargs -n1 | jq -R | jq -s"
+# Filter with grep
+- shell: "echo ${step.files_changed} | tr ' ' '\n' | grep '\.rs$'"
 
-# Filter with pattern, then convert to CSV
-- shell: "echo ${step.files_changed:*.rs} | tr ' ' ','"
+# Format as JSON
+- shell: "echo ${step.files_added} | tr ' ' '\n' | jq -R | jq -s"
+
+# Format as newlines
+- shell: "echo ${workflow.files_modified} | tr ' ' '\n'"
 ```
 
-See [Workarounds for Combined Filtering and Formatting](#workarounds-for-combined-filtering-and-formatting) for more examples.
-
-### Format Modifier Not Working
-
-**Issue**: Format modifier produces unexpected output
-
-**Solution**: Ensure you're using only a format keyword (json, lines, csv, comma, newline) without any glob patterns. Verify the syntax is `${variable:format}` with a single colon and valid format name.
+See [Shell-Based Filtering and Formatting](#shell-based-filtering-and-formatting) for complete examples.
 
 ### Variables Not Interpolating
 
 **Issue**: Variables appear as literal strings like `${step.files_changed}`
 
-**Solution**: Ensure you're using proper YAML syntax and the command supports interpolation
+**Possible causes:**
+- Variable name misspelled
+- Using unsupported variable
+- YAML quoting issues
+
+**Solution**: Verify the variable name and use proper quoting:
+
+```yaml
+# Correct syntax
+- shell: "echo ${step.files_changed}"
+- shell: |
+    echo "${workflow.files_modified}"
+```
+
+### Shell Filtering Complexity
+
+**Issue**: Shell filtering pipelines are getting too complex
+
+**Solution**: Extract complex filtering to separate shell scripts:
+
+```yaml
+# Create a helper script
+- shell: |
+    cat > /tmp/filter-rust.sh <<'EOF'
+    #!/bin/bash
+    echo "$1" | tr ' ' '\n' | grep '\.rs$' | tr '\n' ' '
+    EOF
+    chmod +x /tmp/filter-rust.sh
+
+# Use the helper
+- shell: |
+    rust_files=$(/tmp/filter-rust.sh "${step.files_changed}")
+    if [ -n "$rust_files" ]; then
+      cargo clippy $rust_files
+    fi
+```
+
+## Future Features
+
+The git context infrastructure includes methods that are not yet exposed to workflows. These are planned for future releases:
+
+### Pattern Filtering (Planned)
+
+The `GitChangeTracker::resolve_variable()` method (src/cook/workflow/git_context.rs:489-505) supports pattern filtering, but it's not currently called during workflow execution.
+
+**Planned syntax**:
+```yaml
+# Not yet implemented - planned for future release
+- shell: "echo ${step.files_changed:*.rs}"
+- shell: "echo ${workflow.files_modified:src/**/*.rs}"
+```
+
+Currently variables are pre-formatted as space-separated strings during interpolation context creation (src/cook/workflow/executor/context.rs:106-172).
+
+### Format Modifiers (Planned)
+
+The `GitChangeTracker::format_file_list()` method (src/cook/workflow/git_context.rs:477-486) supports JSON, newline, and CSV formats, but it's not used during variable resolution.
+
+**Planned syntax**:
+```yaml
+# Not yet implemented - planned for future release
+- shell: "echo ${step.files_added:json}"
+- shell: "echo ${workflow.files_changed:lines}"
+- shell: "echo ${step.files_modified:csv}"
+```
+
+### Implementation Note
+
+To enable these features, the interpolation engine would need to support custom resolvers that call `git_tracker.resolve_variable()` instead of using pre-formatted string values. This would allow runtime formatting and filtering based on variable modifier syntax.
+
+**Until then**, use shell post-processing as documented in [Shell-Based Filtering and Formatting](#shell-based-filtering-and-formatting).
 
 ## See Also
 
