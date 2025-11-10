@@ -109,7 +109,7 @@ To verify which configuration Prodigy is using:
 ls -la .prodigy/config.yml .prodigy/workflow.yml
 
 # Validate YAML syntax
-prodigy config validate  # (if command exists)
+prodigy validate workflow.yml
 
 # Run with verbose output to see loaded configuration
 prodigy run workflow.yml -v
