@@ -309,41 +309,33 @@ These meta-subsections have different validation:
 
 **CRITICAL: Prevent Meta-Sections in Feature Chapters**
 
-Before creating meta-subsections, check if the parent chapter is appropriate:
+Before creating "Best Practices", "Common Patterns", or "Troubleshooting" subsections, evaluate if the parent chapter is appropriate:
 
-```bash
-# Identify chapter type
-CHAPTER_ID="<parent-chapter-id>"
-CHAPTER_TITLE="<parent-chapter-title>"
+**Check if the chapter is feature-focused:**
+1. **Chapter ID** is one of: `advanced`, `commands`, `cli`
+2. **Chapter title** contains: "Advanced Features", "Commands", "Command Reference", "CLI Reference"
+3. **Chapter structure** is a collection of disparate features/capabilities rather than a unified topic
 
-# Feature-focused chapters that should NOT have meta-sections as subsections
-FEATURE_CHAPTERS=("advanced" "commands" "cli")
-
-# Check if this is a feature chapter
-IS_FEATURE_CHAPTER=false
-for feature_chapter in "${FEATURE_CHAPTERS[@]}"; do
-  if [[ "$CHAPTER_ID" == "$feature_chapter" ]] || [[ "$CHAPTER_TITLE" =~ "Advanced Features" ]] || [[ "$CHAPTER_TITLE" =~ "Commands" ]]; then
-    IS_FEATURE_CHAPTER=true
-    break
-  fi
-done
-
-# Skip meta-sections for feature chapters
-if [ "$IS_FEATURE_CHAPTER" = "true" ]; then
-  echo "SKIP: Chapter '$CHAPTER_TITLE' is feature-focused - meta-sections not appropriate"
-  # Do not create best-practices.md, common-patterns.md, etc.
-  continue
-fi
-```
+**If the chapter is feature-focused, SKIP meta-section creation:**
+- Do NOT create `best-practices.md`, `common-patterns.md`, or similar meta-files
+- Log: "SKIP: Chapter '{chapter_title}' is feature-focused - meta-sections not appropriate"
+- These chapters should only contain feature/capability subsections
 
 **Why Feature Chapters Should Not Have Meta-Sections:**
-- Feature chapters list capabilities/features, not unified topics
-- "Best Practices" in a feature chapter is too broad and generic
-- "Common Patterns" should be in workflow-basics or topic-specific chapters
-- Appropriate locations:
-  - Unified topic chapters (environment, retry-configuration, composition) ✅
-  - Root-level guides (workflow-basics.md, error-handling.md) ✅
-  - Feature-focused chapters (advanced, commands) ❌
+- Feature chapters list capabilities, not unified topics requiring holistic guidance
+- "Best Practices" for disparate features is too broad and generic
+- "Common Patterns" belongs in workflow-basics or topic-specific chapters
+- Creates organizational confusion (mixes "what" with "how to use well")
+
+**Appropriate Locations for Meta-Sections:**
+- **Unified topic chapters** (environment, retry-configuration, composition) ✅
+  - Specific guidance for a cohesive topic
+- **Root-level guides** (workflow-basics.md, error-handling.md) ✅
+  - General workflow guidance
+- **Feature-focused chapters** (advanced, commands) ❌
+  - Only feature/capability subsections
+
+**Only proceed with meta-subsection creation if the chapter is NOT feature-focused.**
 
 **For Appropriate Chapters:**
 
