@@ -52,19 +52,31 @@ map:
     - shell: "timeout ${AGENT_TIMEOUT} ./analyze.sh ${item.path}"
 ```
 
-**Parameterizing max_parallel:**
+**Parameterizing max_parallel and agent_timeout_secs:**
 
-The `max_parallel` field accepts both numeric values and environment variable references:
+Both `max_parallel` and `agent_timeout_secs` accept numeric values or environment variable references. These are resolved at **configuration parse time** (when the workflow is loaded), not at execution time.
 
 ```yaml
 env:
   MAX_WORKERS: "5"   # Can be overridden per environment
+  AGENT_TIMEOUT: "600"
 
 map:
-  max_parallel: ${MAX_WORKERS}   # Uses env var
+  max_parallel: ${MAX_WORKERS}           # Resolved to 5 at parse time
+  agent_timeout_secs: ${AGENT_TIMEOUT}   # Resolved to 600 at parse time
   # OR
-  max_parallel: 10               # Static value
+  max_parallel: 10                       # Static value
+  agent_timeout_secs: 300                # Static value
 ```
+
+**Environment Variable Resolution Timing:**
+
+- **Parse time** (when workflow is loaded): `max_parallel` and `agent_timeout_secs` are resolved using `resolve_env_or_parse` method
+- **Execution time** (when commands run): Command interpolation happens (e.g., `${item.name}`, `$PROJECT_NAME`)
+
+This distinction matters because parse-time resolution fails fast if environment variables are undefined, while execution-time interpolation happens dynamically.
+
+Source: src/config/mapreduce.rs:527-540 (to_map_phase method with resolve_env_or_parse)
 
 **Integration with MapReduce-specific variables:**
 
@@ -86,16 +98,15 @@ Use environment variables in reduce commands to parameterize aggregation:
 
 ```yaml
 env:
-  REPORT_FORMAT: json
   OUTPUT_PATH: results/summary.json
   MIN_SUCCESS_RATE: "80"
 
 reduce:
   - shell: "echo 'Processed ${map.successful}/${map.total} items'"
   - write_file:
-      path: ${OUTPUT_PATH}
-      content: ${map.results}
-      format: ${REPORT_FORMAT}
+      path: "${OUTPUT_PATH}"
+      content: "${map.results}"
+      format: json
   - shell: |
       SUCCESS_RATE=$((${map.successful} * 100 / ${map.total}))
       if [ $SUCCESS_RATE -lt $MIN_SUCCESS_RATE ]; then
@@ -103,6 +114,12 @@ reduce:
         exit 1
       fi
 ```
+
+**Important: write_file format field**
+
+The `format` field in `write_file` accepts enum literals only (`text`, `json`, or `yaml`), not environment variable interpolation. Only the `path` and `content` fields support variable interpolation.
+
+Source: src/config/command.rs:303-314 (WriteFileFormat enum)
 
 ### Merge Phase Environment Variables
 
@@ -166,7 +183,7 @@ reduce:
   - shell: "echo 'Project: $PROJECT_NAME, Version: $VERSION'"
   - shell: "echo 'Results: ${map.successful}/${map.total} succeeded'"
   - write_file:
-      path: ${OUTPUT_DIR}/summary.json
+      path: "${OUTPUT_DIR}/summary.json"
       content: |
         {
           "project": "$PROJECT_NAME",
@@ -191,6 +208,22 @@ merge:
 4. **Path parameterization**: Use env vars for input files, output directories, and config paths
 5. **Threshold configuration**: Parameterize quality thresholds, success rates, and limits
 6. **Combine with MapReduce variables**: Use both `${ENV_VAR}` and `${item.field}` together
+7. **Understand precedence chain**: Environment variables are resolved in this order:
+   - Step-level env (per-command overrides)
+   - Workflow profile env (when `--profile` is active)
+   - Workflow env (global env block)
+   - System environment variables
+
+**Environment Variable Precedence:**
+
+When the same variable is defined in multiple places, Prodigy uses this precedence chain (highest to lowest priority):
+
+1. **Step env** - Environment variables defined at the command level
+2. **Workflow profile** - Profile-specific values (activated with `--profile`)
+3. **Workflow env** - Global env block at workflow level
+4. **System env** - Environment variables from the parent process
+
+Source: .prodigy/book-analysis/features.json:596 (configuration.precedence_chain)
 
 ### Common Patterns
 
@@ -228,14 +261,14 @@ map:
     - shell: "docker run --cpus=${CPU_LIMIT} --memory=${MEMORY_LIMIT} processor ${item.path}"
 ```
 
-**Dynamic input generation:**
+**Dynamic input generation with secrets:**
 
 ```yaml
 env:
   DATA_SOURCE: https://api.example.com/v1/items
-
-secrets:
-  API_KEY: "${env:SECRET_API_KEY}"
+  API_KEY:
+    secret: true
+    value: "sk-actual-api-key-here"
 
 setup:
   - shell: "curl -H 'Authorization: Bearer ${API_KEY}' $DATA_SOURCE > items.json"
@@ -245,6 +278,20 @@ map:
   agent_template:
     - shell: "process --api-key ${API_KEY} ${item.id}"
 ```
+
+**Secret Configuration:**
+
+Secrets are defined within the `env` block using the `secret: true` flag. This masks the value in logs and output. There is no separate `secrets:` block.
+
+```yaml
+env:
+  REGULAR_VAR: "visible-value"
+  SECRET_API_KEY:
+    secret: true
+    value: "sk-secret-value"   # Masked as *** in logs
+```
+
+Source: src/config/workflow.rs (WorkflowConfig.env), features.json:environment.secrets
 
 See also:
 - [Environment Profiles](environment-profiles.md) for multi-environment configurations
