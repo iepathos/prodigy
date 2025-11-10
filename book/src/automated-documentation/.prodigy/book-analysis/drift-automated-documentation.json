@@ -1,0 +1,209 @@
+{
+  "item_type": "chapter",
+  "chapter_id": "automated-documentation",
+  "chapter_title": "Automated Documentation",
+  "chapter_file": "book/src/automated-documentation/index.md",
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Chapter structure exists but most subsections are empty or incomplete. Critical documentation missing for users wanting to set up automated documentation.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Quick Start (30 Minutes)",
+      "description": "Subsection is nearly empty (2 lines) - users cannot complete 30-minute setup",
+      "current_content": "## Quick Start (30 Minutes)\n\n",
+      "should_be": "Complete step-by-step tutorial covering: mdBook setup, book-config.json creation, chapter definitions, running workflow, and verification",
+      "fix_suggestion": "Add comprehensive 30-minute quick start guide with actual commands and examples",
+      "source_reference": "workflows/book-docs-drift.yml, .prodigy/book-config.json"
+    },
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Installation",
+      "description": "Subsection contains only TODO placeholder (4 lines)",
+      "current_content": "## Installation\n\nTODO: Add installation instructions",
+      "should_be": "Complete installation instructions for Prodigy, mdBook, Claude Code CLI, and git setup",
+      "fix_suggestion": "Add detailed installation steps with platform-specific instructions and verification commands",
+      "source_reference": "index.md prerequisites section shows what should be installed"
+    },
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Quick Start",
+      "description": "Subsection contains invalid/corrupted content showing YAML/EOF markers (26 lines)",
+      "current_content": "Contains TODO placeholder and example YAML structure mixed with EOF markers",
+      "should_be": "Clear quick start guide showing basic workflow setup",
+      "fix_suggestion": "Replace corrupted content with proper quick start instructions",
+      "source_reference": "workflows/book-docs-drift.yml"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "high",
+      "section": "Understanding the Workflow",
+      "description": "Subsection only explains worktree isolation (4 lines), missing complete workflow explanation",
+      "current_content": "Only contains note about worktree isolation (Spec 127)",
+      "should_be": "Complete explanation of setup → map → reduce phases, feature analysis, drift detection, and fix workflow",
+      "fix_suggestion": "Add comprehensive workflow overview covering all three phases and how they work together",
+      "source_reference": "workflows/book-docs-drift.yml phases, automated_documentation feature in features.json"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "high",
+      "section": "Automatic Gap Detection",
+      "description": "Subsection incomplete (4 lines) - explains what but not how",
+      "current_content": "Brief description of gap detection purpose only",
+      "should_be": "Explain how gap detection works, chapter_definitions.json structure, and flattened-items.json generation",
+      "fix_suggestion": "Add details on /prodigy-detect-documentation-gaps command and gap detection mechanism",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "GitHub Actions Integration",
+      "description": "Subsection empty (2 lines)",
+      "current_content": "## GitHub Actions Integration\n\n",
+      "should_be": "Complete GitHub Actions workflow example and integration guide",
+      "fix_suggestion": "Document .github/workflows/deploy-docs.yml and show how to integrate book workflow in CI/CD",
+      "source_reference": ".github/workflows/deploy-docs.yml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Customization Examples",
+      "description": "Subsection empty (2 lines)",
+      "current_content": "## Customization Examples\n\n",
+      "should_be": "Real examples of customizing analysis_targets, feature_categories, and custom_analysis options",
+      "fix_suggestion": "Add examples showing different project types (Rust CLI, Python library, JavaScript project) with appropriate configurations",
+      "source_reference": ".prodigy/book-config.json analysis_targets and custom_analysis sections"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Best Practices",
+      "description": "Subsection empty (2 lines)",
+      "current_content": "## Best Practices\n\n",
+      "should_be": "Best practices for organizing chapters, writing validation rules, and maintaining documentation quality",
+      "fix_suggestion": "Add best practices covering chapter organization, validation criteria, feature mapping, and workflow scheduling",
+      "source_reference": "workflows/data/prodigy-chapters.json structure and validation patterns"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Troubleshooting",
+      "description": "Subsection empty (2 lines)",
+      "current_content": "## Troubleshooting\n\n",
+      "should_be": "Common issues and solutions for book workflow execution",
+      "fix_suggestion": "Add troubleshooting for mdBook build errors, broken links, invalid chapter definitions, and feature analysis issues",
+      "source_reference": "error_policy in workflows/book-docs-drift.yml, DLQ behavior"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Advanced Configuration",
+      "description": "Subsection nearly empty (2 lines)",
+      "current_content": "## Advanced Configuration\n\n",
+      "should_be": "Advanced options like custom feature categories, multi-language support, and workflow customization",
+      "fix_suggestion": "Document advanced book-config.json options, custom Claude command creation, and workflow extension patterns",
+      "source_reference": ".prodigy/book-config.json full structure"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Real-World Example: Prodigy's Own Documentation",
+      "description": "Example shows simplified book-config.json that doesn't match actual structure (43 lines)",
+      "current_content": "Shows only 2 analysis_targets with basic structure",
+      "should_be": "Show actual Prodigy book-config.json with all 12 analysis targets or clearly mark as simplified example",
+      "fix_suggestion": "Either show full config or add note '(simplified example - see .prodigy/book-config.json for full configuration)'",
+      "source_reference": ".prodigy/book-config.json has 12 analysis_targets covering all major areas"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Documentation Versioning",
+      "description": "Subsection incomplete (4 lines) - minimal content on versioning",
+      "current_content": "Brief mention of versioning",
+      "should_be": "Explain how to maintain documentation for multiple versions, branching strategies, and version-specific features",
+      "fix_suggestion": "Add guidance on versioning documentation for different release branches",
+      "source_reference": "General documentation best practices"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Next Steps",
+      "description": "Subsection minimal (10 lines) - could provide more guidance",
+      "current_content": "Basic next steps",
+      "should_be": "Actionable next steps with links to relevant resources and advanced topics",
+      "fix_suggestion": "Expand with specific follow-up actions, community resources, and advanced customization paths",
+      "source_reference": "Related book chapters and external resources"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Benefits",
+      "description": "Subsection brief (13 lines) - could elaborate on ROI and impact",
+      "current_content": "Lists benefits briefly",
+      "should_be": "Detailed explanation of benefits with examples and metrics",
+      "fix_suggestion": "Add concrete examples of time saved, consistency improvements, and quality metrics",
+      "source_reference": "Prodigy's own documentation workflow results"
+    }
+  ],
+  "positive_aspects": [
+    "Chapter structure is well-organized with clear subsection breakdown",
+    "Index.md provides good overview and prerequisites section",
+    "All internal links in index.md are valid (no broken links)",
+    "Real-world example section references actual configuration files",
+    "Worktree isolation is correctly documented in workflow understanding section"
+  ],
+  "improvement_suggestions": [
+    "Complete all empty subsections with comprehensive content",
+    "Add code examples and commands that users can copy-paste",
+    "Include screenshots or command output examples for clarity",
+    "Add cross-references between related subsections",
+    "Create a troubleshooting matrix for common issues",
+    "Include time estimates for each setup step",
+    "Add validation checklist after each major section",
+    "Consider adding FAQ subsection for common questions"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "mdBook setup",
+      "Book workflow configuration",
+      "Feature analysis",
+      "GitHub Actions integration",
+      "Customization examples"
+    ],
+    "validation_focus": "Check that setup instructions are complete, configuration examples are valid, and GitHub Actions workflows are current",
+    "files_analyzed": [
+      "book/src/automated-documentation/index.md",
+      "book/src/automated-documentation/quick-start-30-minutes.md",
+      "book/src/automated-documentation/installation.md",
+      "book/src/automated-documentation/quick-start.md",
+      "book/src/automated-documentation/understanding-the-workflow.md",
+      "book/src/automated-documentation/automatic-gap-detection.md",
+      "book/src/automated-documentation/github-actions-integration.md",
+      "book/src/automated-documentation/customization-examples.md",
+      "book/src/automated-documentation/best-practices.md",
+      "book/src/automated-documentation/troubleshooting.md",
+      "book/src/automated-documentation/advanced-configuration.md",
+      "book/src/automated-documentation/real-world-example-prodigys-own-documentation.md",
+      "book/src/automated-documentation/documentation-versioning.md",
+      "book/src/automated-documentation/next-steps.md",
+      "book/src/automated-documentation/benefits.md"
+    ],
+    "source_files_referenced": [
+      "workflows/book-docs-drift.yml",
+      ".prodigy/book-config.json",
+      "workflows/data/prodigy-chapters.json",
+      ".claude/commands/prodigy-analyze-features-for-book.md",
+      ".claude/commands/prodigy-detect-documentation-gaps.md",
+      ".github/workflows/deploy-docs.yml"
+    ],
+    "total_subsections": 15,
+    "empty_subsections": 7,
+    "incomplete_subsections": 5,
+    "complete_subsections": 3
+  }
+}
