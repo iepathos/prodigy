@@ -25,7 +25,7 @@ sub_workflows:
 
 ### Sub-Workflow Configuration
 
-Each sub-workflow supports these fields:
+Each sub-workflow supports these fields (defined in `SubWorkflow` struct, src/cook/workflow/composition/sub_workflow.rs:13-66):
 
 ```yaml
 sub_workflows:
@@ -52,6 +52,10 @@ sub_workflows:
 
     working_dir: "./sub-project"      # Optional: working directory for sub-workflow
 ```
+
+**Source**: `SubWorkflow` struct in src/cook/workflow/composition/sub_workflow.rs:13-66
+**Validation**: Sub-workflow validation in src/cook/workflow/composition/composer.rs:381-395
+**Test example**: tests/workflow_composition_test.rs:152-173 demonstrates sub-workflow configuration
 
 ### Parent-Child Context Isolation
 
