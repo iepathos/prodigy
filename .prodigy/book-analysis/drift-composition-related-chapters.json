@@ -1,0 +1,79 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "composition",
+  "subsection_id": "related-chapters",
+  "subsection_title": "Related Chapters",
+  "subsection_file": "book/src/composition/related-chapters.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "All internal links are broken due to incorrect relative paths. Links reference files in the same directory (composition/) when they should reference parent directory (book/src/). This will cause mdBook build failures.",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "Cross-References",
+      "description": "Found 4 broken internal link(s)",
+      "broken_links": [
+        {
+          "link_text": "Workflow Basics",
+          "original_target": "workflow-basics.md",
+          "expected_path": "book/src/composition/workflow-basics.md",
+          "actual_path": "book/src/workflow-basics.md",
+          "suggested_fix": "../workflow-basics.md"
+        },
+        {
+          "link_text": "Commands",
+          "original_target": "commands.md",
+          "expected_path": "book/src/composition/commands.md",
+          "actual_path": "book/src/commands.md",
+          "suggested_fix": "../commands.md"
+        },
+        {
+          "link_text": "Variables",
+          "original_target": "variables.md",
+          "expected_path": "book/src/composition/variables.md",
+          "actual_path": "book/src/variables/index.md",
+          "suggested_fix": "../variables/index.md",
+          "note": "Chapter migrated to multi-subsection structure"
+        },
+        {
+          "link_text": "Examples",
+          "original_target": "examples.md",
+          "expected_path": "book/src/composition/examples.md",
+          "actual_path": "book/src/examples.md",
+          "suggested_fix": "../examples.md"
+        }
+      ],
+      "fix_suggestion": "Update all links to use correct relative paths with ../ prefix to reference parent directory. The Variables link should point to the index.md file since it's now a multi-subsection chapter."
+    }
+  ],
+  "positive_aspects": [
+    "Clear section heading",
+    "Concise list format",
+    "Descriptive link text",
+    "Appropriate related chapters identified"
+  ],
+  "improvement_suggestions": [
+    "Add brief description of what each related chapter covers",
+    "Consider organizing links by category (e.g., 'Foundation', 'Advanced Features')",
+    "Add links to other relevant chapters like 'Environment Variables' or 'Error Handling' that are commonly used with composition"
+  ],
+  "cross_references": [
+    "workflow-basics",
+    "commands",
+    "variables",
+    "examples"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:42:44Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Related Chapters"
+    ],
+    "validation_focus": "Check related chapters documentation matches implementation",
+    "internal_links_found": 4,
+    "broken_links_count": 4,
+    "link_validation_status": "All links broken - incorrect relative paths"
+  }
+}
