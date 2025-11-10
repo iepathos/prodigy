@@ -1,0 +1,106 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "automated-documentation",
+  "subsection_id": "customization-examples",
+  "subsection_title": "Customization Examples",
+  "subsection_file": "book/src/automated-documentation/customization-examples.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Subsection is essentially empty with only a title. Requires complete content with real-world customization examples for different project types and use cases.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Entire Subsection",
+      "description": "Subsection contains only a title with no actual content. Expected comprehensive customization examples showing how to adapt the automated documentation workflow for different project types, languages, and requirements.",
+      "fix_suggestion": "Add complete content covering: (1) Adapting book-config.json for different languages (Rust, Python, JavaScript, etc.), (2) Customizing the workflow YAML for different project structures, (3) Creating custom Claude commands for project-specific needs, (4) Configuring chapter structure in chapters.json, (5) Real-world examples from diverse projects",
+      "source_reference": "workflows/book-docs-drift.yml, .prodigy/book-config.json"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Language-Specific Adaptations",
+      "description": "No examples of how to configure book-config.json for different programming languages. Users need to see how analysis_targets differ for Python, JavaScript, Go, etc.",
+      "fix_suggestion": "Add section showing book-config.json examples for at least 3 different languages (Rust, Python, JavaScript), highlighting differences in source_files patterns and feature_categories",
+      "source_reference": ".prodigy/book-config.json:7-212 (analysis_targets structure)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Workflow Customization Patterns",
+      "description": "No examples of workflow YAML customizations for different use cases (different parallelism, timeout configurations, error handling strategies, validation thresholds)",
+      "fix_suggestion": "Add examples showing: (1) High-parallelism workflow for large codebases, (2) Conservative workflow with strict validation, (3) CI/CD-optimized workflow, (4) Development workflow with verbose output",
+      "source_reference": "workflows/book-docs-drift.yml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Custom Claude Commands",
+      "description": "No explanation or examples of creating project-specific Claude commands for documentation analysis and fixing",
+      "fix_suggestion": "Add section explaining how to create custom Claude commands in .claude/commands/ directory, with example showing project-specific analysis or formatting requirements",
+      "source_reference": ".prodigy/book-config.json:671 (custom_commands mentioned in features)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Chapter Structure Customization",
+      "description": "No examples of customizing chapter definitions in chapters.json for different documentation structures (flat vs hierarchical, single-file vs multi-subsection)",
+      "fix_suggestion": "Add examples showing: (1) Simple flat chapter structure for small projects, (2) Multi-level hierarchical structure for complex projects, (3) Migrating from single-file to multi-subsection chapters",
+      "source_reference": "workflows/data/prodigy-chapters.json (chapter definitions)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Project Type Examples",
+      "description": "No examples showing configuration differences for different project types (CLI tools, libraries, web frameworks, embedded systems)",
+      "fix_suggestion": "Add examples for at least 2 different project types showing how book-config.json and workflow would differ (e.g., CLI tool vs library, showing different feature_categories and documentation focus)",
+      "source_reference": ".prodigy/book-config.json:3 (project_type field)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Environment Variable Customization",
+      "description": "No examples of customizing environment variables in the workflow for different deployment scenarios",
+      "fix_suggestion": "Show how to customize env: block in workflow YAML for different needs (development vs CI/CD, different parallelism levels, custom analysis directories)",
+      "source_reference": "workflows/book-docs-drift.yml:9-21 (env block)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Integration Examples",
+      "description": "No examples of integrating the documentation workflow with existing CI/CD pipelines or development workflows",
+      "fix_suggestion": "Add brief examples or cross-references to GitHub Actions integration and how to customize for other CI systems",
+      "source_reference": "book/src/automated-documentation/github-actions-integration.md (cross-reference)"
+    }
+  ],
+  "positive_aspects": [
+    "Subsection is correctly placed in automated-documentation chapter structure",
+    "Title clearly indicates the purpose of the subsection",
+    "Referenced in parent chapter's navigation"
+  ],
+  "improvement_suggestions": [
+    "Include side-by-side comparisons showing before/after customization examples",
+    "Add troubleshooting notes for common customization mistakes",
+    "Include links to real-world projects using the documentation workflow with different configurations",
+    "Add a decision tree or flowchart to help users choose customization options",
+    "Consider adding a 'Quick Customization Checklist' for common scenarios",
+    "Include performance comparisons for different configuration choices",
+    "Add cross-references to Advanced Configuration subsection for detailed option explanations",
+    "Show examples of custom_analysis settings and their impact on documentation quality"
+  ],
+  "cross_references": [
+    "advanced-configuration",
+    "understanding-the-workflow",
+    "quick-start-30-minutes",
+    "github-actions-integration",
+    "best-practices"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T10:45:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [],
+    "validation_focus": "Check customization examples documentation matches implementation",
+    "notes": "Empty feature_mapping indicates this subsection is general-purpose and not tied to specific features. Should provide practical, actionable customization examples across multiple dimensions: languages, project types, workflow configurations, and deployment scenarios."
+  }
+}
