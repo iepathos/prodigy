@@ -23,20 +23,16 @@ Secret values that are automatically masked in logs, output, events, and checkpo
 
 ```yaml
 secrets:
-  # Simple environment variable reference
-  API_KEY:
-    secret: true
-    value: "sk-abc123"
+  # Simple string format - retrieves from environment variable
+  API_KEY: "${env:SECRET_API_KEY}"
 
-  # Provider-based secrets
+  # Provider-based secrets with explicit provider
   DB_PASSWORD:
-    secret: true
     provider: vault
     key: "database/prod/password"
     version: "v2"
 
   AWS_SECRET:
-    secret: true
     provider: aws
     key: "prod/api-credentials"
 ```
@@ -112,9 +108,7 @@ env:
 
 # Secret management
 secrets:
-  API_KEY:
-    secret: true
-    value: "sk-prod-abc123"
+  API_KEY: "${env:SECRET_API_KEY}"
 
 # Environment files
 env_files:

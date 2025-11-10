@@ -40,9 +40,8 @@ profiles:
 
 secrets:
   DATABASE_PASSWORD:
-    secret: true
     provider: vault
-    path: secret/data/db/${PROFILE}
+    key: secret/data/db/${PROFILE}
 
 commands:
   - shell: "echo 'Deploying $PROJECT_NAME v$VERSION to $PROFILE environment'"
@@ -76,26 +75,20 @@ env:
 secrets:
   # Production secrets from AWS Secrets Manager
   AWS_ACCESS_KEY:
-    secret: true
     provider: aws
-    secret_name: prod/aws-credentials
-    key: access_key
+    key: prod/aws-credentials/access_key
 
   AWS_SECRET_KEY:
-    secret: true
     provider: aws
-    secret_name: prod/aws-credentials
-    key: secret_key
+    key: prod/aws-credentials/secret_key
 
   # Database credentials from Vault
   DATABASE_URL:
-    secret: true
     provider: vault
-    path: secret/data/database/prod
+    key: secret/data/database/prod
 
   # API key loaded from env file but masked
-  THIRD_PARTY_API_KEY:
-    secret: true
+  THIRD_PARTY_API_KEY: "${env:THIRD_PARTY_API_KEY}"
     # Loaded from .env.local, still masked in logs
 
 commands:
@@ -198,8 +191,8 @@ profiles:
 # Layer 6: Secrets (separate layer for security)
 secrets:
   API_TOKEN:
-    secret: true
     provider: vault
+    key: secret/data/api-token
 
 commands:
   - shell: "echo 'Mode: $EXECUTION_MODE, Workers: $MAX_WORKERS'"
@@ -408,9 +401,8 @@ profiles:
 
 secrets:
   AWS_ACCESS_KEY:
-    secret: true
     provider: aws
-    secret_name: deploy/${REGION}/credentials
+    key: deploy/${REGION}/credentials
 
 commands:
   - shell: "echo 'Deploying to $REGION'"
@@ -511,14 +503,12 @@ profiles:
 # Layer 4: Secrets
 secrets:
   AWS_ACCESS_KEY:
-    secret: true
     provider: aws
-    secret_name: ${ENVIRONMENT}/pipeline/credentials
+    key: ${ENVIRONMENT}/pipeline/credentials
 
   DATABASE_URL:
-    secret: true
     provider: vault
-    path: secret/data/${ENVIRONMENT}/database
+    key: secret/data/${ENVIRONMENT}/database
 
 setup:
   - shell: "echo 'Starting $PROJECT_NAME v$VERSION in $ENVIRONMENT'"
