@@ -23,6 +23,13 @@ You are performing **holistic validation** of the entire book after the map phas
 
 **Your Goal**: Identify these cross-cutting issues and either fix them automatically or report them for manual review.
 
+**CRITICAL IMPLEMENTATION REQUIREMENTS:**
+
+1. **Use shell commands directly** - All scanning and auto-fix logic should use bash/sed/awk/grep
+2. **Do NOT create Python scripts** - Execute commands inline, don't generate validate_book.py or auto_fix.py
+3. **Whitelist appropriately** - Root-level guides and chapter indexes (without dedicated best-practices.md) can have BP sections
+4. **Better reference detection** - Use ratio of reference vs guide indicators, not absolute counts
+
 ### Phase 2: Extract Parameters
 
 ```bash
@@ -119,17 +126,43 @@ done < /tmp/bp-files.txt
 
 **Issue**: Technical reference pages (syntax, configuration, API) have Best Practices sections.
 
+**IMPORTANT: Whitelist root-level guides and chapter indexes**
+
 **Detection Logic:**
 ```bash
 # Identify technical reference pages
 while read -r FILE; do
-  # Check file content for reference page indicators
-  if grep -qi "syntax\|reference\|configuration\|fields\|options\|parameters" "$FILE" | head -5; then
-    # Check if it's a pure reference page (not a guide)
-    GUIDE_INDICATORS=$(grep -ci "tutorial\|guide\|walkthrough\|example" "$FILE" | head -5)
-    if [ "$GUIDE_INDICATORS" -lt 3 ]; then
-      echo "REFERENCE_PAGE: $FILE is technical reference with Best Practices section"
+  BASENAME=$(basename "$FILE")
+  RELATIVE_PATH="${FILE#$BOOK_DIR/src/}"
+
+  # SKIP: Root-level guide files (appropriate for Best Practices)
+  if [[ "$RELATIVE_PATH" == *.md ]] && [[ ! "$RELATIVE_PATH" =~ / ]]; then
+    # Root-level files like error-handling.md, workflow-basics.md are guides
+    continue
+  fi
+
+  # SKIP: Chapter index.md files (appropriate for Best Practices)
+  if [[ "$BASENAME" == "index.md" ]]; then
+    # Check if chapter has dedicated best-practices.md
+    CHAPTER_DIR=$(dirname "$FILE")
+    if [ ! -f "$CHAPTER_DIR/best-practices.md" ]; then
+      # No dedicated file, index.md can have BP section
+      continue
     fi
+  fi
+
+  # SKIP: Files explicitly marked as guides/tutorials
+  if grep -qi "^# .*\(guide\|tutorial\|introduction\|overview\|getting started\)" "$FILE" | head -1; then
+    continue
+  fi
+
+  # Check file content for reference page indicators
+  REFERENCE_COUNT=$(grep -ci "syntax\|reference\|configuration\|fields\|options\|parameters\|properties\|attributes" "$FILE" | head -20)
+  GUIDE_COUNT=$(grep -ci "tutorial\|guide\|walkthrough\|how to\|step-by-step" "$FILE" | head -20)
+
+  # If reference indicators > guide indicators, it's likely a reference page
+  if [ "$REFERENCE_COUNT" -gt "$((GUIDE_COUNT * 2))" ]; then
+    echo "REFERENCE_PAGE: $FILE is technical reference with Best Practices section"
   fi
 done < /tmp/bp-files.txt
 ```
@@ -345,43 +378,90 @@ echo "  Report written to: $OUTPUT"
 
 ### Phase 6: Auto-Fix Mode (Optional)
 
-If `--auto-fix true`, perform automatic fixes for clear-cut issues:
+If `--auto-fix true`, perform automatic fixes for clear-cut issues.
+
+**IMPORTANT: Use direct shell commands, NOT Python scripts.**
+
+The auto-fix implementation should:
+1. Read the validation.json report
+2. Use sed/awk/grep to make in-place edits
+3. Not generate separate Python scripts
+4. Apply fixes atomically (backup before editing)
 
 #### Fix 1: Remove Redundant Best Practices Sections
 
 ```bash
 # For each redundant Best Practices section
 jq -r '.issues[] | select(.type == "redundant_best_practices") | .files[] | "\(.file) \(.lines[0]) \(.lines[1])"' "$OUTPUT" | while read -r FILE START END; do
-  # Remove lines START to END from FILE
-  sed -i "${START},${END}d" "$BOOK_DIR/src/$FILE"
-  echo "  Removed redundant Best Practices from $FILE"
+  FULL_PATH="$BOOK_DIR/src/$FILE"
+
+  # Backup file before editing
+  cp "$FULL_PATH" "$FULL_PATH.bak"
+
+  # Remove lines START to END (inclusive)
+  sed -i.tmp "${START},${END}d" "$FULL_PATH"
+  rm "$FULL_PATH.tmp" 2>/dev/null || true
+
+  echo "  ✓ Removed redundant Best Practices from $FILE (lines $START-$END)"
 done
 ```
 
 #### Fix 2: Remove Best Practices from Reference Pages
 
-Similar pattern - remove identified sections.
+```bash
+# For each Best Practices section in reference pages
+jq -r '.issues[] | select(.type == "best_practices_in_reference") | .files[] | "\(.file) \(.lines[0]) \(.lines[1])"' "$OUTPUT" | while read -r FILE START END; do
+  FULL_PATH="$BOOK_DIR/src/$FILE"
+
+  # Skip if already processed by redundant_best_practices
+  if [ ! -f "$FULL_PATH.bak" ]; then
+    cp "$FULL_PATH" "$FULL_PATH.bak"
+    sed -i.tmp "${START},${END}d" "$FULL_PATH"
+    rm "$FULL_PATH.tmp" 2>/dev/null || true
+    echo "  ✓ Removed Best Practices from reference page $FILE (lines $START-$END)"
+  fi
+done
+```
 
 #### Fix 3: Consolidate Stub Navigation Files
 
 ```bash
-# For each stub file
+# For each stub navigation file
 jq -r '.issues[] | select(.type == "stub_navigation_file") | .files[] | .file' "$OUTPUT" | while read -r STUB_FILE; do
-  CHAPTER_DIR=$(dirname "$STUB_FILE")
+  STUB_PATH="$BOOK_DIR/src/$STUB_FILE"
+  CHAPTER_DIR=$(dirname "$STUB_PATH")
   INDEX_FILE="$CHAPTER_DIR/index.md"
 
-  # Append stub content to index.md
+  if [ ! -f "$INDEX_FILE" ]; then
+    echo "  ⚠ Warning: No index.md found for $STUB_FILE, skipping"
+    continue
+  fi
+
+  # Backup index before appending
+  cp "$INDEX_FILE" "$INDEX_FILE.bak"
+
+  # Append stub content to index.md with separator
   echo "" >> "$INDEX_FILE"
-  cat "$STUB_FILE" >> "$INDEX_FILE"
+  echo "---" >> "$INDEX_FILE"
+  echo "" >> "$INDEX_FILE"
+  cat "$STUB_PATH" >> "$INDEX_FILE"
 
   # Remove stub file
-  rm "$STUB_FILE"
+  rm "$STUB_PATH"
 
   # Update SUMMARY.md to remove stub reference
-  sed -i "/$(basename "$STUB_FILE")/d" "$BOOK_DIR/src/SUMMARY.md"
+  STUB_BASENAME=$(basename "$STUB_FILE")
+  sed -i.tmp "/\[$STUB_BASENAME\]/d" "$BOOK_DIR/src/SUMMARY.md"
+  rm "$BOOK_DIR/src/SUMMARY.md.tmp" 2>/dev/null || true
 
-  echo "  Consolidated $STUB_FILE into $INDEX_FILE"
+  echo "  ✓ Consolidated $STUB_FILE into index.md"
 done
+```
+
+**Cleanup Backups:**
+```bash
+# Remove backup files after successful fixes
+find "$BOOK_DIR/src" -name "*.bak" -delete
 ```
 
 **Commit Auto-Fixes:**
