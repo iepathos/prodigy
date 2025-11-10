@@ -40,11 +40,20 @@ env:
   DEBUG_MODE: "false"
 
 # Secrets are a separate top-level configuration
-# They support provider-based secret management
+# They support two formats: Simple and Provider-based
 secrets:
+  # Simple format - directly references environment variable
+  SIMPLE_SECRET: "ENV_VAR_NAME"
+
+  # Provider format - explicit provider configuration
   API_TOKEN:
     provider: env
     key: "GITHUB_TOKEN"
+
+  # File-based secret provider
+  FILE_SECRET:
+    provider: file
+    key: "/path/to/secret/file"
 
 profiles:
   development:
@@ -62,6 +71,29 @@ setup:
 - Need environment variables or secrets
 - Workflow requires parameterization
 - Building reusable workflow templates
+
+**Secret Format Details:**
+
+Secrets support two formats (defined in `src/cook/environment/config.rs:86-95`):
+
+1. **Simple format** - Direct environment variable reference:
+   ```yaml
+   secrets:
+     API_KEY: "ENV_VAR_NAME"  # Reads from $ENV_VAR_NAME
+   ```
+
+2. **Provider format** - Explicit provider configuration:
+   ```yaml
+   secrets:
+     API_KEY:
+       provider: env          # Providers: env, file
+       key: "GITHUB_TOKEN"    # Source key/path
+       version: "v1"          # Optional version
+   ```
+
+Both formats mask secret values in logs. The Simple format is convenient for environment variables, while Provider format supports file-based secrets and versioning.
+
+**Source**: Example workflow at `workflows/mapreduce-env-example.yml:23-26`
 
 ### MapReduce Syntax Evolution
 
@@ -132,7 +164,9 @@ reduce:
 - This format is still supported for backward compatibility
 - New workflows should use the direct array syntax
 - Future versions may remove support for nested `commands`
-- When using the old format, Prodigy emits a warning: "Using deprecated nested 'commands' syntax in agent_template. Consider using the simplified array format directly under 'agent_template'." (src/config/mapreduce.rs:310, 347)
+- When using the old format, Prodigy emits a warning: "Using deprecated nested 'commands' syntax in agent_template. Consider using the simplified array format directly under 'agent_template'."
+
+**Source**: Deprecation warnings in `src/config/mapreduce.rs:310, 347`
 
 ### Migration Guide
 
@@ -190,8 +224,8 @@ Choose your format based on these questions:
 
 ### Cross-References
 
-- [Setup Phase](./setup-phase.md) - Detailed setup phase configuration
-- [Map Phase](./map-phase.md) - Map phase command templates
-- [Reduce Phase](./reduce-phase.md) - Reduce phase aggregation
-- [Basic Workflow Structure](../workflow-basics/basic-structure.md) - Standard workflow fundamentals
+- [Setup Phase Advanced](./setup-phase-advanced.md) - Detailed setup phase configuration and patterns
+- [MapReduce Overview](./index.md) - MapReduce workflow fundamentals and phase documentation
+- [Full Workflow Structure](../workflow-basics/full-workflow-structure.md) - Complete workflow configuration reference
+- [Environment Variables in Configuration](./environment-variables-in-configuration.md) - Using variables and secrets in workflows
 
