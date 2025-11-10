@@ -7,6 +7,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::SystemTime;
 
 /// Run the logs command
 pub async fn run_logs_command(
@@ -103,34 +104,39 @@ fn find_latest_log(log_dir: &Path) -> Result<PathBuf> {
     }
 
     // Sort by modification time
-    log_files.sort_by_key(|entry| {
-        entry
-            .metadata()
-            .and_then(|m| m.modified())
-            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
-    });
+    log_files.sort_by_key(|(_, modified)| *modified);
 
     log_files
         .last()
-        .map(|e| e.path())
+        .map(|(path, _)| path.clone())
         .context("No log files found")
 }
 
 /// Recursively collect all .jsonl log files
-fn collect_log_files(dir: &Path, files: &mut Vec<fs::DirEntry>) -> Result<()> {
+/// Returns (PathBuf, SystemTime) tuples to avoid holding DirEntry file descriptors
+fn collect_log_files(dir: &Path, files: &mut Vec<(PathBuf, SystemTime)>) -> Result<()> {
     if !dir.is_dir() {
         return Ok(());
     }
 
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
+    // Collect all entries first, then process them
+    // This ensures read_dir's file descriptor is closed before recursing
+    let entries: Vec<_> = fs::read_dir(dir)?.collect::<Result<Vec<_>, _>>()?;
+
+    for entry in entries {
         let path = entry.path();
 
         if path.is_dir() {
             // Recursively search subdirectories
             collect_log_files(&path, files)?;
         } else if is_log_file(&path) {
-            files.push(entry);
+            // Extract metadata immediately and drop the DirEntry
+            // This prevents accumulating thousands of open file descriptors
+            let modified = entry
+                .metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(SystemTime::UNIX_EPOCH);
+            files.push((path, modified));
         }
     }
 
@@ -150,8 +156,7 @@ fn find_log_for_session(log_dir: &Path, session_id: &str) -> Result<PathBuf> {
     collect_log_files(log_dir, &mut log_files)?;
 
     // Look for a file containing the session ID
-    for entry in log_files {
-        let path = entry.path();
+    for (path, _modified) in log_files {
         let filename = path
             .file_name()
             .and_then(|n| n.to_str())
@@ -186,42 +191,31 @@ fn list_recent_logs(log_dir: &Path) -> Result<()> {
     }
 
     // Sort by modification time (most recent first)
-    log_files.sort_by_key(|entry| {
-        entry
-            .metadata()
-            .and_then(|m| m.modified())
-            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
-    });
+    log_files.sort_by_key(|(_, modified)| *modified);
     log_files.reverse();
 
     println!("Recent Claude logs (showing up to 20 most recent):\n");
 
-    for (i, entry) in log_files.iter().take(20).enumerate() {
-        let path = entry.path();
-        let metadata = entry.metadata().ok();
-        let modified = metadata
-            .as_ref()
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| {
-                t.duration_since(std::time::SystemTime::UNIX_EPOCH)
-                    .ok()
-                    .map(|d| {
-                        chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
-                            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
-                            .unwrap_or_default()
-                    })
+    for (i, (path, modified)) in log_files.iter().take(20).enumerate() {
+        // Get file size - reopen file only when needed for display
+        let size = fs::metadata(path).ok().map(|m| m.len()).unwrap_or(0);
+        let size_kb = size / 1024;
+
+        let modified_str = modified
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .ok()
+            .and_then(|d| {
+                chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
             })
             .unwrap_or_else(|| "unknown".to_string());
-
-        let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
-        let size_kb = size / 1024;
 
         println!(
             "{:2}. {} ({} KB) - {}",
             i + 1,
             path.display(),
             size_kb,
-            modified
+            modified_str
         );
     }
 
