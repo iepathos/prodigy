@@ -9,15 +9,15 @@ name: deployment-pipeline
 mode: standard
 
 sub_workflows:
-  - name: "lint-and-test"
+  lint-and-test:
     source: "workflows/quality-checks.yml"
 
-  - name: "build"
+  build:
     source: "workflows/build.yml"
     parameters:
       environment: "production"
 
-  - name: "deploy"
+  deploy:
     source: "workflows/deploy.yml"
     inputs:
       build_artifact: "${build.artifact_path}"
@@ -25,11 +25,11 @@ sub_workflows:
 
 ### Sub-Workflow Configuration
 
-Each sub-workflow supports these fields (defined in `SubWorkflow` struct, src/cook/workflow/composition/sub_workflow.rs:13-66):
+Each sub-workflow is defined as a key-value pair in a HashMap, where the key is the sub-workflow name (defined in `SubWorkflow` struct, src/cook/workflow/composition/sub_workflow.rs:13-66):
 
 ```yaml
 sub_workflows:
-  - name: "validation"
+  validation:  # Key is the sub-workflow name
     source: "path/to/workflow.yml"  # Required: workflow file path
 
     parameters:                       # Optional: parameter values
@@ -51,6 +51,7 @@ sub_workflows:
     timeout: 1800                     # Optional: sub-workflow timeout (seconds)
 
     working_dir: "./sub-project"      # Optional: working directory for sub-workflow
+                                       # Note: Parsed but not yet applied (implementation in progress)
 ```
 
 **Source**: `SubWorkflow` struct in src/cook/workflow/composition/sub_workflow.rs:13-66
@@ -59,12 +60,20 @@ sub_workflows:
 
 ### Parent-Child Context Isolation
 
-Sub-workflows execute in isolated contexts:
+Sub-workflows execute in isolated contexts with clean variable scopes (src/cook/workflow/composition/sub_workflow.rs:242-262):
 
-- **Separate variable scope**: Sub-workflow variables don't leak to parent
-- **Explicit input passing**: Use `inputs` to pass parent values to child
-- **Output extraction**: Use `outputs` to capture child results
+- **Empty variable scope**: Sub-workflow starts with cleared variables (`sub_context.variables.clear()`)
+- **Explicit input passing**: Use `inputs` to copy specific parent variables to child context
+- **No variable leakage**: Sub-workflow variables don't leak back to parent
+- **Output extraction**: Use `outputs` to explicitly capture child results
 - **Independent git state**: Sub-workflows can operate in different directories
+
+The isolation process:
+1. Clone parent context
+2. Clear all variables in cloned context
+3. Copy only specified `inputs` from parent to child
+4. Execute sub-workflow in isolated context
+5. Extract only specified `outputs` back to parent
 
 ### Output Variable Extraction
 
@@ -73,34 +82,34 @@ Capture values from sub-workflow execution:
 ```yaml
 # parent-workflow.yml
 sub_workflows:
-  - name: "build"
+  build:  # Sub-workflow name
     source: "workflows/build.yml"
     outputs:
       - "docker_image_tag"
       - "artifact_sha256"
 
 commands:
-  # Use sub-workflow outputs
+  # Access outputs using ${sub-workflow-name.output-variable}
   - shell: "echo Deploying ${build.docker_image_tag}"
   - shell: "verify-checksum ${build.artifact_sha256}"
 ```
 
 ### Parallel Execution
 
-Run multiple sub-workflows concurrently:
+Run multiple sub-workflows concurrently using `tokio::spawn` for concurrent task execution (src/cook/workflow/composition/sub_workflow.rs:179-226):
 
 ```yaml
 sub_workflows:
   # These run in parallel
-  - name: "unit-tests"
+  unit-tests:
     source: "workflows/unit-tests.yml"
     parallel: true
 
-  - name: "integration-tests"
+  integration-tests:
     source: "workflows/integration-tests.yml"
     parallel: true
 
-  - name: "e2e-tests"
+  e2e-tests:
     source: "workflows/e2e-tests.yml"
     parallel: true
 
@@ -109,6 +118,12 @@ commands:
   - shell: "echo All tests completed"
 ```
 
+**Execution behavior:**
+- Each parallel sub-workflow spawns as a separate async task (`tokio::spawn`)
+- Parent workflow waits for all parallel tasks to complete via `join`
+- All outputs are merged back to parent context after completion
+- If any parallel sub-workflow fails, execution stops (unless `continue_on_error: true`)
+
 ### Error Handling
 
 Control behavior when sub-workflows fail:
@@ -116,12 +131,12 @@ Control behavior when sub-workflows fail:
 ```yaml
 sub_workflows:
   # Critical step - fail parent if this fails
-  - name: "security-scan"
+  security-scan:
     source: "workflows/security-scan.yml"
     continue_on_error: false  # Default behavior
 
   # Optional step - parent continues even if this fails
-  - name: "performance-test"
+  performance-test:
     source: "workflows/perf-test.yml"
     continue_on_error: true
 ```
@@ -135,22 +150,22 @@ mode: standard
 
 sub_workflows:
   # Step 1: Validation (sequential)
-  - name: "validate"
+  validate:
     source: "workflows/validation.yml"
     outputs:
       - "validation_passed"
 
   # Step 2: Tests (parallel)
-  - name: "unit-tests"
+  unit-tests:
     source: "workflows/unit-tests.yml"
     parallel: true
 
-  - name: "integration-tests"
+  integration-tests:
     source: "workflows/integration-tests.yml"
     parallel: true
 
   # Step 3: Build (sequential, after tests)
-  - name: "build"
+  build:
     source: "workflows/build.yml"
     parameters:
       optimization_level: "3"
@@ -158,7 +173,7 @@ sub_workflows:
       - "artifact_path"
 
   # Step 4: Deploy (sequential, uses build output)
-  - name: "deploy"
+  deploy:
     source: "workflows/deploy.yml"
     inputs:
       artifact: "${build.artifact_path}"
@@ -178,20 +193,22 @@ commands:
 
 ### Working Directory Isolation
 
-Sub-workflows can operate in different directories:
+Sub-workflows can specify different working directories (parsed but not yet applied - see implementation note in src/cook/workflow/composition/sub_workflow.rs:104-107):
 
 ```yaml
 sub_workflows:
   # Backend tests in backend/
-  - name: "backend-tests"
+  backend-tests:
     source: "workflows/rust-tests.yml"
-    working_dir: "./backend"
+    working_dir: "./backend"  # Parsed but not yet applied
 
   # Frontend tests in frontend/
-  - name: "frontend-tests"
+  frontend-tests:
     source: "workflows/js-tests.yml"
-    working_dir: "./frontend"
+    working_dir: "./frontend"  # Parsed but not yet applied
 ```
+
+> **Note**: The `working_dir` field is parsed and validated but not yet applied during execution. The `WorkflowContext` struct needs a `working_directory` field to enable this feature. Currently, all sub-workflows execute in the parent's working directory.
 
 ### Timeout Configuration
 
@@ -199,11 +216,11 @@ Set execution time limits:
 
 ```yaml
 sub_workflows:
-  - name: "quick-tests"
+  quick-tests:
     source: "workflows/smoke-tests.yml"
     timeout: 120  # 2 minutes
 
-  - name: "comprehensive-tests"
+  comprehensive-tests:
     source: "workflows/full-suite.yml"
     timeout: 3600  # 1 hour
 ```
@@ -229,13 +246,13 @@ sub_workflows:
 ```yaml
 sub_workflows:
   # Different deployment sub-workflows per environment
-  - name: "deploy-staging"
+  deploy-staging:
     source: "workflows/deploy.yml"
     parameters:
       environment: "staging"
       replicas: "2"
 
-  - name: "deploy-production"
+  deploy-production:
     source: "workflows/deploy.yml"
     parameters:
       environment: "production"
@@ -250,25 +267,25 @@ mode: standard
 
 sub_workflows:
   # Validate everything first
-  - name: "validate"
+  validate:
     source: "shared/validate.yml"
 
   # Test all services in parallel
-  - name: "api-tests"
+  api-tests:
     source: "services/api/test.yml"
     working_dir: "./services/api"
     parallel: true
     outputs:
       - "coverage"
 
-  - name: "worker-tests"
+  worker-tests:
     source: "services/worker/test.yml"
     working_dir: "./services/worker"
     parallel: true
     outputs:
       - "coverage"
 
-  - name: "frontend-tests"
+  frontend-tests:
     source: "apps/frontend/test.yml"
     working_dir: "./apps/frontend"
     parallel: true
@@ -285,17 +302,19 @@ commands:
 
 ### Sub-Workflow Result
 
-Each sub-workflow execution produces a `SubWorkflowResult`:
+Each sub-workflow execution produces a `SubWorkflowResult` (src/cook/workflow/composition/sub_workflow.rs:48-65):
 
 ```rust
 SubWorkflowResult {
-    name: String,           // Sub-workflow name
-    success: bool,          // Execution success
-    outputs: HashMap<>,     // Extracted output variables
-    duration: Duration,     // Execution time
-    error: Option<String>,  // Error message if failed
+    success: bool,                // Execution success
+    outputs: HashMap<String, Value>, // Extracted output variables
+    duration: Duration,           // Execution time
+    error: Option<String>,        // Error message if failed
+    logs: Vec<String>,            // Sub-workflow execution logs
 }
 ```
+
+**Note**: The sub-workflow name is tracked separately as the HashMap key in the parent workflow's `sub_workflows` field, not as a field within `SubWorkflowResult`.
 
 ### Implementation Status
 
