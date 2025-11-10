@@ -186,7 +186,7 @@ error_policy:
 **Error Collection Strategies:**
 - `aggregate` - Collect all errors and report at the end (default)
 - `immediate` - Report errors as they occur
-- `batched:N` - Report errors in batches of N items (e.g., `batched:10`)
+- `batched` - Report errors in batches of N items (e.g., `batched: { size: 10 }`)
 
 **Source**: ErrorCollectionStrategy enum in src/cook/workflow/error_policy.rs:33-44
 
@@ -333,8 +333,8 @@ You can also access metrics programmatically via the Prodigy API or through CLI 
 
 Prodigy automatically detects recurring error patterns when an error type occurs 3 or more times. The following error types receive specific remediation suggestions in the `failure_patterns` field:
 
-- **Timeout errors** → "Consider increasing agent_timeout_secs"
-- **Network errors** → "Check network connectivity and retry configuration"
+- **Timeout errors** → "Consider increasing timeout_per_agent"
+- **Network errors** → "Check network connectivity and retry settings"
 - **Permission errors** → "Verify file permissions and access rights"
 
 All other error types receive a generic suggestion: "Review error logs for more details."
@@ -505,7 +505,9 @@ error_policy:
     half_open_requests: 5
 
   # Report errors in batches of 10
-  error_collection: batched:10
+  error_collection:
+    batched:
+      size: 10
 
 map:
   agent_template:
