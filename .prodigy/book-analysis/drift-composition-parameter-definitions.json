@@ -1,0 +1,84 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "composition",
+  "subsection_id": "parameter-definitions",
+  "subsection_title": "Parameter Definitions",
+  "subsection_file": "book/src/composition/parameter-definitions.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is well-structured and accurate but missing some implementation details about parameter precedence and interpolation syntax.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Parameter Structure",
+      "description": "Documentation shows 'definitions:' key but implementation uses 'required' and 'optional' directly under 'parameters'",
+      "current_content": "parameters:\n  definitions:\n    environment:\n      type: String",
+      "should_be": "parameters:\n  required:\n    - name: environment\n      type: String\n  optional:\n    - name: debug_mode\n      type: Boolean",
+      "fix_suggestion": "Update the Parameter Structure section to show the correct YAML structure with required and optional arrays",
+      "source_reference": "src/cook/workflow/composition/mod.rs:97-107"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Parameter Precedence",
+      "description": "Documentation mentions precedence but doesn't explain 'defaults' field in workflow",
+      "fix_suggestion": "Add explanation that workflows can have a 'defaults' field at the workflow level that provides default values, separate from parameter-level defaults",
+      "source_reference": "src/cook/workflow/composition/mod.rs:204"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Using Parameters in Workflows",
+      "description": "Documentation doesn't explain that parameter interpolation uses the same ${param_name} syntax as other workflow variables",
+      "fix_suggestion": "Clarify that parameters are interpolated into commands using the standard variable interpolation system",
+      "source_reference": "src/cook/workflow/variables.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "CLI Integration",
+      "description": "Missing information about automatic type inference for CLI parameters",
+      "fix_suggestion": "Add note that CLI --param values are automatically type-inferred (numbers, booleans, strings)",
+      "source_reference": "src/cli/params.rs:51-72"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of parameter types with table",
+    "Good examples of validation expressions (even if not fully implemented)",
+    "Complete example showing real-world usage",
+    "Accurate implementation status section",
+    "Source code references are helpful (e.g., src/cook/workflow/composition/mod.rs:131-141)"
+  ],
+  "improvement_suggestions": [
+    "Fix the Parameter Structure example to match actual implementation",
+    "Add clarification about the 'defaults' field at workflow level vs parameter level",
+    "Include example of how parameters work with imports and extends",
+    "Add troubleshooting section for common parameter errors",
+    "Show example of Array and Object parameter usage (not just basic types)"
+  ],
+  "cross_references": [
+    "template-system",
+    "default-values"
+  ],
+  "link_validation": {
+    "total_links": 2,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-01-11T12:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Parameter Definitions",
+      "Basic Parameter Definition",
+      "Parameter Structure",
+      "Parameter Types",
+      "Default Values",
+      "Validation Expressions",
+      "CLI Integration"
+    ],
+    "validation_focus": "Check parameter definitions documentation matches implementation"
+  }
+}
