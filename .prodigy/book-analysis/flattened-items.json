@@ -1,15 +1,107 @@
 [
   {
-    "id": "workflow-basics",
-    "title": "Workflow Basics",
-    "file": "book/src/workflow-basics.md",
+    "id": "available-fields",
+    "title": "Available Fields",
+    "file": "book/src/workflow-basics/available-fields.md",
     "topics": [
-      "Standard workflows",
-      "Basic structure",
-      "Command execution"
+      "Available Fields"
     ],
-    "validation": "Check basic workflow syntax and structure documentation",
-    "type": "single-file"
+    "validation": "Check available fields documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "workflow-basics",
+    "parent_chapter_title": "Workflow Basics"
+  },
+  {
+    "id": "command-level-options",
+    "title": "Command-Level Options",
+    "file": "book/src/workflow-basics/command-level-options.md",
+    "topics": [
+      "Command-Level Options"
+    ],
+    "validation": "Check command-level options documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "workflow-basics",
+    "parent_chapter_title": "Workflow Basics"
+  },
+  {
+    "id": "command-types",
+    "title": "Command Types",
+    "file": "book/src/workflow-basics/command-types.md",
+    "topics": [
+      "Command Types"
+    ],
+    "validation": "Check command types documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "workflow-basics",
+    "parent_chapter_title": "Workflow Basics"
+  },
+  {
+    "id": "complete-example",
+    "title": "Complete Example",
+    "file": "book/src/workflow-basics/complete-example.md",
+    "topics": [
+      "Complete Example"
+    ],
+    "validation": "Check complete example documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "workflow-basics",
+    "parent_chapter_title": "Workflow Basics"
+  },
+  {
+    "id": "environment-configuration",
+    "title": "Environment Configuration",
+    "file": "book/src/workflow-basics/environment-configuration.md",
+    "topics": [
+      "Environment Configuration"
+    ],
+    "validation": "Check environment configuration documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "workflow-basics",
+    "parent_chapter_title": "Workflow Basics"
+  },
+  {
+    "id": "full-workflow-structure",
+    "title": "Full Workflow Structure",
+    "file": "book/src/workflow-basics/full-workflow-structure.md",
+    "topics": [
+      "Full Workflow Structure"
+    ],
+    "validation": "Check full workflow structure documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "workflow-basics",
+    "parent_chapter_title": "Workflow Basics"
+  },
+  {
+    "id": "merge-workflows",
+    "title": "Merge Workflows",
+    "file": "book/src/workflow-basics/merge-workflows.md",
+    "topics": [
+      "Merge Workflows"
+    ],
+    "validation": "Check merge workflows documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "workflow-basics",
+    "parent_chapter_title": "Workflow Basics"
+  },
+  {
+    "id": "next-steps",
+    "title": "Next Steps",
+    "file": "book/src/workflow-basics/next-steps.md",
+    "topics": [
+      "next steps"
+    ],
+    "validation": "Check next steps documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "workflow-basics",
+    "parent_chapter_title": "Workflow Basics"
   },
   {
     "id": "checkpoint-and-resume",
@@ -22,13 +114,13 @@
       "recovery"
     ],
     "validation": "Check checkpoint structure and resume behavior documented",
-    "type": "subsection",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "mapreduce.checkpoint",
       "mapreduce.resume"
-    ]
+    ],
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows"
   },
   {
     "id": "dead-letter-queue-dlq",
@@ -41,13 +133,13 @@
       "error handling"
     ],
     "validation": "Check DLQ structure and retry commands documented",
-    "type": "subsection",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "mapreduce.dlq",
       "error_handling.dlq"
-    ]
+    ],
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows"
   },
   {
     "id": "environment-variables-in-configuration",
@@ -60,13 +152,13 @@
       "configuration"
     ],
     "validation": "Check environment variable configuration in MapReduce workflows",
-    "type": "subsection",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "environment.mapreduce",
       "environment.variables"
-    ]
+    ],
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows"
   },
   {
     "id": "error-collection-strategies",
@@ -78,13 +170,13 @@
       "fail fast"
     ],
     "validation": "Check error collection strategies documented",
-    "type": "subsection",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "error_handling.collection",
       "mapreduce.error_policy"
-    ]
+    ],
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows"
   },
   {
     "id": "event-tracking",
@@ -97,13 +189,13 @@
       "debugging"
     ],
     "validation": "Check event tracking and monitoring features",
-    "type": "subsection",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "mapreduce.events",
       "observability.events"
-    ]
+    ],
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows"
   },
   {
     "id": "global-storage-architecture",
@@ -115,13 +207,13 @@
       "worktree isolation"
     ],
     "validation": "Check global storage architecture documented",
-    "type": "subsection",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "storage.global",
       "mapreduce.storage"
-    ]
+    ],
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows"
   },
   {
     "id": "setup-phase-advanced",
@@ -133,13 +225,13 @@
       "preprocessing"
     ],
     "validation": "Check advanced setup phase features",
-    "type": "subsection",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "mapreduce.setup",
       "mapreduce.phases"
-    ]
+    ],
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows"
   },
   {
     "id": "backoff-strategies",
@@ -152,13 +244,13 @@
       "fibonacci"
     ],
     "validation": "Check retry backoff strategies documented",
-    "type": "subsection",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "retry.backoff",
       "mapreduce.retry"
-    ]
+    ],
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows"
   },
   {
     "id": "workflow-format-comparison",
@@ -170,13 +262,13 @@
       "comparison"
     ],
     "validation": "Check workflow format comparisons",
-    "type": "subsection",
-    "parent_chapter_id": "mapreduce",
-    "parent_chapter_title": "MapReduce Workflows",
     "feature_mapping": [
       "mapreduce.syntax",
       "workflow.formats"
-    ]
+    ],
+    "type": "subsection",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows"
   },
   {
     "id": "commands",
@@ -193,43 +285,306 @@
     "type": "single-file"
   },
   {
-    "id": "variables",
-    "title": "Variables and Interpolation",
-    "file": "book/src/variables.md",
+    "id": "available-variables",
+    "title": "Available Variables",
+    "file": "book/src/variables/available-variables.md",
     "topics": [
-      "Standard variables",
-      "Output variables",
-      "MapReduce variables",
-      "Custom capture"
+      "Available Variables",
+      "Standard Variables",
+      "Workflow Context Variables",
+      "Step Context Variables",
+      "Item Variables (Map Phase Only)"
     ],
-    "validation": "Check all variable types and interpolation syntax",
-    "type": "single-file"
+    "validation": "Check available variables documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "variables",
+    "parent_chapter_title": "Variables and Interpolation"
   },
   {
-    "id": "environment",
-    "title": "Environment Configuration",
-    "file": "book/src/environment.md",
+    "id": "custom-variable-capture",
+    "title": "Custom Variable Capture",
+    "file": "book/src/variables/custom-variable-capture.md",
     "topics": [
-      "Global environment",
-      "Secrets management",
-      "Profiles",
-      "Step-level environment"
+      "Custom Variable Capture",
+      "Basic Syntax",
+      "Default Variable Names",
+      "Capture Formats",
+      "Metadata Fields"
     ],
-    "validation": "Check environment configuration options and syntax",
-    "type": "single-file"
+    "validation": "Check custom variable capture documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "variables",
+    "parent_chapter_title": "Variables and Interpolation"
   },
   {
-    "id": "advanced",
-    "title": "Advanced Features",
-    "file": "book/src/advanced.md",
+    "id": "see-also",
+    "title": "See Also",
+    "file": "book/src/variables/see-also.md",
     "topics": [
-      "Conditional execution",
-      "Output capture formats",
-      "Nested conditionals",
-      "Timeouts"
+      "Related Documentation",
+      "Key Concepts",
+      "External Resources",
+      "Quick Reference"
     ],
-    "validation": "Check advanced features match implementation",
-    "type": "single-file"
+    "validation": "Check see also documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "variables",
+    "parent_chapter_title": "Variables and Interpolation"
+  },
+  {
+    "id": "troubleshooting-variable-interpolation",
+    "title": "Troubleshooting Variable Interpolation",
+    "file": "book/src/variables/troubleshooting-variable-interpolation.md",
+    "topics": [
+      "Troubleshooting Variable Interpolation",
+      "Issue: Variables Not Interpolating",
+      "Issue: Variable Empty or Undefined",
+      "Issue: Phase-Specific Variable Not Available",
+      "Issue: Nested Field Access Fails"
+    ],
+    "validation": "Check troubleshooting variable interpolation documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "variables",
+    "parent_chapter_title": "Variables and Interpolation"
+  },
+  {
+    "id": "best-practices",
+    "title": "Best Practices",
+    "file": "book/src/environment/best-practices.md",
+    "topics": [
+      "Best Practices",
+      "Environment Variable Usage",
+      "Naming Conventions",
+      "Secrets Management Guidelines",
+      "Profile Organization Strategies"
+    ],
+    "validation": "Check best practices documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "environment",
+    "parent_chapter_title": "Environment Configuration"
+  },
+  {
+    "id": "common-patterns",
+    "title": "Common Patterns",
+    "file": "book/src/environment/common-patterns.md",
+    "topics": [
+      "Common Patterns",
+      "Multi-Environment Deployment Pattern",
+      "Secrets Management Pattern",
+      "Profile-Based Configuration Strategy",
+      "Environment Variable Composition Pattern"
+    ],
+    "validation": "Check common patterns documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "environment",
+    "parent_chapter_title": "Environment Configuration"
+  },
+  {
+    "id": "environment-files",
+    "title": "Environment Files",
+    "file": "book/src/environment/environment-files.md",
+    "topics": [
+      "Environment Files",
+      "Integration with Profiles and Secrets"
+    ],
+    "validation": "Check environment files documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "environment",
+    "parent_chapter_title": "Environment Configuration"
+  },
+  {
+    "id": "environment-precedence",
+    "title": "Environment Precedence",
+    "file": "book/src/environment/environment-precedence.md",
+    "topics": [
+      "Environment Precedence"
+    ],
+    "validation": "Check environment precedence documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "environment",
+    "parent_chapter_title": "Environment Configuration"
+  },
+  {
+    "id": "environment-profiles",
+    "title": "Environment Profiles",
+    "file": "book/src/environment/environment-profiles.md",
+    "topics": [
+      "Environment Profiles"
+    ],
+    "validation": "Check environment profiles documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "environment",
+    "parent_chapter_title": "Environment Configuration"
+  },
+  {
+    "id": "mapreduce-environment-variables",
+    "title": "MapReduce Environment Variables",
+    "file": "book/src/environment/mapreduce-environment-variables.md",
+    "topics": [
+      "MapReduce Environment Variables",
+      "Setup Phase Environment Variables",
+      "Map Phase Environment Variables",
+      "Reduce Phase Environment Variables",
+      "Merge Phase Environment Variables"
+    ],
+    "validation": "Check mapreduce environment variables documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "environment",
+    "parent_chapter_title": "Environment Configuration"
+  },
+  {
+    "id": "per-command-environment-overrides",
+    "title": "Per-Command Environment Overrides",
+    "file": "book/src/environment/per-command-environment-overrides.md",
+    "topics": [
+      "Per-Command Environment Overrides"
+    ],
+    "validation": "Check per-command environment overrides documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "environment",
+    "parent_chapter_title": "Environment Configuration"
+  },
+  {
+    "id": "secrets-management",
+    "title": "Secrets Management",
+    "file": "book/src/environment/secrets-management.md",
+    "topics": [
+      "Secrets Management"
+    ],
+    "validation": "Check secrets management documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "environment",
+    "parent_chapter_title": "Environment Configuration"
+  },
+  {
+    "id": "best-practices",
+    "title": "Best Practices",
+    "file": "book/src/advanced/best-practices.md",
+    "topics": [
+      "Best Practices",
+      "1. Use Meaningful Variable Names",
+      "2. Set Appropriate Timeouts",
+      "3. Handle Failures Gracefully",
+      "4. Validate Critical Changes"
+    ],
+    "validation": "Check best practices documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "advanced",
+    "parent_chapter_title": "Advanced Features"
+  },
+  {
+    "id": "common-patterns",
+    "title": "Common Patterns",
+    "file": "book/src/advanced/common-patterns.md",
+    "topics": [
+      "Common Patterns",
+      "Test-Fix-Verify Loop",
+      "Parallel Processing with Aggregation",
+      "Gradual Quality Improvement",
+      "Conditional Deployment"
+    ],
+    "validation": "Check common patterns documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "advanced",
+    "parent_chapter_title": "Advanced Features"
+  },
+  {
+    "id": "goal-seeking-operations",
+    "title": "Goal-Seeking Operations",
+    "file": "book/src/advanced/goal-seeking-operations.md",
+    "topics": [
+      "Goal-Seeking Operations",
+      "Basic Goal Seek",
+      "Advanced Goal Seek Configuration",
+      "Validation Integration",
+      "Progressive Refinement"
+    ],
+    "validation": "Check goal-seeking operations documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "advanced",
+    "parent_chapter_title": "Advanced Features"
+  },
+  {
+    "id": "implementation-validation",
+    "title": "Implementation Validation",
+    "file": "book/src/advanced/implementation-validation.md",
+    "topics": [
+      "Implementation Validation",
+      "Basic Validation",
+      "Validation with Claude",
+      "Multi-Step Validation",
+      "Validation with Result Files"
+    ],
+    "validation": "Check implementation validation documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "advanced",
+    "parent_chapter_title": "Advanced Features"
+  },
+  {
+    "id": "parallel-iteration-with-foreach",
+    "title": "Parallel Iteration with Foreach",
+    "file": "book/src/advanced/parallel-iteration-with-foreach.md",
+    "topics": [
+      "Parallel Iteration with Foreach",
+      "Basic Foreach",
+      "Dynamic Item Lists",
+      "Parallel Execution",
+      "Error Handling"
+    ],
+    "validation": "Check parallel iteration with foreach documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "advanced",
+    "parent_chapter_title": "Advanced Features"
+  },
+  {
+    "id": "step-identification",
+    "title": "Step Identification",
+    "file": "book/src/advanced/step-identification.md",
+    "topics": [
+      "Step Identification",
+      "Available Step Reference Fields",
+      "Basic Step IDs",
+      "When to Use Step IDs"
+    ],
+    "validation": "Check step identification documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "advanced",
+    "parent_chapter_title": "Advanced Features"
+  },
+  {
+    "id": "timeout-configuration",
+    "title": "Timeout Configuration",
+    "file": "book/src/advanced/timeout-configuration.md",
+    "topics": [
+      "Timeout Configuration",
+      "Basic Timeouts",
+      "Environment Variable Support",
+      "Workflow-Level Timeouts",
+      "Best Practices"
+    ],
+    "validation": "Check timeout configuration documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "advanced",
+    "parent_chapter_title": "Advanced Features"
   },
   {
     "id": "error-handling",
@@ -258,75 +613,810 @@
     "type": "single-file"
   },
   {
+    "id": "best-practices-for-debugging",
+    "title": "Best Practices for Debugging",
+    "file": "book/src/troubleshooting/best-practices-for-debugging.md",
+    "topics": [
+      "Best Practices for Debugging"
+    ],
+    "validation": "Check best practices for debugging documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "troubleshooting",
+    "parent_chapter_title": "Troubleshooting"
+  },
+  {
+    "id": "common-error-messages",
+    "title": "Common Error Messages",
+    "file": "book/src/troubleshooting/common-error-messages.md",
+    "topics": [
+      "Common Error Messages",
+      "\"checkpoint not found\"",
+      "\"items.json not found\"",
+      "\"command not found: claude\"",
+      "\"permission denied\""
+    ],
+    "validation": "Check common error messages documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "troubleshooting",
+    "parent_chapter_title": "Troubleshooting"
+  },
+  {
+    "id": "faq",
+    "title": "FAQ",
+    "file": "book/src/troubleshooting/faq.md",
+    "topics": [
+      "FAQ",
+      "How do I debug variable interpolation issues?",
+      "What should I do when checkpoint resume fails?",
+      "How do I retry failed DLQ items?",
+      "Why are my MapReduce items not being found?"
+    ],
+    "validation": "Check faq documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "troubleshooting",
+    "parent_chapter_title": "Troubleshooting"
+  },
+  {
+    "id": "advanced-configuration",
+    "title": "Advanced Configuration",
+    "file": "book/src/automated-documentation/advanced-configuration.md",
+    "topics": [
+      "Advanced Configuration"
+    ],
+    "validation": "Check advanced configuration documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "automatic-gap-detection",
+    "title": "Automatic Gap Detection",
+    "file": "book/src/automated-documentation/automatic-gap-detection.md",
+    "topics": [
+      "Automatic Gap Detection"
+    ],
+    "validation": "Check automatic gap detection documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "benefits",
+    "title": "Benefits",
+    "file": "book/src/automated-documentation/benefits.md",
+    "topics": [
+      "Benefits"
+    ],
+    "validation": "Check benefits documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "best-practices",
+    "title": "Best Practices",
+    "file": "book/src/automated-documentation/best-practices.md",
+    "topics": [
+      "Best Practices"
+    ],
+    "validation": "Check best practices documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "customization-examples",
+    "title": "Customization Examples",
+    "file": "book/src/automated-documentation/customization-examples.md",
+    "topics": [
+      "Customization Examples"
+    ],
+    "validation": "Check customization examples documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "documentation-versioning",
+    "title": "Documentation Versioning",
+    "file": "book/src/automated-documentation/documentation-versioning.md",
+    "topics": [
+      "Documentation Versioning"
+    ],
+    "validation": "Check documentation versioning documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "github-actions-integration",
+    "title": "GitHub Actions Integration",
+    "file": "book/src/automated-documentation/github-actions-integration.md",
+    "topics": [
+      "GitHub Actions Integration"
+    ],
+    "validation": "Check github actions integration documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "installation",
+    "title": "Installation",
+    "file": "book/src/automated-documentation/installation.md",
+    "topics": [
+      "Installation"
+    ],
+    "validation": "Check installation documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "next-steps",
+    "title": "Next Steps",
+    "file": "book/src/automated-documentation/next-steps.md",
+    "topics": [
+      "next steps"
+    ],
+    "validation": "Check next steps documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "quick-start",
+    "title": "Quick Start",
+    "file": "book/src/automated-documentation/quick-start.md",
+    "topics": [
+      "Quick Start"
+    ],
+    "validation": "Check quick start documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "quick-start-30-minutes",
+    "title": "Quick Start (30 Minutes)",
+    "file": "book/src/automated-documentation/quick-start-30-minutes.md",
+    "topics": [
+      "Quick Start (30 Minutes)"
+    ],
+    "validation": "Check quick start (30 minutes) documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
+    "id": "real-world-example-prodigys-own-documentation",
+    "title": "Real-World Example: Prodigy's Own Documentation",
+    "file": "book/src/automated-documentation/real-world-example-prodigys-own-documentation.md",
+    "topics": [
+      "Real-World Example: Prodigy's Own Documentation"
+    ],
+    "validation": "Check real-world example: prodigy's own documentation documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
+  },
+  {
     "id": "troubleshooting",
     "title": "Troubleshooting",
-    "file": "book/src/troubleshooting.md",
+    "file": "book/src/automated-documentation/troubleshooting.md",
     "topics": [
-      "Common issues",
-      "Debug tips",
-      "FAQ"
+      "Troubleshooting"
     ],
-    "validation": "Check troubleshooting covers common user issues",
-    "type": "single-file"
+    "validation": "Check troubleshooting documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
   },
   {
-    "id": "automated-documentation",
-    "title": "Automated Documentation",
-    "file": "book/src/automated-documentation.md",
+    "id": "understanding-the-workflow",
+    "title": "Understanding the Workflow",
+    "file": "book/src/automated-documentation/understanding-the-workflow.md",
     "topics": [
-      "mdBook setup",
-      "Book workflow configuration",
-      "Feature analysis",
-      "GitHub Actions integration",
-      "Customization examples"
+      "Understanding the Workflow"
     ],
-    "validation": "Check that setup instructions are complete, configuration examples are valid, and GitHub Actions workflows are current",
-    "type": "single-file"
+    "validation": "Check understanding the workflow documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "automated-documentation",
+    "parent_chapter_title": "Automated Documentation"
   },
   {
-    "id": "retry-configuration",
-    "title": "Retry Configuration",
-    "file": "book/src/retry-configuration.md",
+    "id": "backoff-strategies",
+    "title": "Backoff Strategies",
+    "file": "book/src/retry-configuration/backoff-strategies.md",
     "topics": [
-      "Retry defaults",
-      "Backoff strategies",
-      "Exponential backoff",
-      "Fibonacci backoff",
-      "Retry budget",
-      "Conditional retry",
-      "Jitter"
+      "Backoff Strategies",
+      "Fixed Backoff",
+      "Linear Backoff",
+      "Exponential Backoff",
+      "Fibonacci Backoff"
     ],
-    "validation": "Check retry configuration options match RetryConfig struct and backoff strategies are documented",
-    "type": "single-file"
+    "validation": "Check backoff strategies documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
   },
   {
-    "id": "composition",
-    "title": "Workflow Composition",
-    "file": "book/src/composition.md",
+    "id": "backoff-strategy-comparison",
+    "title": "Backoff Strategy Comparison",
+    "file": "book/src/retry-configuration/backoff-strategy-comparison.md",
     "topics": [
-      "Workflow imports",
-      "Template definitions",
-      "Template parameters",
-      "Workflow extension",
-      "Template usage"
+      "Backoff Strategy Comparison"
     ],
-    "validation": "Check composition features match implementation and syntax examples are valid",
-    "type": "single-file"
+    "validation": "Check backoff strategy comparison documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
   },
   {
-    "id": "configuration",
-    "title": "Configuration",
-    "file": "book/src/configuration.md",
+    "id": "basic-retry-configuration",
+    "title": "Basic Retry Configuration",
+    "file": "book/src/retry-configuration/basic-retry-configuration.md",
     "topics": [
-      "Config file locations",
-      "Precedence rules",
-      "Claude settings",
-      "Worktree settings",
-      "Storage settings",
-      "Retry defaults"
+      "Basic Retry Configuration",
+      "Where Retry Config is Used",
+      "Basic Configuration Example",
+      "Complete Basic Configuration",
+      "Default Behavior"
     ],
-    "validation": "Check configuration structure matches Settings struct and precedence is correctly documented",
-    "type": "single-file"
+    "validation": "Check basic retry configuration documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "best-practices",
+    "title": "Best Practices",
+    "file": "book/src/retry-configuration/best-practices.md",
+    "topics": [
+      "Best Practices",
+      "Choosing the Right Backoff Strategy",
+      "Setting Appropriate max_delay",
+      "Using Jitter in Distributed Systems",
+      "Retry Budget for Preventing Infinite Loops"
+    ],
+    "validation": "Check best practices documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "complete-examples",
+    "title": "Complete Examples",
+    "file": "book/src/retry-configuration/complete-examples.md",
+    "topics": [
+      "Complete Examples",
+      "Example 1: Basic Retry with Exponential Backoff",
+      "Example 2: Exponential Backoff with Jitter (Distributed Systems)",
+      "Example 3: Conditional Retry with Error Matchers",
+      "Example 4: Retry Budget to Prevent Infinite Loops"
+    ],
+    "validation": "Check complete examples documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "conditional-retry-with-error-matchers",
+    "title": "Conditional Retry with Error Matchers",
+    "file": "book/src/retry-configuration/conditional-retry-with-error-matchers.md",
+    "topics": [
+      "Conditional Retry with Error Matchers",
+      "Available Error Matchers",
+      "Combining Multiple Matchers",
+      "Empty retry_on (Retry All Errors)",
+      "Selective Retry Example"
+    ],
+    "validation": "Check conditional retry with error matchers documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "failure-actions",
+    "title": "Failure Actions",
+    "file": "book/src/retry-configuration/failure-actions.md",
+    "topics": [
+      "Failure Actions",
+      "Available Failure Actions",
+      "Combining with Error Matchers",
+      "Fallback Command Requirements",
+      "Multiple Failure Actions in Workflow"
+    ],
+    "validation": "Check failure actions documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "implementation-references",
+    "title": "Implementation References",
+    "file": "book/src/retry-configuration/implementation-references.md",
+    "topics": [
+      "Implementation References"
+    ],
+    "validation": "Check implementation references documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "jitter-for-distributed-systems",
+    "title": "Jitter for Distributed Systems",
+    "file": "book/src/retry-configuration/jitter-for-distributed-systems.md",
+    "topics": [
+      "Jitter for Distributed Systems"
+    ],
+    "validation": "Check jitter for distributed systems documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "related-topics",
+    "title": "Related Topics",
+    "file": "book/src/retry-configuration/related-topics.md",
+    "topics": [
+      "Related Topics"
+    ],
+    "validation": "Check related topics documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "retry-budget",
+    "title": "Retry Budget",
+    "file": "book/src/retry-configuration/retry-budget.md",
+    "topics": [
+      "Retry Budget"
+    ],
+    "validation": "Check retry budget documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "retry-metrics-and-observability",
+    "title": "Retry Metrics and Observability",
+    "file": "book/src/retry-configuration/retry-metrics-and-observability.md",
+    "topics": [
+      "Retry Metrics and Observability"
+    ],
+    "validation": "Check retry metrics and observability documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "troubleshooting",
+    "title": "Troubleshooting",
+    "file": "book/src/retry-configuration/troubleshooting.md",
+    "topics": [
+      "Troubleshooting",
+      "Issue: Retries Not Triggering",
+      "Issue: Retries Happening But Taking Too Long",
+      "Issue: Circuit Breaker Always Open",
+      "Issue: Thundering Herd (Multiple Parallel Agents Retrying Simultaneously)"
+    ],
+    "validation": "Check troubleshooting documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "workflow-level-vs-command-level-retry",
+    "title": "Workflow-Level vs Command-Level Retry",
+    "file": "book/src/retry-configuration/workflow-level-vs-command-level-retry.md",
+    "topics": [
+      "Workflow-Level vs Command-Level Retry",
+      "Command-Level Retry (retry_v2)",
+      "Workflow-Level Retry (error_policy)",
+      "Using Both Systems Together",
+      "Key Differences"
+    ],
+    "validation": "Check workflow-level vs command-level retry documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "retry-configuration",
+    "parent_chapter_title": "Retry Configuration"
+  },
+  {
+    "id": "best-practices",
+    "title": "Best Practices",
+    "file": "book/src/composition/best-practices.md",
+    "topics": [
+      "Best Practices",
+      "When to Use Each Feature",
+      "Workflow Organization",
+      "Parameter Naming Conventions",
+      "Template Registry Best Practices"
+    ],
+    "validation": "Check best practices documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "complete-examples",
+    "title": "Complete Examples",
+    "file": "book/src/composition/complete-examples.md",
+    "topics": [
+      "Complete Examples",
+      "Example 1: Multi-Environment CI/CD Pipeline",
+      "Example 2: Modular Monorepo Testing",
+      "Example 3: Layered Configuration with Extends",
+      "Example 4: Complex Composition with Multiple Features"
+    ],
+    "validation": "Check complete examples documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "composition-metadata",
+    "title": "Composition Metadata",
+    "file": "book/src/composition/composition-metadata.md",
+    "topics": [
+      "Composition Metadata",
+      "CompositionMetadata Structure",
+      "Dependency Tracking",
+      "Dependency Types",
+      "Viewing Composition Metadata"
+    ],
+    "validation": "Check composition metadata documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "default-values",
+    "title": "Default Values",
+    "file": "book/src/composition/default-values.md",
+    "topics": [
+      "Default Values",
+      "Basic Syntax",
+      "Defaults Field Structure",
+      "Parameter Precedence",
+      "Example with Precedence"
+    ],
+    "validation": "Check default values documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "further-reading",
+    "title": "Further Reading",
+    "file": "book/src/composition/further-reading.md",
+    "topics": [
+      "Further Reading"
+    ],
+    "validation": "Check further reading documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "parameter-definitions",
+    "title": "Parameter Definitions",
+    "file": "book/src/composition/parameter-definitions.md",
+    "topics": [
+      "Parameter Definitions",
+      "Basic Parameter Definition",
+      "Parameter Structure",
+      "Parameter Types",
+      "Default Values"
+    ],
+    "validation": "Check parameter definitions documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "related-chapters",
+    "title": "Related Chapters",
+    "file": "book/src/composition/related-chapters.md",
+    "topics": [
+      "Related Chapters"
+    ],
+    "validation": "Check related chapters documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "sub-workflows",
+    "title": "Sub-Workflows",
+    "file": "book/src/composition/sub-workflows.md",
+    "topics": [
+      "Sub-Workflows",
+      "Basic Sub-Workflow Syntax",
+      "Sub-Workflow Configuration",
+      "Parent-Child Context Isolation",
+      "Output Variable Extraction"
+    ],
+    "validation": "Check sub-workflows documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "template-system",
+    "title": "Template System",
+    "file": "book/src/composition/template-system.md",
+    "topics": [
+      "Template System",
+      "Template Sources",
+      "Basic Template Usage",
+      "Template Structure",
+      "Template Registry"
+    ],
+    "validation": "Check template system documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "troubleshooting",
+    "title": "Troubleshooting",
+    "file": "book/src/composition/troubleshooting.md",
+    "topics": [
+      "Troubleshooting",
+      "Circular Dependency Errors",
+      "Template Not Found in Registry",
+      "Parameter Validation Failures",
+      "Import Path Resolution Errors"
+    ],
+    "validation": "Check troubleshooting documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "workflow-extension-inheritance",
+    "title": "Workflow Extension (Inheritance)",
+    "file": "book/src/composition/workflow-extension-inheritance.md",
+    "topics": [
+      "Workflow Extension (Inheritance)",
+      "Basic Extension Syntax",
+      "How Extension Works",
+      "Extension vs Imports",
+      "Multi-Environment Example"
+    ],
+    "validation": "Check workflow extension (inheritance) documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "composition",
+    "parent_chapter_title": "Workflow Composition"
+  },
+  {
+    "id": "best-practices",
+    "title": "Best Practices",
+    "file": "book/src/configuration/best-practices.md",
+    "topics": [
+      "Best Practices"
+    ],
+    "validation": "Check best practices documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "complete-configuration-examples",
+    "title": "Complete Configuration Examples",
+    "file": "book/src/configuration/complete-configuration-examples.md",
+    "topics": [
+      "Complete Configuration Examples"
+    ],
+    "validation": "Check complete configuration examples documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "configuration-precedence-rules",
+    "title": "Configuration Precedence Rules",
+    "file": "book/src/configuration/configuration-precedence-rules.md",
+    "topics": [
+      "Configuration Precedence Rules",
+      "Precedence Hierarchy",
+      "How Settings Override Each Other",
+      "Examples",
+      "Field-Level Precedence"
+    ],
+    "validation": "Check configuration precedence rules documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "default-values-reference",
+    "title": "Default Values Reference",
+    "file": "book/src/configuration/default-values-reference.md",
+    "topics": [
+      "Default Values Reference",
+      "Global Configuration Defaults",
+      "Project Configuration Defaults",
+      "Storage Configuration Defaults",
+      "File Storage Defaults"
+    ],
+    "validation": "Check default values reference documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "environment-variables",
+    "title": "Environment Variables",
+    "file": "book/src/configuration/environment-variables.md",
+    "topics": [
+      "Environment Variables",
+      "Claude API Configuration",
+      "General Configuration",
+      "Storage Configuration",
+      "Workflow Execution"
+    ],
+    "validation": "Check environment variables documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "global-configuration-structure",
+    "title": "Global Configuration Structure",
+    "file": "book/src/configuration/global-configuration-structure.md",
+    "topics": [
+      "Global Configuration Structure",
+      "Location",
+      "Fields",
+      "Complete Example",
+      "Plugin Configuration"
+    ],
+    "validation": "Check global configuration structure documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "migration-guide-toml-to-yaml",
+    "title": "Migration Guide: TOML to YAML",
+    "file": "book/src/configuration/migration-guide-toml-to-yaml.md",
+    "topics": [
+      "Migration Guide: TOML to YAML"
+    ],
+    "validation": "Check migration guide: toml to yaml documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "project-configuration-structure",
+    "title": "Project Configuration Structure",
+    "file": "book/src/configuration/project-configuration-structure.md",
+    "topics": [
+      "Project Configuration Structure",
+      "Location",
+      "Fields",
+      "Complete Example",
+      "Secrets Management"
+    ],
+    "validation": "Check project configuration structure documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "related-documentation",
+    "title": "Related Documentation",
+    "file": "book/src/configuration/related-documentation.md",
+    "topics": [
+      "Related Documentation"
+    ],
+    "validation": "Check related documentation documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "storage-configuration",
+    "title": "Storage Configuration",
+    "file": "book/src/configuration/storage-configuration.md",
+    "topics": [
+      "Storage Configuration",
+      "Storage Backend Types",
+      "File Storage Configuration",
+      "Connection and Performance",
+      "Retry Policy"
+    ],
+    "validation": "Check storage configuration documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "troubleshooting",
+    "title": "Troubleshooting",
+    "file": "book/src/configuration/troubleshooting.md",
+    "topics": [
+      "Troubleshooting"
+    ],
+    "validation": "Check troubleshooting documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
+  },
+  {
+    "id": "workflow-configuration",
+    "title": "Workflow Configuration",
+    "file": "book/src/configuration/workflow-configuration.md",
+    "topics": [
+      "Workflow Configuration",
+      "Basic Workflow Structure",
+      "Advanced Workflow Features",
+      "Configuration Location",
+      "Environment Variables in Workflows"
+    ],
+    "validation": "Check workflow configuration documentation matches implementation",
+    "feature_mapping": [],
+    "type": "subsection",
+    "parent_chapter_id": "configuration",
+    "parent_chapter_title": "Configuration"
   },
   {
     "id": "git-context-advanced",
@@ -340,9 +1430,7 @@
       "Git context variables"
     ],
     "validation": "Check that pattern filtering syntax, format modifiers, and file pattern options are documented",
-    "type": "single-file",
-    "auto_generated": true,
-    "source_feature": "git_context_advanced"
+    "type": "single-file"
   },
   {
     "id": "mapreduce-worktree-architecture",
@@ -359,8 +1447,6 @@
       "Verification"
     ],
     "validation": "Check that worktree isolation, branch naming conventions, merge flows, and debugging strategies are documented",
-    "type": "single-file",
-    "auto_generated": true,
-    "source_feature": "mapreduce_worktree_architecture"
+    "type": "single-file"
   }
 ]

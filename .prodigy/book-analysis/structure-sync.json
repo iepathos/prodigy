@@ -1,0 +1,109 @@
+{
+  "sync_timestamp": "2025-11-09T00:00:00Z",
+  "multi_subsection_chapters_found": 10,
+  "mismatches_found": 9,
+  "mismatches": [
+    {
+      "chapter_id": "automated-documentation",
+      "expected_type": "single-file",
+      "actual_type": "multi-subsection",
+      "subsection_count": 14
+    },
+    {
+      "chapter_id": "advanced",
+      "expected_type": "single-file",
+      "actual_type": "multi-subsection",
+      "subsection_count": 7
+    },
+    {
+      "chapter_id": "configuration",
+      "expected_type": "single-file",
+      "actual_type": "multi-subsection",
+      "subsection_count": 12
+    },
+    {
+      "chapter_id": "retry-configuration",
+      "expected_type": "single-file",
+      "actual_type": "multi-subsection",
+      "subsection_count": 14
+    },
+    {
+      "chapter_id": "troubleshooting",
+      "expected_type": "single-file",
+      "actual_type": "multi-subsection",
+      "subsection_count": 3
+    },
+    {
+      "chapter_id": "composition",
+      "expected_type": "single-file",
+      "actual_type": "multi-subsection",
+      "subsection_count": 11
+    },
+    {
+      "chapter_id": "variables",
+      "expected_type": "single-file",
+      "actual_type": "multi-subsection",
+      "subsection_count": 4
+    },
+    {
+      "chapter_id": "environment",
+      "expected_type": "single-file",
+      "actual_type": "multi-subsection",
+      "subsection_count": 8
+    },
+    {
+      "chapter_id": "workflow-basics",
+      "expected_type": "single-file",
+      "actual_type": "multi-subsection",
+      "subsection_count": 8
+    }
+  ],
+  "migrations_performed": 9,
+  "migrations": [
+    {
+      "chapter_id": "automated-documentation",
+      "action": "migrated_to_multi_subsection",
+      "subsections_added": 14
+    },
+    {
+      "chapter_id": "advanced",
+      "action": "migrated_to_multi_subsection",
+      "subsections_added": 7
+    },
+    {
+      "chapter_id": "configuration",
+      "action": "migrated_to_multi_subsection",
+      "subsections_added": 12
+    },
+    {
+      "chapter_id": "retry-configuration",
+      "action": "migrated_to_multi_subsection",
+      "subsections_added": 14
+    },
+    {
+      "chapter_id": "troubleshooting",
+      "action": "migrated_to_multi_subsection",
+      "subsections_added": 3
+    },
+    {
+      "chapter_id": "composition",
+      "action": "migrated_to_multi_subsection",
+      "subsections_added": 11
+    },
+    {
+      "chapter_id": "variables",
+      "action": "migrated_to_multi_subsection",
+      "subsections_added": 4
+    },
+    {
+      "chapter_id": "environment",
+      "action": "migrated_to_multi_subsection",
+      "subsections_added": 8
+    },
+    {
+      "chapter_id": "workflow-basics",
+      "action": "migrated_to_multi_subsection",
+      "subsections_added": 8
+    }
+  ]
+}

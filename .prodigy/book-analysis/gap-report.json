@@ -1,38 +1,80 @@
 {
-  "analysis_date": "2025-11-10T01:16:25Z",
+  "analysis_date": "2025-11-09T19:41:57.673821",
   "features_analyzed": 16,
-  "documented_topics": 24,
-  "gaps_found": 0,
-  "gaps": [],
-  "actions_taken": [
+  "documented_topics": 5,
+  "potential_gaps_found": 11,
+  "gaps": [
     {
-      "action": "generated_flattened_items",
-      "file_path": ".prodigy/book-analysis/flattened-items.json",
-      "items_count": 23,
-      "description": "Generated flattened array of all chapters and subsections for map phase processing"
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "workflow_basics",
+      "feature_description": ""
     },
     {
-      "action": "gap_analysis_complete",
-      "result": "no_gaps_found",
-      "description": "All 16 feature areas are covered by existing documentation chapters/subsections"
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "command_types",
+      "feature_description": ""
+    },
+    {
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "advanced_features",
+      "feature_description": ""
+    },
+    {
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "error_handling",
+      "feature_description": ""
+    },
+    {
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "retry_configuration",
+      "feature_description": ""
+    },
+    {
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "workflow_composition",
+      "feature_description": ""
+    },
+    {
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "git_context_advanced",
+      "feature_description": ""
+    },
+    {
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "automated_documentation",
+      "feature_description": "MapReduce workflow for automated documentation drift detection and fixing"
+    },
+    {
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "mapreduce_worktree_architecture",
+      "feature_description": ""
+    },
+    {
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "best_practices",
+      "feature_description": ""
+    },
+    {
+      "severity": "low",
+      "type": "potential_gap",
+      "feature_category": "common_patterns",
+      "feature_description": "[{'name': 'Build and Test', 'description': 'Standard CI workflow with automated test fixing', 'examp"
     }
   ],
-  "coverage_summary": {
-    "workflow_basics": "Documented in workflow-basics chapter",
-    "mapreduce": "Documented in mapreduce chapter with 9 subsections",
-    "command_types": "Documented in commands chapter",
-    "variables": "Documented in variables chapter",
-    "environment": "Documented in environment chapter",
-    "advanced_features": "Documented in advanced chapter",
-    "error_handling": "Documented in error-handling chapter",
-    "retry_configuration": "Documented in retry-configuration chapter",
-    "workflow_composition": "Documented in composition chapter",
-    "configuration": "Documented in configuration chapter",
-    "git_context_advanced": "Documented in git-context-advanced chapter",
-    "automated_documentation": "Documented in automated-documentation chapter",
-    "mapreduce_worktree_architecture": "Documented in mapreduce-worktree-architecture chapter",
-    "best_practices": "Covered in examples chapter",
-    "common_patterns": "Covered in examples chapter",
-    "troubleshooting": "Documented in troubleshooting chapter"
-  }
+  "actions_taken": [
+    "Generated flattened-items.json for map phase (REQUIRED)",
+    "Synced chapter structure with reality (migrated 9 chapters to multi-subsection)"
+  ],
+  "structure_sync_performed": true,
+  "flattened_items_generated": true
 }
