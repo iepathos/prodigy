@@ -1,0 +1,88 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "automated-documentation",
+  "subsection_id": "next-steps",
+  "subsection_title": "Next Steps",
+  "subsection_file": "book/src/automated-documentation/next-steps.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "The Next Steps subsection is too generic and doesn't provide actionable guidance specific to the automated documentation workflow. It lacks concrete next actions based on the workflow phases and features available.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Next Steps List",
+      "description": "Steps 1-4 reference a 'Quick Start' that should be more specific about the automated documentation workflow",
+      "current_content": "1. **Set up the basics**: Follow the Quick Start to get a minimal book running\n2. **Customize for your project**: Adjust analysis targets and chapters\n3. **Run the workflow**: Generate your first automated update\n4. **Refine iteratively**: Review output and improve configuration",
+      "fix_suggestion": "Link to specific sections within the automated documentation chapter, especially 'Quick Start (30 Minutes)' and 'Understanding the Workflow'",
+      "source_reference": "book/src/automated-documentation/index.md - Quick Start section exists"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Post-Workflow Actions",
+      "description": "Missing guidance on what to do after running the workflow, such as reviewing DLQ items, checking drift reports, and understanding the merge process",
+      "fix_suggestion": "Add specific next steps related to workflow output: reviewing .prodigy/book-analysis/drift-*.json files, handling DLQ items with 'prodigy dlq show', and understanding the merge phase",
+      "source_reference": "features.json:automated_documentation.workflow_phases"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Continuous Improvement",
+      "description": "Missing guidance on iterative improvement and monitoring",
+      "fix_suggestion": "Add steps for: monitoring documentation quality over time, setting up CI/CD for continuous documentation updates, and customizing validation thresholds",
+      "source_reference": "book/src/automated-documentation/github-actions-integration.md mentioned in index"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Advanced Features",
+      "description": "Missing pointers to advanced features like documentation versioning and customization",
+      "fix_suggestion": "Reference specific advanced topics like Documentation Versioning, Advanced Configuration, and Customization Examples subsections",
+      "source_reference": "book/src/automated-documentation/index.md references these subsections"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Step Ordering",
+      "description": "The current steps don't clearly distinguish between initial setup vs. ongoing maintenance workflows",
+      "fix_suggestion": "Reorganize into two sections: 'Initial Setup' (steps 1-3) and 'Ongoing Maintenance' (steps 4-7), with clearer guidance for each phase",
+      "source_reference": "General best practices for documentation structure"
+    }
+  ],
+  "positive_aspects": [
+    "Concise numbered list format is easy to scan",
+    "References key concepts like Quick Start, customization, and automation",
+    "Mentions optional features like versioning",
+    "Progressive structure from basics to advanced topics"
+  ],
+  "improvement_suggestions": [
+    "Add concrete links to relevant subsections mentioned in the parent chapter index",
+    "Include specific commands and file paths for common next actions (e.g., 'prodigy dlq show <job_id>')",
+    "Distinguish between first-time setup and recurring maintenance workflows",
+    "Add a 'What You've Learned' or 'Summary' section before the next steps",
+    "Include troubleshooting guidance as a next step (reference Troubleshooting subsection)",
+    "Mention the merge confirmation step that users will encounter",
+    "Reference the Real-World Example subsection for inspiration"
+  ],
+  "cross_references": [
+    "quick-start-30-minutes",
+    "quick-start",
+    "understanding-the-workflow",
+    "github-actions-integration",
+    "documentation-versioning",
+    "customization-examples",
+    "advanced-configuration",
+    "troubleshooting",
+    "real-world-example-prodigys-own-documentation"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": ["next steps", "getting started", "workflow progression"],
+    "validation_focus": "Check next steps documentation matches implementation",
+    "internal_links_checked": 0,
+    "broken_links_found": 0
+  }
+}
