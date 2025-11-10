@@ -1,0 +1,66 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "advanced",
+  "subsection_id": "timeout-configuration",
+  "subsection_title": "Timeout Configuration",
+  "subsection_file": "book/src/advanced/timeout-configuration.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Documentation contains significant inaccuracies about environment variable support for command-level timeouts. While MapReduce phase timeouts support environment variables, standard command timeouts do not.",
+  "issues": [
+    {
+      "type": "incorrect_information",
+      "severity": "high",
+      "section": "Environment Variable Support",
+      "description": "Documentation claims command-level timeout supports environment variables, but implementation only supports u64 (numeric) values",
+      "current_content": "```yaml\n# Use environment variable for timeout\n- shell: \"cargo bench\"\n  timeout: $BENCH_TIMEOUT\n\n# With default value using shell syntax\n- claude: \"/analyze-codebase\"\n  timeout: ${ANALYSIS_TIMEOUT:-1800}\n```",
+      "should_be": "Environment variable support for timeout is ONLY available in MapReduce phases (setup.timeout, map.agent_timeout_secs, reduce.timeout_secs), not for standard command-level timeouts",
+      "fix_suggestion": "Remove or correct the 'Environment Variable Support' section to clarify that command-level timeouts only accept numeric values. Document MapReduce timeout environment variable support separately.",
+      "source_reference": "src/config/command.rs:384 - pub timeout: Option<u64> (does not support string/env vars)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "MapReduce Timeouts",
+      "description": "Missing documentation for MapReduce-specific timeout configuration which DOES support environment variables",
+      "fix_suggestion": "Add section documenting MapReduce timeout fields: setup.timeout, map.agent_timeout_secs, and timeout_config, which use deserialize_optional_u64_or_string and support environment variables",
+      "source_reference": "src/config/mapreduce.rs:148 (setup.timeout), mapreduce.rs:269 (agent_timeout_secs) - both use Option<String> and support env vars"
+    },
+    {
+      "type": "incorrect_information",
+      "severity": "medium",
+      "section": "Workflow-Level Timeouts",
+      "description": "Documentation shows workflow-level timeout inheritance, but this is not implemented",
+      "current_content": "```yaml\nname: \"build-workflow\"\ntimeout: 3600  # Default 1 hour timeout for all steps\n\ncommands:\n  - shell: \"cargo build\"  # Inherits 3600s timeout\n  - shell: \"cargo test\"\n    timeout: 1200  # Override with 20 minutes\n```",
+      "should_be": "Workflow-level timeout is marked as 'future' feature in features.json - not currently implemented",
+      "fix_suggestion": "Remove the 'Workflow-Level Timeouts' section or mark it clearly as 'Future Feature' with a note that it's not yet implemented",
+      "source_reference": "features.json - advanced_features.timeout_control.workflow_timeout: 'Overall workflow timeout (future)'"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of timeout purpose and basic syntax",
+    "Good examples of numeric timeout values for different commands",
+    "Helpful best practices section about setting appropriate timeouts"
+  ],
+  "improvement_suggestions": [
+    "Split into two clear sections: 'Command-Level Timeouts' (numeric only) and 'MapReduce Timeouts' (supports env vars)",
+    "Add examples of MapReduce timeout configuration with environment variables",
+    "Include troubleshooting section for timeout-related errors",
+    "Document default timeout values if any",
+    "Add cross-reference to MapReduce chapter for MapReduce timeout details"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Timeout Configuration",
+      "Basic Timeouts",
+      "Environment Variable Support",
+      "Workflow-Level Timeouts",
+      "Best Practices"
+    ],
+    "validation_focus": "Check timeout configuration documentation matches implementation"
+  }
+}
