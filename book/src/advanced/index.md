@@ -78,17 +78,20 @@ Execute follow-up commands when a command succeeds:
 
 **Complex On Success Example:**
 
+The `on_success` field accepts a complete workflow step command with all its features:
+
 ```yaml
 - shell: "cargo build --release"
   on_success:
-    claude: "/verify-build-artifacts"
+    shell: "check-binary-size.sh"
     validate:
-      shell: "check-binary-size.sh"
       threshold: 100
     on_failure:
       claude: "/optimize-binary-size"
       max_attempts: 2
 ```
+
+**Source**: Based on WorkflowStepCommand structure (src/config/command.rs:376)
 
 ### On Failure Handlers
 
@@ -124,21 +127,6 @@ For complex error recovery, use the `commands` array to execute multiple remedia
     max_attempts: 3
     fail_workflow: true
 ```
-
-### Exit Code Handlers
-
-Map specific exit codes to different actions using `on_exit_code`:
-
-```yaml
-- shell: "cargo test"
-  on_exit_code:
-    1: {claude: "/fix-test-failures"}
-    2: {shell: "retry-flaky-tests.sh"}
-    101: {claude: "/fix-compilation-errors"}
-    255: {fail_workflow: true}
-```
-
-This allows fine-grained control over error handling based on the specific exit code returned by a command.
 
 ### Nested Conditionals
 
@@ -227,26 +215,37 @@ The `capture_streams` field supports two formats for flexible output capture.
   capture_streams: "both"
 ```
 
-**Structured Object Format** - For advanced control with exit code and success status:
+**Structured Object Format** - For advanced control with exit code, success status, and duration:
 
 ```yaml
 # Structured format with all fields
 - shell: "cargo test"
   capture_output: "test_result"
   capture_streams:
-    stdout: true
-    stderr: true
-    exit_code: true
-    success: true
+    stdout: true      # Capture stdout stream (default: true)
+    stderr: true      # Capture stderr stream (default: false)
+    exit_code: true   # Capture exit code (default: true)
+    success: true     # Capture success status (default: true)
+    duration: true    # Capture execution duration in seconds (default: true)
 
 # Access individual fields
 - shell: "echo 'Test exit code: ${test_result.exit_code}'"
 - shell: "echo 'Test passed: ${test_result.success}'"
+- shell: "echo 'Duration: ${test_result.duration}s'"
 ```
+
+**Source**: CaptureStreams struct definition (src/cook/workflow/variables.rs:268-292)
 
 **Format Flexibility:**
 
-Prodigy uses Rust's untagged enum deserialization, allowing you to choose either format based on your needs without any special syntax. Both formats are equally valid and you can mix them in the same workflow.
+The `capture_streams` field supports two distinct formats:
+
+1. **Simple string format** (`"stdout"`, `"stderr"`, `"both"`) - Stored as `Option<String>` in the config layer, best for basic stream selection
+2. **Structured object format** - Parsed into the `CaptureStreams` struct during execution, providing fine-grained control over `exit_code`, `success`, and `duration` capture
+
+Use the simple format for basic cases, and the structured format when you need detailed execution metadata.
+
+**Source**: WorkflowStepCommand.capture_streams (src/config/command.rs:396), CaptureStreams struct (src/cook/workflow/variables.rs:268-292)
 
 ### Output File Redirection
 
@@ -263,30 +262,13 @@ Write output directly to a file instead of capturing it:
   output_file: "test-results.log"
 ```
 
-### Step-Level Environment Overrides
+### Execution Context
 
-Configure environment variables and working directory for individual steps:
+Configure where and how commands execute in your workflow.
 
-```yaml
-# Full step-level environment configuration
-- shell: "npm test"
-  env:
-    NODE_ENV: "test"
-    DEBUG: "*"
-  working_dir: "./frontend"
-  clear_env: false    # Don't clear parent environment
-  inherit: true       # Inherit from workflow-level env
+**Note**: Step-level environment variable configuration (`env`, `clear_env`, `inherit`) and working directory (`working_dir`, `cwd`) are internal features available in the execution layer but not currently exposed in the YAML configuration layer (WorkflowStepCommand). These features exist in the runtime `WorkflowStep` type for internal use.
 
-# Working directory with alias
-- shell: "cargo build"
-  cwd: "./backend"    # 'cwd' is an alias for 'working_dir'
-```
-
-**Environment Fields:**
-- `env`: Map of environment variables to set for this step
-- `working_dir` / `cwd`: Directory to execute command in
-- `clear_env`: Clear parent environment before adding step env (default: false)
-- `inherit`: Inherit workflow-level environment variables (default: true)
+For workflow-level environment configuration, see the [Environment Variables](../workflow-basics.md#environment-variables) section in Workflow Basics.
 
 ---
 
