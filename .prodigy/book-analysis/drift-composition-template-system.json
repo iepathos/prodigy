@@ -1,0 +1,117 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "composition",
+  "subsection_id": "template-system",
+  "subsection_title": "Template System",
+  "subsection_file": "book/src/composition/template-system.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is comprehensive and well-structured with accurate code references, but contains several structural inconsistencies and a critical error in the TemplateSource enum representation.",
+  "issues": [
+    {
+      "type": "incorrect_syntax",
+      "severity": "high",
+      "section": "Template Structure",
+      "description": "Documentation shows TemplateSource using separate enum variants (registry:, file:, url:) which is incorrect. The actual implementation uses an untagged enum that accepts three distinct struct/string formats.",
+      "current_content": "source:\n  registry: \"standard-ci\"  # Load from registry\n  # OR\n  file: \"path/to/template.yml\"  # Load from file\n  # OR (planned)\n  url: \"https://templates.example.com/ci.yml\"  # Load from URL",
+      "should_be": "source: \"template-name\"  # Registry lookup (String variant)\n# OR\nsource:\n  file: \"path/to/template.yml\"  # File path (PathBuf variant)\n# OR (planned)\nsource:\n  url: \"https://example.com/template.yml\"  # URL (String variant)",
+      "fix_suggestion": "Update the TemplateSource documentation to reflect the untagged enum implementation. Show that registry lookups are just strings, file paths use a single-field struct, and URLs are strings with https:// prefix.",
+      "source_reference": "src/cook/workflow/composition/mod.rs:85-95"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Template Registry",
+      "description": "Documentation doesn't explain the default registry location behavior. Code shows FileTemplateStorage defaults to 'templates' directory but doesn't explain the precedence of local vs global templates.",
+      "fix_suggestion": "Add section explaining that templates can be stored in both local (.prodigy/templates/) and global (~/.prodigy/templates/) locations, similar to how git worktrees work.",
+      "source_reference": "src/cook/workflow/composition/registry.rs:26-29"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Template Override",
+      "description": "The override field is mentioned but the documentation states it's 'currently in development' and 'not yet applied'. However, the struct field exists and is deserialized, suggesting partial implementation.",
+      "current_content": "*Note: Template override application is currently in development. The field is validated and stored but not yet applied during workflow composition.*",
+      "fix_suggestion": "Clarify the exact status - if override values are stored but not applied in compose(), explain what needs to be implemented. Reference the TODO in apply_overrides if it exists.",
+      "source_reference": "src/cook/workflow/composition/mod.rs:80-83"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Template Caching",
+      "description": "Documentation mentions template caching but doesn't explain the cache invalidation behavior for file-based templates. The comment says 'File-based templates are re-read if the file changes' but no implementation details are shown.",
+      "fix_suggestion": "Either remove the claim about file change detection (if not implemented) or add details about how file modification time is tracked.",
+      "source_reference": "src/cook/workflow/composition/registry.rs:104-127"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Template Metadata",
+      "description": "Documentation doesn't mention the TemplateMetadata system which includes description, author, version, tags, and timestamps. This is a significant feature for template management.",
+      "fix_suggestion": "Add section explaining template metadata, how it's stored in .meta.json files, and how to use register_template_with_metadata().",
+      "source_reference": "src/cook/workflow/composition/registry.rs:475-508"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Template Registry",
+      "description": "Documentation mentions 'Publishing to Registry' with manual copy approach but doesn't mention the programmatic register_template() method which is the primary API.",
+      "fix_suggestion": "Add example showing programmatic template registration: 'registry.register_template(name, template).await'",
+      "source_reference": "src/cook/workflow/composition/registry.rs:41-73"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Template Discovery",
+      "description": "Missing information about template search and listing capabilities. The registry supports list(), search_by_tags(), and other discovery methods.",
+      "fix_suggestion": "Add section on template discovery with examples: registry.list(), registry.search_by_tags(['ci', 'testing'])",
+      "source_reference": "src/cook/workflow/composition/registry.rs:156-168"
+    },
+    {
+      "type": "structural_inconsistency",
+      "severity": "low",
+      "section": "Overall Structure",
+      "description": "The documentation mixes 'Template Structure' and 'Template Registry' sections in a way that makes it unclear where template configuration ends and registry usage begins. The flow could be more logical.",
+      "fix_suggestion": "Reorganize into clearer sections: 1) Template Basics (what they are), 2) Template Configuration (structure), 3) Template Sources (file/registry/url), 4) Registry Management (store/list/delete), 5) Advanced Features (metadata, caching, override)."
+    }
+  ],
+  "positive_aspects": [
+    "Excellent use of source references linking documentation to actual implementation",
+    "Clear examples for each template usage pattern",
+    "Comprehensive coverage of use cases (CI/CD, deployments, testing)",
+    "Good explanation of template parameters with complete examples",
+    "Accurate representation of the WorkflowTemplate struct fields",
+    "Proper documentation of implementation status (URL loading planned, override in development)",
+    "Well-organized 'Related Topics' section with cross-references"
+  ],
+  "improvement_suggestions": [
+    "Fix the TemplateSource enum representation to match the actual untagged implementation",
+    "Add comprehensive template metadata documentation",
+    "Explain template registry search and discovery features",
+    "Clarify cache invalidation behavior for file-based templates",
+    "Add programmatic API examples alongside CLI examples",
+    "Consider adding a troubleshooting section for common template issues",
+    "Add examples of template validation errors and how to fix them",
+    "Document the template composition order when using multiple features (imports, extends, template, parameters)"
+  ],
+  "cross_references": [
+    "parameter-definitions",
+    "workflow-extension-inheritance",
+    "default-values"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T08:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Template System",
+      "Template Sources",
+      "Basic Template Usage",
+      "Template Structure",
+      "Template Registry"
+    ],
+    "validation_focus": "Check template system documentation matches implementation",
+    "internal_links_validated": 3,
+    "internal_links_broken": 0
+  }
+}
