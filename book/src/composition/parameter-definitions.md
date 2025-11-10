@@ -58,7 +58,7 @@ parameters:
 
 ### Parameter Types
 
-Prodigy supports six parameter types with validation:
+Prodigy supports six parameter types with validation (defined in src/cook/workflow/composition/mod.rs:131-141):
 
 | Type | Description | Example Values |
 |------|-------------|----------------|
@@ -69,10 +69,15 @@ Prodigy supports six parameter types with validation:
 | `Object` | Key-value map | `{"key": "value"}` |
 | `Any` | Any JSON value | Any valid JSON |
 
+**Source**: `ParameterType` enum in src/cook/workflow/composition/mod.rs:131-141
+
 **Type Validation:**
-- Type checking is enforced when parameters are provided
+- Type checking is enforced when parameters are provided (src/cook/workflow/composition/mod.rs:226-280)
 - Mismatched types cause workflow validation errors
 - `Any` type accepts any value without validation
+- Validation logic in `validate_parameters` function
+
+**Test example**: tests/workflow_composition_test.rs:49-79 demonstrates parameter validation with String type
 
 ### Default Values
 

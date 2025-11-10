@@ -29,7 +29,7 @@ template:
 
 ### Template Structure
 
-Templates are defined using the `WorkflowTemplate` struct:
+Templates are defined using the `WorkflowTemplate` struct (src/cook/workflow/composition/mod.rs:67-83):
 
 ```yaml
 template:
@@ -55,9 +55,14 @@ template:
     max_parallel: 5
 ```
 
+**Source**: Field definitions from `WorkflowTemplate` struct in src/cook/workflow/composition/mod.rs:67-83
+**Validated against**: Test usage in tests/workflow_composition_test.rs:125-133
+
 ### Template Registry
 
 The template registry stores reusable workflow templates in `~/.prodigy/templates/`. Templates are organized by name and can be referenced from any workflow.
+
+**Implementation**: See `TemplateRegistry` and `FileTemplateStorage` in src/cook/workflow/composition/registry.rs
 
 **Registry Structure:**
 ```
@@ -78,6 +83,8 @@ template:
     test_command: "cargo test"
 ```
 
+**Source**: Registry lookup via `TemplateSource::Registry` variant (src/cook/workflow/composition/mod.rs:88-90)
+
 **Publishing to Registry:**
 ```bash
 # Copy template to registry (manual approach)
@@ -85,6 +92,8 @@ cp my-template.yml ~/.prodigy/templates/my-template.yml
 
 # Templates are automatically discovered by name
 ```
+
+**Example from tests**: tests/workflow_composition_test.rs:177-199 shows registry usage with `register_template`
 
 ### Template Parameters
 
