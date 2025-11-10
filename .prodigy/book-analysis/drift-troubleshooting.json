@@ -4,113 +4,168 @@
   "chapter_title": "Troubleshooting",
   "chapter_file": "book/src/troubleshooting/index.md",
   "drift_detected": true,
-  "severity": "critical",
-  "quality_assessment": "Chapter is nearly empty with critical missing content. Users will encounter common issues with no guidance on resolution. The existing debugging practices are outdated and don't reference modern observability features.",
+  "severity": "medium",
+  "quality_assessment": "The troubleshooting chapter is well-structured and covers most common issues accurately. However, it has some broken references to non-existent documentation pages and could benefit from coverage of additional error scenarios present in the codebase.",
   "issues": [
     {
       "type": "missing_content",
-      "severity": "critical",
-      "section": "Common Issues",
-      "description": "Section header exists but contains no content. Features.json documents 9 common issues with detailed symptoms, causes, and solutions that are completely missing.",
-      "feature_reference": "troubleshooting.common_issues",
-      "fix_suggestion": "Add all 9 common issues from features.json: Variables not interpolating, MapReduce items not found, Timeout errors, Checkpoint resume not working, DLQ items not retrying, Worktree cleanup failures, Environment variables not resolved, Git context variables empty, Claude command not found",
-      "source_reference": "features.json:697-807 - troubleshooting.common_issues array"
-    },
-    {
-      "type": "missing_content",
-      "severity": "critical",
-      "section": "Debug Tips",
-      "description": "Section header exists but contains no content. Features.json documents 7 debugging techniques with specific commands and use cases.",
-      "feature_reference": "troubleshooting.debugging_techniques",
-      "fix_suggestion": "Add all 7 debugging techniques: Verbose mode, Claude JSON logs, Event log inspection, DLQ review, Checkpoint state checking, Worktree git log examination, Real-time log tailing",
-      "source_reference": "features.json:808-851 - troubleshooting.debugging_techniques array"
-    },
-    {
-      "type": "missing_content",
-      "severity": "critical",
-      "section": "FAQ",
-      "description": "FAQ subsection file (faq.md) exists but is completely empty with only a heading",
-      "fix_suggestion": "Populate FAQ with common questions derived from troubleshooting issues, such as 'How do I debug variable interpolation?', 'What should I do when checkpoint resume fails?', 'How do I retry failed DLQ items?'",
-      "source_reference": "features.json:697-851 - derive FAQs from common_issues and debugging_techniques"
-    },
-    {
-      "type": "missing_content",
-      "severity": "critical",
+      "severity": "medium",
       "section": "Common Error Messages",
-      "description": "Common Error Messages subsection file (common-error-messages.md) exists but is completely empty with only a heading",
-      "fix_suggestion": "Document specific error messages users encounter, such as 'checkpoint not found', 'items.json not found', 'command not found', timeout errors, permission denied, etc. with explanations and solutions",
-      "source_reference": "features.json:697-807 - extract error messages from common_issues symptoms"
+      "description": "Missing documentation for workflow composition and template-related errors",
+      "feature_reference": "workflow_composition.template_system",
+      "fix_suggestion": "Add section covering template parameter errors, template not found, invalid extends syntax, and circular dependency errors in composition",
+      "source_reference": "src/cli/template.rs, src/cli/workflow_generator.rs"
     },
     {
-      "type": "outdated_information",
+      "type": "broken_reference",
       "severity": "high",
-      "section": "Best Practices for Debugging",
-      "description": "Debugging practices reference outdated storage locations and don't mention modern observability features",
-      "current_content": "Check logs and state: Review event logs (`~/.prodigy/events/`) and session state (`.prodigy/session_state.json`)",
-      "should_be": "Check logs and state: Review event logs (`~/.prodigy/events/{repo_name}/{job_id}/`), unified sessions (`~/.prodigy/sessions/{session-id}.json`), and checkpoints (`~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`)",
-      "fix_suggestion": "Update practice #4 to reference correct storage paths with repo_name and job_id structure",
-      "source_reference": "storage_architecture.global_storage.structure in features.json:486-493"
+      "section": "Troubleshooting Index",
+      "description": "References non-existent documentation page: '../advanced-features/environment-variables.md'",
+      "current_content": "See [Environment Variables](../advanced-features/environment-variables.md)",
+      "should_be": "See [Environment Configuration](../environment/index.md)",
+      "fix_suggestion": "Update reference to point to existing environment configuration chapter",
+      "source_reference": "book/src/troubleshooting/index.md:133"
+    },
+    {
+      "type": "broken_reference",
+      "severity": "high",
+      "section": "Troubleshooting Index",
+      "description": "References non-existent documentation page: '../advanced-features/git-context-variables.md'",
+      "current_content": "See [Git Context Variables](../advanced-features/git-context-variables.md)",
+      "should_be": "See [Advanced Git Context](../git-context-advanced.md)",
+      "fix_suggestion": "Update reference to point to existing advanced git context chapter",
+      "source_reference": "book/src/troubleshooting/index.md:152"
+    },
+    {
+      "type": "broken_reference",
+      "severity": "high",
+      "section": "Troubleshooting Index",
+      "description": "References non-existent documentation page: '../observability/claude-json-logs.md'",
+      "current_content": "See [Claude JSON Logs](../observability/claude-json-logs.md)",
+      "should_be": "Reference should point to section in CLAUDE.md or be removed",
+      "fix_suggestion": "Remove reference or document claude-json-logs as a proper chapter since this is a key feature (Spec 121, 126)",
+      "source_reference": "book/src/troubleshooting/index.md:191"
+    },
+    {
+      "type": "broken_reference",
+      "severity": "high",
+      "section": "FAQ",
+      "description": "References non-existent documentation page: '../advanced-features/environment-variables.md'",
+      "current_content": "See [Environment Variables](../advanced-features/environment-variables.md)",
+      "should_be": "See [Environment Configuration](../environment/index.md)",
+      "fix_suggestion": "Update reference to point to existing environment configuration chapter",
+      "source_reference": "book/src/troubleshooting/faq.md:147"
+    },
+    {
+      "type": "broken_reference",
+      "severity": "high",
+      "section": "FAQ",
+      "description": "References non-existent documentation page: '../observability/claude-json-logs.md'",
+      "current_content": "See [Claude JSON Logs](../observability/claude-json-logs.md)",
+      "should_be": "Reference should point to section in CLAUDE.md or be removed",
+      "fix_suggestion": "Remove reference or document claude-json-logs as a proper chapter",
+      "source_reference": "book/src/troubleshooting/faq.md:92"
+    },
+    {
+      "type": "broken_reference",
+      "severity": "medium",
+      "section": "Troubleshooting Index",
+      "description": "References non-existent documentation page: '../mapreduce/cleanup-failure-handling.md'",
+      "current_content": "See [Cleanup Failure Handling](../mapreduce/cleanup-failure-handling.md)",
+      "should_be": "Document cleanup failure handling in MapReduce chapter or reference Spec 136",
+      "fix_suggestion": "Add cleanup-failure-handling.md subsection to MapReduce chapter documenting orphaned worktree registry and cleanup strategies",
+      "source_reference": "book/src/troubleshooting/index.md:114"
+    },
+    {
+      "type": "broken_reference",
+      "severity": "medium",
+      "section": "FAQ",
+      "description": "References non-existent documentation page: '../mapreduce/cleanup-failure-handling.md'",
+      "current_content": "See [Cleanup Failure Handling](../mapreduce/cleanup-failure-handling.md)",
+      "should_be": "Document cleanup failure handling in MapReduce chapter",
+      "fix_suggestion": "Create cleanup-failure-handling.md subsection in MapReduce chapter",
+      "source_reference": "book/src/troubleshooting/faq.md:126"
+    },
+    {
+      "type": "broken_reference",
+      "severity": "medium",
+      "section": "Common Error Messages",
+      "description": "References non-existent documentation page: '../mapreduce/concurrent-resume-protection.md'",
+      "current_content": "See [Concurrent Resume Protection](../mapreduce/concurrent-resume-protection.md)",
+      "should_be": "Document concurrent resume protection feature (Spec 140) or reference checkpoint-and-resume.md",
+      "fix_suggestion": "Add subsection about concurrent resume protection to MapReduce Checkpoint and Resume chapter",
+      "source_reference": "book/src/troubleshooting/common-error-messages.md:114"
+    },
+    {
+      "type": "broken_reference",
+      "severity": "medium",
+      "section": "Troubleshooting Index",
+      "description": "References non-existent documentation page: '../mapreduce/dead-letter-queue.md' (incorrect filename)",
+      "current_content": "See [Dead Letter Queue](../mapreduce/dead-letter-queue.md)",
+      "should_be": "See [Dead Letter Queue (DLQ)](../mapreduce/dead-letter-queue-dlq.md)",
+      "fix_suggestion": "Update reference to use correct filename with -dlq suffix",
+      "source_reference": "book/src/troubleshooting/index.md:94"
     },
     {
       "type": "missing_content",
-      "severity": "high",
-      "section": "Best Practices for Debugging",
-      "description": "No mention of Claude JSON logs (Spec 121, Spec 126) which are critical for debugging Claude command failures",
-      "feature_reference": "observability.claude_json_logs",
-      "fix_suggestion": "Add practice: 'View Claude JSON logs: Use `prodigy logs --latest` or check `~/.local/state/claude/logs/` for detailed Claude interaction logs including tool invocations and token usage'",
-      "source_reference": "features.json:522-544 - observability.claude_json_logs"
+      "severity": "low",
+      "section": "Common Issues",
+      "description": "Missing troubleshooting for workflow template and composition errors",
+      "feature_reference": "advanced_features.workflow_composition",
+      "fix_suggestion": "Add section covering template parameter validation errors, template not found, circular dependencies, and invalid extends syntax",
+      "source_reference": "src/cli/template.rs, src/config/template.rs"
     },
     {
       "type": "missing_content",
-      "severity": "medium",
-      "section": "Best Practices for Debugging",
-      "description": "No mention of using DLQ commands for debugging MapReduce failures",
-      "feature_reference": "storage_architecture.dlq",
-      "fix_suggestion": "Add practice: 'Review DLQ for MapReduce failures: Use `prodigy dlq show <job_id>` to see failed items with error details and json_log_location for debugging'",
-      "source_reference": "features.json:502-520 - storage_architecture.dlq"
+      "severity": "low",
+      "section": "Debug Tips",
+      "description": "Missing tip for using dry-run mode to preview workflow execution",
+      "feature_reference": "workflow_basics.execution_model",
+      "fix_suggestion": "Add debug tip: 'Use dry-run mode to preview workflow execution: prodigy run workflow.yml --dry-run'",
+      "source_reference": "src/cli/args.rs:64"
     },
     {
-      "type": "outdated_information",
-      "severity": "medium",
-      "section": "Best Practices for Debugging",
-      "description": "Practice #7 mentions 'prodigy dlq list' but the correct command is 'prodigy dlq show'",
-      "current_content": "Check DLQ regularly: Monitor failed items with `prodigy dlq list` and retry when appropriate",
-      "should_be": "Check DLQ regularly: Monitor failed items with `prodigy dlq show <job_id>` and retry with `prodigy dlq retry <job_id>`",
-      "fix_suggestion": "Update command reference to use correct 'prodigy dlq show' and add retry command",
-      "source_reference": "observability.dlq_commands in features.json:557-560"
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Common Issues",
+      "description": "Missing troubleshooting for foreach command errors",
+      "feature_reference": "command_types.foreach",
+      "fix_suggestion": "Add section covering foreach iteration failures, parallel execution issues, and continue_on_error behavior",
+      "source_reference": "src/config/command.rs:ForeachCommand"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Best Practices for Debugging",
-      "description": "Practice #3 suggests using echo for debugging variables, but doesn't mention better alternatives",
-      "fix_suggestion": "Expand practice to mention capturing outputs with capture_output and using variable interpolation debugging with -v verbose mode",
-      "source_reference": "advanced_features.output_capture in features.json:321-333"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Index",
-      "description": "Index file has empty 'Common Issues' and 'Debug Tips' sections that should either have content or link to subsections",
-      "fix_suggestion": "Either populate these sections with overview content and link to subsections, or move all content to dedicated subsection files and use the index only for navigation",
-      "source_reference": "N/A - structural issue"
+      "severity": "low",
+      "section": "FAQ - Where are event logs stored?",
+      "description": "Example command 'prodigy events list' shown but actual command structure not verified",
+      "current_content": "prodigy events list <job_id>",
+      "should_be": "Verify actual CLI command structure from src/cli/events/mod.rs",
+      "fix_suggestion": "Confirm events CLI subcommands and update examples to match actual implementation",
+      "source_reference": "src/cli/events/mod.rs:EventsCommand"
     }
   ],
   "positive_aspects": [
-    "Multi-subsection structure is well-organized with clear separation of concerns (FAQ, Common Error Messages, Debugging Practices)",
-    "Best Practices for Debugging section provides a good starting framework with 14 numbered practices",
-    "Cross-references to subsections are properly formatted with relative links"
+    "Comprehensive coverage of MapReduce-specific issues (checkpoint resume, DLQ, worktree cleanup)",
+    "Clear categorization by symptom, cause, and solution",
+    "Good use of code examples for commands and debugging",
+    "Accurate references to storage locations (~/.prodigy paths)",
+    "Well-organized structure with index, FAQ, common error messages, and best practices",
+    "Covers concurrent resume protection (Spec 140)",
+    "Accurate CLI command examples for dlq, logs, worktree cleanup",
+    "Good coverage of variable interpolation issues",
+    "Includes JSON log location debugging with jq examples"
   ],
   "improvement_suggestions": [
-    "Add comprehensive common issues section with all 9 issues from features.json, each with symptoms, causes, and solutions",
-    "Populate FAQ with frequently asked questions derived from common issues",
-    "Document specific error messages with explanations and resolutions",
-    "Update debugging practices to reference modern storage architecture and observability features",
-    "Add examples of using prodigy logs, prodigy events, and prodigy dlq commands for debugging",
-    "Include troubleshooting decision tree: 'If X happens, check Y, then try Z'",
-    "Add links to relevant chapters for deeper dive (e.g., link to MapReduce Checkpoint and Resume when discussing checkpoint issues)",
-    "Consider adding a 'Quick Diagnosis' section for common symptoms pointing to specific issues",
-    "Add screenshots or example outputs where helpful (e.g., what a DLQ entry looks like)"
+    "Fix all broken documentation references to point to existing pages",
+    "Add troubleshooting section for workflow composition and templates",
+    "Create missing subsections referenced in the chapter (cleanup-failure-handling.md, concurrent-resume-protection.md, observability/claude-json-logs.md)",
+    "Add dry-run mode to debug tips section",
+    "Include troubleshooting for foreach command failures",
+    "Verify and update CLI command examples to match actual implementation",
+    "Add troubleshooting for error_collection_strategies and circuit_breaker features",
+    "Include examples of analyzing retry metrics and observability data",
+    "Add section on debugging conditional execution (when clauses)",
+    "Include troubleshooting for profile-specific configuration issues"
   ],
   "metadata": {
     "analyzed_at": "2025-01-11T00:00:00Z",
@@ -118,7 +173,16 @@
     "topics_covered": [
       "Common issues",
       "Debug tips",
-      "FAQ"
+      "FAQ",
+      "Error messages",
+      "Variable interpolation",
+      "MapReduce failures",
+      "Checkpoint resume",
+      "DLQ retry",
+      "Worktree cleanup",
+      "Environment variables",
+      "Claude logs",
+      "Event tracking"
     ],
     "validation_focus": "Check troubleshooting covers common user issues"
   }
