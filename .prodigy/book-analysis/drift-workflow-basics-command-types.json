@@ -1,0 +1,131 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "workflow-basics",
+  "subsection_id": "command-types",
+  "subsection_title": "Command Types",
+  "subsection_file": "book/src/workflow-basics/command-types.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Subsection is critically incomplete - only contains 5 lines with no actual content. All command types need to be documented.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Shell Commands",
+      "description": "No documentation for shell command type",
+      "feature_reference": "command_types.shell",
+      "fix_suggestion": "Add comprehensive section documenting shell commands with description, all fields (shell, timeout, capture_output, capture_format, capture_streams, output_file, on_failure, on_success, when), and use cases",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand.shell"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Claude Commands",
+      "description": "No documentation for claude command type",
+      "feature_reference": "command_types.claude",
+      "fix_suggestion": "Add comprehensive section documenting claude commands with description, all fields (claude, commit_required, validate, timeout, when, on_failure, on_success), and use cases",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand.claude"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Goal Seek Commands",
+      "description": "No documentation for goal_seek command type",
+      "feature_reference": "command_types.goal_seek",
+      "fix_suggestion": "Add comprehensive section documenting goal_seek with description, all fields (goal, claude, shell, validate, threshold, max_attempts, timeout_seconds, fail_on_incomplete), validation output format, result types, and use cases",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand.goal_seek"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Foreach Commands",
+      "description": "No documentation for foreach command type",
+      "feature_reference": "command_types.foreach",
+      "fix_suggestion": "Add comprehensive section documenting foreach with description, all fields (foreach input types, do, parallel, continue_on_error, max_items), parallelism configuration, and use cases",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand.foreach, ForeachConfig"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Write File Commands",
+      "description": "No documentation for write_file command type",
+      "feature_reference": "command_types.write_file",
+      "fix_suggestion": "Add comprehensive section documenting write_file with description, all fields (path, content, format, mode, create_dirs), format types (text, json, yaml), variable interpolation support, and use cases",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand.write_file, WriteFileConfig"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Validation Commands",
+      "description": "No documentation for validate command type",
+      "feature_reference": "command_types.validation",
+      "fix_suggestion": "Add comprehensive section documenting validation with description, all fields (validate config, shell, claude, commands, expected_schema, threshold, timeout, result_file, on_incomplete), on_incomplete configuration, validation output format, and use cases",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand.validate"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Command Exclusivity",
+      "description": "Introduction mentions commands are mutually exclusive but provides no examples or explanation",
+      "feature_reference": "command_types",
+      "fix_suggestion": "Add clear explanation and examples showing that each command step must specify exactly one command type (claude OR shell OR goal_seek OR foreach OR write_file OR validate)",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand deserialization validation"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Common Fields",
+      "description": "No documentation of shared fields available across command types",
+      "feature_reference": "command_types",
+      "fix_suggestion": "Document common fields that work across all command types: id, timeout, when, on_success, on_failure, capture_output, capture_format, capture_streams, output_file",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Examples",
+      "description": "No YAML examples showing actual command syntax",
+      "feature_reference": "command_types",
+      "fix_suggestion": "Add working YAML examples for each command type demonstrating proper syntax and common patterns",
+      "source_reference": "workflows/*.yml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Test Command Deprecation",
+      "description": "No mention that test: command type is deprecated",
+      "feature_reference": "command_types",
+      "fix_suggestion": "Add note that 'test:' command syntax is deprecated and users should use 'shell:' with 'on_failure:' instead",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand deserialization (lines 446-463)"
+    }
+  ],
+  "positive_aspects": [
+    "Clear introductory statement about command type exclusivity",
+    "Concise structure ready for expansion"
+  ],
+  "improvement_suggestions": [
+    "Add comprehensive documentation for all 6 command types (shell, claude, goal_seek, foreach, write_file, validate)",
+    "Include syntax examples with YAML code blocks for each type",
+    "Document all available fields and their purposes for each command type",
+    "Add use case examples showing when to choose each command type",
+    "Include cross-references to related subsections (variables, error handling, validation)",
+    "Add a comparison table showing which command type to use for different scenarios",
+    "Document the relationship between command types and workflow execution",
+    "Include best practices for each command type",
+    "Add troubleshooting section for common command configuration errors"
+  ],
+  "cross_references": [
+    "../advanced-features/variables.md",
+    "../advanced-features/error-handling.md",
+    "../advanced-features/validation.md",
+    "foreach-loops.md",
+    "goal-seeking.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T12:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": ["Command Types"],
+    "validation_focus": "Check command types documentation matches implementation"
+  }
+}
