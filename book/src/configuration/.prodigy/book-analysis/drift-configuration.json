@@ -1,0 +1,155 @@
+{
+  "item_type": "chapter",
+  "chapter_id": "configuration",
+  "chapter_title": "Configuration",
+  "chapter_file": "book/src/configuration/index.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Chapter index exists with good structure and examples, but references 11 subsection files that don't exist. Documentation correctly reflects current YAML-based config architecture but lacks comprehensive coverage of all configuration options.",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "high",
+      "section": "Additional Topics",
+      "description": "11 subsection files referenced but not created",
+      "broken_links": [
+        {"link_text": "Configuration Precedence Rules", "link_target": "configuration-precedence-rules.md", "expected_file": "book/src/configuration/configuration-precedence-rules.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Global Configuration Structure", "link_target": "global-configuration-structure.md", "expected_file": "book/src/configuration/global-configuration-structure.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Project Configuration Structure", "link_target": "project-configuration-structure.md", "expected_file": "book/src/configuration/project-configuration-structure.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Workflow Configuration", "link_target": "workflow-configuration.md", "expected_file": "book/src/configuration/workflow-configuration.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Storage Configuration", "link_target": "storage-configuration.md", "expected_file": "book/src/configuration/storage-configuration.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Environment Variables", "link_target": "environment-variables.md", "expected_file": "book/src/configuration/environment-variables.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Complete Configuration Examples", "link_target": "complete-configuration-examples.md", "expected_file": "book/src/configuration/complete-configuration-examples.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Default Values Reference", "link_target": "default-values-reference.md", "expected_file": "book/src/configuration/default-values-reference.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Best Practices", "link_target": "best-practices.md", "expected_file": "book/src/configuration/best-practices.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Troubleshooting", "link_target": "troubleshooting.md", "expected_file": "book/src/configuration/troubleshooting.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Migration Guide: TOML to YAML", "link_target": "migration-guide-toml-to-yaml.md", "expected_file": "book/src/configuration/migration-guide-toml-to-yaml.md", "current_file": "book/src/configuration/index.md"},
+        {"link_text": "Related Documentation", "link_target": "related-documentation.md", "expected_file": "book/src/configuration/related-documentation.md", "current_file": "book/src/configuration/index.md"}
+      ],
+      "fix_suggestion": "Create all referenced subsection files with proper content based on the codebase implementation",
+      "validation_required": true
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Global Configuration",
+      "description": "GlobalConfig struct fields not fully documented in index",
+      "feature_reference": "configuration.global_settings",
+      "fix_suggestion": "Add comprehensive documentation for all GlobalConfig fields: prodigy_home, default_editor, log_level, claude_api_key, max_concurrent_specs, auto_commit, plugins",
+      "source_reference": "src/config/mod.rs:50-59 (GlobalConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Project Configuration",
+      "description": "ProjectConfig struct fields not fully documented",
+      "feature_reference": "configuration.project_settings",
+      "fix_suggestion": "Document all ProjectConfig fields: name (required), description, version, spec_dir, claude_api_key, auto_commit, variables (toml::Table)",
+      "source_reference": "src/config/mod.rs:65-74 (ProjectConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Storage Configuration",
+      "description": "StorageConfig not documented at all",
+      "feature_reference": "configuration.storage_settings",
+      "fix_suggestion": "Add section documenting StorageConfig with backend types (File, Memory), connection pooling, retry policy, timeout, backend-specific config, locking, and caching",
+      "source_reference": "src/storage/config.rs:24-55 (StorageConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Retry Configuration",
+      "description": "RetryConfig not documented in configuration chapter",
+      "feature_reference": "configuration.retry_defaults",
+      "fix_suggestion": "Document RetryConfig fields: attempts, backoff (Fixed, Linear, Exponential, Fibonacci, Custom), initial_delay, max_delay, jitter, retry_on matchers, retry_budget, on_failure action",
+      "source_reference": "src/cook/retry_v2.rs:14-67 (RetryConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Worktree Configuration",
+      "description": "WorktreePoolConfig not documented",
+      "feature_reference": "configuration.worktree_settings",
+      "fix_suggestion": "Document WorktreePoolConfig: parallel_worktrees (default: 10), allocation_strategy (OnDemand, Pooled, Reuse, Dedicated), cleanup_policy (idle_timeout, max_age, cleanup_on_complete, keep_failed), resource_limits, enable_cache",
+      "source_reference": "src/worktree/pool.rs:17-51 (WorktreePoolConfig struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Environment Variables",
+      "description": "Claude-specific environment variables not documented",
+      "feature_reference": "configuration.claude_settings",
+      "fix_suggestion": "Document PRODIGY_CLAUDE_STREAMING (controls JSON streaming, default true), PRODIGY_CLAUDE_CONSOLE_OUTPUT (overrides verbosity for streaming output), PRODIGY_CLAUDE_API_KEY (API key override)",
+      "source_reference": "src/config/mod.rs:111-131, src/cook/execution/claude.rs:89-95, src/cook/execution/claude.rs:429-433"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Configuration File Locations",
+      "description": "Documentation mentions TOML files in comments but implementation is YAML-only",
+      "current_content": "Comments in loader.rs mention .prodigy/config.toml",
+      "should_be": "Only .yml and .yaml extensions are supported (src/core/config/mod.rs validation)",
+      "fix_suggestion": "Update all references to use .yml extension, note that TOML is deprecated",
+      "source_reference": "src/config/loader.rs:11-17, src/core/config/mod.rs:43-50"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Precedence Rules",
+      "description": "Precedence rules documented but specific method references missing",
+      "feature_reference": "configuration.precedence",
+      "fix_suggestion": "Add details about Config.merge_env_vars() and how environment variables override config values. Document that project config claude_api_key takes precedence over global (tested in src/config/mod.rs:408-429)",
+      "source_reference": "src/config/mod.rs:111-131 (merge_env_vars), src/config/mod.rs:133-154 (precedence methods)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Plugin Configuration",
+      "description": "PluginConfig struct exists but not mentioned in documentation",
+      "feature_reference": "configuration.plugins",
+      "fix_suggestion": "Document PluginConfig (optional): enabled, directory, auto_load list",
+      "source_reference": "src/config/mod.rs:76-86 (PluginConfig struct)"
+    }
+  ],
+  "positive_aspects": [
+    "Clear distinction between config.yml (project settings) and workflow.yml (workflow definitions)",
+    "Good examples showing minimal vs full configuration",
+    "Accurate precedence hierarchy: CLI flags > Env vars > Project > Global > Defaults",
+    "Helpful troubleshooting table with common issues and solutions",
+    "Source code references throughout for transparency",
+    "Validation rules clearly documented",
+    "Search hierarchy explanation is accurate"
+  ],
+  "improvement_suggestions": [
+    "Create the 11 referenced subsection files to fix broken links",
+    "Add comprehensive field reference for GlobalConfig, ProjectConfig, StorageConfig, RetryConfig, WorktreePoolConfig",
+    "Document all PRODIGY_* environment variables in one place",
+    "Add complete examples showing all config tiers together",
+    "Include performance tuning guidance (connection pool sizes, parallel worktrees, etc.)",
+    "Add migration guide from TOML to YAML with conversion examples",
+    "Document plugin system configuration (currently not explained)",
+    "Add troubleshooting for precedence issues (why isn't my setting taking effect?)",
+    "Include validation command examples if available"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T02:30:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Config file locations",
+      "Precedence rules",
+      "Project vs workflow config distinction",
+      "YAML format",
+      "Validation"
+    ],
+    "topics_missing": [
+      "Storage configuration",
+      "Retry configuration defaults",
+      "Worktree pool configuration",
+      "Claude environment variables",
+      "Plugin configuration",
+      "Complete field references for all config structs"
+    ],
+    "validation_focus": "Check configuration structure matches Settings struct and precedence is correctly documented"
+  }
+}
