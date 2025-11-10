@@ -2,6 +2,27 @@
 
 This section documents specific error messages you may encounter while using Prodigy, along with their meanings and solutions.
 
+### Quick Reference
+
+| Error Message | Category | Common Cause |
+|---------------|----------|--------------|
+| [checkpoint not found](#checkpoint-not-found) | Resume | Missing checkpoint files |
+| [items.json not found](#itemsjson-not-found) | MapReduce | Setup phase failed |
+| [command not found: claude](#command-not-found-claude) | Environment | Claude Code not in PATH |
+| [permission denied](#permission-denied) | File System | Insufficient permissions |
+| [timeout exceeded](#timeout-exceeded) | Execution | Slow operation |
+| [Resume already in progress](#resume-already-in-progress) | Concurrency | Lock conflict |
+| [JSONPath returned no results](#jsonpath-returned-no-results) | MapReduce | Invalid JSONPath |
+| [No commits found](#no-commits-found) | Git | No file changes |
+| [Variable not found](#variable-not-found-var) | Variables | Undefined variable |
+| [Invalid profile](#invalid-profile-name) | Configuration | Profile not defined |
+| [Disk quota exceeded](#disk-quota-exceeded) | File System | Out of space |
+| [Job already completed](#job-already-completed) | Resume | Job finished |
+| [Template not found](#template-not-found) | Composition | Template missing |
+| [Required parameter not provided](#required-parameter-not-provided) | Composition | Missing parameter |
+| [Circular dependency detected](#circular-dependency-detected) | Composition | Circular imports |
+| [Concurrent modification detected](#concurrent-modification-detected) | Concurrency | Race condition |
+
 ### "checkpoint not found"
 
 **Full message**: `Error: Checkpoint not found for session/job {id}`
