@@ -1,0 +1,111 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "composition",
+  "subsection_id": "troubleshooting",
+  "subsection_title": "Troubleshooting",
+  "subsection_file": "book/src/composition/troubleshooting.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Subsection contains significant outdated information about implementation status. Multiple features documented as 'TODO' or 'in development' are actually fully implemented with working code and tests. This creates confusion for users who may unnecessarily work around 'missing' features.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Template Parameter Substitution Issues",
+      "description": "Documentation claims parameter substitution in commands is 'partially implemented' with status '⏳ Parameter substitution in commands (TODO)', but this is fully implemented",
+      "current_content": "**Current Status:**\n- ✅ Parameter validation works\n- ⏳ Parameter substitution in commands (TODO)\n\n**Workaround:**\n```yaml\n# Use environment variables for now\nenv:\n  ENVIRONMENT: \"${environment}\"\n```",
+      "should_be": "Parameter substitution is fully implemented and works in all command types (Simple, WorkflowStep, Structured, SimpleObject). The ${param} syntax is supported throughout workflow commands.",
+      "fix_suggestion": "Remove the 'TODO' status and workaround section. Update to reflect that parameter substitution is fully functional with examples of its usage in different command types.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:760-877 (substitute_parameters_in_command function with full implementation and tests)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Sub-Workflow Execution Not Running",
+      "description": "Documentation states sub-workflow execution is 'in development' and runtime integration is pending, but SubWorkflowExecutor is fully implemented",
+      "current_content": "**Current Status:**\n- ✅ Sub-workflow configuration parsing\n- ✅ Sub-workflow validation\n- ⏳ Executor runtime integration (in development)\n\n**Workaround:**\n```yaml\n# Use shell commands to invoke workflows manually\ncommands:\n  - shell: \"prodigy run workflows/test.yml\"\n```",
+      "should_be": "Sub-workflow execution is fully implemented via SubWorkflowExecutor. Sub-workflows can be defined in the 'workflows' block and executed within parent workflow context with parameter passing, input/output mapping, parallel execution support, and error handling.",
+      "fix_suggestion": "Update section to reflect that sub-workflow execution is fully functional. Provide examples of proper sub-workflow configuration and execution instead of shell command workarounds.",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:67-100 (SubWorkflowExecutor with complete implementation including context isolation, parameter passing, and result handling)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Default Values Not Applied",
+      "description": "Documentation claims default value merge logic is 'pending implementation' with status '⏳ Merge logic (TODO in apply_defaults)', but apply_defaults is fully implemented",
+      "current_content": "**Current Status:**\n- ✅ Defaults parsing and storage\n- ⏳ Merge logic (TODO in apply_defaults)\n\n**Workaround:**\n```yaml\n# Use parameter defaults instead of workflow defaults\nparameters:\n  definitions:\n    timeout:\n      type: Number\n      default: 300  # Works now\n```",
+      "should_be": "Default values are fully applied through the apply_defaults method. Defaults are merged into environment variables and parameter definitions, with proper precedence handling (existing values are not overwritten).",
+      "fix_suggestion": "Remove the 'TODO' status and workaround. Explain how defaults work with the proper precedence order and provide examples of using both workflow-level defaults and parameter-level defaults together.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:217-257 (apply_defaults function with complete implementation for env vars and parameter defaults)"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Debugging Strategies - Composition Metadata Not Showing",
+      "description": "Documentation references a '--show-composition' flag that does not exist in the CLI implementation",
+      "current_content": "**Debugging Strategies**\n...\n# Show composition steps\nprodigy run workflow.yml --dry-run --show-composition",
+      "should_be": "The --show-composition flag is not implemented. Users should use -v, -vv, or -vvv verbosity flags with --dry-run for composition debugging.",
+      "fix_suggestion": "Remove reference to --show-composition flag. Update debugging section to use only implemented flags: --dry-run with -v/-vv/-vvv for varying levels of detail.",
+      "source_reference": "Absence of 'show_composition' or 'show-composition' in CLI codebase (grep found no matches)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Circular Dependency Errors",
+      "description": "Missing information about how circular dependency detection actually works and what the full error message looks like",
+      "current_content": "**Error:**\n```\nError: Circular dependency detected\n  workflow-a.yml -> workflow-b.yml -> workflow-a.yml\n```",
+      "should_be": "Actual error message is simpler: 'Circular dependency detected in workflow composition'. The dependency chain may not be shown in the error.",
+      "fix_suggestion": "Update error message example to match actual implementation. Consider adding information about how to diagnose circular dependencies using verbose mode or by manually inspecting imports/extends chains.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:727 (error message: 'Circular dependency detected in workflow composition')"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Template Registry Locations",
+      "description": "Missing information about template registry search order and global vs project-local template locations",
+      "current_content": "**Cause:** Template doesn't exist in `~/.prodigy/templates/`\n\n**Solutions:**\n1. **Verify template location:**\n```bash\nls ~/.prodigy/templates/ci-pipeline.yml\n```",
+      "should_be": "Template registry searches multiple locations in priority order: 1) ~/.prodigy/templates/ (global), 2) .prodigy/templates/ (project-local), 3) templates/ (legacy project-local)",
+      "fix_suggestion": "Add explanation of template search path priority order. Update examples to show checking all three locations. Mention that global templates are shared across all repositories.",
+      "source_reference": "src/cook/workflow/composer_integration.rs:94-110 (create_template_registry with three-tier search path)"
+    }
+  ],
+  "positive_aspects": [
+    "Clear organization by error type with consistent structure",
+    "Good examples of error messages that users will encounter",
+    "Practical debugging strategies section with useful commands",
+    "Helpful workaround suggestions (even though some are unnecessary now)",
+    "Comprehensive coverage of common composition errors",
+    "Good use of code examples to illustrate solutions"
+  ],
+  "improvement_suggestions": [
+    "Update all 'Current Status' sections to reflect actual implementation state (most features marked as TODO/in-development are actually complete)",
+    "Remove unnecessary workarounds for implemented features - these confuse users into thinking features are missing",
+    "Add examples showing how to use the fully-implemented parameter substitution in different command types",
+    "Include information about error context and stack traces that Prodigy provides for debugging",
+    "Add section on using verbose logging (-v/-vv/-vvv) to debug composition issues",
+    "Explain the template registry search path and precedence order",
+    "Add cross-reference to Parameters subsection for parameter type validation details",
+    "Include troubleshooting for common parameter validation errors (type mismatches, missing required params)"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Circular dependencies",
+      "Template resolution",
+      "Parameter validation",
+      "Import path resolution",
+      "Type mismatches",
+      "Base workflow resolution",
+      "Parameter substitution",
+      "Sub-workflow execution",
+      "Default values",
+      "Debugging strategies"
+    ],
+    "validation_focus": "Check troubleshooting documentation matches implementation",
+    "broken_links_found": 0,
+    "total_internal_links": 0
+  }
+}
