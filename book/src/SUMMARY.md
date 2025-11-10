@@ -1,6 +1,6 @@
 # Summary
 
-[Introduction](intro.md)
+[Introduction](index.md)
 [Installation](installation.md)
 
 # User Guide
