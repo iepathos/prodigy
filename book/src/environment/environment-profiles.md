@@ -2,7 +2,7 @@
 
 Environment profiles allow you to define named sets of environment variables for different execution contexts (development, staging, production, etc.). Each profile contains environment variables that are applied when the profile is activated.
 
-**Source**: Profile infrastructure implemented in [src/cook/environment/config.rs](../../../src/cook/environment/config.rs) (EnvironmentConfig struct) and [src/cook/environment/manager.rs](../../../src/cook/environment/manager.rs) (profile application logic).
+**Source**: Profile infrastructure implemented in `src/cook/environment/config.rs` (EnvironmentConfig struct) and `src/cook/environment/manager.rs` (profile application logic).
 
 ### Defining Profiles
 
@@ -41,7 +41,7 @@ commands:
   - shell: "npm run build"
 ```
 
-**Source**: Profile structure defined in [src/cook/environment/config.rs](../../../src/cook/environment/config.rs) (EnvProfile type).
+**Source**: Profile structure defined in `src/cook/environment/config.rs` (EnvProfile type).
 
 **Profile Structure Details**:
 - **description** (optional): Human-readable description of the profile's purpose
@@ -50,7 +50,7 @@ commands:
 
 ### Activating Profiles
 
-**Design Note**: The profile activation infrastructure is architecturally complete in the codebase. The `EnvironmentConfig` struct has an `active_profile` field ([src/cook/environment/config.rs:33-35](../../../src/cook/environment/config.rs)), and the `EnvironmentManager` applies active profiles during environment setup ([src/cook/environment/manager.rs:118-120](../../../src/cook/environment/manager.rs)). Comprehensive integration tests demonstrate profile activation ([tests/environment_workflow_test.rs:63-132](../../../tests/environment_workflow_test.rs)).
+**Design Note**: The profile activation infrastructure is architecturally complete in the codebase. The `EnvironmentConfig` struct has an `active_profile` field (`src/cook/environment/config.rs:33-35`), and the `EnvironmentManager` applies active profiles during environment setup (`src/cook/environment/manager.rs:118-120`). Comprehensive integration tests demonstrate profile activation (`tests/environment_workflow_test.rs:63-132`).
 
 **Current Implementation Status**: As of this documentation, the CLI wiring for profile activation (`--profile` flag and `PRODIGY_PROFILE` environment variable) is not yet connected to the argument parser. The profile application infrastructure exists and is tested, but requires the active profile to be set programmatically rather than via command-line arguments.
 
@@ -120,7 +120,7 @@ When a profile is active, environment variables are resolved in this order (high
 3. **Global environment** - Variables from top-level `env:` block
 4. **System environment** - Variables inherited from the shell
 
-**Source**: Precedence chain implemented in [src/cook/environment/manager.rs](../../../src/cook/environment/manager.rs) and tested in [tests/environment_workflow_test.rs](../../../tests/environment_workflow_test.rs).
+**Source**: Precedence chain implemented in `src/cook/environment/manager.rs` and tested in `tests/environment_workflow_test.rs`.
 
 For detailed information on precedence rules, see [Environment Precedence](environment-precedence.md).
 

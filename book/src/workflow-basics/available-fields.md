@@ -12,7 +12,7 @@ Standard workflows support these top-level fields:
 | `profiles` | Map<String, EnvProfile> | No | Named environment profiles for different contexts |
 | `merge` | MergeWorkflow | No | Custom merge workflow for worktree integration |
 
-**Source**: Type definitions from [src/config/workflow.rs:11-38](../../src/config/workflow.rs)
+**Source**: Type definitions from `src/config/workflow.rs:11-38`
 
 **Note:** `commands` is only required in the full format. Use the simple array format for quick workflows without environment configuration. Use the full format when you need environment variables, profiles, or custom merge workflows.
 
@@ -38,7 +38,7 @@ Understanding how fields interact is important for effective workflow configurat
 
 ### Format Examples
 
-**Simple Array Format** (from [examples/standard-workflow.yml](../../examples/standard-workflow.yml)):
+**Simple Array Format** (from `examples/standard-workflow.yml`):
 
 ```yaml
 - shell: echo "Starting code analysis..."
@@ -51,7 +51,7 @@ Use this format when:
 - You have a quick, straightforward sequence of commands
 - You want minimal YAML verbosity
 
-**Full Format with Environment** (from [workflows/environment-example.yml](../../workflows/environment-example.yml)):
+**Full Format with Environment** (from `workflows/environment-example.yml`):
 
 ```yaml
 name: production-deploy

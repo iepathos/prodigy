@@ -2,12 +2,12 @@
 
 ### Related Documentation
 
-- **[Environment Variables](../environment/)** - Configure environment variables, secrets, and profiles for workflow parameterization
+- **[Environment Variables](../environment/index.md)** - Configure environment variables, secrets, and profiles for workflow parameterization
 - **[Git Context Advanced](../git-context-advanced.md)** - Deep dive into git variable formats, filtering, and advanced use cases
-- **[MapReduce Workflows](../mapreduce/)** - Using item.* and map.* variables in distributed parallel processing
+- **[MapReduce Workflows](../mapreduce/index.md)** - Using item.* and map.* variables in distributed parallel processing
 - **[Commands](../commands.md)** - Command-specific capture_output configuration and command types
 - **[Examples](../examples.md)** - Real-world variable usage patterns and complete workflows
-- **[Troubleshooting](../troubleshooting/)** - Debugging workflows with variable-related issues
+- **[Troubleshooting](../troubleshooting/index.md)** - Debugging workflows with variable-related issues
 
 ### Key Concepts
 

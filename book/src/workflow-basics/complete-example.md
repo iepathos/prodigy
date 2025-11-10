@@ -2,7 +2,7 @@
 
 Here's a complete workflow demonstrating Prodigy's core features in a single file. This example combines environment configuration, workflow commands, and custom merge behavior.
 
-**Source**: Based on [workflows/implement.yml](../../../workflows/implement.yml)
+**Source**: Based on `workflows/implement.yml`
 
 ```yaml
 # Environment configuration
@@ -47,7 +47,7 @@ merge:
 
 5. **Custom Merge Workflow** (lines 22-24): Customize the merge-back process
    - **Important**: Always include both `${merge.source_branch}` and `${merge.target_branch}` parameters
-   - The simplified array format is shown here (supported by [MergeWorkflow](../../../src/config/mapreduce.rs:96-124))
+   - The simplified array format is shown here (supported by `MergeWorkflow`)
    - See next section for the full configuration format
 
 ### Alternative Merge Format (with timeout)
@@ -62,7 +62,7 @@ merge:
   timeout: 600                   # Optional: timeout in seconds (10 minutes)
 ```
 
-**Source**: [src/config/mapreduce.rs:86-124](../../../src/config/mapreduce.rs)
+**Source**: `src/config/mapreduce.rs:86-124`
 
 ### Real-World Example
 

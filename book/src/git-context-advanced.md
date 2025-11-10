@@ -554,7 +554,6 @@ To enable these features, the interpolation engine would need to support custom 
 
 ## See Also
 
-- [Variables and Interpolation](variables.md) - Basic variable usage and interpolation syntax
-- [Workflow Basics](workflow-basics.md) - Git integration fundamentals and workflow structure
+- [Variables and Interpolation](variables/index.md) - Basic variable usage and interpolation syntax
+- [Workflow Basics](workflow-basics/index.md) - Git integration fundamentals and workflow structure
 - [MapReduce Workflows](mapreduce/index.md) - Using git context in parallel jobs
-- [Conditional Execution](conditionals.md) - Using git context with `when:` conditions

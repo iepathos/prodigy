@@ -15,7 +15,7 @@ Run validation commands after a step completes:
 
 **Note**: The `threshold` field defaults to **100** if not specified, requiring full implementation completion.
 
-**Source**: [src/cook/workflow/validation.rs:280-282](../../../src/cook/workflow/validation.rs)
+**Source**: `src/cook/workflow/validation.rs:280-282`
 
 ### Validation with Claude
 
@@ -75,7 +75,7 @@ The `result_file` option is useful when you need to separate validation output f
 
 The file must contain valid JSON matching the ValidationResult schema. When the validation command completes, Prodigy reads the specified file and parses it as JSON. If the file doesn't exist or contains invalid JSON, the validation fails.
 
-**Source**: [src/cook/workflow/executor/validation.rs:700-715](../../../src/cook/workflow/executor/validation.rs)
+**Source**: `src/cook/workflow/executor/validation.rs:700-715`
 
 #### Advanced: Result Files with Commands Array
 
@@ -96,7 +96,7 @@ You can use `result_file` with the `commands` array for multi-step validation wh
 
 In this pattern, the validation command writes its results to a JSON file, and Prodigy reads that file after all commands complete.
 
-**Source**: Real-world example from [workflows/implement.yml:6-16](../../../workflows/implement.yml)
+**Source**: Real-world example from `workflows/implement.yml:6-16`
 
 ### Handling Incomplete Implementations
 
@@ -133,7 +133,7 @@ Automatically remediate when validation fails to meet the threshold.
 - `fail_workflow`: **true** (workflow fails if remediation doesn't reach threshold)
 - `commit_required`: **false** (remediation command doesn't need to create a commit)
 
-**Source**: [src/cook/workflow/validation.rs:284-289](../../../src/cook/workflow/validation.rs)
+**Source**: `src/cook/workflow/validation.rs:284-289`
 
 The `on_incomplete` configuration supports:
 - `claude`: Claude command to execute for gap-filling
@@ -143,7 +143,7 @@ The `on_incomplete` configuration supports:
 - `fail_workflow`: Whether to fail workflow if remediation fails (default: **true**)
 - `commit_required`: Whether remediation command should create a commit (default: **false**)
 
-**Source**: [src/cook/workflow/validation.rs:123-152](../../../src/cook/workflow/validation.rs)
+**Source**: `src/cook/workflow/validation.rs:123-152`
 
 ### Timeout Configuration
 
@@ -159,7 +159,7 @@ Set a timeout for validation commands to prevent hanging:
 
 The `timeout` field specifies the maximum number of seconds the validation command can run. If the command exceeds this time, it's terminated and the validation fails.
 
-**Source**: [src/cook/workflow/validation.rs:37-39](../../../src/cook/workflow/validation.rs)
+**Source**: `src/cook/workflow/validation.rs:37-39`
 
 ### ValidationResult Schema
 
@@ -195,7 +195,7 @@ When using `result_file`, the JSON file must match this structure:
 - `missing`: Array of strings describing incomplete requirements
 - `gaps`: Object mapping gap IDs to GapDetail objects with description, location, severity, and suggested_fix
 
-**Source**: [src/cook/workflow/validation.rs:216-239](../../../src/cook/workflow/validation.rs)
+**Source**: `src/cook/workflow/validation.rs:216-239`
 
 ### Validation Patterns
 
@@ -254,7 +254,7 @@ When using `result_file`, the JSON file must match this structure:
       fail_workflow: true
 ```
 
-**Source**: [workflows/debtmap.yml:26-42](../../../workflows/debtmap.yml)
+**Source**: `workflows/debtmap.yml:26-42`
 
 This pattern demonstrates:
 - Multiple validation commands executed in sequence
@@ -276,4 +276,4 @@ Complete list of validation configuration fields:
 | `result_file` | String | None | File path to read validation results from |
 | `on_incomplete` | Object | None | Configuration for handling validation failures |
 
-**Source**: [src/cook/workflow/validation.rs:11-49](../../../src/cook/workflow/validation.rs)
+**Source**: `src/cook/workflow/validation.rs:11-49`

@@ -158,8 +158,4 @@ See also:
 - [Event Tracking](event-tracking.md)
 - [Checkpoint and Resume](checkpoint-and-resume.md)
 - [Dead Letter Queue (DLQ)](dead-letter-queue-dlq.md)
-- [Common Pitfalls](common-pitfalls.md)
-- [Troubleshooting](troubleshooting.md)
-- [Performance Tuning](performance-tuning.md)
-- [Real-World Use Cases](real-world-use-cases.md)
 - [Workflow Format Comparison](workflow-format-comparison.md)

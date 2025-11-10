@@ -182,7 +182,7 @@ sudo ./scripts/install-man-pages.sh
 After installation, explore Prodigy's features:
 
 **Getting Started:**
-- [Introduction](intro.md) - Overview of Prodigy's capabilities
+- [Introduction](index.md) - Overview of Prodigy's capabilities
 - [Workflow Basics](workflow-basics/index.md) - Learn how to write workflows
 
 **Popular Use Cases:**

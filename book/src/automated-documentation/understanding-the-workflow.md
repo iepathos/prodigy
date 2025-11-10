@@ -347,4 +347,4 @@ The workflow uses variable interpolation to pass data between phases:
 - [Automatic Gap Detection](automatic-gap-detection.md) - How the workflow finds missing documentation
 - [Advanced Configuration](advanced-configuration.md) - Customize workflow behavior
 - [Troubleshooting](troubleshooting.md) - Common issues and solutions
-- [../../mapreduce/index.md](../../mapreduce/index.md) - General MapReduce workflows (not documentation-specific)
+- [MapReduce Workflows](../mapreduce/index.md) - General MapReduce workflows (not documentation-specific)

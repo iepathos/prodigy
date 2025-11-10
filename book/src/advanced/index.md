@@ -286,7 +286,7 @@ Configure where and how commands execute in your workflow.
 
 **Note**: Step-level environment variable configuration (`env`, `clear_env`, `inherit`) and working directory (`working_dir`, `cwd`) are internal features available in the execution layer but not currently exposed in the YAML configuration layer (WorkflowStepCommand). These features exist in the runtime `WorkflowStep` type for internal use.
 
-For workflow-level environment configuration, see the [Environment Variables](../workflow-basics.md#environment-variables) section in Workflow Basics.
+For workflow-level environment configuration, see the [Environment Variables](../workflow-basics/environment-configuration.md) section in Workflow Basics.
 
 ---
 

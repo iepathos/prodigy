@@ -398,5 +398,4 @@ Test coverage (tests/concurrent_resume_test.rs:77-105) validates stale lock dete
 - [Dead Letter Queue (DLQ)](./dead-letter-queue-dlq.md) - Managing failed work items during resume operations
 - [Event Tracking](./event-tracking.md) - Understanding events logged during checkpoint creation and resume
 - [Global Storage Architecture](./global-storage-architecture.md) - Storage locations for checkpoints and state files
-- [Troubleshooting](./troubleshooting.md) - General MapReduce workflow debugging techniques
 

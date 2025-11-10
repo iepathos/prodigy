@@ -2,7 +2,7 @@
 
 Backoff strategies control the delay between retry attempts when a MapReduce agent fails. Prodigy supports multiple backoff algorithms to handle different failure patterns and workload characteristics.
 
-**Source**: `BackoffStrategy` enum in [src/cook/retry_v2.rs:73-90](../../src/cook/retry_v2.rs)
+**Source**: `BackoffStrategy` enum in `src/cook/retry_v2.rs:73-90`
 
 ### Overview
 
@@ -14,7 +14,7 @@ The `retry_config.backoff` field configures which backoff algorithm to use. All 
 
 **Default Strategy**: If no backoff is specified, Prodigy uses **Exponential backoff with base 2.0**.
 
-Source: [src/cook/retry_v2.rs:92-97](../../src/cook/retry_v2.rs)
+Source: `src/cook/retry_v2.rs:92-97`
 
 ### Available Strategies
 
@@ -47,9 +47,9 @@ retry_config:
 - Quick recovery for flaky tests
 - Network requests with predictable timeouts
 
-**Source**: [src/cook/retry_v2.rs:75](../../src/cook/retry_v2.rs) (retry_v2), [src/cook/workflow/error_policy.rs:110](../../src/cook/workflow/error_policy.rs) (error_policy)
+**Source**: `src/cook/retry_v2.rs:75` (retry_v2), `src/cook/workflow/error_policy.rs:110` (error_policy)
 
-**Test**: [src/cook/retry_v2.rs:583-594](../../src/cook/retry_v2.rs)
+**Test**: `src/cook/retry_v2.rs:583-594`
 
 #### Linear Backoff
 
@@ -83,9 +83,9 @@ retry_config:
 - Resource allocation failures
 - Predictable backpressure
 
-**Source**: [src/cook/retry_v2.rs:77-80](../../src/cook/retry_v2.rs) (retry_v2), [src/cook/workflow/error_policy.rs:112-115](../../src/cook/workflow/error_policy.rs) (error_policy)
+**Source**: `src/cook/retry_v2.rs:77-80` (retry_v2), `src/cook/workflow/error_policy.rs:112-115` (error_policy)
 
-**Test**: [src/cook/retry_v2.rs:597-610](../../src/cook/retry_v2.rs)
+**Test**: `src/cook/retry_v2.rs:597-610`
 
 #### Exponential Backoff (Default)
 
@@ -123,9 +123,9 @@ retry_config:
 - Most general-purpose retry scenarios
 - **Recommended for MapReduce workloads**
 
-**Source**: [src/cook/retry_v2.rs:82-85](../../src/cook/retry_v2.rs) (retry_v2), [src/cook/workflow/error_policy.rs:117](../../src/cook/workflow/error_policy.rs) (error_policy)
+**Source**: `src/cook/retry_v2.rs:82-85` (retry_v2), `src/cook/workflow/error_policy.rs:117` (error_policy)
 
-**Test**: [src/cook/retry_v2.rs:613-626](../../src/cook/retry_v2.rs)
+**Test**: `src/cook/retry_v2.rs:613-626`
 
 #### Fibonacci Backoff
 
@@ -161,9 +161,9 @@ retry_config:
 
 **Implementation**: The Fibonacci sequence is calculated using iterative approach to avoid stack overflow for large attempt numbers.
 
-**Source**: [src/cook/retry_v2.rs:87](../../src/cook/retry_v2.rs), [src/cook/retry_v2.rs:424-440](../../src/cook/retry_v2.rs) (fibonacci function)
+**Source**: `src/cook/retry_v2.rs:87`, `src/cook/retry_v2.rs:424-440` (fibonacci function)
 
-**Test**: [src/cook/retry_v2.rs:629-642](../../src/cook/retry_v2.rs)
+**Test**: `src/cook/retry_v2.rs:629-642`
 
 #### Custom Backoff (retry_v2 only)
 
@@ -202,7 +202,7 @@ retry_config:
 
 This ensures predictable behavior when custom delays are exhausted or misconfigured, preventing undefined delay calculations.
 
-**Source**: [src/cook/retry_v2.rs:88-89](../../src/cook/retry_v2.rs), [src/cook/retry_v2.rs:298-301](../../src/cook/retry_v2.rs) (calculation logic)
+**Source**: `src/cook/retry_v2.rs:88-89`, `src/cook/retry_v2.rs:298-301` (calculation logic)
 
 ### MapReduce Integration
 
@@ -240,7 +240,7 @@ map:
   max_parallel: 10
 ```
 
-**Source**: [src/cook/workflow/error_policy.rs:160](../../src/cook/workflow/error_policy.rs) (retry_config field in WorkflowErrorPolicy)
+**Source**: `src/cook/workflow/error_policy.rs:160` (retry_config field in WorkflowErrorPolicy)
 
 ### RetryConfig Fields
 
@@ -262,23 +262,23 @@ retry_config:
 3. If `jitter: true`, random offset is added: `delay ± (delay * jitter_factor)`
 4. Final delay is applied before next retry attempt
 
-**Source**: [src/cook/retry_v2.rs:16-52](../../src/cook/retry_v2.rs)
+**Source**: `src/cook/retry_v2.rs:16-52`
 
-**Defaults**: [src/cook/retry_v2.rs:443-461](../../src/cook/retry_v2.rs)
+**Defaults**: `src/cook/retry_v2.rs:443-461`
 
 ### Implementation Variants
 
 Prodigy has **two BackoffStrategy implementations**:
 
 #### retry_v2.rs (Recommended)
-- **Location**: [src/cook/retry_v2.rs:73-90](../../src/cook/retry_v2.rs)
+- **Location**: `src/cook/retry_v2.rs:73-90`
 - **Features**: Includes `Custom` backoff strategy
 - **Exponential parameter**: `base` (default 2.0)
 - **Simple syntax**: Most strategies use `backoff: strategy_name` form
 - **More comprehensive**: Full RetryConfig with jitter, retry_budget, error matchers
 
 #### error_policy.rs (Legacy)
-- **Location**: [src/cook/workflow/error_policy.rs:108-120](../../src/cook/workflow/error_policy.rs)
+- **Location**: `src/cook/workflow/error_policy.rs:108-120`
 - **Features**: No `Custom` strategy
 - **Exponential parameter**: `multiplier` instead of `base`
 - **Explicit syntax**: All strategies require nested configuration with `initial` delay

@@ -2,7 +2,7 @@
 
 Environment variables can be configured at multiple levels in Prodigy workflows, providing flexible control over workflow execution across different environments and contexts.
 
-**Source**: Configuration structures defined in [src/cook/environment/config.rs:11-144](../../../src/cook/environment/config.rs), workflow configuration in [src/config/workflow.rs:12-39](../../../src/config/workflow.rs).
+**Source**: Configuration structures defined in `src/cook/environment/config.rs:11-144`, workflow configuration in `src/config/workflow.rs:12-39`.
 
 ### Overview
 
@@ -20,7 +20,7 @@ This subsection provides a quick introduction to environment configuration. For 
 
 Define environment variables in the `env:` block at the workflow root. Variables can be static strings, dynamically computed from commands, or conditionally set based on expressions.
 
-**Source**: [workflows/environment-example.yml:4-18](../../../workflows/environment-example.yml)
+**Source**: `workflows/environment-example.yml:4-18`
 
 ```yaml
 env:
@@ -40,7 +40,7 @@ env:
     when_false: "staging"
 ```
 
-**Type Definitions** ([src/cook/environment/config.rs:38-81](../../../src/cook/environment/config.rs)):
+**Type Definitions** (`src/cook/environment/config.rs:38-81`):
 - `EnvValue::Static(String)` - Static string value
 - `EnvValue::Dynamic(DynamicEnv)` - Computed from command with optional caching
 - `EnvValue::Conditional(ConditionalEnv)` - Based on condition expression
@@ -49,7 +49,7 @@ env:
 
 Load environment variables from .env format files using the `env_files:` field.
 
-**Source**: [workflows/environment-example.yml:25-27](../../../workflows/environment-example.yml), [src/cook/environment/config.rs:22-23](../../../src/cook/environment/config.rs)
+**Source**: `workflows/environment-example.yml:25-27`, `src/cook/environment/config.rs:22-23`
 
 ```yaml
 env_files:
@@ -65,7 +65,7 @@ For detailed information about .env file format and loading behavior, see [Envir
 
 Secret environment variables are automatically masked in all log output, preventing accidental credential leaks.
 
-**Source**: [workflows/mapreduce-env-example.yml:23-26](../../../workflows/mapreduce-env-example.yml), [src/cook/environment/config.rs:86-112](../../../src/cook/environment/config.rs)
+**Source**: `workflows/mapreduce-env-example.yml:23-26`, `src/cook/environment/config.rs:86-112`
 
 ```yaml
 secrets:
@@ -78,7 +78,7 @@ secrets:
     key: "GITHUB_TOKEN"
 ```
 
-**Secret Providers** ([src/cook/environment/config.rs:101-112](../../../src/cook/environment/config.rs)):
+**Secret Providers** (`src/cook/environment/config.rs:101-112`):
 - `env` - Environment variable
 - `file` - File-based secret
 - `vault` - HashiCorp Vault
@@ -91,7 +91,7 @@ For comprehensive secrets management documentation, see [Secrets Management](../
 
 Profiles enable different environment configurations for various deployment contexts (development, staging, production).
 
-**Source**: [workflows/environment-example.yml:30-39](../../../workflows/environment-example.yml), [src/cook/environment/config.rs:116-124](../../../src/cook/environment/config.rs)
+**Source**: `workflows/environment-example.yml:30-39`, `src/cook/environment/config.rs:116-124`
 
 ```yaml
 profiles:
@@ -124,7 +124,7 @@ For detailed profile configuration and best practices, see [Environment Profiles
 
 Commands can define their own environment variables that override global and profile settings.
 
-**Source**: [workflows/environment-example.yml:47-60](../../../workflows/environment-example.yml), [src/cook/environment/config.rs:126-144](../../../src/cook/environment/config.rs)
+**Source**: `workflows/environment-example.yml:47-60`, `src/cook/environment/config.rs:126-144`
 
 ```yaml
 commands:
@@ -144,7 +144,7 @@ commands:
     temporary: true  # Environment restored after this step
 ```
 
-**Step Environment Fields** ([src/cook/environment/config.rs:128-144](../../../src/cook/environment/config.rs)):
+**Step Environment Fields** (`src/cook/environment/config.rs:128-144`):
 - `env: HashMap<String, String>` - Step-specific variables
 - `working_dir: Option<PathBuf>` - Working directory for this step
 - `clear_env: bool` - Clear parent environment before applying step env
@@ -156,7 +156,7 @@ For detailed step-level configuration, see [Per-Command Environment Overrides](.
 
 Environment variables can be referenced in commands using two syntaxes: `$VAR` or `${VAR}`.
 
-**Source**: [workflows/mapreduce-env-example.yml:44-80](../../../workflows/mapreduce-env-example.yml)
+**Source**: `workflows/mapreduce-env-example.yml:44-80`
 
 ```yaml
 env:
@@ -189,7 +189,7 @@ When the same variable is defined at multiple levels, precedence is:
 3. **Global env**
 4. **System environment** (lowest priority)
 
-**Source**: Precedence logic in [src/cook/environment/builder.rs:48-53](../../../src/cook/environment/builder.rs), tests in [tests/environment_workflow_test.rs:62-132](../../../tests/environment_workflow_test.rs)
+**Source**: Precedence logic in `src/cook/environment/builder.rs:48-53`, tests in `tests/environment_workflow_test.rs:62-132`
 
 For detailed precedence rules and examples, see [Environment Precedence](../environment/environment-precedence.md).
 
@@ -197,7 +197,7 @@ For detailed precedence rules and examples, see [Environment Precedence](../envi
 
 Environment variables are available across all MapReduce workflow phases: setup, map, reduce, and merge.
 
-**Source**: [workflows/mapreduce-env-example.yml:1-95](../../../workflows/mapreduce-env-example.yml), [src/config/mapreduce.rs:24-38](../../../src/config/mapreduce.rs)
+**Source**: `workflows/mapreduce-env-example.yml:1-95`, `src/config/mapreduce.rs:24-38`
 
 ```yaml
 name: mapreduce-workflow
@@ -228,7 +228,7 @@ For comprehensive MapReduce environment documentation, see [MapReduce Environmen
 
 This example demonstrates multiple environment features working together.
 
-**Source**: Complete workflow in [workflows/environment-example.yml:1-70](../../../workflows/environment-example.yml)
+**Source**: Complete workflow in `workflows/environment-example.yml:1-70`
 
 ```yaml
 # Global environment with static, dynamic, and conditional values

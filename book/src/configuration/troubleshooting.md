@@ -522,7 +522,7 @@ If you can't resolve an issue:
 
 1. **Check logs**: Use `-vvv` for maximum verbosity
 2. **Verify config**: Run `prodigy config show`
-3. **Check docs**: See [Configuration Structure](global-configuration-structure.md) and [Workflow Basics](../workflow-basics.md)
+3. **Check docs**: See [Configuration Structure](global-configuration-structure.md) and [Workflow Basics](../workflow-basics/index.md)
 4. **File an issue**: [Prodigy GitHub Issues](https://github.com/anthropics/prodigy/issues) with:
    - Error message (redact secrets)
    - Relevant config snippets

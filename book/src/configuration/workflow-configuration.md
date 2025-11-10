@@ -11,7 +11,7 @@ Workflows are defined in `.prodigy/workflow.yml` files and specify:
 - Environment variables
 - Timeout and retry settings
 
-For detailed workflow syntax and MapReduce capabilities, see the [Workflow Basics](../workflow-basics.md) chapter.
+For detailed workflow syntax and MapReduce capabilities, see the [Workflow Basics](../workflow-basics/index.md) chapter.
 
 ### Basic Workflow Structure
 
@@ -128,7 +128,7 @@ reduce:
   - claude: "/summarize ${map.results}"
 ```
 
-See the [MapReduce Workflows](../mapreduce-workflows.md) chapter for complete documentation.
+See the [MapReduce Workflows](../mapreduce/index.md) chapter for complete documentation.
 
 ### Workflow Precedence
 
@@ -140,8 +140,8 @@ When multiple workflow sources exist, Prodigy uses this precedence:
 
 ### See Also
 
-- [Workflow Basics](../workflow-basics.md) - Complete workflow syntax and features
-- [MapReduce Workflows](../mapreduce-workflows.md) - Parallel execution patterns
+- [Workflow Basics](../workflow-basics/index.md) - Complete workflow syntax and features
+- [MapReduce Workflows](../mapreduce/index.md) - Parallel execution patterns
 - [Project Configuration Structure](project-configuration-structure.md) - Project variables for workflows
 - [Environment Variables](environment-variables.md) - Using environment variables in workflows
 

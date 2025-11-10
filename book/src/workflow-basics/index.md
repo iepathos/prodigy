@@ -8,7 +8,7 @@ Prodigy workflows are YAML files that define a sequence of commands to execute. 
 
 **Two Main Workflow Types:**
 - **Standard Workflows**: Sequential command execution (covered here)
-- **MapReduce Workflows**: Parallel processing with map/reduce phases (see [MapReduce chapter](mapreduce.md))
+- **MapReduce Workflows**: Parallel processing with map/reduce phases (see [MapReduce chapter](../mapreduce/index.md))
 
 ## Simple Workflows
 

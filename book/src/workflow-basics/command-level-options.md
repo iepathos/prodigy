@@ -10,7 +10,7 @@ Sets a maximum execution time for the command (in seconds). If the command excee
 
 **Type**: `Option<u64>` (optional, no default timeout)
 
-**Source**: [src/config/command.rs:383](../../src/config/command.rs)
+**Source**: `src/config/command.rs:383`
 
 ```yaml
 commands:
@@ -27,9 +27,9 @@ commands:
 ```
 
 **Real-world examples**:
-- [workflows/debtmap-reduce.yml:6](../../workflows/debtmap-reduce.yml) - 15 minute timeout for coverage generation
-- [workflows/complex-build-pipeline.yml:23](../../workflows/complex-build-pipeline.yml) - 10 minute timeout for benchmarks
-- [workflows/documentation-drift.yml:48](../../workflows/documentation-drift.yml) - 5 minute timeout for doc tests
+- `workflows/debtmap-reduce.yml:6` - 15 minute timeout for coverage generation
+- `workflows/complex-build-pipeline.yml:23` - 10 minute timeout for benchmarks
+- `workflows/documentation-drift.yml:48` - 5 minute timeout for doc tests
 
 ### id
 
@@ -37,7 +37,7 @@ Assigns an identifier to the command for referencing its outputs in subsequent c
 
 **Type**: `Option<String>` (optional)
 
-**Source**: [src/config/command.rs:351-352](../../src/config/command.rs)
+**Source**: `src/config/command.rs:351-352`
 
 ```yaml
 commands:
@@ -55,7 +55,7 @@ Specifies whether the command is expected to create git commits. Prodigy tracks 
 
 **Type**: `bool` (default: `false`)
 
-**Source**: [src/config/command.rs:354-356](../../src/config/command.rs)
+**Source**: `src/config/command.rs:354-356`
 
 ```yaml
 commands:
@@ -73,9 +73,9 @@ commands:
 ```
 
 **Real-world examples**:
-- [workflows/coverage.yml:5,11](../../workflows/coverage.yml) - Coverage and implementation commands
-- [workflows/documentation-drift.yml:19,23,27](../../workflows/documentation-drift.yml) - Documentation update commands
-- [workflows/implement-with-tests.yml:27,31](../../workflows/implement-with-tests.yml) - Test vs implementation distinction
+- `workflows/coverage.yml:5,11` - Coverage and implementation commands
+- `workflows/documentation-drift.yml:19,23,27` - Documentation update commands
+- `workflows/implement-with-tests.yml:27,31` - Test vs implementation distinction
 
 ## Output Capture Options
 
@@ -91,7 +91,7 @@ enum CaptureOutputConfig {
 }
 ```
 
-**Source**: [src/config/command.rs:367-368, 403-411](../../src/config/command.rs)
+**Source**: `src/config/command.rs:367-368, 403-411`
 
 ```yaml
 commands:
@@ -112,9 +112,9 @@ commands:
 ```
 
 **Real-world examples**:
-- [examples/capture-output-custom-vars.yml:10-48](../../examples/capture-output-custom-vars.yml) - Custom variable names
-- [workflows/implement-with-tests.yml:26,55](../../workflows/implement-with-tests.yml) - Test output capture
-- [workflows/complex-build-pipeline.yml:17,24](../../workflows/complex-build-pipeline.yml) - Build diagnostics
+- `examples/capture-output-custom-vars.yml:10-48` - Custom variable names
+- `workflows/implement-with-tests.yml:26,55` - Test output capture
+- `workflows/complex-build-pipeline.yml:17,24` - Build diagnostics
 
 ### capture_format
 
@@ -122,7 +122,7 @@ Specifies how to parse captured output. Determines the data type and structure o
 
 **Type**: `Option<String>` with values: `string` (default), `json`, `lines`, `number`, `boolean`
 
-**Source**: [src/config/command.rs:391-392](../../src/config/command.rs), [src/cook/workflow/variables.rs:250-265](../../src/cook/workflow/variables.rs)
+**Source**: `src/config/command.rs:391-392`, `src/cook/workflow/variables.rs:250-265`
 
 **Supported formats**:
 - `string` - Raw string output (default)
@@ -158,9 +158,9 @@ commands:
 ```
 
 **Real-world examples**:
-- [examples/capture-json-processing.yml:9-54](../../examples/capture-json-processing.yml) - JSON metadata extraction
-- [examples/capture-conditional-flow.yml:9-37](../../examples/capture-conditional-flow.yml) - Boolean and number formats
-- [examples/capture-parallel-analysis.yml:9-101](../../examples/capture-parallel-analysis.yml) - Multi-format capture pipeline
+- `examples/capture-json-processing.yml:9-54` - JSON metadata extraction
+- `examples/capture-conditional-flow.yml:9-37` - Boolean and number formats
+- `examples/capture-parallel-analysis.yml:9-101` - Multi-format capture pipeline
 
 ### capture_streams
 
@@ -168,7 +168,7 @@ Controls which output streams to capture from command execution. By default, onl
 
 **Type**: `Option<String>` or structured configuration
 
-**Source**: [src/config/command.rs:394-396](../../src/config/command.rs), [src/cook/workflow/variables.rs:267-292](../../src/cook/workflow/variables.rs)
+**Source**: `src/config/command.rs:394-396`, `src/cook/workflow/variables.rs:267-292`
 
 **Captured fields**:
 - `stdout` - Standard output (default: `true`)
@@ -197,7 +197,7 @@ commands:
 ```
 
 **Real-world examples**:
-- [examples/capture-conditional-flow.yml:44-51](../../examples/capture-conditional-flow.yml) - Multi-stream capture with conditionals
+- `examples/capture-conditional-flow.yml:44-51` - Multi-stream capture with conditionals
 
 ### output_file
 
@@ -205,7 +205,7 @@ Redirects command output to a file. This option is defined in the type definitio
 
 **Type**: `Option<String>` (file path)
 
-**Source**: [src/config/command.rs:398-400](../../src/config/command.rs)
+**Source**: `src/config/command.rs:398-400`
 
 ```yaml
 commands:
@@ -230,7 +230,7 @@ Specifies commands to execute when the main command fails. Supports automatic re
 - `fail_workflow: bool` - Whether to fail workflow after max attempts (default: `false`)
 - `commit_required: bool` - Whether debug command should commit (default: `true`)
 
-**Source**: [src/config/command.rs:370-372, 166-183](../../src/config/command.rs)
+**Source**: `src/config/command.rs:370-372, 166-183`
 
 ```yaml
 commands:
@@ -258,9 +258,9 @@ commands:
 ```
 
 **Real-world examples**:
-- [workflows/coverage-with-test-debug.yml:13-23](../../workflows/coverage-with-test-debug.yml) - Test debugging with retries
-- [workflows/debtmap-reduce.yml:58-70](../../workflows/debtmap-reduce.yml) - Critical quality gates
-- [workflows/documentation-drift.yml:47-53](../../workflows/documentation-drift.yml) - Doc test recovery
+- `workflows/coverage-with-test-debug.yml:13-23` - Test debugging with retries
+- `workflows/debtmap-reduce.yml:58-70` - Critical quality gates
+- `workflows/documentation-drift.yml:47-53` - Doc test recovery
 
 ### on_success
 
@@ -268,7 +268,7 @@ Executes another command when the main command succeeds. Enables chaining of dep
 
 **Type**: `Option<Box<WorkflowStepCommand>>` (nested command)
 
-**Source**: [src/config/command.rs:374-376](../../src/config/command.rs)
+**Source**: `src/config/command.rs:374-376`
 
 ```yaml
 commands:
@@ -299,8 +299,8 @@ commands:
 ```
 
 **Real-world examples**:
-- [workflows/implement-with-tests.yml:28-40,61-63](../../workflows/implement-with-tests.yml) - Nested test-fix-verify loops
-- [workflows/complex-build-pipeline.yml:7-13](../../workflows/complex-build-pipeline.yml) - Build pipeline chaining
+- `workflows/implement-with-tests.yml:28-40,61-63` - Nested test-fix-verify loops
+- `workflows/complex-build-pipeline.yml:7-13` - Build pipeline chaining
 
 ## Conditional Execution
 
@@ -310,7 +310,7 @@ Evaluates a boolean expression to determine whether to execute the command. Supp
 
 **Type**: `Option<String>` (boolean expression)
 
-**Source**: [src/config/command.rs:387-388](../../src/config/command.rs)
+**Source**: `src/config/command.rs:387-388`
 
 ```yaml
 commands:
@@ -337,7 +337,7 @@ commands:
 ```
 
 **Real-world examples**:
-- [examples/capture-conditional-flow.yml:20-51](../../examples/capture-conditional-flow.yml) - Multi-stage conditional pipeline
+- `examples/capture-conditional-flow.yml:20-51` - Multi-stage conditional pipeline
 
 ## Advanced Options
 
@@ -347,7 +347,7 @@ Configures implementation completeness validation with automatic gap detection a
 
 **Type**: `Option<ValidationConfig>` (validation configuration)
 
-**Source**: [src/config/command.rs:378-380](../../src/config/command.rs)
+**Source**: `src/config/command.rs:378-380`
 
 ```yaml
 commands:
@@ -367,7 +367,7 @@ Specifies per-step analysis requirements for code quality and coverage tracking.
 - `force_refresh: bool` - Force fresh analysis even if cached (default: `false`)
 - `max_cache_age: u64` - Maximum cache age in seconds (default: 300)
 
-**Source**: [src/config/command.rs:116-126](../../src/config/command.rs)
+**Source**: `src/config/command.rs:116-126`
 
 ```yaml
 commands:
@@ -383,7 +383,7 @@ Sets command-specific environment variables that override workflow-level and sys
 
 **Type**: `HashMap<String, String>` (key-value pairs)
 
-**Source**: [src/config/command.rs:143-145](../../src/config/command.rs)
+**Source**: `src/config/command.rs:143-145`
 
 ```yaml
 commands:
@@ -509,8 +509,8 @@ commands:
 
 ## See Also
 
-- [Environment Variables](environment-variables.md) - Workflow-level environment configuration
-- [../../advanced/timeout-configuration.md](../../advanced/timeout-configuration.md) - Advanced timeout strategies
-- [../../advanced/parallel-iteration-with-foreach.md](../../advanced/parallel-iteration-with-foreach.md) - Foreach command with parallel options
-- [../../examples.md](../../examples.md) - Complete workflow examples
+- [Environment Configuration](environment-configuration.md) - Workflow-level environment configuration
+- [Timeout Configuration](../advanced/timeout-configuration.md) - Advanced timeout strategies
+- [Parallel Iteration with Foreach](../advanced/parallel-iteration-with-foreach.md) - Foreach command with parallel options
+- [Examples](../examples.md) - Complete workflow examples
 
