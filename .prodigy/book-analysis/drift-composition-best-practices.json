@@ -1,0 +1,169 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "composition",
+  "subsection_id": "best-practices",
+  "subsection_title": "Best Practices",
+  "subsection_file": "book/src/composition/best-practices.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Documentation describes features not yet implemented. This will cause user confusion and workflow failures if users follow the documented patterns.",
+  "issues": [
+    {
+      "type": "feature_not_implemented",
+      "severity": "critical",
+      "section": "When to Use Each Feature - Imports",
+      "description": "Documentation describes import feature, but composition features are not fully integrated into workflow execution",
+      "current_content": "**Imports** - Use when:\n- Sharing common configurations across workflows\n- Referencing reusable command sets\n- Building modular workflows from components\n- Need namespace isolation with aliases",
+      "fix_suggestion": "Either: (1) Complete implementation and CLI integration of composition features, or (2) Add clear disclaimer that this is planned functionality not yet available",
+      "source_reference": "src/cook/workflow/composition/composer.rs - WorkflowComposer exists but no CLI integration found"
+    },
+    {
+      "type": "feature_not_implemented",
+      "severity": "critical",
+      "section": "When to Use Each Feature - Extends",
+      "description": "Documentation describes extends feature for inheritance, but no evidence of CLI usage or working examples",
+      "current_content": "**Extends** - Use when:\n- Creating environment-specific variations (dev/staging/prod)\n- Building layered configurations\n- Want parent-child inheritance relationship\n- Need to override specific parent values",
+      "fix_suggestion": "Add status indicator (e.g., '(Planned)' or '(Beta)') or remove until feature is production-ready",
+      "source_reference": "src/cook/workflow/composition/mod.rs:31-33 - extends field exists but no working examples"
+    },
+    {
+      "type": "feature_not_implemented",
+      "severity": "critical",
+      "section": "When to Use Each Feature - Templates",
+      "description": "Template system is implemented in code but not integrated with CLI workflow execution",
+      "current_content": "**Templates** - Use when:\n- Creating standardized workflows for teams\n- Need parameterized, reusable patterns\n- Want centralized workflow distribution\n- Building CI/CD pipeline standards",
+      "fix_suggestion": "Document current status and implementation plan, or mark as experimental feature",
+      "source_reference": "src/cook/workflow/composition/registry.rs - TemplateRegistry exists but 'prodigy template' commands not found"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Workflow Organization - Directory Structure",
+      "description": "Example shows templates/ and shared/ directories that are not used in practice",
+      "current_content": "workflows/\n├── templates/           # Reusable templates\n│   ├── ci-pipeline.yml\n│   ├── deployment.yml\n│   └── testing.yml\n├── shared/              # Common imports\n│   ├── setup.yml\n│   ├── validation.yml\n│   └── utilities.yml",
+      "should_be": "Show actual Prodigy workflow organization patterns used in the project",
+      "fix_suggestion": "Replace with realistic directory structure showing MapReduce workflows, standard workflows, and .prodigy/ organization",
+      "source_reference": "workflows/ directory shows different organization pattern"
+    },
+    {
+      "type": "misleading_content",
+      "severity": "high",
+      "section": "Parameter Naming Conventions",
+      "description": "Parameters section describes workflow composition parameters, but this refers to template parameters which aren't yet functional",
+      "current_content": "parameters:\n  definitions:\n    deployment_environment  # Clear, descriptive\n    max_retry_count        # Explicit purpose\n    enable_debug_mode      # Boolean intent clear",
+      "fix_suggestion": "Clarify this refers to planned template parameterization, or pivot to discussing workflow variables and environment variables which ARE implemented",
+      "source_reference": "src/cook/workflow/composition/mod.rs:98-107 - ParameterDefinitions exists but not CLI-integrated"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Template Registry Best Practices",
+      "description": "All template registry examples assume functionality that doesn't exist yet",
+      "current_content": "~/.prodigy/templates/\n├── ci-pipeline-v1.yml\n├── ci-pipeline-v2.yml    # Major version changes\n├── deployment-stable.yml\n├── deployment-beta.yml   # Testing new features\n└── deprecated/",
+      "fix_suggestion": "Remove this entire section until template registry is production-ready, or add 'Future Feature' disclaimer at the top",
+      "source_reference": "No CLI commands found for 'prodigy template' functionality"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Avoiding Circular Dependencies",
+      "description": "Examples show extends: syntax which is not yet functional",
+      "current_content": "# workflow-a.yml\nextends: \"base.yml\"\n\n# workflow-b.yml\nextends: \"base.yml\"  # Both extend common base",
+      "fix_suggestion": "Either implement and test this feature, or remove examples until ready",
+      "source_reference": "No working examples found in workflows/ directory"
+    },
+    {
+      "type": "misleading_content",
+      "severity": "high",
+      "section": "Performance Considerations - Template Caching",
+      "description": "Describes template caching behavior for non-existent functionality",
+      "current_content": "**Template Caching:**\n- Templates are cached after first load\n- File-based templates reload if file changes\n- Registry templates cache until registry updates\n- Use registry for frequently-used templates",
+      "fix_suggestion": "Remove or mark as planned feature",
+      "source_reference": "Template loading/caching code exists but not integrated"
+    },
+    {
+      "type": "feature_not_implemented",
+      "severity": "medium",
+      "section": "Testing Composed Workflows",
+      "description": "Commands reference --show-composition flag that doesn't exist",
+      "current_content": "# Show composition metadata\nprodigy run workflow.yml --dry-run --show-composition",
+      "fix_suggestion": "Verify flag exists in CLI, or document actual debugging approach",
+      "source_reference": "CLI flags need verification"
+    },
+    {
+      "type": "feature_not_implemented",
+      "severity": "medium",
+      "section": "Debugging Composed Workflows",
+      "description": "Track Dependency Chain section assumes composition metadata is available",
+      "current_content": "# Composition metadata shows:\n# - Which files were imported\n# - What workflows were extended\n# - Which templates were applied\nprodigy run workflow.yml --show-composition",
+      "fix_suggestion": "Remove or replace with actual debugging techniques for current Prodigy workflows",
+      "source_reference": "CompositionMetadata struct exists but not CLI-exposed"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Best Practices for Current Features",
+      "description": "Document lacks best practices for features that DO exist: MapReduce, sub-workflows (as workflows field), environment variables",
+      "fix_suggestion": "Add sections on: MapReduce workflow organization, effective use of environment profiles, managing work item JSON files, DLQ retry strategies",
+      "source_reference": "features.json shows MapReduce, sub_workflows, env management are all implemented"
+    },
+    {
+      "type": "correct_implementation",
+      "severity": "low",
+      "section": "Sub-Workflows",
+      "description": "Sub-workflows ARE implemented via the workflows: field and SubWorkflowExecutor",
+      "current_content": "**Sub-Workflows** - Use when:\n- Breaking complex workflows into smaller pieces\n- Running independent tasks in parallel\n- Isolating context between workflow stages\n- Reusing validation/test workflows",
+      "positive_note": "This guidance is accurate for the workflows: field in ComposableWorkflow",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:23-50"
+    },
+    {
+      "type": "misleading_content",
+      "severity": "medium",
+      "section": "Team Collaboration - Shared Template Registry",
+      "description": "Example shows git-based template sharing that isn't implemented",
+      "current_content": "# Team shares templates via git\ngit clone git@github.com:company/prodigy-templates.git\nln -s ~/prodigy-templates ~/.prodigy/templates",
+      "fix_suggestion": "Remove or mark as future capability",
+      "source_reference": "Template discovery from ~/.prodigy/templates/ not yet working"
+    }
+  ],
+  "positive_aspects": [
+    "Well-organized structure and clear headings",
+    "Good naming convention guidance (applicable to variables in general)",
+    "Circular dependency warning is valuable general advice",
+    "Testing and debugging sections show good practices mindset",
+    "Security best practices section provides valuable guidance",
+    "Maintenance and evolution strategies are sound"
+  ],
+  "improvement_suggestions": [
+    "Add 'Implementation Status' section at the top clearly indicating which features are available",
+    "Focus best practices on implemented features: MapReduce workflows, environment management, DLQ handling",
+    "Add best practices for work item design in MapReduce (idempotency, granularity, naming)",
+    "Include guidance on organizing .prodigy/ analysis directories and temporary files",
+    "Document best practices for checkpoint and resume functionality",
+    "Add section on effective use of environment profiles for different deployments",
+    "Include MapReduce-specific organization patterns (work item JSON structure, DLQ management)",
+    "Add troubleshooting section for common composition issues once implemented",
+    "Remove or clearly mark all pre-release features to prevent user confusion"
+  ],
+  "status_of_features": {
+    "imports": "Implemented in code, not CLI-integrated",
+    "extends": "Implemented in code, not CLI-integrated",
+    "templates": "Partially implemented, TemplateRegistry exists but not CLI-integrated",
+    "sub_workflows": "IMPLEMENTED via workflows: field in ComposableWorkflow",
+    "parameters": "Implemented for templates but templates not functional",
+    "template_registry": "Code exists but no CLI commands or working examples"
+  },
+  "metadata": {
+    "analyzed_at": "2025-01-11T10:30:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Best Practices",
+      "When to Use Each Feature",
+      "Workflow Organization",
+      "Parameter Naming",
+      "Template Registry"
+    ],
+    "validation_focus": "Check best practices documentation matches implementation"
+  }
+}
