@@ -132,7 +132,31 @@ env:
   NEW_VAR: "value"        # Added
 ```
 
-**Arrays** - Child replaces parent:
+**Environment Variables** - Deep merge with selective override:
+```yaml
+# base.yml
+env:
+  APP_NAME: "service"
+  LOG_LEVEL: "info"
+  REPLICAS: "3"
+
+# child.yml
+extends: "base.yml"
+env:
+  LOG_LEVEL: "debug"  # Overrides parent value
+  NEW_VAR: "value"     # Adds new variable
+
+# Result:
+env:
+  APP_NAME: "service"     # Preserved from parent
+  LOG_LEVEL: "debug"      # Overridden by child
+  REPLICAS: "3"           # Preserved from parent
+  NEW_VAR: "value"        # Added by child
+```
+
+**Source**: Environment variables inherit the object deep merge behavior (src/cook/workflow/composition/composer.rs:325-355)
+
+**Arrays (Commands)** - Child replaces parent:
 ```yaml
 # base.yml
 commands:
@@ -146,6 +170,10 @@ commands:
 
 # Result: Only custom-step runs
 ```
+
+**Source**: In inheritance mode (`extends`), non-empty child command arrays replace parent arrays entirely (src/cook/workflow/composition/composer.rs:335-337)
+
+**Note**: This behavior differs from imports, where `merge_workflows` extends arrays instead of replacing them (src/cook/workflow/composition/composer.rs:275-323). See [Workflow Imports](index.md#workflow-imports) for comparison.
 
 ### Layered Extension
 
@@ -170,17 +198,40 @@ max_parallel: 10
 
 ### Path Resolution
 
+When resolving base workflow paths, Prodigy searches the following locations in order:
+
+1. `./bases/{name}.yml`
+2. `./templates/{name}.yml`
+3. `./workflows/{name}.yml`
+4. `./{name}.yml` (current directory)
+
+**Source**: Path resolution implementation in src/cook/workflow/composition/composer.rs:625-642
+
 Extension paths can be:
 - **Relative**: Resolved from workflow file's directory
 - **Absolute**: Full filesystem path
 - **Registry**: Future support for template registry paths
 
 ```yaml
+# Name-based lookup (searches standard directories)
+extends: "base-deployment"  # Searches bases/, templates/, workflows/, ./
+
 # Relative path
 extends: "../shared/base.yml"
 
 # Absolute path
 extends: "/etc/prodigy/workflows/base.yml"
+```
+
+**Search Order Example:**
+```bash
+# For extends: "ci-base"
+# Prodigy searches:
+./bases/ci-base.yml       # First
+./templates/ci-base.yml   # Second
+./workflows/ci-base.yml   # Third
+./ci-base.yml             # Fourth (current directory)
+# Error if not found in any location
 ```
 
 ### Use Cases
@@ -274,12 +325,39 @@ commands:
 
 ### Debugging Extensions
 
-View composition metadata to see inheritance chain:
+**Current Method** - Enable verbose logging to see composition details:
 
 ```bash
-# Metadata includes DependencyInfo with Extends type
+# Use -vvv for trace-level logging showing composition process
+prodigy run workflow.yml -vvv
+
+# Combine with --dry-run to preview without execution
+prodigy run workflow.yml --dry-run -vvv
+```
+
+Verbose logging output includes:
+- Base workflow loading events
+- Inheritance chain resolution
+- Merge operations for each configuration section
+- Circular dependency checks
+- Path resolution steps
+
+**Source**: Composition events logged via `tracing::debug!()` macros throughout src/cook/workflow/composition/composer.rs
+
+**Planned Feature** - Dedicated composition inspection flag (not yet implemented):
+
+```bash
+# Future: --show-composition flag (Spec 131-133)
 prodigy run workflow.yml --dry-run --show-composition
 ```
+
+This will display structured composition metadata including:
+- Sources and dependency types
+- Complete inheritance chain
+- Applied parameters and templates
+- Resolved paths for all dependencies
+
+See [Composition Metadata](composition-metadata.md) for details on the metadata structure.
 
 ### Implementation Status
 
@@ -288,6 +366,7 @@ prodigy run workflow.yml --dry-run --show-composition
 - ✅ Circular dependency detection
 - ✅ Path resolution (relative and absolute)
 - ✅ Composition metadata tracking
+- ✅ Workflow caching - Files are cached during composition to improve performance and avoid redundant file system reads (src/cook/workflow/composition/composer.rs:662-698)
 
 ### Related Topics
 
