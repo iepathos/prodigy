@@ -1,0 +1,90 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "retry-configuration",
+  "subsection_id": "jitter-for-distributed-systems",
+  "subsection_title": "Jitter for Distributed Systems",
+  "subsection_file": "book/src/retry-configuration/jitter-for-distributed-systems.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is accurate but has minor inconsistencies with implementation and could be enhanced with additional context",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Jitter Calculation Formula",
+      "description": "Documentation states jitter formula uses 'delay * factor / 2' but implementation uses 'delay * factor' directly",
+      "current_content": "The jitter is applied as: `delay + random(-delay * factor / 2, +delay * factor / 2)`",
+      "should_be": "The jitter is applied as: `delay + random(-delay * factor, +delay * factor)` with the jitter_range already halved",
+      "fix_suggestion": "Update formula to match implementation: jitter_range = delay * factor, then jitter = random(-jitter_range / 2, +jitter_range / 2)",
+      "source_reference": "src/cook/retry_v2.rs:308-317 (apply_jitter method)"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Example Calculation",
+      "description": "Example states 10s delay with factor 0.5 produces 7.5s-12.5s range, which is correct, but the intermediate calculation shown is misleading",
+      "current_content": "With `jitter_factor: 0.5`: A 10s delay becomes a random delay between **7.5s and 12.5s**",
+      "implementation_details": "jitter_range = 10s * 0.5 = 5s, then jitter = random(-2.5s, +2.5s), so final delay = 10s + jitter = 7.5s to 12.5s",
+      "fix_suggestion": "Clarify the calculation steps: jitter_range = delay * jitter_factor, then add random(-jitter_range/2, +jitter_range/2) to base delay",
+      "source_reference": "src/cook/retry_v2.rs:314-316"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Jitter Configuration",
+      "description": "Missing documentation for default jitter_factor value",
+      "fix_suggestion": "Document that the default jitter_factor is 0.3 when jitter is enabled",
+      "source_reference": "src/cook/retry_v2.rs:456-458 (default_jitter_factor)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Implementation Details",
+      "description": "Documentation mentions 'inclusive bounds on both ends' but doesn't explain the random_range function behavior clearly",
+      "current_content": "The implementation uses Rust's `random_range` with inclusive bounds on both ends.",
+      "fix_suggestion": "Clarify that random_range generates a uniformly distributed random value within the inclusive range, and jitter can be negative (reducing delay) or positive (increasing delay)",
+      "source_reference": "src/cook/retry_v2.rs:315"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Configuration Options",
+      "description": "Missing information about how jitter interacts with max_delay capping",
+      "fix_suggestion": "Add note that jitter is applied after backoff calculation but before max_delay capping, so jittered delays can still be capped",
+      "source_reference": "src/cook/retry_v2.rs:304 (max_delay capping happens before jitter)"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of the thundering herd problem",
+    "Good real-world use cases listed",
+    "Example YAML configuration is correct and usable",
+    "Practical examples with specific delay ranges help understanding",
+    "Well-structured and easy to read"
+  ],
+  "improvement_suggestions": [
+    "Add cross-reference to backoff-strategies.md for complete retry configuration",
+    "Include a diagram showing delay distribution with and without jitter",
+    "Add example showing jitter with different backoff strategies (exponential, linear, etc.)",
+    "Mention that jitter is disabled by default (jitter: false)",
+    "Add troubleshooting section for when to adjust jitter_factor",
+    "Include performance impact note (jitter adds minimal computational overhead)",
+    "Reference the max_delay interaction to prevent confusion about delay ranges"
+  ],
+  "cross_references": [
+    "backoff-strategies",
+    "basic-retry-configuration",
+    "best-practices"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Jitter for Distributed Systems"
+    ],
+    "validation_focus": "Check jitter for distributed systems documentation matches implementation",
+    "no_feature_mapping": "Subsection has empty feature_mapping array, relying on general feature inventory",
+    "internal_links_checked": 0,
+    "broken_links_found": 0
+  }
+}
