@@ -1,0 +1,151 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "automated-documentation",
+  "subsection_id": "automatic-gap-detection",
+  "subsection_title": "Automatic Gap Detection",
+  "subsection_file": "book/src/automated-documentation/automatic-gap-detection.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Documentation is extremely minimal (5 lines) compared to implementation (980+ lines command spec + 678 lines test code). Missing all essential content: workflow integration, command usage, configuration options, examples, troubleshooting, and cross-references.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Overview",
+      "description": "Subsection contains only 5 lines with generic placeholder text. Missing comprehensive explanation of automatic gap detection feature, including what it detects, how it works, and when it runs.",
+      "feature_reference": "automated_documentation.gap_detection",
+      "fix_suggestion": "Add detailed Overview section explaining: (1) Gap detection analyzes features.json against existing chapters, (2) Automatically creates chapter/subsection definitions for undocumented features, (3) Generates stub markdown files with proper structure, (4) Updates SUMMARY.md, (5) Creates flattened-items.json for map phase, (6) Runs as part of setup phase in book workflow.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:1-1048"
+    },
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Gap Detection Logic",
+      "description": "No explanation of how gap detection classifies and identifies missing documentation. Missing severity levels, matching logic, and gap types.",
+      "feature_reference": "automated_documentation.gap_detection.classification",
+      "fix_suggestion": "Add section explaining: (1) High severity: Missing chapter/subsection for feature, (2) Medium severity: Incomplete chapter needing subsections, (3) Low severity: Minor gaps in edge cases, (4) Normalization logic for topic matching (lowercase, underscore/hyphen conversion), (5) Fuzzy matching to avoid false positives.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:66-112"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Workflow Integration",
+      "description": "No documentation showing how gap detection integrates with the book workflow. Users need to understand when and how it runs.",
+      "feature_reference": "automated_documentation.workflow.setup_phase",
+      "fix_suggestion": "Add Workflow Integration section with: (1) Example from book-docs-drift.yml showing gap detection in setup phase, (2) Input dependencies (features.json from analyze step), (3) Output artifacts (gap-report.json, updated chapters.json, stub files, flattened-items.json), (4) Relationship to map phase (flattened-items.json consumed by drift analysis).",
+      "source_reference": "workflows/book-docs-drift.yml:31-34"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Content Sufficiency Validation",
+      "description": "Missing critical documentation about content sufficiency checks that prevent creating empty subsections. This is a key quality feature added in Step 0 validation.",
+      "feature_reference": "automated_documentation.gap_detection.validation",
+      "fix_suggestion": "Add section explaining: (1) STEP 0 validation prevents subsections with insufficient content, (2) Thresholds: TOTAL_MENTIONS >= 5, ESTIMATED_LINES >= 50, requires type/example, (3) Content estimation based on codebase analysis (types, functions, tests, examples), (4) Preservation of single-file chapters under 1000 lines, (5) Decision tree for creating, flagging as minimal, or skipping subsections.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:166-335"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Structure Validation (Phase 7.5)",
+      "description": "Missing documentation for Phase 7.5 mandatory structure validation that syncs chapters.json with actual file structure.",
+      "feature_reference": "automated_documentation.gap_detection.structure_validation",
+      "fix_suggestion": "Add section explaining: (1) Scans for multi-subsection directories with index.md, (2) Compares against chapters.json definitions, (3) Auto-migrates mismatched chapters from single-file to multi-subsection, (4) Discovers subsections by scanning .md files, (5) Commits structure fixes before generating flattened-items.json, (6) Ensures chapters.json accurately reflects reality.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:678-743"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Flattened Items Generation",
+      "description": "Missing explanation of flattened-items.json generation, which is mandatory and enables the map phase.",
+      "feature_reference": "automated_documentation.gap_detection.flattened_items",
+      "fix_suggestion": "Add section explaining: (1) Always generated regardless of gaps found, (2) Flattens multi-subsection chapters into individual subsection items, (3) Includes single-file chapters as-is, (4) Adds parent metadata to subsections (parent_chapter_id, parent_chapter_title), (5) Required for map phase to process chapters in parallel, (6) Example structure showing both item types.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:744-788, 880-887"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Configuration",
+      "description": "No documentation of command parameters and how to configure gap detection behavior.",
+      "fix_suggestion": "Add Configuration section with: (1) Command parameters (--project, --config, --features, --chapters, --book-dir), (2) book-config.json settings, (3) Threshold configuration (similarity_threshold, min_severity), (4) Template customization for stub files.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:5-11, 948-969"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Examples",
+      "description": "No practical examples showing gap detection in action, making it hard for users to understand expected behavior.",
+      "fix_suggestion": "Add Examples section with: (1) Example gap report JSON showing detected gaps, (2) Example stub file generated for new chapter, (3) Before/after SUMMARY.md showing chapter insertion, (4) Example flattened-items.json structure, (5) Console output showing gap detection progress.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:789-813, 986-1035"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Idempotence",
+      "description": "Missing explanation that gap detection can be run multiple times safely without creating duplicates.",
+      "fix_suggestion": "Add Idempotence section explaining: (1) Checks for existing chapters before creating, (2) Uses normalized comparison for matching, (3) Skips already-created chapters, (4) Can run repeatedly without side effects, (5) Test case showing second run finds no new gaps.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:867-887, tests/documentation_gap_detection_test.rs:236-274"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Error Handling",
+      "description": "Missing documentation of error scenarios and how they're handled.",
+      "fix_suggestion": "Add Error Handling section with: (1) Missing features.json (must run analyze first), (2) Missing/invalid chapters.json, (3) File write failures and rollback, (4) Invalid JSON handling, (5) Error recording in gap report.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:889-919"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Testing",
+      "description": "No mention of comprehensive test coverage for gap detection logic.",
+      "fix_suggestion": "Add brief Testing section noting: (1) Integration tests verify gap detection logic, (2) Tests for false positives/negatives, (3) Idempotence testing, (4) Normalization logic testing, (5) Stub file structure validation.",
+      "source_reference": "tests/documentation_gap_detection_test.rs:1-678"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Current Content",
+      "description": "Existing placeholder text provides no value and should be replaced with actual content.",
+      "current_content": "The book workflow system includes automatic gap detection to identify missing or incomplete documentation. This ensures your documentation coverage is comprehensive and catches areas that need attention.",
+      "should_be": "Comprehensive explanation of gap detection phases, logic, validation, and integration.",
+      "fix_suggestion": "Replace placeholder with structured sections covering all aspects of gap detection."
+    }
+  ],
+  "positive_aspects": [
+    "Subsection title is clear and accurate",
+    "Positioned correctly within automated-documentation chapter"
+  ],
+  "improvement_suggestions": [
+    "Add comprehensive Overview section explaining gap detection purpose and phases",
+    "Document the complete workflow integration showing setup phase usage",
+    "Explain content sufficiency validation (Step 0) to help users understand quality controls",
+    "Document structure validation (Phase 7.5) for syncing chapters.json with files",
+    "Explain flattened-items.json generation and its role in the map phase",
+    "Add detailed examples showing gap detection output and artifacts",
+    "Include troubleshooting section for common issues",
+    "Add cross-references to related subsections (feature analysis, drift detection, subsection organization)"
+  ],
+  "cross_references": [
+    "feature-analysis",
+    "drift-detection-and-fixing",
+    "organizing-documentation-into-subsections",
+    "real-world-example-prodigys-own-documentation"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T12:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": ["Automatic Gap Detection"],
+    "validation_focus": "Check automatic gap detection documentation matches implementation",
+    "command_spec_lines": 980,
+    "test_code_lines": 678,
+    "current_doc_lines": 5,
+    "content_ratio": "0.005 (5/980)",
+    "implementation_references": [
+      ".claude/commands/prodigy-detect-documentation-gaps.md",
+      "tests/documentation_gap_detection_test.rs",
+      "workflows/book-docs-drift.yml"
+    ]
+  }
+}
