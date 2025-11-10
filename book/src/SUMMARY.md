@@ -88,7 +88,6 @@
   - [Retry Metrics and Observability](retry-configuration/retry-metrics-and-observability.md)
   - [Best Practices](retry-configuration/best-practices.md)
   - [Troubleshooting](retry-configuration/troubleshooting.md)
-  - [Related Topics](retry-configuration/related-topics.md)
   - [Implementation References](retry-configuration/implementation-references.md)
 - [Error Handling](error-handling.md)
 - [MapReduce Worktree Architecture](mapreduce-worktree-architecture.md)

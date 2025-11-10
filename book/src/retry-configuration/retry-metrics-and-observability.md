@@ -275,15 +275,6 @@ grep "Retry budget exhausted" workflow.log
 grep "Failed after .* attempts" workflow.log
 ```
 
-## Best Practices for Observability
-
-1. **Use appropriate verbosity** - `-v` for debugging, default for production
-2. **Configure structured logging** - Enable JSON logs for machine parsing
-3. **Set meaningful operation contexts** - Use descriptive command names
-4. **Monitor circuit breaker openings** - Alert on frequent openings
-5. **Review DLQ regularly** - Analyze patterns in failed items
-6. **Correlate retries with external events** - Match retry spikes to infrastructure issues
-
 ## Related Topics
 
 - [Basic Retry Configuration](basic-retry-configuration.md) - Configure retry behavior

@@ -197,21 +197,6 @@ commands:
   - shell: "echo Price: $$100"
 ```
 
-### Best Practices
-
-1. **Prefer `${VAR}` for consistency**: More explicit and works in all cases
-2. **Use `$VAR` only for simple standalone cases**: When passing to shell and no ambiguity
-3. **Always use `${VAR}` in paths**: Prevents parsing issues
-4. **Be consistent within a workflow**: Pick one style and stick to it
-5. **Use quotes for values with spaces**: `env: MESSAGE: "Hello World"`
-
-### Examples Comparison
-
-**Simple case (both work):**
-```yaml
-env:
-  PORT: "3000"
-
 # Both acceptable
 - shell: "echo Port: $PORT"
 - shell: "echo Port: ${PORT}"

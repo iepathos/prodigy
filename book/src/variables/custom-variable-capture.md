@@ -297,30 +297,6 @@ reduce:
     fi
 ```
 
-### Best Practices
-
-1. **Use descriptive variable names**: `test_results` instead of `output`
-2. **Specify capture_format**: Make JSON parsing explicit
-3. **Capture in setup for sharing**: Setup variables available to all agents
-4. **Use metadata fields**: Check `.success` before using output
-5. **Document expected structure**: Comment complex JSON captures
-6. **Avoid shadowing built-ins**: Don't name variables `item`, `map`, or `workflow`
-7. **Clean up large captures**: Don't keep unnecessary data in scope
-
-#### Choosing Between capture_format: json and Manual Parsing
-
-**Use capture_format: json when:**
-- You need to access nested fields directly: `${metadata.workspace.root}`
-- The JSON structure is stable and well-defined
-- You want simple field access without complex transformations
-- The command always outputs valid JSON
-
-**Example:**
-```yaml
-- shell: "cargo metadata --format-version 1"
-  capture_output: "metadata"
-  capture_format: "json"
-
 # Access fields directly
 - shell: "cd ${metadata.workspace_root}"
 - shell: "echo 'Package: ${metadata.packages[0].name}'"

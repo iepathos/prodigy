@@ -232,17 +232,3 @@ The `apply_defaults` function at src/cook/workflow/composition/composer.rs:217-2
 1. Applying defaults to environment variables (only if not already set)
 2. Applying defaults to parameter definitions (only if parameter has no default value)
 3. Type conversion for environment variable values (strings, numbers, booleans)
-
-### Best Practices
-
-1. **Provide sensible defaults** - Choose values that work for most use cases
-2. **Document defaults** - Add comments explaining default choices
-3. **Use defaults for non-sensitive data** - Secrets should be passed via CLI/env
-4. **Keep defaults simple** - Complex objects can be hard to override partially
-
-### Related Topics
-
-- [Parameter Definitions](parameter-definitions.md) - Define parameters with types
-- [Template System](template-system.md) - Use defaults in templates
-- [Workflow Extension](workflow-extension-inheritance.md) - Inherit defaults from base workflows
-

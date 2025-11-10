@@ -88,12 +88,3 @@ merge:
     - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
     - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
 ```
-
-### Best Practices
-
-1. **Always use both branch parameters**: Pass both `${merge.source_branch}` and `${merge.target_branch}` to `/prodigy-merge-worktree` to ensure correct merge target
-2. **Run tests before final merge**: Catch integration issues early in the merge workflow
-3. **Sync with upstream first**: Use `git fetch` to get latest changes before merging
-4. **Use timeouts for long operations**: Apply the timeout field when merge operations might hang
-5. **Handle conflicts proactively**: Consider adding conflict resolution commands for complex merges (e.g., `/prodigy-merge-master` before the final merge)
-

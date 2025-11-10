@@ -271,21 +271,3 @@ commands:
   - name: "Deploy"
     shell: "echo Deploying to $DEPLOY_ENV"
 ```
-
-### Best Practices
-
-1. **Use profiles for environments**: Define development, staging, and production profiles rather than duplicating workflows
-2. **Mark secrets appropriately**: Always use the `secrets:` block for sensitive data
-3. **Prefer dynamic values**: Use dynamic env for values that may change (e.g., CPU count, git branch)
-4. **Use step-level env sparingly**: Only override at step level when necessary
-5. **Document environment requirements**: Use comments to document required system environment variables
-
-For comprehensive best practices, see [Environment Best Practices](../environment/best-practices.md).
-
-### Further Reading
-
-- [Environment chapter](../environment/index.md) - Comprehensive environment configuration guide
-- [Variable Interpolation](../variables/available-variables.md) - Complete variable reference
-- [MapReduce Environment Variables](../environment/mapreduce-environment-variables.md) - Environment in distributed workflows
-- [Secrets Management](../environment/secrets-management.md) - Secure credential handling
-- [Configuration Precedence](../configuration/configuration-precedence-rules.md) - How configuration values are resolved

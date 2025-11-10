@@ -465,66 +465,6 @@ commands:
     capture_format: "json"
 ```
 
-## Best Practices
-
-### Timeout Guidelines
-
-- **Short commands** (< 1 min): No timeout needed
-- **Medium commands** (1-5 min): Set `timeout: 300` (5 minutes)
-- **Long commands** (5-10 min): Set `timeout: 600` (10 minutes)
-- **Very long commands** (> 10 min): Set explicit timeout or ensure proper progress reporting
-
-### Output Capture Strategy
-
-1. **Choose the right format**:
-   - `string` - Human-readable output, logs
-   - `json` - Structured data, API responses
-   - `lines` - File lists, multi-line output
-   - `number` - Counts, metrics, percentages
-   - `boolean` - Status checks, conditions
-
-2. **Name variables descriptively**:
-   - Good: `test_output`, `coverage_percent`, `changed_files`
-   - Bad: `out`, `result`, `temp`
-
-3. **Capture only what you need**:
-   - Default `capture_streams` is sufficient for most cases
-   - Only capture `stderr` when you need error diagnostics
-   - Use `capture_output: false` for commands with no useful output
-
-### Error Handling Strategy
-
-1. **Set appropriate `max_attempts`**:
-   - Deterministic failures: 1-2 attempts
-   - Flaky tests: 3 attempts
-   - Complex fixes: 5 attempts
-
-2. **Use `fail_workflow` judiciously**:
-   - `true` for critical quality gates (security, correctness)
-   - `false` for optional improvements (coverage, docs)
-
-3. **Nest `on_success` for verification**:
-   - After automated fixes, verify they worked
-   - Chain dependent operations
-
-### Conditional Execution Guidelines
-
-1. **Capture boolean status explicitly**:
-   ```yaml
-   - shell: "cargo test && echo true || echo false"
-     capture_output: "tests_passed"
-     capture_format: "boolean"
-   ```
-
-2. **Use descriptive condition expressions**:
-   - Good: `when: "${tests_passed} && ${coverage_sufficient}"`
-   - Bad: `when: "${x} && ${y}"`
-
-3. **Provide fallback values**:
-   ```yaml
-   when: "${build_output.success|default:false}"
-   ```
-
 ## Troubleshooting
 
 ### Command Times Out

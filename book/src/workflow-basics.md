@@ -803,14 +803,6 @@ merge:
     - shell: git commit -m "Resolve merge conflicts"
 ```
 
-## Best Practices
-
-### Keep Workflows Simple
-
-Break complex automation into multiple small workflows rather than one large workflow:
-
-**Good:**
-```yaml
 # lint.yml
 - shell: cargo clippy
 - shell: cargo fmt --check

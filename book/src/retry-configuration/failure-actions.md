@@ -317,58 +317,6 @@ If `max_attempts: 3`, the execution pattern is:
 
 So the original command runs up to **4 times total** (1 initial + 3 debug-retry cycles).
 
-## Best Practices
-
-### Use Descriptive Claude Commands
-
-Good:
-```yaml
-on_failure:
-  claude: "/prodigy-debug-test-failure --spec ${spec_id} --output ${shell.output}"
-```
-
-Bad:
-```yaml
-on_failure:
-  claude: "/fix"              # Too generic - Claude won't know what to fix
-```
-
-### Set fail_workflow Based on Criticality
-
-**Critical Operations** (must succeed):
-```yaml
-- shell: "cargo build --release"
-  on_failure:
-    claude: "/debug-build-failure"
-    fail_workflow: true       # Stop if build can't be fixed
-```
-
-**Optional Operations** (best effort):
-```yaml
-- shell: "cargo bench"
-  on_failure:
-    claude: "/fix-bench-issues"
-    fail_workflow: false      # Continue even if benchmarks fail
-```
-
-### Use Appropriate max_attempts
-
-- **Quick fixes** (formatting, simple errors): `max_attempts: 1-2`
-- **Test debugging** (moderate complexity): `max_attempts: 3` (default)
-- **Complex issues** (integration tests, build issues): `max_attempts: 5`
-- **Don't use**: `max_attempts: 10+` - if Claude can't fix it in 5 tries, it won't fix it in 10
-
-### Pass Failure Output to Claude
-
-Always pass `${shell.output}` to give Claude the error context:
-
-```yaml
-on_failure:
-  claude: "/debug-test-failure --output ${shell.output}"
-```
-
-Without the output, Claude has to guess what went wrong.
-
 ## Comparison with Other Retry Mechanisms
 
 Prodigy has multiple mechanisms that might be confused:

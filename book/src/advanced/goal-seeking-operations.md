@@ -281,22 +281,6 @@ Goal-seeking operations can terminate in several ways (src/cook/goal_seek/mod.rs
 
 **Note**: Goal-seeking operations return `GoalSeekResult` variants, not shell exit codes. The workflow executor converts these to step results based on `fail_on_incomplete` configuration (src/cook/workflow/executor/commands.rs).
 
-### Best Practices
-
-**Set Realistic Thresholds:**
-- Start with achievable thresholds (80-90%)
-- Increase gradually in multiple goal-seeking steps
-- Consider diminishing returns on higher thresholds
-- Remember: convergence detection will stop early if no progress
-
-**Provide Good Validation:**
-- Validation should be fast and deterministic
-- Always output a numeric score (0-100) in a parseable format
-- Use JSON with gaps field for rich feedback to refinement commands
-- Test validation commands independently before using in goal-seeking
-
-**Write Effective Validation Commands:**
-```yaml
 # Good: Explicit score output
 validate: "cargo test 2>&1 | grep -q 'ok' && echo 'score: 100' || echo 'score: 0'"
 

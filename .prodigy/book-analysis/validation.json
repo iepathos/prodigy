@@ -1,0 +1,294 @@
+{
+  "validation_timestamp": "2025-01-10T15:30:00Z",
+  "project": "Prodigy",
+  "book_dir": "/Users/glen/memento-mori/prodigy/book/src",
+  "total_files": 109,
+  "total_chapters": 11,
+  "issues_found": [
+    {
+      "type": "redundant_best_practices",
+      "severity": "high",
+      "files": [
+        {
+          "file": "advanced/goal-seeking-operations.md",
+          "lines": [
+            284,
+            299
+          ],
+          "redundant_with": "advanced/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        },
+        {
+          "file": "advanced/implementation-validation.md",
+          "lines": [
+            281,
+            307
+          ],
+          "redundant_with": "advanced/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        },
+        {
+          "file": "advanced/timeout-configuration.md",
+          "lines": [
+            182,
+            237
+          ],
+          "redundant_with": "advanced/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        },
+        {
+          "file": "automated-documentation/automatic-gap-detection.md",
+          "lines": [
+            725,
+            738
+          ],
+          "redundant_with": "automated-documentation/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        },
+        {
+          "file": "automated-documentation/documentation-versioning.md",
+          "lines": [
+            377,
+            480
+          ],
+          "redundant_with": "automated-documentation/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        },
+        {
+          "file": "composition/default-values.md",
+          "lines": [
+            236,
+            249
+          ],
+          "redundant_with": "composition/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        },
+        {
+          "file": "configuration/complete-configuration-examples.md",
+          "lines": [
+            713,
+            747
+          ],
+          "redundant_with": "configuration/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        },
+        {
+          "file": "environment/mapreduce-environment-variables.md",
+          "lines": [
+            203,
+            300
+          ],
+          "redundant_with": "environment/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        },
+        {
+          "file": "retry-configuration/failure-actions.md",
+          "lines": [
+            320,
+            371
+          ],
+          "redundant_with": "retry-configuration/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        },
+        {
+          "file": "retry-configuration/retry-budget.md",
+          "lines": [
+            128,
+            260
+          ],
+          "redundant_with": "retry-configuration/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        },
+        {
+          "file": "retry-configuration/retry-metrics-and-observability.md",
+          "lines": [
+            278,
+            286
+          ],
+          "redundant_with": "retry-configuration/best-practices.md",
+          "recommendation": "Remove section, content covered in dedicated file"
+        }
+      ]
+    },
+    {
+      "type": "best_practices_in_reference",
+      "severity": "medium",
+      "files": [
+        {
+          "file": "advanced/timeout-configuration.md",
+          "lines": [
+            182,
+            237
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "composition/default-values.md",
+          "lines": [
+            236,
+            249
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "configuration/complete-configuration-examples.md",
+          "lines": [
+            713,
+            747
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "environment/index.md",
+          "lines": [
+            200,
+            214
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "environment/mapreduce-environment-variables.md",
+          "lines": [
+            203,
+            300
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "error-handling.md",
+          "lines": [
+            404,
+            483
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "mapreduce/environment-variables-in-configuration.md",
+          "lines": [
+            296,
+            331
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "retry-configuration/retry-budget.md",
+          "lines": [
+            128,
+            260
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "variables/custom-variable-capture.md",
+          "lines": [
+            300,
+            323
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "workflow-basics/command-level-options.md",
+          "lines": [
+            468,
+            527
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "workflow-basics/environment-configuration.md",
+          "lines": [
+            275,
+            292
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "workflow-basics/merge-workflows.md",
+          "lines": [
+            92,
+            100
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        },
+        {
+          "file": "workflow-basics.md",
+          "lines": [
+            806,
+            813
+          ],
+          "file_type": "technical_reference",
+          "recommendation": "Remove Best Practices section - this is technical documentation"
+        }
+      ]
+    },
+    {
+      "type": "circular_see_also",
+      "severity": "low",
+      "patterns": [
+        {
+          "files": [
+            "automated-documentation/troubleshooting.md",
+            "automated-documentation/understanding-the-workflow.md"
+          ],
+          "description": "Mutual references without explaining specific relationship"
+        },
+        {
+          "files": [
+            "automated-documentation/automatic-gap-detection.md",
+            "automated-documentation/understanding-the-workflow.md"
+          ],
+          "description": "Mutual references without explaining specific relationship"
+        }
+      ]
+    },
+    {
+      "type": "generic_see_also",
+      "severity": "low",
+      "files": []
+    },
+    {
+      "type": "over_fragmented_chapter",
+      "severity": "medium",
+      "chapters": []
+    },
+    {
+      "type": "stub_navigation_file",
+      "severity": "medium",
+      "files": [
+        {
+          "file": "retry-configuration/related-topics.md",
+          "lines": 33,
+          "link_percentage": 54,
+          "recommendation": "Consolidate into retry-configuration/index.md"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "redundant_best_practices": 11,
+    "best_practices_in_reference": 13,
+    "circular_see_also": 2,
+    "generic_see_also": 0,
+    "over_fragmented_chapters": 0,
+    "stub_navigation_files": 1,
+    "total_issues": 27
+  },
+  "recommendations": [
+    "Remove 11 redundant Best Practices sections",
+    "Remove 13 Best Practices sections from technical reference pages",
+    "Consolidate 0 over-fragmented chapters",
+    "Merge 1 stub navigation files into chapter indexes"
+  ]
+}

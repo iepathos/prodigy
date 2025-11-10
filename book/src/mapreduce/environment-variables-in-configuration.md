@@ -293,42 +293,6 @@ Step-level variables inherit from global `env` and active `profiles`, with step-
 - `temporary: true` - Restore environment after step execution
 - `working_dir` - Set working directory for the step
 
-### Best Practices
-
-**Secrets vs Environment Variables:**
-- Use the dedicated `secrets:` block for sensitive data (API keys, passwords, tokens)
-- Use plain `env:` block for non-sensitive configuration (timeouts, URLs, feature flags)
-- Secrets are automatically masked in all logs and outputs
-- **Recommended**: Use simple secret syntax with environment variable references: `API_KEY: "${env:SECRET_API_KEY}"`
-- **Advanced**: Use provider-based syntax for complex scenarios: `API_TOKEN: { provider: env, key: "GITHUB_TOKEN" }`
-
-**Security Considerations:**
-- Never commit secrets to version control
-- Use environment variable references like `${env:SECRET_VAR}` to inject secrets at runtime
-- Leverage `.env.local` files (git-ignored) for local development
-- Provider-based secrets for Vault and AWS Secrets Manager are defined in the type system but not yet fully implemented
-- File-based secrets are fully supported for reading secrets from files
-
-**Profile Usage:**
-- Use profiles for multi-environment deployment (dev, staging, prod)
-- Define sensible defaults in the base `env` block
-- Override only environment-specific values in profiles
-- Activate profiles explicitly to avoid accidental production deployments
-- Include `description` field in profiles for documentation
-
-**Environment Files:**
-- Use `env_files` for local development configuration
-- Order matters: later files override earlier ones
-- Combine with profiles for flexible local/remote workflows
-- Add `.env.local` to `.gitignore`
-
-### Debugging Environment Variables
-
-When running workflows with verbose output (`-vv` flag), Prodigy shows environment variable values with sensitive data masked:
-
-**Source**: `examples/test-sensitive-masking.yml:1-22` - demonstrates automatic masking
-
-```bash
 # Run with debug output to see environment resolution
 prodigy run workflow.yml -vv --profile dev
 

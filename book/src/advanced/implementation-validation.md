@@ -277,30 +277,3 @@ Complete list of validation configuration fields:
 | `on_incomplete` | Object | None | Configuration for handling validation failures |
 
 **Source**: [src/cook/workflow/validation.rs:11-49](../../../src/cook/workflow/validation.rs)
-
-### Best Practices
-
-1. **Use result_file for structured output**: When validation produces JSON results, write them to a file to keep logs clean
-2. **Set appropriate timeouts**: Long-running tests should have explicit timeouts to prevent hanging
-3. **Start with high thresholds**: Use threshold: 100 for critical workflows, lower for exploratory work
-4. **Limit remediation attempts**: Set `max_attempts: 2-5` to balance thoroughness with workflow time
-5. **Require commits for fixes**: Use `commit_required: true` in `on_incomplete` to verify fixes were actually made
-6. **Progressive validation**: Run fast checks first (syntax), then slower ones (tests, benchmarks)
-
-### Troubleshooting
-
-**Validation always fails with 0% completion**:
-- Check that your validation command outputs valid JSON to stdout or `result_file`
-- Verify the JSON structure matches the ValidationResult schema
-- Use `result_file` to debug what your validation command is producing
-
-**Validation times out**:
-- Increase the `timeout` value for long-running tests
-- Consider splitting validation into multiple steps with separate timeouts
-
-**on_incomplete doesn't fix issues**:
-- Verify `max_attempts` is set high enough (default is 2)
-- Check that the remediation command has access to `${validation.gaps}` for context
-- Use `commit_required: true` to ensure fixes are actually committed
-
-**For more information on error handling**, see [Error Handling](../error-handling.md).

@@ -722,20 +722,6 @@ Gap detection has comprehensive test coverage in `tests/documentation_gap_detect
 - SUMMARY.md update correctness
 - Gap report JSON schema validation
 
-## Best Practices
-
-1. **Always run feature analysis first**: Gap detection depends on features.json from `/prodigy-analyze-features-for-book`
-
-2. **Review generated stubs**: Customize stub content to match project style before map phase processes them
-
-3. **Monitor content warnings**: If subsections are created with "MINIMAL" flag, ensure they still provide value or merge into parent chapter
-
-4. **Validate structure regularly**: Run gap detection periodically to catch mismatches between chapters.json and actual files
-
-5. **Commit structure fixes separately**: Phase 7.5 commits structure validation fixes before creating new content, keeping history clean
-
-6. **Trust idempotence**: Safe to re-run gap detection without fear of duplicates
-
 ## See Also
 
 - [./understanding-the-workflow.md](./understanding-the-workflow.md) - How gap detection fits in the overall workflow
