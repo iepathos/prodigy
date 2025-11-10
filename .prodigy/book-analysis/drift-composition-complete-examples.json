@@ -1,0 +1,104 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "composition",
+  "subsection_id": "complete-examples",
+  "subsection_title": "Complete Examples",
+  "subsection_file": "book/src/composition/complete-examples.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Subsection shows workflow composition examples that don't match the actual implementation syntax. Multiple examples contain incorrect YAML structure for template.source, sub_workflows, and parameter definitions fields. The examples would fail if users tried to run them.",
+  "issues": [
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Example 1: Multi-Environment CI/CD Pipeline",
+      "description": "Template source syntax is incorrect - shows nested object but implementation expects simple string value",
+      "current_content": "template:\n  source:\n    registry: \"ci-pipeline-template\"",
+      "should_be": "template:\n  source: \"ci-pipeline-template\"\n  # OR for file-based templates:\n  # source: \"path/to/template.yml\"",
+      "fix_suggestion": "Change template.source from nested object to simple string value. The TemplateSource enum is untagged and deserializes from string values directly.",
+      "source_reference": "src/cook/workflow/composition/mod.rs:86-95 (TemplateSource enum)"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Example 1: Multi-Environment CI/CD Pipeline",
+      "description": "Parameter definitions structure is incorrect - shows 'definitions' wrapper but implementation expects direct 'required' and 'optional' arrays",
+      "current_content": "parameters:\n  definitions:\n    environment:\n      type: String\n      description: \"Deployment environment\"",
+      "should_be": "parameters:\n  required:\n    - name: environment\n      type: String\n      description: \"Deployment environment\"\n      validation: \"matches('^(dev|staging|prod)$')\"",
+      "fix_suggestion": "Remove 'definitions' wrapper. Use 'required' and 'optional' arrays directly under 'parameters', with each parameter as an object containing 'name', 'type', 'description', and optional 'default' and 'validation' fields.",
+      "source_reference": "src/cook/workflow/composition/mod.rs:98-129 (ParameterDefinitions and Parameter structs)"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Example 2: Modular Monorepo Testing",
+      "description": "Sub-workflows syntax shows nested 'sub_workflows' array but implementation expects 'workflows' map",
+      "current_content": "sub_workflows:\n  - name: \"api-tests\"\n    source: \"services/api/test.yml\"",
+      "should_be": "workflows:\n  api-tests:\n    source: \"services/api/test.yml\"\n    parallel: true\n    outputs:\n      - \"coverage\"\n      - \"test_count\"",
+      "fix_suggestion": "Change 'sub_workflows' array to 'workflows' map where keys are workflow names and values are SubWorkflow objects. Remove 'name' field from individual workflow definitions.",
+      "source_reference": "src/cook/workflow/composition/mod.rs:47-49 and src/cook/workflow/composition/sub_workflow.rs:14-45"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "All Examples",
+      "description": "Examples don't show mode: standard which is required for composition workflows",
+      "fix_suggestion": "Add 'mode: standard' to workflow examples to clarify they are standard workflows using composition features, not MapReduce workflows.",
+      "source_reference": "src/config/mapreduce.rs (MapReduceConfig distinguishes modes)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Example 5: Workflow Registry Pattern",
+      "description": "Registry setup instructions show manual file copying but TemplateRegistry has API for registration",
+      "current_content": "mkdir -p ~/.prodigy/templates\ncp standard-ci.yml ~/.prodigy/templates/",
+      "should_be": "Use TemplateRegistry API or CLI commands (if implemented) for template registration",
+      "fix_suggestion": "Update registry setup to show proper template registration mechanism. Mention that templates can be stored in ~/.prodigy/templates/ or project-local .prodigy/templates/ directories.",
+      "source_reference": "src/cook/workflow/composition/registry.rs (TemplateRegistry and FileTemplateStorage)"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "low",
+      "section": "Example 2: Modular Monorepo Testing",
+      "description": "Output variable reference syntax may be incorrect",
+      "current_content": "${api-tests.test_count}",
+      "should_be": "Verify output variable syntax - may need different format based on SubWorkflowResult structure",
+      "fix_suggestion": "Verify and document correct syntax for accessing sub-workflow output variables. Check if hyphenated names work or if underscore is required.",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:48-64 (SubWorkflowResult)"
+    }
+  ],
+  "positive_aspects": [
+    "Good variety of examples showing different composition patterns",
+    "Clear progression from simple to complex use cases",
+    "Well-organized with descriptive headings and explanations",
+    "Includes practical use cases (CI/CD, monorepo testing, environment configs)",
+    "No broken internal links found",
+    "Examples are comprehensive and cover major composition features"
+  ],
+  "improvement_suggestions": [
+    "Fix all YAML syntax to match actual implementation deserialization",
+    "Add a note at the beginning stating that composition features are implemented but examples need validation",
+    "Include a 'Testing Your Workflow' section showing how to validate composition before running",
+    "Add troubleshooting section for common composition errors",
+    "Show actual error messages users would see if syntax is wrong",
+    "Add cross-reference to composition feature status in main composition index",
+    "Consider adding simpler examples first before complex multi-feature compositions",
+    "Include example output showing what composed workflows produce"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Template usage with parameters",
+      "Multi-environment deployments",
+      "Sub-workflow composition",
+      "Workflow inheritance with extends",
+      "Template registry patterns",
+      "Progressive composition layers"
+    ],
+    "validation_focus": "Check complete examples documentation matches implementation",
+    "implementation_status": "Composition features are implemented but YAML syntax in examples doesn't match deserialization structure"
+  }
+}
