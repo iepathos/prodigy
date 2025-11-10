@@ -29,6 +29,12 @@
 # With conditional execution
 - shell: "cargo build --release"
   when: "${tests_passed}"
+
+# Change directory using shell syntax (cwd not available in YAML)
+- shell: "cd crates/prodigy-core && cargo test"
+
+# Set environment variable using shell syntax (env not available in YAML)
+- shell: "PATH=/custom/bin:$PATH rustfmt --check src/**/*.rs"
 ```
 
 ## 2. Claude Commands
@@ -250,22 +256,26 @@ Validate implementation completeness with automatic retry.
 
 All command types support these common fields:
 
+**Source**: src/config/command.rs:320-401
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | string | Unique identifier for referencing outputs |
 | `timeout` | number | Command timeout in seconds |
 | `commit_required` | boolean | Whether command should create a git commit |
 | `when` | string | Conditional execution expression |
-| `capture_output` | boolean/string | Capture command output (boolean for default "output" var, string for custom name) |
-| `capture_format` | enum | Format: `string` (default), `number`, `json`, `lines`, `boolean` (see examples below) |
+| `capture_output` | boolean/string | Capture command output to a variable (boolean for default "output" var, string for custom name) |
+| `capture_format` | enum | Output parsing format: `string` (default), `number`, `json`, `lines`, `boolean` |
 | `on_success` | object | Command to run on success |
-| `on_failure` | object | OnFailureConfig with nested command, max_attempts, fail_workflow, strategy (see below) |
-| `validate` | object | Validation configuration |
-| `output_file` | string | Redirect command output to a file |
+| `on_failure` | object | Error handling configuration (see OnFailure Handler section below) |
+| `validate` | object | Validation configuration for implementation completeness |
+| `output_file` | string | Redirect command output to a file path |
+
+**Note**: The `capture` field exists in the internal WorkflowStep representation (src/cook/workflow/executor/data_structures.rs:75) but is NOT available in user-facing YAML. Use `capture_output` instead.
 
 ### OnFailure Handler Configuration
 
-The `on_failure` field accepts an `OnFailureConfig` which supports multiple configuration formats and strategies:
+The `on_failure` field accepts an `OnFailureConfig` which supports multiple configuration formats:
 
 **Source**: src/cook/workflow/on_failure.rs:67-115
 
@@ -276,14 +286,30 @@ The `on_failure` field accepts an `OnFailureConfig` which supports multiple conf
     claude: "/fix-warnings ${shell.output}"
 ```
 
-**Advanced Format - With Strategy and Control:**
+**Advanced Format - With Retry Control:**
 ```yaml
 - shell: "cargo test"
   on_failure:
     claude: "/debug-test-failures ${shell.output}"
-    strategy: recovery          # recovery, fallback, cleanup, or custom
     max_retries: 3              # Maximum retry attempts (default: 1)
     fail_workflow: false        # Continue workflow even after failure handling
+    retry_original: true        # Retry original command after handler (default: false)
+```
+
+**Detailed Format - With Handler Strategy (src/cook/workflow/on_failure.rs:25-49):**
+
+For fine-grained control over failure handling behavior, use the Detailed format with `FailureHandlerConfig`:
+
+```yaml
+- shell: "cargo build"
+  on_failure:
+    commands:
+      - claude: "/analyze-build-errors ${shell.output}"
+      - shell: "cargo clean && cargo build"
+    strategy: recovery          # recovery, fallback, cleanup, or custom
+    timeout: 300                # Handler timeout in seconds
+    fail_workflow: false        # Whether to fail workflow after handling
+    handler_failure_fatal: true # Whether handler failure should be fatal
 ```
 
 **Handler Strategies** (src/cook/workflow/on_failure.rs:9-22):
@@ -303,9 +329,9 @@ The `on_failure` field accepts an `OnFailureConfig` which supports multiple conf
 
 ### CaptureStreams Configuration
 
-> **Note:** While `capture_streams` is defined in WorkflowStepCommand (src/config/command.rs:396), it is reserved for future YAML syntax and not yet fully functional. This is a planned feature for fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured.
+> **Planned Feature:** The `capture_streams` field is defined in WorkflowStepCommand (src/config/command.rs:396) but is **reserved for future use** and not yet functional in YAML workflows. This planned feature will provide fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured.
 
-**Current Approach:** Use the `capture_output` (deprecated) or `capture_format` fields to control output capture, which cover most common use cases:
+**Current Approach:** Use the `capture_output` and `capture_format` fields to control output capture, which cover most common use cases:
 
 ```yaml
 # Capture stdout as string (most common use case)
@@ -370,9 +396,9 @@ These fields are deprecated:
 
 **Using capture_output Field**
 
-The `capture_output` field supports both Boolean and String variants:
+The `capture_output` field supports both Boolean and String variants for backward compatibility:
 
-**Source**: src/config/command.rs:375-377
+**Source**: src/config/command.rs:366-368 (CaptureOutputConfig enum: src/config/command.rs:403-411)
 
 ```yaml
 # String variant - captures to named variable (recommended)
@@ -384,9 +410,16 @@ The `capture_output` field supports both Boolean and String variants:
   capture_output: true
 ```
 
-**Note**: The internal WorkflowStep struct (src/cook/workflow/executor/data_structures.rs:75) uses a `capture` field, but this is not exposed in the user-facing YAML WorkflowStepCommand struct. Use `capture_output` for capturing command output in YAML workflows.
+**Migration Guide - capture_output Variants:**
 
-You can then reference the captured value using `${commit_hash}` or `${output}` in subsequent commands.
+| Old Syntax | New Syntax | Variable Name |
+|------------|------------|---------------|
+| `capture_output: true` | `capture_output: "output"` (recommended) | `${output}` |
+| `capture_output: "myvar"` | Already correct ✓ | `${myvar}` |
+
+**Note**: The internal WorkflowStep struct (src/cook/workflow/executor/data_structures.rs:75) uses a `capture` field, but this is NOT exposed in the user-facing YAML WorkflowStepCommand struct. Always use `capture_output` for capturing command output in YAML workflows.
+
+You can then reference captured values using `${commit_hash}` or `${output}` in subsequent commands.
 
 ---
 
@@ -407,15 +440,47 @@ The following fields exist in the internal WorkflowStep struct (src/cook/workflo
 - `validation_timeout` - Internal validation timing
 - `ignore_validation_failure` - Internal validation handling
 
-**Environment and Context Fields (Planned/Not Yet Exposed):**
-- `working_dir` / `cwd` - Working directory control (WorkflowStep:99, not in WorkflowStepCommand)
-- `env` - Environment variable overrides (WorkflowStep:103, not in WorkflowStepCommand)
-- `on_exit_code` - Exit code specific handlers (WorkflowStep:119, not in WorkflowStepCommand)
+**Environment and Context Fields (Planned/Not Yet Exposed in YAML):**
+- `working_dir` - Working directory control (WorkflowStep:99, NOT in WorkflowStepCommand)
+- `env` - Environment variable overrides (WorkflowStep:103, NOT in WorkflowStepCommand)
+- `on_exit_code` - Exit code specific handlers (WorkflowStep:119, NOT in WorkflowStepCommand)
 - `capture` - Variable name for output (WorkflowStep:75, use `capture_output` in YAML instead)
 
 **Why the separation?** WorkflowStepCommand defines what users can write in YAML. WorkflowStep is the internal runtime representation with additional fields populated during execution. Some features exist in the execution layer but aren't yet exposed in the YAML syntax.
 
-**If you need these features**: Consider using shell-level environment syntax (`ENV=value command`) or running commands in subdirectories using `cd` in your shell command. These planned features may be exposed in future versions of Prodigy.
+**Workarounds for missing YAML fields:**
+
+Since `cwd`, `env`, and `on_exit_code` are NOT available in WorkflowStepCommand, use these shell-level alternatives:
+
+```yaml
+# Instead of cwd field (NOT available):
+# ❌ - shell: "cargo test"
+#      cwd: "crates/prodigy-core"
+
+# ✓ Use shell cd command:
+- shell: "cd crates/prodigy-core && cargo test"
+
+# Instead of env field (NOT available):
+# ❌ - shell: "rustfmt --check src/**/*.rs"
+#      env:
+#        PATH: "/custom/bin:${PATH}"
+
+# ✓ Use shell environment syntax:
+- shell: "PATH=/custom/bin:$PATH rustfmt --check src/**/*.rs"
+
+# Instead of on_exit_code field (NOT available):
+# ❌ - shell: "cargo build"
+#      on_exit_code:
+#        1:
+#          claude: "/fix-compile-errors"
+
+# ✓ Use on_failure with conditional logic:
+- shell: "cargo build"
+  on_failure:
+    claude: "/fix-compile-errors ${shell.output}"
+```
+
+These planned features may be exposed in future versions of Prodigy.
 
 </details>
 
