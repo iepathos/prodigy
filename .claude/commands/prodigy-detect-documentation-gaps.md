@@ -679,158 +679,67 @@ Write the modified SUMMARY.md back to disk
 
 **CRITICAL: Ensure chapters.json accurately reflects the actual file structure.**
 
-Before generating flattened-items.json, validate that all chapter definitions match reality:
+Before generating flattened-items.json, validate that all chapter definitions match reality.
 
-**Step 1: Scan Actual File Structure**
+**Step 1: Scan for Multi-Subsection Directories**
 
-Discover all multi-subsection directories:
-```bash
-# Find all directories in book/src with index.md
-for chapter_dir in ${BOOK_DIR}/src/*/; do
-  chapter_name=$(basename "$chapter_dir")
+1. Find all directories under `${BOOK_DIR}/src/` that contain an `index.md` file
+2. For each directory found:
+   - Count how many `.md` files exist (excluding `index.md`)
+   - If count > 0, this is a multi-subsection chapter
+   - Record the chapter ID (directory name) in a list of discovered multi-subsection chapters
 
-  # Skip if not a directory or no index.md
-  [ ! -d "$chapter_dir" ] && continue
-  [ ! -f "${chapter_dir}index.md" ] && continue
+**Step 2: Compare Against chapters.json Definitions**
 
-  # This is a multi-subsection chapter - count subsections
-  subsection_files=$(find "$chapter_dir" -maxdepth 1 -name "*.md" ! -name "index.md" | wc -l)
+For each discovered multi-subsection chapter:
+1. Look up how it's defined in `$CHAPTERS_FILE`
+2. Check if `type` field is "multi-subsection" or "single-file"
+3. **If type is "single-file" or missing**: This is a MISMATCH - add to mismatches list
+4. **If type is "multi-subsection"**: Count subsections in chapters.json and compare to actual file count
+   - If counts don't match, add to mismatches list
 
-  if [ $subsection_files -gt 0 ]; then
-    echo "✓ Found multi-subsection chapter: $chapter_name (${subsection_files} subsections)"
-    DISCOVERED_MULTI_SUBSECTION_CHAPTERS+=("$chapter_name")
-  fi
-done
-```
+**Step 3: Check for Orphaned Single-File Definitions**
 
-**Step 2: Compare Against chapters.json**
+For each chapter in chapters.json that has `type: "single-file"`:
+1. Check if the expected file (e.g., `book/src/chapter-id.md`) exists
+2. Check if a directory with that name exists (e.g., `book/src/chapter-id/`)
+3. **If file doesn't exist but directory does**: Add to mismatches list
 
-For each discovered multi-subsection chapter, verify it's correctly defined:
-```bash
-for chapter_id in DISCOVERED_MULTI_SUBSECTION_CHAPTERS; do
-  # Check how it's defined in chapters.json
-  chapter_type=$(jq -r ".chapters[] | select(.id == \"$chapter_id\") | .type // \"single-file\"" "$CHAPTERS_FILE")
+**Step 4: Auto-Migrate Mismatched Chapters**
 
-  if [ "$chapter_type" = "single-file" ] || [ -z "$chapter_type" ]; then
-    echo "❌ STRUCTURE MISMATCH: $chapter_id has subsections but chapters.json says '$chapter_type'"
-    STRUCTURE_MISMATCHES+=("$chapter_id")
-  else
-    # Verify subsection count matches
-    defined_subsections=$(jq -r ".chapters[] | select(.id == \"$chapter_id\") | .subsections | length" "$CHAPTERS_FILE")
-    actual_subsections=$(find "${BOOK_DIR}/src/${chapter_id}/" -maxdepth 1 -name "*.md" ! -name "index.md" | wc -l)
+For each chapter in the mismatches list:
+1. Scan the chapter directory to discover all subsection files
+2. For each subsection `.md` file (excluding `index.md`):
+   - Extract subsection ID from filename (remove `.md` extension)
+   - Read the file and extract title from first H1 or H2 heading
+   - If no heading found, convert filename to Title Case
+   - Extract topics from section headings (H2/H3) in the file
+   - Create subsection definition object with: id, title, file path, topics, validation
+3. Build complete subsections array from all discovered subsections
+4. Update the chapter in chapters.json:
+   - Change `type` to "multi-subsection"
+   - Change `file` to `index_file` pointing to `book/src/{chapter-id}/index.md`
+   - Add `subsections` array with all discovered subsections
+   - Preserve existing `topics` and `validation` fields
+5. Write updated chapters.json to disk
+6. Record this migration in MIGRATION_ACTIONS list
 
-    if [ "$defined_subsections" != "$actual_subsections" ]; then
-      echo "⚠ SUBSECTION MISMATCH: $chapter_id has $actual_subsections files but chapters.json defines $defined_subsections"
-      STRUCTURE_MISMATCHES+=("$chapter_id")
-    fi
-  fi
-done
-```
+**Step 5: Add Structure Validation to Gap Report**
 
-**Step 3: Auto-Migrate Mismatched Chapters**
-
-For each chapter with structure mismatch, automatically migrate it:
-```bash
-for chapter_id in STRUCTURE_MISMATCHES; do
-  echo "🔧 Auto-migrating chapter: $chapter_id"
-
-  # Scan the directory to discover subsections
-  chapter_dir="${BOOK_DIR}/src/${chapter_id}/"
-  subsection_defs=[]
-
-  # For each subsection file
-  find "$chapter_dir" -maxdepth 1 -name "*.md" ! -name "index.md" | sort | while read subsection_file; do
-    # Extract subsection ID from filename
-    subsection_id=$(basename "$subsection_file" .md)
-
-    # Extract title from first H1 or H2 heading
-    subsection_title=$(grep -m 1 '^##\? ' "$subsection_file" | sed 's/^##\? //')
-
-    # If no title found, convert ID to title case
-    if [ -z "$subsection_title" ]; then
-      subsection_title=$(echo "$subsection_id" | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
-    fi
-
-    # Extract topics from H2/H3 headings
-    topics=$(grep '^##[# ]' "$subsection_file" | sed 's/^##[# ]*//' | head -5)
-
-    # Create subsection definition
-    subsection_defs+=({
-      "id": "$subsection_id",
-      "title": "$subsection_title",
-      "file": "book/src/${chapter_id}/${subsection_id}.md",
-      "topics": $(echo "$topics" | jq -R . | jq -s .),
-      "validation": "Check $subsection_title content matches implementation"
-    })
-  done
-
-  # Update chapter in chapters.json
-  # Find chapter index
-  chapter_index=$(jq ".chapters | map(.id == \"$chapter_id\") | index(true)" "$CHAPTERS_FILE")
-
-  if [ "$chapter_index" != "null" ]; then
-    # Update existing chapter to multi-subsection
-    jq ".chapters[$chapter_index] |= {
-      id: .id,
-      title: .title,
-      type: \"multi-subsection\",
-      index_file: \"book/src/${chapter_id}/index.md\",
-      topics: .topics,
-      validation: .validation,
-      subsections: $(echo "${subsection_defs[@]}" | jq -s .)
-    }" "$CHAPTERS_FILE" > "${CHAPTERS_FILE}.tmp"
-    mv "${CHAPTERS_FILE}.tmp" "$CHAPTERS_FILE"
-
-    echo "✓ Migrated $chapter_id to multi-subsection with ${#subsection_defs[@]} subsections"
-    MIGRATION_ACTIONS+=("migrated_to_multi_subsection: $chapter_id")
-  fi
-done
-```
-
-**Step 4: Check for Orphaned Single-File Definitions**
-
-Verify that single-file chapters actually exist as single files:
-```bash
-jq -r '.chapters[] | select(.type == "single-file" or .type == null) | .id' "$CHAPTERS_FILE" | while read chapter_id; do
-  expected_file="${BOOK_DIR}/src/${chapter_id}.md"
-  actual_dir="${BOOK_DIR}/src/${chapter_id}/"
-
-  # If file doesn't exist but directory does, it was migrated but chapters.json not updated
-  if [ ! -f "$expected_file" ] && [ -d "$actual_dir" ]; then
-    echo "⚠ Chapter $chapter_id is single-file in chapters.json but exists as directory"
-    STRUCTURE_MISMATCHES+=("$chapter_id")
-  fi
-done
-```
-
-**Step 5: Record Structure Validation Results**
-
-Add to gap report:
-```json
-{
-  "structure_validation": {
-    "mismatches_found": ${#STRUCTURE_MISMATCHES[@]},
-    "mismatched_chapters": STRUCTURE_MISMATCHES,
-    "migrations_performed": MIGRATION_ACTIONS,
-    "validation_timestamp": "<timestamp>"
-  }
-}
-```
+Add a `structure_validation` section to the gap report JSON:
+- `mismatches_found`: Count of chapters that needed migration
+- `mismatched_chapters`: Array of chapter IDs that were migrated
+- `migrations_performed`: Array of migration actions taken
+- `validation_timestamp`: Current timestamp
 
 **Step 6: Commit Structure Fixes (if any)**
 
-If structure mismatches were found and fixed:
-```bash
-if [ ${#STRUCTURE_MISMATCHES[@]} -gt 0 ]; then
-  git add "$CHAPTERS_FILE"
-  git commit -m "docs: sync chapters.json with actual file structure
-
-Auto-migrated ${#STRUCTURE_MISMATCHES[@]} chapter(s) to match reality:
-$(printf '  - %s\n' "${STRUCTURE_MISMATCHES[@]}")
-
-This ensures flattened-items.json includes all subsections."
-fi
-```
+If any structure mismatches were found and fixed:
+1. Stage the updated chapters.json file
+2. Create a commit with message:
+   - Title: "docs: sync chapters.json with actual file structure"
+   - Body: List of migrated chapters and explanation
+3. This commit must happen BEFORE generating flattened-items.json
 
 ### Phase 8: Save Gap Report, Generate Flattened Items, and Commit Changes
 
