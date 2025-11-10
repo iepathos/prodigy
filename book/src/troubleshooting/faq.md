@@ -144,7 +144,7 @@ env:
     prod: "prod-server"
 ```
 
-See [Environment Configuration](../environment/index.md) for configuration details.
+See [Environment Variables](../environment/index.md) for configuration details.
 
 ### How do I debug timeout errors?
 

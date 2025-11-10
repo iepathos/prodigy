@@ -130,7 +130,7 @@ For more on cleanup failures, see "Cleanup Failure Handling (Spec 136)" in the C
 - Check variable scope (global vs step-level)
 - Ensure env_files loaded correctly
 
-See [Environment Configuration](../environment/index.md) for variable configuration details.
+See [Environment Variables](../environment/index.md) for variable configuration details.
 
 ### Git context variables empty
 
