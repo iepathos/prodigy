@@ -829,33 +829,11 @@ Gaps Found: 2
 <li>SUMMARY.md update correctness</li>
 <li>Gap report JSON schema validation</li>
 </ul>
-<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
-<ol>
-<li>
-<p><strong>Always run feature analysis first</strong>: Gap detection depends on features.json from <code>/prodigy-analyze-features-for-book</code></p>
-</li>
-<li>
-<p><strong>Review generated stubs</strong>: Customize stub content to match project style before map phase processes them</p>
-</li>
-<li>
-<p><strong>Monitor content warnings</strong>: If subsections are created with “MINIMAL” flag, ensure they still provide value or merge into parent chapter</p>
-</li>
-<li>
-<p><strong>Validate structure regularly</strong>: Run gap detection periodically to catch mismatches between chapters.json and actual files</p>
-</li>
-<li>
-<p><strong>Commit structure fixes separately</strong>: Phase 7.5 commits structure validation fixes before creating new content, keeping history clean</p>
-</li>
-<li>
-<p><strong>Trust idempotence</strong>: Safe to re-run gap detection without fear of duplicates</p>
-</li>
-</ol>
 <h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
 <ul>
 <li><a href="./understanding-the-workflow.html">./understanding-the-workflow.md</a> - How gap detection fits in the overall workflow</li>
 <li><a href="../../mapreduce/index.html">../../mapreduce/index.md</a> - MapReduce phase that consumes flattened-items.json</li>
 <li><a href="./index.html">./index.md</a> - Automated documentation overview</li>
-<li><a href="./best-practices.html">./best-practices.md</a> - Documentation automation best practices</li>
 </ul>
 
                     </main>

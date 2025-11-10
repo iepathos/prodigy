@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Quick Start (30 Minutes) - Prodigy Documentation</title>
+        <title>Tutorial (30 Minutes) - Prodigy Documentation</title>
 
 
         <!-- Custom HTML head -->
@@ -147,7 +147,7 @@
                         <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/automated-documentation/quick-start-30-minutes.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/automated-documentation/tutorial.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -181,41 +181,26 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h2 id="quick-start-30-minutes"><a class="header" href="#quick-start-30-minutes">Quick Start (30 Minutes)</a></h2>
-<p>Get Prodigy’s automated documentation workflow running in your project in 30 minutes. This guide walks you through setting up and running your first documentation drift detection and fixing workflow.</p>
+                        <h2 id="tutorial-complete-documentation-workflow-30-minutes"><a class="header" href="#tutorial-complete-documentation-workflow-30-minutes">Tutorial: Complete Documentation Workflow (30 Minutes)</a></h2>
+<p>This comprehensive tutorial walks you through setting up and running your first automated documentation workflow. By the end, you’ll have a complete understanding of how Prodigy maintains documentation automatically.</p>
 <h3 id="what-youll-accomplish"><a class="header" href="#what-youll-accomplish">What You’ll Accomplish</a></h3>
-<p>By the end of this guide, you’ll have:</p>
+<p>By the end of this tutorial, you’ll have:</p>
 <ul>
 <li>Configured the automated documentation system for your project</li>
 <li>Run the workflow to detect and fix documentation drift</li>
 <li>Generated or updated an mdBook with accurate, code-grounded documentation</li>
-<li>Understood the three phases: setup, map, and reduce</li>
+<li>Understood all three phases: setup, map, and reduce</li>
 </ul>
 <h3 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h3>
-<p>Before starting, ensure you have:</p>
-<ol>
-<li>
-<p><strong>Rust and Cargo</strong> - Install from <a href="https://rustup.rs/">rustup.rs</a></p>
-<pre><code class="language-bash">curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-</code></pre>
-</li>
-<li>
-<p><strong>Prodigy</strong> - Install via cargo:</p>
-<pre><code class="language-bash">cargo install prodigy
-</code></pre>
-</li>
-<li>
-<p><strong>Claude Code CLI</strong> - Follow installation instructions at <a href="https://docs.anthropic.com/claude/docs/claude-code">Claude Code documentation</a></p>
-</li>
-<li>
-<p><strong>mdBook</strong> - For building documentation:</p>
-<pre><code class="language-bash">cargo install mdbook
-</code></pre>
-</li>
-<li>
-<p><strong>Git Repository</strong> - Your project should be in a git repository with existing or new documentation in a <code>book/</code> directory</p>
-</li>
-</ol>
+<p>Before starting, ensure you have completed the <strong><a href="installation.html">Installation</a></strong> guide with all prerequisites installed:</p>
+<ul>
+<li>Rust and Cargo</li>
+<li>Prodigy</li>
+<li>Claude Code CLI</li>
+<li>mdBook</li>
+<li>Git (initialized repository)</li>
+</ul>
+<p>If you haven’t installed these yet, visit the <a href="installation.html">Installation guide</a> first</p>
 <h3 id="step-1-initialize-your-book-structure"><a class="header" href="#step-1-initialize-your-book-structure">Step 1: Initialize Your Book Structure</a></h3>
 <p>If you don’t already have an mdBook, create one:</p>
 <pre><code class="language-bash"># Create book directory and initialize
@@ -507,11 +492,9 @@ Edit <code>.prodigy/book-config.json</code> to analyze only certain parts of you
 <h3 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h3>
 <p>Now that you have automated documentation working, explore:</p>
 <ul>
-<li><strong><a href="./understanding-the-workflow.html">Understanding the Workflow</a></strong> - Deep dive into how the workflow operates</li>
-<li><strong><a href="./customization-examples.html">Customization Examples</a></strong> - Adapt the workflow for your project’s needs</li>
-<li><strong><a href="./github-actions-integration.html">GitHub Actions Integration</a></strong> - Automate documentation updates on every commit</li>
-<li><strong><a href="./best-practices.html">Best Practices</a></strong> - Guidelines for maintaining high-quality documentation</li>
-<li><strong><a href="./troubleshooting.html">Troubleshooting</a></strong> - Solutions to common problems</li>
+<li><strong><a href="understanding-the-workflow.html">Understanding the Workflow</a></strong> - Deep dive into how the workflow operates</li>
+<li><strong><a href="github-actions-integration.html">GitHub Actions Integration</a></strong> - Automate documentation updates on every commit</li>
+<li><strong><a href="troubleshooting.html">Troubleshooting</a></strong> - Solutions to common problems</li>
 </ul>
 <h3 id="what-youve-learned"><a class="header" href="#what-youve-learned">What You’ve Learned</a></h3>
 <p>✓ How to configure automated documentation for any project
@@ -532,11 +515,11 @@ Edit <code>.prodigy/book-config.json</code> to analyze only certain parts of you
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../automated-documentation/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../automated-documentation/quick-start.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../automated-documentation/installation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../automated-documentation/understanding-the-workflow.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -546,11 +529,11 @@ Edit <code>.prodigy/book-config.json</code> to analyze only certain parts of you
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../automated-documentation/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../automated-documentation/quick-start.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../automated-documentation/installation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../automated-documentation/understanding-the-workflow.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

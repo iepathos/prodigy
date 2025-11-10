@@ -532,121 +532,6 @@ python -m http.server 8000
 <li>If <code>versions.json</code> missing, component silently skips rendering (no errors shown)</li>
 </ul>
 <p><strong>Source</strong>: specs/154-mdbook-version-selector-ui.md:233-247</p>
-<h3 id="best-practices-planned"><a class="header" href="#best-practices-planned">Best Practices (Planned)</a></h3>
-<p><strong>For Projects Adopting Versioned Documentation:</strong></p>
-<ol>
-<li>
-<p><strong>Start with Current Version</strong>: Deploy your current version first as both <code>/vX.Y.Z/</code> and <code>/latest/</code> before adding historical versions</p>
-</li>
-<li>
-<p><strong>Use Semantic Versioning</strong>: Tag releases with semver format (<code>vX.Y.Z</code>) for automatic version sorting</p>
-</li>
-<li>
-<p><strong>Test Before Tagging</strong>: Run the book workflow locally before pushing version tags to catch documentation issues</p>
-</li>
-<li>
-<p><strong>Document Breaking Changes</strong>: When releasing new major versions, clearly document breaking changes in the documentation</p>
-</li>
-<li>
-<p><strong>Regular Cleanup</strong>: Review deployed versions quarterly and remove very old versions per retention policy</p>
-</li>
-<li>
-<p><strong>Monitor Storage</strong>: Keep an eye on gh-pages branch size (GitHub Pages has 1GB soft limit)</p>
-</li>
-<li>
-<p><strong>Version-Specific Examples</strong>: When updating documentation for new features, add version notes indicating when features were introduced</p>
-</li>
-</ol>
-<p><strong>Source</strong>: specs/155-versioned-documentation-deployment.md:393-402</p>
-<h3 id="troubleshooting-planned"><a class="header" href="#troubleshooting-planned">Troubleshooting (Planned)</a></h3>
-<p><strong>Common Issues and Solutions:</strong></p>
-<p><strong>Version Selector Not Appearing:</strong></p>
-<ul>
-<li>Verify <code>version-selector.js</code> and <code>.css</code> are in <code>book/theme/</code> directory</li>
-<li>Check <code>book.toml</code> includes <code>additional-js</code> and <code>additional-css</code> entries</li>
-<li>Ensure <code>versions.json</code> exists at documentation root</li>
-<li>Check browser console for JavaScript errors</li>
-</ul>
-<p><strong>Broken Version Links:</strong></p>
-<ul>
-<li>Verify version paths in <code>versions.json</code> match actual deployed directories</li>
-<li>Ensure all versions use consistent URL structure</li>
-<li>Check that <code>/latest/</code> is updated after deploying new versions</li>
-</ul>
-<p><strong>Deployment Failures:</strong></p>
-<ul>
-<li>Verify git tag follows semver format (<code>vX.Y.Z</code>)</li>
-<li>Check GitHub Actions logs for build errors</li>
-<li>Ensure book workflow completes successfully for that version</li>
-<li>Verify <code>peaceiris/actions-gh-pages</code> action permissions</li>
-</ul>
-<p><strong>Version Not Updating:</strong></p>
-<ul>
-<li>Check that <code>versions.json</code> generation script ran after deployment</li>
-<li>Verify <code>/latest/</code> directory was updated for newest version</li>
-<li>Clear browser cache to see updated version selector</li>
-</ul>
-<p><strong>Source</strong>: specs/155-versioned-documentation-deployment.md:410-419</p>
-<h3 id="implementation-status"><a class="header" href="#implementation-status">Implementation Status</a></h3>
-<p><strong>Current Status: Draft / Not Implemented</strong></p>
-<p>All three specifications are currently in draft status:</p>
-<ul>
-<li><strong>Spec 154</strong> (mdBook Version Selector UI): Draft - UI component design complete, not yet implemented</li>
-<li><strong>Spec 155</strong> (Versioned Documentation Deployment): Draft - Deployment workflow design complete, not yet implemented</li>
-<li><strong>Spec 156</strong> (Version-Aware Book Workflow): Draft - Workflow enhancements designed, not yet implemented</li>
-</ul>
-<p><strong>Source</strong>: specs/154-mdbook-version-selector-ui.md:6, specs/155-versioned-documentation-deployment.md:6, specs/156-version-aware-book-workflow.md:6</p>
-<p><strong>What Exists Today:</strong></p>
-<ul>
-<li>Single-version documentation deployment (<code>.github/workflows/deploy-docs.yml</code>)</li>
-<li>Automated documentation workflow without version support (<code>workflows/book-docs-drift.yml</code>)</li>
-<li>GitHub Pages deployment to root path only</li>
-</ul>
-<p><strong>Planned Implementation Path:</strong></p>
-<ol>
-<li><strong>Phase 1</strong>: Implement version selector UI component (Spec 154)</li>
-<li><strong>Phase 2</strong>: Create versioned deployment workflow (Spec 155)</li>
-<li><strong>Phase 3</strong>: Enhance book workflow with VERSION parameter (Spec 156)</li>
-<li><strong>Phase 4</strong>: Deploy Prodigy’s own documentation with versioning</li>
-<li><strong>Phase 5</strong>: Document lessons learned and create templates for other projects</li>
-</ol>
-<h3 id="future-enhancements"><a class="header" href="#future-enhancements">Future Enhancements</a></h3>
-<p><strong>Beyond the current design, potential future additions include:</strong></p>
-<ul>
-<li>
-<p><strong>Prodigy CLI Integration</strong>:</p>
-<pre><code class="language-bash">prodigy book add-versioning  # Automatically set up versioning
-prodigy book deploy --version v0.2.6  # Manual deployment command
-</code></pre>
-</li>
-<li>
-<p><strong>Automatic versions.json Generation</strong>: Parse git tags and generate <code>versions.json</code> automatically from repository metadata</p>
-</li>
-<li>
-<p><strong>Version Comparison View</strong>: Side-by-side diff showing documentation changes between versions</p>
-</li>
-<li>
-<p><strong>Search Across Versions</strong>: Enhanced search that can find content across all deployed versions</p>
-</li>
-<li>
-<p><strong>Version-Specific Changelogs</strong>: Automatically extract and display changelog for each version in the docs</p>
-</li>
-</ul>
-<p><strong>Source</strong>: specs/154-mdbook-version-selector-ui.md:269-273</p>
-<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
-<ul>
-<li><a href="github-actions-integration.html">GitHub Actions Integration</a> - Current (non-versioned) deployment workflow</li>
-<li><a href="understanding-the-workflow.html">Understanding the Workflow</a> - How the automated documentation system works</li>
-<li><a href="best-practices.html">Best Practices</a> - General documentation best practices</li>
-<li><a href="quick-start.html">Quick Start</a> - Getting started with automated documentation</li>
-<li><a href="advanced-configuration.html">Advanced Configuration</a> - Customizing the documentation workflow</li>
-</ul>
-<p><strong>Related Specifications:</strong></p>
-<ul>
-<li>Spec 154: mdBook Version Selector UI (specs/154-mdbook-version-selector-ui.md)</li>
-<li>Spec 155: Versioned Documentation Deployment (specs/155-versioned-documentation-deployment.md)</li>
-<li>Spec 156: Version-Aware Book Workflow (specs/156-version-aware-book-workflow.md)</li>
-</ul>
 
                     </main>
 
@@ -656,7 +541,7 @@ prodigy book deploy --version v0.2.6  # Manual deployment command
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../automated-documentation/next-steps.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../examples.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -670,7 +555,7 @@ prodigy book deploy --version v0.2.6  # Manual deployment command
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../automated-documentation/next-steps.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../examples.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

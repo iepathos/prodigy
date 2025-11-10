@@ -403,23 +403,6 @@ commands:
   - name: "Deploy"
     shell: "echo Deploying to $DEPLOY_ENV"
 </code></pre>
-<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
-<ol>
-<li><strong>Use profiles for environments</strong>: Define development, staging, and production profiles rather than duplicating workflows</li>
-<li><strong>Mark secrets appropriately</strong>: Always use the <code>secrets:</code> block for sensitive data</li>
-<li><strong>Prefer dynamic values</strong>: Use dynamic env for values that may change (e.g., CPU count, git branch)</li>
-<li><strong>Use step-level env sparingly</strong>: Only override at step level when necessary</li>
-<li><strong>Document environment requirements</strong>: Use comments to document required system environment variables</li>
-</ol>
-<p>For comprehensive best practices, see <a href="../environment/best-practices.html">Environment Best Practices</a>.</p>
-<h3 id="further-reading"><a class="header" href="#further-reading">Further Reading</a></h3>
-<ul>
-<li><a href="../environment/index.html">Environment chapter</a> - Comprehensive environment configuration guide</li>
-<li><a href="../variables/available-variables.html">Variable Interpolation</a> - Complete variable reference</li>
-<li><a href="../environment/mapreduce-environment-variables.html">MapReduce Environment Variables</a> - Environment in distributed workflows</li>
-<li><a href="../environment/secrets-management.html">Secrets Management</a> - Secure credential handling</li>
-<li><a href="../configuration/configuration-precedence-rules.html">Configuration Precedence</a> - How configuration values are resolved</li>
-</ul>
 
                     </main>
 

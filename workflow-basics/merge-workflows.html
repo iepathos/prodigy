@@ -247,14 +247,6 @@
     - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
     - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
 </code></pre>
-<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
-<ol>
-<li><strong>Always use both branch parameters</strong>: Pass both <code>${merge.source_branch}</code> and <code>${merge.target_branch}</code> to <code>/prodigy-merge-worktree</code> to ensure correct merge target</li>
-<li><strong>Run tests before final merge</strong>: Catch integration issues early in the merge workflow</li>
-<li><strong>Sync with upstream first</strong>: Use <code>git fetch</code> to get latest changes before merging</li>
-<li><strong>Use timeouts for long operations</strong>: Apply the timeout field when merge operations might hang</li>
-<li><strong>Handle conflicts proactively</strong>: Consider adding conflict resolution commands for complex merges (e.g., <code>/prodigy-merge-master</code> before the final merge)</li>
-</ol>
 
                     </main>
 

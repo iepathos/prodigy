@@ -434,43 +434,22 @@ map:
       exit 1
     fi
 </code></pre>
-<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
-<ol>
-<li><strong>Use descriptive variable names</strong>: <code>test_results</code> instead of <code>output</code></li>
-<li><strong>Specify capture_format</strong>: Make JSON parsing explicit</li>
-<li><strong>Capture in setup for sharing</strong>: Setup variables available to all agents</li>
-<li><strong>Use metadata fields</strong>: Check <code>.success</code> before using output</li>
-<li><strong>Document expected structure</strong>: Comment complex JSON captures</li>
-<li><strong>Avoid shadowing built-ins</strong>: Don’t name variables <code>item</code>, <code>map</code>, or <code>workflow</code></li>
-<li><strong>Clean up large captures</strong>: Don’t keep unnecessary data in scope</li>
-</ol>
-<h4 id="choosing-between-capture_format-json-and-manual-parsing"><a class="header" href="#choosing-between-capture_format-json-and-manual-parsing">Choosing Between capture_format: json and Manual Parsing</a></h4>
-<p><strong>Use capture_format: json when:</strong></p>
+<h1 id="access-fields-directly"><a class="header" href="#access-fields-directly">Access fields directly</a></h1>
 <ul>
-<li>You need to access nested fields directly: <code>${metadata.workspace.root}</code></li>
-<li>The JSON structure is stable and well-defined</li>
-<li>You want simple field access without complex transformations</li>
-<li>The command always outputs valid JSON</li>
+<li>shell: “cd ${metadata.workspace_root}”</li>
+<li>shell: “echo ‘Package: ${metadata.packages[0].name}’”</li>
 </ul>
-<p><strong>Example:</strong></p>
-<pre><code class="language-yaml">- shell: "cargo metadata --format-version 1"
-  capture_output: "metadata"
-  capture_format: "json"
+<pre><code>
+**Use manual jq parsing when:**
+- You need complex filtering or transformations
+- You want to extract only specific fields (reduce memory)
+- The JSON structure varies or is deeply nested
+- You need to combine or reshape data
+- You want error handling for invalid JSON
 
-# Access fields directly
-- shell: "cd ${metadata.workspace_root}"
-- shell: "echo 'Package: ${metadata.packages[0].name}'"
-</code></pre>
-<p><strong>Use manual jq parsing when:</strong></p>
-<ul>
-<li>You need complex filtering or transformations</li>
-<li>You want to extract only specific fields (reduce memory)</li>
-<li>The JSON structure varies or is deeply nested</li>
-<li>You need to combine or reshape data</li>
-<li>You want error handling for invalid JSON</li>
-</ul>
-<p><strong>Example:</strong></p>
-<pre><code class="language-yaml"># Complex transformation with jq
+**Example:**
+```yaml
+# Complex transformation with jq
 - shell: |
     cargo test --format json 2&gt;&amp;1 | \
       jq -s '[.[] | select(.type == "test")] |

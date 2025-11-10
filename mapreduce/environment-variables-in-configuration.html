@@ -410,60 +410,24 @@ prodigy run workflow.yml
 <li><code>temporary: true</code> - Restore environment after step execution</li>
 <li><code>working_dir</code> - Set working directory for the step</li>
 </ul>
-<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
-<p><strong>Secrets vs Environment Variables:</strong></p>
-<ul>
-<li>Use the dedicated <code>secrets:</code> block for sensitive data (API keys, passwords, tokens)</li>
-<li>Use plain <code>env:</code> block for non-sensitive configuration (timeouts, URLs, feature flags)</li>
-<li>Secrets are automatically masked in all logs and outputs</li>
-<li><strong>Recommended</strong>: Use simple secret syntax with environment variable references: <code>API_KEY: "${env:SECRET_API_KEY}"</code></li>
-<li><strong>Advanced</strong>: Use provider-based syntax for complex scenarios: <code>API_TOKEN: { provider: env, key: "GITHUB_TOKEN" }</code></li>
-</ul>
-<p><strong>Security Considerations:</strong></p>
-<ul>
-<li>Never commit secrets to version control</li>
-<li>Use environment variable references like <code>${env:SECRET_VAR}</code> to inject secrets at runtime</li>
-<li>Leverage <code>.env.local</code> files (git-ignored) for local development</li>
-<li>Provider-based secrets for Vault and AWS Secrets Manager are defined in the type system but not yet fully implemented</li>
-<li>File-based secrets are fully supported for reading secrets from files</li>
-</ul>
-<p><strong>Profile Usage:</strong></p>
-<ul>
-<li>Use profiles for multi-environment deployment (dev, staging, prod)</li>
-<li>Define sensible defaults in the base <code>env</code> block</li>
-<li>Override only environment-specific values in profiles</li>
-<li>Activate profiles explicitly to avoid accidental production deployments</li>
-<li>Include <code>description</code> field in profiles for documentation</li>
-</ul>
-<p><strong>Environment Files:</strong></p>
-<ul>
-<li>Use <code>env_files</code> for local development configuration</li>
-<li>Order matters: later files override earlier ones</li>
-<li>Combine with profiles for flexible local/remote workflows</li>
-<li>Add <code>.env.local</code> to <code>.gitignore</code></li>
-</ul>
-<h3 id="debugging-environment-variables"><a class="header" href="#debugging-environment-variables">Debugging Environment Variables</a></h3>
-<p>When running workflows with verbose output (<code>-vv</code> flag), Prodigy shows environment variable values with sensitive data masked:</p>
-<p><strong>Source</strong>: <code>examples/test-sensitive-masking.yml:1-22</code> - demonstrates automatic masking</p>
-<pre><code class="language-bash"># Run with debug output to see environment resolution
-prodigy run workflow.yml -vv --profile dev
+<h1 id="run-with-debug-output-to-see-environment-resolution"><a class="header" href="#run-with-debug-output-to-see-environment-resolution">Run with debug output to see environment resolution</a></h1>
+<p>prodigy run workflow.yml -vv –profile dev</p>
+<h1 id="output-will-show"><a class="header" href="#output-will-show">Output will show:</a></h1>
+<h1 id="--password-as-redacted"><a class="header" href="#--password-as-redacted">- PASSWORD as <em><strong>REDACTED</strong></em></a></h1>
+<h1 id="--api_key-as-redacted"><a class="header" href="#--api_key-as-redacted">- API_KEY as <em><strong>REDACTED</strong></em></a></h1>
+<h1 id="--normal-variables-displayed-in-full"><a class="header" href="#--normal-variables-displayed-in-full">- Normal variables displayed in full</a></h1>
+<pre><code>
+### Cross-References
 
-# Output will show:
-# - PASSWORD as ***REDACTED***
-# - API_KEY as ***REDACTED***
-# - Normal variables displayed in full
+For comprehensive environment variable documentation, see:
+- [Variables Chapter](../variables/index.md) - Complete guide to environment variables and interpolation
+- [Environment Configuration](../environment/index.md) - Detailed environment management patterns
+- [MapReduce Environment Variables](../environment/mapreduce-environment-variables.md) - MapReduce-specific environment features
+- [Secrets Management](../environment/secrets-management.md) - Security best practices for secrets
+- [Environment Profiles](../environment/environment-profiles.md) - Multi-environment deployment patterns
+- [Setup Phase](./setup-phase-advanced.md) - Using environment variables in setup commands
+- [MapReduce Index](./index.md) - Main MapReduce workflow documentation
 </code></pre>
-<h3 id="cross-references"><a class="header" href="#cross-references">Cross-References</a></h3>
-<p>For comprehensive environment variable documentation, see:</p>
-<ul>
-<li><a href="../variables/index.html">Variables Chapter</a> - Complete guide to environment variables and interpolation</li>
-<li><a href="../environment/index.html">Environment Configuration</a> - Detailed environment management patterns</li>
-<li><a href="../environment/mapreduce-environment-variables.html">MapReduce Environment Variables</a> - MapReduce-specific environment features</li>
-<li><a href="../environment/secrets-management.html">Secrets Management</a> - Security best practices for secrets</li>
-<li><a href="../environment/environment-profiles.html">Environment Profiles</a> - Multi-environment deployment patterns</li>
-<li><a href="./setup-phase-advanced.html">Setup Phase</a> - Using environment variables in setup commands</li>
-<li><a href="./index.html">MapReduce Index</a> - Main MapReduce workflow documentation</li>
-</ul>
 
                     </main>
 

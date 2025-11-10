@@ -398,34 +398,6 @@
 </tbody></table>
 </div>
 <p><strong>Source</strong>: <a href="../../../src/cook/workflow/validation.rs">src/cook/workflow/validation.rs:11-49</a></p>
-<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
-<ol>
-<li><strong>Use result_file for structured output</strong>: When validation produces JSON results, write them to a file to keep logs clean</li>
-<li><strong>Set appropriate timeouts</strong>: Long-running tests should have explicit timeouts to prevent hanging</li>
-<li><strong>Start with high thresholds</strong>: Use threshold: 100 for critical workflows, lower for exploratory work</li>
-<li><strong>Limit remediation attempts</strong>: Set <code>max_attempts: 2-5</code> to balance thoroughness with workflow time</li>
-<li><strong>Require commits for fixes</strong>: Use <code>commit_required: true</code> in <code>on_incomplete</code> to verify fixes were actually made</li>
-<li><strong>Progressive validation</strong>: Run fast checks first (syntax), then slower ones (tests, benchmarks)</li>
-</ol>
-<h3 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h3>
-<p><strong>Validation always fails with 0% completion</strong>:</p>
-<ul>
-<li>Check that your validation command outputs valid JSON to stdout or <code>result_file</code></li>
-<li>Verify the JSON structure matches the ValidationResult schema</li>
-<li>Use <code>result_file</code> to debug what your validation command is producing</li>
-</ul>
-<p><strong>Validation times out</strong>:</p>
-<ul>
-<li>Increase the <code>timeout</code> value for long-running tests</li>
-<li>Consider splitting validation into multiple steps with separate timeouts</li>
-</ul>
-<p><strong>on_incomplete doesn’t fix issues</strong>:</p>
-<ul>
-<li>Verify <code>max_attempts</code> is set high enough (default is 2)</li>
-<li>Check that the remediation command has access to <code>${validation.gaps}</code> for context</li>
-<li>Use <code>commit_required: true</code> to ensure fixes are actually committed</li>
-</ul>
-<p><strong>For more information on error handling</strong>, see <a href="../error-handling.html">Error Handling</a>.</p>
 
                     </main>
 

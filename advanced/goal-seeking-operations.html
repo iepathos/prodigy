@@ -423,68 +423,48 @@
       fail_on_incomplete: true
 </code></pre>
 <p><strong>Note</strong>: Goal-seeking operations return <code>GoalSeekResult</code> variants, not shell exit codes. The workflow executor converts these to step results based on <code>fail_on_incomplete</code> configuration (src/cook/workflow/executor/commands.rs).</p>
-<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
-<p><strong>Set Realistic Thresholds:</strong></p>
-<ul>
-<li>Start with achievable thresholds (80-90%)</li>
-<li>Increase gradually in multiple goal-seeking steps</li>
-<li>Consider diminishing returns on higher thresholds</li>
-<li>Remember: convergence detection will stop early if no progress</li>
-</ul>
-<p><strong>Provide Good Validation:</strong></p>
-<ul>
-<li>Validation should be fast and deterministic</li>
-<li>Always output a numeric score (0-100) in a parseable format</li>
-<li>Use JSON with gaps field for rich feedback to refinement commands</li>
-<li>Test validation commands independently before using in goal-seeking</li>
-</ul>
-<p><strong>Write Effective Validation Commands:</strong></p>
-<pre><code class="language-yaml"># Good: Explicit score output
-validate: "cargo test 2&gt;&amp;1 | grep -q 'ok' &amp;&amp; echo 'score: 100' || echo 'score: 0'"
+<h1 id="good-explicit-score-output"><a class="header" href="#good-explicit-score-output">Good: Explicit score output</a></h1>
+<p>validate: “cargo test 2&gt;&amp;1 | grep -q ‘ok’ &amp;&amp; echo ‘score: 100’ || echo ‘score: 0’”</p>
+<h1 id="better-proportional-score-based-on-actual-results"><a class="header" href="#better-proportional-score-based-on-actual-results">Better: Proportional score based on actual results</a></h1>
+<p>validate: |
+passed=$(cargo test 2&gt;&amp;1 | grep -oP ‘\d+(?= passed)’)
+total=$(cargo test 2&gt;&amp;1 | grep -oP ‘\d+ tests’)
+score=$((passed * 100 / total))
+echo “score: $score”</p>
+<h1 id="best-json-with-actionable-feedback"><a class="header" href="#best-json-with-actionable-feedback">Best: JSON with actionable feedback</a></h1>
+<p>validate: |
+result=$(cargo test –format json)
+passed=$(echo “$result” | jq ‘.passed’)
+total=$(echo “$result” | jq ‘.total’)
+score=$((passed * 100 / total))
+gaps=$(echo “$result” | jq ‘.failures’)
+echo “{"score": $score, "gaps": $gaps}”</p>
+<pre><code>
+**Limit Iterations:**
+- Set reasonable max_attempts (3-10)
+- Use timeout_seconds for long-running operations (per-operation timeout)
+- Consider fail_on_incomplete based on criticality
+- Trust convergence detection to prevent wasted attempts
 
-# Better: Proportional score based on actual results
-validate: |
-  passed=$(cargo test 2&gt;&amp;1 | grep -oP '\d+(?= passed)')
-  total=$(cargo test 2&gt;&amp;1 | grep -oP '\d+ tests')
-  score=$((passed * 100 / total))
-  echo "score: $score"
+**Leverage Validation Context:**
+- Claude commands can access previous scores via `PRODIGY_VALIDATION_SCORE`
+- Use gaps information (`PRODIGY_VALIDATION_GAPS`) for targeted fixes
+- Design validation to provide actionable feedback, not just scores
 
-# Best: JSON with actionable feedback
-validate: |
-  result=$(cargo test --format json)
-  passed=$(echo "$result" | jq '.passed')
-  total=$(echo "$result" | jq '.total')
-  score=$((passed * 100 / total))
-  gaps=$(echo "$result" | jq '.failures')
-  echo "{\"score\": $score, \"gaps\": $gaps}"
+**Troubleshooting Common Issues:**
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Validation always returns 0 | Score not in parseable format | Test validation command, ensure it outputs `score: N` format |
+| Convergence happens too early | Score variance within 2 points | Ensure validation is precise enough to detect small improvements |
+| Timeout vs MaxAttemptsReached | timeout_seconds too short | Increase timeout or reduce max_attempts |
+| Context not available to Claude | Environment variables not passed | Verify command executor supports env vars (src/cook/goal_seek/engine.rs:128-153) |
+
+**See Also:**
+- [Implementation Validation](implementation-validation.md) - Using goal-seeking for spec validation
+- [Error Handling](../error-handling.md) - Workflow-level error handling
+- Technical documentation: docs/goal-seeking.md in repository
 </code></pre>
-<p><strong>Limit Iterations:</strong></p>
-<ul>
-<li>Set reasonable max_attempts (3-10)</li>
-<li>Use timeout_seconds for long-running operations (per-operation timeout)</li>
-<li>Consider fail_on_incomplete based on criticality</li>
-<li>Trust convergence detection to prevent wasted attempts</li>
-</ul>
-<p><strong>Leverage Validation Context:</strong></p>
-<ul>
-<li>Claude commands can access previous scores via <code>PRODIGY_VALIDATION_SCORE</code></li>
-<li>Use gaps information (<code>PRODIGY_VALIDATION_GAPS</code>) for targeted fixes</li>
-<li>Design validation to provide actionable feedback, not just scores</li>
-</ul>
-<p><strong>Troubleshooting Common Issues:</strong></p>
-<div class="table-wrapper"><table><thead><tr><th>Issue</th><th>Cause</th><th>Solution</th></tr></thead><tbody>
-<tr><td>Validation always returns 0</td><td>Score not in parseable format</td><td>Test validation command, ensure it outputs <code>score: N</code> format</td></tr>
-<tr><td>Convergence happens too early</td><td>Score variance within 2 points</td><td>Ensure validation is precise enough to detect small improvements</td></tr>
-<tr><td>Timeout vs MaxAttemptsReached</td><td>timeout_seconds too short</td><td>Increase timeout or reduce max_attempts</td></tr>
-<tr><td>Context not available to Claude</td><td>Environment variables not passed</td><td>Verify command executor supports env vars (src/cook/goal_seek/engine.rs:128-153)</td></tr>
-</tbody></table>
-</div>
-<p><strong>See Also:</strong></p>
-<ul>
-<li><a href="implementation-validation.html">Implementation Validation</a> - Using goal-seeking for spec validation</li>
-<li><a href="../error-handling.html">Error Handling</a> - Workflow-level error handling</li>
-<li>Technical documentation: docs/goal-seeking.md in repository</li>
-</ul>
 
                     </main>
 
@@ -494,7 +474,7 @@ validate: |
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../advanced/best-practices.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../git-context-advanced.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -508,7 +488,7 @@ validate: |
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../advanced/best-practices.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../git-context-advanced.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

@@ -193,80 +193,26 @@
 <li><strong>Runs on any project</strong> - just configure and go</li>
 </ul>
 <p>The generalized commands work for any codebase: Rust, Python, JavaScript, etc.</p>
+<h3 id="why-automated-documentation"><a class="header" href="#why-automated-documentation">Why Automated Documentation?</a></h3>
+<p><strong>The Problem</strong>: Documentation drifts out of sync with code. New features get added, APIs change, examples break, and manually updating docs is time-consuming and error-prone.</p>
+<p><strong>The Solution</strong>: This workflow system solves documentation drift by:</p>
+<ul>
+<li><strong>Always up-to-date</strong> - Automatically detects when docs don’t match implementation</li>
+<li><strong>Code-grounded examples</strong> - All examples extracted from actual source code with file references</li>
+<li><strong>Parallel processing</strong> - MapReduce architecture processes chapters concurrently</li>
+<li><strong>Quality guaranteed</strong> - Validation ensures 100% completeness before accepting updates</li>
+<li><strong>Version controlled</strong> - All changes tracked via git commits with full audit trail</li>
+<li><strong>CI/CD ready</strong> - Runs in GitHub Actions or any CI system</li>
+</ul>
+<p><strong>Real Results</strong>: This documentation you’re reading right now is maintained by this system. Every code example references actual source files. When Prodigy’s features change, the docs update automatically.</p>
 <h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
 <p>Ready to get started? Here’s the fastest path:</p>
 <ol>
-<li><strong>Install prerequisites</strong> (see below)</li>
-<li><strong>Initialize your book</strong> structure:
-<pre><code class="language-bash">mdbook init book
-cd book
-# Edit book.toml and src/SUMMARY.md as needed
-</code></pre>
-</li>
-<li><strong>Create a documentation workflow</strong> (see <a href="quick-start-30-minutes.html">Quick Start (30 Minutes)</a>)</li>
-<li><strong>Run the workflow</strong>:
-<pre><code class="language-bash">prodigy run workflows/book-docs.yml
-</code></pre>
-</li>
-<li><strong>Review and merge</strong> the generated documentation</li>
+<li><strong><a href="installation.html">Install prerequisites</a></strong> - Prodigy, mdBook, Claude Code CLI, Git</li>
+<li><strong><a href="quick-start.html">Follow the Quick Start guide</a></strong> - 15-20 minute setup</li>
+<li><strong>Or dive deeper with the <a href="tutorial.html">Tutorial</a></strong> - 30 minute comprehensive walkthrough</li>
 </ol>
-<p>For a detailed walkthrough, see <a href="quick-start-30-minutes.html">Quick Start (30 Minutes)</a> or <a href="quick-start.html">Quick Start</a>.</p>
-<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
-<p>Ensure you have the following tools installed and configured:</p>
-<ol>
-<li>
-<p><strong>Prodigy</strong> (latest version recommended):</p>
-<pre><code class="language-bash">cargo install prodigy
-</code></pre>
-<ul>
-<li>Minimum: Any recent release</li>
-<li>Tested with: Prodigy 1.0.0+</li>
-<li>Source: <a href="https://github.com/iepathos/prodigy">github.com/iepathos/prodigy</a></li>
-</ul>
-</li>
-<li>
-<p><strong>mdBook</strong> (0.4.0 or later):</p>
-<pre><code class="language-bash">cargo install mdbook
-</code></pre>
-<ul>
-<li>Minimum: 0.4.0</li>
-<li>Tested with: Latest stable release</li>
-<li>Note: Older versions may lack features used in book.toml</li>
-<li>Verify installation: <code>mdbook --version</code></li>
-</ul>
-</li>
-<li>
-<p><strong>Claude Code CLI</strong> with valid API credentials:</p>
-<ul>
-<li>Requires active Anthropic API key</li>
-<li>Set up authentication before running workflows</li>
-<li>Used for automated documentation analysis and generation</li>
-<li>See <a href="https://docs.anthropic.com/claude/docs">Claude Code documentation</a></li>
-</ul>
-</li>
-<li>
-<p><strong>Git</strong> (2.25 or later) with initialized repository:</p>
-<pre><code class="language-bash"># Verify git is installed (minimum 2.25)
-git --version
-
-# Initialize a repository if needed
-git init
-</code></pre>
-<ul>
-<li>Minimum: Git 2.25+ (for worktree support)</li>
-<li>Recommended: Git 2.30+ for improved worktree handling</li>
-<li>Required: Repository must be initialized (<code>git init</code>)</li>
-</ul>
-</li>
-<li>
-<p><strong>Rust toolchain</strong> (for Cargo-based installation):</p>
-<ul>
-<li>Edition 2021 or later</li>
-<li>Required to build Prodigy and mdBook from source</li>
-<li>Install via <a href="https://rustup.rs">rustup.rs</a></li>
-</ul>
-</li>
-</ol>
+<p>Choose your path based on your time and experience level</p>
 <h2 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h2>
 <p>The documentation workflow uses a <strong>MapReduce pattern</strong> to process your codebase in parallel:</p>
 <h3 id="workflow-phases"><a class="header" href="#workflow-phases">Workflow Phases</a></h3>
@@ -337,22 +283,27 @@ git init
 </ul>
 <p>For detailed information about each phase, see the subsections below.</p>
 <h2 id="additional-topics"><a class="header" href="#additional-topics">Additional Topics</a></h2>
-<p>See also:</p>
+<h3 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h3>
 <ul>
-<li><a href="quick-start-30-minutes.html">Quick Start (30 Minutes)</a></li>
-<li><a href="installation.html">Installation</a></li>
-<li><a href="quick-start.html">Quick Start</a></li>
-<li><a href="understanding-the-workflow.html">Understanding the Workflow</a></li>
-<li><a href="automatic-gap-detection.html">Automatic Gap Detection</a></li>
-<li><a href="github-actions-integration.html">GitHub Actions Integration</a></li>
-<li><a href="customization-examples.html">Customization Examples</a></li>
-<li><a href="best-practices.html">Best Practices</a></li>
-<li><a href="troubleshooting.html">Troubleshooting</a></li>
-<li><a href="advanced-configuration.html">Advanced Configuration</a></li>
-<li><a href="real-world-example-prodigys-own-documentation.html">Real-World Example: Prodigy’s Own Documentation</a></li>
-<li><a href="documentation-versioning.html">Documentation Versioning</a></li>
-<li><a href="next-steps.html">Next Steps</a></li>
-<li><a href="benefits.html">Benefits</a></li>
+<li><a href="installation.html">Installation</a> - Prerequisites and setup</li>
+<li><a href="quick-start.html">Quick Start</a> - 15-20 minute guide</li>
+<li><a href="tutorial.html">Tutorial</a> - 30 minute comprehensive walkthrough</li>
+</ul>
+<h3 id="understanding-the-system"><a class="header" href="#understanding-the-system">Understanding the System</a></h3>
+<ul>
+<li><a href="understanding-the-workflow.html">Understanding the Workflow</a> - How it works under the hood</li>
+<li><a href="automatic-gap-detection.html">Automatic Gap Detection</a> - Finding missing documentation</li>
+</ul>
+<h3 id="advanced-usage"><a class="header" href="#advanced-usage">Advanced Usage</a></h3>
+<ul>
+<li><a href="advanced-configuration.html">Advanced Configuration</a> - Fine-tuning options</li>
+<li><a href="github-actions-integration.html">GitHub Actions Integration</a> - CI/CD automation</li>
+<li><a href="documentation-versioning.html">Documentation Versioning</a> - Managing versions</li>
+</ul>
+<h3 id="reference"><a class="header" href="#reference">Reference</a></h3>
+<ul>
+<li><a href="troubleshooting.html">Troubleshooting</a> - Common issues and solutions</li>
+<li><a href="real-world-example-prodigys-own-documentation.html">Real-World Example: Prodigy’s Own Documentation</a> - Case study</li>
 </ul>
 
                     </main>
@@ -363,7 +314,7 @@ git init
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../automated-documentation/quick-start-30-minutes.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../automated-documentation/installation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -377,7 +328,7 @@ git init
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../automated-documentation/quick-start-30-minutes.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../automated-documentation/installation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

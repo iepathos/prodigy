@@ -856,39 +856,6 @@ merge:
 <li><strong>Goal Seeking</strong>: See <a href="../advanced/goal-seeking-operations.html">../advanced/goal-seeking-operations.md</a></li>
 </ul>
 <hr />
-<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
-<ol>
-<li><strong>Start Simple</strong>: Begin with basic workflows and add complexity incrementally</li>
-<li><strong>Use Environment Variables</strong>: Parameterize workflows for reusability across projects</li>
-<li><strong>Add Validation</strong>: Use <code>validate:</code> blocks with <code>on_incomplete</code> for quality gates</li>
-<li><strong>Handle Errors Gracefully</strong>: Add <code>on_failure:</code> handlers for automatic recovery</li>
-<li><strong>Capture Outputs</strong>: Use <code>capture_output:</code> to pass data between steps</li>
-<li><strong>Set Timeouts</strong>: Always set timeouts to prevent hanging workflows</li>
-<li><strong>Test Incrementally</strong>: Test each phase separately before running full workflow</li>
-<li><strong>Use Annotations</strong>: Add comments explaining configuration choices</li>
-<li><strong>Profile for Environments</strong>: Use <code>profiles:</code> for dev/staging/prod configurations</li>
-<li><strong>Monitor Progress</strong>: Use <code>-v</code> flag to watch Claude streaming output during development</li>
-</ol>
-<hr />
-<h3 id="common-configuration-pitfalls"><a class="header" href="#common-configuration-pitfalls">Common Configuration Pitfalls</a></h3>
-<ol>
-<li><strong>Missing <code>mode: mapreduce</code></strong>: Standard workflows default to sequential mode</li>
-<li><strong>Wrong JSONPath</strong>: Use <code>"$[*]"</code> for array root, not <code>"$.items[*]"</code> if items are at root</li>
-<li><strong>Environment Variable Syntax</strong>: Use <code>${VAR}</code> for Prodigy variables, <code>$VAR</code> for shell variables</li>
-<li><strong>Validation Score Format</strong>: Must output exactly <code>"score: N"</code> (0-100)</li>
-<li><strong>Forgetting <code>commit_required</code></strong>: Set to <code>true</code> when commits are expected</li>
-<li><strong>Merge Variables</strong>: Always use <code>${merge.source_branch}</code> and <code>${merge.target_branch}</code>, not hardcoded branches</li>
-<li><strong>Timeout Units</strong>: Always in seconds, not milliseconds</li>
-<li><strong>Parallel Count</strong>: Must be a number or env var reference (string), not interpolated expression</li>
-</ol>
-<hr />
-<h3 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h3>
-<ul>
-<li>Explore real-world workflows in the <code>workflows/</code> directory</li>
-<li>Read the <a href="best-practices.html">Configuration Best Practices</a> guide</li>
-<li>Learn about <a href="../composition/index.html">Workflow Composition</a> for reusable templates</li>
-<li>Review <a href="../mapreduce/troubleshooting.html">MapReduce Troubleshooting</a> for debugging tips</li>
-</ul>
 
                     </main>
 
