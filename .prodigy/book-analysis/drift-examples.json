@@ -4,129 +4,154 @@
   "chapter_title": "Examples",
   "chapter_file": "book/src/examples.md",
   "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "The Examples chapter provides comprehensive, practical examples covering major workflow features. Most examples are syntactically correct and use current APIs. However, there are several issues: (1) Example 7's secrets syntax is partially incorrect - it shows direct string values and nested provider format, but the actual SecretValue structure requires 'secret: true' and 'value' fields; (2) Example 10 uses incorrect field name 'cwd' instead of 'working_dir' in the working directory example; (3) Missing examples for newer features like timeout_config, orphaned worktree cleanup, and concurrent resume protection. The chapter would benefit from correcting the secrets syntax and adding examples for advanced features.",
+  "severity": "high",
+  "quality_assessment": "The Examples chapter provides comprehensive, practical examples covering major workflow features. However, there are several high-severity issues: (1) Example 7's secrets syntax is partially incorrect - it shows nested 'env' block and direct string values, but actual structure requires secrets at top level with 'secret: true' and 'value' fields; (2) Missing examples for critical features like workflow composition, custom merge workflows, and circuit breakers; (3) Some timeout and error handling syntax needs verification against actual implementation. The chapter would benefit from correcting the secrets syntax, adding missing feature examples, and verifying all syntax against current implementation.",
   "issues": [
     {
       "type": "outdated_information",
       "severity": "high",
       "section": "Example 7: Environment-Aware Workflow - Secrets",
-      "description": "Secrets syntax shown is incorrect - it suggests both direct string values and nested provider format, but the actual SecretValue structure requires 'secret: true' and 'value' fields",
-      "current_content": "secrets:\n  # Simple format - just the secret value\n  API_KEY: \"${SECRET_API_KEY}\"\n\n  # OR provider format - fetch from external secret store\n  # API_KEY:\n  #   provider: env\n  #   key: SECRET_API_KEY\n  #   version: latest  # optional",
-      "should_be": "secrets:\n  API_KEY:\n    secret: true\n    value: \"${SECRET_API_KEY}\"\n    # Optional: provider field for external secret stores\n    # provider: \"vault\"",
-      "fix_suggestion": "Update Example 7 to show correct secrets syntax matching SecretValue structure. Secrets require an object with 'secret: true' and 'value' fields, not direct string values.",
-      "source_reference": "src/config/workflow.rs:26 (secrets: Option<HashMap<String, SecretValue>>), features.json environment.secrets.syntax"
+      "description": "Secrets syntax shown is incorrect - it shows secrets nested under 'env' block with direct string values, but secrets should be at top level with 'secret: true' and 'value' fields",
+      "current_content": "# Global environment variables\nenv:\n  NODE_ENV: production\n  API_URL: https://api.production.com\n\n# Secrets (automatically masked in logs)\nsecrets:\n  API_KEY:\n    secret: true\n    value: \"${SECRET_API_KEY}\"",
+      "should_be": "# Global environment variables\nenv:\n  NODE_ENV: production\n  API_URL: https://api.production.com\n  # Secrets with masking\n  API_KEY:\n    secret: true\n    value: \"${SECRET_API_KEY}\"",
+      "fix_suggestion": "Merge secrets into the 'env' block instead of having a separate 'secrets' section. Secrets are just environment variables with 'secret: true' flag for masking.",
+      "source_reference": "features.json environment.secrets, environment.global_env"
     },
     {
-      "type": "incorrect_example",
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Examples",
+      "description": "Missing example for workflow composition/templates feature - a major capability",
+      "feature_reference": "advanced_features.workflow_composition",
+      "fix_suggestion": "Add Example 11 showing workflow template composition with imports, extends, parameters, and registry usage. This is documented in features.json as a key feature.",
+      "source_reference": "features.json advanced_features.workflow_composition"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Examples",
+      "description": "Missing example for custom merge workflows - important for MapReduce worktree merging",
+      "feature_reference": "mapreduce.phases.merge",
+      "fix_suggestion": "Add example showing merge workflow configuration with merge-specific variables (${merge.worktree}, ${merge.source_branch}, ${merge.target_branch}, ${merge.session_id})",
+      "source_reference": "features.json mapreduce.phases.merge, variables.merge"
+    },
+    {
+      "type": "outdated_information",
       "severity": "medium",
-      "section": "Example 10: Advanced Features - Working Directory",
-      "description": "Example shows 'cwd' as field name for working directory, but the correct field is 'working_dir' per StepEnvironment",
-      "current_content": "**Example of working_dir usage:**\n```yaml\n# Run command in specific directory\n- shell: \"cargo test\"\n  working_dir: \"subproject/\"  # Execute in subproject/ directory\n\n# Or set for multiple commands\n- shell: \"npm install\"\n  env:\n    NODE_ENV: production\n  working_dir: \"frontend/\"\n```",
-      "should_be": "The field name is correct as 'working_dir' in the example, but the earlier text mentions 'cwd' which is incorrect",
-      "fix_suggestion": "The example code itself is correct with 'working_dir', but ensure all text references use 'working_dir' consistently, not 'cwd'",
-      "source_reference": "features.json advanced_features.working_directory.field: cwd (this may be outdated in features.json - actual implementation uses working_dir)"
+      "section": "Example 8: Complex MapReduce with Error Handling",
+      "description": "timeout_config example shows commented-out fields (item_timeout_secs, phase_timeout_secs) that may not be implemented",
+      "current_content": "timeout_config:\n  agent_timeout_secs: 600\n  # Additional timeout levels for fine-grained control:\n  # item_timeout_secs: 300\n  # phase_timeout_secs: 3600",
+      "fix_suggestion": "Verify if item_timeout_secs and phase_timeout_secs are actually implemented. If not, remove the commented examples or mark clearly as 'planned but not yet implemented'.",
+      "source_reference": "features.json mapreduce.configuration.timeout_config"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Example 2: Coverage Improvement with Goal Seeking",
+      "description": "Example shows 'max_attempts' field at goal_seek level, but this may need to be inside on_incomplete handler",
+      "current_content": "goal_seek:\n  goal: \"Achieve 80% test coverage\"\n  claude: \"/improve-coverage\"\n  validate: |...\n  threshold: 80\n  max_attempts: 5",
+      "fix_suggestion": "Verify that max_attempts is supported directly on goal_seek command. If not, move it to the on_incomplete handler or validation section.",
+      "source_reference": "command_types.goal_seek.fields in features.json"
     },
     {
       "type": "missing_content",
       "severity": "medium",
-      "section": "Advanced Features / MapReduce",
-      "description": "Missing examples for advanced MapReduce timeout configuration (timeout_config with multiple levels)",
-      "fix_suggestion": "Add example showing timeout_config usage in MapReduce with agent_timeout_secs, item timeout, and phase timeout configuration beyond the simple agent_timeout_secs field",
-      "source_reference": "features.json mapreduce.configuration.map.timeout_config (Advanced timeout configuration with agent, item, and phase timeouts)"
+      "section": "Examples",
+      "description": "Missing example for circuit breaker error handling",
+      "feature_reference": "error_handling.workflow_level.circuit_breaker",
+      "fix_suggestion": "Add example showing circuit breaker configuration (failure_threshold, success_threshold, timeout, half-open state) for preventing cascading failures",
+      "source_reference": "features.json error_handling.workflow_level.circuit_breaker"
     },
     {
       "type": "missing_content",
       "severity": "medium",
-      "section": "Session Management / Resume",
-      "description": "No example demonstrating session-job ID mapping or resume with either ID type",
-      "fix_suggestion": "Add note or example showing 'prodigy resume <session-id>' and 'prodigy resume-job <job-id>' with explanation of bidirectional mapping",
-      "source_reference": "features.json session_management.resume.session_job_mapping (Bidirectional mapping stored in ~/.prodigy/state/{repo_name}/mappings/)"
+      "section": "Example 8: MapReduce",
+      "description": "Example shows 'distinct' field in comment but doesn't explain what it does",
+      "current_content": "distinct: \"item.id\"  # Prevent duplicate work items based on ID field",
+      "fix_suggestion": "The example is actually present with good inline comment. However, add a note section explaining how distinct works and why it's useful for idempotent processing.",
+      "source_reference": "features.json mapreduce.input_processing.distinct"
     },
     {
       "type": "missing_content",
-      "severity": "low",
-      "section": "Git Integration / Worktree Management",
-      "description": "No example or mention of orphaned worktree cleanup after failures",
-      "fix_suggestion": "Add note about 'prodigy worktree clean-orphaned <job_id>' for cleanup failures, especially relevant for MapReduce workflows",
-      "source_reference": "features.json git_integration.worktree_management.orphaned_cleanup"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Session Management / Concurrent Resume",
-      "description": "No example demonstrating concurrent resume protection or RAII-based locking behavior",
-      "fix_suggestion": "Add troubleshooting note showing what users see when attempting concurrent resume (lock held error message)",
-      "source_reference": "features.json mapreduce.capabilities.concurrent_protection, session_management.resume.concurrent_protection"
+      "severity": "medium",
+      "section": "Example 8: MapReduce Resume",
+      "description": "Shows resume commands but doesn't explain session-job ID bidirectional mapping",
+      "current_content": "# Unified resume command (auto-detects ID type)\nprodigy resume mapreduce-1234567890",
+      "fix_suggestion": "Add explanation that session-job mapping is bidirectional and stored in ~/.prodigy/state/{repo_name}/mappings/, allowing resume with either ID type.",
+      "source_reference": "features.json mapreduce.checkpoint_resume (Spec 134)"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Example 4: Parallel Code Review",
-      "description": "JSONPath explanation is helpful but limited to simple array access",
-      "current_content": "**Note:** JSONPath `\"$[*]\"` matches all items in the root array.",
-      "fix_suggestion": "Add example or note showing more complex JSONPath patterns like $.items[*].files[*] for nested extraction or $.items[?(@.priority > 5)] for filtering",
-      "source_reference": "features.json mapreduce.configuration.map.json_path (JSONPath expression for item extraction, default: $[*], example: $.items[*])"
+      "section": "Example 10: Advanced Features",
+      "description": "Future capabilities section mentions git context variables that are actually implemented",
+      "current_content": "Future capabilities (not yet implemented, but planned):\n- Git context variables: Access files_modified, files_added from git operations",
+      "fix_suggestion": "Git context variables ARE implemented per features.json. Move git.modified_files, git.staged_files, git.unstaged_files out of 'Future capabilities' and show working examples.",
+      "source_reference": "features.json variables.git_context"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Example 8: MapReduce",
-      "description": "No example showing 'distinct' field usage for deduplication",
-      "fix_suggestion": "Add 'distinct: item.id' or similar to Example 8 MapReduce configuration with explanation that it prevents duplicate work item processing",
-      "source_reference": "features.json mapreduce.filtering.distinct (Field for deduplication)"
+      "section": "Example 10: Advanced Features",
+      "description": "Missing example for git context pattern filtering",
+      "feature_reference": "advanced_features.git_context_advanced",
+      "fix_suggestion": "Add example showing git context with pattern filtering: ${git.modified_files|pattern:**/*.rs} and ${git.staged_files|basename}",
+      "source_reference": "features.json advanced_features.git_context_advanced"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Example 5: Advanced Capture Options",
-      "description": "Example shows capture_streams in comment but doesn't demonstrate actual usage",
-      "current_content": "**Advanced capture options:**\n```yaml\n# Capture specific streams (stdout, stderr, exit_code, success, duration)\n- shell: \"cargo build 2>&1\"\n  capture_output: \"build_output\"\n  capture_streams: \"stdout,stderr,exit_code\"  # Capture multiple streams",
-      "fix_suggestion": "The example is actually present and correct - no fix needed. This was incorrectly flagged.",
-      "source_reference": "Example 5 lines 120-127 already shows capture_streams usage"
+      "section": "Examples",
+      "description": "Missing example for retry configuration with backoff strategies",
+      "feature_reference": "error_handling.retry_configuration",
+      "fix_suggestion": "Add example showing backoff strategies (fixed, linear, exponential, fibonacci) with retry_budget and conditional_retry",
+      "source_reference": "features.json error_handling.retry_configuration.backoff_strategies"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Observability / DLQ",
-      "description": "Example 8 mentions DLQ but doesn't show how to use json_log_location for debugging failed agents",
-      "fix_suggestion": "Add note explaining that DLQ entries include json_log_location field pointing to Claude JSON logs for debugging",
-      "source_reference": "features.json observability.claude_json_logs.access (DLQ entries include json_log_location field for failed agents)"
+      "section": "Example 3: Foreach Iteration",
+      "description": "Example shows 'parallel' field but doesn't verify all three modes work",
+      "current_content": "parallel: 3  # Options: false (sequential), true (default parallelism), or number (specific count)",
+      "fix_suggestion": "Verify against implementation that parallel supports: false (sequential), true (default), and number (specific count). Update comment if implementation differs.",
+      "source_reference": "command_types.foreach.fields.parallel"
     }
   ],
   "positive_aspects": [
-    "Comprehensive coverage of major workflow types: standard, MapReduce, goal_seek, foreach",
-    "Good progression from simple (Example 1) to complex (Example 8, 10)",
-    "Excellent documentation of capture_format options with all supported formats (string, json, lines, number, boolean)",
-    "Clear explanation of capture_streams for advanced output capture with example code",
-    "Strong coverage of conditional execution with 'when' clauses and examples",
-    "Good MapReduce examples showing practical use cases (parallel code review, tech debt elimination)",
-    "Helpful notes explaining JSONPath, capture formats, and error_policy defaults",
-    "Examples include realistic use cases that developers will encounter",
-    "Good coverage of nested error handlers with on_failure/on_success",
-    "Working directory (working_dir) usage shown with correct syntax in Example 10",
-    "Foreach parallel options well-documented with clear inline comment",
-    "Error policy example (Example 8) shows comprehensive configuration with defaults explained",
-    "Environment profiles example includes clear CLI activation instructions",
-    "Write_file example demonstrates all three formats (text, json, yaml) with options"
+    "Excellent progression from simple to complex examples (Example 1 → Example 10)",
+    "Comprehensive coverage of major workflow types: standard, foreach, goal_seek, mapreduce",
+    "Example 4 includes helpful JSONPath patterns and advanced filtering syntax",
+    "Example 5 thoroughly explains capture_format options (string, json, lines, number, boolean)",
+    "Example 5 shows advanced capture_streams usage with multiple streams",
+    "Example 7 demonstrates environment variables, profiles, and env_files",
+    "Example 8 shows comprehensive MapReduce with error_policy, resume, and DLQ debugging",
+    "Example 9 demonstrates write_file with all three formats (text, json, yaml)",
+    "Example 10 shows nested error handlers and complex conditionals",
+    "Most examples use realistic scenarios (build/test, code review, deployment, tech debt)",
+    "Good inline notes explaining options and defaults",
+    "Troubleshooting section for MapReduce cleanup failures (orphaned worktrees)",
+    "Resume commands shown for both session ID and job ID",
+    "DLQ debugging with json_log_location is documented"
   ],
   "improvement_suggestions": [
-    "Correct secrets syntax in Example 7 to match SecretValue structure (secret: true, value: ...)",
-    "Verify and update features.json if 'cwd' should be 'working_dir' everywhere",
-    "Add example showing session-job ID mapping and resume with either ID type",
-    "Include example or note about orphaned worktree cleanup workflow",
-    "Show advanced timeout_config usage beyond simple agent_timeout_secs",
-    "Add troubleshooting section for common example-related issues (JSONPath errors, timeout tuning)",
-    "Show example of DLQ retry workflow with json_log_location for debugging",
-    "Include example demonstrating offset and max_items for batch processing",
-    "Add example showing distinct field for deduplication in MapReduce",
-    "Add more complex JSONPath examples (nested extraction, filtering)",
-    "Show concurrent resume protection error message in troubleshooting",
-    "Add cross-references between examples (e.g., 'see Example 5 for capture_format options')",
-    "Consider adding an example demonstrating git context variables in reduce phase"
+    "Fix secrets syntax in Example 7 - merge into env block instead of separate section",
+    "Add Example 11 for workflow composition (imports, extends, parameters)",
+    "Add example for custom merge workflows with merge variables",
+    "Add example for circuit breaker error handling configuration",
+    "Add example for retry backoff strategies (exponential, fibonacci, etc.)",
+    "Add example for git context pattern filtering (${git.modified_files|pattern:**/*.rs})",
+    "Move implemented git context variables out of 'Future capabilities' section",
+    "Verify and fix timeout_config example - clarify what fields are actually supported",
+    "Verify goal_seek max_attempts placement is correct",
+    "Add explanation of session-job ID bidirectional mapping",
+    "Add versioning note at top indicating when examples were last verified",
+    "Group examples by category (Basic, MapReduce, Advanced, Error Handling)",
+    "Add performance considerations section for MapReduce parallelism tuning",
+    "Add 'Common Pitfalls' section based on troubleshooting experience",
+    "Cross-reference examples to relevant spec sections"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T19:37:34Z",
+    "analyzed_at": "2025-11-09T23:43:36Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Standard workflows",
@@ -134,23 +159,22 @@
       "Goal seeking with validation",
       "Foreach iteration (sequential and parallel)",
       "Conditional execution",
-      "Output capture with multiple formats",
-      "Environment variables and secrets",
-      "Profiles for multi-environment deployment",
+      "Output capture with multiple formats and streams",
+      "Environment variables, secrets, and profiles",
       "Error handling and policies",
       "File generation with write_file",
-      "Advanced features (nested handlers, conditionals, working directory)"
+      "Advanced features (nested handlers, conditionals, working_dir)"
     ],
     "validation_focus": "Check examples are valid and work with current syntax",
     "examples_count": 10,
-    "syntax_accuracy": "high (with noted exceptions in secrets and field naming)",
-    "feature_coverage": "broad but missing some newer features",
+    "syntax_accuracy": "medium (secrets syntax incorrect, some fields need verification)",
+    "feature_coverage": "broad but missing workflow composition, merge workflows, circuit breakers",
     "key_findings": [
-      "Secrets syntax needs correction to match SecretValue structure",
-      "Working directory field name is correct in example code but text may reference outdated 'cwd'",
-      "Missing examples for timeout_config, session-job mapping, orphaned worktree cleanup",
-      "Most core features are well-documented with practical examples",
-      "Error handling and capture mechanisms are thoroughly explained"
+      "Secrets syntax needs major correction - should be in env block, not separate section",
+      "Missing examples for critical features: workflow composition, custom merge",
+      "Git context variables ARE implemented but marked as 'future'",
+      "timeout_config and goal_seek max_attempts syntax needs verification",
+      "Good coverage of MapReduce, capture, and error handling features"
     ]
   }
 }
