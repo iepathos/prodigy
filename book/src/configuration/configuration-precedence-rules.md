@@ -1,136 +1,215 @@
 ## Configuration Precedence Rules
 
-Prodigy merges configuration from multiple sources with clear precedence. Understanding the precedence hierarchy helps you control which settings take effect when configuration is specified in multiple places.
+Prodigy loads configuration from multiple sources with a clear precedence hierarchy. Understanding how configuration is merged helps you control which settings take effect.
 
 ### Precedence Hierarchy
 
 From highest to lowest priority:
 
-1. **CLI Flags** (highest priority)
-   - Command-line arguments override all other settings
-   - Example: `prodigy run workflow.yml --auto-commit false`
-
-2. **Environment Variables**
-   - Environment variables like `PRODIGY_CLAUDE_API_KEY`
-   - Override file-based configuration
-   - See [Environment Variables](environment-variables.md) for full list
-
-3. **Project Config** (`.prodigy/config.yml`)
+1. **Project Config** (`.prodigy/config.yml`) - Highest priority
    - Project-specific settings in your repository
-   - Override global configuration
-   - Committed to version control (except secrets)
+   - Located at `.prodigy/config.yml` in your project directory
+   - Overrides all default values
+   - Committed to version control (be careful with secrets)
 
-4. **Global Config** (`~/.prodigy/config.yml`)
-   - User-level configuration in your home directory
-   - Applies to all projects unless overridden
-   - Not version controlled
-
-5. **Defaults** (lowest priority)
+2. **Defaults** (lowest priority)
    - Built-in default values defined in the code
-   - Used when no other source provides a value
-   - See [Default Values Reference](default-values-reference.md)
+   - Used when project config doesn't provide a value
+   - See source: `src/config/mod.rs:88-100`
 
-### How Settings Override Each Other
+**Note**: Global config (`~/.prodigy/config.yml`), environment variables (`PRODIGY_*`), and CLI flag overrides are defined in the code but not currently loaded in production. Only project-level configuration and defaults are active.
 
-When Prodigy starts, it builds the final configuration by:
+### How Settings Are Loaded
 
-1. Starting with default values
-2. Loading global config from `~/.prodigy/config.yml` (if exists)
-3. Loading project config from `.prodigy/config.yml` (if exists)
-4. Applying environment variables
-5. Applying CLI flags (if provided)
+When Prodigy starts, it builds the final configuration with this process:
 
-Each step **overrides** values from the previous step. Settings not specified in higher-priority sources are preserved from lower-priority sources.
+1. **Initialize with defaults** - Create `GlobalConfig` with built-in defaults (source: `src/config/mod.rs:88-100`)
+2. **Load project config** - Read `.prodigy/config.yml` from project directory (source: `src/config/loader.rs:85-104`)
+3. **Merge at field level** - Project config values override defaults on a per-field basis (source: `src/config/mod.rs:133-154`)
+
+Project config **overrides** default values at the individual field level. Settings not specified in project config inherit from defaults.
 
 ### Examples
 
-#### Example 1: API Key Precedence
+#### Example 1: Using Defaults
 
 ```yaml
-# ~/.prodigy/config.yml (global config)
-claude_api_key: "sk-global-key"
+# No .prodigy/config.yml file exists
 ```
+
+**Result**: Prodigy uses all default values:
+- `log_level: "info"`
+- `auto_commit: true`
+- `max_concurrent_specs: 1`
+
+(Source: `src/config/mod.rs:88-100`)
+
+#### Example 2: Project Config Override
 
 ```yaml
 # .prodigy/config.yml (project config)
 name: my-project
 claude_api_key: "sk-project-key"
-```
-
-```bash
-# Environment variable (highest priority)
-export PRODIGY_CLAUDE_API_KEY="sk-env-key"
-```
-
-**Result**: Prodigy uses `sk-env-key` because environment variables override file-based configuration.
-
-#### Example 2: Auto-Commit Setting
-
-```yaml
-# ~/.prodigy/config.yml
-auto_commit: false  # Global default: don't auto-commit
-```
-
-```yaml
-# .prodigy/config.yml
-name: my-project
-# No auto_commit specified - inherits from global
-```
-
-**Result**: Prodigy uses `auto_commit: false` from the global config.
-
-#### Example 3: Mixed Sources
-
-```yaml
-# ~/.prodigy/config.yml
-log_level: info
-auto_commit: true
-max_concurrent_specs: 1
-```
-
-```yaml
-# .prodigy/config.yml
-name: my-project
-log_level: debug  # Override global
-# auto_commit and max_concurrent_specs inherited from global
-```
-
-```bash
-export PRODIGY_AUTO_COMMIT=false  # Override both configs
+auto_commit: false
 ```
 
 **Result**:
-- `log_level: debug` (from project config)
-- `auto_commit: false` (from environment variable)
-- `max_concurrent_specs: 1` (from global config)
+- `claude_api_key: "sk-project-key"` (from project config)
+- `auto_commit: false` (from project config)
+- `log_level: "info"` (from defaults - not specified in project)
+- `max_concurrent_specs: 1` (from defaults - not specified in project)
+
+Field-level precedence is implemented via getter methods (source: `src/config/mod.rs:133-154`):
+```rust
+pub fn get_auto_commit(&self) -> bool {
+    self.project
+        .as_ref()
+        .and_then(|p| p.auto_commit)
+        .or(self.global.auto_commit)
+        .unwrap_or(true)  // Default if neither provides value
+}
+```
+
+#### Example 3: Partial Project Override
+
+```yaml
+# .prodigy/config.yml
+name: my-project
+claude_api_key: "sk-abc123"
+# Other fields not specified
+```
+
+**Result**:
+- `claude_api_key: "sk-abc123"` (from project config)
+- `log_level: "info"` (from defaults)
+- `auto_commit: true` (from defaults)
+- `max_concurrent_specs: 1` (from defaults)
 
 ### Field-Level Precedence
 
-Precedence is applied **per field**, not per file. This means you can override individual settings while inheriting others:
+Precedence is applied **per field**, not per file. Each configuration field is resolved independently using the precedence rules.
 
 ```yaml
-# Global config
-claude_api_key: "sk-global"
-log_level: info
-auto_commit: true
-```
-
-```yaml
-# Project config
+# .prodigy/config.yml (project config)
 name: my-project
-log_level: debug  # Only override log_level
-# claude_api_key and auto_commit are inherited from global
+auto_commit: false  # Only override auto_commit
+# Other fields inherited from defaults
 ```
 
-The project inherits `claude_api_key` and `auto_commit` from global config while overriding `log_level`.
+**Precedence Logic** (source: `src/config/mod.rs:133-154`):
+1. Check if project config has the field → use it
+2. Otherwise, check if global config has the field → use it
+3. Otherwise, use the default value
 
-### Checking Effective Configuration
+This allows fine-grained configuration: override only what you need, inherit the rest.
 
-To see which configuration is actually being used, run:
+### Configuration Loading Implementation
 
-```bash
-prodigy config show
+The configuration loading happens in these steps (source: `src/config/loader.rs`):
+
+**Step 1: Initialize**
+```rust
+// ConfigLoader::new() - line 23
+let config = Config::new();  // Creates Config with GlobalConfig defaults
 ```
 
-This displays the merged configuration with all precedence rules applied.
+**Step 2: Load Project Config** (optional)
+```rust
+// ConfigLoader::load_project() - line 85
+let config_path = project_path.join(".prodigy").join("config.yml");
+if config_path.exists() {
+    let content = fs::read_to_string(&config_path).await?;
+    let project_config = parse_project_config(&content)?;
+    *config = merge_project_config(config.clone(), project_config);
+}
+```
+
+**Step 3: Access with Precedence**
+```rust
+// Config::get_claude_api_key() - line 133
+self.project
+    .as_ref()
+    .and_then(|p| p.claude_api_key.as_deref())  // Try project first
+    .or(self.global.claude_api_key.as_deref())   // Fall back to global
+```
+
+### Default Values
+
+Built-in defaults (source: `src/config/mod.rs:88-100`):
+
+```rust
+impl Default for GlobalConfig {
+    fn default() -> Self {
+        Self {
+            prodigy_home: get_global_prodigy_dir()
+                .unwrap_or_else(|_| PathBuf::from("~/.prodigy")),
+            default_editor: None,
+            log_level: Some("info".to_string()),
+            claude_api_key: None,
+            max_concurrent_specs: Some(1),
+            auto_commit: Some(true),
+            plugins: None,
+        }
+    }
+}
+```
+
+### Future: Global Config and Environment Variables
+
+The codebase includes infrastructure for additional configuration sources, but these are not currently loaded in production:
+
+**Global Config** (`~/.prodigy/config.yml`):
+- Mentioned in documentation (line 49: `src/config/mod.rs`)
+- No loader implementation yet
+- Would provide user-level defaults across all projects
+
+**Environment Variables**:
+- Defined in `Config::merge_env_vars()` (lines 111-131: `src/config/mod.rs`)
+- Supports: `PRODIGY_CLAUDE_API_KEY`, `PRODIGY_LOG_LEVEL`, `PRODIGY_EDITOR`, `PRODIGY_AUTO_COMMIT`
+- Only called in tests, not in production code
+- Would override file-based configuration when implemented
+
+**CLI Flag Overrides**:
+- No implementation yet
+- Would provide highest-priority overrides for individual runs
+
+### Test Coverage
+
+Configuration precedence behavior is validated through comprehensive tests (source: `src/config/loader.rs:113-334`):
+
+**Test: Default Configuration**
+```rust
+// Line 120: test_new_creates_default_config
+// Verifies GlobalConfig defaults are set correctly
+assert_eq!(config.global.log_level, Some("info".to_string()));
+assert_eq!(config.global.max_concurrent_specs, Some(1));
+assert_eq!(config.global.auto_commit, Some(true));
+```
+
+**Test: Project Config Loading**
+```rust
+// Line 230: test_load_project_config
+// Verifies .prodigy/config.yml is loaded and merged
+let project = config.project.unwrap();
+assert_eq!(project.name, "test-project");
+assert_eq!(project.claude_api_key, Some("test-key".to_string()));
+assert_eq!(project.auto_commit, Some(false));
+```
+
+**Test: Field-Level Override**
+```rust
+// src/config/mod.rs:471 - test shows project overrides global
+config.project = Some(ProjectConfig {
+    name: "test".into(),
+    claude_api_key: Some("project-key".into()),
+    // ... other fields
+});
+assert_eq!(config.get_claude_api_key(), Some("project-key"));
+```
+
+### See Also
+
+- [Global Configuration Structure](global-configuration-structure.md) - Complete field reference
+- [Default Values Reference](default-values-reference.md) - All default values
+- [Complete Configuration Examples](complete-configuration-examples.md) - Real-world configuration patterns
 
