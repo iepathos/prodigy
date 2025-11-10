@@ -4,6 +4,8 @@ Complete reference of all default configuration values in Prodigy. These default
 
 ### Global Configuration Defaults
 
+Source: `src/config/mod.rs:51-59, 88-100`
+
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
 | `prodigy_home` | `~/.prodigy` | Global storage directory (platform-specific) |
@@ -18,6 +20,8 @@ Complete reference of all default configuration values in Prodigy. These default
 
 ### Project Configuration Defaults
 
+Source: `src/config/mod.rs:66-74`
+
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
 | `name` | **Required** | Project identifier (no default) |
@@ -30,6 +34,8 @@ Complete reference of all default configuration values in Prodigy. These default
 
 ### Storage Configuration Defaults
 
+Source: `src/storage/config.rs:24-55, 228-241`
+
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
 | `backend` | `"file"` | Storage backend type (`file` or `memory`) |
@@ -39,6 +45,8 @@ Complete reference of all default configuration values in Prodigy. These default
 | `enable_cache` | `false` | Enable caching layer |
 
 ### File Storage Defaults
+
+Source: `src/storage/config.rs:66-86, 196-198`
 
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
@@ -50,13 +58,17 @@ Complete reference of all default configuration values in Prodigy. These default
 
 ### Memory Storage Defaults
 
+Source: `src/storage/config.rs:89-111, 200-201`
+
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
-| `max_memory` | `104857600` (100MB) | Maximum memory usage |
+| `max_memory` | `1073741824` (1GB) | Maximum memory usage |
 | `persist_to_disk` | `false` | Persist memory storage to disk |
 | `persistence_path` | None | Path for disk persistence |
 
 ### Retry Policy Defaults
+
+Source: `src/storage/config.rs:114-147, 204-212`
 
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
@@ -67,6 +79,8 @@ Complete reference of all default configuration values in Prodigy. These default
 | `jitter` | `true` | Add random jitter to delays |
 
 ### Cache Configuration Defaults
+
+Source: `src/storage/config.rs:150-173`
 
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
@@ -89,15 +103,20 @@ These settings can be overridden by environment variables (see [Environment Vari
 | `PRODIGY_CLAUDE_STREAMING` | - | `true` |
 | `PRODIGY_AUTOMATION` | - | Not set (set by Prodigy) |
 
-### Workflow Defaults
+### CLI Parameter Defaults
 
-| Setting | Default Value | Description |
-|---------|---------------|-------------|
-| `max_iterations` | None | No limit on workflow iterations |
-| `timeout` | None | No timeout on workflow execution |
-| `continue_on_error` | `false` | Stop workflow on command failure |
+Source: `src/cook/command.rs:28-29`
+
+These are CLI-level parameters, not workflow configuration fields:
+
+| Parameter | Default Value | Description |
+|-----------|---------------|-------------|
+| `--max-iterations` | `1` | Number of workflow iterations to run |
+| `--path` | Current directory | Repository path to run in |
 
 ### Command Metadata Defaults
+
+Source: `src/config/command.rs:130-154, src/config/mod.rs:363-365`
 
 Applied to individual commands when not specified:
 
@@ -106,6 +125,8 @@ Applied to individual commands when not specified:
 | `retries` | `2` | Retry attempts for failed commands |
 | `timeout` | `300` | Command timeout (seconds) |
 | `continue_on_error` | `false` | Continue workflow on command failure |
+| `commit_required` | `false` | Whether command must create git commits |
+| `env` | `{}` | Environment variables for command |
 
 ### Understanding Defaults
 
@@ -130,6 +151,36 @@ Environment: PRODIGY_LOG_LEVEL=debug  (overrides all configs)
        ↓
 Result: log_level = "debug"
 ```
+
+### Practical Example: Overriding Storage Defaults
+
+This example shows how to override storage defaults in a project config:
+
+```yaml
+# .prodigy/config.yml
+name: my-project
+
+storage:
+  backend: file
+  timeout: 60s  # Override default 30s
+  enable_cache: true  # Override default false
+
+  backend_config:
+    file:
+      base_dir: /custom/storage  # Override default ~/.prodigy
+      max_file_size: 524288000  # 500MB (override default 100MB)
+      enable_compression: true   # Override default false
+
+  cache_config:
+    max_entries: 5000  # Override default 1000
+    ttl: 7200s  # 2 hours (override default 1 hour)
+```
+
+With this configuration:
+- Storage timeout increases from 30s → 60s
+- Caching is enabled (default: disabled)
+- Files can be 500MB instead of 100MB
+- Cache holds 5000 entries instead of 1000
 
 ### See Also
 
