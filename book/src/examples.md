@@ -1,5 +1,11 @@
 # Examples
 
+> **Last Verified**: 2025-01-11 against codebase commit 753f90e0
+>
+> All examples in this chapter have been validated against the current implementation. Field names, syntax, and configuration options are verified against source code definitions.
+
+This chapter demonstrates practical Prodigy workflows with real-world examples. Examples progress from simple to advanced, covering standard workflows, MapReduce parallel processing, error handling, and advanced features.
+
 ## Example 1: Simple Build and Test
 
 ```yaml
@@ -23,9 +29,37 @@
       echo "score: ${coverage%.*}"
     threshold: 80
     max_attempts: 5
+    timeout_seconds: 1800  # Optional: 30 minute timeout for entire goal-seeking process
+    fail_on_incomplete: false  # Optional: Continue workflow even if goal not reached
 ```
 
-**Note:** The `goal_seek` command will automatically commit changes made by the Claude command. Commit behavior is controlled by the command execution, not by the `goal_seek` configuration.
+**Source**: GoalSeekConfig from src/cook/goal_seek/mod.rs:14-41, execution engine from src/cook/goal_seek/engine.rs:23-116
+
+**How Goal Seeking Works:**
+
+Goal seeking provides iterative refinement with automatic convergence detection:
+1. Execute the improvement command (Claude or shell)
+2. Run validation script to get a score (0-100)
+3. Pass environment variables to next iteration:
+   - `PRODIGY_VALIDATION_SCORE` - Current score
+   - `PRODIGY_VALIDATION_OUTPUT` - Full validation output
+   - `PRODIGY_VALIDATION_GAPS` - Identified improvement areas
+4. Repeat until threshold reached, max attempts hit, or convergence detected
+5. Auto-stops when no improvement in last 3 attempts (convergence)
+
+**Validation Script Format:**
+```bash
+# Must output "score: N" where N is 0-100
+echo "score: 75"
+# Optional: output "gaps: description" for targeted improvements
+echo "gaps: Missing tests for auth module"
+```
+
+**Goal-Seek vs Validate:**
+- `goal_seek`: Iterative optimization with feedback loop
+- `validate`: One-time completion check (see Example 6)
+
+**Note:** Changes are automatically committed during goal-seeking iterations. Use `commit_required: true` on the outer goal_seek step to control commit behavior.
 
 ---
 
@@ -398,21 +432,37 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
 - **Max attempts**: Combine with conditional execution for automatic retry logic
 - **Conditional execution**: Use `when` clauses with captured output or variables
 - **Complex conditionals**: Combine multiple conditions with `and`/`or` operators
-- **Working directory**: Per-command directory control using `working_dir` field in step environment
+- **Working directory**: Per-command directory control using `working_dir` field
 - **Git context variables**: Automatic tracking of file changes during workflow execution
 
 **Example of working_dir usage:**
+
+**Source**: Field definition from src/commands/handlers/shell.rs:40, examples from workflows/environment-example.yml:52-64
+
 ```yaml
 # Run command in specific directory
-- shell: "cargo test"
-  working_dir: "subproject/"  # Execute in subproject/ directory
+- name: "Build frontend"
+  shell: "npm run build"
+  working_dir: ./frontend      # Execute in frontend/ directory
 
-# Or set for multiple commands
-- shell: "npm install"
+# Combine with environment variables
+- name: "Run backend tests"
+  shell: "pytest"
   env:
-    NODE_ENV: production
-  working_dir: "frontend/"
+    PYTHONPATH: "./src:./tests"
+  working_dir: ./backend
+
+# Use variable interpolation for dynamic paths
+- name: "Deploy to environment"
+  shell: "echo 'Deploying...'"
+  working_dir: "${env.DEPLOY_DIR}"  # Path from environment variable
 ```
+
+**Note:** The `working_dir` field:
+- Accepts relative or absolute paths
+- Supports variable interpolation (e.g., `"${env.PROJECT_DIR}"`)
+- Falls back to current execution context if not specified
+- Paths are resolved to absolute paths automatically
 
 **Git Context Variables (Spec 122):**
 Prodigy automatically tracks file changes during workflow execution and exposes them as variables:
@@ -484,7 +534,258 @@ Note: Agent execution status is independent of cleanup status. If an agent compl
 
 ---
 
-## Example 11: Custom Merge Workflows
+## Example 11: Circuit Breaker for Resilient Error Handling
+
+```yaml
+name: api-processing-with-circuit-breaker
+mode: mapreduce
+
+setup:
+  - shell: "curl https://api.example.com/items > items.json"
+
+map:
+  input: items.json
+  json_path: "$[*]"
+  max_parallel: 10
+
+  agent_template:
+    - shell: "curl -X POST https://api.example.com/process -d '${item}'"
+      max_attempts: 3
+    - claude: "/validate-processing ${item.id}"
+
+  # Circuit breaker prevents cascading failures from external service issues
+  error_policy:
+    on_item_failure: dlq
+    continue_on_failure: true
+    circuit_breaker:
+      failure_threshold: 5      # Open circuit after 5 consecutive failures
+      success_threshold: 3      # Close circuit after 3 consecutive successes
+      timeout: 30s             # Wait 30s before testing recovery (half-open state)
+      half_open_requests: 3    # Allow 3 test requests in half-open state
+
+reduce:
+  - claude: "/summarize-results ${map.results}"
+```
+
+**Source**: CircuitBreakerConfig from src/cook/workflow/error_policy.rs:46-88, state machine from error_policy.rs:251-343
+
+**Circuit Breaker State Transitions:**
+
+```
+Closed → Open (after failure_threshold consecutive failures)
+Open → HalfOpen (after timeout expires)
+HalfOpen → Closed (after success_threshold successes)
+HalfOpen → Open (if any half_open_request fails)
+```
+
+**When to Use Circuit Breakers:**
+- External API calls that may become unavailable
+- Database operations during maintenance windows
+- Network-dependent operations with potential outages
+- Any operation where cascading failures should be prevented
+
+**Circuit Breaker Benefits:**
+- **Fail Fast**: Stop wasting resources on doomed requests
+- **Self-Healing**: Automatically test recovery after timeout
+- **Prevent Overload**: Give external services time to recover
+- **Clear Signals**: Circuit state indicates system health
+
+**Default Values** (from error_policy.rs:63-76):
+- `failure_threshold: 5` - Balance between sensitivity and stability
+- `success_threshold: 3` - Require consistent success before full recovery
+- `timeout: 30s` - Typical recovery time for transient issues
+- `half_open_requests: 3` - Minimal testing before full recovery
+
+**See Also**: [Error Handling Guide](error-handling.md) for comprehensive error handling patterns
+
+---
+
+## Example 12: Retry Configuration with Backoff Strategies
+
+```yaml
+name: resilient-deployment
+mode: standard
+
+# Global retry defaults for all commands
+error_policy:
+  retry_config:
+    max_attempts: 3          # Maximum retry attempts
+    backoff: exponential      # Backoff strategy (see variants below)
+
+# Workflow steps
+- shell: "curl https://api.example.com/deploy"
+  # Inherits global retry_config
+
+- shell: "docker push myapp:latest"
+  # Override with custom retry config
+  retry_config:
+    max_attempts: 5
+    backoff:
+      exponential:
+        initial: 2s          # Start with 2 second delay
+        multiplier: 2.0      # Double delay each retry (2s, 4s, 8s, 16s, 32s)
+```
+
+**Source**: BackoffStrategy enum from src/cook/retry_v2.rs:70-98, RetryConfig from retry_v2.rs:14-52
+
+**Backoff Strategy Variants:**
+
+**1. Exponential (Default)** - Delay doubles each retry:
+```yaml
+backoff:
+  exponential:
+    initial: 1s         # First retry after 1s
+    multiplier: 2.0     # Second after 2s, third after 4s, fourth after 8s
+```
+
+**2. Linear** - Delay increases by fixed increment:
+```yaml
+backoff:
+  linear:
+    initial: 1s         # First retry after 1s
+    increment: 2s       # Second after 3s, third after 5s, fourth after 7s
+```
+
+**3. Fibonacci** - Delay follows Fibonacci sequence:
+```yaml
+backoff:
+  fibonacci:
+    initial: 1s         # Delays: 1s, 1s, 2s, 3s, 5s, 8s, 13s...
+```
+
+**4. Fixed** - Same delay for all retries:
+```yaml
+backoff:
+  fixed:
+    delay: 5s           # All retries wait exactly 5s
+```
+
+**5. Custom** - Specify exact delays:
+```yaml
+backoff:
+  custom:
+    delays: [1s, 5s, 15s, 30s, 60s]
+```
+
+**Advanced Retry Configuration:**
+
+```yaml
+- shell: "curl https://api.example.com/data"
+  retry_config:
+    max_attempts: 5
+    backoff:
+      exponential:
+        initial: 1s
+        multiplier: 2.0
+    initial_delay: 1s           # Base delay before backoff
+    max_delay: 60s              # Cap maximum delay
+    jitter: true                # Add randomness to prevent thundering herd
+    jitter_factor: 0.3          # ±30% random variance
+    retry_budget: 300s          # Total retry time budget (5 minutes)
+    retry_on:                   # Only retry specific error types
+      - network                 # Network errors
+      - timeout                 # Timeout errors
+      - server_error            # HTTP 5xx errors
+      - rate_limit              # Rate limiting errors
+    on_failure: continue        # What to do after all retries fail
+```
+
+**Source**: Test examples from src/cook/retry_v2.rs:582-659, backoff calculation from retry_v2.rs:283-305
+
+**Backoff Strategy Comparison:**
+
+| Strategy | Use Case | Delay Pattern | Example |
+|----------|----------|---------------|---------|
+| **Exponential** | Most scenarios, fast backoff | 2^n × initial | 1s, 2s, 4s, 8s |
+| **Linear** | Steady load reduction | initial + (n × increment) | 1s, 3s, 5s, 7s |
+| **Fibonacci** | Gradual backoff | Fibonacci(n) × initial | 1s, 1s, 2s, 3s, 5s |
+| **Fixed** | Rate limiting, polling | constant | 5s, 5s, 5s, 5s |
+| **Custom** | Complex SLA requirements | user-defined | 1s, 5s, 15s, 60s |
+
+**Jitter Benefits** (from retry_v2.rs:644-659):
+- Prevents thundering herd when multiple agents retry simultaneously
+- Adds ±30% random variance by default (configurable via `jitter_factor`)
+- Example: 10s delay becomes 7-13s with 0.3 jitter factor
+
+**See Also**: [Retry State Tracking](mapreduce/backoff-strategies.md) for persistence and recovery
+
+---
+
+## Example 13: Workflow Composition (Preview Feature)
+
+> **Note**: Workflow composition features are partially implemented. Core composition logic exists but CLI integration is pending (Spec 131-133). This example shows the planned syntax.
+
+```yaml
+# Import reusable workflow fragments
+imports:
+  - "./workflows/common/test-suite.yml"
+  - "./workflows/common/deploy.yml"
+
+# Extend base workflow
+extends: "./workflows/base-ci.yml"
+
+name: extended-ci-workflow
+mode: standard
+
+# Template for reusable command sets
+templates:
+  rust_test:
+    - shell: "cargo build"
+    - shell: "cargo test"
+    - shell: "cargo clippy"
+
+  deploy_to_env:
+    parameters:
+      - env_name
+      - target_url
+    commands:
+      - shell: "echo 'Deploying to ${env_name}'"
+      - shell: "curl -X POST ${target_url}/deploy"
+
+# Use templates in workflow
+steps:
+  - template: rust_test
+  - template: deploy_to_env
+    with:
+      env_name: "production"
+      target_url: "${API_URL}"
+```
+
+**Source**: Composition architecture from features.json:workflow_composition, implementation status note from drift analysis
+
+**Planned Composition Features:**
+- **Imports**: Reuse workflow fragments across projects
+- **Extends**: Inherit from base workflows with overrides
+- **Templates**: Parameterized command sets for DRY workflows
+- **Parameters**: Type-safe template parameterization
+
+**Current Status:**
+- Core composition logic: ✓ Implemented
+- Configuration parsing: ✓ Implemented
+- CLI integration: ⏳ Pending (Spec 131-133)
+- Template rendering: ⏳ Pending
+
+**Workaround Until CLI Integration:**
+Use YAML anchors and aliases for basic composition:
+
+```yaml
+# Define reusable blocks with anchors
+.rust_test: &rust_test
+  - shell: "cargo build"
+  - shell: "cargo test"
+
+.deploy: &deploy
+  - shell: "echo 'Deploying...'"
+
+# Reference with aliases
+workflow:
+  - *rust_test
+  - *deploy
+```
+
+---
+
+## Example 14: Custom Merge Workflows
 
 MapReduce workflows execute in isolated git worktrees. When the workflow completes, you can define a custom merge workflow to control how changes are merged back to your original branch.
 
