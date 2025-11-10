@@ -5,81 +5,71 @@
   "chapter_file": "book/src/mapreduce-worktree-architecture.md",
   "drift_detected": true,
   "severity": "medium",
-  "quality_assessment": "Chapter is mostly accurate but contains some outdated terminology and missing implementation details. The core concepts (worktree hierarchy, merge flow, isolation) are well explained, but branch naming documentation doesn't match actual implementation patterns.",
+  "quality_assessment": "Chapter is generally accurate and comprehensive with good technical coverage. Contains one broken internal link and could benefit from additional clarity around merge queue persistence and automation mode. Overall quality is high with minor issues.",
   "issues": [
     {
-      "type": "outdated_information",
+      "type": "broken_links",
       "severity": "medium",
-      "section": "Branch Naming Conventions > Agent Worktree Branch",
-      "description": "Documentation shows agent branch format as 'prodigy-mapreduce-agent-{job_id}_agent_{n}' but actual implementation uses 'prodigy-{worktree-name}' pattern where worktree-name can vary",
-      "current_content": "Example: `prodigy-mapreduce-agent-mapreduce-20251109_193734_agent_22`\n\nThis is `prodigy-` + the worktree name `mapreduce-agent-mapreduce-20251109_193734_agent_22`",
-      "should_be": "The branch name follows the universal 'prodigy-{worktree-name}' pattern. The worktree name itself varies based on allocation strategy (pool vs direct creation)",
-      "fix_suggestion": "Clarify that branch naming is consistent (prodigy-{name}) but worktree naming varies. Explain both named and anonymous worktree scenarios more clearly.",
-      "source_reference": "src/worktree/builder.rs:178 - branch = format!(\"prodigy-{name}\")"
+      "section": "See Also",
+      "description": "Link to troubleshooting.md is broken - file does not exist at that path",
+      "current_content": "[Troubleshooting](troubleshooting.md)",
+      "should_be": "[Troubleshooting](troubleshooting/index.md)",
+      "fix_suggestion": "Update link to point to troubleshooting/index.md which is the correct location per SUMMARY.md line 118",
+      "source_reference": "book/src/SUMMARY.md:118"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Worktree Hierarchy > Parent Worktree",
-      "description": "Documentation mentions 'Branch: Follows prodigy-{session-id} pattern' but doesn't explain the actual implementation detail",
-      "fix_suggestion": "Add explanation that the session ID includes timestamp (e.g., 'session-mapreduce-20250112_143052'), so the full branch becomes 'prodigy-session-mapreduce-20250112_143052'",
-      "source_reference": "src/worktree/builder.rs:176-178"
-    },
-    {
-      "type": "missing_content",
       "severity": "low",
-      "section": "Merge Queue",
-      "description": "Documentation states 'Merge queue is managed in-memory by a background worker task' but doesn't mention the implementation uses tokio unbounded channel",
-      "fix_suggestion": "Add implementation detail: 'Queue processing uses an unbounded mpsc channel with a background tokio task that processes merge requests sequentially'",
-      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:70 - mpsc::unbounded_channel::<MergeRequest>()"
+      "section": "Merge Queue - Queue Architecture",
+      "description": "Documentation states queue is in-memory and not persisted, but doesn't explain implications for resume/recovery",
+      "fix_suggestion": "Add note explaining that merge queue state is reconstructed on resume from checkpoint data, and any in-progress merges are retried from agent worktree state",
+      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:153"
     },
     {
       "type": "missing_content",
       "severity": "low",
       "section": "Automatic Conflict Resolution",
-      "description": "Missing detail that Claude is invoked with PRODIGY_AUTOMATION=true environment variable during conflict resolution",
-      "fix_suggestion": "Add note that Claude merge commands are executed with PRODIGY_AUTOMATION=true to signal automated execution mode",
-      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:98-99"
+      "description": "Documentation mentions PRODIGY_AUTOMATION environment variable but doesn't explain its purpose or how Claude behaves differently in automation mode",
+      "fix_suggestion": "Add brief explanation: 'The PRODIGY_AUTOMATION=true environment variable signals to Claude that it should use appropriate automated merge strategies without requiring user interaction'",
+      "source_reference": "src/cook/execution/mapreduce/merge_queue.rs:99"
     },
     {
       "type": "unclear_content",
       "severity": "low",
-      "section": "Finding Agent Worktree Paths",
-      "description": "The distinction between 'named' and 'anonymous' worktrees could be clearer. 'Anonymous' doesn't mean unnamed - it means pool-allocated",
-      "fix_suggestion": "Clarify that 'anonymous' refers to pool allocation strategy (WorktreeRequest::Anonymous) rather than lack of name. All worktrees have names and branches.",
-      "source_reference": "src/cook/execution/mapreduce/resources/worktree.rs:42 - WorktreeRequest::Anonymous"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Custom Merge Workflows",
-      "description": "Example shows '/prodigy-merge-worktree ${merge.source_branch}' but actual usage requires both source and target branches",
-      "current_content": "claude: \"/prodigy-merge-worktree ${merge.source_branch}\"",
-      "should_be": "claude: \"/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}\"",
-      "fix_suggestion": "Update example to pass both source and target branches to match actual command signature",
-      "source_reference": ".claude/commands/prodigy-merge-worktree.md"
+      "section": "Child Worktrees - Named vs Pool-Allocated Worktrees",
+      "description": "The terminology 'pool-allocated' vs 'named' is potentially confusing because pool-allocated worktrees also have names",
+      "fix_suggestion": "Emphasize that the distinction is about allocation strategy (from pool vs created on-demand) rather than whether the worktree has identity. All worktrees have names, paths, and branches regardless of how they were allocated.",
+      "source_reference": "src/worktree/pool.rs:163 (WorktreeRequest enum), src/cook/execution/mapreduce/resources/worktree.rs:42"
     }
   ],
   "positive_aspects": [
-    "Clear hierarchical diagram showing parent and child worktree relationships",
-    "Comprehensive debugging section with practical examples",
-    "Good coverage of merge flow from agent to parent to master",
-    "Excellent verification commands section for testing isolation",
-    "Well-structured troubleshooting section",
-    "Accurate explanation of worktree isolation guarantees (Spec 127)",
-    "Correct description of merge queue architecture and sequential processing",
-    "Good coverage of automatic conflict resolution with Claude fallback"
+    "Excellent visual hierarchy diagram showing worktree relationships at the start",
+    "Clear explanation of isolation guarantees across setup, map, and reduce phases",
+    "Comprehensive debugging section with practical bash command examples",
+    "Good coverage of branch naming conventions with concrete examples including timestamps",
+    "Well-documented merge flow with sequential processing explanation",
+    "Thorough verification commands section for testing isolation",
+    "Good troubleshooting scenarios covering common failure modes",
+    "Accurate technical details about WorktreeRequest::Anonymous and pool allocation strategy",
+    "Clear explanation of automatic conflict resolution with Claude fallback",
+    "Proper use of source code references linking documentation to implementation",
+    "Good explanation of merge variables and their usage in custom workflows",
+    "Accurate description of WorktreeInfo tracking for correlation"
   ],
   "improvement_suggestions": [
-    "Add more detail about worktree allocation strategies (pool vs direct) earlier in the chapter",
-    "Include a section on worktree lifecycle management and cleanup policies",
-    "Add examples showing how to inspect WorktreeInfo metadata from events",
-    "Clarify the relationship between worktree names, branch names, and session IDs",
-    "Add a comparison table showing pool-allocated vs directly-created worktrees",
-    "Include troubleshooting for common pool exhaustion scenarios"
+    "Add a brief note in the Merge Queue section about how state is reconstructed during checkpoint/resume",
+    "Consider adding a 'Quick Reference' box with the most common debugging commands",
+    "Add cross-reference to MapReduce Checkpoint and Resume chapter for understanding recovery behavior",
+    "Consider adding a small table comparing pool-allocated vs directly-created worktrees",
+    "Add example showing what WorktreeInfo looks like in actual event logs"
+  ],
+  "cross_references": [
+    "mapreduce/index.md",
+    "error-handling.md",
+    "troubleshooting/index.md"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T00:00:00Z",
+    "analyzed_at": "2025-01-11T18:30:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Worktree hierarchy",
