@@ -6,11 +6,12 @@ The setup phase runs once before the map phase begins, executing in the parent w
 
 The setup phase:
 - **Runs once** before map phase begins
-- **Executes in parent worktree**, providing isolation from main repository
-- **Creates checkpoint** after successful completion, preserving outputs and artifacts for workflow resume
+- **Executes in parent worktree**, providing isolation from main repository (not the main repository itself)
+- **Creates checkpoint** after successful completion, stored at `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/setup-checkpoint.json`
+- **Preserves setup outputs, environment state, and captured variables** for resume capability
 - **Outputs available** to map and reduce phases via captured variables
 
-This isolation ensures the main repository remains untouched while setup operations prepare the environment for parallel processing.
+This isolation ensures the main repository remains untouched while setup operations prepare the environment for parallel processing. All setup operations execute in the parent worktree, providing safety for initialization tasks.
 
 ### Common Use Cases
 
@@ -177,8 +178,9 @@ The pattern uses regex capture groups. The first capture group `(...)` is extrac
 
 ### See Also
 
-- [Worktree Isolation](./worktree-isolation.md) - Understanding parent worktree execution context
-- [Environment Variables](./environment-variables.md) - Using env vars in timeout and commands
+- [Environment Variables in Configuration](./environment-variables-in-configuration.md) - Using env vars in timeout and commands
 - [Checkpoint and Resume](./checkpoint-and-resume.md) - How setup checkpoints enable resume
-- [Map Phase Configuration](./map-phase-configuration.md) - Using captured outputs in map phase
+- [Dead Letter Queue (DLQ)](./dead-letter-queue-dlq.md) - Handling setup phase failures
+- [Global Storage Architecture](./global-storage-architecture.md) - Understanding checkpoint storage locations
+- [MapReduce Overview](./index.md) - Complete workflow format and phase documentation
 
