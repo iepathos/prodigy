@@ -1,0 +1,145 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "automated-documentation",
+  "subsection_id": "github-actions-integration",
+  "subsection_title": "GitHub Actions Integration",
+  "subsection_file": "book/src/automated-documentation/github-actions-integration.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Subsection is essentially empty with only a heading. Missing all content about GitHub Actions integration for automated documentation deployment.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Entire subsection",
+      "description": "Subsection contains only a heading with no content. Should document how to set up GitHub Actions workflow for automated documentation deployment.",
+      "fix_suggestion": "Add comprehensive documentation covering: workflow setup, deployment configuration, path filters, permissions, PR validation, troubleshooting, and integration with Prodigy's book workflow system.",
+      "source_reference": ".github/workflows/deploy-docs.yml, specs/128-github-workflow-documentation-standards.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Workflow Setup",
+      "description": "No documentation on creating .github/workflows/deploy-docs.yml workflow file",
+      "fix_suggestion": "Document the standard workflow structure: triggers (push/PR), permissions (contents: write), jobs (build-deploy), steps (checkout, setup mdbook, build, deploy to gh-pages)",
+      "source_reference": ".github/workflows/deploy-docs.yml:1-38"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Deployment Configuration",
+      "description": "Missing explanation of GitHub Pages deployment using peaceiris/actions-gh-pages@v4",
+      "fix_suggestion": "Explain how the workflow deploys to gh-pages branch using peaceiris/actions-gh-pages action, including publish_dir configuration (./book/book) and github_token authentication",
+      "source_reference": ".github/workflows/deploy-docs.yml:32-37"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Path Filters",
+      "description": "No documentation about why and how to use path filters to optimize CI/CD",
+      "fix_suggestion": "Explain path filters (book/**, .github/workflows/deploy-docs.yml) to prevent unnecessary workflow runs and save CI minutes",
+      "source_reference": ".github/workflows/deploy-docs.yml:6-8"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "PR Validation",
+      "description": "Missing explanation of pull_request trigger for validating documentation builds before merge",
+      "fix_suggestion": "Document how the workflow validates documentation builds on PRs (pull_request trigger) but only deploys on push to main/master branches (if: github.event_name == 'push')",
+      "source_reference": ".github/workflows/deploy-docs.yml:9-13, :33"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Permissions",
+      "description": "No explanation of why contents: write permission is required",
+      "fix_suggestion": "Explain that contents: write permission is needed for peaceiris/actions-gh-pages to push to gh-pages branch, contrasting with pages: write used by actions/deploy-pages approach",
+      "source_reference": ".github/workflows/deploy-docs.yml:18-19, specs/128-github-workflow-documentation-standards.md:150-157"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "GitHub Actions Versions",
+      "description": "Missing documentation of recommended action versions",
+      "fix_suggestion": "Document recommended versions: actions/checkout@v5, peaceiris/actions-mdbook@v2, peaceiris/actions-gh-pages@v4",
+      "source_reference": ".github/workflows/deploy-docs.yml:22, 24, 34"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Repository Settings",
+      "description": "No guidance on configuring GitHub Pages settings in repository",
+      "fix_suggestion": "Add instructions for enabling GitHub Pages: Settings → Pages → Source: Deploy from a branch → Branch: gh-pages / (root)",
+      "source_reference": "specs/128-github-workflow-documentation-standards.md:136-141"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Common Mistakes",
+      "description": "Missing documentation of frequently encountered setup issues",
+      "fix_suggestion": "Document common mistakes from Spec 128: wrong filename (docs.yml vs deploy-docs.yml), wrong deployment action (actions/deploy-pages vs peaceiris/actions-gh-pages), missing path filters, wrong permissions, missing PR validation, deploying on PR",
+      "source_reference": "specs/128-github-workflow-documentation-standards.md:296-409"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Troubleshooting",
+      "description": "No troubleshooting guide for workflow failures",
+      "fix_suggestion": "Add troubleshooting section covering: workflow runs on every commit, permission denied when deploying, documentation not updating, 404 error on GitHub Pages, workflow syntax error, deployment job skipped on push",
+      "source_reference": "specs/128-github-workflow-documentation-standards.md:413-516"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Quick Start",
+      "description": "No quick start section for developers who want to deploy in < 5 minutes",
+      "fix_suggestion": "Add quick start with copy-paste commands: curl template workflow, commit/push, enable GitHub Pages in settings",
+      "source_reference": "specs/128-github-workflow-documentation-standards.md:118-143"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Integration with Prodigy",
+      "description": "Missing explanation of how GitHub Actions workflow integrates with Prodigy's book documentation workflow",
+      "fix_suggestion": "Explain how the GitHub Actions workflow deploys the documentation generated by Prodigy's book-docs-drift.yml MapReduce workflow. Note that Prodigy generates/updates the content, while GitHub Actions handles deployment.",
+      "source_reference": "book/src/automated-documentation/index.md:82-135"
+    }
+  ],
+  "positive_aspects": [
+    "Subsection is correctly referenced in parent chapter index",
+    "Heading is properly formatted",
+    "File exists in correct location"
+  ],
+  "improvement_suggestions": [
+    "Add visual diagram showing GitHub Actions workflow execution flow",
+    "Include complete working example of deploy-docs.yml with inline comments",
+    "Add comparison table: gh-pages branch method vs GitHub Pages Actions method",
+    "Include validation checklist aligned with Spec 127 (when implemented)",
+    "Add migration guide from other deployment approaches",
+    "Cross-reference to Understanding the Workflow subsection for worktree isolation",
+    "Link to Troubleshooting subsection for common issues"
+  ],
+  "cross_references": [
+    "understanding-the-workflow",
+    "troubleshooting",
+    "best-practices",
+    "quick-start-30-minutes"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:43:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [],
+    "validation_focus": "Check github actions integration documentation matches implementation",
+    "implementation_files_analyzed": [
+      ".github/workflows/deploy-docs.yml",
+      "specs/128-github-workflow-documentation-standards.md",
+      "book/src/automated-documentation/index.md"
+    ],
+    "total_issues": 12,
+    "critical_issues": 1,
+    "high_issues": 4,
+    "medium_issues": 5,
+    "low_issues": 2
+  }
+}
