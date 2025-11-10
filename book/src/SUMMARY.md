@@ -1,6 +1,6 @@
 # Summary
 
-[Introduction](intro.md)
+[Introduction](index.md)
 
 # User Guide
 

@@ -135,7 +135,6 @@ See also:
 - [Retry Metrics and Observability](retry-metrics-and-observability.md)
 - [Best Practices](best-practices.md)
 - [Troubleshooting](troubleshooting.md)
-- [Related Topics](related-topics.md)
 - [Implementation References](implementation-references.md)
 
 

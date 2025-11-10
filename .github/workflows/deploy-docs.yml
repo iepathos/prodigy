@@ -5,12 +5,19 @@ on:
     branches: [main, master]
     paths:
       - 'book/**'
+      - 'mkdocs.yml'
       - '.github/workflows/deploy-docs.yml'
   pull_request:
     branches: [main, master]
     paths:
       - 'book/**'
+      - 'mkdocs.yml'
       - '.github/workflows/deploy-docs.yml'
+
+env:
+  # Toggle documentation format: 'mdbook' or 'mkdocs'
+  # Both use the same source files in book/src/
+  DEPLOY_FORMAT: mkdocs
 
 jobs:
   build-deploy:
@@ -21,17 +28,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # Sync navigation and handle intro.md → index.md conversion
+      - name: Sync mdbook → mkdocs navigation
+        if: env.DEPLOY_FORMAT == 'mkdocs'
+        run: |
+          pip install pyyaml
+          python scripts/mdbook-mkdocs-sync.py --rename-files
+
+      # Build mdbook
       - name: Setup mdBook
+        if: env.DEPLOY_FORMAT == 'mdbook'
         uses: peaceiris/actions-mdbook@v2
         with:
           mdbook-version: 'latest'
 
-      - name: Build book
+      - name: Build mdbook
+        if: env.DEPLOY_FORMAT == 'mdbook'
         run: mdbook build book
 
+      # Build mkdocs
+      - name: Setup Python
+        if: env.DEPLOY_FORMAT == 'mkdocs'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: 'pip'
+
+      - name: Install MkDocs Material
+        if: env.DEPLOY_FORMAT == 'mkdocs'
+        run: pip install mkdocs-material
+
+      - name: Build MkDocs
+        if: env.DEPLOY_FORMAT == 'mkdocs'
+        run: mkdocs build --strict
+
+      # Deploy based on format
       - name: Deploy to GitHub Pages
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./book/book
+          publish_dir: ${{ env.DEPLOY_FORMAT == 'mdbook' && './book/book' || './site' }}

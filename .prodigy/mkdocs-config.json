@@ -1,0 +1,38 @@
+{
+  "project_name": "Prodigy",
+  "docs_dir": "docs",
+  "mkdocs_config": "mkdocs.yml",
+  "analysis_dir": ".prodigy/mkdocs-analysis",
+  "theme": "material",
+  "features": {
+    "navigation.tabs": true,
+    "navigation.sections": true,
+    "navigation.expand": true,
+    "navigation.top": true,
+    "search.suggest": true,
+    "search.highlight": true,
+    "content.code.copy": true,
+    "content.tabs.link": true
+  },
+  "plugins": [
+    "search",
+    "tags"
+  ],
+  "markdown_extensions": [
+    "admonition",
+    "pymdownx.details",
+    "pymdownx.superfences",
+    "pymdownx.tabbed",
+    "pymdownx.highlight",
+    "pymdownx.inlinehilite",
+    "pymdownx.snippets",
+    "def_list",
+    "attr_list",
+    "md_in_html"
+  ],
+  "validation": {
+    "strict_mode": true,
+    "check_links": true,
+    "check_navigation": true
+  }
+}

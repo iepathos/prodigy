@@ -1,0 +1,93 @@
+# Workflow to detect and fix documentation drift in the MkDocs Material documentation
+# This workflow analyzes the codebase and updates docs/*.md files
+# to reflect the latest supported features and syntax.
+
+name: prodigy-mkdocs-docs-drift-detection
+mode: mapreduce
+
+# Environment variables for parameterization
+env:
+  # Project configuration
+  PROJECT_NAME: "Prodigy"
+  PROJECT_CONFIG: ".prodigy/mkdocs-config.json"
+  FEATURES_PATH: ".prodigy/mkdocs-analysis/features.json"
+
+  # MkDocs-specific settings
+  DOCS_DIR: "docs"
+  MKDOCS_CONFIG: "mkdocs.yml"
+  ANALYSIS_DIR: ".prodigy/mkdocs-analysis"
+  CHAPTERS_FILE: "workflows/data/mkdocs-chapters.json"
+
+  # Workflow settings
+  MAX_PARALLEL: "3"
+
+# Setup phase: Analyze codebase for feature coverage
+setup:
+  - shell: "mkdir -p $ANALYSIS_DIR"
+
+  # Step 1: Analyze codebase for workflow features, command types, and configuration
+  # Reuses existing feature analysis or creates MkDocs-specific version
+  - claude: "/prodigy-analyze-features-for-mkdocs --project $PROJECT_NAME --config $PROJECT_CONFIG"
+
+  # Step 2: Detect documentation gaps and create missing pages
+  # Generates flattened-items.json for map phase (single-file pages + subsections with parent metadata)
+  - claude: "/prodigy-detect-mkdocs-gaps --project $PROJECT_NAME --config $PROJECT_CONFIG --features $FEATURES_PATH --chapters $CHAPTERS_FILE --docs-dir $DOCS_DIR"
+
+# Map phase: Analyze and fix each documentation page for drift
+map:
+  input: "${ANALYSIS_DIR}/flattened-items.json"
+  json_path: "$[*]"
+
+  agent_template:
+    # Step 1: Analyze the page for drift (subsection-aware command)
+    - claude: "/prodigy-analyze-mkdocs-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
+      commit_required: true
+
+    # Step 2: Fix the drift in this page (subsection-aware command)
+    - claude: "/prodigy-fix-mkdocs-drift --project $PROJECT_NAME --json '${item}'"
+      commit_required: true
+      validate:
+        claude: "/prodigy-validate-mkdocs-page --project $PROJECT_NAME --json '${item}' --output .prodigy/validation-result.json"
+        result_file: ".prodigy/validation-result.json"
+        threshold: 100  # Documentation must meet 100% quality standards
+        on_incomplete:
+          claude: "/prodigy-complete-mkdocs-fix --project $PROJECT_NAME --json '${item}' --gaps ${validation.gaps}"
+          max_attempts: 3
+          fail_workflow: false  # Continue even if we can't reach 100%
+          commit_required: true  # Require commit to verify improvements were made
+
+  max_parallel: ${MAX_PARALLEL}
+
+# Reduce phase: Validate and handle any issues
+reduce:
+  # Rebuild the docs to ensure all pages compile together
+  - shell: "mkdocs build --strict"
+    on_failure:
+      # Only needed if there are build errors (broken links, etc)
+      claude: "/prodigy-fix-mkdocs-build-errors --project $PROJECT_NAME"
+      commit_required: true
+
+  # Holistic validation - detect cross-cutting issues map phase can't see
+  - claude: "/prodigy-validate-mkdocs-holistically --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/validation.json --auto-fix true"
+    commit_required: true
+
+  # Clean up temporary analysis files (keep validation report for review)
+  - shell: "rm -rf ${ANALYSIS_DIR}/features.json ${ANALYSIS_DIR}/flattened-items.json ${ANALYSIS_DIR}/drift-*.json"
+  - shell: "git add -A && git commit -m 'chore: remove temporary mkdocs analysis files for ${PROJECT_NAME}' || true"
+
+# Error handling
+error_policy:
+  on_item_failure: dlq
+  continue_on_failure: true
+  max_failures: 2
+  error_collection: aggregate
+
+# Custom merge workflow - cleanup and validation before merging
+merge:
+  commands:
+    # Step 3: Fetch latest changes and merge master into worktree
+    - shell: "git fetch origin"
+    - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
+
+    # Step 4: Merge worktree back to original branch
+    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"

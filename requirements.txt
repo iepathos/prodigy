@@ -1,0 +1,5 @@
+# Python dependencies for MkDocs Material documentation
+# Install with: pip install -r requirements.txt
+
+mkdocs-material>=9.5.0
+pyyaml>=6.0

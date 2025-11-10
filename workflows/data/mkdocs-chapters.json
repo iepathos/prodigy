@@ -1,0 +1,142 @@
+{
+  "pages": [
+    {
+      "id": "index",
+      "title": "Home",
+      "file": "docs/index.md",
+      "type": "single-file",
+      "topics": [
+        "Introduction",
+        "Getting started",
+        "Quick start"
+      ],
+      "validation": "Check that home page provides clear introduction and navigation"
+    },
+    {
+      "id": "workflow-basics",
+      "title": "Workflow Basics",
+      "type": "section",
+      "pages": [
+        {
+          "id": "workflow-structure",
+          "title": "Workflow Structure",
+          "file": "docs/workflow-basics/workflow-structure.md",
+          "topics": [
+            "Basic structure",
+            "Command execution",
+            "Available fields"
+          ],
+          "validation": "Check basic workflow syntax and structure documentation"
+        },
+        {
+          "id": "command-types",
+          "title": "Command Types",
+          "file": "docs/workflow-basics/command-types.md",
+          "topics": [
+            "Shell commands",
+            "Claude commands",
+            "Goal-seeking",
+            "Foreach"
+          ],
+          "validation": "Check all command types are documented"
+        }
+      ]
+    },
+    {
+      "id": "mapreduce",
+      "title": "MapReduce Workflows",
+      "type": "section",
+      "pages": [
+        {
+          "id": "mapreduce-overview",
+          "title": "Overview",
+          "file": "docs/mapreduce/overview.md",
+          "topics": [
+            "MapReduce mode",
+            "Setup phase",
+            "Map phase",
+            "Reduce phase"
+          ],
+          "validation": "Check MapReduce overview and concepts"
+        },
+        {
+          "id": "checkpoint-resume",
+          "title": "Checkpoint and Resume",
+          "file": "docs/mapreduce/checkpoint-resume.md",
+          "topics": [
+            "Checkpoints",
+            "Resume",
+            "State management"
+          ],
+          "validation": "Check checkpoint structure and resume behavior documented",
+          "feature_mapping": [
+            "mapreduce.checkpoint",
+            "mapreduce.resume"
+          ]
+        },
+        {
+          "id": "dlq",
+          "title": "Dead Letter Queue",
+          "file": "docs/mapreduce/dlq.md",
+          "topics": [
+            "Failed items",
+            "Retry",
+            "DLQ management"
+          ],
+          "validation": "Check DLQ structure and retry commands documented",
+          "feature_mapping": [
+            "mapreduce.dlq",
+            "error_handling.dlq"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "configuration",
+      "title": "Configuration",
+      "type": "section",
+      "pages": [
+        {
+          "id": "global-config",
+          "title": "Global Configuration",
+          "file": "docs/configuration/global-config.md",
+          "topics": [
+            "Config file locations",
+            "Precedence rules",
+            "Claude settings"
+          ],
+          "validation": "Check configuration structure matches Settings struct"
+        }
+      ]
+    },
+    {
+      "id": "reference",
+      "title": "Reference",
+      "type": "section",
+      "pages": [
+        {
+          "id": "examples",
+          "title": "Examples",
+          "file": "docs/reference/examples.md",
+          "topics": [
+            "Practical workflows",
+            "Use cases",
+            "Best practices"
+          ],
+          "validation": "Check examples are valid and work with current syntax"
+        },
+        {
+          "id": "troubleshooting",
+          "title": "Troubleshooting",
+          "file": "docs/reference/troubleshooting.md",
+          "topics": [
+            "Common issues",
+            "Debug tips",
+            "FAQ"
+          ],
+          "validation": "Check troubleshooting covers common user issues"
+        }
+      ]
+    }
+  ]
+}
