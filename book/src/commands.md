@@ -30,10 +30,10 @@
 - shell: "cargo build --release"
   when: "${tests_passed}"
 
-# Change directory using shell syntax (cwd not available in YAML)
+# Working directory control (use shell cd command)
 - shell: "cd crates/prodigy-core && cargo test"
 
-# Set environment variable using shell syntax (env not available in YAML)
+# Environment variables (use shell syntax)
 - shell: "PATH=/custom/bin:$PATH rustfmt --check src/**/*.rs"
 ```
 
@@ -271,7 +271,7 @@ All command types support these common fields:
 | `validate` | object | Validation configuration for implementation completeness |
 | `output_file` | string | Redirect command output to a file path |
 
-**Note**: The `capture` field exists in the internal WorkflowStep representation (src/cook/workflow/executor/data_structures.rs:75) but is NOT available in user-facing YAML. Use `capture_output` instead.
+**Note on Field Availability**: All fields in this table are available in the user-facing YAML WorkflowStepCommand format (src/config/command.rs:320-401). Additional fields like `working_dir`, `env`, `on_exit_code`, and `capture` exist in the internal WorkflowStep representation (src/cook/workflow/executor/data_structures.rs:35-157) but are NOT exposed in YAML. See the Technical Notes section below for workarounds.
 
 ### OnFailure Handler Configuration
 
@@ -296,9 +296,9 @@ The `on_failure` field accepts an `OnFailureConfig` which supports multiple conf
     retry_original: true        # Retry original command after handler (default: false)
 ```
 
-**Detailed Format - With Handler Strategy (src/cook/workflow/on_failure.rs:25-49):**
+**Detailed Format - With Handler Strategy:**
 
-For fine-grained control over failure handling behavior, use the Detailed format with `FailureHandlerConfig`:
+For fine-grained control over failure handling behavior, use the Detailed format with `FailureHandlerConfig` (src/cook/workflow/on_failure.rs:9-49):
 
 ```yaml
 - shell: "cargo build"
@@ -313,10 +313,30 @@ For fine-grained control over failure handling behavior, use the Detailed format
 ```
 
 **Handler Strategies** (src/cook/workflow/on_failure.rs:9-22):
-- `recovery` (default) - Try to fix the problem and retry
-- `fallback` - Use alternative approach
-- `cleanup` - Clean up resources before failing
-- `custom` - Custom handler logic
+- `recovery` (default) - Attempt to fix the problem and retry the original operation. Use this when failures are transient or can be resolved programmatically.
+- `fallback` - Use an alternative approach when the primary method fails. Best for scenarios with multiple valid execution paths.
+- `cleanup` - Perform resource cleanup before failing. Use for releasing locks, closing connections, or removing temporary files.
+- `custom` - Custom handler logic for specialized error recovery patterns not covered by other strategies.
+
+**Real-World Examples:**
+
+From `workflows/coverage.yml` (lines 13-17):
+```yaml
+- shell: "just test"
+  on_failure:
+    claude: "/prodigy-debug-test-failure --spec ${coverage.spec} --output ${shell.output}"
+    max_attempts: 3
+    fail_workflow: false
+```
+
+From `workflows/implement.yml` (lines 20-30):
+```yaml
+- shell: "just test"
+  on_failure:
+    claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
+    max_attempts: 5
+    fail_workflow: false
+```
 
 **Nested Failure Handlers:**
 ```yaml
@@ -327,9 +347,11 @@ For fine-grained control over failure handling behavior, use the Detailed format
       shell: "notify-team.sh 'Tests failed and debugging unsuccessful'"
 ```
 
-### CaptureStreams Configuration
+### Planned Feature: CaptureStreams
 
-> **Planned Feature:** The `capture_streams` field is defined in WorkflowStepCommand (src/config/command.rs:396) but is **reserved for future use** and not yet functional in YAML workflows. This planned feature will provide fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured.
+> **Note:** The `capture_streams` field is defined in WorkflowStepCommand (src/config/command.rs:394-396) but is **reserved for future use** and not yet functional in YAML workflows.
+>
+> **Why it's not available yet**: The field exists as a `String` placeholder in the YAML parser, but the execution engine doesn't yet support fine-grained stream capture control. This feature is planned to provide selective capture of stdout, stderr, exit codes, success status, and execution duration.
 
 **Current Approach:** Use the `capture_output` and `capture_format` fields to control output capture, which cover most common use cases:
 
@@ -350,7 +372,7 @@ For fine-grained control over failure handling behavior, use the Detailed format
   capture_format: "json"
 ```
 
-**Future Enhancement:** A future version will expose `capture_streams` in YAML syntax to provide fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured. Until then, use the `capture_output` and `capture_format` fields which cover most common use cases.
+**When will this be available?** This feature requires execution engine changes to support the internal `CaptureStreams` type (src/cook/workflow/executor/data_structures.rs:83). Until then, use the `capture_output` and `capture_format` fields which cover most common use cases.
 
 ### Capture Format Examples
 
@@ -412,12 +434,34 @@ The `capture_output` field supports both Boolean and String variants for backwar
 
 **Migration Guide - capture_output Variants:**
 
-| Old Syntax | New Syntax | Variable Name |
-|------------|------------|---------------|
-| `capture_output: true` | `capture_output: "output"` (recommended) | `${output}` |
-| `capture_output: "myvar"` | Already correct ✓ | `${myvar}` |
+The `capture_output` field accepts both boolean and string values for backward compatibility:
 
-**Note**: The internal WorkflowStep struct (src/cook/workflow/executor/data_structures.rs:75) uses a `capture` field, but this is NOT exposed in the user-facing YAML WorkflowStepCommand struct. Always use `capture_output` for capturing command output in YAML workflows.
+| Syntax | Variable Name | When to Use |
+|--------|---------------|-------------|
+| `capture_output: true` | `${output}` | Quick capture to default variable |
+| `capture_output: "myvar"` | `${myvar}` | Recommended: explicit variable name |
+
+**Before and After Examples:**
+
+```yaml
+# Boolean variant - captures to ${output}
+# BEFORE:
+- shell: "git rev-parse HEAD"
+  capture_output: true
+# Access with: ${output}
+
+# AFTER (recommended):
+- shell: "git rev-parse HEAD"
+  capture_output: "commit_hash"
+# Access with: ${commit_hash}
+
+# String variant - already correct
+- shell: "ls -la | wc -l"
+  capture_output: "file_count"
+# Access with: ${file_count}
+```
+
+**Note**: The internal WorkflowStep struct (src/cook/workflow/executor/data_structures.rs:75) uses a `capture` field internally, but this is NOT exposed in the user-facing YAML WorkflowStepCommand struct. Always use `capture_output` for capturing command output in YAML workflows.
 
 You can then reference captured values using `${commit_hash}` or `${output}` in subsequent commands.
 
@@ -489,10 +533,10 @@ These planned features may be exposed in future versions of Prodigy.
 ## Cross-References
 
 For more information on related topics:
-- **Variable Interpolation**: See the [Variables chapter](./variables.md#captured-variables) for details on using captured outputs like `${variable_name}` in subsequent commands
+- **Variable Interpolation**: See the [Variables chapter](./variables/index.md#captured-variables) for details on using captured outputs like `${variable_name}` in subsequent commands
 - **Environment Variables**: See the [Environment Variables chapter](./environment.md#step-level-environment-variables) for global env, secrets, and profiles
 - **Error Handling**: See the [Error Handling chapter](./error-handling.md#on-failure-handlers) for advanced `on_failure` strategies and retry patterns
-- **MapReduce Workflows**: See the [MapReduce chapter](./mapreduce.md#map-phase) for large-scale parallel command execution with agent templates
+- **MapReduce Workflows**: See the [MapReduce chapter](./mapreduce/index.md#map-phase) for large-scale parallel command execution with agent templates
 
 **Example: Using Captured Output in Subsequent Commands**
 

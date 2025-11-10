@@ -4,128 +4,61 @@
   "chapter_title": "Command Types",
   "chapter_file": "book/src/commands.md",
   "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Chapter has accurate content but contains 4 broken cross-reference links due to book reorganization. OnFailureConfig documentation is incomplete regarding the new Advanced variant structure. Goal-seeking fields are accurate.",
+  "severity": "medium",
+  "quality_assessment": "The documentation is comprehensive and well-structured, with accurate descriptions of all command types and their fields. However, there are broken internal links pointing to chapters that have been migrated to multi-subsection structure. The documentation correctly reflects the codebase implementation.",
   "issues": [
     {
       "type": "broken_links",
-      "severity": "high",
+      "severity": "medium",
       "section": "Cross-References",
-      "description": "All 4 cross-reference links at the end of the chapter are broken due to book reorganization into multi-subsection chapters",
+      "description": "Found 2 broken internal link(s) to chapters that have been migrated to multi-subsection structure",
       "broken_links": [
         {
           "link_text": "Variables chapter",
-          "link_target": "./variables.md#captured-variables",
-          "expected_file": "book/src/variables.md",
+          "original_target": "./variables.md#captured-variables",
+          "expected_resolved_path": "book/src/variables.md",
           "current_file": "book/src/commands.md",
-          "actual_location": "variables/index.md"
-        },
-        {
-          "link_text": "Environment Variables chapter",
-          "link_target": "./environment.md#step-level-environment-variables",
-          "expected_file": "book/src/environment.md",
-          "current_file": "book/src/commands.md",
-          "actual_location": "environment/index.md"
-        },
-        {
-          "link_text": "Error Handling chapter",
-          "link_target": "./error-handling.md#on-failure-handlers",
-          "expected_file": "book/src/error-handling.md",
-          "current_file": "book/src/commands.md",
-          "actual_location": "error-handling.md (exists, may need anchor check)"
+          "file_exists": false,
+          "suggestion": "Update to ./variables/index.md#captured-variables (chapter now has subsections: available-variables.md, custom-variable-capture.md, troubleshooting-variable-interpolation.md)"
         },
         {
           "link_text": "MapReduce chapter",
-          "link_target": "./mapreduce.md#map-phase",
-          "expected_file": "book/src/mapreduce.md",
+          "original_target": "./mapreduce.md#map-phase",
+          "expected_resolved_path": "book/src/mapreduce.md",
           "current_file": "book/src/commands.md",
-          "actual_location": "mapreduce/index.md"
+          "file_exists": false,
+          "suggestion": "Update to ./mapreduce/index.md#map-phase (chapter now has subsections: checkpoint-and-resume.md, dead-letter-queue-dlq.md, event-tracking.md, global-storage-architecture.md, etc.)"
         }
       ],
-      "fix_suggestion": "Update all cross-reference links to point to the new multi-subsection chapter structure:\n- ./variables.md -> ./variables/index.md\n- ./environment.md -> ./environment/index.md\n- ./mapreduce.md -> ./mapreduce/index.md\nVerify anchor links are still valid in the new structure.",
-      "validation_required": true
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "OnFailure Handler Configuration",
-      "description": "Documentation shows the Advanced format but doesn't mention the strategy field or max_retries aliasing with max_attempts",
-      "current_content": "Shows Advanced format with shell, claude, fail_workflow, retry_original, and max_retries fields",
-      "should_be": "Should document that:\n1. The Advanced variant supports a 'strategy' field (recovery, fallback, cleanup, custom) per HandlerStrategy enum (src/cook/workflow/on_failure.rs:10-22)\n2. max_retries aliases max_attempts for backward compatibility\n3. retry_original is deprecated - max_retries > 0 determines retry behavior\n4. Default values: fail_workflow=false, max_retries=1",
-      "fix_suggestion": "Add note under Advanced Format section explaining the strategy field and aliasing behavior",
-      "source_reference": "src/cook/workflow/on_failure.rs:85-105, lines 103-104 show alias"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "OnFailure Handler Configuration",
-      "description": "Detailed variant (FailureHandlerConfig) is not documented in the user-facing YAML examples",
-      "current_content": "Shows Simple Format and Advanced Format only",
-      "should_be": "Could optionally document the Detailed variant which supports:\n- commands: array of HandlerCommand\n- strategy: HandlerStrategy (recovery, fallback, cleanup, custom)\n- timeout: handler execution timeout\n- capture: variables to capture from handler\n- fail_workflow: bool\n- handler_failure_fatal: bool",
-      "fix_suggestion": "Consider adding an advanced example showing the Detailed variant for users who need fine-grained control over failure handling",
-      "source_reference": "src/cook/workflow/on_failure.rs:25-49"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "OnFailure Handler Configuration",
-      "description": "Multiple command strings variant (MultipleCommands) is not documented",
-      "current_content": "Only shows single command and advanced formats",
-      "should_be": "Document that on_failure can be an array of command strings:\non_failure:\n  - \"npm cache clean --force\"\n  - \"npm install\"\n  - \"/fix-errors\"",
-      "fix_suggestion": "Add example showing array of commands for multi-step error recovery",
-      "source_reference": "src/cook/workflow/on_failure.rs:78, test at lines 372-387"
-    },
-    {
-      "type": "outdated_information",
-      "severity": "low",
-      "section": "Validation Commands",
-      "description": "Documentation correctly shows 'command' field is deprecated in favor of 'shell', but could be clearer about the precedence rules",
-      "current_content": "Warning states 'command' field is deprecated, use 'shell' instead",
-      "should_be": "Should clarify that if both 'shell' and 'command' are specified, validation will fail. The code prevents this (src/cook/workflow/validation.rs:318-322)",
-      "fix_suggestion": "Add note that 'command' and 'shell' are mutually exclusive - specifying both will cause a validation error",
-      "source_reference": "src/cook/workflow/validation.rs:318-322"
+      "fix_suggestion": "Update links to point to current file locations. Check if referenced chapters were migrated to multi-subsection structure.",
+      "source_reference": "book/src/commands.md:492-495"
     }
   ],
   "positive_aspects": [
-    "Excellent comprehensive coverage of all command types (shell, claude, goal_seek, foreach, write_file, validate)",
-    "Goal-seeking configuration fields are accurate and match implementation (src/cook/goal_seek/mod.rs:15-41)",
-    "WriteFileConfig fields are complete and accurate (path, content, format, mode, create_dirs)",
-    "ValidationConfig and OnIncompleteConfig fields are mostly accurate with good examples",
-    "Good documentation of deprecated 'test:' command with migration guidance",
-    "Capture format examples (string, number, json, lines, boolean) are accurate",
-    "Technical notes section properly distinguishes between user-facing YAML fields and internal implementation fields",
-    "Deprecation warnings are clear and provide migration paths",
-    "Good use of warnings and notes to highlight important information"
+    "Comprehensive coverage of all command types (shell, claude, goal_seek, foreach, write_file, validation)",
+    "Accurate field documentation matching src/config/command.rs:320-401",
+    "Clear examples for each command type with multiple use cases",
+    "Proper documentation of deprecated fields with migration guidance",
+    "Excellent documentation of OnFailure handler configuration with all variants",
+    "WriteFileConfig accurately documented with all fields (path, content, format, mode, create_dirs)",
+    "ValidationConfig properly documented including on_incomplete configuration",
+    "Good warnings about planned vs. available features (e.g., capture_streams)",
+    "Helpful technical notes section for contributors explaining internal vs. user-facing fields",
+    "Clear cross-references to related documentation (even though links need updating)"
   ],
   "improvement_suggestions": [
-    "Fix all 4 broken cross-reference links to point to new multi-subsection chapter structure",
-    "Add documentation for OnFailureConfig::Detailed variant for advanced users",
-    "Document the multiple commands array format for on_failure",
-    "Add note about max_attempts aliasing max_retries in Advanced on_failure format",
-    "Clarify that 'command' and 'shell' in ValidationConfig are mutually exclusive",
-    "Consider adding a troubleshooting section for common on_failure configuration mistakes",
-    "Add example showing nested failure handlers (on_failure within on_failure)",
-    "Document the HandlerStrategy enum values (recovery, fallback, cleanup, custom) and their use cases"
+    "Fix the 2 broken links to variables.md and mapreduce.md by updating them to point to index.md files",
+    "Consider adding a troubleshooting section specific to command syntax errors",
+    "Could add more examples of combining multiple command features (e.g., shell with capture_output and on_failure)",
+    "Verify all cross-reference anchors still exist after chapter migration"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T00:00:00Z",
+    "analyzed_at": "2025-01-11T12:00:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
-    "topics_covered": [
-      "Shell commands",
-      "Claude commands",
-      "Goal-seeking",
-      "Foreach",
-      "Validation",
-      "Write file",
-      "Capture formats",
-      "OnFailure handlers"
-    ],
+    "topics_covered": ["Shell commands", "Claude commands", "Goal-seeking", "Foreach", "Validation"],
     "validation_focus": "Check all command types and their fields are documented",
-    "source_files_reviewed": [
-      "src/config/command.rs",
-      "src/cook/workflow/on_failure.rs",
-      "src/cook/workflow/validation.rs",
-      "src/cook/goal_seek/mod.rs"
-    ]
+    "internal_links_validated": true,
+    "broken_links_found": 2,
+    "working_links_found": 2
   }
 }

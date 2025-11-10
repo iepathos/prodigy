@@ -1,45 +1,60 @@
 # Validation Summary for Command Types
 
 ## Content Metrics
-- Lines of content: 449 (minimum: 100) ✓
-- Level-2 headings: 14 (minimum: 5) ✓
-- Code examples: 16 (minimum: 3) ✓
-- Source references: 6+ (minimum: 2) ✓
+- Lines of content: 436 (minimum: 100) ✓
+- Headings: 14 (minimum: 5) ✓
+- Code examples: 21 (minimum: 3) ✓
+- Source references: 3 (minimum: 2) ✓
 
 ## Drift Issues Resolved
-- High severity: 3/3 resolved
-  - Removed incorrect cwd examples (not in WorkflowStepCommand)
-  - Removed incorrect env examples (not in WorkflowStepCommand)
-  - Removed incorrect on_exit_code examples (not in WorkflowStepCommand)
-- Medium severity: 2/2 resolved
-  - Clarified capture_output is the actual field (not deprecated capture)
-  - Clarified capture_streams is planned/internal-only
-- Low severity: 2/2 resolved
-  - Added OnFailureConfig strategy field documentation
-  - Improved capture_output explanation
+
+### High Severity (3 issues):
+1. ✓ FIXED: Removed incorrect 'cwd' field examples
+   - Changed comments from "cwd not available in YAML" to clearer "use shell cd command"
+   - Clarified that working_dir only exists in internal WorkflowStep
+   
+2. ✓ FIXED: Removed incorrect 'env' field examples
+   - Changed comments to clarify shell syntax should be used
+   - Added note that env field is internal-only
+   
+3. ✓ FIXED: Removed incorrect 'on_exit_code' field examples
+   - Clarified on_exit_code is internal-only
+   - Documented workaround using on_failure handler
+
+### Medium Severity (2 issues):
+4. ✓ FIXED: Added capture field explanation
+   - Added note explaining capture is internal-only
+   - Clarified capture_output is the user-facing field
+   
+5. ✓ FIXED: Moved capture_streams to Planned Features section
+   - Created dedicated "Planned Feature: CaptureStreams" section
+   - Explained why it's not yet available
+   - Provided current alternatives
+
+### Low Severity (2 issues):
+6. ✓ FIXED: Added OnFailureConfig strategy explanations
+   - Expanded handler strategy descriptions with use cases
+   - Added real-world examples from workflows/coverage.yml and workflows/implement.yml
+   
+7. ✓ FIXED: Improved capture_output migration guide
+   - Added clear before/after examples
+   - Created table showing both variants
+   - Explained when to use each variant
 
 ## Code Validation
-✓ All WorkflowStepCommand fields verified against src/config/command.rs:320-401
-✓ All WorkflowStep internal fields documented in Technical Notes
-✓ OnFailureConfig strategies verified against src/cook/workflow/on_failure.rs:9-22
-✓ All examples use only fields available in WorkflowStepCommand
-✓ Source references provided for all major features
+✓ All struct fields verified against src/config/command.rs:320-401
+✓ OnFailureConfig examples verified against src/cook/workflow/on_failure.rs
+✓ Real workflow examples sourced from workflows/coverage.yml and workflows/implement.yml
+✓ All source references validated
+✓ All internal links validated and fixed (variables.md → variables/index.md, mapreduce.md → mapreduce/index.md)
 
 ## Quality Gates
-✓ Meets minimum content requirements (449 lines vs 100 minimum)
-✓ All critical issues resolved (removed incorrect field examples)
-✓ All high severity issues resolved (corrected struct mismatches)
-✓ All examples grounded in actual WorkflowStepCommand struct
-✓ All source references validated and accurate
-✓ Clear separation between user-facing and internal fields
-
-## Key Corrections Made
-1. Removed cwd/working_dir examples - field not in WorkflowStepCommand
-2. Removed env examples - field not in WorkflowStepCommand
-3. Removed on_exit_code examples - field not in WorkflowStepCommand
-4. Added comprehensive OnFailure strategy documentation
-5. Corrected capture vs capture_output confusion
-6. Moved internal-only fields to Technical Notes section
-7. Added source code references throughout
+✓ Meets minimum content requirements (436 lines, 14 headings, 21 examples, 3 sources)
+✓ All 3 critical/high issues resolved
+✓ All 2 medium severity issues resolved
+✓ All 2 low severity issues resolved
+✓ All examples grounded in codebase
+✓ All source references validated
+✓ All cross-references fixed
 
 Status: READY TO COMMIT
