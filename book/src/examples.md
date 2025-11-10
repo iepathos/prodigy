@@ -164,15 +164,13 @@ env:
 
 # Secrets (automatically masked in logs)
 secrets:
-  API_KEY:
-    secret: true
-    value: "${SECRET_API_KEY}"
+  # Simple string format - retrieves from environment variable
+  API_KEY: "${env:SECRET_API_KEY}"
 
-  # Optional: Add provider for external secret stores
+  # Provider-based format for external secret stores
   # DB_PASSWORD:
-  #   secret: true
-  #   value: "${DB_PASSWORD}"
-  #   provider: "vault"  # Optional: external secret store
+  #   provider: vault
+  #   key: "database/prod/password"
 
 # Environment profiles for different contexts
 # Note: Variables go directly under the profile name, not nested under 'env'

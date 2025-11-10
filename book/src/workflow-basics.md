@@ -45,9 +45,8 @@ env:
   LOG_LEVEL: info
 
 secrets:
-  API_KEY:
-    secret: true
-    value: "sk-abc123"
+  # Simple string format - value is retrieved from environment variable
+  API_KEY: "${env:SECRET_API_KEY}"
 
 commands:
   - shell: echo "Running $PROJECT_NAME quality checks"
@@ -488,12 +487,12 @@ Mask sensitive values in logs and output:
 
 ```yaml
 secrets:
-  DATABASE_URL:
-    secret: true
-    value: "postgresql://user:password@localhost/db"
+  # Simple string format - retrieves from environment variable
+  DATABASE_URL: "${env:DATABASE_URL}"
+  # Provider-based format with explicit provider
   API_KEY:
-    secret: true
-    value: "sk-abc123"
+    provider: env
+    key: "SECRET_API_KEY"
 
 commands:
   - shell: curl -H "Authorization: Bearer ${API_KEY}" https://api.example.com

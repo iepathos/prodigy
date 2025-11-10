@@ -57,21 +57,19 @@ env:
    - Use secret providers (vault, aws-secrets) for production
    - Rotate secrets regularly
 
-2. **Always mark secrets with `secret: true`**
+2. **Always use the secrets block for sensitive values**
    ```yaml
    secrets:
-     API_KEY:
-       secret: true
-       value: sk-abc123...  # Masked in all logs
+     # Simple format - retrieves from environment variable
+     API_KEY: "${env:SECRET_API_KEY}"  # Masked in all logs
    ```
 
 3. **Use external secret providers in production**
    ```yaml
    secrets:
      API_KEY:
-       secret: true
        provider: vault
-       path: secret/data/api-keys
+       key: secret/data/api-keys
    ```
 
 4. **Minimize secret exposure**
@@ -94,18 +92,15 @@ env_files:
 secrets:
   # Production secrets from Vault
   DATABASE_PASSWORD:
-    secret: true
     provider: vault
-    path: secret/data/db/prod
+    key: secret/data/db/prod
 
   API_KEY:
-    secret: true
     provider: aws
-    secret_name: api-key-prod
+    key: api-key-prod
 
   # Local dev secrets from env file (for local testing only)
-  DEV_API_KEY:
-    secret: true
+  DEV_API_KEY: "${env:DEV_API_KEY}"
     # Loaded from .env.local, still masked
 ```
 
@@ -196,10 +191,9 @@ commands:
   - shell: "curl -H 'Authorization: Bearer $API_KEY' ..."
   # API_KEY appears in logs!
 
-# Solution - Explicitly mark as secret
+# Solution - Use secrets block to mask in logs
 secrets:
-  API_KEY:
-    secret: true
+  API_KEY: "${env:SECRET_API_KEY}"
 ```
 
 **4. Hardcoding environment-specific values:**
@@ -310,8 +304,8 @@ profiles:
 # Layer 5: Secrets (separate management)
 secrets:
   API_KEY:
-    secret: true
     provider: vault
+    key: secret/data/api-key
 ```
 
 **Benefits:**
@@ -361,7 +355,7 @@ secrets:
 
 Before deploying workflows to production:
 
-- [ ] All secrets marked with `secret: true`
+- [ ] All secrets defined in `secrets` block for masking
 - [ ] Secret files in `.gitignore`
 - [ ] Production secrets use secret provider (vault/aws/etc)
 - [ ] Verified secrets masked in logs with `-v` mode
