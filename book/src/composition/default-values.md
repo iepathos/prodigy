@@ -46,12 +46,13 @@ defaults:
 
 ### Parameter Precedence
 
-Default values have the lowest precedence in parameter resolution:
+When multiple sources provide values for the same parameter, they are resolved in this order:
 
-1. **CLI `--param` flags** (highest priority)
-2. **`--param-file` JSON values**
-3. **Workflow `defaults` values**
-4. **Parameter `default` values** (lowest priority)
+1. **CLI `--param` flags** (highest priority) - Always override all other sources
+2. **Parameter `default` values** - Defined in parameter definitions
+3. **Workflow `defaults` values** (lowest priority) - Only used if parameter has no default
+
+**Source**: Parameter precedence implemented in src/cook/workflow/composition/composer.rs:245-254 and src/cook/workflow/composer_integration.rs:68-72
 
 ### Example with Precedence
 
@@ -60,22 +61,73 @@ Default values have the lowest precedence in parameter resolution:
 defaults:
   environment: "development"
   timeout: 300
+  log_level: "info"
 
 parameters:
   definitions:
     environment:
       type: String
+      # No parameter default - uses workflow default "development"
 
     timeout:
       type: Number
-      default: 600  # Parameter default overrides workflow default
+      default: 600  # Parameter default overrides workflow default (600, not 300)
+
+    log_level:
+      type: String
+      # No parameter default - uses workflow default "info"
+```
+
+**Behavior without CLI flags:**
+```bash
+# Uses: environment="development", timeout=600, log_level="info"
+# Note: timeout uses parameter default (600), others use workflow defaults
+prodigy run workflow.yml
 ```
 
 **CLI override:**
 ```bash
-# Final values: environment="production", timeout=900
-prodigy run workflow.yml --param environment=production --param timeout=900
+# Final values: environment="production", timeout=900, log_level="debug"
+# CLI flags override all defaults
+prodigy run workflow.yml \
+  --param environment=production \
+  --param timeout=900 \
+  --param log_level=debug
 ```
+
+**Partial CLI override:**
+```bash
+# environment="production" (CLI), timeout=600 (param default), log_level="info" (workflow default)
+prodigy run workflow.yml --param environment=production
+```
+
+### CLI Parameter Overrides
+
+Defaults can be overridden using CLI `--param` flags, providing flexibility for different execution contexts:
+
+```yaml
+# workflow.yml
+defaults:
+  timeout: 300
+  environment: "development"
+  log_level: "info"
+```
+
+**Override specific defaults:**
+```bash
+# Override timeout to 900 seconds for long-running operation
+prodigy run workflow.yml --param timeout=900
+
+# Change environment to production
+prodigy run workflow.yml --param environment=production
+
+# Override multiple defaults
+prodigy run workflow.yml \
+  --param environment=staging \
+  --param log_level=debug
+```
+
+**Source**: CLI parameter handling in src/cook/workflow/composer_integration.rs:68-72 shows that CLI params are merged with workflow defaults, with CLI params taking precedence.
 
 ### Defaults with Parameters
 
@@ -167,12 +219,19 @@ template:
 
 ### Implementation Status
 
-- ✅ Defaults field parsing and storage
-- ✅ Defaults validation
-- ✅ Integration into composition flow
-- ⏳ Merge logic with parameters (TODO in apply_defaults at composer.rs:217-257)
+All default value features are fully implemented and functional:
 
-*Note: The `apply_defaults` function is called during composition and defaults are validated/stored, but the actual merge logic to apply defaults to parameters is pending implementation. The infrastructure is complete and defaults are tracked in CompositionMetadata.*
+- ✅ Defaults field parsing and storage
+- ✅ Defaults validation during composition
+- ✅ Integration into composition flow
+- ✅ Merge logic with environment variables (composer.rs:230-242)
+- ✅ Merge logic with parameter definitions (composer.rs:245-254)
+- ✅ CLI parameter override support (composer_integration.rs:68-72)
+
+The `apply_defaults` function at src/cook/workflow/composition/composer.rs:217-257 handles:
+1. Applying defaults to environment variables (only if not already set)
+2. Applying defaults to parameter definitions (only if parameter has no default value)
+3. Type conversion for environment variable values (strings, numbers, booleans)
 
 ### Best Practices
 
