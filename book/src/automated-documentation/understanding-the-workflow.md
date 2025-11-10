@@ -342,8 +342,8 @@ The workflow uses variable interpolation to pass data between phases:
 
 ## See Also
 
-- [Quick Start (30 Minutes)](quick-start-30-minutes.md) - Get started with automated documentation
-- [Installation](installation.md) - Set up the workflow
+- [Tutorial](tutorial.md) - Complete 30-minute walkthrough
+- [Installation](../installation.md) - Set up Prodigy and prerequisites
 - [Automatic Gap Detection](automatic-gap-detection.md) - How the workflow finds missing documentation
 - [Advanced Configuration](advanced-configuration.md) - Customize workflow behavior
 - [Troubleshooting](troubleshooting.md) - Common issues and solutions

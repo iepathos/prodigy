@@ -727,4 +727,3 @@ Gap detection has comprehensive test coverage in `tests/documentation_gap_detect
 - [./understanding-the-workflow.md](./understanding-the-workflow.md) - How gap detection fits in the overall workflow
 - [../../mapreduce/index.md](../../mapreduce/index.md) - MapReduce phase that consumes flattened-items.json
 - [./index.md](./index.md) - Automated documentation overview
-- [./best-practices.md](./best-practices.md) - Documentation automation best practices

@@ -4,7 +4,7 @@ This guide walks you through setting up your first automated documentation workf
 
 **Time Required**: 15-20 minutes
 
-**Prerequisites**: Ensure you have completed the [Installation](installation.md) steps before proceeding.
+**Prerequisites**: Ensure you have [installed Prodigy](../installation.md) before proceeding.
 
 ---
 
@@ -419,7 +419,6 @@ Add more chapters to `workflows/data/book-chapters.json`:
 - Adjust `MAX_PARALLEL` for faster/slower processing
 - Add validation steps in the reduce phase
 - Customize error handling with `error_policy`
-- See [Customization Examples](customization-examples.md)
 
 ### Integrate with CI/CD
 
@@ -488,9 +487,6 @@ Your documentation is now linked to your code and can be kept up-to-date automat
 
 ## Related Topics
 
-- [Installation](installation.md) - Installing prerequisites and Prodigy
 - [Understanding the Workflow](understanding-the-workflow.md) - Deep dive into how it works
-- [Customization Examples](customization-examples.md) - Advanced configuration options
 - [GitHub Actions Integration](github-actions-integration.md) - Automate in CI/CD
-- [Best Practices](best-practices.md) - Tips for maintaining great documentation
 - [Troubleshooting](troubleshooting.md) - Solutions to common issues

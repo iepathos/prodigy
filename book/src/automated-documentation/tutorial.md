@@ -1,37 +1,24 @@
-## Quick Start (30 Minutes)
+## Tutorial: Complete Documentation Workflow (30 Minutes)
 
-Get Prodigy's automated documentation workflow running in your project in 30 minutes. This guide walks you through setting up and running your first documentation drift detection and fixing workflow.
+This comprehensive tutorial walks you through setting up and running your first automated documentation workflow. By the end, you'll have a complete understanding of how Prodigy maintains documentation automatically.
 
 ### What You'll Accomplish
 
-By the end of this guide, you'll have:
+By the end of this tutorial, you'll have:
 - Configured the automated documentation system for your project
 - Run the workflow to detect and fix documentation drift
 - Generated or updated an mdBook with accurate, code-grounded documentation
-- Understood the three phases: setup, map, and reduce
+- Understood all three phases: setup, map, and reduce
 
 ### Prerequisites
 
-Before starting, ensure you have:
+Before starting, ensure you have [installed Prodigy](../installation.md) and the required tools:
+- Prodigy (via `cargo install prodigy`)
+- Claude Code CLI
+- mdBook (for building documentation)
+- Git (initialized repository)
 
-1. **Rust and Cargo** - Install from [rustup.rs](https://rustup.rs/)
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   ```
-
-2. **Prodigy** - Install via cargo:
-   ```bash
-   cargo install prodigy
-   ```
-
-3. **Claude Code CLI** - Follow installation instructions at [Claude Code documentation](https://docs.anthropic.com/claude/docs/claude-code)
-
-4. **mdBook** - For building documentation:
-   ```bash
-   cargo install mdbook
-   ```
-
-5. **Git Repository** - Your project should be in a git repository with existing or new documentation in a `book/` directory
+If you haven't installed these yet, visit the [Installation guide](../installation.md) first
 
 ### Step 1: Initialize Your Book Structure
 
@@ -377,11 +364,9 @@ validate:
 
 Now that you have automated documentation working, explore:
 
-- **[Understanding the Workflow](./understanding-the-workflow.md)** - Deep dive into how the workflow operates
-- **[Customization Examples](./customization-examples.md)** - Adapt the workflow for your project's needs
-- **[GitHub Actions Integration](./github-actions-integration.md)** - Automate documentation updates on every commit
-- **[Best Practices](./best-practices.md)** - Guidelines for maintaining high-quality documentation
-- **[Troubleshooting](./troubleshooting.md)** - Solutions to common problems
+- **[Understanding the Workflow](understanding-the-workflow.md)** - Deep dive into how the workflow operates
+- **[GitHub Actions Integration](github-actions-integration.md)** - Automate documentation updates on every commit
+- **[Troubleshooting](troubleshooting.md)** - Solutions to common problems
 
 ### What You've Learned
 
