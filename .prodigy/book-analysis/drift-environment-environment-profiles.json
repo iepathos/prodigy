@@ -1,0 +1,98 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "environment",
+  "subsection_id": "environment-profiles",
+  "subsection_title": "Environment Profiles",
+  "subsection_file": "book/src/environment/environment-profiles.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Documentation contains major inaccuracies about profile activation that will confuse users and cause workflow failures",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "critical",
+      "section": "Profile Activation",
+      "description": "Documentation claims profiles cannot be activated via CLI, but multiple other documentation files and the codebase show --profile flag is actively used and documented",
+      "current_content": "**Note:** The profile infrastructure exists internally (EnvironmentConfig has an `active_profile` field), but there is currently no CLI flag (like `--profile`) to activate profiles at runtime. Profiles can be defined in YAML for future use, but cannot be activated in the current version.",
+      "should_be": "Documentation should explain how to activate profiles via --profile flag or PRODIGY_PROFILE environment variable, as implemented in the codebase and documented elsewhere",
+      "fix_suggestion": "Remove the incorrect note and add proper activation instructions: 'Activate profiles using the --profile flag: `prodigy run workflow.yml --profile production` or set the PRODIGY_PROFILE environment variable.'",
+      "source_reference": "book/src/workflow-basics/complete-example.md:41, book/src/workflow-basics/environment-configuration.md:114, book/src/examples.md:249, book/src/mapreduce/environment-variables-in-configuration.md:113"
+    },
+    {
+      "type": "incorrect_information",
+      "severity": "high",
+      "section": "Profile Infrastructure",
+      "description": "Documentation states profiles are for 'future use' when they are already a working feature",
+      "current_content": "Profiles can be defined in YAML for future use, but cannot be activated in the current version",
+      "should_be": "Profiles are a fully functional feature that can be activated via --profile flag",
+      "fix_suggestion": "Update documentation to reflect current implementation status and provide activation examples",
+      "source_reference": "features.json:380 (activation via --profile flag or PRODIGY_PROFILE)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Activation Methods",
+      "description": "Missing documentation on two activation methods: CLI flag and environment variable",
+      "feature_reference": "environment.profiles.activation",
+      "fix_suggestion": "Add section explaining both activation methods with examples:\n1. CLI flag: `prodigy run workflow.yml --profile prod`\n2. Environment variable: `export PRODIGY_PROFILE=production; prodigy run workflow.yml`",
+      "source_reference": "book/src/workflow-basics/environment-configuration.md:114-117"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Profile Use Cases",
+      "description": "Missing practical use cases for profiles",
+      "feature_reference": "environment.profiles.use_cases",
+      "fix_suggestion": "Add section on common use cases: different API URLs per environment, environment-specific credentials, deployment target configuration",
+      "source_reference": "features.json:381"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Profile Precedence",
+      "description": "Missing information about how profile values interact with global env and step env",
+      "feature_reference": "environment.profiles.precedence",
+      "fix_suggestion": "Add explanation of precedence: Step env > Profile env > Global env > System env",
+      "source_reference": "features.json:364, configuration.precedence_chain:596"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Profile Examples",
+      "description": "Examples show profile definition but not usage/activation",
+      "fix_suggestion": "Add complete example showing profile definition and activation:\n```yaml\nprofiles:\n  production:\n    API_URL: https://api.example.com\n    DEBUG: \"false\"\n```\nActivate with: `prodigy run workflow.yml --profile production`",
+      "source_reference": "book/src/examples.md:246-252"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of profile structure with description field being optional",
+    "Correct YAML examples showing flat structure (not nested under env: key)",
+    "Good example of multiple profiles with different configurations"
+  ],
+  "improvement_suggestions": [
+    "Add cross-reference to Environment Precedence subsection for understanding how profiles fit in precedence chain",
+    "Add troubleshooting section for common profile issues (profile not found, variable not resolved)",
+    "Include example of combining profiles with env_files for comprehensive environment configuration",
+    "Show how to override profile values with step-level env",
+    "Add example of using PRODIGY_PROFILE in CI/CD pipelines"
+  ],
+  "cross_references": [
+    "environment-precedence",
+    "environment-files",
+    "best-practices"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Environment Profiles"
+    ],
+    "validation_focus": "Check environment profiles documentation matches implementation",
+    "critical_findings": [
+      "Documentation claims profiles cannot be activated, contradicting implementation and other documentation",
+      "Multiple documentation files show --profile flag usage, proving feature is implemented",
+      "This subsection will cause user confusion and workflow failures if not corrected"
+    ]
+  }
+}
