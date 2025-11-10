@@ -9,221 +9,125 @@
     "error_handling.dlq"
   ],
   "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "The subsection provides comprehensive documentation of DLQ structure and features, but contains critical inaccuracies about storage paths that could mislead users. The DLQ storage location is incorrectly documented as ~/.prodigy/state/{repo}/mapreduce/dlq/ when it should be ~/.prodigy/dlq/{repo}/. Additionally, CLI commands are stubs awaiting implementation. Despite these issues, the structure and concepts are well-explained with good cross-referencing.",
+  "severity": "medium",
+  "quality_assessment": "Documentation is comprehensive and mostly accurate, with excellent structure coverage. However, it has 3 broken cross-reference links that will cause mdbook build failures. The max_retries default value is incorrect (shows 3, should be 2). Overall content quality is strong with good examples and debugging workflows.",
   "issues": [
     {
-      "type": "incorrect_information",
-      "severity": "critical",
-      "section": "Storage Structure",
-      "description": "Documentation shows fundamentally incorrect DLQ storage path structure throughout the document",
-      "current_content": "~/.prodigy/state/{repo_name}/mapreduce/dlq/{job_id}/",
-      "should_be": "~/.prodigy/dlq/{repo_name}/{job_id}/ (DLQStorage adds mapreduce/dlq subdirectories)",
-      "fix_suggestion": "The actual path is: ~/.prodigy/dlq/{repo_name}/{job_id}/ from GlobalStorage, then DLQStorage.job_dir() adds mapreduce/dlq/{job_id} resulting in ~/.prodigy/dlq/{repo_name}/{job_id}/mapreduce/dlq/{job_id}/items/. All examples throughout the document need to be corrected to reflect this structure.",
-      "source_reference": "src/storage/global.rs:46-54, src/cook/execution/dlq.rs:528-530"
-    },
-    {
-      "type": "incorrect_example",
-      "severity": "high",
-      "section": "Storage Structure - Example Path",
-      "description": "Example storage path shows incorrect location",
-      "current_content": "~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/",
-      "should_be": "~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/items/",
-      "fix_suggestion": "Update storage path example to show the correct nesting. GlobalStorage provides base path ~/.prodigy/dlq/{repo}/{job_id}, then DLQStorage adds mapreduce/dlq/{job_id} subdirectories for backward compatibility.",
-      "source_reference": "src/storage/global.rs:46-54, src/cook/execution/dlq.rs:528-530"
-    },
-    {
-      "type": "incorrect_information",
-      "severity": "high",
-      "section": "Advanced: DLQ Storage Internals - Direct File Access",
-      "description": "Commands for direct file access use incorrect storage paths",
-      "current_content": "ls ~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/items/",
-      "should_be": "ls ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/items/",
-      "fix_suggestion": "Update all bash command examples for direct file access to use correct DLQ storage location. This affects multiple examples in lines 465-472.",
-      "source_reference": "src/storage/global.rs:46-54"
-    },
-    {
-      "type": "incorrect_information",
+      "type": "broken_links",
       "severity": "medium",
-      "section": "DLQ Item Structure",
-      "description": "Documentation shows step_failed as integer (line 45), but implementation uses String type",
-      "current_content": "\"step_failed\": 2",
-      "should_be": "\"step_failed\": \"shell: cargo test\"",
-      "fix_suggestion": "Update example to show step_failed as a String describing the command that failed, not a numeric step index",
-      "source_reference": "src/cook/execution/dlq.rs:54"
-    },
-    {
-      "type": "incorrect_information",
-      "severity": "medium",
-      "section": "Failure Detail Fields",
-      "description": "Documentation shows step_failed as numeric (line 90), inconsistent with actual String type",
-      "current_content": "\"step_failed\": 2",
-      "should_be": "\"step_failed\": \"claude: /process '${item}'\"",
-      "fix_suggestion": "Update FailureDetail example to use String value for step_failed field matching implementation",
-      "source_reference": "src/cook/execution/dlq.rs:54"
+      "section": "Cross-References",
+      "description": "Found 3 broken internal link(s) that will cause mdbook build failures",
+      "broken_links": [
+        {
+          "link_text": "Claude Command Observability",
+          "target": "../debugging/claude-command-observability.md",
+          "expected_path": "book/src/debugging/claude-command-observability.md",
+          "status": "File does not exist",
+          "suggestion": "The debugging chapter appears to have been migrated or reorganized. Search for claude-command-observability content or create the debugging chapter structure."
+        },
+        {
+          "link_text": "Error Handling",
+          "target": "./error-handling.md",
+          "expected_path": "book/src/mapreduce/error-handling.md",
+          "status": "File does not exist",
+          "actual_location": "book/src/error-handling.md",
+          "suggestion": "Update link to '../error-handling.md' (chapter is at book root, not in mapreduce subdirectory)"
+        },
+        {
+          "link_text": "Worktree Architecture",
+          "target": "./worktree-architecture.md",
+          "expected_path": "book/src/mapreduce/worktree-architecture.md",
+          "status": "File does not exist",
+          "actual_location": "book/src/mapreduce-worktree-architecture.md",
+          "suggestion": "Update link to '../mapreduce-worktree-architecture.md' (chapter is at book root with different naming)"
+        }
+      ],
+      "fix_suggestion": "Update broken links:\n1. '../debugging/claude-command-observability.md' → needs investigation or removal\n2. './error-handling.md' → '../error-handling.md'\n3. './worktree-architecture.md' → '../mapreduce-worktree-architecture.md'",
+      "source_reference": "book/src/mapreduce/dead-letter-queue-dlq.md (lines 124, 350, 495-498)"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "DLQ Item Structure",
-      "description": "Documentation missing first_attempt and last_attempt timestamp fields that exist in implementation",
-      "fix_suggestion": "Add first_attempt and last_attempt DateTime<Utc> fields to DeadLetteredItem structure documentation",
-      "source_reference": "src/cook/execution/dlq.rs:35-36"
-    },
-    {
-      "type": "incorrect_information",
-      "severity": "low",
-      "section": "DLQ Item Structure",
-      "description": "Documentation uses retry_count field (line 52), but implementation uses failure_count",
-      "current_content": "\"retry_count\": 3",
-      "should_be": "\"failure_count\": 3",
-      "fix_suggestion": "Update field name to failure_count to match implementation, or add both fields if retry_count is derived",
-      "source_reference": "src/cook/execution/dlq.rs:37"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "DLQ Item Structure",
-      "description": "Documentation missing error_signature field that exists in implementation",
-      "fix_suggestion": "Add error_signature: String field to DeadLetteredItem example - used for grouping similar failures in pattern analysis",
-      "source_reference": "src/cook/execution/dlq.rs:39"
-    },
-    {
-      "type": "incorrect_information",
-      "severity": "low",
-      "section": "Worktree Artifacts",
-      "description": "uncommitted_changes field documented as array (line 59), but implementation uses Option<String>",
-      "current_content": "\"uncommitted_changes\": [\"src/main.rs\"]",
-      "should_be": "\"uncommitted_changes\": \"src/main.rs modified\"",
-      "fix_suggestion": "Update uncommitted_changes type to Option<String> or clarify the actual serialization format",
-      "source_reference": "src/cook/execution/dlq.rs:78"
-    },
-    {
-      "type": "incorrect_information",
-      "severity": "low",
-      "section": "Worktree Artifacts",
-      "description": "error_logs field documented as array (line 60), but implementation uses Option<String>",
-      "current_content": "\"error_logs\": [\"error.log\"]",
-      "should_be": "\"error_logs\": \"error.log contents...\"",
-      "fix_suggestion": "Update error_logs type to Option<String> to match implementation",
-      "source_reference": "src/cook/execution/dlq.rs:79"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Error Types",
-      "description": "CommandFailed error type documented without exit_code field that exists in implementation",
-      "current_content": "- `CommandFailed`: Shell or Claude command returned non-zero exit code",
-      "should_be": "- `CommandFailed { exit_code: i32 }`: Shell or Claude command returned non-zero exit code",
-      "fix_suggestion": "Update ErrorType::CommandFailed documentation to show it contains exit_code field for diagnostic purposes",
-      "source_reference": "src/cook/execution/dlq.rs:65"
-    },
-    {
-      "type": "incomplete_implementation",
-      "severity": "high",
-      "section": "DLQ Commands",
-      "description": "All DLQ CLI commands are stubs that only print messages - no actual implementation yet. Documentation should make this more prominent.",
-      "current_content": "Implementation Status: The DLQ CLI commands are defined (src/cli/args.rs:609-679) but currently implemented as stubs (src/cli/commands/dlq.rs:9-73). The commands print status messages but do not yet perform the operations described below. Full implementation is planned.",
-      "should_be": "Add a prominent warning at the top of the DLQ Commands section stating that all commands are currently stubs. Move implementation status from line 158 to directly after the section header.",
-      "fix_suggestion": "Restructure the DLQ Commands section to lead with implementation status. Consider adding a visual indicator (e.g., '⚠️ PLANNED FEATURE') to make it clear these commands are not yet functional. Update each command subsection to note stub status.",
-      "source_reference": "src/cli/commands/dlq.rs:9-73"
-    },
-    {
-      "type": "incorrect_information",
-      "severity": "low",
-      "section": "Retry Command",
-      "description": "Documentation shows --max-parallel flag but CLI implementation uses --parallel",
-      "current_content": "prodigy dlq retry mapreduce-1234567890 --max-parallel 10",
-      "should_be": "prodigy dlq retry mapreduce-1234567890 --parallel 10",
-      "fix_suggestion": "Update command examples to use --parallel flag to match CLI implementation (default: 10)",
-      "source_reference": "src/cli/args.rs:653"
-    },
-    {
-      "type": "incorrect_information",
-      "severity": "medium",
-      "section": "Retry Command",
-      "description": "Documentation shows job_id as positional argument, but CLI expects workflow_id",
-      "current_content": "prodigy dlq retry mapreduce-1234567890",
-      "should_be": "prodigy dlq retry <workflow_id>",
-      "fix_suggestion": "Clarify relationship between workflow_id and job_id in retry command documentation, or update CLI parameter naming for consistency",
-      "source_reference": "src/cli/args.rs:642"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Retry Command",
-      "description": "Documentation shows max_parallel default as 5, but CLI default is 10",
-      "current_content": "default: 5, uses workflow's max_parallel",
-      "should_be": "default: 10",
-      "fix_suggestion": "Update default parallelism value to 10 to match CLI implementation",
-      "source_reference": "src/cli/args.rs:653"
+      "section": "DLQ Commands - Retry",
+      "description": "Default value for --max-retries is incorrect",
+      "current_content": "Documentation shows 'default: 3' for --max-retries parameter",
+      "should_be": "default: 2",
+      "fix_suggestion": "Update documentation to match CLI implementation: change 'default: 3' to 'default: 2' in retry command description (line 252)",
+      "source_reference": "src/cli/args.rs:267-268"
     }
   ],
   "positive_aspects": [
-    "Comprehensive coverage of DLQ concepts and workflow integration",
-    "Clear explanation of DLQ storage structure and global architecture benefits",
-    "Detailed documentation of DeadLetteredItem and FailureDetail structures with JSON examples",
-    "Complete documentation of all CLI commands with usage examples and options",
-    "Excellent cross-referencing to related subsections (checkpoints, events, error handling, Claude logs)",
-    "Strong coverage of debugging workflow with Claude JSON logs integration",
-    "Well-structured best practices section distinguishing automatic retry vs manual fix scenarios",
-    "Clear explanation of failure flow diagram and integration with MapReduce on_item_failure policy",
-    "Good performance considerations section covering large DLQs, parallelism tuning, and filtering",
-    "Comprehensive command reference with all options documented (list, inspect, analyze, export, purge, retry, stats, clear)"
+    "Comprehensive coverage of DLQ data structures with accurate field-by-field documentation",
+    "Clear explanation of storage architecture and global storage benefits",
+    "Good distinction between stub commands and implemented functionality with prominent warnings",
+    "Excellent debugging workflow examples with practical commands",
+    "Accurate documentation of ErrorType enum and all variants",
+    "Well-documented DeadLetteredItem and FailureDetail structures match implementation exactly",
+    "Good integration examples showing how DLQ fits into MapReduce workflows",
+    "Helpful troubleshooting section with common scenarios",
+    "Storage structure accurately reflects implementation (GlobalStorage + DLQStorage nesting)",
+    "json_log_location field properly documented with cross-reference to Claude observability"
   ],
   "improvement_suggestions": [
-    "CRITICAL: Correct all DLQ storage paths throughout document from ~/.prodigy/state/{repo}/mapreduce/dlq/ to ~/.prodigy/dlq/{repo}/{job_id}/mapreduce/dlq/{job_id}/",
-    "Correct field types in examples to match implementation (step_failed: String, failure_count, uncommitted_changes: Option<String>, error_logs: Option<String>)",
-    "Add missing fields to documentation (first_attempt, last_attempt, error_signature)",
-    "Update ErrorType::CommandFailed to show { exit_code: i32 } structure",
-    "Clarify workflow_id vs job_id terminology consistently throughout retry command documentation",
-    "Make CLI stub implementation status more prominent - add warning banner at top of DLQ Commands section",
-    "Update --max-parallel flag to --parallel in all examples",
-    "Correct default parallelism value from 5 to 10",
-    "Add troubleshooting section for common DLQ issues (path not found, permission errors, corrupted items)",
-    "Consider adding diagram showing DLQ flow from agent failure → storage → retry",
-    "Add validation steps for verifying DLQ is working correctly",
-    "Include examples of how to manually inspect DLQ JSON files for debugging",
-    "Document performance characteristics: How large can DLQ grow? Memory implications of large DLQs?"
+    "Fix broken cross-reference links to prevent mdbook build failures (CRITICAL)",
+    "Correct max_retries default value from 3 to 2 to match implementation",
+    "Consider adding example of actual DLQ JSON file content from real execution",
+    "Add link to retry-metrics-and-observability.md section for additional observability context",
+    "Consider adding note about DLQ performance characteristics (memory usage, disk space)",
+    "Add troubleshooting section for broken links and missing referenced chapters"
   ],
   "cross_references": [
     "checkpoint-and-resume",
     "event-tracking",
-    "error-handling",
-    "worktree-architecture",
-    "claude-command-observability"
+    "error-handling (BROKEN - needs '../error-handling.md')",
+    "mapreduce-worktree-architecture (BROKEN - needs '../mapreduce-worktree-architecture.md')",
+    "claude-command-observability (BROKEN - debugging chapter missing)"
   ],
   "link_validation": {
-    "broken_links": [],
-    "validation_passed": true,
-    "notes": "All internal cross-references are valid. Links to checkpoint-and-resume, event-tracking, error-handling, worktree-architecture, and claude-command-observability subsections are correct."
+    "broken_links": [
+      {
+        "target": "../debugging/claude-command-observability.md",
+        "expected": "book/src/debugging/claude-command-observability.md",
+        "status": "missing"
+      },
+      {
+        "target": "./error-handling.md",
+        "expected": "book/src/mapreduce/error-handling.md",
+        "actual": "book/src/error-handling.md",
+        "status": "incorrect_path"
+      },
+      {
+        "target": "./worktree-architecture.md",
+        "expected": "book/src/mapreduce/worktree-architecture.md",
+        "actual": "book/src/mapreduce-worktree-architecture.md",
+        "status": "incorrect_path"
+      }
+    ],
+    "validation_passed": false,
+    "notes": "3 broken internal links will cause mdbook build failures. Two can be fixed by updating paths, one requires investigating debugging chapter structure."
   },
   "metadata": {
-    "analyzed_at": "2025-01-11T18:30:00Z",
+    "analyzed_at": "2025-01-11T10:45:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "dead letter queue",
-      "failed items",
       "DLQ structure",
-      "DLQ commands",
-      "retry functionality",
-      "error handling",
+      "failed item storage",
+      "retry commands",
       "debugging",
-      "failure analysis",
-      "worktree artifacts",
-      "storage architecture"
+      "error types",
+      "storage architecture",
+      "failure analysis"
     ],
     "validation_focus": "Check DLQ structure and retry commands documented",
     "source_files_referenced": [
       "src/cook/execution/dlq.rs",
       "src/cli/commands/dlq.rs",
       "src/cli/args.rs",
-      "src/storage/global.rs",
-      "tests/dlq_agent_integration_test.rs"
+      "src/storage/global.rs"
     ],
     "critical_findings": [
-      "DLQ storage path documentation is incorrect throughout the document - uses ~/.prodigy/state/ when actual location is ~/.prodigy/dlq/",
-      "All DLQ CLI commands are stubs with no implementation - documentation should make this more prominent"
+      "3 broken cross-reference links will cause mdbook build to fail",
+      "max_retries default value mismatch (doc: 3, actual: 2)"
     ]
   }
 }
