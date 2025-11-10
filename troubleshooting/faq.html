@@ -1,0 +1,394 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>FAQ - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/troubleshooting/faq.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="faq"><a class="header" href="#faq">FAQ</a></h2>
+<h3 id="how-do-i-debug-variable-interpolation-issues"><a class="header" href="#how-do-i-debug-variable-interpolation-issues">How do I debug variable interpolation issues?</a></h3>
+<p>When <code>${var}</code> appears literally in output instead of being replaced:</p>
+<ol>
+<li><strong>Check spelling and case</strong>: Variable names are case-sensitive</li>
+<li><strong>Verify scope</strong>: Ensure the variable is available (step vs workflow level)</li>
+<li><strong>Use verbose mode</strong>: Run with <code>-v</code> to see variable interpolation in real-time</li>
+<li><strong>Verify capture</strong>: If using <code>capture_output</code>, ensure the command succeeded</li>
+<li><strong>Check syntax</strong>: Use <code>${var}</code> for workflow variables, not just <code>$var</code></li>
+</ol>
+<p>Example debugging:</p>
+<pre><code class="language-bash"># Add echo to verify variable value
+- shell: "echo Variable value: ${my_var}"
+</code></pre>
+<h3 id="what-should-i-do-when-checkpoint-resume-fails"><a class="header" href="#what-should-i-do-when-checkpoint-resume-fails">What should I do when checkpoint resume fails?</a></h3>
+<p>If resume starts from the beginning or shows “checkpoint not found”:</p>
+<ol>
+<li><strong>Verify checkpoint exists</strong>: Check <code>~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/</code></li>
+<li><strong>Confirm job ID</strong>: Use <code>prodigy sessions list</code> to find the correct ID</li>
+<li><strong>Check for concurrent resume</strong>: Look for lock files in <code>~/.prodigy/resume_locks/</code></li>
+<li><strong>Review checkpoint integrity</strong>: Read the checkpoint JSON to ensure it’s valid</li>
+<li><strong>Ensure workflow unchanged</strong>: Significant workflow changes may prevent resume</li>
+</ol>
+<p>See <a href="../mapreduce/checkpoint-and-resume.html">MapReduce Checkpoint and Resume</a> for complete details.</p>
+<h3 id="how-do-i-retry-failed-dlq-items"><a class="header" href="#how-do-i-retry-failed-dlq-items">How do I retry failed DLQ items?</a></h3>
+<p>To retry items that failed during MapReduce execution:</p>
+<pre><code class="language-bash"># View failed items
+prodigy dlq list --job-id &lt;job_id&gt;
+
+# Retry all failed items
+prodigy dlq retry &lt;job_id&gt;
+
+# Retry with custom parallelism
+prodigy dlq retry &lt;job_id&gt; --parallel 10
+
+# Dry run to preview retry
+prodigy dlq retry &lt;job_id&gt; --dry-run
+</code></pre>
+<p><strong>Important</strong>: Before retrying, ensure the underlying issue is fixed. If the error is systematic (not transient), items will fail again.</p>
+<p>Check <code>json_log_location</code> in DLQ entries to debug the original failure.</p>
+<h3 id="why-are-my-mapreduce-items-not-being-found"><a class="header" href="#why-are-my-mapreduce-items-not-being-found">Why are my MapReduce items not being found?</a></h3>
+<p>If you see “No items to process” or “items.json not found”:</p>
+<ol>
+<li><strong>Verify input file exists</strong>: Check the path specified in <code>input:</code></li>
+<li><strong>Confirm setup succeeded</strong>: Ensure setup phase created the input file</li>
+<li><strong>Test JSONPath</strong>: Use <code>jq</code> to test your <code>json_path</code> expression</li>
+<li><strong>Validate JSON format</strong>: Ensure the file is valid JSON with <code>jq .</code></li>
+<li><strong>Check file location</strong>: Input file path is relative to workflow directory</li>
+</ol>
+<p>Example JSONPath test:</p>
+<pre><code class="language-bash">cat items.json | jq '$.items[*]'
+</code></pre>
+<h3 id="how-do-i-view-claude-execution-logs"><a class="header" href="#how-do-i-view-claude-execution-logs">How do I view Claude execution logs?</a></h3>
+<p>To see detailed logs of what Claude did during a command:</p>
+<pre><code class="language-bash"># View most recent log
+prodigy logs --latest
+
+# View with summary
+prodigy logs --latest --summary
+
+# Tail log in real-time
+prodigy logs --latest --tail
+
+# Direct access to logs
+cat ~/.local/state/claude/logs/session-*.json
+</code></pre>
+<p>Logs contain:</p>
+<ul>
+<li>Complete message history</li>
+<li>All tool invocations with parameters</li>
+<li>Token usage statistics</li>
+<li>Error details and stack traces</li>
+</ul>
+<p>For detailed log analysis techniques, see “Viewing Claude Execution Logs (Spec 126)” in the project CLAUDE.md file.</p>
+<h3 id="what-does-command-not-found-claude-mean"><a class="header" href="#what-does-command-not-found-claude-mean">What does “command not found: claude” mean?</a></h3>
+<p>This error indicates Claude Code CLI is not installed or not in your PATH:</p>
+<ol>
+<li><strong>Verify installation</strong>: Check if Claude Code is installed</li>
+<li><strong>Check PATH</strong>: Run <code>which claude</code> to see if it’s accessible</li>
+<li><strong>Use full path</strong>: Specify <code>/path/to/claude</code> in workflow if needed</li>
+<li><strong>Verify executable name</strong>: Should be <code>claude</code>, not <code>claude-code</code></li>
+</ol>
+<p>Installation varies by platform - refer to Claude Code documentation.</p>
+<h3 id="how-do-i-clean-up-orphaned-worktrees"><a class="header" href="#how-do-i-clean-up-orphaned-worktrees">How do I clean up orphaned worktrees?</a></h3>
+<p>When worktree cleanup fails during MapReduce execution:</p>
+<pre><code class="language-bash"># Clean orphaned worktrees for a job
+prodigy worktree clean-orphaned &lt;job_id&gt;
+
+# Dry run to preview cleanup
+prodigy worktree clean-orphaned &lt;job_id&gt; --dry-run
+
+# Force cleanup without confirmation
+prodigy worktree clean-orphaned &lt;job_id&gt; --force
+</code></pre>
+<p>Common causes of cleanup failures:</p>
+<ul>
+<li>Locked files (check with <code>lsof</code>)</li>
+<li>Running processes (check with <code>ps</code>)</li>
+<li>Permission issues (verify with <code>ls -ld</code>)</li>
+<li>Insufficient disk space (check with <code>df -h</code>)</li>
+</ul>
+<p>For details on cleanup failures, see “Cleanup Failure Handling (Spec 136)” in the CLAUDE.md file.</p>
+<h3 id="why-are-environment-variables-not-being-resolved"><a class="header" href="#why-are-environment-variables-not-being-resolved">Why are environment variables not being resolved?</a></h3>
+<p>If <code>${VAR}</code> or <code>$VAR</code> appears literally in commands:</p>
+<ol>
+<li><strong>Check definition</strong>: Ensure variable is defined in <code>env:</code> section</li>
+<li><strong>Verify profile</strong>: Use <code>--profile</code> flag if using profile-specific values</li>
+<li><strong>Check scope</strong>: Confirm variable is global or in correct scope</li>
+<li><strong>Use correct syntax</strong>: <code>${VAR}</code> for workflow vars, <code>$VAR</code> for shell vars</li>
+<li><strong>Validate env_files</strong>: Ensure external env files are loaded correctly</li>
+</ol>
+<p>Example:</p>
+<pre><code class="language-yaml">env:
+  API_KEY: "my-key"
+  DATABASE_URL:
+    default: "localhost"
+    prod: "prod-server"
+</code></pre>
+<p>See <a href="../environment/index.html">Environment Variables</a> for configuration details.</p>
+<h3 id="how-do-i-debug-timeout-errors"><a class="header" href="#how-do-i-debug-timeout-errors">How do I debug timeout errors?</a></h3>
+<p>When commands or phases time out:</p>
+<ol>
+<li><strong>Increase timeout</strong>: Adjust timeout values for long operations</li>
+<li><strong>Check for hung processes</strong>: Use <code>ps</code> or <code>top</code> to find stuck processes</li>
+<li><strong>Optimize performance</strong>: Split work into smaller chunks</li>
+<li><strong>Use agent_timeout_secs</strong>: Set per-agent timeout for MapReduce</li>
+<li><strong>Look for deadlocks</strong>: Check for concurrent operations blocking each other</li>
+</ol>
+<p>MapReduce-specific timeout configuration:</p>
+<pre><code class="language-yaml">map:
+  agent_timeout_secs: 600  # 10 minutes per agent
+  max_items: 10  # Process fewer items per run
+</code></pre>
+<h3 id="where-are-event-logs-stored"><a class="header" href="#where-are-event-logs-stored">Where are event logs stored?</a></h3>
+<p>Event logs use a global storage architecture:</p>
+<p><strong>Location</strong>: <code>~/.prodigy/events/{repo_name}/{job_id}/</code></p>
+<p><strong>What’s stored</strong>:</p>
+<ul>
+<li>Agent lifecycle events (started, completed, failed)</li>
+<li>Work item processing status</li>
+<li>Checkpoint saves</li>
+<li>Error details with correlation IDs</li>
+</ul>
+<p><strong>How to view</strong>:</p>
+<pre><code class="language-bash"># List events for a job
+prodigy events ls --job-id &lt;job_id&gt;
+
+# Show event statistics
+prodigy events stats
+
+# View detailed event timeline
+cat ~/.prodigy/events/{repo_name}/{job_id}/events-*.jsonl
+
+# For real-time monitoring, tail the event file:
+tail -f ~/.prodigy/events/{repo_name}/{job_id}/events-*.jsonl
+</code></pre>
+<p><strong>Source</strong>: src/cli/commands/events.rs:22-98</p>
+<p>Events are shared across worktrees, enabling centralized monitoring of parallel jobs.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../troubleshooting/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../troubleshooting/common-error-messages.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../troubleshooting/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../troubleshooting/common-error-messages.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

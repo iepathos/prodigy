@@ -1,0 +1,753 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Troubleshooting - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/configuration/troubleshooting.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<p>Common configuration issues and their solutions.</p>
+<h3 id="configuration-file-issues"><a class="header" href="#configuration-file-issues">Configuration File Issues</a></h3>
+<h4 id="configuration-file-not-found"><a class="header" href="#configuration-file-not-found">“Configuration file not found”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Error: Configuration file not found at ~/.prodigy/config.yml
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Config file doesn’t exist</li>
+<li>Wrong file extension (<code>.yaml</code> instead of <code>.yml</code>, or <code>.toml</code> instead of <code>.yml</code>)</li>
+<li>File is in the wrong location</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Create the file:</p>
+<pre><code class="language-bash">mkdir -p ~/.prodigy
+cat &gt; ~/.prodigy/config.yml &lt;&lt; 'EOF'
+log_level: info
+auto_commit: true
+EOF
+</code></pre>
+</li>
+<li>
+<p>Check file extension:</p>
+<pre><code class="language-bash">ls -la ~/.prodigy/config.*
+# Should show config.yml, not config.yaml or config.toml
+</code></pre>
+</li>
+<li>
+<p>Verify location:</p>
+<pre><code class="language-bash"># Global config
+ls ~/.prodigy/config.yml
+
+# Project config
+ls .prodigy/config.yml
+</code></pre>
+</li>
+</ol>
+<h4 id="invalid-yaml-syntax"><a class="header" href="#invalid-yaml-syntax">“Invalid YAML syntax”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Error: Failed to parse configuration: invalid YAML syntax at line 10
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Incorrect indentation (must use 2 spaces, no tabs)</li>
+<li>Missing space after colon (<code>key:value</code> instead of <code>key: value</code>)</li>
+<li>Unquoted strings with special characters</li>
+<li>Mixing TOML and YAML syntax</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Check indentation (must be 2 spaces):</p>
+<pre><code class="language-yaml"># ✗ Wrong (tabs or 4 spaces)
+storage:
+    backend: file
+
+# ✓ Correct (2 spaces)
+storage:
+  backend: file
+</code></pre>
+</li>
+<li>
+<p>Add space after colons:</p>
+<pre><code class="language-yaml"># ✗ Wrong
+log_level:debug
+
+# ✓ Correct
+log_level: debug
+</code></pre>
+</li>
+<li>
+<p>Quote strings with special characters:</p>
+<pre><code class="language-yaml"># ✗ Wrong
+message: Error: something failed
+
+# ✓ Correct
+message: "Error: something failed"
+</code></pre>
+</li>
+<li>
+<p>Use a YAML validator:</p>
+<pre><code class="language-bash">yamllint ~/.prodigy/config.yml
+</code></pre>
+</li>
+</ol>
+<h4 id="unknown-field-in-configuration"><a class="header" href="#unknown-field-in-configuration">“Unknown field in configuration”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Warning: Unknown field 'unknown_setting' in configuration
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Typo in field name</li>
+<li>Using deprecated field name</li>
+<li>Field from old TOML format</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Check spelling against <a href="global-configuration-structure.html">Global Configuration Structure</a> or <a href="project-configuration-structure.html">Project Configuration Structure</a></p>
+</li>
+<li>
+<p>Remove deprecated fields:</p>
+<pre><code class="language-yaml"># ✗ Deprecated TOML-style
+[storage]
+backend = "file"
+
+# ✓ Correct YAML
+storage:
+  backend: file
+</code></pre>
+</li>
+<li>
+<p>Update field names from old versions</p>
+</li>
+</ol>
+<h3 id="environment-variable-issues"><a class="header" href="#environment-variable-issues">Environment Variable Issues</a></h3>
+<h4 id="environment-variable-not-resolving"><a class="header" href="#environment-variable-not-resolving">“Environment variable not resolving”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Error: Variable 'API_KEY' not found
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Variable not defined in any configuration source</li>
+<li>Incorrect variable syntax in workflow</li>
+<li>Profile not activated</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Check variable is defined:</p>
+<pre><code class="language-bash"># System env
+echo $PRODIGY_API_KEY
+
+# Workflow env (check workflow.yml)
+grep API_KEY workflow.yml
+</code></pre>
+</li>
+<li>
+<p>Use correct syntax:</p>
+<pre><code class="language-yaml"># ✗ Wrong
+command: "curl $API_KEY"
+
+# ✓ Correct
+command: "curl ${API_KEY}"
+</code></pre>
+</li>
+<li>
+<p>Activate profile if using profile-specific values:</p>
+<pre><code class="language-bash">prodigy run workflow.yml --profile prod
+</code></pre>
+</li>
+<li>
+<p>Check precedence chain: Step env &gt; Profile env &gt; Workflow env &gt; System env</p>
+</li>
+</ol>
+<h4 id="secret-not-being-masked-in-logs"><a class="header" href="#secret-not-being-masked-in-logs">“Secret not being masked in logs”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Output: curl -H 'Authorization: Bearer sk-abc123...'
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Secret not marked with <code>secret: true</code> in workflow env block</li>
+<li>Using system env vars (not masked automatically)</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<pre><code class="language-yaml"># Mark as secret in workflow
+env:
+  API_KEY:
+    secret: true
+    value: "${PROD_API_KEY}"  # From system env
+</code></pre>
+<p><strong>Note</strong>: Only workflow env vars marked as <code>secret: true</code> are masked. System environment variables are not automatically masked.</p>
+<h3 id="storage-issues"><a class="header" href="#storage-issues">Storage Issues</a></h3>
+<h4 id="storage-directory-not-writable"><a class="header" href="#storage-directory-not-writable">“Storage directory not writable”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Error: Failed to write to storage: Permission denied
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Insufficient permissions on <code>~/.prodigy</code> directory</li>
+<li>Directory owned by different user</li>
+<li>Disk full</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Check permissions:</p>
+<pre><code class="language-bash">ls -ld ~/.prodigy
+# Should show: drwxr-xr-x username username
+</code></pre>
+</li>
+<li>
+<p>Fix ownership:</p>
+<pre><code class="language-bash">sudo chown -R $USER:$USER ~/.prodigy
+chmod -R u+rwX ~/.prodigy
+</code></pre>
+</li>
+<li>
+<p>Check disk space:</p>
+<pre><code class="language-bash">df -h ~/.prodigy
+</code></pre>
+</li>
+</ol>
+<h4 id="failed-to-acquire-storage-lock"><a class="header" href="#failed-to-acquire-storage-lock">“Failed to acquire storage lock”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Error: Failed to acquire storage lock after 30s
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Another Prodigy process holding the lock</li>
+<li>Stale lock from crashed process</li>
+<li>File locking disabled but concurrent access occurring</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Check for running processes:</p>
+<pre><code class="language-bash">ps aux | grep prodigy
+</code></pre>
+</li>
+<li>
+<p>Remove stale lock (if no processes running):</p>
+<pre><code class="language-bash">rm ~/.prodigy/storage.lock
+</code></pre>
+</li>
+<li>
+<p>Wait for lock release (if process is running)</p>
+</li>
+<li>
+<p>Disable locking temporarily (not recommended for production):</p>
+<pre><code class="language-yaml">storage:
+  enable_locking: false
+</code></pre>
+</li>
+</ol>
+<h3 id="workflow-configuration-issues"><a class="header" href="#workflow-configuration-issues">Workflow Configuration Issues</a></h3>
+<h4 id="workflow-variables-not-interpolating"><a class="header" href="#workflow-variables-not-interpolating">“Workflow variables not interpolating”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Output: Deploying ${PROJECT_NAME} to ${ENVIRONMENT}
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Incorrect variable syntax</li>
+<li>Variable not defined in workflow or config</li>
+<li>Using project config variables instead of workflow env</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Use correct syntax:</p>
+<pre><code class="language-yaml"># ✓ Workflow env vars
+env:
+  PROJECT_NAME: myapp
+commands:
+  - shell: "echo ${PROJECT_NAME}"
+
+# ✗ Project config variables (different namespace)
+# .prodigy/config.yml
+variables:
+  PROJECT_NAME: myapp  # Not available in workflows
+</code></pre>
+</li>
+<li>
+<p>Define variable in workflow <code>env:</code> block or as system env</p>
+</li>
+<li>
+<p>Check variable exists:</p>
+<pre><code class="language-bash">prodigy run workflow.yml -vv  # Verbose mode shows variable resolution
+</code></pre>
+</li>
+</ol>
+<h4 id="mapreduce-items-not-found"><a class="header" href="#mapreduce-items-not-found">“MapReduce items not found”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Error: No items found at JSONPath: $.items[*]
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Incorrect JSONPath expression</li>
+<li>Input file not generated in setup phase</li>
+<li>JSON structure doesn’t match path</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Validate JSONPath:</p>
+<pre><code class="language-bash">cat items.json | jq '.items[0]'
+</code></pre>
+</li>
+<li>
+<p>Check setup phase output:</p>
+<pre><code class="language-yaml">setup:
+  - shell: "generate-items.sh &gt; items.json"
+  - shell: "cat items.json"  # Verify file exists and has content
+</code></pre>
+</li>
+<li>
+<p>Test JSONPath expression:</p>
+<pre><code class="language-bash"># Use jq to test
+cat items.json | jq '$[*]'  # Root array
+cat items.json | jq '.items[*]'  # Nested array
+</code></pre>
+</li>
+</ol>
+<h4 id="validation-always-fails"><a class="header" href="#validation-always-fails">“Validation always fails”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Error: Validation failed: completion_percentage 85 below threshold 100
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Threshold set too high (default: 100)</li>
+<li>Validation command not returning expected format</li>
+<li>Expected schema mismatch</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Adjust threshold:</p>
+<pre><code class="language-yaml">validate:
+  threshold: 80  # Accept 80% instead of 100%
+</code></pre>
+</li>
+<li>
+<p>Check validation output format:</p>
+<pre><code class="language-bash"># Validation must output:
+{
+  "completion_percentage": 85,
+  "status": "incomplete",
+  "gaps": ["Missing feature X", "Incomplete test Y"]
+}
+</code></pre>
+</li>
+<li>
+<p>Test validation command manually:</p>
+<pre><code class="language-bash"># Run validation command outside workflow
+./validate-script.sh
+</code></pre>
+</li>
+</ol>
+<h3 id="api-and-authentication-issues"><a class="header" href="#api-and-authentication-issues">API and Authentication Issues</a></h3>
+<h4 id="claude-api-key-not-recognized"><a class="header" href="#claude-api-key-not-recognized">“Claude API key not recognized”</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<pre><code>Error: Invalid Claude API key
+</code></pre>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>API key not set</li>
+<li>Key set in wrong location</li>
+<li>Invalid key format</li>
+<li>Key expired or revoked</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Check key is set (precedence order):</p>
+<pre><code class="language-bash"># Highest precedence: Environment variable
+echo $PRODIGY_CLAUDE_API_KEY
+
+# Project config
+grep claude_api_key .prodigy/config.yml
+
+# Global config
+grep claude_api_key ~/.prodigy/config.yml
+</code></pre>
+</li>
+<li>
+<p>Verify key format (should start with <code>sk-ant-</code>):</p>
+<pre><code class="language-bash">echo $PRODIGY_CLAUDE_API_KEY | head -c 10
+# Should show: sk-ant-api
+</code></pre>
+</li>
+<li>
+<p>Use environment variable (recommended):</p>
+<pre><code class="language-bash">export PRODIGY_CLAUDE_API_KEY="sk-ant-api03-..."
+</code></pre>
+</li>
+<li>
+<p>Verify key is valid at <a href="https://console.anthropic.com/">Anthropic Console</a></p>
+</li>
+</ol>
+<h3 id="performance-issues"><a class="header" href="#performance-issues">Performance Issues</a></h3>
+<h4 id="workflow-running-slowly"><a class="header" href="#workflow-running-slowly">“Workflow running slowly”</a></h4>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Excessive parallelism exhausting resources</li>
+<li>Large work items in MapReduce</li>
+<li>Slow validation commands</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Reduce parallelism:</p>
+<pre><code class="language-yaml">map:
+  max_parallel: 3  # Reduce from 10
+</code></pre>
+</li>
+<li>
+<p>Add timeout limits:</p>
+<pre><code class="language-yaml">commands:
+  - shell: "long-running-command"
+    timeout: 300  # 5 minutes
+</code></pre>
+</li>
+<li>
+<p>Enable caching (if available):</p>
+<pre><code class="language-yaml">storage:
+  enable_cache: true
+</code></pre>
+</li>
+</ol>
+<h4 id="storage-growing-too-large"><a class="header" href="#storage-growing-too-large">“Storage growing too large”</a></h4>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Old events and DLQ data accumulating</li>
+<li>Large checkpoint files</li>
+<li>No compression enabled</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p>Clean up old data:</p>
+<pre><code class="language-bash"># Remove old events (older than 30 days)
+find ~/.prodigy/events -type f -mtime +30 -delete
+
+# Clean DLQ for completed jobs
+prodigy dlq clean --completed
+</code></pre>
+</li>
+<li>
+<p>Enable compression:</p>
+<pre><code class="language-yaml">storage:
+  backend_config:
+    enable_compression: true
+</code></pre>
+</li>
+<li>
+<p>Reduce file retention:</p>
+<pre><code class="language-yaml">storage:
+  backend_config:
+    max_file_size: 52428800  # 50MB instead of 100MB
+</code></pre>
+</li>
+</ol>
+<h3 id="debugging-tools"><a class="header" href="#debugging-tools">Debugging Tools</a></h3>
+<h4 id="check-effective-configuration"><a class="header" href="#check-effective-configuration">Check Effective Configuration</a></h4>
+<p>View the merged configuration from all sources:</p>
+<pre><code class="language-bash">prodigy config show
+</code></pre>
+<h4 id="verbose-logging"><a class="header" href="#verbose-logging">Verbose Logging</a></h4>
+<p>Enable detailed logging:</p>
+<pre><code class="language-bash"># Verbose mode (shows Claude streaming)
+prodigy run workflow.yml -v
+
+# Debug mode (shows variable resolution)
+prodigy run workflow.yml -vv
+
+# Trace mode (shows all internal operations)
+prodigy run workflow.yml -vvv
+</code></pre>
+<p>Or set log level in config:</p>
+<pre><code class="language-yaml">log_level: debug  # trace, debug, info, warn, error
+</code></pre>
+<h4 id="validate-configuration-files"><a class="header" href="#validate-configuration-files">Validate Configuration Files</a></h4>
+<pre><code class="language-bash"># Validate YAML syntax
+yamllint ~/.prodigy/config.yml
+yamllint .prodigy/config.yml
+
+# Validate workflow syntax
+prodigy validate workflow.yml
+</code></pre>
+<h4 id="check-claude-logs"><a class="header" href="#check-claude-logs">Check Claude Logs</a></h4>
+<p>View Claude execution logs for debugging:</p>
+<pre><code class="language-bash"># Latest log
+prodigy logs --latest
+
+# Tail live log
+prodigy logs --latest --tail
+
+# View specific log
+cat ~/.local/state/claude/logs/session-abc123.json | jq
+</code></pre>
+<h3 id="common-error-messages"><a class="header" href="#common-error-messages">Common Error Messages</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Error Message</th><th>Likely Cause</th><th>Solution</th></tr></thead><tbody>
+<tr><td>“Configuration file not found”</td><td>Missing config file</td><td>Create <code>~/.prodigy/config.yml</code> or <code>.prodigy/config.yml</code></td></tr>
+<tr><td>“Invalid YAML syntax”</td><td>Syntax error in YAML</td><td>Check indentation, colons, quotes</td></tr>
+<tr><td>“Unknown field”</td><td>Typo or deprecated field</td><td>Check docs for correct field names</td></tr>
+<tr><td>“Variable not found”</td><td>Undefined variable</td><td>Define in workflow <code>env:</code> or system env</td></tr>
+<tr><td>“Storage lock timeout”</td><td>Concurrent access</td><td>Wait or remove stale lock</td></tr>
+<tr><td>“Permission denied”</td><td>Insufficient permissions</td><td>Fix ownership/permissions on <code>~/.prodigy</code></td></tr>
+<tr><td>“JSONPath not found”</td><td>Wrong path or missing data</td><td>Verify JSON structure and path</td></tr>
+<tr><td>“API key invalid”</td><td>Wrong or expired key</td><td>Check key format and validity</td></tr>
+</tbody></table>
+</div>
+<h3 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h3>
+<p>If you can’t resolve an issue:</p>
+<ol>
+<li><strong>Check logs</strong>: Use <code>-vvv</code> for maximum verbosity</li>
+<li><strong>Verify config</strong>: Run <code>prodigy config show</code></li>
+<li><strong>Check docs</strong>: See <a href="global-configuration-structure.html">Configuration Structure</a> and <a href="../workflow-basics.html">Workflow Basics</a></li>
+<li><strong>File an issue</strong>: <a href="https://github.com/anthropics/prodigy/issues">Prodigy GitHub Issues</a> with:
+<ul>
+<li>Error message (redact secrets)</li>
+<li>Relevant config snippets</li>
+<li>Prodigy version (<code>prodigy --version</code>)</li>
+<li>Operating system</li>
+</ul>
+</li>
+</ol>
+<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
+<ul>
+<li><a href="configuration-precedence-rules.html">Configuration Precedence Rules</a></li>
+<li><a href="environment-variables.html">Environment Variables</a></li>
+<li><a href="storage-configuration.html">Storage Configuration</a></li>
+<li><a href="default-values-reference.html">Default Values Reference</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../configuration/best-practices.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../configuration/migration-guide-toml-to-yaml.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../configuration/best-practices.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../configuration/migration-guide-toml-to-yaml.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

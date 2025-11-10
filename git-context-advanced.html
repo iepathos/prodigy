@@ -182,18 +182,40 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="advanced-git-context"><a class="header" href="#advanced-git-context">Advanced Git Context</a></h1>
-<p>Advanced git context features enable powerful filtering and formatting of git information in your workflows. This chapter covers automatic git tracking, variable modifiers, format options, and pattern filtering.</p>
+<p>This chapter covers automatic git tracking and git context variables in Prodigy workflows. Learn how to access file changes, commits, and modification statistics, and how to filter and format this data using shell commands.</p>
+<blockquote>
+<p><strong>⚠️ Current Implementation Status</strong></p>
+<p>Git context variables are currently provided as <strong>space-separated strings only</strong>. Advanced features like pattern filtering (<code>:*.rs</code>) and format modifiers (<code>:json</code>, <code>:lines</code>) are <strong>not yet implemented</strong> in the variable interpolation system, though the underlying infrastructure exists.</p>
+<p><strong>For filtering and formatting</strong>, use shell post-processing commands like <code>grep</code>, <code>tr</code>, <code>jq</code>, and <code>xargs</code>. See <a href="#shell-based-filtering-and-formatting">Shell-Based Filtering and Formatting</a> for practical examples.</p>
+</blockquote>
 <h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
 <p>Prodigy automatically tracks git changes throughout workflow execution and exposes them through variables. No configuration is needed—git context variables are available out-of-the-box in any git repository. You can access file changes, commits, and modification statistics at both the step and workflow level.</p>
+<p><strong>What you get:</strong></p>
+<ul>
+<li>Automatic tracking of all git changes during workflow execution</li>
+<li>Variables for step-level changes (current command) and workflow-level changes (cumulative)</li>
+<li>Simple space-separated format ready for shell commands</li>
+<li>Full integration with MapReduce workflows</li>
+</ul>
 <h2 id="how-git-tracking-works"><a class="header" href="#how-git-tracking-works">How Git Tracking Works</a></h2>
 <h3 id="automatic-tracking"><a class="header" href="#automatic-tracking">Automatic Tracking</a></h3>
 <p>Git context is automatically tracked when you run workflows in a git repository:</p>
 <ul>
-<li><strong>GitChangeTracker</strong> is initialized at workflow start</li>
-<li>Each step’s changes are tracked between <code>begin_step</code> and <code>complete_step</code></li>
-<li>Variables are automatically available for interpolation in all commands</li>
+<li><strong>GitChangeTracker</strong> is initialized at workflow start (src/cook/workflow/git_context.rs)</li>
+<li>Each step’s changes are tracked between <code>begin_step</code> and <code>complete_step</code> calls</li>
+<li>Variables are pre-formatted as space-separated strings and added to the interpolation context</li>
 <li>No YAML configuration needed—tracking happens transparently</li>
 </ul>
+<p><strong>Technical Details</strong> (src/cook/workflow/executor/context.rs:96-172):</p>
+<p>When preparing the interpolation context for each command, git variables are added like this:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Variables are pre-formatted as space-separated strings
+context.set("step.files_added", Value::String(changes.files_added.join(" ")));
+context.set("step.files_modified", Value::String(changes.files_modified.join(" ")));
+// ... etc for all git context variables
+<span class="boring">}</span></code></pre></pre>
+<p>This means custom formatting must be done using shell commands after variable interpolation.</p>
 <h3 id="when-tracking-is-active"><a class="header" href="#when-tracking-is-active">When Tracking is Active</a></h3>
 <p>Git tracking is active in:</p>
 <ul>
@@ -259,146 +281,194 @@
 <tr><td><code>workflow.deletions</code></td><td>Workflow</td><td>Total lines deleted in workflow</td></tr>
 </tbody></table>
 </div>
-<h2 id="pattern-filtering"><a class="header" href="#pattern-filtering">Pattern Filtering</a></h2>
-<p>Filter git context variables using glob patterns with the <code>:pattern</code> modifier syntax:</p>
-<h3 id="basic-pattern-filtering"><a class="header" href="#basic-pattern-filtering">Basic Pattern Filtering</a></h3>
-<pre><code class="language-yaml"># Only Rust files added in this step
-- shell: "echo ${step.files_added:*.rs}"
-
-# Only source files changed in workflow
-- shell: "echo ${workflow.files_changed:src/**/*.rs}"
-
-# Multiple file types
-- shell: "echo ${step.files_modified:**/*.{rs,toml}}"
-
-# Module files only
-- shell: "echo ${workflow.files_added:**/mod.rs}"
-</code></pre>
-<h3 id="pattern-syntax"><a class="header" href="#pattern-syntax">Pattern Syntax</a></h3>
-<p>Use glob patterns to match files precisely:</p>
-<ul>
-<li><code>*</code> - Match any characters except <code>/</code></li>
-<li><code>**</code> - Match any characters including <code>/</code></li>
-<li><code>?</code> - Match single character</li>
-<li><code>{a,b}</code> - Match either <code>a</code> or <code>b</code></li>
-<li><code>[abc]</code> - Match character class</li>
-</ul>
-<p><strong>Note</strong>: Prodigy uses glob patterns only. Regular expressions (regex) are not supported for pattern filtering. Use glob syntax for all file matching operations.</p>
-<p><strong>Examples:</strong></p>
-<pre><code class="language-yaml"># Match Rust and TOML files
-- shell: "echo ${step.files_changed:**/*.{rs,toml}}"
-
-# Match module files in src/
-- shell: "echo ${workflow.files_added:src/**/mod.rs}"
-
-# Match integration tests
-- shell: "echo ${step.files_modified:tests/integration/**}"
-
-# Match any test files
-- shell: "echo ${workflow.files_changed:**/*_test.rs}"
-</code></pre>
-<h3 id="combining-filters"><a class="header" href="#combining-filters">Combining Filters</a></h3>
-<p>For complex filtering, use multiple variable references or shell commands:</p>
-<pre><code class="language-yaml"># Pass different file sets to different commands
-- shell: "cargo fmt $(echo ${step.files_changed:*.rs})"
-- shell: "markdownlint $(echo ${step.files_changed:*.md})"
-
-# Combine with shell filtering
-- shell: |
-    files="${workflow.files_changed:src/**/*.rs}"
-    echo "$files" | grep -v test | xargs cargo clippy
-</code></pre>
-<h2 id="format-modifiers"><a class="header" href="#format-modifiers">Format Modifiers</a></h2>
-<p>Customize how git context variables are formatted:</p>
+<h2 id="shell-based-filtering-and-formatting"><a class="header" href="#shell-based-filtering-and-formatting">Shell-Based Filtering and Formatting</a></h2>
+<p>Since git context variables are provided as space-separated strings, all filtering and formatting must be done using shell commands. This section shows practical patterns for common tasks.</p>
 <h3 id="default-format-space-separated"><a class="header" href="#default-format-space-separated">Default Format (Space-Separated)</a></h3>
-<p>By default, variables are space-separated:</p>
+<p>Git context variables are always formatted as space-separated strings:</p>
 <pre><code class="language-yaml">- shell: "echo ${step.files_changed}"
 # Output: src/main.rs src/lib.rs tests/test.rs
 </code></pre>
-<h3 id="json-format"><a class="header" href="#json-format">JSON Format</a></h3>
-<p>Use <code>:json</code> for JSON array output:</p>
-<pre><code class="language-yaml">- shell: "echo ${step.files_added:json}"
+<p>This format works well with most shell commands:</p>
+<pre><code class="language-yaml"># Pass directly to commands
+- shell: "cargo fmt ${step.files_changed}"
+- shell: "git add ${workflow.files_modified}"
+
+# Use in loops
+- shell: |
+    for file in ${step.files_added}; do
+      echo "Processing $file"
+    done
+</code></pre>
+<h3 id="filtering-by-file-extension"><a class="header" href="#filtering-by-file-extension">Filtering by File Extension</a></h3>
+<p>Use <code>grep</code> to filter files by extension or pattern:</p>
+<pre><code class="language-yaml"># Only Rust files
+- shell: |
+    rust_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$')
+    echo "$rust_files"
+# Output:
+# src/main.rs
+# src/lib.rs
+
+# Only files in src/ directory
+- shell: |
+    src_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '^src/')
+    echo "$src_files"
+
+# Multiple extensions (Rust or TOML)
+- shell: |
+    filtered=$(echo "${step.files_modified}" | tr ' ' '\n' | grep -E '\.(rs|toml)$')
+    echo "$filtered"
+
+# Pass filtered files to a command
+- shell: |
+    rust_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$' | tr '\n' ' ')
+    if [ -n "$rust_files" ]; then
+      cargo fmt $rust_files
+    fi
+</code></pre>
+<h3 id="converting-to-json-format"><a class="header" href="#converting-to-json-format">Converting to JSON Format</a></h3>
+<p>Use <code>jq</code> to convert space-separated files to JSON arrays:</p>
+<pre><code class="language-yaml"># Convert to JSON array
+- shell: "echo ${step.files_added} | tr ' ' '\n' | jq -R | jq -s"
 # Output: ["src/main.rs","src/lib.rs","tests/test.rs"]
 
-# Parse with jq
-- shell: "echo ${workflow.commits:json} | jq -r '.[]'"
+# Filter AND convert to JSON
+- shell: |
+    echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$' | jq -R | jq -s
+# Output: ["src/main.rs","src/lib.rs"]
+
+# Pretty-print JSON
+- shell: |
+    echo "${workflow.files_modified}" | tr ' ' '\n' | jq -R | jq -s '.'
 </code></pre>
-<h3 id="newline-separated-format"><a class="header" href="#newline-separated-format">Newline-Separated Format</a></h3>
-<p>Use <code>:lines</code> or <code>:newline</code> for one item per line:</p>
-<pre><code class="language-yaml">- shell: "echo ${step.files_changed:lines}"
+<h3 id="converting-to-newline-separated-format"><a class="header" href="#converting-to-newline-separated-format">Converting to Newline-Separated Format</a></h3>
+<p>Use <code>tr</code> to convert space-separated to newline-separated:</p>
+<pre><code class="language-yaml"># One file per line
+- shell: "echo ${step.files_changed} | tr ' ' '\n'"
 # Output:
 # src/main.rs
 # src/lib.rs
 # tests/test.rs
 
-# Useful with xargs
-- shell: "echo ${workflow.files_modified:lines} | xargs -I {} cp {} backup/"
+# Useful with xargs for parallel processing
+- shell: |
+    echo "${workflow.files_modified}" | tr ' ' '\n' | xargs -I {} cp {} backup/
+
+# Count files
+- shell: "echo ${step.files_added} | tr ' ' '\n' | wc -l"
 </code></pre>
-<h3 id="comma-separated-format"><a class="header" href="#comma-separated-format">Comma-Separated Format</a></h3>
-<p>Use <code>:csv</code> or <code>:comma</code> for comma-separated output:</p>
-<pre><code class="language-yaml">- shell: "echo ${step.files_added:csv}"
+<h3 id="converting-to-csv-format"><a class="header" href="#converting-to-csv-format">Converting to CSV Format</a></h3>
+<p>Use <code>tr</code> to convert to comma-separated values:</p>
+<pre><code class="language-yaml"># Comma-separated
+- shell: "echo ${step.files_added} | tr ' ' ','"
 # Output: src/main.rs,src/lib.rs,tests/test.rs
-</code></pre>
-<h3 id="combining-format-and-pattern"><a class="header" href="#combining-format-and-pattern">Combining Format and Pattern</a></h3>
-<p>Apply both pattern filtering and format modifiers using the <code>:pattern:format</code> syntax:</p>
-<pre><code class="language-yaml"># JSON array of Rust files
-- shell: "echo ${step.files_changed:*.rs:json}"
 
-# Newline-separated source files
-- shell: "echo ${workflow.files_added:src/**:lines}"
-
-# CSV of modified test files
-- shell: "echo ${step.files_modified:**/*_test.rs:csv}"
+# CSV with filtering
+- shell: |
+    echo "${step.files_changed}" | tr ' ' '\n' | grep '\.md$' | tr '\n' ',' | sed 's/,$//'
+# Output: README.md,CHANGELOG.md
 </code></pre>
-<p><strong>Note</strong>: The syntax supports exactly one pattern and one format modifier per variable reference. You cannot chain multiple patterns or formats. For more complex filtering, use shell commands to post-process the output.</p>
+<h3 id="combining-filtering-and-formatting"><a class="header" href="#combining-filtering-and-formatting">Combining Filtering and Formatting</a></h3>
+<p>Practical examples combining multiple operations:</p>
+<pre><code class="language-yaml"># Get Rust files as JSON
+- shell: |
+    echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$' | jq -R | jq -s
+
+# Get source files as comma-separated list
+- shell: |
+    echo "${workflow.files_modified}" | tr ' ' '\n' | grep '^src/' | tr '\n' ',' | sed 's/,$//'
+
+# Count files by extension
+- shell: |
+    echo "${workflow.files_changed}" | tr ' ' '\n' | sed 's/.*\.//' | sort | uniq -c
+# Output:
+#    5 md
+#    12 rs
+#    3 toml
+</code></pre>
 <h2 id="use-cases"><a class="header" href="#use-cases">Use Cases</a></h2>
 <h3 id="code-review-workflows"><a class="header" href="#code-review-workflows">Code Review Workflows</a></h3>
-<p>Review only source code changes:</p>
-<pre><code class="language-yaml">- claude: "/review-changes"
-  args:
-    files: "${step.files_changed:src/**/*.rs}"
-
+<p>Review only source code changes using shell filtering:</p>
+<pre><code class="language-yaml"># Filter to only Rust source files before review
 - shell: |
-    echo "Reviewing ${step.commit_count} commits"
-    echo "Changed files: ${step.files_changed:src/**/*.rs:lines}"
+    rust_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '^src/.*\.rs$' | tr '\n' ' ')
+    if [ -n "$rust_files" ]; then
+      echo "Rust files changed: $rust_files"
+    fi
+
+# Pass filtered files to Claude for review
+- shell: |
+    src_changes=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '^src/')
+    if [ -n "$src_changes" ]; then
+      echo "$src_changes" &gt; /tmp/review-files.txt
+      # Then use /tmp/review-files.txt in your review command
+    fi
+
+- shell: "echo Reviewing ${step.commit_count} commits"
 </code></pre>
 <h3 id="documentation-updates"><a class="header" href="#documentation-updates">Documentation Updates</a></h3>
-<p>Work with documentation changes:</p>
-<pre><code class="language-yaml">- claude: "/update-docs"
-  args:
-    docs: "${workflow.files_changed:**/*.md}"
+<p>Work with documentation changes using filtering:</p>
+<pre><code class="language-yaml"># Find markdown files that changed
+- shell: |
+    md_files=$(echo "${workflow.files_changed}" | tr ' ' '\n' | grep '\.md$' | tr '\n' ' ')
+    if [ -n "$md_files" ]; then
+      echo "Documentation files changed: $md_files"
+      markdownlint $md_files
+    fi
 
-- shell: "markdownlint ${step.files_modified:*.md}"
+# List changed docs in newline format
+- shell: |
+    echo "${workflow.files_modified}" | tr ' ' '\n' | grep '\.md$'
 
-# Check if docs were updated
-- when: "${workflow.files_changed:**/*.md}"
-  shell: "echo Documentation was updated"
+# Check if any docs were updated
+- shell: |
+    doc_count=$(echo "${workflow.files_changed}" | tr ' ' '\n' | grep '\.md$' | wc -l)
+    if [ "$doc_count" -gt 0 ]; then
+      echo "Documentation was updated ($doc_count files)"
+    fi
 </code></pre>
 <h3 id="test-verification"><a class="header" href="#test-verification">Test Verification</a></h3>
 <p>Focus on test-related changes:</p>
 <pre><code class="language-yaml"># Run tests for changed test files
-- shell: "cargo test $(echo ${step.files_changed:**/*_test.rs})"
+- shell: |
+    test_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '_test\.rs$' | tr '\n' ' ')
+    if [ -n "$test_files" ]; then
+      cargo test $test_files
+    fi
 
-# Verify test coverage
-- when: "${step.files_added:tests/**}"
-  claude: "/verify-test-coverage"
+# Verify test coverage for new files in tests/
+- shell: |
+    new_tests=$(echo "${step.files_added}" | tr ' ' '\n' | grep '^tests/')
+    if [ -n "$new_tests" ]; then
+      echo "New test files added:"
+      echo "$new_tests"
+      # Run coverage analysis
+    fi
 </code></pre>
 <h3 id="conditional-execution"><a class="header" href="#conditional-execution">Conditional Execution</a></h3>
-<p>Use git context in conditional logic:</p>
-<pre><code class="language-yaml"># Only run if Rust files changed
-- when: "${step.files_changed:*.rs}"
-  shell: "cargo clippy"
+<p>Use git context with shell conditions:</p>
+<pre><code class="language-yaml"># Only run clippy if Rust files changed
+- shell: |
+    has_rust=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$')
+    if [ -n "$has_rust" ]; then
+      cargo clippy
+    fi
 
-# Run different linters based on changes
-- when: "${workflow.files_changed:*.rs}"
-  shell: "cargo fmt --check"
+# Run different linters based on file types
+- shell: |
+    if echo "${workflow.files_changed}" | tr ' ' '\n' | grep -q '\.rs$'; then
+      cargo fmt --check
+    fi
 
-- when: "${workflow.files_changed:*.md}"
-  shell: "markdownlint **/*.md"
+    if echo "${workflow.files_changed}" | tr ' ' '\n' | grep -q '\.md$'; then
+      markdownlint **/*.md
+    fi
 
 # Check commit count
-- when: "${step.commit_count} &gt; 1"
-  shell: "echo Multiple commits detected"
+- shell: |
+    if [ "${step.commit_count}" -gt 1 ]; then
+      echo "Multiple commits detected (${step.commit_count})"
+    fi
 </code></pre>
 <h3 id="mapreduce-workflows"><a class="header" href="#mapreduce-workflows">MapReduce Workflows</a></h3>
 <p>Git context works across MapReduce phases:</p>
@@ -424,61 +494,140 @@ reduce:
 </code></pre>
 <h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
 <ul>
-<li><strong>Use Pattern Filtering</strong>: Filter variables to only relevant files using glob patterns</li>
-<li><strong>Choose Appropriate Format</strong>: Use <code>:json</code> for parsing, <code>:lines</code> for iteration, default for simple commands</li>
+<li><strong>Use Shell Filtering</strong>: Filter variables to only relevant files using <code>grep</code>, <code>tr</code>, and other shell utilities</li>
+<li><strong>Choose Appropriate Format</strong>: Convert to JSON with <code>jq</code>, newlines with <code>tr</code>, or CSV for different use cases</li>
 <li><strong>Scope Appropriately</strong>: Use <code>step.*</code> for current changes, <code>workflow.*</code> for cumulative tracking</li>
-<li><strong>Combine with Conditionals</strong>: Use <code>when:</code> to execute steps only when relevant files change</li>
-<li><strong>Test Your Patterns</strong>: Verify patterns match intended files with <code>echo ${var:pattern}</code></li>
-<li><strong>Document Intent</strong>: Add comments explaining why specific patterns are used</li>
+<li><strong>Handle Empty Results</strong>: Always check if filtered results are non-empty before using them</li>
+<li><strong>Test Your Filters</strong>: Debug with <code>echo</code> commands to verify filtering works as expected</li>
+<li><strong>Document Intent</strong>: Add comments explaining complex shell filtering pipelines</li>
+<li><strong>Combine Operations</strong>: Chain <code>tr</code>, <code>grep</code>, and <code>jq</code> for powerful filtering and formatting</li>
 </ul>
 <h2 id="performance-considerations"><a class="header" href="#performance-considerations">Performance Considerations</a></h2>
 <ul>
-<li>Git operations are performed once per step and cached</li>
-<li>Pattern filtering is efficient using compiled glob patterns</li>
-<li>Variables are computed on-demand during interpolation</li>
-<li>Workflow-level tracking maintains cumulative state without re-scanning</li>
+<li>Git operations are performed once per step and cached (src/cook/workflow/git_context.rs)</li>
+<li>Variables are pre-formatted when added to the interpolation context</li>
+<li>Shell filtering happens at runtime, so complex filters may add overhead</li>
+<li>Workflow-level tracking maintains cumulative state without re-scanning git history</li>
+<li>Variable resolution is fast since values are pre-computed strings</li>
 </ul>
 <h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
-<h3 id="pattern-not-matching-files"><a class="header" href="#pattern-not-matching-files">Pattern Not Matching Files</a></h3>
-<p><strong>Issue</strong>: Your pattern doesn’t match any files</p>
+<h3 id="filter-not-matching-any-files"><a class="header" href="#filter-not-matching-any-files">Filter Not Matching Any Files</a></h3>
+<p><strong>Issue</strong>: Your grep filter doesn’t match any files</p>
 <pre><code class="language-yaml"># Debug: Echo the unfiltered variable first
 - shell: "echo All files: ${step.files_changed}"
-- shell: "echo Filtered: ${step.files_changed:*.rs}"
+- shell: |
+    filtered=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$')
+    echo "Filtered: $filtered"
 </code></pre>
-<p><strong>What happens</strong>: When a pattern matches no files, the variable resolves to an empty string. This is not an error—it’s expected behavior when no files match the pattern.</p>
-<pre><code class="language-yaml"># Example: No Python files in a Rust project
-- shell: "echo Python files: ${step.files_changed:*.py}"
-# Output: Python files:
-# (empty - no error)
-
-# Use conditionals to handle empty results
-- when: "${step.files_changed:*.rs}"
-  shell: "cargo fmt"  # Only runs if Rust files changed
+<p><strong>What happens</strong>: When a filter matches no files, the variable is empty. This is expected behavior.</p>
+<p><strong>Solution</strong>: Always check if filtered results are non-empty:</p>
+<pre><code class="language-yaml">- shell: |
+    rust_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '\.rs$' | tr '\n' ' ')
+    if [ -n "$rust_files" ]; then
+      cargo fmt $rust_files
+    else
+      echo "No Rust files changed"
+    fi
 </code></pre>
-<p><strong>Solution</strong>: Use <code>git ls-files</code> to verify file paths match your pattern, or use conditionals to handle empty results gracefully</p>
-<h3 id="empty-variables"><a class="header" href="#empty-variables">Empty Variables</a></h3>
+<h3 id="empty-git-context-variables"><a class="header" href="#empty-git-context-variables">Empty Git Context Variables</a></h3>
 <p><strong>Issue</strong>: Git context variables are empty</p>
 <p><strong>Possible causes:</strong></p>
 <ul>
 <li>Not running in a git repository</li>
 <li>No commits have been made in the current step</li>
-<li>Pattern filter is too restrictive</li>
+<li>Git tracking not initialized</li>
 </ul>
-<p><strong>Solution</strong>: Check if git tracking is active and verify patterns</p>
-<h3 id="format-modifier-not-working"><a class="header" href="#format-modifier-not-working">Format Modifier Not Working</a></h3>
-<p><strong>Issue</strong>: Format modifier produces unexpected output</p>
-<pre><code class="language-yaml"># Verify correct syntax: variable:pattern:format
-- shell: "echo ${step.files_added:*.rs:json}"
+<p><strong>Solution</strong>: Verify git tracking is active:</p>
+<pre><code class="language-yaml"># Check if variables are populated
+- shell: |
+    echo "Step files changed: ${step.files_changed}"
+    echo "Workflow files changed: ${workflow.files_changed}"
+    echo "Commit count: ${step.commit_count}"
 </code></pre>
-<p><strong>Solution</strong>: Ensure proper syntax with colon separators and valid format name (json, lines, csv)</p>
+<p>If all are empty, check:</p>
+<ol>
+<li>Are you in a git repository? (<code>git status</code>)</li>
+<li>Has the step made any commits yet?</li>
+<li>Is git tracking active for this workflow type?</li>
+</ol>
+<h3 id="pattern-syntax-not-working"><a class="header" href="#pattern-syntax-not-working">Pattern Syntax Not Working</a></h3>
+<p><strong>Issue</strong>: Trying to use <code>:*.rs</code> or <code>:json</code> modifiers produces errors or unexpected results</p>
+<p><strong>Cause</strong>: Pattern filtering and format modifiers are <strong>not implemented</strong> in variable interpolation. Git context variables are always space-separated strings.</p>
+<p><strong>What you tried</strong> (doesn’t work):</p>
+<pre><code class="language-yaml"># These do NOT work - modifiers not implemented
+- shell: "echo ${step.files_changed:*.rs}"
+- shell: "echo ${step.files_added:json}"
+- shell: "echo ${workflow.files_modified:lines}"
+</code></pre>
+<p><strong>Solution</strong>: Use shell commands for all filtering and formatting:</p>
+<pre><code class="language-yaml"># Filter with grep
+- shell: "echo ${step.files_changed} | tr ' ' '\n' | grep '\.rs$'"
+
+# Format as JSON
+- shell: "echo ${step.files_added} | tr ' ' '\n' | jq -R | jq -s"
+
+# Format as newlines
+- shell: "echo ${workflow.files_modified} | tr ' ' '\n'"
+</code></pre>
+<p>See <a href="#shell-based-filtering-and-formatting">Shell-Based Filtering and Formatting</a> for complete examples.</p>
 <h3 id="variables-not-interpolating"><a class="header" href="#variables-not-interpolating">Variables Not Interpolating</a></h3>
 <p><strong>Issue</strong>: Variables appear as literal strings like <code>${step.files_changed}</code></p>
-<p><strong>Solution</strong>: Ensure you’re using proper YAML syntax and the command supports interpolation</p>
+<p><strong>Possible causes:</strong></p>
+<ul>
+<li>Variable name misspelled</li>
+<li>Using unsupported variable</li>
+<li>YAML quoting issues</li>
+</ul>
+<p><strong>Solution</strong>: Verify the variable name and use proper quoting:</p>
+<pre><code class="language-yaml"># Correct syntax
+- shell: "echo ${step.files_changed}"
+- shell: |
+    echo "${workflow.files_modified}"
+</code></pre>
+<h3 id="shell-filtering-complexity"><a class="header" href="#shell-filtering-complexity">Shell Filtering Complexity</a></h3>
+<p><strong>Issue</strong>: Shell filtering pipelines are getting too complex</p>
+<p><strong>Solution</strong>: Extract complex filtering to separate shell scripts:</p>
+<pre><code class="language-yaml"># Create a helper script
+- shell: |
+    cat &gt; /tmp/filter-rust.sh &lt;&lt;'EOF'
+    #!/bin/bash
+    echo "$1" | tr ' ' '\n' | grep '\.rs$' | tr '\n' ' '
+    EOF
+    chmod +x /tmp/filter-rust.sh
+
+# Use the helper
+- shell: |
+    rust_files=$(/tmp/filter-rust.sh "${step.files_changed}")
+    if [ -n "$rust_files" ]; then
+      cargo clippy $rust_files
+    fi
+</code></pre>
+<h2 id="future-features"><a class="header" href="#future-features">Future Features</a></h2>
+<p>The git context infrastructure includes methods that are not yet exposed to workflows. These are planned for future releases:</p>
+<h3 id="pattern-filtering-planned"><a class="header" href="#pattern-filtering-planned">Pattern Filtering (Planned)</a></h3>
+<p>The <code>GitChangeTracker::resolve_variable()</code> method (src/cook/workflow/git_context.rs:489-505) supports pattern filtering, but it’s not currently called during workflow execution.</p>
+<p><strong>Planned syntax</strong>:</p>
+<pre><code class="language-yaml"># Not yet implemented - planned for future release
+- shell: "echo ${step.files_changed:*.rs}"
+- shell: "echo ${workflow.files_modified:src/**/*.rs}"
+</code></pre>
+<p>Currently variables are pre-formatted as space-separated strings during interpolation context creation (src/cook/workflow/executor/context.rs:106-172).</p>
+<h3 id="format-modifiers-planned"><a class="header" href="#format-modifiers-planned">Format Modifiers (Planned)</a></h3>
+<p>The <code>GitChangeTracker::format_file_list()</code> method (src/cook/workflow/git_context.rs:477-486) supports JSON, newline, and CSV formats, but it’s not used during variable resolution.</p>
+<p><strong>Planned syntax</strong>:</p>
+<pre><code class="language-yaml"># Not yet implemented - planned for future release
+- shell: "echo ${step.files_added:json}"
+- shell: "echo ${workflow.files_changed:lines}"
+- shell: "echo ${step.files_modified:csv}"
+</code></pre>
+<h3 id="implementation-note"><a class="header" href="#implementation-note">Implementation Note</a></h3>
+<p>To enable these features, the interpolation engine would need to support custom resolvers that call <code>git_tracker.resolve_variable()</code> instead of using pre-formatted string values. This would allow runtime formatting and filtering based on variable modifier syntax.</p>
+<p><strong>Until then</strong>, use shell post-processing as documented in <a href="#shell-based-filtering-and-formatting">Shell-Based Filtering and Formatting</a>.</p>
 <h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
 <ul>
 <li><a href="variables.html">Variables and Interpolation</a> - Basic variable usage and interpolation syntax</li>
 <li><a href="workflow-basics.html">Workflow Basics</a> - Git integration fundamentals and workflow structure</li>
-<li><a href="mapreduce.html">MapReduce Workflows</a> - Using git context in parallel jobs</li>
+<li><a href="mapreduce/index.html">MapReduce Workflows</a> - Using git context in parallel jobs</li>
 <li><a href="conditionals.html">Conditional Execution</a> - Using git context with <code>when:</code> conditions</li>
 </ul>
 
@@ -486,11 +635,11 @@ reduce:
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="advanced.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="advanced/common-patterns.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="composition.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="composition/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -500,11 +649,11 @@ reduce:
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="advanced.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="advanced/common-patterns.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="composition.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="composition/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

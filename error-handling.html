@@ -270,6 +270,9 @@
 <li><code>shell</code> or <code>claude</code> - The command to execute</li>
 <li><code>continue_on_error</code> - Continue to next handler command even if this fails</li>
 </ul>
+<blockquote>
+<p><strong>Simpler Alternative:</strong> For basic cases, you can use the Advanced format shown earlier instead of the detailed handler configuration. The Advanced format allows <code>shell</code> and <code>claude</code> fields directly without wrapping in a <code>commands</code> array: <code>on_failure: { shell: "command", fail_workflow: false, max_attempts: 3 }</code>.</p>
+</blockquote>
 <h3 id="success-handling"><a class="header" href="#success-handling">Success Handling</a></h3>
 <p>Execute commands when a step succeeds. The <code>on_success</code> field accepts a full WorkflowStep configuration with all available fields.</p>
 <p><strong>Simple Form:</strong></p>
@@ -297,7 +300,7 @@
 <li><strong>Artifact Archiving:</strong> Archive build artifacts, logs, or generated files for later use</li>
 <li><strong>External System Updates:</strong> Update issue trackers, deployment records, or configuration management systems</li>
 </ul>
-<p>The handler receives access to step outputs via the <code>capture</code> field, allowing you to process results or pass data to subsequent steps.</p>
+<p>The handler receives access to step outputs via the <code>capture</code> field, allowing you to process results or pass data to subsequent steps. For example, using <code>capture: "metrics"</code> creates a <code>${metrics}</code> variable containing the handler output, which can be used in later workflow steps for processing or decision-making.</p>
 <h3 id="commit-requirements"><a class="header" href="#commit-requirements">Commit Requirements</a></h3>
 <p>Specify whether a workflow step must create a git commit:</p>
 <pre><code class="language-yaml">- claude: "/implement-feature"
@@ -339,8 +342,9 @@ error_policy:
 <ul>
 <li><code>aggregate</code> - Collect all errors and report at the end (default)</li>
 <li><code>immediate</code> - Report errors as they occur</li>
-<li><code>batched: {size: N}</code> - Report errors in batches of N items</li>
+<li><code>batched</code> - Report errors in batches of N items (e.g., <code>batched: { size: 10 }</code>)</li>
 </ul>
+<p><strong>Source</strong>: ErrorCollectionStrategy enum in src/cook/workflow/error_policy.rs:33-44</p>
 <h3 id="circuit-breaker"><a class="header" href="#circuit-breaker">Circuit Breaker</a></h3>
 <p>Prevent cascading failures by opening a circuit after consecutive failures:</p>
 <pre><code class="language-yaml">error_policy:
@@ -385,6 +389,16 @@ Open → HalfOpen (after timeout expires)
 HalfOpen → Closed (after success_threshold successes)
 HalfOpen → Open (if any half_open_request fails)
 </code></pre>
+<p><strong>Monitoring Circuit Breaker State:</strong></p>
+<p>To check the circuit breaker state during MapReduce execution, monitor the event logs:</p>
+<pre><code class="language-bash"># View circuit breaker events for a job
+prodigy events ls --job-id &lt;job_id&gt; | grep -i circuit
+
+# Follow circuit state changes in real-time
+prodigy events follow --job-id &lt;job_id&gt;
+</code></pre>
+<p>Circuit breaker state transitions are logged as <code>CircuitOpen</code> and <code>CircuitClosed</code> events, allowing you to track when the circuit opens due to failures and when it recovers.</p>
+<p><strong>Note</strong>: The <code>events</code> CLI commands are defined but currently have stub implementations. Event data is stored in <code>~/.prodigy/events/{repo_name}/{job_id}/</code> and can be inspected directly as JSONL files.</p>
 <h3 id="retry-configuration-with-backoff"><a class="header" href="#retry-configuration-with-backoff">Retry Configuration with Backoff</a></h3>
 <p>Configure automatic retry behavior for failed items:</p>
 <pre><code class="language-yaml">error_policy:
@@ -431,7 +445,7 @@ backoff:
 </code></pre>
 <p><strong>Important:</strong> All duration values use humantime format (e.g., <code>1s</code>, <code>100ms</code>, <code>2m</code>, <code>30s</code>), not milliseconds.</p>
 <blockquote>
-<p><strong>Note on Serialization:</strong> BackoffStrategy accepts Duration values in humantime format (<code>1s</code>, <code>100ms</code>, <code>2m</code>) for convenience. Only CircuitBreakerConfig’s <code>timeout</code> field explicitly requires humantime format via serde attribute - other Duration fields use standard serialization but accept humantime strings.</p>
+<p><strong>Note:</strong> All duration values use humantime format (e.g., <code>1s</code>, <code>100ms</code>, <code>2m</code>, <code>30s</code>) for consistency. This applies to both BackoffStrategy delays and CircuitBreakerConfig timeout.</p>
 </blockquote>
 <h3 id="error-metrics"><a class="header" href="#error-metrics">Error Metrics</a></h3>
 <p>Prodigy automatically tracks error metrics for MapReduce jobs using the <code>ErrorMetrics</code> structure:</p>
@@ -454,14 +468,16 @@ reduce:
 </code></pre>
 <p>You can also access metrics programmatically via the Prodigy API or through CLI commands like <code>prodigy events</code> to view detailed error statistics.</p>
 <p><strong>Pattern Detection:</strong></p>
-<p>Prodigy automatically detects recurring error patterns when an error type occurs 3 or more times. The <code>failure_patterns</code> field includes suggested remediation actions:</p>
+<p>Prodigy automatically detects recurring error patterns when an error type occurs 3 or more times. The following error types receive specific remediation suggestions in the <code>failure_patterns</code> field:</p>
 <ul>
-<li><strong>Timeout errors</strong> → “Consider increasing agent_timeout_secs”</li>
-<li><strong>Network errors</strong> → “Check network connectivity and retry configuration”</li>
+<li><strong>Timeout errors</strong> → “Consider increasing timeout_per_agent”</li>
+<li><strong>Network errors</strong> → “Check network connectivity and retry settings”</li>
 <li><strong>Permission errors</strong> → “Verify file permissions and access rights”</li>
 </ul>
-<p><strong>Note:</strong> Other error types receive a generic suggestion: “Review error logs for more details.”</p>
+<p>All other error types receive a generic suggestion: “Review error logs for more details.”</p>
 <p>These suggestions help diagnose and resolve systemic issues in MapReduce jobs.</p>
+<p><strong>Note:</strong> Only the three error types listed above receive specific remediation suggestions. All other error types (such as compilation errors, runtime panics, or custom application errors) receive the generic “Review error logs” suggestion.</p>
+<p><strong>Source</strong>: Pattern detection logic in src/cook/workflow/error_policy.rs:478-489</p>
 <hr />
 <h2 id="dead-letter-queue-dlq"><a class="header" href="#dead-letter-queue-dlq">Dead Letter Queue (DLQ)</a></h2>
 <p>The Dead Letter Queue stores failed work items from MapReduce jobs for later retry or analysis. This is only available for MapReduce workflows, not regular workflows.</p>
@@ -589,8 +605,10 @@ error_policy:
     timeout: 60s
     half_open_requests: 5
 
-  error_collection: batched
-  batch_size: 10                  # Report errors in batches
+  # Report errors in batches of 10
+  error_collection:
+    batched:
+      size: 10
 
 map:
   agent_template:
@@ -613,7 +631,7 @@ map:
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="retry-configuration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="retry-configuration/implementation-references.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -627,7 +645,7 @@ map:
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="retry-configuration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="retry-configuration/implementation-references.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 

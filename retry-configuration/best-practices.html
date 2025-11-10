@@ -1,0 +1,577 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Best Practices - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/retry-configuration/best-practices.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<p>This guide covers best practices for configuring retry behavior in Prodigy workflows, based on the implementation patterns in <code>retry_v2</code>.</p>
+<p><strong>Source</strong>: Best practices derived from retry_v2.rs implementation and test patterns (src/cook/retry_v2.rs:463-748)</p>
+<h3 id="choosing-the-right-backoff-strategy"><a class="header" href="#choosing-the-right-backoff-strategy">Choosing the Right Backoff Strategy</a></h3>
+<p>Different backoff strategies suit different failure modes:</p>
+<h4 id="exponential-backoff-default---best-for-most-cases"><a class="header" href="#exponential-backoff-default---best-for-most-cases">Exponential Backoff (Default - Best for Most Cases)</a></h4>
+<p><strong>When to use</strong>:</p>
+<ul>
+<li>Network requests to external APIs</li>
+<li>Transient failures that self-heal over time</li>
+<li>Rate-limited services</li>
+<li>Database connection retries</li>
+</ul>
+<p><strong>Configuration</strong>:</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 5
+  backoff: exponential  # or: { base: 2.0 }
+  initial_delay: "1s"
+  max_delay: "30s"
+  jitter: true
+</code></pre>
+<p><strong>Why</strong>: Exponential backoff quickly backs off from rapid retries, reducing load on failing systems and allowing recovery time.</p>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs:82-85</code> (Exponential variant), tests at lines 626-648</p>
+<h4 id="linear-backoff"><a class="header" href="#linear-backoff">Linear Backoff</a></h4>
+<p><strong>When to use</strong>:</p>
+<ul>
+<li>Predictable delays needed</li>
+<li>Testing and debugging (easier to reason about delays)</li>
+<li>Systems with known recovery time patterns</li>
+</ul>
+<p><strong>Configuration</strong>:</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 5
+  backoff:
+    linear:
+      increment: "5s"
+  initial_delay: "1s"
+</code></pre>
+<p><strong>Delays</strong>: 1s, 6s, 11s, 16s, 21s (initial + n * increment)</p>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs:77-80</code> (Linear variant), tests at lines 604-625</p>
+<h4 id="fibonacci-backoff"><a class="header" href="#fibonacci-backoff">Fibonacci Backoff</a></h4>
+<p><strong>When to use</strong>:</p>
+<ul>
+<li>Gradual backoff with slower growth than exponential</li>
+<li>Good balance between responsiveness and system protection</li>
+<li>Distributed systems needing gentler backoff</li>
+</ul>
+<p><strong>Configuration</strong>:</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 6
+  backoff: fibonacci
+  initial_delay: "1s"
+  max_delay: "60s"
+</code></pre>
+<p><strong>Delays</strong>: 1s, 2s, 3s, 5s, 8s, 13s</p>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs:87</code> (Fibonacci variant), Fibonacci calculation at lines 424-440</p>
+<h4 id="fixed-delay"><a class="header" href="#fixed-delay">Fixed Delay</a></h4>
+<p><strong>When to use</strong>:</p>
+<ul>
+<li>Polling operations</li>
+<li>Systems with consistent retry requirements</li>
+<li>Simplicity preferred over optimization</li>
+</ul>
+<p><strong>Configuration</strong>:</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 10
+  backoff: fixed
+  initial_delay: "5s"
+</code></pre>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs:75</code> (Fixed variant), tests at lines 583-603</p>
+<h3 id="setting-appropriate-max_delay"><a class="header" href="#setting-appropriate-max_delay">Setting Appropriate max_delay</a></h3>
+<p>Always set <code>max_delay</code> to prevent unbounded delays:</p>
+<p>✅ <strong>Good</strong>:</p>
+<pre><code class="language-yaml">retry_config:
+  backoff: exponential
+  max_delay: "30s"  # Caps exponential growth
+</code></pre>
+<p>❌ <strong>Bad</strong>:</p>
+<pre><code class="language-yaml">retry_config:
+  backoff: exponential
+  # No max_delay - could delay minutes or hours!
+</code></pre>
+<p><strong>Default</strong>: 30 seconds (src/cook/retry_v2.rs:64)</p>
+<p><strong>Recommendation</strong>:</p>
+<ul>
+<li>Interactive workflows: 10-30 seconds</li>
+<li>Background jobs: 60-300 seconds</li>
+<li>Critical paths: 5-15 seconds</li>
+</ul>
+<h3 id="using-jitter-in-distributed-systems"><a class="header" href="#using-jitter-in-distributed-systems">Using Jitter in Distributed Systems</a></h3>
+<p><strong>Always enable jitter for distributed systems</strong> to prevent thundering herd:</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 5
+  backoff: exponential
+  initial_delay: "1s"
+  max_delay: "30s"
+  jitter: true           # Enable jitter
+  jitter_factor: 0.3     # 30% randomization
+</code></pre>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs:308-317</code> (apply_jitter method), tests at lines 650-673</p>
+<p><strong>Why</strong>: Without jitter, multiple parallel agents/processes retry at the same time, overwhelming recovering systems.</p>
+<p><strong>Jitter Formula</strong> (src/cook/retry_v2.rs:311-315):</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let jitter_range = delay_ms as f64 * jitter_factor;
+let random_offset = thread_rng().gen_range(-jitter_range..=jitter_range);
+adjusted_delay = delay + Duration::from_millis(random_offset as u64);
+<span class="boring">}</span></code></pre></pre>
+<p><strong>When to use jitter</strong>:</p>
+<ul>
+<li>MapReduce workflows with parallel agents</li>
+<li>Multiple services hitting the same API</li>
+<li>Distributed systems with shared resources</li>
+<li>Any parallel retry scenario</li>
+</ul>
+<p><strong>When to skip jitter</strong>:</p>
+<ul>
+<li>Single-instance workflows</li>
+<li>Deterministic testing</li>
+<li>Debugging retry behavior</li>
+</ul>
+<h3 id="retry-budget-for-preventing-infinite-loops"><a class="header" href="#retry-budget-for-preventing-infinite-loops">Retry Budget for Preventing Infinite Loops</a></h3>
+<p>Use <code>retry_budget</code> to cap total retry time:</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 100          # High attempt count
+  backoff: exponential
+  retry_budget: "5m"     # But limit total time to 5 minutes
+</code></pre>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs:46-47</code> (retry_budget field)</p>
+<p><strong>Why</strong>: Prevents workflows from retrying indefinitely when <code>attempts</code> is set high.</p>
+<p><strong>Use Cases</strong>:</p>
+<ul>
+<li>Long-running operations where total time matters</li>
+<li>SLA-constrained workflows</li>
+<li>Preventing resource exhaustion</li>
+<li>Fail-fast on persistent failures</li>
+</ul>
+<p><strong>Implementation Note</strong>: Retry budget is checked before each retry attempt. If budget is exhausted, retries stop immediately (verified in test at src/cook/retry_v2.rs:675-708).</p>
+<h3 id="selective-retry-with-error-matchers"><a class="header" href="#selective-retry-with-error-matchers">Selective Retry with Error Matchers</a></h3>
+<p><strong>Don’t retry everything</strong> - use <code>retry_on</code> for transient errors only:</p>
+<p>✅ <strong>Good</strong> (selective retry):</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 5
+  retry_on:
+    - network
+    - timeout
+    - server_error  # 5xx errors
+</code></pre>
+<p>❌ <strong>Bad</strong> (retry all errors):</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 5
+  # Empty retry_on retries everything, including 404, 401, etc.
+</code></pre>
+<p><strong>Why</strong>: Some errors are <strong>permanent</strong> and retrying wastes time:</p>
+<ul>
+<li>404 Not Found - resource doesn’t exist</li>
+<li>401 Unauthorized - credentials are invalid</li>
+<li>400 Bad Request - request is malformed</li>
+</ul>
+<p><strong>Transient errors worth retrying</strong>:</p>
+<ul>
+<li>Network connectivity issues</li>
+<li>Timeouts</li>
+<li>5xx server errors</li>
+<li>Rate limits (with appropriate backoff)</li>
+<li>Database locks (temporary)</li>
+</ul>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs:100-151</code> (ErrorMatcher enum), tests at lines 463-582</p>
+<h3 id="combining-retry-with-circuit-breakers"><a class="header" href="#combining-retry-with-circuit-breakers">Combining Retry with Circuit Breakers</a></h3>
+<p>For high-reliability systems, combine retry with circuit breakers:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Circuit breaker configuration (applied via RetryExecutor)
+let executor = RetryExecutor::new(retry_config)
+    .with_circuit_breaker(
+        5,                          // failure_threshold
+        Duration::from_secs(30)     // recovery_timeout
+    );
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs:184-188</code> (with_circuit_breaker method), <code>src/cook/retry_v2.rs:325-397</code> (CircuitBreaker implementation)</p>
+<p><strong>Circuit Breaker States</strong>:</p>
+<ol>
+<li><strong>Closed</strong>: Normal operation, requests flow through</li>
+<li><strong>Open</strong>: Circuit tripped after threshold failures, requests fail immediately</li>
+<li><strong>HalfOpen</strong>: Testing recovery, limited requests allowed</li>
+</ol>
+<p><strong>Why</strong>: Circuit breakers prevent cascading failures by failing fast when downstream systems are down, rather than retrying indefinitely.</p>
+<p><strong>Best Practice</strong>: Use circuit breakers for:</p>
+<ul>
+<li>External API calls</li>
+<li>Database connections</li>
+<li>Microservice communication</li>
+<li>Any dependency that might fail completely</li>
+</ul>
+<h3 id="failure-action-strategies"><a class="header" href="#failure-action-strategies">Failure Action Strategies</a></h3>
+<p>Choose <code>on_failure</code> based on operation criticality:</p>
+<h4 id="critical-operations-use-stop"><a class="header" href="#critical-operations-use-stop">Critical Operations (Use: Stop)</a></h4>
+<pre><code class="language-yaml">retry_config:
+  attempts: 3
+  on_failure: stop
+</code></pre>
+<p><strong>Examples</strong>:</p>
+<ul>
+<li>Database migrations</li>
+<li>Deployment prerequisites</li>
+<li>Data integrity checks</li>
+<li>Security validations</li>
+</ul>
+<h4 id="optional-operations-use-continue"><a class="header" href="#optional-operations-use-continue">Optional Operations (Use: Continue)</a></h4>
+<pre><code class="language-yaml">retry_config:
+  attempts: 2
+  on_failure: continue
+</code></pre>
+<p><strong>Examples</strong>:</p>
+<ul>
+<li>Cache warmup</li>
+<li>Metrics collection</li>
+<li>Notifications</li>
+<li>Non-critical cleanup</li>
+</ul>
+<h4 id="fallback-operations-use-fallback"><a class="header" href="#fallback-operations-use-fallback">Fallback Operations (Use: Fallback)</a></h4>
+<pre><code class="language-yaml">retry_config:
+  attempts: 3
+  on_failure:
+    fallback:
+      command: "cat cached-data.json"
+</code></pre>
+<p><strong>Examples</strong>:</p>
+<ul>
+<li>API with cache fallback</li>
+<li>Primary/secondary data sources</li>
+<li>Graceful degradation scenarios</li>
+</ul>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs:153-165</code> (FailureAction enum)</p>
+<h3 id="retry-configuration-anti-patterns"><a class="header" href="#retry-configuration-anti-patterns">Retry Configuration Anti-Patterns</a></h3>
+<p>❌ <strong>Don’t</strong>: Set very high attempts without retry_budget</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 1000  # Could retry for hours!
+</code></pre>
+<p>✅ <strong>Do</strong>: Combine high attempts with retry_budget</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 100
+  retry_budget: "5m"  # Caps total time
+</code></pre>
+<hr />
+<p>❌ <strong>Don’t</strong>: Use exponential backoff without max_delay</p>
+<pre><code class="language-yaml">retry_config:
+  backoff: exponential
+  # Delay could grow to minutes!
+</code></pre>
+<p>✅ <strong>Do</strong>: Always set max_delay</p>
+<pre><code class="language-yaml">retry_config:
+  backoff: exponential
+  max_delay: "30s"
+</code></pre>
+<hr />
+<p>❌ <strong>Don’t</strong>: Retry non-idempotent operations</p>
+<pre><code class="language-yaml">retry_config:
+  attempts: 5
+  # If command creates resources, retries might duplicate!
+</code></pre>
+<p>✅ <strong>Do</strong>: Make operations idempotent or skip retry</p>
+<pre><code class="language-yaml"># Use idempotency tokens, check-before-create, etc.
+</code></pre>
+<hr />
+<p>❌ <strong>Don’t</strong>: Skip jitter in parallel workflows</p>
+<pre><code class="language-yaml"># MapReduce with 10 parallel agents
+retry_config:
+  jitter: false  # All agents retry simultaneously!
+</code></pre>
+<p>✅ <strong>Do</strong>: Enable jitter for parallel execution</p>
+<pre><code class="language-yaml">retry_config:
+  jitter: true
+  jitter_factor: 0.3
+</code></pre>
+<h3 id="testing-retry-configuration"><a class="header" href="#testing-retry-configuration">Testing Retry Configuration</a></h3>
+<p>Use tests to validate retry behavior (patterns from src/cook/retry_v2.rs:463-748):</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[tokio::test]
+async fn test_retry_with_exponential_backoff() {
+    let config = RetryConfig {
+        attempts: 3,
+        backoff: BackoffStrategy::Exponential { base: 2.0 },
+        initial_delay: Duration::from_millis(100),
+        ..Default::default()
+    };
+
+    let executor = RetryExecutor::new(config);
+
+    // Test that retries happen with correct delays
+    // Verify exponential growth: 100ms, 200ms, 400ms
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Test Coverage</strong>:</p>
+<ul>
+<li>Verify retry attempts match configuration</li>
+<li>Check backoff delays are correct</li>
+<li>Ensure error matchers work as expected</li>
+<li>Validate circuit breaker state transitions</li>
+<li>Test retry budget enforcement</li>
+</ul>
+<h3 id="production-monitoring"><a class="header" href="#production-monitoring">Production Monitoring</a></h3>
+<p>Monitor retry metrics for operational insight:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Access retry metrics
+let metrics = executor.metrics();
+println!("Total attempts: {}", metrics.total_attempts);
+println!("Successful: {}", metrics.successful_attempts);
+println!("Failed: {}", metrics.failed_attempts);
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs:320-322</code> (metrics() method), <code>src/cook/retry_v2.rs:399-422</code> (RetryMetrics struct)</p>
+<p><strong>Key Metrics</strong>:</p>
+<ul>
+<li>Total attempts vs successful attempts (success rate)</li>
+<li>Retry counts per operation (identify problematic operations)</li>
+<li>Delay distributions (verify backoff is working)</li>
+<li>Circuit breaker state changes (detect system issues)</li>
+</ul>
+<h3 id="summary"><a class="header" href="#summary">Summary</a></h3>
+<ol>
+<li><strong>Use exponential backoff</strong> for most retry scenarios (default)</li>
+<li><strong>Always set max_delay</strong> to prevent unbounded delays</li>
+<li><strong>Enable jitter</strong> for distributed/parallel systems</li>
+<li><strong>Use retry_budget</strong> to cap total retry time</li>
+<li><strong>Be selective</strong> with <code>retry_on</code> - don’t retry permanent errors</li>
+<li><strong>Combine with circuit breakers</strong> for high-reliability systems</li>
+<li><strong>Choose appropriate failure actions</strong> based on operation criticality</li>
+<li><strong>Test retry behavior</strong> to ensure it works as expected</li>
+<li><strong>Monitor retry metrics</strong> in production</li>
+</ol>
+<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
+<ul>
+<li><a href="./backoff-strategies.html">Backoff Strategies</a> - Detailed backoff documentation</li>
+<li><a href="./jitter-for-distributed-systems.html">Jitter for Distributed Systems</a> - Preventing thundering herd</li>
+<li><a href="./retry-budget.html">Retry Budget</a> - Time-based retry limits</li>
+<li><a href="./conditional-retry-with-error-matchers.html">Conditional Retry with Error Matchers</a> - Selective retry</li>
+<li><a href="./failure-actions.html">Failure Actions</a> - Handling final failures</li>
+<li><a href="./complete-examples.html">Complete Examples</a> - Real-world retry configurations</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../retry-configuration/retry-metrics-and-observability.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../retry-configuration/troubleshooting.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../retry-configuration/retry-metrics-and-observability.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../retry-configuration/troubleshooting.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

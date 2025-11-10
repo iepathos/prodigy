@@ -1,0 +1,652 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Troubleshooting - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/automated-documentation/troubleshooting.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<p>This guide helps you diagnose and fix issues when running automated documentation workflows. The workflow executes in three phases (setup, map, reduce), and each phase has specific failure modes and debugging techniques.</p>
+<p><strong>Source</strong>: Based on <code>workflows/book-docs-drift.yml</code> MapReduce workflow implementation and command definitions in <code>.claude/commands/prodigy-*-book*.md</code></p>
+<h2 id="common-issues-by-phase"><a class="header" href="#common-issues-by-phase">Common Issues by Phase</a></h2>
+<h3 id="setup-phase-issues"><a class="header" href="#setup-phase-issues">Setup Phase Issues</a></h3>
+<p>The setup phase analyzes your codebase and detects documentation gaps. Common failures:</p>
+<h4 id="issue-featuresjson-not-generated"><a class="header" href="#issue-featuresjson-not-generated">Issue: “features.json not generated”</a></h4>
+<p><strong>Symptoms</strong>: Setup completes but <code>.prodigy/book-analysis/features.json</code> doesn’t exist</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Invalid <code>book-config.json</code> configuration</li>
+<li>Missing or incorrect <code>analysis_targets</code> paths</li>
+<li>Source files specified in config don’t exist</li>
+</ul>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash"># 1. Verify book-config.json is valid JSON
+cat .prodigy/book-config.json | jq .
+
+# 2. Check that source files exist
+cat .prodigy/book-config.json | jq -r '.analysis_targets[].source_files[]' | while read f; do
+  [ -f "$f" ] || echo "Missing: $f"
+done
+
+# 3. Re-run feature analysis manually
+prodigy run workflows/book-docs-drift.yml --stop-after setup
+</code></pre>
+<p><strong>Source</strong>: Configuration structure from <code>.prodigy/book-config.json:7-213</code></p>
+<h4 id="issue-no-gaps-detected-when-gaps-should-exist"><a class="header" href="#issue-no-gaps-detected-when-gaps-should-exist">Issue: “No gaps detected when gaps should exist”</a></h4>
+<p><strong>Symptoms</strong>: <code>/prodigy-detect-documentation-gaps</code> reports no gaps but documentation is clearly incomplete</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li><code>chapters_file</code> path is incorrect in workflow</li>
+<li>Chapter definitions JSON is malformed</li>
+<li>Features not properly mapped to chapters</li>
+</ul>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash"># 1. Verify chapters file exists and is valid
+cat workflows/data/prodigy-chapters.json | jq .
+
+# 2. Check gap detection output
+cat .prodigy/book-analysis/gaps.json | jq .
+
+# 3. Validate flattened items were generated
+cat .prodigy/book-analysis/flattened-items.json | jq 'length'
+</code></pre>
+<p><strong>Source</strong>: Gap detection logic from <code>.claude/commands/prodigy-detect-documentation-gaps.md</code></p>
+<h4 id="issue-setup-phase-commits-nothing"><a class="header" href="#issue-setup-phase-commits-nothing">Issue: “Setup phase commits nothing”</a></h4>
+<p><strong>Symptoms</strong>: Setup completes successfully but no commit is created</p>
+<p><strong>Causes</strong>: This is often <strong>not an error</strong> - setup commands use <code>commit_required: false</code> by default and only commit when:</p>
+<ul>
+<li>Features have changed since last analysis</li>
+<li>New documentation gaps are detected</li>
+<li>New stub files are created</li>
+</ul>
+<p><strong>No action needed</strong> if this occurs - the workflow will continue to map phase with existing analysis files.</p>
+<p><strong>Source</strong>: Setup phase design from <code>workflows/book-docs-drift.yml:24-34</code></p>
+<h3 id="map-phase-issues"><a class="header" href="#map-phase-issues">Map Phase Issues</a></h3>
+<p>The map phase processes each chapter/subsection in parallel. Each runs in its own agent worktree.</p>
+<h4 id="issue-agent-failed-with-validation-error"><a class="header" href="#issue-agent-failed-with-validation-error">Issue: “Agent failed with validation error”</a></h4>
+<p><strong>Symptoms</strong>: Agent completes but fails validation threshold (100% required)</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Documentation fix was incomplete</li>
+<li>Examples don’t match codebase implementation</li>
+<li>Required sections are missing</li>
+</ul>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash"># 1. Check which agent failed
+prodigy dlq show &lt;job_id&gt;
+
+# 2. Find the drift report for the failed item
+ls -la .prodigy/book-analysis/drift-*.json
+
+# 3. Review what issues were identified
+cat .prodigy/book-analysis/drift-&lt;chapter-id&gt;-&lt;subsection-id&gt;.json | jq '.issues'
+
+# 4. Retry with DLQ
+prodigy dlq retry &lt;job_id&gt;
+</code></pre>
+<p><strong>Source</strong>: Validation configuration from <code>workflows/book-docs-drift.yml:49-57</code></p>
+<h4 id="issue-drift-analysis-creates-empty-report"><a class="header" href="#issue-drift-analysis-creates-empty-report">Issue: “Drift analysis creates empty report”</a></h4>
+<p><strong>Symptoms</strong>: <code>/prodigy-analyze-subsection-drift</code> commits but drift report shows no issues when drift clearly exists</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Feature mappings are incorrect for the subsection</li>
+<li>Source files referenced in feature analysis are empty</li>
+<li>Chapter metadata doesn’t match actual file</li>
+</ul>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash"># 1. Inspect the drift report
+cat .prodigy/book-analysis/drift-&lt;chapter-id&gt;-&lt;subsection-id&gt;.json | jq .
+
+# 2. Verify feature mappings for this item
+cat .prodigy/book-analysis/flattened-items.json | jq '.[] | select(.id=="&lt;subsection-id&gt;")'
+
+# 3. Check that features.json has content for this area
+cat .prodigy/book-analysis/features.json | jq 'keys'
+</code></pre>
+<p><strong>Source</strong>: Drift analysis command from <code>.claude/commands/prodigy-analyze-subsection-drift.md</code></p>
+<h4 id="issue-multiple-agents-fail-with-same-error"><a class="header" href="#issue-multiple-agents-fail-with-same-error">Issue: “Multiple agents fail with same error”</a></h4>
+<p><strong>Symptoms</strong>: Several parallel agents all fail with identical error messages</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Shared resource conflict (rare with worktree isolation)</li>
+<li>Configuration error affecting all agents</li>
+<li>System resource exhaustion (disk space, memory)</li>
+</ul>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash"># 1. Check system resources
+df -h  # Disk space
+free -h  # Memory (Linux) or vm_stat (macOS)
+
+# 2. Review error collection
+prodigy events &lt;job_id&gt; | jq 'select(.event_type=="AgentFailed")'
+
+# 3. Reduce parallelism and retry
+# Edit workflow: max_parallel: 1
+prodigy run workflows/book-docs-drift.yml
+</code></pre>
+<p><strong>Source</strong>: Error handling policy from <code>workflows/book-docs-drift.yml:86-91</code></p>
+<h3 id="reduce-phase-issues"><a class="header" href="#reduce-phase-issues">Reduce Phase Issues</a></h3>
+<p>The reduce phase rebuilds the book and cleans up analysis files.</p>
+<h4 id="issue-mdbook-build-fails-with-broken-links"><a class="header" href="#issue-mdbook-build-fails-with-broken-links">Issue: “mdbook build fails with broken links”</a></h4>
+<p><strong>Symptoms</strong>: <code>mdbook build</code> exits with error listing broken internal links</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Cross-references to non-existent chapters</li>
+<li>Relative paths calculated incorrectly</li>
+<li>SUMMARY.md out of sync with actual files</li>
+</ul>
+<p><strong>Solution</strong>:
+The workflow automatically handles this:</p>
+<pre><code class="language-yaml">- shell: "cd book &amp;&amp; mdbook build"
+  on_failure:
+    claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
+</code></pre>
+<p>If manual fix needed:</p>
+<pre><code class="language-bash"># 1. See the exact broken links
+cd book &amp;&amp; mdbook build 2&gt;&amp;1 | grep "Broken link"
+
+# 2. Fix broken links manually
+# Edit the markdown files to use correct relative paths
+
+# 3. Verify SUMMARY.md includes all files
+cat book/src/SUMMARY.md
+</code></pre>
+<p><strong>Source</strong>: Reduce phase from <code>workflows/book-docs-drift.yml:62-68</code></p>
+<h4 id="issue-analysis-files-not-cleaned-up"><a class="header" href="#issue-analysis-files-not-cleaned-up">Issue: “Analysis files not cleaned up”</a></h4>
+<p><strong>Symptoms</strong>: <code>.prodigy/book-analysis/</code> directory still exists after workflow completion</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Reduce phase didn’t complete</li>
+<li>Cleanup command failed silently (uses <code>|| true</code>)</li>
+</ul>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash"># Manual cleanup is safe
+rm -rf .prodigy/book-analysis
+
+# Check if this was part of incomplete workflow
+prodigy sessions list
+</code></pre>
+<p>This is cosmetic - analysis files are regenerated on each run.</p>
+<p><strong>Source</strong>: Cleanup step from <code>workflows/book-docs-drift.yml:81-82</code></p>
+<h2 id="debugging-techniques"><a class="header" href="#debugging-techniques">Debugging Techniques</a></h2>
+<h3 id="inspecting-analysis-artifacts"><a class="header" href="#inspecting-analysis-artifacts">Inspecting Analysis Artifacts</a></h3>
+<p>All intermediate analysis files are stored in <code>.prodigy/book-analysis/</code>:</p>
+<pre><code class="language-bash"># Feature inventory from codebase analysis
+cat .prodigy/book-analysis/features.json | jq .
+
+# Documentation gaps detected
+cat .prodigy/book-analysis/gaps.json | jq .
+
+# Flattened items for map phase (chapters + subsections)
+cat .prodigy/book-analysis/flattened-items.json | jq .
+
+# Drift reports (one per chapter/subsection)
+ls -la .prodigy/book-analysis/drift-*.json
+cat .prodigy/book-analysis/drift-&lt;chapter-id&gt;-&lt;subsection-id&gt;.json | jq .
+</code></pre>
+<p><strong>Source</strong>: File locations from <code>workflows/book-docs-drift.yml:9-18</code> and setup phase commands</p>
+<h3 id="reviewing-event-logs"><a class="header" href="#reviewing-event-logs">Reviewing Event Logs</a></h3>
+<p>MapReduce workflows generate detailed event logs:</p>
+<pre><code class="language-bash"># List all events for a job
+prodigy events &lt;job_id&gt;
+
+# Filter to agent failures
+prodigy events &lt;job_id&gt; | jq 'select(.event_type=="AgentFailed")'
+
+# See what items completed successfully
+prodigy events &lt;job_id&gt; | jq 'select(.event_type=="AgentCompleted") | .agent_id'
+
+# Find Claude JSON log locations for failed agents
+prodigy events &lt;job_id&gt; | jq 'select(.event_type=="AgentCompleted") | .json_log_location'
+</code></pre>
+<p><strong>Source</strong>: Event tracking implementation from <code>src/cook/execution/events/event_types.rs</code> and CLI handler <code>src/cli/commands/events.rs</code></p>
+<h3 id="checking-dead-letter-queue-dlq"><a class="header" href="#checking-dead-letter-queue-dlq">Checking Dead Letter Queue (DLQ)</a></h3>
+<p>Failed work items are sent to the DLQ for review and retry:</p>
+<pre><code class="language-bash"># Show all failed items for a job
+prodigy dlq show &lt;job_id&gt;
+
+# See failure details with JSON log locations
+prodigy dlq show &lt;job_id&gt; | jq '.items[].failure_history'
+
+# Get Claude log path for debugging
+prodigy dlq show &lt;job_id&gt; | jq '.items[].failure_history[].json_log_location'
+
+# Retry all failed items
+prodigy dlq retry &lt;job_id&gt;
+
+# Retry with custom parallelism
+prodigy dlq retry &lt;job_id&gt; --max-parallel 10
+
+# See DLQ statistics
+prodigy dlq stats &lt;job_id&gt;
+</code></pre>
+<p><strong>Source</strong>: DLQ implementation from <code>src/cook/execution/dlq.rs</code> and CLI handler <code>src/cli/commands/dlq.rs</code></p>
+<h3 id="examining-claude-command-logs"><a class="header" href="#examining-claude-command-logs">Examining Claude Command Logs</a></h3>
+<p>Each Claude command execution creates a JSON log file with complete conversation history:</p>
+<pre><code class="language-bash"># Find the log location from workflow output (with -v flag)
+prodigy run workflows/book-docs-drift.yml -v
+
+# Or from DLQ item failure details
+LOG_PATH=$(prodigy dlq show &lt;job_id&gt; | jq -r '.items[0].failure_history[0].json_log_location')
+
+# View the full conversation
+cat "$LOG_PATH" | jq .
+
+# Extract tool invocations
+cat "$LOG_PATH" | jq '.messages[] | select(.role=="assistant") | .content[] | select(.type=="tool_use")'
+
+# Check for errors
+cat "$LOG_PATH" | jq '.messages[] | select(.type=="error")'
+</code></pre>
+<p><strong>Source</strong>: Claude log tracking from Spec 121 (JSON Log Location Tracking) and <code>src/cook/execution/mapreduce/agent_result.rs</code></p>
+<h3 id="testing-individual-commands"><a class="header" href="#testing-individual-commands">Testing Individual Commands</a></h3>
+<p>You can run workflow commands individually for debugging:</p>
+<pre><code class="language-bash"># Run feature analysis only
+claude /prodigy-analyze-features-for-book --project Prodigy --config .prodigy/book-config.json
+
+# Run gap detection only (requires features.json first)
+claude /prodigy-detect-documentation-gaps --project Prodigy --config .prodigy/book-config.json --features .prodigy/book-analysis/features.json --chapters workflows/data/prodigy-chapters.json --book-dir book
+
+# Analyze specific chapter for drift (requires features.json)
+claude /prodigy-analyze-subsection-drift --project Prodigy --json '{"type":"subsection","id":"troubleshooting","parent_chapter_id":"automated-documentation","file":"book/src/automated-documentation/troubleshooting.md"}' --features .prodigy/book-analysis/features.json
+
+# Fix specific chapter drift (requires drift report)
+claude /prodigy-fix-subsection-drift --project Prodigy --json '{"type":"subsection","id":"troubleshooting","parent_chapter_id":"automated-documentation","file":"book/src/automated-documentation/troubleshooting.md"}'
+</code></pre>
+<p><strong>Source</strong>: Command definitions from <code>.claude/commands/prodigy-*-book*.md</code></p>
+<h2 id="resume-and-recovery"><a class="header" href="#resume-and-recovery">Resume and Recovery</a></h2>
+<h3 id="resuming-interrupted-workflows"><a class="header" href="#resuming-interrupted-workflows">Resuming Interrupted Workflows</a></h3>
+<p>MapReduce workflows support checkpoint-based resume. See the <a href="../mapreduce/checkpoint-and-resume.html">Checkpoint and Resume</a> documentation for details.</p>
+<pre><code class="language-bash"># Resume using session ID
+prodigy resume session-mapreduce-1234567890
+
+# Resume using job ID
+prodigy resume-job mapreduce-1234567890
+
+# Unified resume (auto-detects ID type)
+prodigy resume mapreduce-1234567890
+</code></pre>
+<p><strong>Source</strong>: Resume functionality from Spec 134 (MapReduce Checkpoint and Resume)</p>
+<h3 id="retrying-failed-items-from-dlq"><a class="header" href="#retrying-failed-items-from-dlq">Retrying Failed Items from DLQ</a></h3>
+<p>After a workflow completes with failures:</p>
+<pre><code class="language-bash"># 1. Review what failed
+prodigy dlq show &lt;job_id&gt;
+
+# 2. Retry all failed items
+prodigy dlq retry &lt;job_id&gt;
+
+# 3. Monitor progress
+prodigy events &lt;job_id&gt;
+</code></pre>
+<p>The DLQ retry creates a new execution context but preserves correlation IDs for tracking.</p>
+<p><strong>Source</strong>: DLQ retry implementation from <code>src/cook/execution/dlq_reprocessor.rs</code></p>
+<h2 id="file-locations-reference"><a class="header" href="#file-locations-reference">File Locations Reference</a></h2>
+<p>Key files and directories for troubleshooting:</p>
+<div class="table-wrapper"><table><thead><tr><th>Location</th><th>Description</th><th>Phase</th></tr></thead><tbody>
+<tr><td><code>.prodigy/book-config.json</code></td><td>Project configuration for documentation</td><td>Setup input</td></tr>
+<tr><td><code>workflows/data/prodigy-chapters.json</code></td><td>Chapter structure definitions</td><td>Setup input</td></tr>
+<tr><td><code>.prodigy/book-analysis/features.json</code></td><td>Extracted codebase features</td><td>Setup output</td></tr>
+<tr><td><code>.prodigy/book-analysis/gaps.json</code></td><td>Detected documentation gaps</td><td>Setup output</td></tr>
+<tr><td><code>.prodigy/book-analysis/flattened-items.json</code></td><td>Work items for map phase</td><td>Setup output</td></tr>
+<tr><td><code>.prodigy/book-analysis/drift-*.json</code></td><td>Per-chapter drift reports</td><td>Map output</td></tr>
+<tr><td><code>~/.prodigy/events/&lt;repo&gt;/&lt;job_id&gt;/</code></td><td>Event logs (global storage)</td><td>All phases</td></tr>
+<tr><td><code>~/.prodigy/dlq/&lt;repo&gt;/&lt;job_id&gt;/</code></td><td>Dead letter queue items</td><td>Map phase</td></tr>
+<tr><td><code>~/.prodigy/state/&lt;repo&gt;/mapreduce/jobs/&lt;job_id&gt;/</code></td><td>Checkpoint files</td><td>All phases</td></tr>
+<tr><td><code>~/.local/state/claude/logs/session-*.json</code></td><td>Claude command logs</td><td>All phases</td></tr>
+</tbody></table>
+</div>
+<p><strong>Source</strong>: Storage locations from global storage architecture (Spec 127) and workflow environment variables in <code>workflows/book-docs-drift.yml:9-18</code></p>
+<h2 id="performance-tips"><a class="header" href="#performance-tips">Performance Tips</a></h2>
+<h3 id="adjusting-parallelism"><a class="header" href="#adjusting-parallelism">Adjusting Parallelism</a></h3>
+<p>The workflow uses <code>max_parallel: 3</code> by default. Adjust based on your system:</p>
+<pre><code class="language-yaml">env:
+  MAX_PARALLEL: "5"  # Process 5 chapters concurrently
+
+map:
+  max_parallel: ${MAX_PARALLEL}
+</code></pre>
+<p><strong>Trade-offs</strong>:</p>
+<ul>
+<li>Higher parallelism = faster completion, more system resources</li>
+<li>Lower parallelism = slower completion, fewer failures from resource contention</li>
+</ul>
+<p><strong>Source</strong>: Parallelism configuration from <code>workflows/book-docs-drift.yml:21,59</code></p>
+<h3 id="processing-subset-of-chapters"><a class="header" href="#processing-subset-of-chapters">Processing Subset of Chapters</a></h3>
+<p>Use JSONPath filters to target specific documentation:</p>
+<pre><code class="language-yaml">map:
+  input: "${ANALYSIS_DIR}/flattened-items.json"
+  json_path: "$[*]"
+  filter: "item.parent_chapter_id == 'mapreduce'"  # Only MapReduce subsections
+</code></pre>
+<p>Or manually edit <code>flattened-items.json</code> to include only desired items.</p>
+<p><strong>Source</strong>: Filter syntax from MapReduce workflow specification</p>
+<h3 id="skipping-validation-for-drafts"><a class="header" href="#skipping-validation-for-drafts">Skipping Validation for Drafts</a></h3>
+<p>For faster iteration during development, reduce validation threshold:</p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - claude: "/prodigy-fix-subsection-drift --project $PROJECT_NAME --json '${item}'"
+      commit_required: true
+      validate:
+        threshold: 70  # Accept 70% quality instead of 100%
+</code></pre>
+<p><strong>Warning</strong>: This may result in lower quality documentation.</p>
+<p><strong>Source</strong>: Validation configuration from <code>workflows/book-docs-drift.yml:49-57</code></p>
+<h2 id="configuration-issues"><a class="header" href="#configuration-issues">Configuration Issues</a></h2>
+<h3 id="invalid-book-configjson"><a class="header" href="#invalid-book-configjson">Invalid book-config.json</a></h3>
+<p><strong>Symptoms</strong>: Setup phase fails immediately or generates no features</p>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash"># Validate JSON syntax
+cat .prodigy/book-config.json | jq empty
+
+# Check required fields exist
+cat .prodigy/book-config.json | jq '{project_name, analysis_targets, chapter_file}'
+</code></pre>
+<p><strong>Required fields</strong>:</p>
+<ul>
+<li><code>project_name</code> - Project display name</li>
+<li><code>analysis_targets</code> - Array of areas with source files</li>
+<li><code>chapter_file</code> - Path to chapter definitions</li>
+</ul>
+<p><strong>Source</strong>: Configuration structure from <code>.prodigy/book-config.json:1-220</code></p>
+<h3 id="missing-source-files-in-analysis_targets"><a class="header" href="#missing-source-files-in-analysis_targets">Missing Source Files in analysis_targets</a></h3>
+<p><strong>Symptoms</strong>: Features not extracted for certain areas</p>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash"># Check all referenced source files exist
+cat .prodigy/book-config.json | jq -r '.analysis_targets[].source_files[]' | while read file; do
+  if [ ! -e "$file" ]; then
+    echo "Missing: $file"
+  fi
+done
+</code></pre>
+<p>Update paths in <code>book-config.json</code> to match actual source file locations.</p>
+<p><strong>Source</strong>: Analysis targets from <code>.prodigy/book-config.json:7-213</code></p>
+<h3 id="incorrect-chapter-definitions"><a class="header" href="#incorrect-chapter-definitions">Incorrect Chapter Definitions</a></h3>
+<p><strong>Symptoms</strong>: Gaps detected for chapters that already exist, or no gaps when chapters are missing</p>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash"># Verify chapter definitions match actual book structure
+diff &lt;(cat workflows/data/prodigy-chapters.json | jq -r '.chapters[].id' | sort) \
+     &lt;(find book/src -name "index.md" -o -name "[!index]*.md" | sed 's|book/src/||; s|/index.md||; s|\.md||' | sort)
+</code></pre>
+<p>Update <code>workflows/data/prodigy-chapters.json</code> to match your book structure.</p>
+<p><strong>Source</strong>: Chapter definitions referenced in <code>workflows/book-docs-drift.yml:18</code></p>
+<h2 id="faq"><a class="header" href="#faq">FAQ</a></h2>
+<p><strong>Q: Why does setup phase show “No changes” even though I modified source code?</strong></p>
+<p>A: Feature analysis only commits when features <strong>change</strong>. Code changes don’t always mean feature changes (e.g., bug fixes, refactoring). This is expected behavior.</p>
+<hr />
+<p><strong>Q: Can I run the workflow on a subset of chapters?</strong></p>
+<p>A: Yes. Either:</p>
+<ol>
+<li>Use <code>filter</code> in map phase to select specific items</li>
+<li>Manually edit <code>.prodigy/book-analysis/flattened-items.json</code> after setup</li>
+<li>Modify chapter definitions to exclude certain chapters</li>
+</ol>
+<hr />
+<p><strong>Q: What happens if I interrupt the workflow?</strong></p>
+<p>A: Use <code>prodigy resume &lt;job_id&gt;</code> to continue from the last checkpoint. See <a href="../mapreduce/checkpoint-and-resume.html">Checkpoint and Resume</a> for details.</p>
+<hr />
+<p><strong>Q: How do I debug why a specific chapter failed validation?</strong></p>
+<p>A:</p>
+<pre><code class="language-bash"># 1. Find the validation result
+cat .prodigy/validation-result.json | jq .
+
+# 2. Check the drift report for this chapter
+cat .prodigy/book-analysis/drift-&lt;chapter-id&gt;-&lt;subsection-id&gt;.json | jq .
+
+# 3. Review Claude's attempt to fix it
+prodigy dlq show &lt;job_id&gt; | jq '.items[] | select(.id=="&lt;subsection-id&gt;")'
+</code></pre>
+<hr />
+<p><strong>Q: Can I customize what gets analyzed?</strong></p>
+<p>A: Yes. Edit <code>.prodigy/book-config.json</code> to:</p>
+<ul>
+<li>Add/remove <code>analysis_targets</code> areas</li>
+<li>Change which source files are analyzed per area</li>
+<li>Adjust <code>feature_categories</code> to extract different information</li>
+<li>Enable/disable examples, best practices, troubleshooting in <code>custom_analysis</code></li>
+</ul>
+<hr />
+<p><strong>Q: The workflow is too slow. How can I speed it up?</strong></p>
+<p>A:</p>
+<ol>
+<li>Increase <code>max_parallel</code> (default: 3)</li>
+<li>Process fewer chapters using filters</li>
+<li>Use <code>--stop-after setup</code> to only regenerate analysis files</li>
+<li>Reduce validation threshold for draft iterations</li>
+</ol>
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><a href="understanding-the-workflow.html">Understanding the Workflow</a> - Workflow phase details</li>
+<li><a href="../mapreduce/checkpoint-and-resume.html">Checkpoint and Resume</a> - Resume interrupted workflows</li>
+<li><a href="../mapreduce/dead-letter-queue-dlq.html">Dead Letter Queue</a> - Handling persistent failures</li>
+<li><a href="../mapreduce/event-tracking.html">Event Tracking</a> - Monitoring workflow execution</li>
+<li><a href="advanced-configuration.html">Advanced Configuration</a> - Customizing the workflow</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../automated-documentation/best-practices.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../automated-documentation/advanced-configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../automated-documentation/best-practices.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../automated-documentation/advanced-configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

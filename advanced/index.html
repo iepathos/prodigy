@@ -1,0 +1,473 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Advanced Features - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/advanced/index.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="advanced-features"><a class="header" href="#advanced-features">Advanced Features</a></h1>
+<p>This chapter covers advanced workflow features for building sophisticated automation pipelines. These features enable conditional execution, parallel processing, validation, and complex control flow.</p>
+<hr />
+<h2 id="conditional-execution"><a class="header" href="#conditional-execution">Conditional Execution</a></h2>
+<p>Control when commands execute based on expressions or previous command results.</p>
+<h3 id="expression-based-conditions"><a class="header" href="#expression-based-conditions">Expression-Based Conditions</a></h3>
+<p>Use the <code>when</code> field to conditionally execute commands based on variable values:</p>
+<pre><code class="language-yaml"># Execute only when variable is true
+- shell: "cargo build --release"
+  when: "${tests_passed}"
+
+# Execute based on complex expression
+- shell: "deploy.sh"
+  when: "${environment == 'production' &amp;&amp; tests_passed}"
+</code></pre>
+<h4 id="expression-syntax-for-when-clauses"><a class="header" href="#expression-syntax-for-when-clauses">Expression Syntax for When Clauses</a></h4>
+<p>The <code>when</code> clause supports a flexible expression syntax for conditional logic:</p>
+<p><strong>Variable Interpolation:</strong></p>
+<ul>
+<li>Use <code>${variable}</code> to reference captured outputs or environment variables</li>
+<li>Variables are evaluated in the context of previous command results</li>
+<li>Boolean variables are evaluated as truthy/falsy values</li>
+</ul>
+<p><strong>Comparison Operators:</strong></p>
+<ul>
+<li><code>==</code> - Equality comparison (e.g., <code>${status == 'success'}</code>)</li>
+<li><code>!=</code> - Inequality comparison (e.g., <code>${exit_code != 0}</code>)</li>
+<li><code>&gt;</code> - Greater than (e.g., <code>${score &gt; 80}</code>)</li>
+<li><code>&lt;</code> - Less than (e.g., <code>${errors &lt; 5}</code>)</li>
+<li><code>&gt;=</code> - Greater than or equal to (e.g., <code>${coverage &gt;= 90}</code>)</li>
+<li><code>&lt;=</code> - Less than or equal to (e.g., <code>${warnings &lt;= 10}</code>)</li>
+<li><code>contains</code> - String matching (e.g., <code>${output contains 'success'}</code>)</li>
+</ul>
+<p><strong>Logical Operators:</strong></p>
+<ul>
+<li><code>&amp;&amp;</code> - Logical AND (e.g., <code>${tests_passed &amp;&amp; build_succeeded}</code>)</li>
+<li><code>||</code> - Logical OR (e.g., <code>${is_dev || is_staging}</code>)</li>
+</ul>
+<p><strong>Type Coercion:</strong></p>
+<ul>
+<li>String values: Non-empty strings are truthy, empty strings are falsy</li>
+<li>Numeric values: Non-zero numbers are truthy, zero is falsy</li>
+<li>Boolean values: <code>true</code> is truthy, <code>false</code> is falsy</li>
+</ul>
+<p><strong>Complex Expressions:</strong></p>
+<pre><code class="language-yaml"># Multiple conditions with logical operators
+- shell: "deploy.sh"
+  when: "${environment == 'production' &amp;&amp; tests_passed &amp;&amp; coverage &gt;= 80}"
+
+# Nested logic with parentheses
+- shell: "run-checks.sh"
+  when: "${(is_pr || is_main) &amp;&amp; tests_passed}"
+
+# Comparing captured outputs
+- shell: "notify-team.sh"
+  when: "${test-step.exit_code == 0 &amp;&amp; build-step.success}"
+</code></pre>
+<h3 id="on-success-handlers"><a class="header" href="#on-success-handlers">On Success Handlers</a></h3>
+<p>Execute follow-up commands when a command succeeds:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  on_success:
+    shell: "cargo bench"
+</code></pre>
+<p><strong>Note</strong>: The <code>on_success</code> field supports any workflow step command with all its features, including nested conditionals, output capture, validation, and error handlers. You can create complex success workflows by combining multiple handlers or using <code>when</code> clauses for sophisticated control flow.</p>
+<p><strong>Complex On Success Example:</strong></p>
+<p>The <code>on_success</code> field accepts a complete workflow step command with all its features:</p>
+<pre><code class="language-yaml">- shell: "cargo build --release"
+  on_success:
+    shell: "check-binary-size.sh"
+    validate:
+      threshold: 100
+    on_failure:
+      claude: "/optimize-binary-size"
+      max_attempts: 2
+</code></pre>
+<p><strong>Source</strong>: Based on WorkflowStepCommand structure (src/config/command.rs:376)</p>
+<h3 id="on-failure-handlers"><a class="header" href="#on-failure-handlers">On Failure Handlers</a></h3>
+<p>Handle failures with automatic remediation:</p>
+<pre><code class="language-yaml">- shell: "cargo clippy"
+  on_failure:
+    claude: "/fix-warnings"
+    max_attempts: 3
+    fail_workflow: false
+    commit_required: true
+</code></pre>
+<p>The <code>on_failure</code> configuration supports:</p>
+<ul>
+<li><code>max_attempts</code>: Maximum retry attempts (default: 3)</li>
+<li><code>fail_workflow</code>: Whether to fail entire workflow on final failure (default: false)</li>
+<li><code>commit_required</code>: Whether the remediation command should create a git commit (default: true)</li>
+</ul>
+<p><strong>Note</strong>: These defaults come from the <code>TestDebugConfig</code> which provides sensible defaults for error recovery workflows.</p>
+<p><strong>Source</strong>: TestDebugConfig struct definition (src/config/command.rs:168-183)</p>
+<h3 id="nested-conditionals"><a class="header" href="#nested-conditionals">Nested Conditionals</a></h3>
+<p>Chain multiple levels of conditional execution:</p>
+<pre><code class="language-yaml">- shell: "cargo check"
+  on_success:
+    shell: "cargo build --release"
+    on_success:
+      shell: "cargo test --release"
+      on_failure:
+        claude: "/debug-failures '${shell.output}'"
+</code></pre>
+<p><strong>Note</strong>: For multi-step error recovery, nest individual <code>on_failure</code> handlers at each step rather than using a commands array. The <code>TestDebugConfig</code> supports only a single <code>claude</code> command per handler.</p>
+<hr />
+<h2 id="output-capture-and-variable-management"><a class="header" href="#output-capture-and-variable-management">Output Capture and Variable Management</a></h2>
+<p>Capture command output in different formats for use in subsequent steps.</p>
+<h3 id="capture-variable"><a class="header" href="#capture-variable">Capture Variable</a></h3>
+<p>Capture output to a named variable using the <code>capture_output</code> field:</p>
+<pre><code class="language-yaml"># Capture as string (backward compatible)
+- shell: "git rev-parse HEAD"
+  capture_output: "commit_hash"
+
+# Reference in later steps
+- shell: "echo 'Commit: ${commit_hash}'"
+</code></pre>
+<h3 id="command-agnostic-capture"><a class="header" href="#command-agnostic-capture">Command-Agnostic Capture</a></h3>
+<p>The <code>last.*</code> variables capture output from any command type without needing explicit <code>capture_output</code>:</p>
+<pre><code class="language-yaml"># Shell command output
+- shell: "cargo test"
+  # Output automatically available as ${last.output} and ${last.exit_code}
+
+# Use in next command (any type)
+- claude: "/analyze ${last.output}"
+
+# Or reference in conditional
+- shell: "notify-failure.sh"
+  when: "${last.exit_code != 0}"
+</code></pre>
+<p><strong>Available Variables:</strong></p>
+<ul>
+<li><code>${last.output}</code> - Output from the last command of any type (shell, claude, etc.)</li>
+<li><code>${last.exit_code}</code> - Exit code from the last command</li>
+</ul>
+<p>These variables work across all command types, making them ideal for generic workflows where you don’t want to hard-code command-specific variables like <code>${shell.output}</code> or <code>${claude.output}</code>.</p>
+<p><strong>Source</strong>: Variable constants defined in src/cook/workflow/variables.rs:35-36</p>
+<h3 id="capture-formats"><a class="header" href="#capture-formats">Capture Formats</a></h3>
+<p>Control how output is parsed with <code>capture_format</code>:</p>
+<pre><code class="language-yaml"># String (default) - trimmed output as single string
+- shell: "git rev-parse HEAD"
+  capture_output: "commit_hash"
+  capture_format: "string"
+
+# Number - parse output as number
+- shell: "wc -l &lt; file.txt"
+  capture_output: "line_count"
+  capture_format: "number"
+
+# JSON - parse output as JSON object
+- shell: "cargo metadata --format-version 1"
+  capture_output: "metadata"
+  capture_format: "json"
+
+# Lines - split output into array of lines
+- shell: "find . -name '*.rs'"
+  capture_output: "rust_files"
+  capture_format: "lines"
+
+# Boolean - parse "true"/"false" as boolean
+- shell: "test -f README.md &amp;&amp; echo true || echo false"
+  capture_output: "has_readme"
+  capture_format: "boolean"
+</code></pre>
+<blockquote>
+<p><strong>Error Handling:</strong> If parsing fails (e.g., non-numeric output with <code>capture_format: number</code>), the command will fail with a descriptive error. Use <code>capture_format: string</code> (default) when output format is unreliable.</p>
+</blockquote>
+<p><strong>Source</strong>: CaptureFormat enum (src/cook/workflow/variables.rs:260-265)</p>
+<h3 id="stream-capture-control"><a class="header" href="#stream-capture-control">Stream Capture Control</a></h3>
+<p>The <code>capture_streams</code> field supports two formats for flexible output capture.</p>
+<p><strong>Simple String Format</strong> - For basic stream selection:</p>
+<pre><code class="language-yaml"># Capture only stdout (default)
+- shell: "cargo build"
+  capture_output: "build_log"
+  capture_streams: "stdout"
+
+# Capture only stderr
+- shell: "cargo test"
+  capture_output: "error_log"
+  capture_streams: "stderr"
+
+# Capture both streams merged
+- shell: "npm install"
+  capture_output: "install_log"
+  capture_streams: "both"
+</code></pre>
+<p><strong>Structured Object Format</strong> - For advanced control with exit code, success status, and duration:</p>
+<pre><code class="language-yaml"># Structured format with all fields
+- shell: "cargo test"
+  capture_output: "test_result"
+  capture_streams:
+    stdout: true      # Capture stdout stream (default: true)
+    stderr: true      # Capture stderr stream (default: false)
+    exit_code: true   # Capture exit code (default: true)
+    success: true     # Capture success status (default: true)
+    duration: true    # Capture execution duration in seconds (default: true)
+
+# Access individual fields
+- shell: "echo 'Test exit code: ${test_result.exit_code}'"
+- shell: "echo 'Test passed: ${test_result.success}'"
+- shell: "echo 'Duration: ${test_result.duration}s'"
+</code></pre>
+<p><strong>Source</strong>: CaptureStreams struct definition (src/cook/workflow/variables.rs:268-292)</p>
+<p><strong>Format Flexibility:</strong></p>
+<p>The <code>capture_streams</code> field accepts two formats:</p>
+<ol>
+<li><strong>Simple string</strong> (<code>"stdout"</code>, <code>"stderr"</code>, <code>"both"</code>) - Stored as <code>Option&lt;String&gt;</code> in YAML config, best for basic stream selection</li>
+<li><strong>Structured object</strong> - Parsed into <code>CaptureStreams</code> struct during execution, enables fine-grained control over <code>exit_code</code>, <code>success</code>, and <code>duration</code> capture</li>
+</ol>
+<p>Use simple format for basic cases, structured format when you need detailed execution metadata.</p>
+<p><strong>Source</strong>: WorkflowStepCommand.capture_streams field (src/config/command.rs:396), CaptureStreams struct (src/cook/workflow/variables.rs:268-292)</p>
+<h3 id="output-file-redirection"><a class="header" href="#output-file-redirection">Output File Redirection</a></h3>
+<p>Write output directly to a file instead of capturing it:</p>
+<pre><code class="language-yaml"># Redirect stdout to file
+- shell: "cargo doc --no-deps"
+  output_file: "docs/build.log"
+
+# Combine with capture for dual output
+- shell: "cargo test"
+  capture_output: "test_status"
+  output_file: "test-results.log"
+</code></pre>
+<h3 id="execution-context"><a class="header" href="#execution-context">Execution Context</a></h3>
+<p>Configure where and how commands execute in your workflow.</p>
+<p><strong>Note</strong>: Step-level environment variable configuration (<code>env</code>, <code>clear_env</code>, <code>inherit</code>) and working directory (<code>working_dir</code>, <code>cwd</code>) are internal features available in the execution layer but not currently exposed in the YAML configuration layer (WorkflowStepCommand). These features exist in the runtime <code>WorkflowStep</code> type for internal use.</p>
+<p>For workflow-level environment configuration, see the <a href="../workflow-basics.html#environment-variables">Environment Variables</a> section in Workflow Basics.</p>
+<hr />
+<h2 id="additional-topics"><a class="header" href="#additional-topics">Additional Topics</a></h2>
+<p>See also:</p>
+<ul>
+<li><a href="step-identification.html">Step Identification</a></li>
+<li><a href="timeout-configuration.html">Timeout Configuration</a></li>
+<li><a href="implementation-validation.html">Implementation Validation</a></li>
+<li><a href="parallel-iteration-with-foreach.html">Parallel Iteration with Foreach</a></li>
+<li><a href="goal-seeking-operations.html">Goal-Seeking Operations</a></li>
+<li><a href="best-practices.html">Best Practices</a></li>
+<li><a href="common-patterns.html">Common Patterns</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../configuration/related-documentation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../advanced/step-identification.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../configuration/related-documentation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../advanced/step-identification.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

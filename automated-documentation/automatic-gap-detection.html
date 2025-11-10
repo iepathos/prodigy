@@ -1,0 +1,912 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Automatic Gap Detection - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/automated-documentation/automatic-gap-detection.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="automatic-gap-detection"><a class="header" href="#automatic-gap-detection">Automatic Gap Detection</a></h2>
+<p>Automatic gap detection is a critical component of Prodigy’s documentation workflow that identifies undocumented features and automatically creates chapter/subsection definitions with stub markdown files. This ensures comprehensive documentation coverage and prevents features from being implemented without corresponding user guidance.</p>
+<p><strong>Source</strong>: Implemented in <code>.claude/commands/prodigy-detect-documentation-gaps.md:1-1048</code> and tested in <code>tests/documentation_gap_detection_test.rs:1-678</code></p>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>Gap detection runs in the <strong>setup phase</strong> of the book workflow (workflows/book-docs-drift.yml:31-34) and performs several key functions:</p>
+<ol>
+<li><strong>Analyzes</strong> features.json (from feature analysis) against existing chapters/subsections</li>
+<li><strong>Classifies</strong> gaps by severity (high, medium, low)</li>
+<li><strong>Validates</strong> content sufficiency before creating subsections (Step 0)</li>
+<li><strong>Syncs</strong> chapters.json with actual file structure (Phase 7.5)</li>
+<li><strong>Creates</strong> missing chapter definitions and stub markdown files</li>
+<li><strong>Updates</strong> SUMMARY.md with proper hierarchy</li>
+<li><strong>Generates</strong> flattened-items.json for the map phase (mandatory)</li>
+</ol>
+<p>The gap detection process ensures that:</p>
+<ul>
+<li>Features aren’t documented without sufficient codebase material (prevents stub subsections)</li>
+<li>Multi-subsection chapter structures are accurately reflected in chapters.json</li>
+<li>The map phase receives a complete, flat list of all chapters and subsections to process</li>
+<li>Documentation organization matches implementation reality</li>
+</ul>
+<h2 id="command-usage"><a class="header" href="#command-usage">Command Usage</a></h2>
+<p><strong>Command</strong>: <code>/prodigy-detect-documentation-gaps</code></p>
+<p><strong>Parameters</strong> (.claude/commands/prodigy-detect-documentation-gaps.md:5-11):</p>
+<pre><code class="language-bash">/prodigy-detect-documentation-gaps \
+  --project "Prodigy" \
+  --config ".prodigy/book-config.json" \
+  --features ".prodigy/book-analysis/features.json" \
+  --chapters "workflows/data/prodigy-chapters.json" \
+  --book-dir "book"
+</code></pre>
+<p><strong>Workflow Integration</strong> (workflows/book-docs-drift.yml:31-34):</p>
+<pre><code class="language-yaml">setup:
+  # Step 1: Analyze features
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
+
+  # Step 2: Detect gaps and generate flattened-items.json
+  - claude: "/prodigy-detect-documentation-gaps \
+      --project $PROJECT_NAME \
+      --config $PROJECT_CONFIG \
+      --features $FEATURES_PATH \
+      --chapters $CHAPTERS_FILE \
+      --book-dir $BOOK_DIR"
+</code></pre>
+<h2 id="gap-severity-classification"><a class="header" href="#gap-severity-classification">Gap Severity Classification</a></h2>
+<p>Gap detection classifies documentation gaps into three severity levels based on feature importance and documentation completeness (.claude/commands/prodigy-detect-documentation-gaps.md:66-112):</p>
+<h3 id="high-severity-missing-chaptersubsection"><a class="header" href="#high-severity-missing-chaptersubsection">High Severity (Missing Chapter/Subsection)</a></h3>
+<p><strong>Criteria</strong>:</p>
+<ul>
+<li>Feature area exists in features.json</li>
+<li>NO corresponding chapter OR subsection found</li>
+<li>Major user-facing capability with no guidance</li>
+</ul>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-json">{
+  "severity": "high",
+  "type": "missing_chapter",
+  "feature_category": "agent_merge",
+  "feature_description": "Custom merge workflows for map agents",
+  "recommended_chapter_id": "agent-merge-workflows",
+  "recommended_title": "Agent Merge Workflows"
+}
+</code></pre>
+<p><strong>Action</strong>: Create new chapter definition with stub markdown file</p>
+<h3 id="medium-severity-incomplete-chaptersubsection"><a class="header" href="#medium-severity-incomplete-chaptersubsection">Medium Severity (Incomplete Chapter/Subsection)</a></h3>
+<p><strong>Criteria</strong>:</p>
+<ul>
+<li>Chapter or multi-subsection structure exists for feature area</li>
+<li>But specific sub-capabilities are missing</li>
+<li>Could be addressed by adding subsection or expanding content</li>
+</ul>
+<p><strong>Example</strong>:</p>
+<ul>
+<li>“mapreduce” chapter exists but missing “performance_tuning” subsection</li>
+</ul>
+<p><strong>Action</strong>: Create subsection definition and add to existing multi-subsection chapter</p>
+<h3 id="low-severity-minor-gap"><a class="header" href="#low-severity-minor-gap">Low Severity (Minor Gap)</a></h3>
+<p><strong>Criteria</strong>:</p>
+<ul>
+<li>Edge cases or advanced features not documented</li>
+<li>Internal APIs exposed to users</li>
+<li>Less common use cases</li>
+</ul>
+<p><strong>Action</strong>: Log as warning but may not create new content</p>
+<h2 id="content-sufficiency-validation-step-0"><a class="header" href="#content-sufficiency-validation-step-0">Content Sufficiency Validation (Step 0)</a></h2>
+<p><strong>CRITICAL SAFEGUARD</strong>: Before creating any subsection, gap detection validates that sufficient material exists in the codebase to support meaningful documentation.</p>
+<p><strong>Source</strong>: <code>.claude/commands/prodigy-detect-documentation-gaps.md:166-335</code></p>
+<h3 id="preservation-of-single-file-chapters"><a class="header" href="#preservation-of-single-file-chapters">Preservation of Single-File Chapters</a></h3>
+<p>Gap detection <strong>ALWAYS preserves well-written single-file chapters</strong> (.claude/commands/prodigy-detect-documentation-gaps.md:174-209):</p>
+<p><strong>Preservation Rules</strong>:</p>
+<ul>
+<li><strong>&lt; 1000 lines AND &lt; 10 H2 sections</strong>: PRESERVE as single-file</li>
+<li><strong>≥ 1000 lines OR ≥ 10 H2 sections</strong>: Consider subsections for readability</li>
+</ul>
+<p><strong>Why</strong>: The original flat documentation structure works well for moderate-sized chapters. Subsections should only be created when they genuinely improve navigation.</p>
+<h3 id="content-availability-validation"><a class="header" href="#content-availability-validation">Content Availability Validation</a></h3>
+<p><strong>Step 0a: Discover Codebase Structure</strong> (.claude/commands/prodigy-detect-documentation-gaps.md:211-222)</p>
+<p>Before counting content, the command discovers where code and examples are located using language-agnostic patterns:</p>
+<pre><code class="language-bash"># Discover test locations
+TEST_DIRS=$(find . -type d -name "*test*" -o -name "*spec*" | grep -v node_modules | grep -v .git | head -5)
+
+# Discover example/workflow/config locations
+EXAMPLE_DIRS=$(find . -type d -name "*example*" -o -name "*workflow*" -o -name "*sample*" -o -name "*config*" | grep -v node_modules | grep -v .git | head -5)
+
+# Discover primary source locations (works for Rust, Python, JS, TS, Go, Java)
+SOURCE_DIRS=$(find . -type f \( -name "*.rs" -o -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.go" -o -name "*.java" \) | sed 's|/[^/]*$||' | sort -u | grep -v node_modules | grep -v .git | head -10)
+</code></pre>
+<p><strong>Step 0b: Count Potential Content Sources</strong> (.claude/commands/prodigy-detect-documentation-gaps.md:224-255)</p>
+<p>For each proposed subsection, the command counts language-agnostic content sources:</p>
+<pre><code class="language-bash">FEATURE_CATEGORY="&lt;feature-category-name&gt;"
+
+# Type definitions (struct, class, interface, enum, type)
+TYPE_COUNT=$(rg "(struct|class|interface|type|enum).*${FEATURE_CATEGORY}" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
+
+# Function/method definitions
+FUNCTION_COUNT=$(rg "(fn|function|def|func|public|private).*${FEATURE_CATEGORY}" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
+
+# Test mentions in discovered test directories
+TEST_COUNT=0
+for test_dir in $TEST_DIRS; do
+  count=$(rg "${FEATURE_CATEGORY}" "$test_dir" --hidden -c 2&gt;/dev/null | awk '{s+=$1} END {print s}')
+  TEST_COUNT=$((TEST_COUNT + count))
+done
+
+# Example/config file mentions in discovered example directories
+EXAMPLE_COUNT=0
+for example_dir in $EXAMPLE_DIRS; do
+  count=$(rg "${FEATURE_CATEGORY}" "$example_dir" --hidden -c 2&gt;/dev/null | awk '{s+=$1} END {print s}')
+  EXAMPLE_COUNT=$((EXAMPLE_COUNT + count))
+done
+
+# Calculate totals
+TOTAL_MENTIONS=$((TYPE_COUNT + FUNCTION_COUNT + TEST_COUNT + EXAMPLE_COUNT))
+
+# Estimate documentation lines (rule of thumb)
+# Each type = ~30 lines docs, each function = ~10 lines, each example = ~40 lines, each test = ~15 lines
+ESTIMATED_LINES=$((TYPE_COUNT * 30 + FUNCTION_COUNT * 10 + EXAMPLE_COUNT * 40 + TEST_COUNT * 15))
+</code></pre>
+<h3 id="content-sufficiency-thresholds"><a class="header" href="#content-sufficiency-thresholds">Content Sufficiency Thresholds</a></h3>
+<p><strong>MUST HAVE</strong> (to create subsection) - (.claude/commands/prodigy-detect-documentation-gaps.md:259-265):</p>
+<ul>
+<li><code>TOTAL_MENTIONS &gt;= 5</code> - Feature mentioned in at least 5 places</li>
+<li><code>ESTIMATED_LINES &gt;= 50</code> - Can generate at least 50 lines of documentation</li>
+<li>At least ONE of:
+<ul>
+<li><code>TYPE_COUNT &gt;= 1</code> (has configuration type/struct/class)</li>
+<li><code>EXAMPLE_COUNT &gt;= 1</code> (has real example/config file)</li>
+</ul>
+</li>
+</ul>
+<p><strong>SHOULD HAVE</strong> (for quality subsection) - (.claude/commands/prodigy-detect-documentation-gaps.md:266-269):</p>
+<ul>
+<li><code>TOTAL_MENTIONS &gt;= 10</code></li>
+<li><code>ESTIMATED_LINES &gt;= 100</code></li>
+<li><code>TYPE_COUNT &gt;= 1 AND EXAMPLE_COUNT &gt;= 1</code> (both type definition and example)</li>
+</ul>
+<h3 id="decision-tree"><a class="header" href="#decision-tree">Decision Tree</a></h3>
+<p><strong>If TOTAL_MENTIONS &lt; 5 OR ESTIMATED_LINES &lt; 50</strong>:</p>
+<ul>
+<li>✗ <strong>DO NOT create subsection</strong></li>
+<li><strong>Alternative</strong>: Add as section within parent chapter’s index.md</li>
+<li><strong>Log</strong>: “⚠ Skipping subsection ‘${SUBSECTION_TITLE}’: only ${TOTAL_MENTIONS} mentions, ${ESTIMATED_LINES} estimated lines”</li>
+<li><strong>Gap Report</strong>: Record as <code>"action": "skipped_subsection_creation", "reason": "insufficient_content"</code></li>
+</ul>
+<p><strong>If TOTAL_MENTIONS &gt;= 5 AND ESTIMATED_LINES &gt;= 50 BUT &lt; 100</strong>:</p>
+<ul>
+<li>~ Create subsection with “MINIMAL” flag</li>
+<li>Add metadata: <code>{"content_warning": "minimal", "estimated_lines": ESTIMATED_LINES}</code></li>
+<li>Signals to fix phase that limited content is expected</li>
+</ul>
+<p><strong>If TOTAL_MENTIONS &gt;= 10 AND ESTIMATED_LINES &gt;= 100</strong>:</p>
+<ul>
+<li>✓ <strong>Proceed with full subsection creation</strong></li>
+</ul>
+<h3 id="special-case-meta-subsections"><a class="header" href="#special-case-meta-subsections">Special Case: Meta-Subsections</a></h3>
+<p>Meta-subsections like “Best Practices”, “Troubleshooting”, and “Examples” use different validation criteria (.claude/commands/prodigy-detect-documentation-gaps.md:306-334):</p>
+<p><strong>Best Practices Subsection</strong>:</p>
+<pre><code class="language-bash">BEST_PRACTICE_COUNT=$(rg "best.practice|pattern|guideline" --hidden --iglob '!.git' --iglob '!node_modules' -i -c | awk '{s+=$1} END {print s}')
+# Requirement: BEST_PRACTICE_COUNT &gt;= 3 OR documented patterns in code
+</code></pre>
+<p><strong>Troubleshooting Subsection</strong>:</p>
+<pre><code class="language-bash">ERROR_COUNT=$(rg "error|warn|fail" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
+ISSUE_COUNT=$(rg "TODO|FIXME|XXX" --hidden --iglob '!.git' --iglob '!node_modules' -c | awk '{s+=$1} END {print s}')
+# Requirement: ERROR_COUNT &gt;= 10 OR ISSUE_COUNT &gt;= 5
+</code></pre>
+<p><strong>Examples Subsection</strong>:</p>
+<pre><code class="language-bash">EXAMPLE_FILE_COUNT=0
+for example_dir in $EXAMPLE_DIRS; do
+  count=$(find "$example_dir" -type f \( -name "*.yml" -o -name "*.yaml" -o -name "*.json" -o -name "*.toml" \) 2&gt;/dev/null | wc -l)
+  EXAMPLE_FILE_COUNT=$((EXAMPLE_FILE_COUNT + count))
+done
+# Requirement: EXAMPLE_FILE_COUNT &gt;= 2 real config files
+</code></pre>
+<p><strong>If threshold not met</strong>: Add brief section to parent chapter’s index.md instead of creating separate subsection.</p>
+<h2 id="structure-validation-phase-75"><a class="header" href="#structure-validation-phase-75">Structure Validation (Phase 7.5)</a></h2>
+<p><strong>MANDATORY</strong>: Ensures chapters.json accurately reflects the actual file structure before generating flattened-items.json.</p>
+<p><strong>Source</strong>: <code>.claude/commands/prodigy-detect-documentation-gaps.md:678-743</code></p>
+<h3 id="validation-process"><a class="header" href="#validation-process">Validation Process</a></h3>
+<p><strong>Step 1: Scan for Multi-Subsection Directories</strong></p>
+<p>Find all directories under <code>book/src/</code> with an <code>index.md</code> file and count <code>.md</code> subsection files:</p>
+<pre><code class="language-bash">for dir in $(find "${BOOK_DIR}/src/" -maxdepth 1 -type d); do
+  if [ -f "${dir}/index.md" ]; then
+    SUBSECTION_COUNT=$(find "${dir}" -maxdepth 1 -name "*.md" ! -name "index.md" | wc -l)
+    if [ "$SUBSECTION_COUNT" -gt 0 ]; then
+      # This is a multi-subsection chapter
+      CHAPTER_ID=$(basename "$dir")
+      echo "Found multi-subsection chapter: $CHAPTER_ID"
+    fi
+  fi
+done
+</code></pre>
+<p><strong>Step 2: Compare Against chapters.json</strong></p>
+<p>For each discovered multi-subsection chapter:</p>
+<ol>
+<li>Look up definition in chapters.json</li>
+<li>Check if <code>type</code> field is “multi-subsection” or “single-file”</li>
+<li><strong>If type is “single-file” or missing</strong>: MISMATCH - add to mismatches list</li>
+<li><strong>If type is “multi-subsection”</strong>: Compare subsection counts
+<ul>
+<li>If counts don’t match: MISMATCH</li>
+</ul>
+</li>
+</ol>
+<p><strong>Step 3: Check for Orphaned Single-File Definitions</strong></p>
+<p>For each chapter with <code>type: "single-file"</code>:</p>
+<ol>
+<li>Check if expected file (<code>book/src/chapter-id.md</code>) exists</li>
+<li>Check if directory (<code>book/src/chapter-id/</code>) exists instead</li>
+<li><strong>If file missing but directory exists</strong>: MISMATCH</li>
+</ol>
+<p><strong>Step 4: Auto-Migrate Mismatched Chapters</strong></p>
+<p>For each mismatched chapter:</p>
+<ol>
+<li>Scan directory to discover all subsection files</li>
+<li>For each <code>.md</code> file (excluding <code>index.md</code>):
+<ul>
+<li>Extract subsection ID from filename (remove <code>.md</code>)</li>
+<li>Read file and extract title from first H1/H2 heading</li>
+<li>Extract topics from section headings</li>
+<li>Create subsection definition</li>
+</ul>
+</li>
+<li>Update chapter in chapters.json:
+<ul>
+<li>Change <code>type</code> to “multi-subsection”</li>
+<li>Change <code>file</code> to <code>index_file</code> (pointing to <code>index.md</code>)</li>
+<li>Add <code>subsections</code> array with all discovered subsections</li>
+<li>Preserve existing <code>topics</code> and <code>validation</code> fields</li>
+</ul>
+</li>
+<li>Write updated chapters.json to disk</li>
+<li>Record migration in gap report</li>
+</ol>
+<h3 id="example-migration"><a class="header" href="#example-migration">Example Migration</a></h3>
+<p><strong>Before</strong> (chapters.json - incorrect):</p>
+<pre><code class="language-json">{
+  "id": "mapreduce",
+  "title": "MapReduce Workflows",
+  "file": "mapreduce.md",
+  "type": "single-file",
+  "topics": ["Map phase", "Reduce phase"]
+}
+</code></pre>
+<p><strong>Actual File Structure</strong> (reality):</p>
+<pre><code>book/src/mapreduce/
+├── index.md
+├── checkpoint-and-resume.md
+├── performance-tuning.md
+└── worktree-isolation.md
+</code></pre>
+<p><strong>After Migration</strong> (chapters.json - corrected):</p>
+<pre><code class="language-json">{
+  "id": "mapreduce",
+  "title": "MapReduce Workflows",
+  "index_file": "mapreduce/index.md",
+  "type": "multi-subsection",
+  "topics": ["Map phase", "Reduce phase"],
+  "subsections": [
+    {
+      "id": "checkpoint-and-resume",
+      "title": "Checkpoint and Resume",
+      "file": "mapreduce/checkpoint-and-resume.md"
+    },
+    {
+      "id": "performance-tuning",
+      "title": "Performance Tuning",
+      "file": "mapreduce/performance-tuning.md"
+    },
+    {
+      "id": "worktree-isolation",
+      "title": "Worktree Isolation",
+      "file": "mapreduce/worktree-isolation.md"
+    }
+  ]
+}
+</code></pre>
+<p><strong>Commit</strong>: Structure fixes are committed BEFORE generating flattened-items.json with message: “docs: sync chapters.json with actual file structure”</p>
+<h2 id="flattened-items-generation-phase-8"><a class="header" href="#flattened-items-generation-phase-8">Flattened Items Generation (Phase 8)</a></h2>
+<p><strong>CRITICAL</strong>: This file MUST be generated regardless of whether gaps are found. The map phase depends on it.</p>
+<p><strong>Source</strong>: <code>.claude/commands/prodigy-detect-documentation-gaps.md:744-827</code></p>
+<h3 id="purpose"><a class="header" href="#purpose">Purpose</a></h3>
+<p>Creates a flat array of all chapters and subsections for parallel processing in the map phase. This enables each map agent to work on a single chapter or subsection independently.</p>
+<h3 id="processing-logic"><a class="header" href="#processing-logic">Processing Logic</a></h3>
+<pre><code>For each chapter in chapters.json:
+  If type == "multi-subsection":
+    For each subsection in chapter.subsections:
+      Create item with parent metadata
+      Add to flattened array
+
+  If type == "single-file":
+    Create item with type marker
+    Add to flattened array
+</code></pre>
+<h3 id="output-structure"><a class="header" href="#output-structure">Output Structure</a></h3>
+<p><strong>File</strong>: <code>.prodigy/book-analysis/flattened-items.json</code></p>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-json">[
+  {
+    "id": "workflow-basics",
+    "title": "Workflow Basics",
+    "file": "book/src/workflow-basics.md",
+    "topics": [
+      "Setup phase",
+      "Command types",
+      "Variable interpolation"
+    ],
+    "validation": "Check that workflow syntax and variable documentation are complete",
+    "type": "single-file"
+  },
+  {
+    "id": "checkpoint-and-resume",
+    "title": "Checkpoint and Resume",
+    "file": "book/src/mapreduce/checkpoint-and-resume.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "Checkpoint creation",
+      "Resume behavior",
+      "State preservation"
+    ],
+    "validation": "Check that checkpoint mechanism and resume procedures are documented",
+    "feature_mapping": [
+      "mapreduce.checkpoint",
+      "mapreduce.resume"
+    ]
+  },
+  {
+    "id": "performance-tuning",
+    "title": "Performance Tuning",
+    "file": "book/src/mapreduce/performance-tuning.md",
+    "parent_chapter_id": "mapreduce",
+    "parent_chapter_title": "MapReduce Workflows",
+    "type": "subsection",
+    "topics": [
+      "Parallel execution",
+      "Resource limits"
+    ],
+    "feature_mapping": [
+      "mapreduce.performance",
+      "mapreduce.resource_limits"
+    ]
+  }
+]
+</code></pre>
+<h3 id="map-phase-integration"><a class="header" href="#map-phase-integration">Map Phase Integration</a></h3>
+<p>The map phase consumes flattened-items.json (workflows/book-docs-drift.yml:36-48):</p>
+<pre><code class="language-yaml">map:
+  input: "${ANALYSIS_DIR}/flattened-items.json"
+  json_path: "$[*]"  # Each item is a chapter or subsection
+
+  agent_template:
+    # Analyze drift for this specific chapter/subsection
+    - claude: "/prodigy-analyze-subsection-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
+
+    # Fix drift for this specific chapter/subsection
+    - claude: "/prodigy-fix-subsection-drift --project $PROJECT_NAME --json '${item}'"
+</code></pre>
+<p><strong>Why Required</strong>: Without flattened-items.json, the map phase cannot parallelize drift analysis and fixing across chapters/subsections.</p>
+<h2 id="topic-normalization"><a class="header" href="#topic-normalization">Topic Normalization</a></h2>
+<p>Gap detection uses normalization logic to accurately match feature categories against documented topics (.claude/commands/prodigy-detect-documentation-gaps.md:42-50):</p>
+<h3 id="normalization-steps"><a class="header" href="#normalization-steps">Normalization Steps</a></h3>
+<ol>
+<li>Convert to lowercase</li>
+<li>Remove punctuation and special characters</li>
+<li>Trim whitespace</li>
+<li>Extract key terms from compound names</li>
+</ol>
+<h3 id="examples"><a class="header" href="#examples">Examples</a></h3>
+<pre><code>"MapReduce Workflows"     → ["mapreduce", "workflows"]
+"agent_merge"             → "agent-merge"
+"command-types"           → "command-types"
+"Goal Seeking Operations" → ["goal", "seeking", "operations"]
+</code></pre>
+<h3 id="matching-logic"><a class="header" href="#matching-logic">Matching Logic</a></h3>
+<p>For each feature area in features.json, the command checks if any of these match:</p>
+<ol>
+<li>Chapter ID contains normalized_category</li>
+<li>normalized_category contains Chapter ID</li>
+<li>Chapter title contains normalized_category</li>
+<li>Chapter topics contain normalized_category</li>
+<li>Section headings in markdown match normalized_category</li>
+<li>Subsection feature_mapping arrays match</li>
+</ol>
+<p><strong>Test Case</strong> (tests/documentation_gap_detection_test.rs:236-274):</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[test]
+fn test_gap_detection_normalizes_topic_names() -&gt; Result&lt;()&gt; {
+    // Features with underscores
+    let features = vec![
+        MockFeature {
+            category: "command_types".to_string(),
+            // ...
+        },
+    ];
+
+    // Chapters with normalized names (hyphens)
+    let chapters = vec![
+        MockChapter {
+            id: "command-types".to_string(),  // Hyphen vs underscore
+            // ...
+        },
+    ];
+
+    let gaps = detect_gaps(&amp;features, &amp;chapters);
+
+    // Result: No gaps because normalization matches them
+    assert_eq!(gaps.len(), 0, "Normalization should match underscore and hyphen variations");
+
+    Ok(())
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="idempotence"><a class="header" href="#idempotence">Idempotence</a></h2>
+<p>Gap detection can be run multiple times safely without creating duplicate chapters or subsections (.claude/commands/prodigy-detect-documentation-gaps.md:867-887).</p>
+<h3 id="idempotence-guarantees"><a class="header" href="#idempotence-guarantees">Idempotence Guarantees</a></h3>
+<ol>
+<li><strong>Checks for existing chapters</strong> before creating</li>
+<li><strong>Uses normalized comparison</strong> for matching</li>
+<li><strong>Skips already-created chapters</strong></li>
+<li><strong>Can run repeatedly</strong> without side effects</li>
+</ol>
+<h3 id="test-case"><a class="header" href="#test-case">Test Case</a></h3>
+<p><strong>Source</strong>: tests/documentation_gap_detection_test.rs:236-274</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[test]
+fn test_gap_detection_idempotence() -&gt; Result&lt;()&gt; {
+    let features = vec![MockFeature {
+        category: "new_feature".to_string(),
+        description: "A new feature".to_string(),
+        capabilities: vec!["capability1".to_string()],
+    }];
+
+    // First run with no chapters
+    let gaps_first = detect_gaps(&amp;features, &amp;vec![]);
+    assert_eq!(gaps_first.len(), 1, "First run detects 1 gap");
+
+    // Simulate creating the chapter
+    let updated_chapters = vec![MockChapter {
+        id: "new-feature".to_string(),
+        title: "New Feature".to_string(),
+        file: "new-feature.md".to_string(),
+        topics: vec!["New feature overview".to_string()],
+    }];
+
+    // Second run with the new chapter
+    let gaps_second = detect_gaps(&amp;features, &amp;updated_chapters);
+    assert_eq!(gaps_second.len(), 0, "Second run detects no gaps");
+
+    Ok(())
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="gap-report-structure"><a class="header" href="#gap-report-structure">Gap Report Structure</a></h2>
+<p><strong>Output</strong>: <code>.prodigy/book-analysis/gap-report.json</code></p>
+<h3 id="example-report"><a class="header" href="#example-report">Example Report</a></h3>
+<pre><code class="language-json">{
+  "analysis_date": "2025-11-09T12:34:56Z",
+  "features_analyzed": 12,
+  "documented_topics": 10,
+  "gaps_found": 2,
+  "gaps": [
+    {
+      "severity": "high",
+      "type": "missing_chapter",
+      "feature_category": "agent_merge",
+      "feature_description": "Custom merge workflows for map agents",
+      "recommended_chapter_id": "agent-merge-workflows",
+      "recommended_title": "Agent Merge Workflows",
+      "recommended_location": "book/src/agent-merge-workflows.md",
+      "is_subsection": false
+    },
+    {
+      "severity": "high",
+      "type": "missing_chapter",
+      "feature_category": "circuit_breaker",
+      "feature_description": "Circuit breaker for error handling",
+      "recommended_chapter_id": "circuit-breaker",
+      "recommended_title": "Circuit Breaker",
+      "recommended_location": "book/src/circuit-breaker.md",
+      "is_subsection": false
+    }
+  ],
+  "actions_taken": [
+    {
+      "action": "created_chapter_definition",
+      "chapter_id": "agent-merge-workflows",
+      "file_path": "workflows/data/prodigy-chapters.json"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "book/src/agent-merge-workflows.md",
+      "type": "chapter"
+    },
+    {
+      "action": "updated_summary",
+      "file_path": "book/src/SUMMARY.md",
+      "items_added": [
+        {"type": "chapter", "id": "agent-merge-workflows"}
+      ]
+    }
+  ],
+  "structure_validation": {
+    "mismatches_found": 1,
+    "mismatched_chapters": ["mapreduce"],
+    "migrations_performed": [
+      {
+        "chapter_id": "mapreduce",
+        "action": "migrated_to_multi_subsection",
+        "subsections_discovered": 3
+      }
+    ],
+    "validation_timestamp": "2025-11-09T12:34:56Z"
+  }
+}
+</code></pre>
+<h2 id="execution-progress"><a class="header" href="#execution-progress">Execution Progress</a></h2>
+<p>When gap detection runs, it displays progress through multiple phases:</p>
+<pre><code>🔍 Analyzing documentation coverage...
+   ✓ Loaded 12 feature areas from features.json
+   ✓ Loaded 10 existing chapters
+   ✓ Parsed SUMMARY.md structure
+
+📊 Comparing features against documentation...
+   ✓ Analyzed workflow_basics: documented ✓
+   ✓ Analyzed mapreduce: documented ✓
+   ⚠ Analyzed agent_merge: not documented (gap detected)
+   ✓ Analyzed command_types: documented ✓
+   ⚠ Analyzed circuit_breaker: not documented (gap detected)
+
+🔍 Validating chapter structure (Phase 7.5)...
+   ✓ Scanning for multi-subsection directories
+   ✓ Comparing against chapters.json definitions
+   ⚠ Found mismatch in mapreduce chapter (was single-file, now multi-subsection)
+   ✓ Auto-migrated mapreduce chapter structure
+
+📝 Creating missing chapters...
+   ✓ Generated definition: agent-merge-workflows
+   ✓ Created stub: book/src/agent-merge-workflows.md
+   ✓ Generated definition: circuit-breaker
+   ✓ Created stub: book/src/circuit-breaker.md
+   ✓ Updated SUMMARY.md
+
+💾 Generating flattened items for map phase...
+   ✓ Processed 1 single-file chapter (workflow-basics)
+   ✓ Processed 3 subsections from mapreduce chapter
+   ✓ Processed 10 additional chapters/subsections
+   ✓ Generated .prodigy/book-analysis/flattened-items.json
+
+💾 Committing changes...
+   ✓ Staged 6 files
+   ✓ Committed: docs: auto-discover missing chapters for agent-merge-workflows, circuit-breaker
+   ✓ Committed: docs: sync chapters.json with actual file structure
+</code></pre>
+<h3 id="final-summary"><a class="header" href="#final-summary">Final Summary</a></h3>
+<pre><code>📊 Documentation Gap Analysis Complete
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Features Analyzed: 12
+Documented Topics: 10
+Gaps Found: 2
+
+🔴 High Severity Gaps (Missing Chapters): 2
+  • agent_merge - Custom merge workflows for map agents
+  • circuit_breaker - Workflow error circuit breaking
+
+✅ Actions Taken:
+  ✓ Created 2 chapter definitions in workflows/data/prodigy-chapters.json
+  ✓ Created 2 stub files in book/src/
+  ✓ Updated book/src/SUMMARY.md
+  ✓ Generated flattened-items.json with 14 items
+  ✓ Auto-migrated 1 chapter structure
+  ✓ Committed changes (2 commits)
+
+📝 Next Steps:
+  The map phase will now process 14 chapters/subsections to populate content.
+  Review the generated stubs and customize as needed.
+</code></pre>
+<h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
+<p><strong>Source</strong>: <code>.claude/commands/prodigy-detect-documentation-gaps.md:889-919</code></p>
+<h3 id="common-errors"><a class="header" href="#common-errors">Common Errors</a></h3>
+<p><strong>Missing features.json</strong>:</p>
+<ul>
+<li><strong>Cause</strong>: Feature analysis step hasn’t run yet</li>
+<li><strong>Solution</strong>: Ensure <code>/prodigy-analyze-features-for-book</code> runs before gap detection in setup phase</li>
+<li><strong>Error Message</strong>: “Error: features.json not found at {path}. Run feature analysis first.”</li>
+</ul>
+<p><strong>Missing/Invalid chapters.json</strong>:</p>
+<ul>
+<li><strong>Cause</strong>: Chapter definitions file doesn’t exist or has invalid JSON</li>
+<li><strong>Solution</strong>: Create valid chapters.json or fix JSON syntax errors</li>
+<li><strong>Recovery</strong>: Gap detection can initialize empty chapters.json if needed</li>
+</ul>
+<p><strong>File Write Failures</strong>:</p>
+<ul>
+<li><strong>Cause</strong>: Permission issues or disk full</li>
+<li><strong>Solution</strong>: Check directory permissions and disk space</li>
+<li><strong>Rollback</strong>: Gap detection records partial state in gap report for manual cleanup</li>
+</ul>
+<p><strong>Invalid JSON Handling</strong>:</p>
+<ul>
+<li><strong>Cause</strong>: Malformed JSON in input files</li>
+<li><strong>Solution</strong>: Validate JSON with <code>jq</code> before running workflow</li>
+<li><strong>Error Recording</strong>: Details added to gap report for debugging</li>
+</ul>
+<h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
+<p>Gap detection has comprehensive test coverage in <code>tests/documentation_gap_detection_test.rs:1-678</code>:</p>
+<h3 id="test-coverage"><a class="header" href="#test-coverage">Test Coverage</a></h3>
+<p><strong>Core Functionality</strong>:</p>
+<ul>
+<li>Identifying missing chapters (tests/documentation_gap_detection_test.rs:1-50)</li>
+<li>Idempotence behavior (tests/documentation_gap_detection_test.rs:236-274)</li>
+<li>Topic normalization logic (tests/documentation_gap_detection_test.rs:275-320)</li>
+<li>Chapter definition generation (tests/documentation_gap_detection_test.rs:321-370)</li>
+</ul>
+<p><strong>Edge Cases</strong>:</p>
+<ul>
+<li>False positive prevention via normalization</li>
+<li>Handling chapters with multiple topics</li>
+<li>Subsection discovery and validation</li>
+<li>Structure migration for multi-subsection chapters</li>
+</ul>
+<p><strong>Quality Assurance</strong>:</p>
+<ul>
+<li>Stub file structure validation</li>
+<li>SUMMARY.md update correctness</li>
+<li>Gap report JSON schema validation</li>
+</ul>
+<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<ol>
+<li>
+<p><strong>Always run feature analysis first</strong>: Gap detection depends on features.json from <code>/prodigy-analyze-features-for-book</code></p>
+</li>
+<li>
+<p><strong>Review generated stubs</strong>: Customize stub content to match project style before map phase processes them</p>
+</li>
+<li>
+<p><strong>Monitor content warnings</strong>: If subsections are created with “MINIMAL” flag, ensure they still provide value or merge into parent chapter</p>
+</li>
+<li>
+<p><strong>Validate structure regularly</strong>: Run gap detection periodically to catch mismatches between chapters.json and actual files</p>
+</li>
+<li>
+<p><strong>Commit structure fixes separately</strong>: Phase 7.5 commits structure validation fixes before creating new content, keeping history clean</p>
+</li>
+<li>
+<p><strong>Trust idempotence</strong>: Safe to re-run gap detection without fear of duplicates</p>
+</li>
+</ol>
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><a href="./understanding-the-workflow.html">./understanding-the-workflow.md</a> - How gap detection fits in the overall workflow</li>
+<li><a href="../../mapreduce/index.html">../../mapreduce/index.md</a> - MapReduce phase that consumes flattened-items.json</li>
+<li><a href="./index.html">./index.md</a> - Automated documentation overview</li>
+<li><a href="./best-practices.html">./best-practices.md</a> - Documentation automation best practices</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../automated-documentation/understanding-the-workflow.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../automated-documentation/github-actions-integration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../automated-documentation/understanding-the-workflow.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../automated-documentation/github-actions-integration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

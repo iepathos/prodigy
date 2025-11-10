@@ -1,0 +1,760 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Customization Examples - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/automated-documentation/customization-examples.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="customization-examples"><a class="header" href="#customization-examples">Customization Examples</a></h2>
+<p>This section demonstrates how to adapt the automated documentation workflow for different project types, languages, and requirements. All examples are based on real configurations from the Prodigy project.</p>
+<h3 id="language-specific-adaptations"><a class="header" href="#language-specific-adaptations">Language-Specific Adaptations</a></h3>
+<p>The automated documentation workflow can be customized for different programming languages by adjusting the <code>analysis_targets</code> in your <code>book-config.json</code>.</p>
+<h4 id="rust-project-default-configuration"><a class="header" href="#rust-project-default-configuration">Rust Project (Default Configuration)</a></h4>
+<p><strong>Source</strong>: <code>.prodigy/book-config.json:7-31</code></p>
+<pre><code class="language-json">{
+  "project_name": "Prodigy",
+  "project_type": "cli_tool",
+  "book_dir": "book",
+  "analysis_targets": [
+    {
+      "area": "workflow_basics",
+      "source_files": [
+        "src/config/workflow.rs",
+        "src/cook/workflow/executor.rs"
+      ],
+      "feature_categories": [
+        "structure",
+        "execution_model",
+        "commit_tracking"
+      ]
+    },
+    {
+      "area": "mapreduce",
+      "source_files": [
+        "src/config/mapreduce.rs",
+        "src/cook/execution/mapreduce/"
+      ],
+      "feature_categories": [
+        "phases",
+        "capabilities",
+        "configuration"
+      ]
+    }
+  ]
+}
+</code></pre>
+<p><strong>Key customization points</strong>:</p>
+<ul>
+<li><code>source_files</code>: Paths to Rust source files (<code>.rs</code> extension)</li>
+<li>Directory patterns: <code>src/cook/execution/mapreduce/</code> analyzes all files in that directory</li>
+<li><code>feature_categories</code>: Organize by Rust-specific concepts (structs, enums, traits)</li>
+</ul>
+<h4 id="python-project-adaptation"><a class="header" href="#python-project-adaptation">Python Project Adaptation</a></h4>
+<pre><code class="language-json">{
+  "project_name": "MyPythonProject",
+  "project_type": "library",
+  "book_dir": "docs",
+  "analysis_targets": [
+    {
+      "area": "core_api",
+      "source_files": [
+        "src/myproject/api.py",
+        "src/myproject/client.py"
+      ],
+      "feature_categories": [
+        "classes",
+        "functions",
+        "decorators"
+      ]
+    },
+    {
+      "area": "data_models",
+      "source_files": [
+        "src/myproject/models/"
+      ],
+      "feature_categories": [
+        "dataclasses",
+        "validation",
+        "serialization"
+      ]
+    }
+  ]
+}
+</code></pre>
+<p><strong>Differences for Python</strong>:</p>
+<ul>
+<li>File extension: <code>.py</code> instead of <code>.rs</code></li>
+<li>Feature categories: <code>classes</code>, <code>functions</code>, <code>decorators</code> (Python-specific)</li>
+<li>Common patterns: Separate <code>models/</code> directory, <code>api.py</code> modules</li>
+</ul>
+<h4 id="javascripttypescript-project"><a class="header" href="#javascripttypescript-project">JavaScript/TypeScript Project</a></h4>
+<pre><code class="language-json">{
+  "project_name": "MyJSProject",
+  "project_type": "web_framework",
+  "book_dir": "book",
+  "analysis_targets": [
+    {
+      "area": "components",
+      "source_files": [
+        "src/components/**/*.tsx",
+        "src/components/**/*.ts"
+      ],
+      "feature_categories": [
+        "react_components",
+        "hooks",
+        "context"
+      ]
+    },
+    {
+      "area": "api",
+      "source_files": [
+        "src/api/",
+        "src/types/"
+      ],
+      "feature_categories": [
+        "endpoints",
+        "types",
+        "interfaces"
+      ]
+    }
+  ]
+}
+</code></pre>
+<p><strong>JavaScript/TypeScript specifics</strong>:</p>
+<ul>
+<li>Glob patterns: <code>**/*.tsx</code>, <code>**/*.ts</code> for nested directories</li>
+<li>Feature categories: <code>react_components</code>, <code>hooks</code> for React projects</li>
+<li>Type definitions: Separate <code>types/</code> directory common in TypeScript</li>
+</ul>
+<h3 id="workflow-customization-patterns"><a class="header" href="#workflow-customization-patterns">Workflow Customization Patterns</a></h3>
+<p>The workflow YAML can be customized for different use cases by adjusting parallelism, timeouts, and error handling.</p>
+<h4 id="high-parallelism-workflow-large-codebases"><a class="header" href="#high-parallelism-workflow-large-codebases">High-Parallelism Workflow (Large Codebases)</a></h4>
+<p><strong>Source</strong>: <code>workflows/book-docs-drift.yml:9-21</code></p>
+<pre><code class="language-yaml">name: fast-documentation-update
+mode: mapreduce
+
+env:
+  PROJECT_NAME: "LargeProject"
+  PROJECT_CONFIG: ".prodigy/book-config.json"
+  FEATURES_PATH: ".prodigy/book-analysis/features.json"
+  BOOK_DIR: "book"
+  ANALYSIS_DIR: ".prodigy/book-analysis"
+  CHAPTERS_FILE: "workflows/data/chapters.json"
+  MAX_PARALLEL: "10"  # High parallelism for large projects
+
+setup:
+  - shell: "mkdir -p $ANALYSIS_DIR"
+  - claude: "/analyze-features --project $PROJECT_NAME --config $PROJECT_CONFIG"
+
+map:
+  input: "${ANALYSIS_DIR}/flattened-items.json"
+  json_path: "$[*]"
+  agent_template:
+    - claude: "/analyze-drift --project $PROJECT_NAME --json '${item}' --features $FEATURES_PATH"
+      commit_required: true
+    - claude: "/fix-drift --project $PROJECT_NAME --json '${item}'"
+      commit_required: true
+  max_parallel: ${MAX_PARALLEL}  # Use environment variable
+</code></pre>
+<p><strong>Customization highlights</strong>:</p>
+<ul>
+<li><code>MAX_PARALLEL: "10"</code>: Process 10 chapters simultaneously (vs default 3)</li>
+<li>Use for projects with 50+ documentation chapters</li>
+<li>Requires adequate system resources (CPU, memory)</li>
+</ul>
+<p><strong>Source reference</strong>: Default parallelism setting from <code>workflows/book-docs-drift.yml:21</code></p>
+<h4 id="conservative-workflow-strict-validation"><a class="header" href="#conservative-workflow-strict-validation">Conservative Workflow (Strict Validation)</a></h4>
+<pre><code class="language-yaml">name: strict-documentation-workflow
+mode: mapreduce
+
+env:
+  MAX_PARALLEL: "1"  # Sequential processing for careful review
+
+map:
+  input: "${ANALYSIS_DIR}/items.json"
+  json_path: "$[*]"
+  agent_template:
+    - claude: "/analyze-drift --project $PROJECT_NAME --json '${item}'"
+      commit_required: true
+    - claude: "/fix-drift --project $PROJECT_NAME --json '${item}'"
+      commit_required: true
+      validate:
+        claude: "/validate-fix --project $PROJECT_NAME --json '${item}' --output .prodigy/validation.json"
+        result_file: ".prodigy/validation.json"
+        threshold: 100  # 100% quality required
+        on_incomplete:
+          claude: "/complete-fix --project $PROJECT_NAME --json '${item}' --gaps ${validation.gaps}"
+          max_attempts: 5  # More attempts for quality
+          fail_workflow: true  # Fail if quality not met
+  max_parallel: ${MAX_PARALLEL}
+
+error_policy:
+  on_item_failure: fail_immediately  # Stop on first error
+  continue_on_failure: false
+  max_failures: 0
+</code></pre>
+<p><strong>Use cases</strong>:</p>
+<ul>
+<li>Critical documentation (public APIs, compliance docs)</li>
+<li>When every chapter must meet quality standards</li>
+<li>Pre-release documentation review</li>
+</ul>
+<p><strong>Source reference</strong>: Validation configuration from <code>workflows/book-docs-drift.yml:49-56</code></p>
+<h4 id="cicd-optimized-workflow"><a class="header" href="#cicd-optimized-workflow">CI/CD-Optimized Workflow</a></h4>
+<pre><code class="language-yaml">name: ci-documentation-check
+mode: mapreduce
+
+env:
+  MAX_PARALLEL: "5"
+  CI_MODE: "true"
+
+setup:
+  - shell: "mkdir -p $ANALYSIS_DIR"
+  - claude: "/analyze-features --project $PROJECT_NAME --config $PROJECT_CONFIG"
+    timeout: 300  # 5-minute timeout for CI
+
+map:
+  input: "${ANALYSIS_DIR}/items.json"
+  json_path: "$[*]"
+  agent_template:
+    - claude: "/analyze-drift --project $PROJECT_NAME --json '${item}'"
+      timeout: 180  # 3-minute timeout per chapter
+  max_parallel: ${MAX_PARALLEL}
+
+reduce:
+  - shell: "cd book &amp;&amp; mdbook build"
+  - shell: "test -d book/book || exit 1"  # Verify build output
+
+error_policy:
+  on_item_failure: dlq
+  continue_on_failure: true
+  max_failures: 5  # Allow some failures in CI
+  error_collection: aggregate
+</code></pre>
+<p><strong>CI/CD features</strong>:</p>
+<ul>
+<li>Timeouts on all commands to prevent CI hangs</li>
+<li>Error aggregation instead of fail-fast</li>
+<li>Verification steps in reduce phase</li>
+<li>DLQ for failed items (can retry later)</li>
+</ul>
+<p><strong>Source reference</strong>: Error policy from <code>workflows/book-docs-drift.yml:86-90</code></p>
+<h4 id="development-workflow-verbose-output"><a class="header" href="#development-workflow-verbose-output">Development Workflow (Verbose Output)</a></h4>
+<p>Set environment variables for detailed logging:</p>
+<pre><code class="language-bash"># Enable verbose Claude output
+export PRODIGY_CLAUDE_CONSOLE_OUTPUT=true
+
+# Run workflow with verbose flag
+prodigy run workflows/book-docs-drift.yml -v
+</code></pre>
+<p><strong>Source reference</strong>: Verbosity control documented in <code>workflows/book-docs-drift.yml</code> comments and CLAUDE.md</p>
+<h3 id="chapter-structure-customization"><a class="header" href="#chapter-structure-customization">Chapter Structure Customization</a></h3>
+<p>The <code>chapters.json</code> file defines your documentation structure. You can choose between flat and hierarchical organization.</p>
+<h4 id="simple-flat-structure-small-projects"><a class="header" href="#simple-flat-structure-small-projects">Simple Flat Structure (Small Projects)</a></h4>
+<p><strong>Source</strong>: <code>workflows/data/prodigy-chapters.json:245-258</code></p>
+<pre><code class="language-json">{
+  "chapters": [
+    {
+      "id": "commands",
+      "title": "Command Types",
+      "type": "single-file",
+      "file": "book/src/commands.md",
+      "topics": [
+        "Shell commands",
+        "Claude commands",
+        "Goal-seeking"
+      ],
+      "validation": "Check all command types documented"
+    }
+  ]
+}
+</code></pre>
+<p><strong>When to use</strong>:</p>
+<ul>
+<li>Projects with &lt; 10 documentation chapters</li>
+<li>Simple, linear documentation flow</li>
+<li>Quick setup and maintenance</li>
+</ul>
+<h4 id="multi-level-hierarchical-structure-complex-projects"><a class="header" href="#multi-level-hierarchical-structure-complex-projects">Multi-Level Hierarchical Structure (Complex Projects)</a></h4>
+<p><strong>Source</strong>: <code>workflows/data/prodigy-chapters.json:89-234</code></p>
+<pre><code class="language-json">{
+  "chapters": [
+    {
+      "id": "mapreduce",
+      "title": "MapReduce Workflows",
+      "type": "multi-subsection",
+      "index_file": "book/src/mapreduce/index.md",
+      "topics": [
+        "MapReduce mode",
+        "Setup phase",
+        "Map phase",
+        "Reduce phase"
+      ],
+      "subsections": [
+        {
+          "id": "checkpoint-and-resume",
+          "title": "Checkpoint and Resume",
+          "file": "book/src/mapreduce/checkpoint-and-resume.md",
+          "topics": ["checkpoints", "resume", "recovery"],
+          "feature_mapping": [
+            "mapreduce.checkpoint",
+            "mapreduce.resume"
+          ]
+        },
+        {
+          "id": "dead-letter-queue-dlq",
+          "title": "Dead Letter Queue (DLQ)",
+          "file": "book/src/mapreduce/dead-letter-queue-dlq.md",
+          "topics": ["failed items", "retry", "DLQ"],
+          "feature_mapping": [
+            "mapreduce.dlq",
+            "error_handling.dlq"
+          ]
+        }
+      ]
+    }
+  ]
+}
+</code></pre>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li>Scoped feature analysis per subsection</li>
+<li>Parallel processing of subsections</li>
+<li>Clear topic boundaries</li>
+<li>Better organization for large chapters</li>
+</ul>
+<p><strong>Migration path</strong>: See <a href="advanced-configuration.html">Advanced Configuration</a> for converting single-file chapters to multi-subsection format.</p>
+<h3 id="project-type-examples"><a class="header" href="#project-type-examples">Project Type Examples</a></h3>
+<p>Different project types require different documentation focus areas.</p>
+<h4 id="cli-tool-configuration"><a class="header" href="#cli-tool-configuration">CLI Tool Configuration</a></h4>
+<p><strong>Source</strong>: <code>.prodigy/book-config.json:2-3</code></p>
+<pre><code class="language-json">{
+  "project_type": "cli_tool",
+  "analysis_targets": [
+    {
+      "area": "commands",
+      "source_files": ["src/cli/", "src/commands/"],
+      "feature_categories": [
+        "subcommands",
+        "arguments",
+        "flags",
+        "output_formatting"
+      ]
+    },
+    {
+      "area": "configuration",
+      "source_files": ["src/config/"],
+      "feature_categories": [
+        "config_files",
+        "precedence",
+        "validation"
+      ]
+    }
+  ]
+}
+</code></pre>
+<p><strong>CLI-specific focus</strong>:</p>
+<ul>
+<li>Command-line interface documentation</li>
+<li>Configuration file formats</li>
+<li>Usage examples and flags</li>
+<li>Exit codes and error messages</li>
+</ul>
+<h4 id="library-configuration"><a class="header" href="#library-configuration">Library Configuration</a></h4>
+<pre><code class="language-json">{
+  "project_type": "library",
+  "analysis_targets": [
+    {
+      "area": "public_api",
+      "source_files": ["src/lib.rs", "src/api/"],
+      "feature_categories": [
+        "public_functions",
+        "types",
+        "traits",
+        "error_types"
+      ]
+    },
+    {
+      "area": "examples",
+      "source_files": ["examples/"],
+      "feature_categories": [
+        "usage_patterns",
+        "integration_examples"
+      ]
+    }
+  ]
+}
+</code></pre>
+<p><strong>Library-specific focus</strong>:</p>
+<ul>
+<li>Public API documentation</li>
+<li>Usage examples</li>
+<li>Integration patterns</li>
+<li>Error handling for library users</li>
+</ul>
+<h3 id="environment-variable-customization"><a class="header" href="#environment-variable-customization">Environment Variable Customization</a></h3>
+<p>Customize workflow behavior through environment variables without modifying YAML.</p>
+<p><strong>Source</strong>: <code>workflows/book-docs-drift.yml:9-21</code></p>
+<h4 id="development-environment"><a class="header" href="#development-environment">Development Environment</a></h4>
+<pre><code class="language-bash"># Development: Verbose output, sequential processing
+export PROJECT_NAME="MyProject"
+export MAX_PARALLEL="1"
+export PRODIGY_CLAUDE_CONSOLE_OUTPUT="true"
+
+prodigy run workflows/book-docs-drift.yml -v
+</code></pre>
+<h4 id="cicd-environment"><a class="header" href="#cicd-environment">CI/CD Environment</a></h4>
+<pre><code class="language-bash"># CI/CD: Moderate parallelism, no console output
+export PROJECT_NAME="MyProject"
+export MAX_PARALLEL="5"
+export PRODIGY_CLAUDE_STREAMING="false"  # Disable for CI logs
+
+prodigy run workflows/book-docs-drift.yml
+</code></pre>
+<h4 id="production-environment"><a class="header" href="#production-environment">Production Environment</a></h4>
+<pre><code class="language-bash"># Production: High parallelism, optimized for speed
+export PROJECT_NAME="MyProject"
+export MAX_PARALLEL="10"
+export ANALYSIS_DIR=".prodigy/book-analysis"
+
+prodigy run workflows/book-docs-drift.yml
+</code></pre>
+<h3 id="custom-claude-commands"><a class="header" href="#custom-claude-commands">Custom Claude Commands</a></h3>
+<p>You can create project-specific Claude commands for specialized analysis or formatting.</p>
+<p><strong>Example location</strong>: <code>.claude/commands/</code> directory</p>
+<h4 id="custom-analysis-command"><a class="header" href="#custom-analysis-command">Custom Analysis Command</a></h4>
+<p>Create <code>.claude/commands/my-custom-analysis.md</code>:</p>
+<pre><code class="language-markdown"># /my-custom-analysis
+
+Analyze code for project-specific patterns.
+
+## Variables
+- `--file &lt;path&gt;` - File to analyze
+- `--pattern &lt;name&gt;` - Pattern to check
+
+## Execute
+1. Read the file at ${file}
+2. Check for pattern: ${pattern}
+3. Generate report
+4. Commit findings
+</code></pre>
+<p><strong>Usage in workflow</strong>:</p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - claude: "/my-custom-analysis --file '${item.file}' --pattern 'async-await'"
+</code></pre>
+<p><strong>Source reference</strong>: Custom commands structure from <code>.prodigy/book-config.json:671</code></p>
+<h3 id="quick-customization-checklist"><a class="header" href="#quick-customization-checklist">Quick Customization Checklist</a></h3>
+<p><strong>For a new project, customize</strong>:</p>
+<ol>
+<li>
+<p><strong>book-config.json</strong>:</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Set <code>project_name</code> and <code>project_type</code></li>
+<li><input disabled="" type="checkbox"/>
+Define <code>analysis_targets</code> for your language</li>
+<li><input disabled="" type="checkbox"/>
+Set <code>book_dir</code> path</li>
+<li><input disabled="" type="checkbox"/>
+Configure <code>feature_categories</code></li>
+</ul>
+</li>
+<li>
+<p><strong>chapters.json</strong>:</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Define chapter structure (flat or hierarchical)</li>
+<li><input disabled="" type="checkbox"/>
+Set validation rules per chapter</li>
+<li><input disabled="" type="checkbox"/>
+Add feature mappings for subsections</li>
+</ul>
+</li>
+<li>
+<p><strong>workflow YAML</strong>:</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Set <code>MAX_PARALLEL</code> for your system</li>
+<li><input disabled="" type="checkbox"/>
+Configure timeouts for your project size</li>
+<li><input disabled="" type="checkbox"/>
+Choose error handling strategy</li>
+<li><input disabled="" type="checkbox"/>
+Add project-specific validation</li>
+</ul>
+</li>
+<li>
+<p><strong>Environment variables</strong>:</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Set <code>PROJECT_NAME</code></li>
+<li><input disabled="" type="checkbox"/>
+Configure <code>ANALYSIS_DIR</code></li>
+<li><input disabled="" type="checkbox"/>
+Set parallelism level</li>
+</ul>
+</li>
+</ol>
+<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
+<ul>
+<li><a href="advanced-configuration.html">Advanced Configuration</a> - Detailed configuration options</li>
+<li><a href="understanding-the-workflow.html">Understanding the Workflow</a> - How the workflow executes</li>
+<li><a href="quick-start-30-minutes.html">Quick Start (30 Minutes)</a> - Get started quickly</li>
+<li><a href="github-actions-integration.html">GitHub Actions Integration</a> - Automate with CI/CD</li>
+<li><a href="best-practices.html">Best Practices</a> - Recommended patterns</li>
+</ul>
+<h3 id="troubleshooting-customizations"><a class="header" href="#troubleshooting-customizations">Troubleshooting Customizations</a></h3>
+<p><strong>Issue: Analysis not finding features</strong></p>
+<ul>
+<li>Verify <code>source_files</code> patterns match your project structure</li>
+<li>Check file extensions are correct for your language</li>
+<li>Use glob patterns (<code>**/*.ext</code>) for nested directories</li>
+</ul>
+<p><strong>Issue: Workflow too slow</strong></p>
+<ul>
+<li>Increase <code>MAX_PARALLEL</code> gradually (3 → 5 → 10)</li>
+<li>Check system resources (CPU, memory)</li>
+<li>Consider splitting large chapters into subsections</li>
+</ul>
+<p><strong>Issue: Quality validation failing</strong></p>
+<ul>
+<li>Lower <code>threshold</code> from 100 to 80 for initial setup</li>
+<li>Increase <code>max_attempts</code> in <code>on_incomplete</code></li>
+<li>Review validation error messages in <code>.prodigy/validation-result.json</code></li>
+</ul>
+<p><strong>Issue: Wrong language patterns detected</strong></p>
+<ul>
+<li>Ensure <code>feature_categories</code> match your language paradigm</li>
+<li>Customize analysis prompts in custom Claude commands</li>
+<li>Use language-specific terminology in topic definitions</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../automated-documentation/github-actions-integration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../automated-documentation/best-practices.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../automated-documentation/github-actions-integration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../automated-documentation/best-practices.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

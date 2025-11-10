@@ -1,0 +1,476 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Backoff Strategies - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/retry-configuration/backoff-strategies.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="backoff-strategies"><a class="header" href="#backoff-strategies">Backoff Strategies</a></h2>
+<blockquote>
+<p><strong>Note</strong>: This subsection documents the <strong>enhanced retry system</strong> (<code>retry_v2::RetryConfig</code>) used for command-level retry configuration. For workflow-level retry (MapReduce error policies), see <a href="./workflow-level-vs-command-level-retry.html">Workflow-Level vs Command-Level Retry</a>. The enhanced system provides more sophisticated backoff options and features.</p>
+</blockquote>
+<p>Prodigy supports five backoff strategies for controlling delay between retries. Backoff strategies determine how the delay between retry attempts increases over time, helping to avoid overwhelming systems while maximizing chances of success.</p>
+<p>All backoff strategies use <code>initial_delay</code> as the base delay and respect the <code>max_delay</code> cap. Delays are calculated per attempt and can be combined with <a href="jitter-for-distributed-systems.html">jitter</a> to avoid thundering herd problems.</p>
+<p><strong>Source</strong>: BackoffStrategy enum defined in <code>src/cook/retry_v2.rs:70-98</code></p>
+<p><strong>Default Strategy</strong>: If no backoff strategy is specified, Prodigy uses <strong>Exponential</strong> backoff with a base of 2.0 (src/cook/retry_v2.rs:92-98).</p>
+<h3 id="fixed-backoff"><a class="header" href="#fixed-backoff">Fixed Backoff</a></h3>
+<p>Fixed backoff uses a constant delay between all retry attempts. This is the simplest strategy and works well when you want predictable, consistent retry timing.</p>
+<p><strong>Delay Pattern</strong>: Same delay for every attempt</p>
+<ul>
+<li>Attempt 1: <code>initial_delay</code></li>
+<li>Attempt 2: <code>initial_delay</code></li>
+<li>Attempt 3: <code>initial_delay</code></li>
+</ul>
+<p><strong>YAML Configuration</strong>:</p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - shell: "flaky-command"
+      retry_config:
+        attempts: 5
+        initial_delay: "2s"
+        backoff: fixed
+</code></pre>
+<blockquote>
+<p><strong>Note</strong>: <code>backoff: fixed</code> is the shorthand for the Fixed unit variant. Equivalent to <code>backoff: { fixed: null }</code> (src/cook/retry_v2.rs:75).</p>
+</blockquote>
+<p><strong>When to Use</strong>:</p>
+<ul>
+<li>Simple retry scenarios where timing is not critical</li>
+<li>Testing and development environments</li>
+<li>When you want predictable retry intervals</li>
+</ul>
+<h3 id="linear-backoff"><a class="header" href="#linear-backoff">Linear Backoff</a></h3>
+<p>Linear backoff increases the delay by a fixed increment for each retry attempt. This provides gradual backoff that’s easy to reason about.</p>
+<p><strong>Delay Pattern</strong>: Increases by constant increment</p>
+<ul>
+<li>Attempt 1: <code>initial_delay</code></li>
+<li>Attempt 2: <code>initial_delay + increment</code></li>
+<li>Attempt 3: <code>initial_delay + 2 * increment</code></li>
+</ul>
+<p><strong>YAML Configuration</strong>:</p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - shell: "database-query"
+      retry_config:
+        attempts: 5
+        initial_delay: "1s"
+        backoff:
+          linear:
+            increment: "2s"
+</code></pre>
+<p><strong>Example Timeline</strong> (initial_delay=1s, increment=2s):</p>
+<ul>
+<li>Attempt 1: 1s</li>
+<li>Attempt 2: 3s (1s + 2s)</li>
+<li>Attempt 3: 5s (1s + 4s)</li>
+<li>Attempt 4: 7s (1s + 6s)</li>
+</ul>
+<p><strong>When to Use</strong>:</p>
+<ul>
+<li>Moderate load situations</li>
+<li>When you need predictable but increasing delays</li>
+<li>API rate limiting scenarios with linear cooldown</li>
+</ul>
+<h3 id="exponential-backoff"><a class="header" href="#exponential-backoff">Exponential Backoff</a></h3>
+<p>Exponential backoff multiplies the delay by a base factor for each retry, causing delays to grow rapidly. This is the <strong>default strategy</strong> and is recommended for most retry scenarios.</p>
+<p><strong>Delay Pattern</strong>: Multiplies by base^(attempt-1)</p>
+<ul>
+<li>Attempt 1: <code>initial_delay * base^0</code></li>
+<li>Attempt 2: <code>initial_delay * base^1</code></li>
+<li>Attempt 3: <code>initial_delay * base^2</code></li>
+</ul>
+<p><strong>YAML Configuration</strong> (default base=2.0):</p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - shell: "network-call"
+      retry_config:
+        attempts: 5
+        initial_delay: "1s"
+        max_delay: "60s"
+        # Uses exponential backoff with base 2.0 by default
+</code></pre>
+<p><strong>YAML Configuration</strong> (custom base):</p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - shell: "api-request"
+      retry_config:
+        attempts: 5
+        initial_delay: "1s"
+        max_delay: "60s"
+        backoff:
+          exponential:
+            base: 3.0  # More aggressive backoff
+</code></pre>
+<p><strong>Example Timeline</strong> (initial_delay=1s, base=2.0):</p>
+<ul>
+<li>Attempt 1: 1s (1 * 2^0)</li>
+<li>Attempt 2: 2s (1 * 2^1)</li>
+<li>Attempt 3: 4s (1 * 2^2)</li>
+<li>Attempt 4: 8s (1 * 2^3)</li>
+<li>Attempt 5: 16s (1 * 2^4)</li>
+</ul>
+<p><strong>When to Use</strong>:</p>
+<ul>
+<li>Network requests and API calls (default choice)</li>
+<li>Situations where quick retries might make things worse</li>
+<li>Distributed systems with cascading failures</li>
+<li>When you want rapid backoff to give systems time to recover</li>
+</ul>
+<h3 id="fibonacci-backoff"><a class="header" href="#fibonacci-backoff">Fibonacci Backoff</a></h3>
+<p>Fibonacci backoff uses the Fibonacci sequence (1, 1, 2, 3, 5, 8, 13…) to calculate delays. This provides a middle ground between linear and exponential backoff, growing quickly but not as aggressively as exponential.</p>
+<p><strong>Delay Pattern</strong>: Uses Fibonacci sequence multiplier</p>
+<ul>
+<li>Attempt 1: <code>initial_delay * 1</code></li>
+<li>Attempt 2: <code>initial_delay * 1</code></li>
+<li>Attempt 3: <code>initial_delay * 2</code></li>
+<li>Attempt 4: <code>initial_delay * 3</code></li>
+<li>Attempt 5: <code>initial_delay * 5</code></li>
+</ul>
+<p><strong>YAML Configuration</strong>:</p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - shell: "distributed-operation"
+      retry_config:
+        attempts: 6
+        initial_delay: "1s"
+        max_delay: "30s"
+        backoff: fibonacci
+</code></pre>
+<blockquote>
+<p><strong>Note</strong>: <code>backoff: fibonacci</code> is the shorthand for the Fibonacci unit variant, similar to Fixed (src/cook/retry_v2.rs:87).</p>
+</blockquote>
+<p><strong>Example Timeline</strong> (initial_delay=1s):</p>
+<ul>
+<li>Attempt 1: 1s (fib(1) = 1)</li>
+<li>Attempt 2: 1s (fib(2) = 1)</li>
+<li>Attempt 3: 2s (fib(3) = 2)</li>
+<li>Attempt 4: 3s (fib(4) = 3)</li>
+<li>Attempt 5: 5s (fib(5) = 5)</li>
+<li>Attempt 6: 8s (fib(6) = 8)</li>
+</ul>
+<p><strong>When to Use</strong>:</p>
+<ul>
+<li>Distributed systems where you want balanced backoff</li>
+<li>Situations where exponential is too aggressive</li>
+<li>When you want retry intervals that grow naturally but moderately</li>
+</ul>
+<h3 id="custom-backoff"><a class="header" href="#custom-backoff">Custom Backoff</a></h3>
+<p>Custom backoff allows you to specify an explicit sequence of delays for complete control over retry timing. If the retry attempt exceeds the number of delays specified, the <code>max_delay</code> is used.</p>
+<p><strong>Delay Pattern</strong>: Uses explicit delay list</p>
+<ul>
+<li>Delays are used in order from the array</li>
+<li>If attempts exceed delays array length, uses <code>max_delay</code></li>
+</ul>
+<p><strong>YAML Configuration</strong>:</p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - shell: "custom-retry-operation"
+      retry_config:
+        attempts: 5
+        max_delay: "60s"
+        backoff:
+          custom:
+            delays:
+              - secs: 1
+                nanos: 0
+              - secs: 3
+                nanos: 0
+              - secs: 7
+                nanos: 0
+              - secs: 15
+                nanos: 0
+              # Attempt 5 would use max_delay (60s)
+</code></pre>
+<blockquote>
+<p><strong>Note</strong>: Custom backoff delays use Duration struct format (<code>{secs: N, nanos: 0}</code>) instead of humantime strings like “1s”. This is because <code>Vec&lt;Duration&gt;</code> doesn’t have the <code>humantime_serde</code> annotation (src/cook/retry_v2.rs:89).</p>
+</blockquote>
+<p><strong>Example Timeline</strong>:</p>
+<ul>
+<li>Attempt 1: 1s (delays[0])</li>
+<li>Attempt 2: 3s (delays[1])</li>
+<li>Attempt 3: 7s (delays[2])</li>
+<li>Attempt 4: 15s (delays[3])</li>
+<li>Attempt 5: 60s (max_delay, delays[4] doesn’t exist)</li>
+</ul>
+<p><strong>When to Use</strong>:</p>
+<ul>
+<li>When you need precise control over retry timing</li>
+<li>Integration with third-party APIs with specific retry requirements</li>
+<li>Complex retry scenarios with non-standard delay patterns</li>
+<li>Testing specific timing scenarios</li>
+</ul>
+<p><strong>Edge Cases</strong>:</p>
+<ul>
+<li>Empty delays array: Falls back to <code>max_delay</code> for all attempts</li>
+<li>Fewer delays than attempts: Uses <code>max_delay</code> for remaining attempts</li>
+</ul>
+<h2 id="integration-with-retryconfig"><a class="header" href="#integration-with-retryconfig">Integration with RetryConfig</a></h2>
+<p>Backoff strategies work together with other retry configuration options:</p>
+<p><strong>Complete Example</strong>:</p>
+<pre><code class="language-yaml">map:
+  input: "work-items.json"
+  json_path: "$.items[*]"
+
+  agent_template:
+    - shell: "process-item ${item.id}"
+      retry_config:
+        attempts: 5
+        initial_delay: "2s"      # Base delay for backoff calculation
+        max_delay: "60s"         # Cap on calculated delays
+        backoff:
+          exponential:
+            base: 2.0
+        jitter: true             # Add randomization (±25% by default)
+        jitter_factor: 0.25
+        retry_on:
+          - timeout              # Built-in timeout matcher
+          - pattern: "connection refused"  # Custom pattern for specific errors
+</code></pre>
+<p><strong>How It Works Together</strong>:</p>
+<ol>
+<li>Backoff strategy calculates base delay using <code>initial_delay</code></li>
+<li>Calculated delay is capped at <code>max_delay</code></li>
+<li>If <code>jitter: true</code>, randomization is applied (±<code>jitter_factor</code> percentage)</li>
+<li>Final delay is applied before next retry attempt</li>
+<li>If <code>retry_on</code> is specified, error must match one of the matchers to trigger retry</li>
+</ol>
+<blockquote>
+<p><strong>Error Matcher Syntax</strong>: The <code>retry_on</code> field uses <code>ErrorMatcher</code> enum variants. Built-in matchers (<code>timeout</code>, <code>network</code>, <code>server_error</code>, <code>rate_limit</code>) use lowercase names. Custom patterns use <code>pattern: "regex"</code> syntax. See <a href="conditional-retry-with-error-matchers.html">Conditional Retry with Error Matchers</a> for complete documentation.</p>
+</blockquote>
+<p>See also:</p>
+<ul>
+<li><a href="basic-retry-configuration.html">Basic Retry Configuration</a> - Overall retry configuration options</li>
+<li><a href="backoff-strategy-comparison.html">Backoff Strategy Comparison</a> - Visual comparison of strategies</li>
+<li><a href="jitter-for-distributed-systems.html">Jitter for Distributed Systems</a> - How jitter prevents thundering herd</li>
+<li><a href="retry-metrics-and-observability.html">Retry Metrics and Observability</a> - Track retry performance</li>
+<li><a href="best-practices.html">Best Practices</a> - When to use which strategy</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../retry-configuration/basic-retry-configuration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../retry-configuration/backoff-strategy-comparison.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../retry-configuration/basic-retry-configuration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../retry-configuration/backoff-strategy-comparison.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

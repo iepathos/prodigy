@@ -1,0 +1,581 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Advanced Configuration - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/automated-documentation/advanced-configuration.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="advanced-configuration"><a class="header" href="#advanced-configuration">Advanced Configuration</a></h2>
+<p>This subsection covers advanced configuration topics for optimizing and customizing your automated documentation workflows. These configurations enable fine-tuning of performance, security, and behavior for documentation generation at scale.</p>
+<h3 id="configuration-files-and-locations"><a class="header" href="#configuration-files-and-locations">Configuration Files and Locations</a></h3>
+<p>Prodigy supports configuration at multiple levels with a clear precedence chain:</p>
+<p><strong>Configuration File Locations</strong> (Source: src/config/mod.rs:39-86):</p>
+<ol>
+<li>
+<p><strong>Global Configuration</strong>: <code>~/.prodigy/config.toml</code></p>
+<ul>
+<li>Applies across all projects</li>
+<li>Contains defaults for editor, log level, API keys, and global settings</li>
+</ul>
+</li>
+<li>
+<p><strong>Project Configuration</strong>: <code>.prodigy/config.toml</code></p>
+<ul>
+<li>Project-specific overrides</li>
+<li>Contains project name, description, spec directory, and custom variables</li>
+</ul>
+</li>
+<li>
+<p><strong>Workflow Environment</strong>: <code>env:</code> block in workflow YAML files</p>
+<ul>
+<li>Workflow-specific configuration</li>
+<li>Defines variables, secrets, and profiles for the workflow</li>
+</ul>
+</li>
+</ol>
+<p><strong>Configuration Precedence Chain</strong>:</p>
+<pre><code>Step env &gt; Workflow profile &gt; Workflow env &gt; Project config &gt; Global config &gt; System env
+</code></pre>
+<p>Higher-priority configurations override lower-priority ones. For example, a step-level environment variable will override the same variable defined in the workflow env block.</p>
+<h3 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h3>
+<p>Environment variables parameterize workflows and can be defined in the <code>env:</code> block at the workflow root (Source: src/cook/environment/config.rs:12-36).</p>
+<p><strong>Environment Configuration Structure</strong> (Source: src/cook/environment/config.rs:12-36):</p>
+<pre><code class="language-yaml">env:
+  # Plain variables
+  PROJECT_NAME: "Prodigy"
+  VERSION: "1.0.0"
+  BOOK_DIR: "book"
+
+  # Secret variables (masked in logs)
+  API_KEY:
+    secret: true
+    value: "sk-abc123"
+
+  # Profile-specific variables
+  DATABASE_URL:
+    default: "postgres://localhost/dev"
+    prod: "postgres://prod-server/db"
+</code></pre>
+<p><strong>Variable Interpolation Syntax</strong>:</p>
+<ul>
+<li><code>$VAR</code> - Simple variable reference (shell-style)</li>
+<li><code>${VAR}</code> - Bracketed reference for clarity</li>
+</ul>
+<p><strong>Secret Masking</strong> (Source: src/cook/environment/mod.rs:45-61):</p>
+<p>Variables marked with <code>secret: true</code> are automatically masked in command output logs, error messages, event logs, and checkpoint files. The masking utility replaces secret values with <code>***MASKED***</code>.</p>
+<p><strong>Profile Support</strong>:</p>
+<p>Activate different environment profiles using the <code>--profile</code> flag:</p>
+<pre><code class="language-bash">prodigy run workflow.yml --profile prod
+</code></pre>
+<p><strong>Real-World Example</strong> (Source: workflows/book-docs-drift.yml:8-21):</p>
+<pre><code class="language-yaml">env:
+  # Project configuration
+  PROJECT_NAME: "Prodigy"
+  PROJECT_CONFIG: ".prodigy/book-config.json"
+  FEATURES_PATH: ".prodigy/book-analysis/features.json"
+
+  # Book-specific settings
+  BOOK_DIR: "book"
+  ANALYSIS_DIR: ".prodigy/book-analysis"
+  CHAPTERS_FILE: "workflows/data/prodigy-chapters.json"
+
+  # Workflow settings
+  MAX_PARALLEL: "3"
+</code></pre>
+<p>These variables are referenced throughout the workflow using <code>$VARIABLE_NAME</code> or <code>${VARIABLE_NAME}</code> syntax.</p>
+<h3 id="mapreduce-performance-tuning"><a class="header" href="#mapreduce-performance-tuning">MapReduce Performance Tuning</a></h3>
+<p>For documentation workflows using MapReduce, several configuration options control parallelism and resource usage (Source: src/config/mapreduce.rs:238-241, 276-278).</p>
+<p><strong>max_parallel Configuration</strong> (Source: src/config/mapreduce.rs:238-241):</p>
+<p>Controls the number of concurrent documentation agents processing chapters/subsections in parallel:</p>
+<pre><code class="language-yaml">map:
+  input: "${ANALYSIS_DIR}/flattened-items.json"
+  json_path: "$[*]"
+
+  agent_template:
+    - claude: "/prodigy-fix-subsection-drift --project $PROJECT_NAME --json '${item}'"
+
+  max_parallel: ${MAX_PARALLEL}  # Default: 10
+</code></pre>
+<p><strong>Performance Trade-offs</strong>:</p>
+<ul>
+<li><strong>Higher parallelism</strong> (10+): Faster completion, higher resource usage (CPU, memory, disk I/O)</li>
+<li><strong>Lower parallelism</strong> (3-5): More conservative resource usage, longer total execution time</li>
+<li><strong>Balanced approach</strong> (5-7): Good for most documentation workflows</li>
+</ul>
+<p>The <code>book-docs-drift.yml</code> workflow uses <code>MAX_PARALLEL: 3</code> for balanced performance and resource management.</p>
+<p><strong>Timeout Configuration</strong>:</p>
+<p>While not explicitly shown in the MapReduce configuration, agent timeouts can be configured for long-running documentation tasks:</p>
+<ul>
+<li><code>agent_timeout_secs</code>: Maximum time allowed for each map agent</li>
+<li><code>setup_timeout</code>: Maximum time for feature analysis phase</li>
+<li><code>reduce_timeout</code>: Maximum time for book build phase</li>
+</ul>
+<h3 id="book-configuration"><a class="header" href="#book-configuration">Book Configuration</a></h3>
+<p>The <code>.prodigy/book-config.json</code> file defines book-specific analysis and generation settings (Source: .prodigy/book-config.json:1-220).</p>
+<p><strong>Book Configuration Structure</strong> (Source: .prodigy/book-config.json):</p>
+<pre><code class="language-json">{
+  "project_name": "Prodigy",
+  "project_type": "cli_tool",
+  "book_dir": "book",
+  "book_src": "book/src",
+  "book_build_dir": "book/book",
+  "analysis_targets": [
+    {
+      "area": "configuration",
+      "source_files": [
+        "src/config/mod.rs",
+        "src/config/settings.rs"
+      ],
+      "feature_categories": [
+        "file_locations",
+        "precedence",
+        "claude_settings",
+        "storage_settings"
+      ]
+    }
+  ],
+  "chapter_file": "workflows/data/prodigy-chapters.json",
+  "custom_analysis": {
+    "include_examples": true,
+    "include_best_practices": true,
+    "include_troubleshooting": true
+  }
+}
+</code></pre>
+<p><strong>Key Fields</strong>:</p>
+<ul>
+<li><code>analysis_targets</code>: Defines codebase areas to analyze for feature extraction</li>
+<li><code>source_files</code>: Source code files to scan for each area</li>
+<li><code>feature_categories</code>: Categories of features to document for each area</li>
+<li><code>custom_analysis</code>: Options for including examples, best practices, and troubleshooting sections</li>
+</ul>
+<p><strong>Adapting for Different Project Types</strong>:</p>
+<ul>
+<li>Rust: Use <code>src/**/*.rs</code> patterns</li>
+<li>Python: Use <code>src/**/*.py</code> or package structure</li>
+<li>JavaScript: Use <code>src/**/*.js</code>, <code>src/**/*.ts</code></li>
+</ul>
+<h3 id="claude-specific-configuration"><a class="header" href="#claude-specific-configuration">Claude-Specific Configuration</a></h3>
+<p>Control Claude’s behavior during documentation generation with environment variables and verbosity flags.</p>
+<p><strong>Claude Streaming Configuration</strong>:</p>
+<ul>
+<li><code>PRODIGY_CLAUDE_STREAMING=false</code>: Disable JSON streaming output (useful in CI/CD)</li>
+<li><code>PRODIGY_CLAUDE_CONSOLE_OUTPUT=true</code>: Force streaming output regardless of verbosity</li>
+<li><code>-v</code> flag: Enable verbose mode to see Claude streaming output for debugging</li>
+</ul>
+<p><strong>Claude Log Locations</strong>:</p>
+<p>Claude creates detailed JSON log files for each command execution at:</p>
+<pre><code>~/.local/state/claude/logs/session-{session_id}.json
+</code></pre>
+<p><strong>Analyzing Claude Logs for Debugging</strong>:</p>
+<pre><code class="language-bash"># View complete Claude interaction
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'
+
+# Check tool invocations
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[].content[] | select(.type == "tool_use")'
+
+# Analyze token usage
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.usage'
+</code></pre>
+<p>Use <code>-v</code> flag during workflow execution to see real-time streaming output from Claude for troubleshooting failed documentation agents.</p>
+<h3 id="error-handling-configuration"><a class="header" href="#error-handling-configuration">Error Handling Configuration</a></h3>
+<p>Configure how documentation workflows handle failures and errors (Source: workflows/book-docs-drift.yml:85-90).</p>
+<p><strong>Error Policy Configuration</strong> (Source: workflows/book-docs-drift.yml:85-90):</p>
+<pre><code class="language-yaml">error_policy:
+  on_item_failure: dlq            # Send failed items to Dead Letter Queue
+  continue_on_failure: true       # Continue processing other items
+  max_failures: 2                 # Stop workflow after 2 failures
+  error_collection: aggregate     # Aggregate errors for reporting
+</code></pre>
+<p><strong>Error Policy Options</strong>:</p>
+<ul>
+<li><code>on_item_failure</code>: <code>dlq</code> (Dead Letter Queue), <code>fail</code> (stop immediately), <code>skip</code> (continue)</li>
+<li><code>continue_on_failure</code>: Whether to continue processing remaining items after a failure</li>
+<li><code>max_failures</code>: Maximum number of failures before stopping the entire workflow</li>
+<li><code>error_collection</code>: How to collect and report errors (<code>aggregate</code>, <code>individual</code>)</li>
+</ul>
+<p><strong>Dead Letter Queue (DLQ) Usage</strong>:</p>
+<p>Failed documentation items are stored in <code>~/.prodigy/dlq/{repo_name}/{job_id}/</code> for review and retry:</p>
+<pre><code class="language-bash"># View failed items
+prodigy dlq show &lt;job_id&gt;
+
+# Retry all failed items
+prodigy dlq retry &lt;job_id&gt;
+
+# Retry with custom parallelism
+prodigy dlq retry &lt;job_id&gt; --max-parallel 5
+</code></pre>
+<p><strong>Retry Strategies</strong>:</p>
+<p>While not shown in the example workflow, retry configuration can be added to commands:</p>
+<ul>
+<li>Backoff strategies: exponential, linear, fibonacci</li>
+<li>Max retry attempts</li>
+<li>Retry budget limits</li>
+</ul>
+<h3 id="storage-and-worktree-configuration"><a class="header" href="#storage-and-worktree-configuration">Storage and Worktree Configuration</a></h3>
+<p>Prodigy uses global storage for centralized state management and git worktrees for isolation.</p>
+<p><strong>Global Storage Locations</strong>:</p>
+<ul>
+<li>Events: <code>~/.prodigy/events/{repo_name}/{job_id}/</code></li>
+<li>DLQ: <code>~/.prodigy/dlq/{repo_name}/{job_id}/</code></li>
+<li>State: <code>~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/</code></li>
+<li>Worktrees: <code>~/.prodigy/worktrees/{repo_name}/</code></li>
+</ul>
+<p><strong>Repository Grouping</strong>:</p>
+<p>All storage is grouped by repository name, enabling:</p>
+<ul>
+<li>Cross-worktree event aggregation</li>
+<li>Persistent state across worktree cleanup</li>
+<li>Centralized monitoring of all jobs for a repository</li>
+</ul>
+<p><strong>Cleanup Policies</strong>:</p>
+<ul>
+<li><strong>Automatic cleanup on success</strong>: Worktrees are removed after successful agent completion</li>
+<li><strong>Orphan registry on failure</strong>: Failed worktrees are registered in <code>~/.prodigy/orphaned_worktrees/{repo_name}/{job_id}.json</code></li>
+</ul>
+<p><strong>Cleaning Orphaned Worktrees</strong>:</p>
+<pre><code class="language-bash"># List orphaned worktrees
+prodigy worktree clean-orphaned &lt;job_id&gt;
+
+# Clean with confirmation
+prodigy worktree clean-orphaned &lt;job_id&gt; --force
+</code></pre>
+<h3 id="validation-configuration"><a class="header" href="#validation-configuration">Validation Configuration</a></h3>
+<p>Configure quality gates and validation for documentation generation (Source: workflows/book-docs-drift.yml:49-57).</p>
+<p><strong>Validation Configuration</strong> (Source: workflows/book-docs-drift.yml:49-57):</p>
+<pre><code class="language-yaml">validate:
+  claude: "/prodigy-validate-doc-fix --project $PROJECT_NAME --json '${item}' --output .prodigy/validation-result.json"
+  result_file: ".prodigy/validation-result.json"
+  threshold: 100  # Documentation must meet 100% quality standards
+  on_incomplete:
+    claude: "/prodigy-complete-doc-fix --project $PROJECT_NAME --json '${item}' --gaps ${validation.gaps}"
+    max_attempts: 3
+    fail_workflow: false  # Continue even if we can't reach 100%
+    commit_required: true
+</code></pre>
+<p><strong>Validation Options</strong>:</p>
+<ul>
+<li><code>threshold</code>: Completion percentage required to pass (0-100)</li>
+<li><code>result_file</code>: File where validation results are written</li>
+<li><code>on_incomplete</code>: Handler to execute when validation threshold is not met</li>
+<li><code>max_attempts</code>: Maximum attempts to complete validation</li>
+<li><code>fail_workflow</code>: Whether to fail the entire workflow if validation never passes</li>
+</ul>
+<p><strong>Quality Gates</strong>:</p>
+<p>The validation system ensures:</p>
+<ul>
+<li>All critical drift issues are addressed</li>
+<li>Documentation meets minimum content requirements</li>
+<li>Examples are grounded in actual codebase</li>
+<li>Links are valid and point to existing files</li>
+</ul>
+<h3 id="configuration-checklist-for-optimizing-documentation-workflows"><a class="header" href="#configuration-checklist-for-optimizing-documentation-workflows">Configuration Checklist for Optimizing Documentation Workflows</a></h3>
+<p><strong>Performance Optimization</strong>:</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Set <code>MAX_PARALLEL</code> based on available CPU cores (recommend: cores / 2)</li>
+<li><input disabled="" type="checkbox"/>
+Configure agent timeouts appropriate for documentation complexity</li>
+<li><input disabled="" type="checkbox"/>
+Use global storage for centralized state management</li>
+</ul>
+<p><strong>Security</strong>:</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Mark API keys and sensitive data as secrets (<code>secret: true</code>)</li>
+<li><input disabled="" type="checkbox"/>
+Use profiles to separate development and production credentials</li>
+<li><input disabled="" type="checkbox"/>
+Enable secret masking for logs and error output</li>
+</ul>
+<p><strong>Quality Control</strong>:</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Set validation threshold to 100% for production documentation</li>
+<li><input disabled="" type="checkbox"/>
+Configure <code>on_incomplete</code> handlers to automatically fix validation failures</li>
+<li><input disabled="" type="checkbox"/>
+Enable <code>error_policy.on_item_failure: dlq</code> for failed item recovery</li>
+</ul>
+<p><strong>Resource Management</strong>:</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Configure cleanup policies for worktrees</li>
+<li><input disabled="" type="checkbox"/>
+Set <code>max_failures</code> to prevent runaway workflows</li>
+<li><input disabled="" type="checkbox"/>
+Use <code>continue_on_failure: true</code> to maximize successful documentation coverage</li>
+</ul>
+<p><strong>Debugging</strong>:</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Enable Claude streaming in development (<code>-v</code> flag or <code>PRODIGY_CLAUDE_CONSOLE_OUTPUT=true</code>)</li>
+<li><input disabled="" type="checkbox"/>
+Configure verbose logging for troubleshooting</li>
+<li><input disabled="" type="checkbox"/>
+Preserve Claude JSON logs for post-mortem analysis</li>
+</ul>
+<h3 id="troubleshooting-common-configuration-issues"><a class="header" href="#troubleshooting-common-configuration-issues">Troubleshooting Common Configuration Issues</a></h3>
+<p><strong>Issue: Documentation workflow is too slow</strong></p>
+<ul>
+<li>Solution: Increase <code>MAX_PARALLEL</code> value, but monitor resource usage</li>
+<li>Check: CPU and memory utilization during workflow execution</li>
+</ul>
+<p><strong>Issue: Out of memory errors during MapReduce</strong></p>
+<ul>
+<li>Solution: Decrease <code>max_parallel</code> to reduce concurrent agent count</li>
+<li>Check: Each agent may load large amounts of documentation into context</li>
+</ul>
+<p><strong>Issue: Secrets appearing in logs</strong></p>
+<ul>
+<li>Solution: Ensure secrets are marked with <code>secret: true</code> in environment config</li>
+<li>Check: Review event logs and Claude logs for masked values</li>
+</ul>
+<p><strong>Issue: Validation always failing at 100% threshold</strong></p>
+<ul>
+<li>Solution: Review validation command output to identify quality gaps</li>
+<li>Check: Use <code>on_incomplete</code> handler with <code>max_attempts</code> to iteratively improve</li>
+</ul>
+<p><strong>Issue: Orphaned worktrees consuming disk space</strong></p>
+<ul>
+<li>Solution: Run <code>prodigy worktree clean-orphaned &lt;job_id&gt;</code> regularly</li>
+<li>Check: Monitor <code>~/.prodigy/worktrees/</code> directory size</li>
+</ul>
+<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
+<ul>
+<li><a href="understanding-the-workflow.html">Understanding the Workflow</a> - Overview of documentation workflow phases</li>
+<li><a href="troubleshooting.html">Troubleshooting</a> - Common issues and solutions</li>
+<li><a href="quick-start.html">Quick Start</a> - Getting started with automated documentation</li>
+<li><a href="customization-examples.html">Customization Examples</a> - Real-world configuration patterns</li>
+<li><a href="../configuration/environment-variables.html">Environment Variables</a> - Detailed environment variable reference</li>
+<li><a href="../configuration/configuration-precedence-rules.html">Configuration Precedence Rules</a> - How configuration values are resolved</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../automated-documentation/troubleshooting.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../automated-documentation/real-world-example-prodigys-own-documentation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../automated-documentation/troubleshooting.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../automated-documentation/real-world-example-prodigys-own-documentation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

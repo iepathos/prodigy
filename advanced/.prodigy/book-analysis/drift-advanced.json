@@ -1,0 +1,156 @@
+{
+  "item_type": "chapter",
+  "chapter_id": "advanced",
+  "chapter_title": "Advanced Features",
+  "chapter_file": "book/src/advanced/index.md",
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Chapter contains only section headers and references with no actual content. All subsection files are placeholder stubs with no documentation, examples, or explanations. This is effectively an empty chapter that provides no value to readers.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Conditional Execution",
+      "description": "Section header exists but no content provided. The 'when' field is implemented in the codebase with support for expressions and operators, but completely undocumented.",
+      "current_content": "## Conditional Execution\n\nControl when commands execute based on expressions or previous command results.",
+      "should_be": "Complete documentation with syntax, operators, examples, and use cases",
+      "fix_suggestion": "Document the 'when' field with expression syntax, supported operators (==, !=, >=, <=, >, <, &&, ||), variable interpolation, and practical examples",
+      "source_reference": "src/config/command.rs:388 (when: Option<String>), features.json:310-319 (conditional_execution)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Output Capture and Variable Management",
+      "description": "Section header exists but no content provided. Output capture is a critical feature with multiple formats (string, json, lines, number, boolean) but completely undocumented.",
+      "current_content": "## Output Capture and Variable Management\n\nCapture command output in different formats for use in subsequent steps.",
+      "should_be": "Complete documentation of capture_output, capture_format, capture_streams fields with examples of each format type",
+      "fix_suggestion": "Document capture_output field, all supported formats (string, json, lines, number, boolean), metadata fields (.stderr, .exit_code, .success, .duration), and stream options (stdout, stderr, exit_code, success, duration)",
+      "source_reference": "src/config/command.rs:368,392,396 (capture fields), features.json:251-274 (captured_variables)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Timeout Configuration",
+      "description": "Subsection file exists but contains only minimal example. Missing documentation of timeout hierarchy, environment variable support, and advanced timeout_config.",
+      "current_content": "Two basic examples with hard-coded timeout values",
+      "should_be": "Complete documentation of command-level, workflow-level, setup, merge, and agent timeouts with timeout_config for advanced scenarios",
+      "fix_suggestion": "Add documentation for timeout hierarchy (command > phase > workflow), environment variable interpolation in timeout values (e.g., ${TIMEOUT}), and timeout_config structure for multi-level timeout control",
+      "source_reference": "features.json:344-351 (timeout_control), src/config/command.rs:383 (timeout field)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Implementation Validation",
+      "description": "Subsection file is a stub with only a single sentence. Missing complete documentation of validation feature.",
+      "current_content": "Single sentence: 'Validate that implementations meet requirements using the `validate` field.'",
+      "should_be": "Complete documentation of validation configuration, output format, threshold handling, on_incomplete handlers, and integration with commands",
+      "fix_suggestion": "Document validate field structure (command, shell, claude, expected_schema, threshold, timeout, on_incomplete, result_file), output format (JSON with completion percentage and gaps), and integration with Claude commands for gap implementation",
+      "source_reference": "features.json:176-190 (validation), src/cook/workflow/validation (validation module)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Parallel Iteration with Foreach",
+      "description": "Subsection file is a stub with only a single sentence. Missing complete foreach documentation.",
+      "current_content": "Single sentence: 'Process multiple items in parallel using the `foreach` command.'",
+      "should_be": "Complete documentation of foreach with input types, parallel options, error handling, and examples",
+      "fix_suggestion": "Document foreach field, input types (command output vs static list), parallel options (boolean vs count), continue_on_error flag, max_items limiting, and practical examples of batch processing",
+      "source_reference": "features.json:147-162 (foreach), src/cook/execution/foreach.rs (foreach implementation)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Goal-Seeking Operations",
+      "description": "Subsection file is a stub with only a single sentence. Missing complete goal_seek documentation.",
+      "current_content": "Single sentence: 'Iteratively refine implementations until they meet validation criteria.'",
+      "should_be": "Complete documentation of goal_seek with all fields, validation integration, result types, and examples",
+      "fix_suggestion": "Document goal_seek structure (goal, claude, shell, validate, threshold, max_attempts, timeout_seconds, fail_on_incomplete), validation scoring (0-100), result types (Success, MaxAttemptsReached, Timeout, Converged, Failed), and practical examples like coverage improvement",
+      "source_reference": "features.json:137-145 (goal_seek), src/cook/execution (goal_seek module)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Step Identification",
+      "description": "Subsection contains only overview sentence. Missing documentation of step IDs, naming, and output referencing.",
+      "current_content": "One sentence overview with no examples or syntax",
+      "should_be": "Complete documentation of step naming, ID assignment, and how to reference step-specific outputs",
+      "fix_suggestion": "Document step ID/name field, how to assign explicit IDs, and how to reference step-specific outputs with ${step_name.output} syntax instead of relying on ${last.output}",
+      "source_reference": "features.json:205-207 (step_context), src/config/command.rs (step configuration)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Nested Handlers (on_success, on_failure)",
+      "description": "Feature exists in codebase but completely missing from documentation. No mention anywhere in Advanced Features chapter.",
+      "current_content": "Not documented at all",
+      "should_be": "Section documenting on_failure and on_success handlers with nesting capability",
+      "fix_suggestion": "Add new section documenting on_failure (commands to run on failure with max_attempts, fail_workflow), on_success (commands to run on success), nesting capability (handlers can have their own handlers), and on_exit_code for exit-code-specific handling",
+      "source_reference": "features.json:334-342 (nested_handlers), src/config/command.rs:372,376 (on_failure, on_success fields)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Working Directory Control",
+      "description": "Feature exists (cwd field) but not documented anywhere in Advanced Features chapter.",
+      "current_content": "Not documented at all",
+      "should_be": "Documentation of cwd field for per-command working directory control",
+      "fix_suggestion": "Add documentation for cwd field, use cases (multi-project workflows, subdirectory operations, monorepo management), and variable interpolation support (e.g., cwd: ${project_dir})",
+      "source_reference": "features.json:352-357 (working_directory), src/config/command.rs:404 (cwd field)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Best Practices",
+      "description": "Subsection file is completely empty (only header). Missing all best practice guidance for advanced features.",
+      "current_content": "Empty file with only '## Best Practices' header",
+      "should_be": "Comprehensive best practices for using advanced features effectively",
+      "fix_suggestion": "Add best practices from features.json covering workflow design, MapReduce usage, error handling, testing, and performance optimization specific to advanced features",
+      "source_reference": "features.json:605-651 (best_practices section)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Common Patterns",
+      "description": "Subsection file is completely empty (only header). Missing all common pattern examples.",
+      "current_content": "Empty file with only '## Common Patterns' header",
+      "should_be": "Real-world patterns demonstrating advanced feature usage",
+      "fix_suggestion": "Add common patterns from features.json including validation with auto-fix, conditional environment deployment, goal-seeking quality improvement, and file processing with git context",
+      "source_reference": "features.json:652-695 (common_patterns array)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Index page",
+      "description": "Index page only contains section headers and cross-references with no introductory content or overview.",
+      "current_content": "Chapter title, two section headers with one-line descriptions, and list of subsection links",
+      "should_be": "Introduction explaining what advanced features are, when to use them, and how they differ from basic workflow features",
+      "fix_suggestion": "Add introductory section explaining the purpose of advanced features, overview of capabilities (conditional execution, output management, validation, iteration), and guidance on when these features are needed",
+      "source_reference": "features.json:309-358 (advanced_features section)"
+    }
+  ],
+  "positive_aspects": [
+    "Subsection structure is well-organized and follows logical grouping",
+    "Cross-references between related topics are present in index",
+    "Section headers provide brief contextual descriptions"
+  ],
+  "improvement_suggestions": [
+    "Transform all stub subsections into complete documentation with examples and explanations",
+    "Add introduction to index page explaining purpose and scope of advanced features",
+    "Include real-world examples for each advanced feature showing practical usage",
+    "Add troubleshooting sections for common issues with advanced features",
+    "Cross-reference related features (e.g., validation with goal_seek, output capture with conditionals)",
+    "Include comparison table showing when to use each advanced feature",
+    "Add migration guide for users transitioning from basic to advanced workflows"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T20:43:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Conditional execution",
+      "Output capture formats",
+      "Nested conditionals",
+      "Timeouts"
+    ],
+    "validation_focus": "Check advanced features match implementation"
+  }
+}

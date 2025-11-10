@@ -1,0 +1,702 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Documentation Versioning - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/automated-documentation/documentation-versioning.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="documentation-versioning"><a class="header" href="#documentation-versioning">Documentation Versioning</a></h2>
+<blockquote>
+<p><strong>Status: Planned Feature</strong></p>
+<p>Documentation versioning is currently in the design phase (Specifications 154, 155, 156 in draft status). This page documents the planned implementation for projects that need to serve multiple documentation versions.</p>
+</blockquote>
+<p>For projects that need to serve multiple documentation versions (e.g., users on different software releases), Prodigy is designing a comprehensive versioned documentation system. This will allow users to select which version of the docs they want to view using a dropdown selector.</p>
+<h3 id="overview"><a class="header" href="#overview">Overview</a></h3>
+<p>The documentation versioning system consists of three integrated components:</p>
+<ol>
+<li><strong>Version Selector UI</strong> (Spec 154) - A dropdown component in the mdBook navigation that lets users switch between versions</li>
+<li><strong>Versioned Deployment</strong> (Spec 155) - GitHub Actions workflow that deploys each version to its own subdirectory</li>
+<li><strong>Version-Aware Workflows</strong> (Spec 156) - Enhanced book workflow that accepts a VERSION parameter for building version-specific documentation</li>
+</ol>
+<p><strong>Planned Architecture:</strong></p>
+<pre><code>GitHub Repository
+├── main branch (source code + docs)
+├── Tags: v0.2.6, v0.2.5, v0.2.4, ...
+└── gh-pages branch (deployed docs)
+    ├── index.html → redirects to /latest/
+    ├── versions.json
+    ├── latest/ → copy of newest version
+    ├── v0.2.6/ → built from v0.2.6 tag
+    ├── v0.2.5/ → built from v0.2.5 tag
+    └── v0.2.4/ → built from v0.2.4 tag
+</code></pre>
+<p><strong>Source</strong>: specs/155-versioned-documentation-deployment.md:80-102</p>
+<h3 id="version-selector-ui-component"><a class="header" href="#version-selector-ui-component">Version Selector UI Component</a></h3>
+<p><strong>Design Overview</strong> (Spec 154):</p>
+<p>The version selector will be a lightweight JavaScript component that:</p>
+<ul>
+<li>Displays a dropdown in mdBook’s navigation bar</li>
+<li>Fetches version metadata from <code>/versions.json</code> at the documentation root</li>
+<li>Preserves the current page path when switching versions (e.g., switching from <code>/v0.2.6/mapreduce/index.html</code> to <code>/v0.2.5/mapreduce/index.html</code>)</li>
+<li>Works across all mdBook themes with minimal configuration</li>
+<li>Gracefully degrades if <code>versions.json</code> is missing</li>
+</ul>
+<p><strong>Integration Pattern:</strong></p>
+<pre><code class="language-toml"># book/book.toml
+[output.html]
+additional-css = ["theme/version-selector.css"]
+additional-js = ["theme/version-selector.js"]
+</code></pre>
+<p><strong>Source</strong>: specs/154-mdbook-version-selector-ui.md:110-116</p>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li><strong>Current Version Detection</strong>: Automatically detects which version the user is viewing based on URL path pattern</li>
+<li><strong>Visual Indicators</strong>: Highlights current version and marks latest version with “(Latest)” label</li>
+<li><strong>Fallback Handling</strong>: If the current page doesn’t exist in the target version, redirects to that version’s index</li>
+<li><strong>Accessibility</strong>: Keyboard navigable (Tab, Enter, Arrow keys) and screen reader compatible</li>
+<li><strong>Performance</strong>: &lt; 5KB combined JavaScript and CSS, no external dependencies</li>
+</ul>
+<p><strong>Source</strong>: specs/154-mdbook-version-selector-ui.md:36-53</p>
+<h3 id="versionsjson-schema"><a class="header" href="#versionsjson-schema">versions.json Schema</a></h3>
+<p>The version selector fetches version metadata from a central <code>versions.json</code> file:</p>
+<pre><code class="language-json">{
+  "latest": "v0.2.6",
+  "versions": [
+    {
+      "version": "v0.2.6",
+      "path": "/v0.2.6/",
+      "label": "v0.2.6 (Latest)",
+      "released": "2025-01-15"
+    },
+    {
+      "version": "v0.2.5",
+      "path": "/v0.2.5/",
+      "label": "v0.2.5",
+      "released": "2025-01-10"
+    }
+  ]
+}
+</code></pre>
+<p><strong>Field Descriptions:</strong></p>
+<ul>
+<li><code>latest</code>: Version string of the newest release</li>
+<li><code>version</code>: Semantic version tag (e.g., “v0.2.6”)</li>
+<li><code>path</code>: URL path to that version’s documentation root</li>
+<li><code>label</code>: Display text in dropdown (includes “(Latest)” for newest)</li>
+<li><code>released</code>: ISO 8601 date of release (optional)</li>
+</ul>
+<p><strong>Source</strong>: specs/154-mdbook-version-selector-ui.md:118-137</p>
+<h3 id="versioned-deployment-workflow"><a class="header" href="#versioned-deployment-workflow">Versioned Deployment Workflow</a></h3>
+<p><strong>Design Overview</strong> (Spec 155):</p>
+<p>The deployment system will automatically build and deploy documentation when version tags are pushed:</p>
+<p><strong>Workflow Triggers:</strong></p>
+<pre><code class="language-yaml">on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on semver tags (e.g., v0.2.6)
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (tag name, "all", or "latest")'
+        required: true
+        default: 'latest'
+      rebuild_all:
+        description: 'Rebuild all versions'
+        type: boolean
+        default: false
+</code></pre>
+<p><strong>Source</strong>: specs/155-versioned-documentation-deployment.md:108-124</p>
+<p><strong>Deployment Process:</strong></p>
+<ol>
+<li>
+<p><strong>Tag-Triggered Build</strong>: When you push a tag like <code>v0.2.6</code>, GitHub Actions automatically:</p>
+<ul>
+<li>Checks out that specific tag</li>
+<li>Runs the book workflow for that version</li>
+<li>Builds documentation with mdBook</li>
+<li>Deploys to <code>gh-pages:/v0.2.6/</code> directory</li>
+</ul>
+</li>
+<li>
+<p><strong>versions.json Generation</strong>: After deploying a version, a script scans the <code>gh-pages</code> branch to generate <code>versions.json</code> with all deployed versions</p>
+</li>
+<li>
+<p><strong>Latest Pointer Update</strong>: If the deployed version is the newest (highest semver), the <code>/latest/</code> directory is updated to point to it</p>
+</li>
+<li>
+<p><strong>Root Redirect</strong>: An <code>index.html</code> at the root redirects visitors to <code>/latest/</code></p>
+</li>
+</ol>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li><strong>Preserves Existing Versions</strong>: Using <code>keep_files: true</code> ensures deploying v0.2.6 doesn’t delete v0.2.5</li>
+<li><strong>Parallel Builds</strong>: Manual rebuild workflow can rebuild multiple versions concurrently</li>
+<li><strong>Idempotent</strong>: Rebuilding the same version produces identical output</li>
+<li><strong>Fail-Safe</strong>: Build failures don’t corrupt existing deployed versions</li>
+</ul>
+<p><strong>Source</strong>: specs/155-versioned-documentation-deployment.md:134-176</p>
+<h3 id="version-aware-book-workflow"><a class="header" href="#version-aware-book-workflow">Version-Aware Book Workflow</a></h3>
+<p><strong>Design Overview</strong> (Spec 156):</p>
+<p>The current <code>book-docs-drift.yml</code> workflow will be enhanced to accept a <code>VERSION</code> parameter:</p>
+<p><strong>Workflow Configuration:</strong></p>
+<pre><code class="language-yaml">name: book-docs-drift-detection
+mode: mapreduce
+
+env:
+  VERSION: "${VERSION:-latest}"  # Accept from caller or default to "latest"
+
+  # Version-aware paths
+  ANALYSIS_DIR: ".prodigy/book-analysis/${VERSION}"
+  FEATURES_PATH: "${ANALYSIS_DIR}/features.json"
+</code></pre>
+<p><strong>Source</strong>: specs/156-version-aware-book-workflow.md:77-100</p>
+<p><strong>Key Enhancements:</strong></p>
+<ol>
+<li>
+<p><strong>VERSION Parameter</strong>: The workflow will accept a <code>VERSION</code> environment variable (e.g., “v0.2.6”, “latest”)</p>
+</li>
+<li>
+<p><strong>Version-Scoped Analysis</strong>: Drift analysis results will be stored in version-specific directories:</p>
+<ul>
+<li><code>.prodigy/book-analysis/v0.2.6/</code></li>
+<li><code>.prodigy/book-analysis/v0.2.5/</code></li>
+<li><code>.prodigy/book-analysis/latest/</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Version Validation</strong>: Before processing, the workflow will validate the VERSION format (semver <code>vX.Y.Z</code> or “latest”) and verify the tag exists</p>
+</li>
+<li>
+<p><strong>Version in Documentation</strong>: Generated documentation will include version metadata in headers or footers</p>
+</li>
+</ol>
+<p><strong>Claude Command Integration:</strong></p>
+<pre><code class="language-yaml">setup:
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --version $VERSION"
+
+map:
+  agent_template:
+    - claude: "/prodigy-analyze-book-chapter-drift --project $PROJECT_NAME --json '${item}' --version $VERSION"
+</code></pre>
+<p><strong>Source</strong>: specs/156-version-aware-book-workflow.md:143-153</p>
+<p><strong>Backward Compatibility</strong>: If <code>VERSION</code> is not provided, the workflow defaults to “latest” and maintains current behavior.</p>
+<h3 id="setup-instructions-planned"><a class="header" href="#setup-instructions-planned">Setup Instructions (Planned)</a></h3>
+<p>When implemented, setting up versioned documentation will involve:</p>
+<ol>
+<li>
+<p><strong>Add Version Selector Theme Files:</strong></p>
+<pre><code class="language-bash"># Copy version selector components to your mdBook theme
+cp version-selector.js book/theme/
+cp version-selector.css book/theme/
+</code></pre>
+</li>
+<li>
+<p><strong>Update book.toml Configuration:</strong></p>
+<pre><code class="language-toml">[output.html]
+additional-css = ["theme/version-selector.css"]
+additional-js = ["theme/version-selector.js"]
+</code></pre>
+</li>
+<li>
+<p><strong>Add Deployment Workflow:</strong></p>
+<pre><code class="language-bash"># Copy the versioned deployment workflow
+cp templates/workflows/deploy-docs-versioned.yml .github/workflows/
+</code></pre>
+</li>
+<li>
+<p><strong>Create Initial versions.json:</strong></p>
+<pre><code class="language-json">{
+  "latest": "v0.2.6",
+  "versions": [
+    {
+      "version": "v0.2.6",
+      "path": "/v0.2.6/",
+      "label": "v0.2.6 (Latest)",
+      "released": "2025-01-15"
+    }
+  ]
+}
+</code></pre>
+</li>
+<li>
+<p><strong>Deploy and Test:</strong></p>
+<ul>
+<li>Push a version tag to trigger deployment</li>
+<li>Verify version selector appears in navigation</li>
+<li>Test switching between versions</li>
+</ul>
+</li>
+</ol>
+<p><strong>Source</strong>: specs/154-mdbook-version-selector-ui.md:163-175</p>
+<h3 id="version-retention-strategy-planned"><a class="header" href="#version-retention-strategy-planned">Version Retention Strategy (Planned)</a></h3>
+<p>The design includes a version retention policy to manage storage on GitHub Pages:</p>
+<p><strong>Retention Rules:</strong></p>
+<ul>
+<li><strong>Keep all major versions</strong>: v1.0.0, v2.0.0, v3.0.0</li>
+<li><strong>Keep last 3 minor versions per major</strong>: v2.3.0, v2.2.0, v2.1.0</li>
+<li><strong>Keep last 5 patch versions per minor</strong>: v2.3.5, v2.3.4, v2.3.3, v2.3.2, v2.3.1</li>
+</ul>
+<p><strong>Cleanup Process:</strong>
+A planned cleanup script will identify and remove old versions:</p>
+<pre><code class="language-bash"># scripts/cleanup-old-versions.sh (planned)
+# Removes versions not matching retention policy
+# Regenerates versions.json after cleanup
+</code></pre>
+<p><strong>Considerations:</strong></p>
+<ul>
+<li>GitHub Pages has a 1GB soft limit</li>
+<li>Each documentation version is typically 5-10MB</li>
+<li>Retention policy allows ~50-100 versions before cleanup needed</li>
+</ul>
+<p><strong>Source</strong>: specs/155-versioned-documentation-deployment.md:392-402</p>
+<h3 id="manual-deployment-planned"><a class="header" href="#manual-deployment-planned">Manual Deployment (Planned)</a></h3>
+<p>The deployment workflow will support manual triggering for specific use cases:</p>
+<p><strong>Rebuild Specific Version:</strong></p>
+<pre><code class="language-bash"># Trigger workflow manually from GitHub UI
+# Set version: v0.2.5
+# Or use GitHub CLI:
+gh workflow run deploy-docs-versioned.yml -f version=v0.2.5
+</code></pre>
+<p><strong>Rebuild All Versions:</strong></p>
+<pre><code class="language-bash"># Useful after theme updates or global doc changes
+gh workflow run deploy-docs-versioned.yml -f rebuild_all=true
+</code></pre>
+<p><strong>Use Cases for Manual Deployment:</strong></p>
+<ul>
+<li>Updating documentation theme across all versions</li>
+<li>Fixing critical documentation errors in historical versions</li>
+<li>Regenerating <code>versions.json</code> after manual gh-pages branch cleanup</li>
+<li>Testing deployment workflow changes</li>
+</ul>
+<p><strong>Source</strong>: specs/155-versioned-documentation-deployment.md:436-444</p>
+<h3 id="integration-with-automated-documentation"><a class="header" href="#integration-with-automated-documentation">Integration with Automated Documentation</a></h3>
+<p>The versioning system will integrate with Prodigy’s existing automated documentation workflow:</p>
+<p><strong>Workflow Integration:</strong></p>
+<pre><code class="language-yaml"># .github/workflows/deploy-docs-versioned.yml
+steps:
+  - name: Run book workflow for version
+    run: prodigy run workflows/book-docs-drift.yml
+    env:
+      VERSION: ${{ steps.version.outputs.version }}
+</code></pre>
+<p>When a version tag is pushed, the deployment workflow will:</p>
+<ol>
+<li>Check out the tagged code</li>
+<li>Run the version-aware book workflow to analyze features at that version</li>
+<li>Build documentation matching that version’s implementation</li>
+<li>Deploy to the version-specific subdirectory</li>
+</ol>
+<p>This ensures documentation always matches the code at each version.</p>
+<p><strong>Source</strong>: specs/155-versioned-documentation-deployment.md:155-167, specs/156-version-aware-book-workflow.md:143-153</p>
+<h3 id="testing-versioned-documentation-locally"><a class="header" href="#testing-versioned-documentation-locally">Testing Versioned Documentation Locally</a></h3>
+<p><strong>Planned Testing Workflow:</strong></p>
+<ol>
+<li>
+<p><strong>Build Multiple Versions Locally:</strong></p>
+<pre><code class="language-bash"># Checkout and build v0.2.6
+git checkout v0.2.6
+prodigy run workflows/book-docs-drift.yml
+mdbook build book
+mv book/book build/v0.2.6
+
+# Checkout and build v0.2.5
+git checkout v0.2.5
+prodigy run workflows/book-docs-drift.yml
+mdbook build book
+mv book/book build/v0.2.5
+</code></pre>
+</li>
+<li>
+<p><strong>Create Test versions.json:</strong></p>
+<pre><code class="language-bash">cat &gt; build/versions.json &lt;&lt;EOF
+{
+  "latest": "v0.2.6",
+  "versions": [
+    {"version": "v0.2.6", "path": "/v0.2.6/", "label": "v0.2.6 (Latest)"},
+    {"version": "v0.2.5", "path": "/v0.2.5/", "label": "v0.2.5"}
+  ]
+}
+EOF
+</code></pre>
+</li>
+<li>
+<p><strong>Serve Locally:</strong></p>
+<pre><code class="language-bash">cd build
+python -m http.server 8000
+# Visit http://localhost:8000/v0.2.6/
+</code></pre>
+</li>
+<li>
+<p><strong>Test Version Selector:</strong></p>
+<ul>
+<li>Verify dropdown appears in navigation</li>
+<li>Switch between versions</li>
+<li>Confirm page paths are preserved</li>
+<li>Test fallback when page doesn’t exist in older version</li>
+</ul>
+</li>
+</ol>
+<h3 id="browser-compatibility-planned"><a class="header" href="#browser-compatibility-planned">Browser Compatibility (Planned)</a></h3>
+<p>The version selector will be designed to work across modern browsers:</p>
+<p><strong>Supported Browsers:</strong></p>
+<ul>
+<li>Chrome, Firefox, Safari, Edge (latest versions)</li>
+<li>Mobile browsers (iOS Safari, Chrome Mobile)</li>
+</ul>
+<p><strong>Technology Choices:</strong></p>
+<ul>
+<li>Uses <code>fetch()</code> API (ES6, widely supported)</li>
+<li>Semantic HTML (<code>&lt;select&gt;</code> element)</li>
+<li>CSS Grid/Flexbox for layout</li>
+<li>No external dependencies (no jQuery)</li>
+</ul>
+<p><strong>Graceful Degradation:</strong></p>
+<ul>
+<li>If <code>fetch()</code> unavailable (very old browsers), selector won’t render but docs remain accessible</li>
+<li>If <code>versions.json</code> missing, component silently skips rendering (no errors shown)</li>
+</ul>
+<p><strong>Source</strong>: specs/154-mdbook-version-selector-ui.md:233-247</p>
+<h3 id="best-practices-planned"><a class="header" href="#best-practices-planned">Best Practices (Planned)</a></h3>
+<p><strong>For Projects Adopting Versioned Documentation:</strong></p>
+<ol>
+<li>
+<p><strong>Start with Current Version</strong>: Deploy your current version first as both <code>/vX.Y.Z/</code> and <code>/latest/</code> before adding historical versions</p>
+</li>
+<li>
+<p><strong>Use Semantic Versioning</strong>: Tag releases with semver format (<code>vX.Y.Z</code>) for automatic version sorting</p>
+</li>
+<li>
+<p><strong>Test Before Tagging</strong>: Run the book workflow locally before pushing version tags to catch documentation issues</p>
+</li>
+<li>
+<p><strong>Document Breaking Changes</strong>: When releasing new major versions, clearly document breaking changes in the documentation</p>
+</li>
+<li>
+<p><strong>Regular Cleanup</strong>: Review deployed versions quarterly and remove very old versions per retention policy</p>
+</li>
+<li>
+<p><strong>Monitor Storage</strong>: Keep an eye on gh-pages branch size (GitHub Pages has 1GB soft limit)</p>
+</li>
+<li>
+<p><strong>Version-Specific Examples</strong>: When updating documentation for new features, add version notes indicating when features were introduced</p>
+</li>
+</ol>
+<p><strong>Source</strong>: specs/155-versioned-documentation-deployment.md:393-402</p>
+<h3 id="troubleshooting-planned"><a class="header" href="#troubleshooting-planned">Troubleshooting (Planned)</a></h3>
+<p><strong>Common Issues and Solutions:</strong></p>
+<p><strong>Version Selector Not Appearing:</strong></p>
+<ul>
+<li>Verify <code>version-selector.js</code> and <code>.css</code> are in <code>book/theme/</code> directory</li>
+<li>Check <code>book.toml</code> includes <code>additional-js</code> and <code>additional-css</code> entries</li>
+<li>Ensure <code>versions.json</code> exists at documentation root</li>
+<li>Check browser console for JavaScript errors</li>
+</ul>
+<p><strong>Broken Version Links:</strong></p>
+<ul>
+<li>Verify version paths in <code>versions.json</code> match actual deployed directories</li>
+<li>Ensure all versions use consistent URL structure</li>
+<li>Check that <code>/latest/</code> is updated after deploying new versions</li>
+</ul>
+<p><strong>Deployment Failures:</strong></p>
+<ul>
+<li>Verify git tag follows semver format (<code>vX.Y.Z</code>)</li>
+<li>Check GitHub Actions logs for build errors</li>
+<li>Ensure book workflow completes successfully for that version</li>
+<li>Verify <code>peaceiris/actions-gh-pages</code> action permissions</li>
+</ul>
+<p><strong>Version Not Updating:</strong></p>
+<ul>
+<li>Check that <code>versions.json</code> generation script ran after deployment</li>
+<li>Verify <code>/latest/</code> directory was updated for newest version</li>
+<li>Clear browser cache to see updated version selector</li>
+</ul>
+<p><strong>Source</strong>: specs/155-versioned-documentation-deployment.md:410-419</p>
+<h3 id="implementation-status"><a class="header" href="#implementation-status">Implementation Status</a></h3>
+<p><strong>Current Status: Draft / Not Implemented</strong></p>
+<p>All three specifications are currently in draft status:</p>
+<ul>
+<li><strong>Spec 154</strong> (mdBook Version Selector UI): Draft - UI component design complete, not yet implemented</li>
+<li><strong>Spec 155</strong> (Versioned Documentation Deployment): Draft - Deployment workflow design complete, not yet implemented</li>
+<li><strong>Spec 156</strong> (Version-Aware Book Workflow): Draft - Workflow enhancements designed, not yet implemented</li>
+</ul>
+<p><strong>Source</strong>: specs/154-mdbook-version-selector-ui.md:6, specs/155-versioned-documentation-deployment.md:6, specs/156-version-aware-book-workflow.md:6</p>
+<p><strong>What Exists Today:</strong></p>
+<ul>
+<li>Single-version documentation deployment (<code>.github/workflows/deploy-docs.yml</code>)</li>
+<li>Automated documentation workflow without version support (<code>workflows/book-docs-drift.yml</code>)</li>
+<li>GitHub Pages deployment to root path only</li>
+</ul>
+<p><strong>Planned Implementation Path:</strong></p>
+<ol>
+<li><strong>Phase 1</strong>: Implement version selector UI component (Spec 154)</li>
+<li><strong>Phase 2</strong>: Create versioned deployment workflow (Spec 155)</li>
+<li><strong>Phase 3</strong>: Enhance book workflow with VERSION parameter (Spec 156)</li>
+<li><strong>Phase 4</strong>: Deploy Prodigy’s own documentation with versioning</li>
+<li><strong>Phase 5</strong>: Document lessons learned and create templates for other projects</li>
+</ol>
+<h3 id="future-enhancements"><a class="header" href="#future-enhancements">Future Enhancements</a></h3>
+<p><strong>Beyond the current design, potential future additions include:</strong></p>
+<ul>
+<li>
+<p><strong>Prodigy CLI Integration</strong>:</p>
+<pre><code class="language-bash">prodigy book add-versioning  # Automatically set up versioning
+prodigy book deploy --version v0.2.6  # Manual deployment command
+</code></pre>
+</li>
+<li>
+<p><strong>Automatic versions.json Generation</strong>: Parse git tags and generate <code>versions.json</code> automatically from repository metadata</p>
+</li>
+<li>
+<p><strong>Version Comparison View</strong>: Side-by-side diff showing documentation changes between versions</p>
+</li>
+<li>
+<p><strong>Search Across Versions</strong>: Enhanced search that can find content across all deployed versions</p>
+</li>
+<li>
+<p><strong>Version-Specific Changelogs</strong>: Automatically extract and display changelog for each version in the docs</p>
+</li>
+</ul>
+<p><strong>Source</strong>: specs/154-mdbook-version-selector-ui.md:269-273</p>
+<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
+<ul>
+<li><a href="github-actions-integration.html">GitHub Actions Integration</a> - Current (non-versioned) deployment workflow</li>
+<li><a href="understanding-the-workflow.html">Understanding the Workflow</a> - How the automated documentation system works</li>
+<li><a href="best-practices.html">Best Practices</a> - General documentation best practices</li>
+<li><a href="quick-start.html">Quick Start</a> - Getting started with automated documentation</li>
+<li><a href="advanced-configuration.html">Advanced Configuration</a> - Customizing the documentation workflow</li>
+</ul>
+<p><strong>Related Specifications:</strong></p>
+<ul>
+<li>Spec 154: mdBook Version Selector UI (specs/154-mdbook-version-selector-ui.md)</li>
+<li>Spec 155: Versioned Documentation Deployment (specs/155-versioned-documentation-deployment.md)</li>
+<li>Spec 156: Version-Aware Book Workflow (specs/156-version-aware-book-workflow.md)</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../automated-documentation/real-world-example-prodigys-own-documentation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../automated-documentation/next-steps.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../automated-documentation/real-world-example-prodigys-own-documentation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../automated-documentation/next-steps.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,654 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Workflow-Level vs Command-Level Retry - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/retry-configuration/workflow-level-vs-command-level-retry.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="workflow-level-vs-command-level-retry"><a class="header" href="#workflow-level-vs-command-level-retry">Workflow-Level vs Command-Level Retry</a></h2>
+<p>Prodigy has two distinct retry systems that serve different purposes. Understanding when to use each is critical for effective error handling.</p>
+<h3 id="overview"><a class="header" href="#overview">Overview</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>Command-Level (retry_v2)</th><th>Workflow-Level (error_policy)</th></tr></thead><tbody>
+<tr><td><strong>Scope</strong></td><td>Individual command execution</td><td>Work item failure in MapReduce</td></tr>
+<tr><td><strong>Location</strong></td><td><code>retry_config</code> on commands</td><td><code>error_policy</code> + <code>retry_config</code> in workflow</td></tr>
+<tr><td><strong>Implementation</strong></td><td><code>src/cook/retry_v2.rs</code></td><td><code>src/cook/workflow/error_policy.rs</code></td></tr>
+<tr><td><strong>Use Case</strong></td><td>Retry transient command failures</td><td>Retry failed MapReduce work items</td></tr>
+<tr><td><strong>Features</strong></td><td>Backoff, jitter, error matchers, circuit breakers</td><td>DLQ integration, failure thresholds, batch collection</td></tr>
+</tbody></table>
+</div>
+<h3 id="command-level-retry-retry_v2"><a class="header" href="#command-level-retry-retry_v2">Command-Level Retry (retry_v2)</a></h3>
+<p>The <strong>enhanced retry system</strong> (<code>retry_v2</code>) provides sophisticated retry capabilities for individual command execution.</p>
+<p><strong>Source</strong>: <code>src/cook/retry_v2.rs</code></p>
+<h4 id="key-features"><a class="header" href="#key-features">Key Features</a></h4>
+<ol>
+<li>
+<p><strong>Multiple Backoff Strategies</strong>:</p>
+<ul>
+<li>Exponential (default)</li>
+<li>Linear</li>
+<li>Fibonacci</li>
+<li>Fixed</li>
+<li>Custom</li>
+</ul>
+</li>
+<li>
+<p><strong>Error Matchers</strong>:</p>
+<ul>
+<li>Selective retry based on error type</li>
+<li>Built-in matchers: Network, Timeout, ServerError, RateLimit</li>
+<li>Custom regex patterns</li>
+</ul>
+</li>
+<li>
+<p><strong>Jitter Support</strong>:</p>
+<ul>
+<li>Prevents thundering herd in distributed systems</li>
+<li>Configurable jitter factor (default: 0.3)</li>
+</ul>
+</li>
+<li>
+<p><strong>Retry Budget</strong>:</p>
+<ul>
+<li>Time-based caps on total retry time</li>
+<li>Prevents infinite retry loops</li>
+</ul>
+</li>
+<li>
+<p><strong>Failure Actions</strong>:</p>
+<ul>
+<li>Stop (default) - halt workflow</li>
+<li>Continue - proceed despite failure</li>
+<li>Fallback - execute alternative command</li>
+</ul>
+</li>
+<li>
+<p><strong>Circuit Breakers</strong>:</p>
+<ul>
+<li>Fail-fast when downstream is down</li>
+<li>Automatic recovery testing (HalfOpen state)</li>
+</ul>
+</li>
+</ol>
+<h4 id="configuration"><a class="header" href="#configuration">Configuration</a></h4>
+<pre><code class="language-yaml">commands:
+  - shell: "curl https://api.example.com/data"
+    retry_config:
+      attempts: 5
+      backoff: exponential
+      initial_delay: "1s"
+      max_delay: "30s"
+      jitter: true
+      jitter_factor: 0.3
+      retry_on:
+        - network
+        - timeout
+      retry_budget: "5m"
+      on_failure: stop
+</code></pre>
+<p><strong>RetryConfig Fields</strong> (src/cook/retry_v2.rs:14-52):</p>
+<ul>
+<li><code>attempts: u32</code> - Maximum retry attempts</li>
+<li><code>backoff: BackoffStrategy</code> - Delay calculation strategy</li>
+<li><code>initial_delay: Duration</code> - Starting delay</li>
+<li><code>max_delay: Duration</code> - Delay cap</li>
+<li><code>jitter: bool</code> - Enable jitter</li>
+<li><code>jitter_factor: f64</code> - Jitter randomization (0.0-1.0)</li>
+<li><code>retry_on: Vec&lt;ErrorMatcher&gt;</code> - Selective retry matchers</li>
+<li><code>retry_budget: Option&lt;Duration&gt;</code> - Total retry time limit</li>
+<li><code>on_failure: FailureAction</code> - Final failure handling</li>
+</ul>
+<h4 id="when-to-use-command-level-retry"><a class="header" href="#when-to-use-command-level-retry">When to Use Command-Level Retry</a></h4>
+<p>Use <code>retry_config</code> on individual commands for:</p>
+<ul>
+<li><strong>External API calls</strong> with transient failures</li>
+<li><strong>Network operations</strong> that might timeout</li>
+<li><strong>Database operations</strong> with lock conflicts</li>
+<li><strong>Resource initialization</strong> that needs retry</li>
+<li>Any <strong>single command</strong> that benefits from retry</li>
+</ul>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-yaml">commands:
+  - shell: "make build"
+    retry_config:
+      attempts: 3
+      retry_on:
+        - network  # Only retry network errors during dependency fetch
+</code></pre>
+<h3 id="workflow-level-retry-error_policy"><a class="header" href="#workflow-level-retry-error_policy">Workflow-Level Retry (error_policy)</a></h3>
+<p>The <strong>workflow-level retry system</strong> handles failures in MapReduce work items, integrating with the Dead Letter Queue (DLQ).</p>
+<p><strong>Source</strong>: <code>src/cook/workflow/error_policy.rs</code></p>
+<h4 id="key-features-1"><a class="header" href="#key-features-1">Key Features</a></h4>
+<ol>
+<li>
+<p><strong>Work Item Failure Handling</strong>:</p>
+<ul>
+<li>DLQ (Dead Letter Queue) - Save failed items for retry</li>
+<li>Retry - Immediate retry with backoff</li>
+<li>Skip - Skip failed item, continue</li>
+<li>Stop - Stop entire workflow</li>
+<li>Custom - Custom failure handler</li>
+</ul>
+</li>
+<li>
+<p><strong>Failure Thresholds</strong>:</p>
+<ul>
+<li><code>max_failures</code> - Stop after N failures</li>
+<li><code>failure_threshold</code> - Stop at failure rate (0.0-1.0)</li>
+</ul>
+</li>
+<li>
+<p><strong>Error Collection Strategies</strong>:</p>
+<ul>
+<li>Aggregate - Collect all errors before reporting</li>
+<li>Immediate - Report errors as they occur</li>
+<li>Batched - Report in batches of N errors</li>
+</ul>
+</li>
+<li>
+<p><strong>Circuit Breaker Integration</strong>:</p>
+<ul>
+<li>Workflow-level circuit breaker</li>
+<li>Failure/success thresholds</li>
+<li>Half-open request limits</li>
+</ul>
+</li>
+<li>
+<p><strong>DLQ Retry</strong>:</p>
+<ul>
+<li>Failed items stored in DLQ</li>
+<li>Retry with <code>prodigy dlq retry &lt;job_id&gt;</code></li>
+<li>Preserves correlation IDs</li>
+</ul>
+</li>
+</ol>
+<h4 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h4>
+<pre><code class="language-yaml">name: mapreduce-workflow
+mode: mapreduce
+
+error_policy:
+  on_item_failure: dlq          # Send failures to DLQ
+  continue_on_failure: true     # Keep processing other items
+  max_failures: 10              # Stop after 10 failures
+  failure_threshold: 0.25       # Or stop at 25% failure rate
+  error_collection: aggregate   # Collect errors before reporting
+  circuit_breaker:
+    failure_threshold: 5        # Open after 5 failures
+    success_threshold: 3        # Close after 3 successes
+    timeout: "30s"              # Recovery timeout
+    half_open_requests: 3       # Test requests in half-open
+  retry_config:                 # Workflow-level retry (simpler)
+    max_attempts: 3
+    backoff: exponential
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+  agent_template:
+    - shell: "process ${item.id}"
+</code></pre>
+<p><strong>WorkflowErrorPolicy Fields</strong> (src/cook/workflow/error_policy.rs:131-179):</p>
+<ul>
+<li><code>on_item_failure: ItemFailureAction</code> - What to do when item fails</li>
+<li><code>continue_on_failure: bool</code> - Continue processing other items</li>
+<li><code>max_failures: Option&lt;usize&gt;</code> - Maximum failures before stopping</li>
+<li><code>failure_threshold: Option&lt;f64&gt;</code> - Failure rate threshold (0.0-1.0)</li>
+<li><code>error_collection: ErrorCollectionStrategy</code> - Error reporting strategy</li>
+<li><code>circuit_breaker: Option&lt;CircuitBreakerConfig&gt;</code> - Circuit breaker config</li>
+<li><code>retry_config: Option&lt;RetryConfig&gt;</code> - Simplified retry config</li>
+</ul>
+<p><strong>Workflow-Level RetryConfig</strong> (src/cook/workflow/error_policy.rs:90-129):</p>
+<ul>
+<li><code>max_attempts: u32</code> - Maximum retry attempts</li>
+<li><code>backoff: BackoffStrategy</code> - Simpler backoff variants</li>
+</ul>
+<h4 id="when-to-use-workflow-level-retry"><a class="header" href="#when-to-use-workflow-level-retry">When to Use Workflow-Level Retry</a></h4>
+<p>Use <code>error_policy</code> in MapReduce workflows for:</p>
+<ul>
+<li><strong>Work item failure handling</strong> - DLQ, thresholds, collection</li>
+<li><strong>MapReduce workflows</strong> - Parallel work item processing</li>
+<li><strong>Failure rate monitoring</strong> - Stop at threshold percentage</li>
+<li><strong>Batch error handling</strong> - Collect and report errors in batches</li>
+</ul>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-yaml">error_policy:
+  on_item_failure: dlq        # Failed items go to DLQ
+  continue_on_failure: true   # Process other items
+  max_failures: 5             # But stop if more than 5 fail
+</code></pre>
+<h3 id="using-both-systems-together"><a class="header" href="#using-both-systems-together">Using Both Systems Together</a></h3>
+<p>You can combine both retry systems for comprehensive error handling:</p>
+<pre><code class="language-yaml">name: robust-mapreduce
+mode: mapreduce
+
+# Workflow-level error policy
+error_policy:
+  on_item_failure: dlq        # Failed items to DLQ
+  continue_on_failure: true   # Keep processing
+  max_failures: 10            # Stop after 10 failures
+  circuit_breaker:
+    failure_threshold: 5
+    timeout: "30s"
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+  max_parallel: 10
+
+  agent_template:
+    # Command-level retry for transient failures
+    - shell: "process ${item.id}"
+      retry_config:
+        attempts: 3              # Try 3 times per agent
+        backoff: exponential
+        initial_delay: "1s"
+        max_delay: "30s"
+        jitter: true             # Prevent thundering herd
+        retry_on:
+          - network
+          - timeout
+        on_failure: stop         # Let workflow error_policy handle final failure
+</code></pre>
+<p><strong>How they work together</strong>:</p>
+<ol>
+<li><strong>Agent attempts to process work item</strong></li>
+<li><strong>Command fails</strong> → <code>retry_config</code> retries with exponential backoff (up to 3 attempts)</li>
+<li><strong>All command retries fail</strong> → <code>on_failure: stop</code> ends agent execution</li>
+<li><strong>Agent reports failure to workflow</strong> → <code>error_policy</code> sends item to DLQ</li>
+<li><strong>Workflow continues processing other items</strong> → <code>continue_on_failure: true</code></li>
+<li><strong>After map phase</strong> → Retry DLQ items with <code>prodigy dlq retry &lt;job_id&gt;</code></li>
+</ol>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li><strong>Fast recovery</strong> from transient errors (command-level retry)</li>
+<li><strong>Isolation</strong> of persistent failures (DLQ)</li>
+<li><strong>Continued processing</strong> of other items (workflow-level policy)</li>
+<li><strong>Manual review</strong> of failed items before retry</li>
+</ul>
+<h3 id="key-differences"><a class="header" href="#key-differences">Key Differences</a></h3>
+<h4 id="scope-of-retry"><a class="header" href="#scope-of-retry">Scope of Retry</a></h4>
+<p><strong>Command-Level</strong>: Single command execution</p>
+<pre><code class="language-yaml">commands:
+  - shell: "api-call.sh"
+    retry_config:
+      attempts: 5
+</code></pre>
+<p>→ Retries the <code>api-call.sh</code> command 5 times</p>
+<p><strong>Workflow-Level</strong>: Entire work item (may contain multiple commands)</p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - shell: "step1.sh ${item.id}"
+    - shell: "step2.sh ${item.id}"
+    - shell: "step3.sh ${item.id}"
+</code></pre>
+<p>→ If agent fails, entire work item (all 3 steps) sent to DLQ for retry</p>
+<h4 id="retry-granularity"><a class="header" href="#retry-granularity">Retry Granularity</a></h4>
+<p><strong>Command-Level</strong>: Immediate retry after command failure</p>
+<ul>
+<li>Retry happens in same agent execution</li>
+<li>Backoff delays between retries</li>
+<li>Same environment/context</li>
+</ul>
+<p><strong>Workflow-Level</strong>: Work item retry after agent failure</p>
+<ul>
+<li>Retry happens in new agent execution (via DLQ)</li>
+<li>Fresh environment/context</li>
+<li>Manual triggering with <code>prodigy dlq retry</code></li>
+</ul>
+<h4 id="feature-comparison"><a class="header" href="#feature-comparison">Feature Comparison</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>Command-Level</th><th>Workflow-Level</th></tr></thead><tbody>
+<tr><td>Backoff strategies</td><td>5 strategies</td><td>4 strategies</td></tr>
+<tr><td>Jitter support</td><td>✅ Yes</td><td>❌ No</td></tr>
+<tr><td>Error matchers</td><td>✅ Yes</td><td>❌ No</td></tr>
+<tr><td>Retry budget</td><td>✅ Yes</td><td>❌ No</td></tr>
+<tr><td>Failure actions</td><td>✅ Yes (Stop/Continue/Fallback)</td><td>❌ No (uses error_policy)</td></tr>
+<tr><td>Circuit breakers</td><td>✅ Yes (per RetryExecutor)</td><td>✅ Yes (per workflow)</td></tr>
+<tr><td>DLQ integration</td><td>❌ No</td><td>✅ Yes</td></tr>
+<tr><td>Failure thresholds</td><td>❌ No</td><td>✅ Yes</td></tr>
+<tr><td>Error collection</td><td>❌ No</td><td>✅ Yes (Aggregate/Immediate/Batched)</td></tr>
+</tbody></table>
+</div>
+<h3 id="decision-tree"><a class="header" href="#decision-tree">Decision Tree</a></h3>
+<p><strong>Use command-level retry</strong> when:</p>
+<ul>
+<li>You need fine-grained control over which errors to retry</li>
+<li>You want jitter to prevent thundering herd</li>
+<li>You need retry budget to cap total time</li>
+<li>You want fallback commands on failure</li>
+<li>You’re configuring a single command, not a work item</li>
+</ul>
+<p><strong>Use workflow-level retry</strong> when:</p>
+<ul>
+<li>You’re running a MapReduce workflow</li>
+<li>You want DLQ integration for failed work items</li>
+<li>You need failure rate thresholds (stop at 25% failure)</li>
+<li>You want batch error collection</li>
+<li>You want to retry entire work items later</li>
+</ul>
+<p><strong>Use both</strong> when:</p>
+<ul>
+<li>You want fast recovery from transient errors (command-level)</li>
+<li>AND you want to isolate persistent failures (DLQ)</li>
+<li>AND you want to continue processing other items</li>
+</ul>
+<h3 id="examples"><a class="header" href="#examples">Examples</a></h3>
+<h4 id="example-1-command-level-only-standard-workflow"><a class="header" href="#example-1-command-level-only-standard-workflow">Example 1: Command-Level Only (Standard Workflow)</a></h4>
+<pre><code class="language-yaml">name: standard-workflow
+mode: standard
+
+commands:
+  - shell: "fetch-data.sh"
+    retry_config:
+      attempts: 5
+      backoff: exponential
+      retry_on:
+        - network
+        - timeout
+
+  - shell: "process-data.sh"
+    retry_config:
+      attempts: 3
+      on_failure: continue  # Non-critical, can fail
+
+  - shell: "upload-results.sh"
+    retry_config:
+      attempts: 5
+      backoff: exponential
+      retry_on:
+        - network
+        - server_error
+      on_failure:
+        fallback:
+          command: "save-to-local.sh"
+</code></pre>
+<h4 id="example-2-workflow-level-only-simple-mapreduce"><a class="header" href="#example-2-workflow-level-only-simple-mapreduce">Example 2: Workflow-Level Only (Simple MapReduce)</a></h4>
+<pre><code class="language-yaml">name: simple-mapreduce
+mode: mapreduce
+
+error_policy:
+  on_item_failure: dlq
+  continue_on_failure: true
+  max_failures: 10
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+  agent_template:
+    - shell: "process ${item.id}"
+    # No retry_config - relies on DLQ for failed items
+</code></pre>
+<h4 id="example-3-both-systems-robust-mapreduce"><a class="header" href="#example-3-both-systems-robust-mapreduce">Example 3: Both Systems (Robust MapReduce)</a></h4>
+<pre><code class="language-yaml">name: robust-mapreduce
+mode: mapreduce
+
+error_policy:
+  on_item_failure: dlq
+  continue_on_failure: true
+  max_failures: 10
+  circuit_breaker:
+    failure_threshold: 5
+    timeout: "30s"
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+  max_parallel: 10
+
+  agent_template:
+    - shell: "process ${item.id}"
+      retry_config:
+        attempts: 3           # Try 3 times quickly
+        backoff: exponential
+        jitter: true          # Prevent simultaneous retries
+        retry_on:
+          - network
+          - timeout
+        on_failure: stop      # Let DLQ handle final failure
+
+reduce:
+  - shell: "aggregate ${map.results}"
+</code></pre>
+<p><strong>Retry flow</strong>:</p>
+<ol>
+<li>Command fails with network error</li>
+<li>Command retries (attempt 2, 3) with exponential backoff</li>
+<li>All command retries fail → Agent fails</li>
+<li>Work item sent to DLQ</li>
+<li>Other work items continue processing</li>
+<li>After workflow completes → <code>prodigy dlq retry &lt;job_id&gt;</code> to retry failed items</li>
+</ol>
+<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
+<ul>
+<li><a href="./basic-retry-configuration.html">Basic Retry Configuration</a> - Command-level retry config</li>
+<li><a href="./backoff-strategies.html">Backoff Strategies</a> - Backoff strategy details</li>
+<li><a href="./best-practices.html">Best Practices</a> - When to use each system</li>
+<li><a href="./complete-examples.html">Complete Examples</a> - Full workflow examples</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../retry-configuration/complete-examples.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../retry-configuration/retry-metrics-and-observability.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../retry-configuration/complete-examples.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../retry-configuration/retry-metrics-and-observability.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

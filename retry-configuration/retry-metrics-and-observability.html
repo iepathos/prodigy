@@ -1,0 +1,445 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Retry Metrics and Observability - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/retry-configuration/retry-metrics-and-observability.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="retry-metrics-and-observability"><a class="header" href="#retry-metrics-and-observability">Retry Metrics and Observability</a></h2>
+<p>Prodigy provides comprehensive observability into retry behavior through <strong>logging and event tracking</strong>, rather than programmatic metrics access. This enables debugging retry issues and monitoring workflow resilience without requiring code changes.</p>
+<h2 id="how-retry-observability-works"><a class="header" href="#how-retry-observability-works">How Retry Observability Works</a></h2>
+<p>Retry operations are observable through three primary mechanisms:</p>
+<ol>
+<li><strong>Console Logs</strong> - Visible during workflow execution</li>
+<li><strong>Tracing Infrastructure</strong> - Controlled by verbosity flags</li>
+<li><strong>Event Tracking</strong> - Recorded for MapReduce workflows</li>
+</ol>
+<h3 id="internal-metrics-structure"><a class="header" href="#internal-metrics-structure">Internal Metrics Structure</a></h3>
+<p>While retry metrics are tracked internally via the <code>RetryMetrics</code> structure (src/cook/retry_v2.rs:399-422), this data is <strong>not exposed</strong> as a queryable API for workflow users. Instead, metrics are surfaced through logging at key decision points.</p>
+<p>The internal structure tracks:</p>
+<ul>
+<li><code>total_attempts</code> - Total number of attempts made</li>
+<li><code>successful_attempts</code> - Number of successful operations</li>
+<li><code>failed_attempts</code> - Number of failed operations</li>
+<li><code>retries</code> - History of retry attempts with delays</li>
+</ul>
+<h2 id="observing-retry-behavior-in-workflows"><a class="header" href="#observing-retry-behavior-in-workflows">Observing Retry Behavior in Workflows</a></h2>
+<h3 id="console-output-during-retries"><a class="header" href="#console-output-during-retries">Console Output During Retries</a></h3>
+<p>When a command fails and triggers a retry, you’ll see log messages showing:</p>
+<pre><code>Retrying &lt;operation&gt; (attempt 2/5) after 200ms
+Retrying &lt;operation&gt; (attempt 3/5) after 400ms
+</code></pre>
+<p><strong>Source</strong>: These messages come from the retry executor’s logging (src/cook/retry_v2.rs:247-250).</p>
+<h3 id="verbosity-flags-for-detailed-logs"><a class="header" href="#verbosity-flags-for-detailed-logs">Verbosity Flags for Detailed Logs</a></h3>
+<p>Use Prodigy’s verbosity flags to see more retry details:</p>
+<pre><code class="language-bash"># Default - shows retry attempts
+prodigy run workflow.yml
+
+# Verbose - shows retry decision-making
+prodigy run workflow.yml -v
+
+# Very verbose - shows all retry internals
+prodigy run workflow.yml -vv
+</code></pre>
+<p>With <code>-v</code> or higher verbosity, you’ll see:</p>
+<ul>
+<li>Retry attempt counts and delays</li>
+<li>Circuit breaker state transitions</li>
+<li>Retry budget consumption</li>
+<li>Error pattern matching results</li>
+</ul>
+<h3 id="retry-budget-exhaustion"><a class="header" href="#retry-budget-exhaustion">Retry Budget Exhaustion</a></h3>
+<p>When retry budget is exhausted, a warning is logged:</p>
+<pre><code>Retry budget exhausted for &lt;operation&gt;
+</code></pre>
+<p><strong>Source</strong>: src/cook/retry_v2.rs:238-243</p>
+<p>This indicates the total retry delay exceeded the configured <code>retry_budget</code>, preventing further attempts even if <code>max_attempts</code> hasn’t been reached.</p>
+<h2 id="circuit-breaker-observability"><a class="header" href="#circuit-breaker-observability">Circuit Breaker Observability</a></h2>
+<p>Circuit breaker state changes are logged automatically:</p>
+<h3 id="circuit-breaker-opens"><a class="header" href="#circuit-breaker-opens">Circuit Breaker Opens</a></h3>
+<pre><code>Circuit breaker opened after 5 consecutive failures
+</code></pre>
+<p><strong>Source</strong>: src/cook/retry_v2.rs:391</p>
+<p>When the failure threshold is exceeded, the circuit breaker opens and blocks further retry attempts until the recovery timeout expires.</p>
+<h3 id="circuit-breaker-transitions"><a class="header" href="#circuit-breaker-transitions">Circuit Breaker Transitions</a></h3>
+<pre><code>Circuit breaker transitioning to half-open
+Circuit breaker closed after successful operation
+</code></pre>
+<p><strong>Source</strong>: src/cook/retry_v2.rs:359, 377</p>
+<p>These debug-level messages show circuit breaker recovery:</p>
+<ul>
+<li><strong>Half-open</strong>: Testing if failures have cleared (one attempt allowed)</li>
+<li><strong>Closed</strong>: Normal operation resumed after successful attempt</li>
+</ul>
+<h2 id="workflow-level-observability"><a class="header" href="#workflow-level-observability">Workflow-Level Observability</a></h2>
+<h3 id="on-failure-handler-execution"><a class="header" href="#on-failure-handler-execution">On-Failure Handler Execution</a></h3>
+<p>When retries are configured via <code>on_failure</code> handlers, you’ll see:</p>
+<pre><code class="language-yaml">- shell: "flaky-command"
+  on_failure:
+    claude: "/fix-issue"
+    max_attempts: 5
+</code></pre>
+<p><strong>Workflow output</strong> shows:</p>
+<ol>
+<li>Initial command failure</li>
+<li>Retry attempt messages with delays</li>
+<li>Handler command execution</li>
+<li>Final success or failure after exhausting attempts</li>
+</ol>
+<h3 id="example-log-progression"><a class="header" href="#example-log-progression">Example Log Progression</a></h3>
+<pre><code>❌ Command failed: exit code 1
+Retrying (attempt 2/5) after 100ms
+❌ Command failed: exit code 1
+Retrying (attempt 3/5) after 200ms
+✅ Command succeeded
+</code></pre>
+<h2 id="mapreduce-event-tracking"><a class="header" href="#mapreduce-event-tracking">MapReduce Event Tracking</a></h2>
+<p>MapReduce workflows provide additional observability through the event tracking system. Retry attempts are recorded as events:</p>
+<pre><code class="language-bash"># View events for a MapReduce job
+prodigy events show &lt;job_id&gt;
+</code></pre>
+<p>Events include:</p>
+<ul>
+<li>Retry attempt counts per work item</li>
+<li>Individual agent retry behavior</li>
+<li>Correlation between retries and DLQ items</li>
+</ul>
+<p>See <a href="../mapreduce/event-tracking.html">Event Tracking</a> for comprehensive event details.</p>
+<h2 id="troubleshooting-with-retry-logs"><a class="header" href="#troubleshooting-with-retry-logs">Troubleshooting with Retry Logs</a></h2>
+<h3 id="identifying-retry-configuration-issues"><a class="header" href="#identifying-retry-configuration-issues">Identifying Retry Configuration Issues</a></h3>
+<p><strong>Problem</strong>: Commands retry unnecessarily on non-transient errors</p>
+<p><strong>Check logs for</strong>:</p>
+<pre><code>Retrying (attempt 2/5) after 100ms
+Retrying (attempt 3/5) after 200ms
+...
+</code></pre>
+<p><strong>Solution</strong>: Configure <code>retry_on</code> error matchers to only retry specific errors:</p>
+<pre><code class="language-yaml">retry_config:
+  max_attempts: 5
+  retry_on:
+    - pattern: "connection refused"
+    - pattern: "timeout"
+</code></pre>
+<p>See <a href="conditional-retry-with-error-matchers.html">Conditional Retry with Error Matchers</a>.</p>
+<h3 id="debugging-circuit-breaker-behavior"><a class="header" href="#debugging-circuit-breaker-behavior">Debugging Circuit Breaker Behavior</a></h3>
+<p><strong>Problem</strong>: Circuit breaker opening too aggressively</p>
+<p><strong>Check logs for</strong>:</p>
+<pre><code>Circuit breaker opened after 3 consecutive failures
+</code></pre>
+<p><strong>Solution</strong>: Adjust <code>failure_threshold</code> and <code>recovery_timeout</code>:</p>
+<pre><code class="language-yaml">circuit_breaker:
+  failure_threshold: 5      # Increase tolerance
+  recovery_timeout_ms: 30000  # Longer recovery window
+</code></pre>
+<h3 id="analyzing-retry-budget-exhaustion"><a class="header" href="#analyzing-retry-budget-exhaustion">Analyzing Retry Budget Exhaustion</a></h3>
+<p><strong>Problem</strong>: Retries stop before <code>max_attempts</code> reached</p>
+<p><strong>Check logs for</strong>:</p>
+<pre><code>Retry budget exhausted for &lt;operation&gt;
+</code></pre>
+<p><strong>Solution</strong>: Increase <code>retry_budget</code> or reduce <code>max_delay_ms</code>:</p>
+<pre><code class="language-yaml">retry_config:
+  retry_budget_ms: 120000  # Allow up to 2 minutes of retries
+  max_delay_ms: 10000       # Cap individual delays at 10s
+</code></pre>
+<p>See <a href="retry-budget.html">Retry Budget</a>.</p>
+<h2 id="integration-with-error-handling"><a class="header" href="#integration-with-error-handling">Integration with Error Handling</a></h2>
+<p>Retry observability integrates with Prodigy’s error handling pipeline:</p>
+<ol>
+<li><strong>Retry</strong> - First line of defense for transient failures</li>
+<li><strong>On-Failure Handlers</strong> - Second line when retries exhausted</li>
+<li><strong>Dead Letter Queue</strong> - Final capture for MapReduce failures</li>
+</ol>
+<p><strong>Example workflow progression</strong>:</p>
+<pre><code>Command fails → Retry with backoff → Still failing → Execute on_failure handler →
+Handler succeeds → Continue OR Handler fails → DLQ (MapReduce only)
+</code></pre>
+<p>Logs show the complete progression:</p>
+<pre><code>❌ shell: flaky-script failed
+Retrying (attempt 2/3) after 100ms
+❌ shell: flaky-script failed
+Retrying (attempt 3/3) after 200ms
+❌ shell: flaky-script failed
+Executing on_failure handler: claude /debug-failure
+✅ on_failure handler succeeded
+</code></pre>
+<h3 id="mapreduce-dlq-relationship"><a class="header" href="#mapreduce-dlq-relationship">MapReduce DLQ Relationship</a></h3>
+<p>For MapReduce workflows, retry exhaustion leads to DLQ:</p>
+<pre><code>Retrying work item 'item-123' (attempt 3/3)
+❌ Failed after 3 attempts
+→ Item moved to Dead Letter Queue
+</code></pre>
+<p>View DLQ items with retry history:</p>
+<pre><code class="language-bash">prodigy dlq show &lt;job_id&gt;
+</code></pre>
+<p>Each DLQ item preserves:</p>
+<ul>
+<li>Number of retry attempts made</li>
+<li>Final error message</li>
+<li>Retry delays used</li>
+<li>Circuit breaker state at failure</li>
+</ul>
+<p>See <a href="../mapreduce/dead-letter-queue-dlq.html">Dead Letter Queue (DLQ)</a>.</p>
+<h2 id="monitoring-retry-patterns"><a class="header" href="#monitoring-retry-patterns">Monitoring Retry Patterns</a></h2>
+<h3 id="identifying-flaky-operations"><a class="header" href="#identifying-flaky-operations">Identifying Flaky Operations</a></h3>
+<p>Watch for patterns in logs indicating flaky behavior:</p>
+<pre><code class="language-bash"># Count retry attempts across workflow execution
+prodigy run workflow.yml -v 2&gt;&amp;1 | grep "Retrying" | wc -l
+
+# Find operations that retry most frequently
+prodigy run workflow.yml -v 2&gt;&amp;1 | grep "Retrying" | \
+  grep -oE 'Retrying [^ ]+' | sort | uniq -c | sort -rn
+</code></pre>
+<h3 id="measuring-retry-effectiveness"><a class="header" href="#measuring-retry-effectiveness">Measuring Retry Effectiveness</a></h3>
+<p>Track retry success vs. failure rates:</p>
+<pre><code class="language-bash"># Find successful retries
+grep "Retrying" workflow.log | grep -A 5 "succeeded"
+
+# Find exhausted retries
+grep "Retry budget exhausted" workflow.log
+grep "Failed after .* attempts" workflow.log
+</code></pre>
+<h2 id="best-practices-for-observability"><a class="header" href="#best-practices-for-observability">Best Practices for Observability</a></h2>
+<ol>
+<li><strong>Use appropriate verbosity</strong> - <code>-v</code> for debugging, default for production</li>
+<li><strong>Configure structured logging</strong> - Enable JSON logs for machine parsing</li>
+<li><strong>Set meaningful operation contexts</strong> - Use descriptive command names</li>
+<li><strong>Monitor circuit breaker openings</strong> - Alert on frequent openings</li>
+<li><strong>Review DLQ regularly</strong> - Analyze patterns in failed items</li>
+<li><strong>Correlate retries with external events</strong> - Match retry spikes to infrastructure issues</li>
+</ol>
+<h2 id="related-topics"><a class="header" href="#related-topics">Related Topics</a></h2>
+<ul>
+<li><a href="basic-retry-configuration.html">Basic Retry Configuration</a> - Configure retry behavior</li>
+<li><a href="backoff-strategies.html">Backoff Strategies</a> - Choose appropriate backoff patterns</li>
+<li><a href="../mapreduce/event-tracking.html">Event Tracking</a> - MapReduce observability</li>
+<li><a href="troubleshooting.html">Troubleshooting</a> - Debug common retry issues</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../retry-configuration/workflow-level-vs-command-level-retry.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../retry-configuration/best-practices.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../retry-configuration/workflow-level-vs-command-level-retry.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../retry-configuration/best-practices.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

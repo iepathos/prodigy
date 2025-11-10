@@ -1,0 +1,534 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Sub-Workflows - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/composition/sub-workflows.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="sub-workflows"><a class="header" href="#sub-workflows">Sub-Workflows</a></h2>
+<p>Execute child workflows as part of a parent workflow. Sub-workflows can run in parallel and have their own parameters and outputs, enabling modular workflow design and reusable validation/test pipelines.</p>
+<h3 id="basic-sub-workflow-syntax"><a class="header" href="#basic-sub-workflow-syntax">Basic Sub-Workflow Syntax</a></h3>
+<pre><code class="language-yaml">name: deployment-pipeline
+mode: standard
+
+sub_workflows:
+  lint-and-test:
+    source: "workflows/quality-checks.yml"
+
+  build:
+    source: "workflows/build.yml"
+    parameters:
+      environment: "production"
+
+  deploy:
+    source: "workflows/deploy.yml"
+    inputs:
+      build_artifact: "${build.artifact_path}"
+</code></pre>
+<h3 id="sub-workflow-configuration"><a class="header" href="#sub-workflow-configuration">Sub-Workflow Configuration</a></h3>
+<p>Each sub-workflow is defined as a key-value pair in a HashMap, where the key is the sub-workflow name (defined in <code>SubWorkflow</code> struct, src/cook/workflow/composition/sub_workflow.rs:13-66):</p>
+<pre><code class="language-yaml">sub_workflows:
+  validation:  # Key is the sub-workflow name
+    source: "path/to/workflow.yml"  # Required: workflow file path
+
+    parameters:                       # Optional: parameter values
+      env: "staging"
+      timeout: 600
+
+    inputs:                           # Optional: input from parent context
+      commit_sha: "${git.commit}"
+      branch: "${git.branch}"
+
+    outputs:                          # Optional: extract values from sub-workflow
+      - "test_coverage"
+      - "artifact_url"
+
+    parallel: false                   # Optional: run in parallel (default: false)
+
+    continue_on_error: false          # Optional: continue if sub-workflow fails
+
+    timeout: 1800                     # Optional: sub-workflow timeout (seconds)
+
+    working_dir: "./sub-project"      # Optional: working directory for sub-workflow
+                                       # Note: Parsed but not yet applied (implementation in progress)
+</code></pre>
+<p><strong>Source</strong>: <code>SubWorkflow</code> struct in src/cook/workflow/composition/sub_workflow.rs:13-66
+<strong>Validation</strong>: Sub-workflow validation in src/cook/workflow/composition/composer.rs:381-395
+<strong>Test example</strong>: tests/workflow_composition_test.rs:152-173 demonstrates sub-workflow configuration</p>
+<h3 id="parent-child-context-isolation"><a class="header" href="#parent-child-context-isolation">Parent-Child Context Isolation</a></h3>
+<p>Sub-workflows execute in isolated contexts with clean variable scopes (src/cook/workflow/composition/sub_workflow.rs:242-262):</p>
+<ul>
+<li><strong>Empty variable scope</strong>: Sub-workflow starts with cleared variables (<code>sub_context.variables.clear()</code>)</li>
+<li><strong>Explicit input passing</strong>: Use <code>inputs</code> to copy specific parent variables to child context</li>
+<li><strong>No variable leakage</strong>: Sub-workflow variables don’t leak back to parent</li>
+<li><strong>Output extraction</strong>: Use <code>outputs</code> to explicitly capture child results</li>
+<li><strong>Independent git state</strong>: Sub-workflows can operate in different directories</li>
+</ul>
+<p>The isolation process:</p>
+<ol>
+<li>Clone parent context</li>
+<li>Clear all variables in cloned context</li>
+<li>Copy only specified <code>inputs</code> from parent to child</li>
+<li>Execute sub-workflow in isolated context</li>
+<li>Extract only specified <code>outputs</code> back to parent</li>
+</ol>
+<h3 id="output-variable-extraction"><a class="header" href="#output-variable-extraction">Output Variable Extraction</a></h3>
+<p>Capture values from sub-workflow execution:</p>
+<pre><code class="language-yaml"># parent-workflow.yml
+sub_workflows:
+  build:  # Sub-workflow name
+    source: "workflows/build.yml"
+    outputs:
+      - "docker_image_tag"
+      - "artifact_sha256"
+
+commands:
+  # Access outputs using ${sub-workflow-name.output-variable}
+  - shell: "echo Deploying ${build.docker_image_tag}"
+  - shell: "verify-checksum ${build.artifact_sha256}"
+</code></pre>
+<h3 id="parallel-execution"><a class="header" href="#parallel-execution">Parallel Execution</a></h3>
+<p>Run multiple sub-workflows concurrently using <code>tokio::spawn</code> for concurrent task execution (src/cook/workflow/composition/sub_workflow.rs:179-226):</p>
+<pre><code class="language-yaml">sub_workflows:
+  # These run in parallel
+  unit-tests:
+    source: "workflows/unit-tests.yml"
+    parallel: true
+
+  integration-tests:
+    source: "workflows/integration-tests.yml"
+    parallel: true
+
+  e2e-tests:
+    source: "workflows/e2e-tests.yml"
+    parallel: true
+
+# Parent waits for all parallel sub-workflows before continuing
+commands:
+  - shell: "echo All tests completed"
+</code></pre>
+<p><strong>Execution behavior:</strong></p>
+<ul>
+<li>Each parallel sub-workflow spawns as a separate async task (<code>tokio::spawn</code>)</li>
+<li>Parent workflow waits for all parallel tasks to complete via <code>join</code></li>
+<li>All outputs are merged back to parent context after completion</li>
+<li>If any parallel sub-workflow fails, execution stops (unless <code>continue_on_error: true</code>)</li>
+</ul>
+<h3 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h3>
+<p>Control behavior when sub-workflows fail:</p>
+<pre><code class="language-yaml">sub_workflows:
+  # Critical step - fail parent if this fails
+  security-scan:
+    source: "workflows/security-scan.yml"
+    continue_on_error: false  # Default behavior
+
+  # Optional step - parent continues even if this fails
+  performance-test:
+    source: "workflows/perf-test.yml"
+    continue_on_error: true
+</code></pre>
+<h3 id="modular-pipeline-example"><a class="header" href="#modular-pipeline-example">Modular Pipeline Example</a></h3>
+<p><strong>parent-pipeline.yml:</strong></p>
+<pre><code class="language-yaml">name: ci-cd-pipeline
+mode: standard
+
+sub_workflows:
+  # Step 1: Validation (sequential)
+  validate:
+    source: "workflows/validation.yml"
+    outputs:
+      - "validation_passed"
+
+  # Step 2: Tests (parallel)
+  unit-tests:
+    source: "workflows/unit-tests.yml"
+    parallel: true
+
+  integration-tests:
+    source: "workflows/integration-tests.yml"
+    parallel: true
+
+  # Step 3: Build (sequential, after tests)
+  build:
+    source: "workflows/build.yml"
+    parameters:
+      optimization_level: "3"
+    outputs:
+      - "artifact_path"
+
+  # Step 4: Deploy (sequential, uses build output)
+  deploy:
+    source: "workflows/deploy.yml"
+    inputs:
+      artifact: "${build.artifact_path}"
+      environment: "production"
+</code></pre>
+<p><strong>validation.yml</strong> (reusable sub-workflow):</p>
+<pre><code class="language-yaml">name: validation
+mode: standard
+
+commands:
+  - shell: "cargo fmt --check"
+  - shell: "cargo clippy -- -D warnings"
+  - shell: "echo validation_passed=true &gt;&gt; $PRODIGY_OUTPUT"
+</code></pre>
+<h3 id="working-directory-isolation"><a class="header" href="#working-directory-isolation">Working Directory Isolation</a></h3>
+<p>Sub-workflows can specify different working directories (parsed but not yet applied - see implementation note in src/cook/workflow/composition/sub_workflow.rs:104-107):</p>
+<pre><code class="language-yaml">sub_workflows:
+  # Backend tests in backend/
+  backend-tests:
+    source: "workflows/rust-tests.yml"
+    working_dir: "./backend"  # Parsed but not yet applied
+
+  # Frontend tests in frontend/
+  frontend-tests:
+    source: "workflows/js-tests.yml"
+    working_dir: "./frontend"  # Parsed but not yet applied
+</code></pre>
+<blockquote>
+<p><strong>Note</strong>: The <code>working_dir</code> field is parsed and validated but not yet applied during execution. The <code>WorkflowContext</code> struct needs a <code>working_directory</code> field to enable this feature. Currently, all sub-workflows execute in the parent’s working directory.</p>
+</blockquote>
+<h3 id="timeout-configuration"><a class="header" href="#timeout-configuration">Timeout Configuration</a></h3>
+<p>Set execution time limits:</p>
+<pre><code class="language-yaml">sub_workflows:
+  quick-tests:
+    source: "workflows/smoke-tests.yml"
+    timeout: 120  # 2 minutes
+
+  comprehensive-tests:
+    source: "workflows/full-suite.yml"
+    timeout: 3600  # 1 hour
+</code></pre>
+<h3 id="use-cases"><a class="header" href="#use-cases">Use Cases</a></h3>
+<p><strong>Modular Testing:</strong></p>
+<ul>
+<li>Separate unit, integration, and e2e tests into sub-workflows</li>
+<li>Run test suites in parallel for faster feedback</li>
+<li>Reuse test workflows across multiple projects</li>
+</ul>
+<p><strong>Multi-Language Projects:</strong></p>
+<ul>
+<li>Separate workflows for each language/component</li>
+<li>Independent validation for microservices</li>
+<li>Coordinated deployment of multiple services</li>
+</ul>
+<p><strong>Reusable Validation:</strong></p>
+<ul>
+<li>Shared linting/formatting workflows</li>
+<li>Common security scanning workflows</li>
+<li>Standardized compliance checks</li>
+</ul>
+<p><strong>Environment-Specific Pipelines:</strong></p>
+<pre><code class="language-yaml">sub_workflows:
+  # Different deployment sub-workflows per environment
+  deploy-staging:
+    source: "workflows/deploy.yml"
+    parameters:
+      environment: "staging"
+      replicas: "2"
+
+  deploy-production:
+    source: "workflows/deploy.yml"
+    parameters:
+      environment: "production"
+      replicas: "5"
+</code></pre>
+<h3 id="complete-example"><a class="header" href="#complete-example">Complete Example</a></h3>
+<pre><code class="language-yaml">name: monorepo-ci
+mode: standard
+
+sub_workflows:
+  # Validate everything first
+  validate:
+    source: "shared/validate.yml"
+
+  # Test all services in parallel
+  api-tests:
+    source: "services/api/test.yml"
+    working_dir: "./services/api"
+    parallel: true
+    outputs:
+      - "coverage"
+
+  worker-tests:
+    source: "services/worker/test.yml"
+    working_dir: "./services/worker"
+    parallel: true
+    outputs:
+      - "coverage"
+
+  frontend-tests:
+    source: "apps/frontend/test.yml"
+    working_dir: "./apps/frontend"
+    parallel: true
+    outputs:
+      - "coverage"
+
+# After all sub-workflows complete
+commands:
+  - shell: "echo API coverage: ${api-tests.coverage}%"
+  - shell: "echo Worker coverage: ${worker-tests.coverage}%"
+  - shell: "echo Frontend coverage: ${frontend-tests.coverage}%"
+  - shell: "generate-combined-coverage-report.sh"
+</code></pre>
+<h3 id="sub-workflow-result"><a class="header" href="#sub-workflow-result">Sub-Workflow Result</a></h3>
+<p>Each sub-workflow execution produces a <code>SubWorkflowResult</code> (src/cook/workflow/composition/sub_workflow.rs:48-65):</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>SubWorkflowResult {
+    success: bool,                // Execution success
+    outputs: HashMap&lt;String, Value&gt;, // Extracted output variables
+    duration: Duration,           // Execution time
+    error: Option&lt;String&gt;,        // Error message if failed
+    logs: Vec&lt;String&gt;,            // Sub-workflow execution logs
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Note</strong>: The sub-workflow name is tracked separately as the HashMap key in the parent workflow’s <code>sub_workflows</code> field, not as a field within <code>SubWorkflowResult</code>.</p>
+<h3 id="implementation-status"><a class="header" href="#implementation-status">Implementation Status</a></h3>
+<ul>
+<li>✅ Sub-workflow configuration parsing</li>
+<li>✅ Sub-workflow validation (<code>validate_sub_workflows</code>)</li>
+<li>✅ Parameter and input definitions</li>
+<li>✅ Output extraction structure</li>
+<li>✅ Parallel execution configuration</li>
+<li>✅ Error handling options (continue_on_error)</li>
+<li>✅ Timeout and working directory settings</li>
+<li>✅ SubWorkflowExecutor structure</li>
+<li>⏳ Executor integration with main workflow runtime (in progress)</li>
+</ul>
+<p><em>Note: Sub-workflow definitions are fully validated and composed, but execution integration with the main workflow orchestrator is currently in development.</em></p>
+<h3 id="related-topics"><a class="header" href="#related-topics">Related Topics</a></h3>
+<ul>
+<li><a href="index.html#workflow-imports">Workflow Imports</a> - Import shared configurations</li>
+<li><a href="template-system.html">Template System</a> - Parameterized workflows</li>
+<li><a href="parameter-definitions.html">Parameter Definitions</a> - Define sub-workflow parameters</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../composition/default-values.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../composition/composition-metadata.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../composition/default-values.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../composition/composition-metadata.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

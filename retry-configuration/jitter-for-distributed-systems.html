@@ -1,0 +1,346 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Jitter for Distributed Systems - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/retry-configuration/jitter-for-distributed-systems.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="jitter-for-distributed-systems"><a class="header" href="#jitter-for-distributed-systems">Jitter for Distributed Systems</a></h2>
+<p>Jitter adds randomness to retry delays to prevent the “thundering herd” problem where many clients retry at the same time. By introducing controlled randomness, jitter helps distribute retry attempts over time rather than having all clients retry simultaneously after a failure.</p>
+<h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  backoff:
+    exponential:
+      base: 2.0
+  initial_delay: 10s
+  jitter: true           # Enable jitter (default: false)
+  jitter_factor: 0.3     # Jitter factor (default: 0.3 when jitter is enabled)
+</code></pre>
+<p><strong>Configuration options:</strong></p>
+<ul>
+<li><code>jitter</code>: Boolean flag to enable/disable jitter (default: <code>false</code>)</li>
+<li><code>jitter_factor</code>: Controls the randomness range as a fraction of the base delay (default: <code>0.3</code>)</li>
+</ul>
+<p><strong>Source</strong>: Configuration structure defined in <code>src/cook/retry_v2.rs:455-457</code> (default_jitter_factor)</p>
+<h3 id="how-jitter-works"><a class="header" href="#how-jitter-works">How Jitter Works</a></h3>
+<p>The jitter calculation follows this formula:</p>
+<pre><code>jitter_range = base_delay * jitter_factor
+jitter = random(-jitter_range / 2, +jitter_range / 2)
+final_delay = base_delay + jitter
+</code></pre>
+<p><strong>Source</strong>: Implementation in <code>src/cook/retry_v2.rs:308-317</code> (apply_jitter method)</p>
+<p>The implementation uses Rust’s <code>random_range</code> function to generate a uniformly distributed random value within the inclusive range. The jitter can be:</p>
+<ul>
+<li><strong>Negative</strong>: Reduces the delay below the base value</li>
+<li><strong>Positive</strong>: Increases the delay above the base value</li>
+</ul>
+<p>This bidirectional randomness ensures retry attempts are spread across time.</p>
+<h3 id="example-calculations"><a class="header" href="#example-calculations">Example Calculations</a></h3>
+<p><strong>With default <code>jitter_factor: 0.3</code>:</strong></p>
+<p>For a 10 second base delay:</p>
+<ol>
+<li><code>jitter_range = 10s * 0.3 = 3s</code></li>
+<li><code>jitter = random(-1.5s, +1.5s)</code></li>
+<li><code>final_delay = 10s + jitter</code> → <strong>Range: 8.5s to 11.5s</strong></li>
+</ol>
+<p><strong>With <code>jitter_factor: 0.5</code>:</strong></p>
+<p>For a 10 second base delay:</p>
+<ol>
+<li><code>jitter_range = 10s * 0.5 = 5s</code></li>
+<li><code>jitter = random(-2.5s, +2.5s)</code></li>
+<li><code>final_delay = 10s + jitter</code> → <strong>Range: 7.5s to 12.5s</strong></li>
+</ol>
+<p>For a 20 second base delay:</p>
+<ol>
+<li><code>jitter_range = 20s * 0.5 = 10s</code></li>
+<li><code>jitter = random(-5s, +5s)</code></li>
+<li><code>final_delay = 20s + jitter</code> → <strong>Range: 15s to 25s</strong></li>
+</ol>
+<p><strong>Source</strong>: Test validation in <code>src/cook/retry_v2.rs:654-658</code></p>
+<h3 id="interaction-with-max-delay"><a class="header" href="#interaction-with-max-delay">Interaction with Max Delay</a></h3>
+<p>Jitter is applied <strong>after</strong> backoff calculation and max_delay capping. The execution order is:</p>
+<ol>
+<li>Calculate base delay using backoff strategy</li>
+<li>Apply <code>max_delay</code> cap if configured</li>
+<li>Apply jitter to the capped delay</li>
+</ol>
+<p>This means jittered delays can still exceed <code>max_delay</code> temporarily, but only by the jitter amount. If you need strict delay caps, consider using a lower <code>jitter_factor</code>.</p>
+<p><strong>Source</strong>: Execution order in <code>src/cook/retry_v2.rs:234-235</code> (calculate_delay followed by apply_jitter)</p>
+<h3 id="when-to-use-jitter"><a class="header" href="#when-to-use-jitter">When to Use Jitter</a></h3>
+<p><strong>Recommended use cases:</strong></p>
+<ul>
+<li><strong>Multiple clients accessing the same service</strong>: Prevents all clients from retrying simultaneously after a service outage</li>
+<li><strong>Distributed systems with many workers</strong>: Spreads retry load across worker nodes</li>
+<li><strong>Rate-limited APIs</strong>: Reduces the chance of hitting rate limits from synchronized retries</li>
+<li><strong>Preventing synchronized retry storms</strong>: Breaks up “thundering herd” patterns that can overwhelm recovering services</li>
+</ul>
+<p><strong>Adjusting jitter_factor:</strong></p>
+<ul>
+<li><strong>Low values (0.1 - 0.2)</strong>: Tight clustering with minor randomization, suitable for stable systems</li>
+<li><strong>Medium values (0.3 - 0.5)</strong>: Balanced spread, recommended for most distributed systems (default: 0.3)</li>
+<li><strong>High values (0.6 - 1.0)</strong>: Wide distribution, useful for highly contended resources or aggressive load spreading</li>
+</ul>
+<h3 id="performance-impact"><a class="header" href="#performance-impact">Performance Impact</a></h3>
+<p>Jitter adds minimal computational overhead (a single random number generation per retry). The randomization happens in-memory and does not require external resources.</p>
+<h3 id="complete-example-with-multiple-backoff-strategies"><a class="header" href="#complete-example-with-multiple-backoff-strategies">Complete Example with Multiple Backoff Strategies</a></h3>
+<p><strong>Exponential backoff with jitter:</strong></p>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  backoff:
+    exponential:
+      base: 2.0
+  initial_delay: 1s
+  max_delay: 30s
+  jitter: true
+  jitter_factor: 0.3
+</code></pre>
+<p>Delay sequence (without jitter): 1s, 2s, 4s, 8s, 16s
+Delay sequence (with jitter): ~0.85s-1.15s, ~1.7s-2.3s, ~3.4s-4.6s, ~6.8s-9.2s, ~13.6s-18.4s</p>
+<p><strong>Linear backoff with jitter:</strong></p>
+<pre><code class="language-yaml">retry:
+  attempts: 5
+  backoff:
+    linear:
+      increment: 2s
+  initial_delay: 5s
+  jitter: true
+  jitter_factor: 0.4
+</code></pre>
+<p>Delay sequence (without jitter): 5s, 7s, 9s, 11s, 13s
+Delay sequence (with jitter): ~4s-6s, ~5.6s-8.4s, ~7.2s-10.8s, ~8.8s-13.2s, ~10.4s-15.6s</p>
+<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
+<ul>
+<li><a href="backoff-strategies.html">Backoff Strategies</a> - Overview of different backoff strategies</li>
+<li><a href="basic-retry-configuration.html">Basic Retry Configuration</a> - Core retry configuration options</li>
+<li><a href="best-practices.html">Best Practices</a> - Recommendations for retry configuration in production systems</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../retry-configuration/backoff-strategy-comparison.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../retry-configuration/conditional-retry-with-error-matchers.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../retry-configuration/backoff-strategy-comparison.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../retry-configuration/conditional-retry-with-error-matchers.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

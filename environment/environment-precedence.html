@@ -1,0 +1,363 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Environment Precedence - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/environment/environment-precedence.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="environment-precedence"><a class="header" href="#environment-precedence">Environment Precedence</a></h2>
+<p>Environment variables are resolved with a clear precedence order, ensuring predictable behavior when the same variable is defined in multiple locations.</p>
+<p><strong>Source</strong>: Implementation in <code>src/cook/environment/manager.rs:95-137</code></p>
+<h2 id="precedence-order"><a class="header" href="#precedence-order">Precedence Order</a></h2>
+<p>Environment variables are applied in the following order (later sources override earlier ones):</p>
+<ol>
+<li><strong>Parent environment</strong> - Inherited from the parent process</li>
+<li><strong>Environment files</strong> - Loaded from <code>env_files</code> (later files override earlier)</li>
+<li><strong>Global <code>env</code></strong> - Defined at workflow level in YAML</li>
+<li><strong>Active profile</strong> - Applied if a profile is set (internal infrastructure)</li>
+<li><strong>Step-specific <code>env</code></strong> - Per-step environment variables</li>
+<li><strong>Secrets</strong> - Loaded from secrets configuration (applied after step env)</li>
+<li><strong>Shell-level overrides</strong> - Using <code>ENV=value command</code> syntax</li>
+</ol>
+<p><strong>Source</strong>: Precedence implementation in <code>src/cook/environment/manager.rs:95-137</code></p>
+<h2 id="implementation-details"><a class="header" href="#implementation-details">Implementation Details</a></h2>
+<h3 id="parent-environment-inheritance"><a class="header" href="#parent-environment-inheritance">Parent Environment Inheritance</a></h3>
+<p>By default, workflows inherit all environment variables from the parent process. You can disable this with <code>inherit: false</code> in the environment configuration.</p>
+<pre><code class="language-yaml"># Disable parent environment inheritance
+inherit: false
+
+env:
+  # Only these variables will be available
+  NODE_ENV: production
+</code></pre>
+<p><strong>Source</strong>: Parent environment loading at <code>src/cook/environment/manager.rs:98-102</code></p>
+<h3 id="environment-files-precedence"><a class="header" href="#environment-files-precedence">Environment Files Precedence</a></h3>
+<p>When multiple environment files are specified, later files override earlier ones. This allows layering of configuration (base + environment-specific).</p>
+<pre><code class="language-yaml">env_files:
+  - .env              # Base configuration
+  - .env.production   # Overrides base values
+</code></pre>
+<p><strong>Source</strong>: Environment file loading at <code>src/cook/environment/manager.rs:107-109</code></p>
+<h3 id="global-environment"><a class="header" href="#global-environment">Global Environment</a></h3>
+<p>The global <code>env</code> block at the workflow level overrides both parent environment and environment files.</p>
+<pre><code class="language-yaml">env:
+  NODE_ENV: production  # Overrides .env files and parent environment
+  API_URL: https://api.example.com
+</code></pre>
+<p><strong>Source</strong>: Global environment application at <code>src/cook/environment/manager.rs:112-115</code></p>
+<h3 id="profile-infrastructure"><a class="header" href="#profile-infrastructure">Profile Infrastructure</a></h3>
+<p>Prodigy includes internal profile infrastructure that can activate different environment configurations. However, this feature is not currently exposed via CLI flags.</p>
+<pre><code class="language-yaml"># Profile infrastructure exists but no --profile CLI flag available
+profiles:
+  development:
+    NODE_ENV: development
+    API_URL: http://localhost:3000
+</code></pre>
+<p><strong>Source</strong>: Profile application at <code>src/cook/environment/manager.rs:118-120</code>; No CLI flag in <code>src/cli/args.rs</code></p>
+<h3 id="step-specific-environment"><a class="header" href="#step-specific-environment">Step-Specific Environment</a></h3>
+<p><strong>Note</strong>: The YAML command syntax (<code>WorkflowStepCommand</code>) does not expose step-level environment configuration. However, the internal runtime (<code>StepEnvironment</code>) supports it for future extensibility.</p>
+<p><strong>Source</strong>:</p>
+<ul>
+<li><code>StepEnvironment</code> struct at <code>src/cook/environment/config.rs:128-144</code></li>
+<li>Step environment application at <code>src/cook/environment/manager.rs:123-127</code></li>
+</ul>
+<h3 id="secrets-loading"><a class="header" href="#secrets-loading">Secrets Loading</a></h3>
+<p>Secrets are loaded AFTER step-specific environment variables, ensuring they cannot be accidentally overridden by step configuration.</p>
+<pre><code class="language-yaml">secrets:
+  API_KEY: "${env:SECRET_API_KEY}"
+
+# This takes precedence over global env, env_files, and step env
+</code></pre>
+<p><strong>Source</strong>: Secrets application at <code>src/cook/environment/manager.rs:130-137</code></p>
+<h3 id="shell-level-overrides"><a class="header" href="#shell-level-overrides">Shell-Level Overrides</a></h3>
+<p>Shell syntax provides the highest precedence override, applied at command execution time.</p>
+<pre><code class="language-yaml">- shell: "NODE_ENV=test echo $NODE_ENV"  # Prints: test
+</code></pre>
+<p>This override is handled by the shell itself and takes precedence over all Prodigy environment sources.</p>
+<h2 id="complete-example"><a class="header" href="#complete-example">Complete Example</a></h2>
+<p>Here’s a comprehensive example demonstrating all precedence levels:</p>
+<pre><code class="language-yaml"># Parent environment: NODE_ENV=local (inherited by default)
+
+env_files:
+  - .env  # Contains: NODE_ENV=development, API_URL=http://localhost:3000
+
+env:
+  NODE_ENV: production      # Overrides .env file and parent
+  API_URL: https://api.prod.example.com  # Overrides .env file
+
+secrets:
+  API_KEY: "${env:SECRET_API_KEY}"  # Loaded after global env
+
+commands:
+  - shell: "echo $NODE_ENV"          # Prints: production (from global env)
+  - shell: "echo $API_URL"           # Prints: https://api.prod.example.com
+  - shell: "echo $API_KEY"           # Prints: *** (masked, from secrets)
+
+  # Override using shell syntax (highest precedence)
+  - shell: "NODE_ENV=staging echo $NODE_ENV"  # Prints: staging
+</code></pre>
+<p><strong>Source</strong>: Real-world example from <code>workflows/environment-example.yml</code></p>
+<h2 id="precedence-resolution-flow"><a class="header" href="#precedence-resolution-flow">Precedence Resolution Flow</a></h2>
+<p>When resolving an environment variable, Prodigy follows this flow:</p>
+<pre><code>1. Start with parent environment (if inherit: true, default)
+2. Apply each env_file in order (later files override)
+3. Apply global env block (overrides files and parent)
+4. Apply active profile if set (internal feature)
+5. Apply step-specific env (runtime capability)
+6. Apply secrets (highest Prodigy-level precedence)
+7. Shell overrides apply at execution time (highest overall)
+</code></pre>
+<p><strong>Result</strong>: The last value set wins, creating a predictable override chain.</p>
+<h2 id="debugging-precedence-issues"><a class="header" href="#debugging-precedence-issues">Debugging Precedence Issues</a></h2>
+<p>When troubleshooting which environment source is active:</p>
+<pre><code class="language-yaml"># Print all environment variables to debug precedence
+- shell: "env | sort"
+  capture_output: true
+
+# Print specific variable to verify its value
+- shell: "echo NODE_ENV=$NODE_ENV"
+</code></pre>
+<p>Common debugging scenarios:</p>
+<ul>
+<li><strong>Variable not set</strong>: Check if parent environment is being inherited</li>
+<li><strong>Wrong value</strong>: Check which precedence level last set the variable</li>
+<li><strong>Secrets not working</strong>: Verify secrets are loaded after step environment</li>
+<li><strong>Override not applying</strong>: Ensure shell syntax is correct</li>
+</ul>
+<h2 id="related-topics"><a class="header" href="#related-topics">Related Topics</a></h2>
+<ul>
+<li><a href="environment-files.html">Environment Files</a> - Loading configuration from files</li>
+<li><a href="secrets-management.html">Secrets Management</a> - Secure handling of sensitive values</li>
+<li><a href="environment-profiles.html">Environment Profiles</a> - Profile infrastructure details</li>
+<li><a href="per-command-environment-overrides.html">Per-Command Overrides</a> - Command-level environment control</li>
+<li><a href="best-practices.html">Best Practices</a> - Environment configuration recommendations</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../environment/per-command-environment-overrides.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../environment/best-practices.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../environment/per-command-environment-overrides.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../environment/best-practices.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

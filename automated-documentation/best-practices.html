@@ -1,0 +1,700 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Best Practices - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/automated-documentation/best-practices.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<p>This section covers best practices for creating and maintaining automated documentation workflows with Prodigy.</p>
+<h3 id="workflow-design-best-practices"><a class="header" href="#workflow-design-best-practices">Workflow Design Best Practices</a></h3>
+<h4 id="keep-workflows-simple-and-focused"><a class="header" href="#keep-workflows-simple-and-focused">Keep Workflows Simple and Focused</a></h4>
+<p>Each workflow should have a single, clear purpose. Break complex workflows into smaller, composable pieces.</p>
+<p><strong>Good Example:</strong></p>
+<pre><code class="language-yaml"># Simple, focused workflow for drift detection
+name: prodigy-book-docs-drift-detection
+mode: mapreduce
+
+setup:
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME"
+  - claude: "/prodigy-detect-documentation-gaps --project $PROJECT_NAME"
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:1-34</p>
+<p><strong>Anti-Pattern:</strong></p>
+<pre><code class="language-yaml"># Overly complex workflow doing too many things
+- claude: "/analyze-features"
+- claude: "/detect-gaps"
+- claude: "/fix-everything"
+- claude: "/deploy-to-production"
+- claude: "/send-notifications"
+</code></pre>
+<h4 id="use-environment-variables-for-parameterization"><a class="header" href="#use-environment-variables-for-parameterization">Use Environment Variables for Parameterization</a></h4>
+<p>Define reusable values as environment variables instead of hardcoding them throughout your workflow.</p>
+<pre><code class="language-yaml">env:
+  PROJECT_NAME: "Prodigy"
+  FEATURES_PATH: ".prodigy/book-analysis/features.json"
+  BOOK_DIR: "book"
+  MAX_PARALLEL: "3"
+
+setup:
+  - claude: "/prodigy-analyze-features --project $PROJECT_NAME --features $FEATURES_PATH"
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:8-21</p>
+<p><strong>Benefits:</strong></p>
+<ul>
+<li>Easy configuration changes without touching workflow logic</li>
+<li>Consistent naming across all commands</li>
+<li>Support for different environments via profiles</li>
+</ul>
+<p>See <a href="../configuration/environment-variables.html">Environment Variables</a> for comprehensive documentation.</p>
+<h4 id="include-validation-steps"><a class="header" href="#include-validation-steps">Include Validation Steps</a></h4>
+<p>Always validate your outputs to ensure quality. Use <code>goal_seek</code> for iterative improvement.</p>
+<pre><code class="language-yaml">- goal_seek:
+    goal: "Achieve 90% test coverage"
+    claude: "/prodigy-coverage --improve"
+    validate: "cargo tarpaulin --print-summary 2&gt;/dev/null | grep 'Coverage' | sed 's/.*Coverage=\\([0-9]*\\).*/score: \\1/'"
+    threshold: 90
+    max_attempts: 5
+</code></pre>
+<p><strong>Source</strong>: workflows/goal-seeking-examples.yml:6-13</p>
+<h4 id="capture-and-use-command-output"><a class="header" href="#capture-and-use-command-output">Capture and Use Command Output</a></h4>
+<p>Use <code>capture_output: true</code> to make command results available to subsequent steps.</p>
+<pre><code class="language-yaml">- shell: "prodigy validate-spec --spec specs/auth.md --json"
+  capture_output: true
+
+- claude: "/implement-missing-features ${shell.output}"
+</code></pre>
+<h4 id="add-commit-requirements"><a class="header" href="#add-commit-requirements">Add Commit Requirements</a></h4>
+<p>Specify <code>commit_required: true</code> for steps that should produce changes. This ensures your workflow makes actual progress.</p>
+<pre><code class="language-yaml">- claude: "/prodigy-fix-subsection-drift --project $PROJECT_NAME"
+  commit_required: true
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:48</p>
+<h3 id="mapreduce-best-practices"><a class="header" href="#mapreduce-best-practices">MapReduce Best Practices</a></h3>
+<h4 id="choose-appropriate-parallelism"><a class="header" href="#choose-appropriate-parallelism">Choose Appropriate Parallelism</a></h4>
+<p>Set <code>max_parallel</code> based on:</p>
+<ul>
+<li>Resource constraints (CPU, memory)</li>
+<li>Network/API rate limits</li>
+<li>Complexity of each work item</li>
+</ul>
+<pre><code class="language-yaml">map:
+  max_parallel: 4  # Run up to 4 agents in parallel
+</code></pre>
+<p><strong>Source</strong>: workflows/documentation-drift-mapreduce.yml:74</p>
+<p><strong>Guidelines:</strong></p>
+<ul>
+<li><strong>Simple operations</strong> (file analysis, linting): 8-10 parallel agents</li>
+<li><strong>Medium operations</strong> (code fixes, refactoring): 4-6 parallel agents</li>
+<li><strong>Complex operations</strong> (feature implementation): 2-3 parallel agents</li>
+<li><strong>Claude-heavy workflows</strong>: 3-5 parallel agents (respects rate limits)</li>
+</ul>
+<h4 id="use-setup-phase-for-work-item-generation"><a class="header" href="#use-setup-phase-for-work-item-generation">Use Setup Phase for Work Item Generation</a></h4>
+<p>The setup phase is ideal for generating work items dynamically based on codebase analysis.</p>
+<pre><code class="language-yaml">setup:
+  - shell: "mkdir -p $ANALYSIS_DIR"
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME"
+  - claude: "/prodigy-detect-documentation-gaps --project $PROJECT_NAME"
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:24-34</p>
+<p>This ensures work items are always current and reflect the latest state of your codebase.</p>
+<h4 id="filter-and-sort-work-items"><a class="header" href="#filter-and-sort-work-items">Filter and Sort Work Items</a></h4>
+<p>Process high-priority items first and skip low-value work.</p>
+<pre><code class="language-yaml">map:
+  filter: "File.score &gt;= 10 OR Function.unified_score.final_score &gt;= 10"
+  sort_by: "File.score DESC NULLS LAST, Function.unified_score.final_score DESC NULLS LAST"
+</code></pre>
+<p><strong>Source</strong>: workflows/debtmap-reduce.yml:79-80</p>
+<p><strong>Common patterns:</strong></p>
+<ul>
+<li><code>filter: "severity == 'high' || severity == 'critical'"</code> - Process critical items only</li>
+<li><code>sort_by: "priority DESC"</code> - High priority first</li>
+<li><code>sort_by: "complexity ASC"</code> - Simple items first (builds momentum)</li>
+</ul>
+<h4 id="configure-error-handling-policies"><a class="header" href="#configure-error-handling-policies">Configure Error Handling Policies</a></h4>
+<p>Use <code>on_item_failure: dlq</code> to continue processing when individual items fail.</p>
+<pre><code class="language-yaml">error_policy:
+  on_item_failure: dlq
+  continue_on_failure: true
+  max_failures: 2
+  error_collection: aggregate
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:86-90</p>
+<p><strong>Error handling strategies:</strong></p>
+<ul>
+<li><code>on_item_failure: dlq</code> - Continue processing, collect failures in Dead Letter Queue</li>
+<li><code>continue_on_failure: true</code> - Keep going when items fail</li>
+<li><code>max_failures: 2</code> - Fail workflow if too many items fail (prevents cascading failures)</li>
+<li><code>error_collection: aggregate</code> - Collect all errors for later analysis</li>
+</ul>
+<h4 id="monitor-events-and-dlq"><a class="header" href="#monitor-events-and-dlq">Monitor Events and DLQ</a></h4>
+<p>Use Prodigy’s event system and DLQ commands to track progress and handle failures:</p>
+<pre><code class="language-bash"># View events for a job
+prodigy events &lt;job_id&gt;
+
+# Check failed items in DLQ
+prodigy dlq show &lt;job_id&gt;
+
+# Retry failed items after fixing issues
+prodigy dlq retry &lt;job_id&gt; --max-parallel 5
+</code></pre>
+<h4 id="use-reduce-phase-for-aggregation"><a class="header" href="#use-reduce-phase-for-aggregation">Use Reduce Phase for Aggregation</a></h4>
+<p>The reduce phase runs after all map agents complete. Use it to:</p>
+<ul>
+<li>Validate combined results</li>
+<li>Build summary reports</li>
+<li>Perform final cleanup</li>
+</ul>
+<pre><code class="language-yaml">reduce:
+  - shell: "cd book &amp;&amp; mdbook build"
+    on_failure:
+      claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
+      commit_required: true
+
+  - shell: "rm -rf ${ANALYSIS_DIR}"
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:62-81</p>
+<h3 id="testing-best-practices"><a class="header" href="#testing-best-practices">Testing Best Practices</a></h3>
+<h4 id="include-test-validation-steps"><a class="header" href="#include-test-validation-steps">Include Test Validation Steps</a></h4>
+<p>Always verify changes don’t break existing functionality:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  on_failure:
+    claude: "/debug-test-failures"
+</code></pre>
+<p><strong>Source</strong>: workflows/mapreduce-example.yml:18-20</p>
+<h4 id="test-workflows-incrementally"><a class="header" href="#test-workflows-incrementally">Test Workflows Incrementally</a></h4>
+<p>Start with a minimal test workflow before scaling up:</p>
+<pre><code class="language-yaml"># Minimal MapReduce workflow to test merge-to-parent functionality
+name: minimal-mapreduce-test
+mode: mapreduce
+
+setup:
+  - shell: |
+      echo '[
+        {"id": 1, "name": "item-one"},
+        {"id": 2, "name": "item-two"}
+      ]' &gt; test-items.json
+
+map:
+  input: test-items.json
+  json_path: $[*]
+  max_parallel: 2
+
+  agent_template:
+    - shell: echo "Processed by agent: ${item.name}" &gt; output-${item.name}.txt
+    - shell: git add output-${item.name}.txt
+    - shell: git commit -m "Process ${item.name}"
+</code></pre>
+<p><strong>Source</strong>: workflows/tests/minimal-mapreduce.yml:1-50</p>
+<p><strong>Testing strategy:</strong></p>
+<ol>
+<li>Start with 2-3 work items</li>
+<li>Use <code>max_parallel: 2</code> for easier debugging</li>
+<li>Verify results before processing full dataset</li>
+<li>Scale up parallelism gradually</li>
+</ol>
+<h4 id="use-goal-seeking-for-automated-debugging"><a class="header" href="#use-goal-seeking-for-automated-debugging">Use Goal-Seeking for Automated Debugging</a></h4>
+<p>Let Prodigy iteratively fix test failures:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  on_failure:
+    goal_seek:
+      goal: "Fix all failing tests"
+      claude: "/debug-test-failures"
+      validate: |
+        cargo test 2&gt;&amp;1 | grep -q "test result: ok" &amp;&amp; echo "score: 100" || {
+          passed=$(cargo test 2&gt;&amp;1 | grep -oP '\d+(?= passed)' | head -1)
+          failed=$(cargo test 2&gt;&amp;1 | grep -oP '\d+(?= failed)' | head -1)
+          total=$((passed + failed))
+          score=$((passed * 100 / total))
+          echo "score: $score"
+        }
+      threshold: 100
+      max_attempts: 3
+</code></pre>
+<p><strong>Source</strong>: workflows/goal-seeking-examples.yml:76-95</p>
+<h4 id="verify-checkpointresume-functionality"><a class="header" href="#verify-checkpointresume-functionality">Verify Checkpoint/Resume Functionality</a></h4>
+<p>Test that your workflow can resume from interruption:</p>
+<pre><code class="language-bash"># Start workflow
+prodigy run workflow.yml
+
+# Interrupt it (Ctrl+C)
+
+# Resume from checkpoint
+prodigy resume &lt;session-id&gt;
+</code></pre>
+<p>All map phase progress should be preserved. See <a href="../mapreduce/checkpoint-and-resume.html">Checkpoint and Resume</a> for details.</p>
+<h3 id="error-handling-best-practices"><a class="header" href="#error-handling-best-practices">Error Handling Best Practices</a></h3>
+<h4 id="use-on_failure-for-recovery"><a class="header" href="#use-on_failure-for-recovery">Use on_failure for Recovery</a></h4>
+<p>Define recovery strategies for predictable failures:</p>
+<pre><code class="language-yaml">- shell: "cargo build --release"
+  on_failure:
+    claude: "/fix-build-errors"
+    commit_required: true
+</code></pre>
+<h4 id="provide-contextual-error-information"><a class="header" href="#provide-contextual-error-information">Provide Contextual Error Information</a></h4>
+<p>Pass error output to Claude for better debugging:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  on_failure:
+    claude: "/debug-test ${shell.output}"
+</code></pre>
+<p><strong>Source</strong>: workflows/mapreduce-example.yml:18-20</p>
+<h4 id="set-reasonable-max-attempts"><a class="header" href="#set-reasonable-max-attempts">Set Reasonable Max Attempts</a></h4>
+<p>For iterative fixes with validation, limit attempts to prevent infinite loops:</p>
+<pre><code class="language-yaml">validate:
+  claude: "/prodigy-validate-doc-fix --project $PROJECT_NAME"
+  threshold: 100
+  on_incomplete:
+    claude: "/prodigy-complete-doc-fix --project $PROJECT_NAME"
+    max_attempts: 3
+    fail_workflow: false
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:49-56</p>
+<p><strong>Guidelines:</strong></p>
+<ul>
+<li>Simple fixes: <code>max_attempts: 2-3</code></li>
+<li>Complex fixes: <code>max_attempts: 5</code></li>
+<li>Set <code>fail_workflow: false</code> if partial progress is acceptable</li>
+</ul>
+<h3 id="environment-management-best-practices"><a class="header" href="#environment-management-best-practices">Environment Management Best Practices</a></h3>
+<h4 id="use-profiles-for-different-environments"><a class="header" href="#use-profiles-for-different-environments">Use Profiles for Different Environments</a></h4>
+<p>Define environment-specific configurations:</p>
+<pre><code class="language-yaml">env:
+  API_URL:
+    default: http://localhost:3000
+    staging: https://staging.api.com
+    prod: https://api.com
+
+profiles:
+  development:
+    NODE_ENV: development
+    DEBUG: "true"
+
+  testing:
+    NODE_ENV: test
+    COVERAGE: "true"
+</code></pre>
+<p><strong>Source</strong>: workflows/environment-example.yml:4-39</p>
+<p>Activate with: <code>prodigy run workflow.yml --profile prod</code></p>
+<h4 id="mark-secrets-appropriately"><a class="header" href="#mark-secrets-appropriately">Mark Secrets Appropriately</a></h4>
+<p>Use the <code>secrets</code> block to mask sensitive values in logs:</p>
+<pre><code class="language-yaml">secrets:
+  API_KEY: "${env:SECRET_API_KEY}"
+</code></pre>
+<p><strong>Source</strong>: workflows/environment-example.yml:21-23</p>
+<p>Secrets are automatically masked in command output, error messages, and event logs.</p>
+<h4 id="load-environment-files"><a class="header" href="#load-environment-files">Load Environment Files</a></h4>
+<p>Use <code>env_files</code> to load variables from external files:</p>
+<pre><code class="language-yaml">env_files:
+  - .env.production
+</code></pre>
+<p><strong>Source</strong>: workflows/environment-example.yml:25-27</p>
+<p>This keeps sensitive values out of version control.</p>
+<h4 id="document-required-variables"><a class="header" href="#document-required-variables">Document Required Variables</a></h4>
+<p>Add comments explaining what each environment variable does:</p>
+<pre><code class="language-yaml">env:
+  # Project configuration
+  PROJECT_NAME: "Prodigy"
+  PROJECT_CONFIG: ".prodigy/book-config.json"
+
+  # Book-specific settings
+  BOOK_DIR: "book"
+  MAX_PARALLEL: "3"
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:10-21</p>
+<h3 id="documentation-specific-best-practices"><a class="header" href="#documentation-specific-best-practices">Documentation-Specific Best Practices</a></h3>
+<h4 id="structure-feature-analysis-first"><a class="header" href="#structure-feature-analysis-first">Structure Feature Analysis First</a></h4>
+<p>Always run feature analysis before gap detection:</p>
+<pre><code class="language-yaml">setup:
+  - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME"
+  - claude: "/prodigy-detect-documentation-gaps --project $PROJECT_NAME"
+</code></pre>
+<p>This ensures gap detection knows what features exist in your codebase.</p>
+<h4 id="use-subsection-aware-commands"><a class="header" href="#use-subsection-aware-commands">Use Subsection-Aware Commands</a></h4>
+<p>When working with multi-subsection chapters, use subsection-aware commands:</p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - claude: "/prodigy-analyze-subsection-drift --project $PROJECT_NAME --json '${item}'"
+    - claude: "/prodigy-fix-subsection-drift --project $PROJECT_NAME --json '${item}'"
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:42-47</p>
+<p>These commands understand subsection scope and preserve cross-references.</p>
+<h4 id="configure-validation-thresholds"><a class="header" href="#configure-validation-thresholds">Configure Validation Thresholds</a></h4>
+<p>Set appropriate quality thresholds for documentation:</p>
+<pre><code class="language-yaml">validate:
+  threshold: 100  # Documentation must meet 100% quality standards
+  on_incomplete:
+    max_attempts: 3
+    fail_workflow: false
+    commit_required: true
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:52-57</p>
+<p><strong>Recommended thresholds:</strong></p>
+<ul>
+<li><strong>100%</strong>: Complete, production-ready documentation</li>
+<li><strong>95%</strong>: Minor improvements needed</li>
+<li><strong>90%</strong>: Good enough for initial review</li>
+</ul>
+<h4 id="limit-parallel-processing"><a class="header" href="#limit-parallel-processing">Limit Parallel Processing</a></h4>
+<p>Documentation workflows are Claude-intensive. Use moderate parallelism:</p>
+<pre><code class="language-yaml">map:
+  max_parallel: 3  # 3-4 agents optimal for documentation
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:59</p>
+<p>Too many parallel agents can hit API rate limits.</p>
+<h4 id="handle-dlq-items-appropriately"><a class="header" href="#handle-dlq-items-appropriately">Handle DLQ Items Appropriately</a></h4>
+<p>Some documentation items may fail due to missing features or unclear scope. Review DLQ items manually:</p>
+<pre><code class="language-bash">prodigy dlq show &lt;job_id&gt;
+
+# Fix issues (add features, clarify scope, etc.)
+
+prodigy dlq retry &lt;job_id&gt;
+</code></pre>
+<h4 id="verify-mdbook-build"><a class="header" href="#verify-mdbook-build">Verify mdBook Build</a></h4>
+<p>Always build the book in the reduce phase to catch broken links:</p>
+<pre><code class="language-yaml">reduce:
+  - shell: "cd book &amp;&amp; mdbook build"
+    on_failure:
+      claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
+</code></pre>
+<p><strong>Source</strong>: workflows/book-docs-drift.yml:63-67</p>
+<h3 id="quick-wins-checklist"><a class="header" href="#quick-wins-checklist">Quick Wins Checklist</a></h3>
+<p>Use this checklist when creating automated documentation workflows:</p>
+<p><strong>Setup Phase:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Feature analysis command runs first</li>
+<li><input disabled="" type="checkbox"/>
+Gap detection generates work items dynamically</li>
+<li><input disabled="" type="checkbox"/>
+Environment variables defined for all paths and settings</li>
+<li><input disabled="" type="checkbox"/>
+Working directory is correct</li>
+</ul>
+<p><strong>Map Phase:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+<code>max_parallel</code> set to 3-4 for Claude-heavy workflows</li>
+<li><input disabled="" type="checkbox"/>
+Agent template uses subsection-aware commands</li>
+<li><input disabled="" type="checkbox"/>
+<code>commit_required: true</code> for all fix commands</li>
+<li><input disabled="" type="checkbox"/>
+Validation configured with appropriate thresholds</li>
+</ul>
+<p><strong>Reduce Phase:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+mdBook build step included</li>
+<li><input disabled="" type="checkbox"/>
+Build errors have recovery command</li>
+<li><input disabled="" type="checkbox"/>
+Temporary analysis files cleaned up</li>
+</ul>
+<p><strong>Error Handling:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+<code>on_item_failure: dlq</code> configured</li>
+<li><input disabled="" type="checkbox"/>
+<code>continue_on_failure: true</code> set</li>
+<li><input disabled="" type="checkbox"/>
+Reasonable <code>max_failures</code> threshold</li>
+</ul>
+<p><strong>Testing:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Workflow tested with minimal dataset first</li>
+<li><input disabled="" type="checkbox"/>
+DLQ retry tested</li>
+<li><input disabled="" type="checkbox"/>
+Resume functionality verified</li>
+</ul>
+<h3 id="common-anti-patterns-to-avoid"><a class="header" href="#common-anti-patterns-to-avoid">Common Anti-Patterns to Avoid</a></h3>
+<h4 id="over-parallelization"><a class="header" href="#over-parallelization">Over-Parallelization</a></h4>
+<p><strong>Problem:</strong></p>
+<pre><code class="language-yaml">map:
+  max_parallel: 50  # Way too high!
+</code></pre>
+<p><strong>Impact:</strong> API rate limits, resource exhaustion, difficult debugging</p>
+<p><strong>Solution:</strong> Use 3-5 for Claude-heavy workflows, 4-10 for simple operations</p>
+<h4 id="missing-error-handlers"><a class="header" href="#missing-error-handlers">Missing Error Handlers</a></h4>
+<p><strong>Problem:</strong></p>
+<pre><code class="language-yaml">- shell: "cargo build"
+# No on_failure handler - workflow fails on first error
+</code></pre>
+<p><strong>Impact:</strong> Workflow stops at first failure, no recovery</p>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-yaml">- shell: "cargo build"
+  on_failure:
+    claude: "/fix-build-errors"
+</code></pre>
+<h4 id="incomplete-validation"><a class="header" href="#incomplete-validation">Incomplete Validation</a></h4>
+<p><strong>Problem:</strong></p>
+<pre><code class="language-yaml">- claude: "/fix-drift"
+# No validation step - no way to know if it worked
+</code></pre>
+<p><strong>Impact:</strong> Can’t verify quality, may need manual review</p>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-yaml">- claude: "/fix-drift"
+  validate:
+    claude: "/validate-fix"
+    threshold: 95
+</code></pre>
+<h4 id="hardcoded-paths"><a class="header" href="#hardcoded-paths">Hardcoded Paths</a></h4>
+<p><strong>Problem:</strong></p>
+<pre><code class="language-yaml">- shell: "cd /Users/alice/projects/myapp &amp;&amp; make"
+</code></pre>
+<p><strong>Impact:</strong> Workflow breaks on other machines</p>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-yaml">env:
+  PROJECT_DIR: "."
+
+commands:
+  - shell: "make"
+    working_dir: "${PROJECT_DIR}"
+</code></pre>
+<h4 id="ignoring-dlq-items"><a class="header" href="#ignoring-dlq-items">Ignoring DLQ Items</a></h4>
+<p><strong>Problem:</strong> Running workflow, seeing failures, never checking DLQ</p>
+<p><strong>Impact:</strong> Work items silently fail, issues accumulate</p>
+<p><strong>Solution:</strong> Regularly check and retry DLQ:</p>
+<pre><code class="language-bash">prodigy dlq show &lt;job_id&gt;
+prodigy dlq retry &lt;job_id&gt;
+</code></pre>
+<h3 id="related-documentation"><a class="header" href="#related-documentation">Related Documentation</a></h3>
+<ul>
+<li><a href="understanding-the-workflow.html">Understanding the Workflow</a> - How the automated documentation system works</li>
+<li><a href="troubleshooting.html">Troubleshooting</a> - Common issues and solutions</li>
+<li><a href="advanced-configuration.html">Advanced Configuration</a> - Fine-tuning workflow behavior</li>
+<li><a href="github-actions-integration.html">GitHub Actions Integration</a> - Running workflows in CI/CD</li>
+<li><a href="../configuration/environment-variables.html">Environment Variables</a> - Complete environment configuration guide</li>
+<li><a href="../advanced/goal-seeking-operations.html">Goal-Seeking Operations</a> - Iterative improvement workflows</li>
+<li><a href="../mapreduce/checkpoint-and-resume.html">Checkpoint and Resume</a> - Recovery from interruptions</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../automated-documentation/customization-examples.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../automated-documentation/troubleshooting.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../automated-documentation/customization-examples.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../automated-documentation/troubleshooting.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

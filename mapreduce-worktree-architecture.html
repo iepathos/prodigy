@@ -199,7 +199,7 @@ Parent Worktree (session-mapreduce-{id})
 <h2 id="worktree-hierarchy"><a class="header" href="#worktree-hierarchy">Worktree Hierarchy</a></h2>
 <h3 id="parent-worktree"><a class="header" href="#parent-worktree">Parent Worktree</a></h3>
 <p>Created at the start of MapReduce workflow execution:</p>
-<p><strong>Location</strong>: <code>~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}</code> (or anonymous worktree path if session_id not specified)</p>
+<p><strong>Location</strong>: <code>~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}</code></p>
 <p><strong>Purpose</strong>:</p>
 <ul>
 <li>Isolates all workflow execution from main repository</li>
@@ -207,8 +207,18 @@ Parent Worktree (session-mapreduce-{id})
 <li>Hosts reduce phase execution</li>
 <li>Serves as merge target for agent results</li>
 </ul>
-<p><strong>Branch</strong>: <code>prodigy-session-mapreduce-{timestamp}</code></p>
-<p><strong>Note</strong>: MapReduce coordinators typically create named session worktrees, but individual agents may use anonymous worktrees from the pool if no session context is provided.</p>
+<p><strong>Branch</strong>: Follows <code>prodigy-{session-id}</code> pattern. The session ID includes a timestamp (e.g., <code>session-mapreduce-20250112_143052</code>), so the full branch name becomes <code>prodigy-session-mapreduce-20250112_143052</code> (source: src/worktree/builder.rs:176-178)</p>
+<p><strong>Worktree Allocation Strategies</strong>:</p>
+<p>All worktrees in Prodigy have names, paths, and git branches - the distinction is in how they’re allocated:</p>
+<ul>
+<li>
+<p><strong>Directly-Created Worktrees</strong>: MapReduce coordinators create session worktrees with explicit, predictable names (e.g., <code>session-mapreduce-20250112_143052</code>). These have deterministic paths and are easy to locate.</p>
+</li>
+<li>
+<p><strong>Pool-Allocated Worktrees</strong>: When agents request worktrees via <code>WorktreeRequest::Anonymous</code> (source: src/cook/execution/mapreduce/resources/worktree.rs:42), they receive pre-allocated worktrees from a shared pool. These worktrees have pool-assigned names rather than request-specific names. The pool allocation strategy enables efficient resource reuse across multiple agents.</p>
+</li>
+</ul>
+<p><strong>Important</strong>: Both allocation strategies produce worktrees with full identity (name, path, branch). The difference is in naming predictability and resource management approach.</p>
 <h3 id="child-worktrees"><a class="header" href="#child-worktrees">Child Worktrees</a></h3>
 <p>Created for each map agent:</p>
 <p><strong>Location</strong>: <code>~/.prodigy/worktrees/{project}/mapreduce-agent-{agent_id}</code></p>
@@ -218,21 +228,39 @@ Parent Worktree (session-mapreduce-{id})
 <li>Independent failure handling</li>
 <li>Parallel execution safety</li>
 </ul>
-<p><strong>Branch</strong>: <code>prodigy-agent-{session_id}-{item_id}</code> (branched from parent worktree)</p>
+<p><strong>Branch</strong>: Follows <code>prodigy-{worktree-name}</code> pattern (branched from parent worktree)</p>
+<p><strong>Resource Management</strong>: Agent worktrees can be acquired through two strategies:</p>
+<ol>
+<li>
+<p><strong>Worktree Pool</strong> (preferred): Agents first attempt to acquire pre-allocated worktrees from a <code>WorktreePool</code>. This reduces creation overhead and enables efficient resource reuse.</p>
+</li>
+<li>
+<p><strong>Direct Creation</strong> (fallback): If the pool is exhausted or unavailable, agents fall back to creating dedicated worktrees via <code>WorktreeManager</code>.</p>
+</li>
+</ol>
+<p>The <code>acquire_session</code> method implements this pool-first strategy, ensuring optimal resource utilization while maintaining isolation guarantees.</p>
 <p><strong>Note</strong>: The <code>agent_id</code> in the location path encodes the work item information. Agent worktrees are created dynamically as map agents execute.</p>
 <h2 id="branch-naming-conventions"><a class="header" href="#branch-naming-conventions">Branch Naming Conventions</a></h2>
 <p>Prodigy uses consistent branch naming to track worktree relationships:</p>
 <h3 id="parent-worktree-branch"><a class="header" href="#parent-worktree-branch">Parent Worktree Branch</a></h3>
-<p>Format: <code>prodigy-session-mapreduce-YYYYMMDD_HHMMSS</code></p>
+<p>Format: <code>prodigy-{session-id}</code></p>
+<p>The branch name follows the universal worktree pattern where all worktrees use <code>prodigy-{name}</code>. For MapReduce workflows, the session ID itself includes the timestamp, so the full branch name looks like:</p>
 <p>Example: <code>prodigy-session-mapreduce-20250112_143052</code></p>
+<p>This is <code>prodigy-</code> + the session ID <code>session-mapreduce-20250112_143052</code></p>
 <h3 id="agent-worktree-branch"><a class="header" href="#agent-worktree-branch">Agent Worktree Branch</a></h3>
-<p>Format: <code>prodigy-agent-{session_id}-{item_id}</code></p>
-<p>Example: <code>prodigy-agent-session-abc123-xyz456</code></p>
-<p><strong>Components</strong>:</p>
+<p>Format: <code>prodigy-{worktree-name}</code></p>
+<p>All worktrees in Prodigy follow the universal <code>prodigy-{name}</code> branch naming pattern (source: src/worktree/builder.rs:178). The worktree name itself varies based on the allocation strategy:</p>
+<p><strong>Pool-Allocated Worktrees</strong>: When agents acquire worktrees from the pre-allocated pool, the worktree name is generated by the pool and may not follow a predictable pattern. These are still tracked by the consistent <code>prodigy-{name}</code> branch format.</p>
+<p><strong>Directly-Created Worktrees</strong>: When agents create dedicated worktrees (fallback when pool is exhausted), the name typically encodes job and agent information.</p>
+<p>Example: <code>prodigy-mapreduce-agent-mapreduce-20251109_193734_agent_22</code></p>
+<p>This is <code>prodigy-</code> + the worktree name <code>mapreduce-agent-mapreduce-20251109_193734_agent_22</code></p>
+<p><strong>Directly-Created Worktree Name Components</strong>:</p>
 <ul>
-<li><code>session_id</code>: MapReduce agent session identifier</li>
-<li><code>item_id</code>: Work item identifier from the map phase</li>
+<li><code>mapreduce-agent-</code>: Indicates this is a MapReduce agent worktree</li>
+<li><code>{job_id}</code>: The MapReduce job identifier (includes timestamp)</li>
+<li><code>_agent_{n}</code>: Sequential agent number within the job</li>
 </ul>
+<p><strong>Note</strong>: The branch naming is always consistent (<code>prodigy-{name}</code>), but worktree naming varies based on allocation strategy.</p>
 <h2 id="merge-flow"><a class="header" href="#merge-flow">Merge Flow</a></h2>
 <p>MapReduce workflows involve multiple merge operations to aggregate results:</p>
 <h3 id="1-agent-merge-child--parent"><a class="header" href="#1-agent-merge-child--parent">1. Agent Merge (Child → Parent)</a></h3>
@@ -270,7 +298,15 @@ Main Repository (original branch)
 <h2 id="agent-merge-details"><a class="header" href="#agent-merge-details">Agent Merge Details</a></h2>
 <h3 id="merge-queue"><a class="header" href="#merge-queue">Merge Queue</a></h3>
 <p>Agents are added to a merge queue as they complete:</p>
-<p><strong>Queue Architecture</strong>: Merge queue is managed in-memory by a background worker task. Merge requests are processed sequentially via an unbounded channel, eliminating MERGE_HEAD race conditions. Queue state is not persisted - merge operations are atomic.</p>
+<p><strong>Queue Architecture</strong>: Merge queue is managed in-memory by a background worker task using a tokio unbounded mpsc channel (<code>mpsc::unbounded_channel::&lt;MergeRequest&gt;()</code>). Merge requests are processed sequentially via this channel, eliminating MERGE_HEAD race conditions. Queue state is not persisted - merge operations are atomic (source: src/cook/execution/mapreduce/merge_queue.rs:70).</p>
+<p><strong>Resume and Recovery</strong>: The merge queue state is reconstructed on resume from checkpoint data (source: src/cook/execution/mapreduce/merge_queue.rs:153). When a MapReduce workflow is interrupted and resumed, the queue is rebuilt based on:</p>
+<ul>
+<li>Completed agents: Already merged, skip re-merging</li>
+<li>Failed agents: Tracked in DLQ, can be retried separately</li>
+<li>In-progress agents: Moved back to pending status, will be re-executed</li>
+<li>Pending agents: Continue processing from where left off</li>
+</ul>
+<p>Any in-progress merges at the time of interruption are retried from the agent worktree state. This ensures no agent results are lost during resume.</p>
 <p><strong>Queue Processing</strong>: Queue processes <code>MergeRequest</code> objects containing:</p>
 <ul>
 <li><code>agent_id</code>: Unique agent identifier</li>
@@ -294,16 +330,19 @@ Main Repository (original branch)
 <ol>
 <li>Standard git merge attempted</li>
 <li>If conflicts detected, invoke Claude with <code>/prodigy-merge-worktree {branch_name}</code></li>
+<li>Claude is executed with <code>PRODIGY_AUTOMATION=true</code> environment variable (source: src/cook/execution/mapreduce/merge_queue.rs:98-99)</li>
 <li>Claude analyzes conflicts and attempts resolution</li>
 <li>If Claude succeeds, merge completes automatically</li>
 <li>If Claude fails, agent is marked as failed and added to DLQ</li>
 </ol>
+<p><strong>PRODIGY_AUTOMATION Environment Variable</strong>: When set to <code>true</code>, this signals to Claude Code that it’s operating in automated workflow mode and should use appropriate merge strategies without requiring user interaction. Claude will attempt to resolve conflicts autonomously using standard git merge strategies and code analysis.</p>
 <p><strong>Benefits</strong>:</p>
 <ul>
 <li>Reduces manual merge conflict resolution overhead</li>
 <li>Handles common conflict patterns automatically</li>
 <li>Preserves full context for debugging via Claude logs</li>
 <li>Falls back gracefully to DLQ for complex conflicts</li>
+<li>Automated execution mode ensures non-interactive conflict resolution</li>
 </ul>
 <p>This automatic conflict resolution is especially useful when multiple agents modify overlapping code areas.</p>
 <h2 id="parent-to-master-merge"><a class="header" href="#parent-to-master-merge">Parent to Master Merge</a></h2>
@@ -319,8 +358,9 @@ Merge session-mapreduce-20250112_143052 to master? [y/N]
   - shell: "git fetch origin"
   - shell: "cargo test"
   - shell: "cargo clippy"
-  - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+  - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
 </code></pre>
+<p><strong>Important</strong>: Always pass both <code>${merge.source_branch}</code> and <code>${merge.target_branch}</code> to the <code>/prodigy-merge-worktree</code> command (source: .claude/commands/prodigy-merge-worktree.md). This ensures the merge targets the branch you were on when you started the workflow, not a hardcoded main/master branch.</p>
 <h3 id="merge-variables"><a class="header" href="#merge-variables">Merge Variables</a></h3>
 <p>Available during merge workflows:</p>
 <ul>
@@ -343,6 +383,27 @@ git log
 cd ~/.prodigy/worktrees/{project}/agent-*
 git log --oneline
 </code></pre>
+<h3 id="finding-agent-worktree-paths"><a class="header" href="#finding-agent-worktree-paths">Finding Agent Worktree Paths</a></h3>
+<p>Agent worktrees may be <strong>directly-created</strong> (with predictable names) or <strong>pool-allocated</strong> (with pool-assigned names). To correlate agent IDs to worktree paths:</p>
+<p><strong>Directly-Created Worktrees</strong> (deterministic paths):</p>
+<pre><code class="language-bash"># Pattern: ~/.prodigy/worktrees/{project}/mapreduce-agent-{job_id}_agent_{n}
+cd ~/.prodigy/worktrees/{project}/mapreduce-agent-*
+</code></pre>
+<p><strong>Pool-Allocated Worktrees</strong> (pool-assigned paths):</p>
+<pre><code class="language-bash"># List all worktrees and correlate by branch name
+git worktree list
+
+# Look for branches matching agent pattern
+git branch -a | grep prodigy-mapreduce-agent
+</code></pre>
+<p><strong>Note</strong>: Both allocation strategies produce fully-identified worktrees with names, paths, and branches. Pool allocation assigns names from the pool’s naming scheme, while direct creation uses request-specific naming patterns. Use <code>WorktreeInfo</code> tracking (described below) to correlate agent IDs to actual worktree locations.</p>
+<p><strong>WorktreeInfo Tracking</strong>: Prodigy captures worktree metadata in <code>WorktreeInfo</code> structs containing:</p>
+<ul>
+<li><code>name</code>: Worktree identifier</li>
+<li><code>path</code>: Full filesystem path</li>
+<li><code>branch</code>: Git branch name</li>
+</ul>
+<p>This information is logged in MapReduce events and can be inspected via <code>prodigy events {job_id}</code> to correlate agent IDs to worktree paths.</p>
 <h3 id="common-debugging-scenarios"><a class="header" href="#common-debugging-scenarios">Common Debugging Scenarios</a></h3>
 <p><strong>Agent Failed to Merge:</strong></p>
 <ol>
@@ -432,9 +493,9 @@ git log --oneline | grep "Merge"
 <strong>Solution</strong>: Use <code>prodigy worktree clean</code> to remove old worktrees, or manually remove with <code>git worktree remove</code></p>
 <h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
 <ul>
-<li><a href="mapreduce.html">MapReduce Workflows</a> - MapReduce workflow basics</li>
+<li><a href="mapreduce/index.html">MapReduce Workflows</a> - MapReduce workflow basics</li>
 <li><a href="error-handling.html">Error Handling</a> - Handling merge failures</li>
-<li><a href="troubleshooting.html">Troubleshooting</a> - General troubleshooting guide</li>
+<li><a href="troubleshooting/index.html">Troubleshooting</a> - General troubleshooting guide</li>
 </ul>
 
                     </main>
@@ -445,7 +506,7 @@ git log --oneline | grep "Merge"
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="automated-documentation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="automated-documentation/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -459,7 +520,7 @@ git log --oneline | grep "Merge"
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="automated-documentation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="automated-documentation/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

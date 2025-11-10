@@ -1,0 +1,388 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Configuration - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/configuration/index.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+<p>Prodigy supports comprehensive configuration through multiple files with a clear precedence hierarchy. This chapter explains all configuration options and how to use them effectively.</p>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
+<p>Prodigy uses two distinct types of configuration files:</p>
+<ol>
+<li><strong>Project Configuration</strong> (<code>.prodigy/config.yml</code>) - Project settings and metadata</li>
+<li><strong>Workflow Configuration</strong> (<code>.prodigy/workflow.yml</code> or explicit path) - Workflow definitions</li>
+</ol>
+<h3 id="minimal-project-configuration"><a class="header" href="#minimal-project-configuration">Minimal Project Configuration</a></h3>
+<p>Create <code>.prodigy/config.yml</code>:</p>
+<pre><code class="language-yaml">name: my-project  # Required: Project identifier
+</code></pre>
+<p>The <code>name</code> field is the only required field. All other settings have sensible defaults.</p>
+<p><strong>Source</strong>: ProjectConfig struct in src/config/mod.rs:66-74</p>
+<h3 id="minimal-workflow-configuration"><a class="header" href="#minimal-workflow-configuration">Minimal Workflow Configuration</a></h3>
+<p>Create <code>.prodigy/workflow.yml</code> or any <code>.yml</code> file:</p>
+<pre><code class="language-yaml">commands:  # List of commands to execute in sequence
+  - prodigy-code-review  # Slash prefix is optional in workflow files
+  - /prodigy-lint        # Both styles work the same
+</code></pre>
+<p>Workflows define a sequence of commands to execute. Each command is a Prodigy slash command - the <code>/</code> prefix is optional in workflow files.</p>
+<p><strong>Source</strong>: WorkflowConfig parsing in src/core/config/mod.rs:11-22, Examples in examples/mapreduce-json-input.yml</p>
+<p>That’s all you need to get started! Prodigy provides sensible defaults for everything else. See the subsections below for detailed configuration options.</p>
+<h2 id="configuration-file-locations"><a class="header" href="#configuration-file-locations">Configuration File Locations</a></h2>
+<p>Prodigy uses a search hierarchy to find configuration files. Configuration can come from multiple sources with the following precedence (highest to lowest):</p>
+<ol>
+<li><strong>CLI Flags</strong> - Command-line arguments override all other settings</li>
+<li><strong>Environment Variables</strong> - Environment variables (e.g., <code>PRODIGY_CLAUDE_API_KEY</code>)</li>
+<li><strong>Project Config</strong> - <code>.prodigy/config.yml</code> in your project directory</li>
+<li><strong>Global Config</strong> - <code>~/.prodigy/config.yml</code> in your home directory</li>
+<li><strong>Defaults</strong> - Built-in default values</li>
+</ol>
+<p><strong>Source</strong>: ConfigLoader.load_with_explicit_path() in src/config/loader.rs:31-55</p>
+<h3 id="workflow-file-search-hierarchy"><a class="header" href="#workflow-file-search-hierarchy">Workflow File Search Hierarchy</a></h3>
+<p>For workflow files specifically (different from project config):</p>
+<ol>
+<li><strong>Explicit path</strong> - Path provided via <code>prodigy run path/to/workflow.yml</code> (error if not found)</li>
+<li><strong>Default location</strong> - <code>.prodigy/workflow.yml</code> in the project directory (if exists)</li>
+<li><strong>Built-in defaults</strong> - Default workflow configuration</li>
+</ol>
+<p><strong>Source</strong>: ConfigLoader.load_with_explicit_path() in src/config/loader.rs:40-54</p>
+<h3 id="key-distinction-configyml-vs-workflowyml"><a class="header" href="#key-distinction-configyml-vs-workflowyml">Key Distinction: config.yml vs workflow.yml</a></h3>
+<ul>
+<li>
+<p><strong><code>.prodigy/config.yml</code></strong>: Contains <strong>project settings</strong> (name, version, API keys, editor preferences)</p>
+<ul>
+<li>Maps to <code>ProjectConfig</code> struct (src/config/mod.rs:66-74)</li>
+<li>Loaded via ConfigLoader.load_project() (src/config/loader.rs:85-104)</li>
+</ul>
+</li>
+<li>
+<p><strong><code>.prodigy/workflow.yml</code></strong>: Contains <strong>workflow definitions</strong> (commands to execute)</p>
+<ul>
+<li>Maps to <code>WorkflowConfig</code> struct (src/config/workflow.rs)</li>
+<li>Loaded via ConfigLoader.load_with_explicit_path() (src/config/loader.rs:35-55)</li>
+</ul>
+</li>
+</ul>
+<p>Both can exist in the <code>.prodigy/</code> directory and serve different purposes.</p>
+<h2 id="configuration-architecture"><a class="header" href="#configuration-architecture">Configuration Architecture</a></h2>
+<p>Prodigy uses a three-tier configuration structure internally:</p>
+<pre><code>Config (Root)
+├── GlobalConfig      - User-wide settings (~/.prodigy/config.yml)
+├── ProjectConfig     - Project-specific settings (.prodigy/config.yml)
+└── WorkflowConfig    - Workflow definitions (.prodigy/workflow.yml or explicit path)
+</code></pre>
+<p><strong>Source</strong>: Config struct hierarchy in src/config/mod.rs:38-43</p>
+<p><strong>How it works:</strong></p>
+<ol>
+<li><code>Config::new()</code> creates the root with default <code>GlobalConfig</code></li>
+<li><code>merge_project_config()</code> adds project-specific settings (src/core/config/mod.rs:36-40)</li>
+<li><code>merge_workflow_config()</code> adds workflow definitions (src/core/config/mod.rs:31-34)</li>
+<li><code>Config.merge_env_vars()</code> applies environment variable overrides (src/config/mod.rs:111-131)</li>
+</ol>
+<p>This design allows:</p>
+<ul>
+<li><strong>Separation of concerns</strong>: Global settings vs project settings vs workflows</li>
+<li><strong>Clear precedence</strong>: Project settings override global defaults</li>
+<li><strong>Environment overrides</strong>: Runtime configuration via env vars</li>
+<li><strong>Type safety</strong>: Each config tier has its own validated struct</li>
+</ul>
+<p>See <a href="global-configuration-structure.html">Global Configuration Structure</a> and <a href="project-configuration-structure.html">Project Configuration Structure</a> for detailed field definitions.</p>
+<h2 id="common-configuration-patterns"><a class="header" href="#common-configuration-patterns">Common Configuration Patterns</a></h2>
+<h3 id="quick-validation"><a class="header" href="#quick-validation">Quick Validation</a></h3>
+<p>To verify which configuration Prodigy is using:</p>
+<pre><code class="language-bash"># Check if config files exist
+ls -la .prodigy/config.yml .prodigy/workflow.yml
+
+# Validate YAML syntax
+prodigy validate workflow.yml
+
+# Run with verbose output to see loaded configuration
+prodigy run workflow.yml -v
+</code></pre>
+<p><strong>Validation rules</strong> (src/core/config/mod.rs:43-50):</p>
+<ul>
+<li>Only <code>.yml</code> and <code>.yaml</code> extensions are supported (TOML is deprecated)</li>
+<li>Config files must be valid YAML syntax</li>
+<li>ProjectConfig requires <code>name</code> field</li>
+<li>WorkflowConfig requires <code>commands</code> array</li>
+</ul>
+<h3 id="configuration-not-found"><a class="header" href="#configuration-not-found">Configuration Not Found?</a></h3>
+<p>If Prodigy doesn’t find your configuration:</p>
+<ol>
+<li>
+<p><strong>Workflow file</strong>: Check explicit path vs <code>.prodigy/workflow.yml</code></p>
+<ul>
+<li>Explicit path: <code>prodigy run path/to/workflow.yml</code> (must exist or error)</li>
+<li>Default location: <code>.prodigy/workflow.yml</code> (optional, uses defaults if missing)</li>
+</ul>
+</li>
+<li>
+<p><strong>Project config</strong>: Must be at <code>.prodigy/config.yml</code> in project root</p>
+<ul>
+<li>Prodigy searches upward from current directory for <code>.prodigy/</code> folder</li>
+<li>Check you’re running from within the project directory</li>
+</ul>
+</li>
+<li>
+<p><strong>Global config</strong>: Optional, located at <code>~/.prodigy/config.yml</code></p>
+<ul>
+<li>Use for API keys and editor preferences across all projects</li>
+</ul>
+</li>
+</ol>
+<p><strong>Source</strong>: ConfigLoader search logic in src/config/loader.rs:35-104</p>
+<h3 id="debugging-configuration-issues"><a class="header" href="#debugging-configuration-issues">Debugging Configuration Issues</a></h3>
+<p>Common issues and solutions:</p>
+<div class="table-wrapper"><table><thead><tr><th>Issue</th><th>Cause</th><th>Solution</th></tr></thead><tbody>
+<tr><td>“Config not found”</td><td>File in wrong location</td><td>Check <code>.prodigy/config.yml</code> exists in project root</td></tr>
+<tr><td>“Invalid YAML”</td><td>Syntax error</td><td>Validate YAML with online parser or <code>yamllint</code></td></tr>
+<tr><td>“Unknown field”</td><td>Typo in field name</td><td>Check struct definitions in src/config/mod.rs</td></tr>
+<tr><td>Settings not applied</td><td>Wrong precedence</td><td>CLI flags &gt; env vars &gt; project &gt; global &gt; defaults</td></tr>
+<tr><td>Workflow not loaded</td><td>Wrong file used</td><td>Verify workflow.yml vs config.yml distinction</td></tr>
+</tbody></table>
+</div>
+<h2 id="additional-topics"><a class="header" href="#additional-topics">Additional Topics</a></h2>
+<p>See also:</p>
+<ul>
+<li><a href="configuration-precedence-rules.html">Configuration Precedence Rules</a></li>
+<li><a href="global-configuration-structure.html">Global Configuration Structure</a></li>
+<li><a href="project-configuration-structure.html">Project Configuration Structure</a></li>
+<li><a href="workflow-configuration.html">Workflow Configuration</a></li>
+<li><a href="storage-configuration.html">Storage Configuration</a></li>
+<li><a href="environment-variables.html">Environment Variables</a></li>
+<li><a href="complete-configuration-examples.html">Complete Configuration Examples</a></li>
+<li><a href="default-values-reference.html">Default Values Reference</a></li>
+<li><a href="best-practices.html">Best Practices</a></li>
+<li><a href="troubleshooting.html">Troubleshooting</a></li>
+<li><a href="migration-guide-toml-to-yaml.html">Migration Guide: TOML to YAML</a></li>
+<li><a href="related-documentation.html">Related Documentation</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../environment/common-patterns.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../configuration/configuration-precedence-rules.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../environment/common-patterns.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../configuration/configuration-precedence-rules.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

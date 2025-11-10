@@ -1,0 +1,575 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Complete Examples - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/composition/complete-examples.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="complete-examples"><a class="header" href="#complete-examples">Complete Examples</a></h2>
+<p>This section provides end-to-end examples demonstrating multiple composition features working together.</p>
+<h3 id="example-1-multi-environment-cicd-pipeline"><a class="header" href="#example-1-multi-environment-cicd-pipeline">Example 1: Multi-Environment CI/CD Pipeline</a></h3>
+<p>This example uses templates, parameters, and inheritance for environment-specific deployments.</p>
+<p><strong>base-ci-template.yml</strong> (template in registry):</p>
+<pre><code class="language-yaml">name: ci-pipeline-template
+mode: standard
+
+parameters:
+  required:
+    - name: environment
+      type: string
+      description: "Deployment environment"
+      validation: "matches('^(dev|staging|prod)$')"
+
+  optional:
+    - name: replicas
+      type: number
+      description: "Number of service replicas"
+      default: 1
+
+    - name: run_tests
+      type: boolean
+      description: "Whether to run test suite"
+      default: true
+
+defaults:
+  timeout: 600
+  log_level: "info"
+
+commands:
+  - shell: "echo Deploying to ${environment} with ${replicas} replicas"
+  - shell: "cargo build --release"
+  - shell: |
+      if [ "${run_tests}" = "true" ]; then
+        cargo test --release
+      fi
+  - shell: "kubectl apply -f k8s/${environment}/deployment.yml"
+  - shell: "kubectl scale deployment app --replicas=${replicas}"
+</code></pre>
+<p><strong>Source</strong>: Template and parameter structure from src/cook/workflow/composition/mod.rs:75-129</p>
+<p><strong>dev-deployment.yml</strong>:</p>
+<pre><code class="language-yaml">name: dev-deployment
+mode: standard
+
+template:
+  source: "ci-pipeline-template"  # Registry name
+  with:
+    environment: "dev"
+    replicas: 1
+    run_tests: false  # Skip tests in dev for speed
+</code></pre>
+<p><strong>Source</strong>: TemplateSource is an untagged enum accepting string values (src/cook/workflow/composition/mod.rs:86-95)</p>
+<p><strong>prod-deployment.yml</strong>:</p>
+<pre><code class="language-yaml">name: prod-deployment
+mode: standard
+
+template:
+  source: "ci-pipeline-template"  # Registry name
+  with:
+    environment: "prod"
+    replicas: 5
+    run_tests: true  # Always test before prod
+
+# Add production-specific safeguards
+commands:
+  - shell: "verify-release-notes.sh"
+  - shell: "notify-team 'Production deployment starting'"
+</code></pre>
+<h3 id="example-2-modular-monorepo-testing"><a class="header" href="#example-2-modular-monorepo-testing">Example 2: Modular Monorepo Testing</a></h3>
+<p>Uses sub-workflows and imports for testing multiple services in parallel.</p>
+<p><strong>shared/common-setup.yml</strong>:</p>
+<pre><code class="language-yaml">name: common-setup
+
+commands:
+  - shell: "git fetch origin"
+  - shell: "npm install"
+  - shell: "cargo build"
+</code></pre>
+<p><strong>monorepo-test.yml</strong>:</p>
+<pre><code class="language-yaml">name: monorepo-test
+mode: standard
+
+imports:
+  - path: "shared/common-setup.yml"
+
+workflows:
+  # Test all services in parallel using workflow map (not array)
+  api-tests:
+    source: "services/api/test.yml"
+    working_dir: "./services/api"
+    parallel: true
+    outputs:
+      - "coverage"
+      - "test_count"
+
+  worker-tests:
+    source: "services/worker/test.yml"
+    working_dir: "./services/worker"
+    parallel: true
+    outputs:
+      - "coverage"
+      - "test_count"
+
+  frontend-tests:
+    source: "apps/frontend/test.yml"
+    working_dir: "./apps/frontend"
+    parallel: true
+    outputs:
+      - "coverage"
+      - "test_count"
+
+commands:
+  - shell: |
+      echo "Test Results:"
+      echo "  API: ${api-tests.test_count} tests, ${api-tests.coverage}% coverage"
+      echo "  Worker: ${worker-tests.test_count} tests, ${worker-tests.coverage}% coverage"
+      echo "  Frontend: ${frontend-tests.test_count} tests, ${frontend-tests.coverage}% coverage"
+  - shell: "generate-combined-report.sh"
+</code></pre>
+<p><strong>Source</strong>: Sub-workflows use HashMap, not array (src/cook/workflow/composition/mod.rs:49 and src/cook/workflow/composition/sub_workflow.rs:14-45)</p>
+<h3 id="example-3-layered-configuration-with-extends"><a class="header" href="#example-3-layered-configuration-with-extends">Example 3: Layered Configuration with Extends</a></h3>
+<p>Uses inheritance to create environment-specific variations of a base workflow.</p>
+<p><strong>base-config.yml</strong>:</p>
+<pre><code class="language-yaml">name: base-config
+mode: standard
+
+defaults:
+  log_level: "info"
+  timeout: 300
+
+env:
+  APP_NAME: "my-service"
+  DATABASE_POOL_SIZE: "10"
+
+commands:
+  - shell: "cargo fmt --check"
+  - shell: "cargo clippy"
+  - shell: "cargo test"
+  - shell: "cargo build"
+</code></pre>
+<p><strong>staging-config.yml</strong>:</p>
+<pre><code class="language-yaml">name: staging-config
+extends: "base-config.yml"
+
+defaults:
+  log_level: "debug"
+  timeout: 600
+
+env:
+  DATABASE_POOL_SIZE: "20"
+  ENABLE_DEBUG_ENDPOINTS: "true"
+
+# Inherits all commands from base, adds staging-specific
+commands:
+  - shell: "run-integration-tests.sh"
+  - shell: "deploy-to-staging.sh"
+</code></pre>
+<p><strong>production-config.yml</strong>:</p>
+<pre><code class="language-yaml">name: production-config
+extends: "base-config.yml"
+
+defaults:
+  log_level: "warn"
+  timeout: 900
+
+env:
+  DATABASE_POOL_SIZE: "50"
+  ENABLE_MONITORING: "true"
+  RATE_LIMIT_ENABLED: "true"
+
+commands:
+  - shell: "verify-security-scan.sh"
+  - shell: "cargo build --release"
+  - shell: "run-smoke-tests.sh"
+  - shell: "deploy-to-production.sh"
+  - shell: "notify-deployment-complete.sh"
+</code></pre>
+<h3 id="example-4-complex-composition-with-multiple-features"><a class="header" href="#example-4-complex-composition-with-multiple-features">Example 4: Complex Composition with Multiple Features</a></h3>
+<p>Combines imports, extends, template, parameters, and sub-workflows.</p>
+<p><strong>templates/microservice-ci.yml</strong>:</p>
+<pre><code class="language-yaml">name: microservice-ci-template
+mode: standard
+
+parameters:
+  required:
+    - name: service_name
+      type: string
+      description: "Name of the microservice"
+
+    - name: language
+      type: string
+      description: "Programming language"
+      validation: "matches('^(rust|typescript|python)$')"
+
+  optional:
+    - name: test_timeout
+      type: number
+      description: "Test timeout in seconds"
+      default: 300
+
+defaults:
+  coverage_threshold: "80"
+
+workflows:
+  lint:
+    source: "workflows/${language}/lint.yml"
+    working_dir: "./services/${service_name}"
+
+  test:
+    source: "workflows/${language}/test.yml"
+    working_dir: "./services/${service_name}"
+    timeout: "${test_timeout}"
+    outputs:
+      - "coverage"
+
+commands:
+  - shell: "echo Testing ${service_name} (${language})"
+  - shell: |
+      if [ "${test.coverage}" -lt "${coverage_threshold}" ]; then
+        echo "Coverage ${test.coverage}% below threshold ${coverage_threshold}%"
+        exit 1
+      fi
+</code></pre>
+<p><strong>service-api-ci.yml</strong> (uses the template):</p>
+<pre><code class="language-yaml">name: api-service-ci
+mode: standard
+
+imports:
+  - path: "shared/docker-utils.yml"
+
+template:
+  source: "templates/microservice-ci.yml"  # File path
+  with:
+    service_name: "api"
+    language: "rust"
+    test_timeout: 600
+
+commands:
+  - shell: "docker build -t api:latest ./services/api"
+  - shell: "docker push api:latest"
+</code></pre>
+<h3 id="example-5-workflow-registry-pattern"><a class="header" href="#example-5-workflow-registry-pattern">Example 5: Workflow Registry Pattern</a></h3>
+<p>Demonstrates using a template registry for standardized workflows across teams.</p>
+<p><strong>Setup Registry</strong>:</p>
+<p>Templates can be stored in two locations:</p>
+<ul>
+<li>Global: <code>~/.prodigy/templates/</code> (available to all projects)</li>
+<li>Local: <code>.prodigy/templates/</code> (project-specific)</li>
+</ul>
+<pre><code class="language-bash"># Global templates (one-time setup)
+mkdir -p ~/.prodigy/templates
+cp standard-ci.yml ~/.prodigy/templates/
+cp security-scan.yml ~/.prodigy/templates/
+
+# Or use project-local templates
+mkdir -p .prodigy/templates
+cp deployment.yml .prodigy/templates/
+</code></pre>
+<p><strong>Source</strong>: TemplateRegistry and FileTemplateStorage (src/cook/workflow/composition/registry.rs)</p>
+<p><strong>team-workflow.yml</strong>:</p>
+<pre><code class="language-yaml">name: team-workflow
+mode: standard
+
+# Use registry template (string value, not nested object)
+template:
+  source: "standard-ci"  # Registry name
+  with:
+    project_type: "rust"
+
+# Import additional registry workflows
+imports:
+  - path: "~/.prodigy/templates/security-scan.yml"
+
+# Extend with team-specific configuration
+commands:
+  - shell: "run-team-specific-tests.sh"
+</code></pre>
+<h3 id="example-6-progressive-composition"><a class="header" href="#example-6-progressive-composition">Example 6: Progressive Composition</a></h3>
+<p>Builds complexity through layers of composition.</p>
+<p><strong>Layer 1 - Base</strong> (minimal.yml):</p>
+<pre><code class="language-yaml">name: minimal
+mode: standard
+defaults:
+  timeout: 300
+commands:
+  - shell: "cargo build"
+</code></pre>
+<p><strong>Layer 2 - Add Testing</strong> (with-tests.yml):</p>
+<pre><code class="language-yaml">name: with-tests
+mode: standard
+extends: "minimal.yml"
+commands:
+  - shell: "cargo test"
+</code></pre>
+<p><strong>Layer 3 - Add Linting</strong> (with-quality.yml):</p>
+<pre><code class="language-yaml">name: with-quality
+mode: standard
+extends: "with-tests.yml"
+commands:
+  - shell: "cargo fmt --check"
+  - shell: "cargo clippy"
+</code></pre>
+<p><strong>Layer 4 - Full CI</strong> (full-ci.yml):</p>
+<pre><code class="language-yaml">name: full-ci
+mode: standard
+extends: "with-quality.yml"
+
+parameters:
+  required:
+    - name: deploy_env
+      type: string
+      description: "Deployment environment"
+
+commands:
+  - shell: "cargo build --release"
+  - shell: "deploy-to-${deploy_env}.sh"
+</code></pre>
+<h3 id="running-the-examples"><a class="header" href="#running-the-examples">Running the Examples</a></h3>
+<pre><code class="language-bash"># Example 1: Template-based deployment
+prodigy run dev-deployment.yml
+prodigy run prod-deployment.yml --param replicas=10
+
+# Example 2: Monorepo testing
+prodigy run monorepo-test.yml
+
+# Example 3: Environment-specific configs
+prodigy run staging-config.yml
+prodigy run production-config.yml
+
+# Example 4: Complex composition
+prodigy run service-api-ci.yml
+
+# Example 5: Registry templates
+prodigy run team-workflow.yml
+
+# Example 6: Progressive composition
+prodigy run full-ci.yml --param deploy_env=staging
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../composition/composition-metadata.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../composition/best-practices.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../composition/composition-metadata.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../composition/best-practices.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

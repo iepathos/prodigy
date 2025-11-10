@@ -1,0 +1,537 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Best Practices for Debugging - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/troubleshooting/best-practices-for-debugging.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="best-practices-for-debugging"><a class="header" href="#best-practices-for-debugging">Best Practices for Debugging</a></h2>
+<p>This guide provides practical techniques for diagnosing and resolving issues in Prodigy workflows.</p>
+<h3 id="quick-debugging-checklist"><a class="header" href="#quick-debugging-checklist">Quick Debugging Checklist</a></h3>
+<ol>
+<li><strong>Start simple</strong>: Test commands individually before adding to workflow</li>
+<li><strong>Use verbosity flags</strong>: <code>-v</code> for Claude interactions, <code>-vv</code> for debug logs, <code>-vvv</code> for trace</li>
+<li><strong>Check recent logs</strong>: <code>prodigy logs --latest</code> for the last Claude execution</li>
+<li><strong>Enable environment variables</strong> for detailed output (see below)</li>
+<li><strong>Validate input data</strong> before running MapReduce workflows</li>
+<li><strong>Test incrementally</strong>: Add commands one at a time and verify after each</li>
+<li><strong>Version control</strong>: Commit working workflows before making changes</li>
+</ol>
+<h3 id="debugging-environment-variables"><a class="header" href="#debugging-environment-variables">Debugging Environment Variables</a></h3>
+<p>Control debugging output and logging behavior with environment variables (Source: <code>src/config/mod.rs:116</code>, <code>src/cook/execution/claude.rs:429-435</code>):</p>
+<h4 id="prodigy_log_level"><a class="header" href="#prodigy_log_level"><code>PRODIGY_LOG_LEVEL</code></a></h4>
+<p><strong>Purpose</strong>: Control log verbosity
+<strong>Values</strong>: <code>trace</code>, <code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code>
+<strong>Default</strong>: <code>info</code></p>
+<pre><code class="language-bash">export PRODIGY_LOG_LEVEL=debug
+prodigy run workflow.yml
+</code></pre>
+<p>Use <code>debug</code> or <code>trace</code> to see internal state transitions, command execution details, and variable interpolation.</p>
+<h4 id="prodigy_claude_console_output"><a class="header" href="#prodigy_claude_console_output"><code>PRODIGY_CLAUDE_CONSOLE_OUTPUT</code></a></h4>
+<p><strong>Purpose</strong>: Force streaming output regardless of verbosity
+<strong>Values</strong>: <code>true</code>, <code>false</code>
+<strong>Default</strong>: Not set (respects verbosity level)</p>
+<pre><code class="language-bash">export PRODIGY_CLAUDE_CONSOLE_OUTPUT=true
+prodigy run workflow.yml  # Shows Claude output even without -v flag
+</code></pre>
+<p>Useful for debugging specific runs without changing command flags.</p>
+<h4 id="prodigy_claude_streaming"><a class="header" href="#prodigy_claude_streaming"><code>PRODIGY_CLAUDE_STREAMING</code></a></h4>
+<p><strong>Purpose</strong>: Control Claude JSON streaming mode
+<strong>Values</strong>: <code>true</code>, <code>false</code>
+<strong>Default</strong>: <code>true</code></p>
+<pre><code class="language-bash">export PRODIGY_CLAUDE_STREAMING=false  # Disable JSON streaming
+prodigy run workflow.yml
+</code></pre>
+<p>Streaming is enabled by default for auditability. Only disable in CI/CD environments with storage constraints.</p>
+<p><strong>See also</strong>: <a href="../configuration/environment-variables.html">Environment Variables</a> for complete reference.</p>
+<h3 id="variable-interpolation-debugging"><a class="header" href="#variable-interpolation-debugging">Variable Interpolation Debugging</a></h3>
+<p><strong>Techniques for diagnosing variable issues</strong>:</p>
+<ol>
+<li>
+<p><strong>Use echo statements</strong> to verify variable values:</p>
+<pre><code class="language-yaml">commands:
+  - shell: "echo 'Debug: item=${item.name}, path=${item.path}'"
+  - claude: "/process ${item.name}"
+</code></pre>
+</li>
+<li>
+<p><strong>Capture command outputs</strong> with <code>capture_output</code> for later use:</p>
+<pre><code class="language-yaml">commands:
+  - shell: "git rev-parse HEAD"
+    capture_output: current_commit
+  - shell: "echo 'Current commit: ${current_commit}'"
+</code></pre>
+</li>
+<li>
+<p><strong>Enable verbose mode</strong> (<code>-v</code>) to see variable interpolation in real-time</p>
+</li>
+<li>
+<p><strong>Check variable scope</strong>: Distinguish step-level vs workflow-level variables</p>
+</li>
+</ol>
+<p><strong>See also</strong>: <a href="index.html#variable-interpolation-issues">Common Issues</a> for variable troubleshooting patterns.</p>
+<h3 id="log-and-state-inspection"><a class="header" href="#log-and-state-inspection">Log and State Inspection</a></h3>
+<p><strong>Event Logs</strong> (MapReduce execution tracking):</p>
+<pre><code class="language-bash"># View event log for a specific job
+ls ~/.prodigy/events/{repo_name}/{job_id}/
+
+# Follow events in real-time
+tail -f ~/.prodigy/events/{repo_name}/{job_id}/events-*.jsonl
+</code></pre>
+<p><strong>Unified Sessions</strong> (workflow state):</p>
+<pre><code class="language-bash"># Check current session state
+cat ~/.prodigy/sessions/{session-id}.json | jq .
+
+# View session status
+jq '.status, .metadata' ~/.prodigy/sessions/{session-id}.json
+</code></pre>
+<p><strong>Checkpoints</strong> (MapReduce resume state):</p>
+<pre><code class="language-bash"># List available checkpoints
+ls ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/
+</code></pre>
+<p><strong>See also</strong>: <a href="../mapreduce/event-tracking.html">Event Tracking</a> for event log structure.</p>
+<h3 id="advanced-claude-log-analysis"><a class="header" href="#advanced-claude-log-analysis">Advanced Claude Log Analysis</a></h3>
+<p>Prodigy creates detailed JSON logs for every Claude command execution. Use <code>jq</code> to analyze these logs:</p>
+<p><strong>View most recent log</strong>:</p>
+<pre><code class="language-bash">prodigy logs --latest
+</code></pre>
+<p><strong>Watch live execution</strong>:</p>
+<pre><code class="language-bash">prodigy logs --latest --tail
+</code></pre>
+<p><strong>Extract specific information</strong> (Source: CLAUDE.md “Viewing Claude Execution Logs”):</p>
+<pre><code class="language-bash"># Extract error messages
+cat ~/.local/state/claude/logs/session-abc123.json | jq 'select(.type == "error")'
+
+# View all tool invocations
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[].content[] | select(.type == "tool_use")'
+
+# Analyze token usage
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.usage'
+
+# Filter by specific tool
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[].content[] | select(.type == "tool_use" and .name == "Bash")'
+
+# View assistant responses
+cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[] | select(.role == "assistant")'
+</code></pre>
+<p><strong>JSONL format</strong> (newer logs use line-delimited JSON):</p>
+<pre><code class="language-bash"># Count messages by type
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -r '.type' | sort | uniq -c
+
+# Extract tool uses
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.type == "assistant") | .content[]? | select(.type == "tool_use")'
+
+# View token usage
+cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.usage)'
+</code></pre>
+<h3 id="mapreduce-debugging"><a class="header" href="#mapreduce-debugging">MapReduce Debugging</a></h3>
+<p><strong>Dead Letter Queue (DLQ)</strong> for failed work items:</p>
+<pre><code class="language-bash"># View failed items with error details
+prodigy dlq show &lt;job_id&gt;
+
+# Check Claude execution logs for failed items
+prodigy dlq show &lt;job_id&gt; | jq '.items[].failure_history[].json_log_location'
+
+# Retry failed items (with dry run first)
+prodigy dlq retry &lt;job_id&gt; --dry-run
+prodigy dlq retry &lt;job_id&gt;
+</code></pre>
+<p><strong>See also</strong>: <a href="../mapreduce/dead-letter-queue-dlq.html">Dead Letter Queue</a> for DLQ management.</p>
+<h3 id="checkpoint-inspection"><a class="header" href="#checkpoint-inspection">Checkpoint Inspection</a></h3>
+<p>When resume fails, inspect checkpoint state to identify issues:</p>
+<p><strong>Checkpoint file types</strong> (Source: CLAUDE.md “MapReduce Checkpoint and Resume”):</p>
+<ul>
+<li><code>setup-checkpoint.json</code>: Setup phase results and artifacts</li>
+<li><code>map-checkpoint-{timestamp}.json</code>: Map phase progress and work item state</li>
+<li><code>reduce-checkpoint-v1-{timestamp}.json</code>: Reduce phase step results and variables</li>
+<li><code>job-state.json</code>: Overall job state and metadata</li>
+</ul>
+<p><strong>What to check</strong>:</p>
+<pre><code class="language-bash"># Inspect map checkpoint
+cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/map-checkpoint-*.json | jq '
+  {
+    total: .work_items | length,
+    completed: [.work_items[] | select(.state == "Completed")] | length,
+    pending: [.work_items[] | select(.state == "Pending")] | length,
+    in_progress: [.work_items[] | select(.state == "InProgress")] | length
+  }
+'
+
+# Check for failed items with error details
+cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/map-checkpoint-*.json | \
+  jq '.work_items[] | select(.state == "Failed") | {item_id, error}'
+
+# Verify reduce checkpoint variables
+cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/reduce-checkpoint-*.json | jq '.variables'
+</code></pre>
+<p><strong>Signs of corruption or inconsistencies</strong>:</p>
+<ul>
+<li>Work items with <code>InProgress</code> state but no active agent</li>
+<li>Mismatch between <code>completed_count</code> and actual completed items</li>
+<li>Missing or null <code>variables</code> in reduce checkpoint</li>
+<li>Duplicate <code>item_id</code> values in work items array</li>
+</ul>
+<p><strong>Recovery strategies</strong>:</p>
+<ul>
+<li><strong>Minor corruption</strong>: Manually edit checkpoint to fix state (move <code>InProgress</code> items back to <code>Pending</code>)</li>
+<li><strong>Major corruption</strong>: Delete checkpoint and restart phase from beginning</li>
+<li><strong>Variable issues</strong>: Restore missing variables from previous checkpoint or setup output</li>
+</ul>
+<p><strong>See also</strong>: <a href="../mapreduce/checkpoint-and-resume.html">Checkpoint and Resume</a> for checkpoint structure.</p>
+<h3 id="workflow-specific-debugging"><a class="header" href="#workflow-specific-debugging">Workflow-Specific Debugging</a></h3>
+<p>Different workflow types have different debugging considerations:</p>
+<p><strong>Standard Workflows</strong>:</p>
+<ul>
+<li>Verify variable interpolation with echo commands</li>
+<li>Test steps individually before chaining</li>
+<li>Check captured outputs are in correct scope</li>
+</ul>
+<p><strong>MapReduce Workflows</strong>:</p>
+<ul>
+<li>Verify agent isolation (check individual agent worktrees)</li>
+<li>Debug parallel execution issues with event logs</li>
+<li>Investigate merge conflicts in parent worktree after agent completion</li>
+<li>Check work item discovery with <code>--dry-run</code> on map phase</li>
+</ul>
+<p><strong>Goal Seek Workflows</strong>:</p>
+<ul>
+<li>Validate score calculation logic</li>
+<li>Check convergence criteria (threshold, max iterations)</li>
+<li>Debug score trends with iteration history</li>
+<li>Verify goal direction (maximize vs minimize)</li>
+</ul>
+<p><strong>Foreach Workflows</strong>:</p>
+<ul>
+<li>Test with small item lists first</li>
+<li>Check parallel execution limits (<code>max_parallel</code>)</li>
+<li>Verify item processing order if order matters</li>
+<li>Debug failed items with individual command execution</li>
+</ul>
+<h3 id="performance-debugging"><a class="header" href="#performance-debugging">Performance Debugging</a></h3>
+<p>Identify and resolve performance bottlenecks:</p>
+<p><strong>Timing Analysis</strong>:</p>
+<pre><code class="language-bash"># Check session timings
+cat ~/.prodigy/sessions/{session-id}.json | jq '.timings'
+
+# View step durations
+cat ~/.prodigy/sessions/{session-id}.json | jq '.timings | to_entries | sort_by(.value.secs) | reverse'
+</code></pre>
+<p><strong>MapReduce Agent Duration</strong>:</p>
+<pre><code class="language-bash"># Track agent execution times from event logs
+cat ~/.prodigy/events/{repo}/{job_id}/events-*.jsonl | \
+  jq 'select(.event_type == "AgentCompleted") | {agent_id, duration_secs: .duration.secs}'
+</code></pre>
+<p><strong>Resource Monitoring</strong>:</p>
+<ul>
+<li>Check disk space: <code>df -h ~/.prodigy/</code></li>
+<li>Monitor parallel execution: <code>ps aux | grep prodigy</code></li>
+<li>Track memory usage: <code>top</code> or <code>htop</code> during execution</li>
+</ul>
+<p><strong>Timeout Issues</strong> (Source: <code>src/config/mapreduce.rs</code>, see <a href="../advanced/timeout-configuration.html">Timeout Configuration</a>):</p>
+<ul>
+<li>Adjust <code>timeout_config</code> for map/reduce phases</li>
+<li>Set <code>agent_timeout_secs</code> for long-running agents</li>
+<li>Use <code>PRODIGY_TIMEOUT</code> environment variable for global timeout override</li>
+</ul>
+<h3 id="worktree-debugging"><a class="header" href="#worktree-debugging">Worktree Debugging</a></h3>
+<p><strong>Examine worktree execution history</strong>:</p>
+<pre><code class="language-bash"># Navigate to worktree
+cd ~/.prodigy/worktrees/{repo}/{session}/
+
+# View all commits (execution trace)
+git log --oneline
+
+# Check current branch state
+git status
+
+# View specific commit details
+git show &lt;commit-hash&gt;
+
+# Compare with parent branch
+git diff origin/master
+</code></pre>
+<p><strong>Verify worktree isolation</strong>:</p>
+<pre><code class="language-bash"># Check main repo is clean
+git status
+
+# Verify worktree has changes
+cd ~/.prodigy/worktrees/{repo}/{session}/
+git status
+</code></pre>
+<p><strong>See also</strong>: <a href="../mapreduce-worktree-architecture.html">MapReduce Worktree Architecture</a> for worktree isolation guarantees.</p>
+<h3 id="interactive-debugging-techniques"><a class="header" href="#interactive-debugging-techniques">Interactive Debugging Techniques</a></h3>
+<p><strong>Dry-Run Mode</strong>:</p>
+<pre><code class="language-bash"># Preview DLQ retry actions without executing
+prodigy dlq retry &lt;job_id&gt; --dry-run
+
+# Test workflow validation without execution
+prodigy validate workflow.yml
+</code></pre>
+<p><strong>Manual Checkpoint Inspection and Modification</strong>:</p>
+<ol>
+<li>Pause workflow execution (Ctrl+C)</li>
+<li>Inspect checkpoint files (see Checkpoint Inspection above)</li>
+<li>Edit checkpoint JSON to fix state if needed</li>
+<li>Resume with <code>prodigy resume &lt;session-id&gt;</code></li>
+</ol>
+<p><strong>Git History Tracing</strong>:</p>
+<pre><code class="language-bash"># View execution sequence from commits
+cd ~/.prodigy/worktrees/{repo}/{session}/
+git log --oneline --decorate --graph
+
+# Find when specific file was modified
+git log --follow -- path/to/file
+
+# See what changed in specific step
+git show &lt;commit-hash&gt;
+</code></pre>
+<h3 id="error-message-analysis"><a class="header" href="#error-message-analysis">Error Message Analysis</a></h3>
+<p><strong>Read error messages carefully</strong> - MapReduce error types indicate specific failure modes:</p>
+<ul>
+<li><code>WorkItemProcessingError</code>: Individual agent execution failure (check DLQ)</li>
+<li><code>CheckpointLoadError</code>: Checkpoint corruption or missing file (inspect checkpoint directory)</li>
+<li><code>TimeoutError</code>: Execution exceeded configured timeout (adjust timeout settings)</li>
+<li><code>ValidationError</code>: Workflow configuration issue (check YAML syntax and validation output)</li>
+<li><code>WorktreeError</code>: Git worktree operation failure (check disk space, permissions)</li>
+</ul>
+<p><strong>Common error patterns</strong> and fixes in <a href="common-error-messages.html">Common Error Messages</a>.</p>
+<h3 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h3>
+<p>When seeking support, include:</p>
+<ol>
+<li><strong>Full error messages</strong> (not just excerpts)</li>
+<li><strong>Workflow configuration</strong> (YAML file)</li>
+<li><strong>Verbosity output</strong> (<code>-vv</code> or <code>-vvv</code>)</li>
+<li><strong>Recent Claude log</strong>: <code>prodigy logs --latest</code></li>
+<li><strong>Session state</strong>: <code>cat ~/.prodigy/sessions/{session-id}.json</code></li>
+<li><strong>Environment details</strong>: OS, Prodigy version, Claude Code version</li>
+<li><strong>Reproduction steps</strong>: Minimal example that demonstrates the issue</li>
+</ol>
+<p><strong>Where to get help</strong>:</p>
+<ul>
+<li>GitHub Issues: https://github.com/prodigy-ai/prodigy</li>
+<li>Documentation: https://prodigy.dev/docs</li>
+<li>Community Discord: (link in README)</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../troubleshooting/common-error-messages.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../troubleshooting/common-error-messages.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

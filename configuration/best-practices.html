@@ -1,0 +1,606 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Best Practices - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/configuration/best-practices.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<p>This section provides practical guidance for configuring Prodigy workflows effectively, based on the implementation patterns and defaults in the codebase.</p>
+<h2 id="start-with-sensible-defaults"><a class="header" href="#start-with-sensible-defaults">Start with Sensible Defaults</a></h2>
+<p>Prodigy provides carefully chosen defaults that work well for most use cases. You typically only need to configure exceptions.</p>
+<p><strong>Default Storage Configuration</strong> (src/storage/config.rs:184-226):</p>
+<pre><code class="language-yaml"># These defaults are already set - no need to configure unless you need different values
+storage:
+  connection_pool_size: 10
+  timeout_secs: 30
+  max_retries: 3
+  initial_delay_ms: 1000
+  max_delay_ms: 30000
+  backoff_multiplier: 2.0
+  max_file_size_mb: 100
+  cache_size: 1000
+  cache_ttl_secs: 3600
+</code></pre>
+<p><strong>Default Cleanup Configuration</strong> (src/cook/execution/mapreduce/cleanup/config.rs:39-87):</p>
+<pre><code class="language-yaml"># Default preset: balanced cleanup
+cleanup:
+  auto_cleanup: true
+  cleanup_delay_secs: 30
+  max_worktrees_per_job: 50
+  max_total_worktrees: 200
+  disk_threshold_mb: 1024
+</code></pre>
+<p><strong>When to Override Defaults:</strong></p>
+<ul>
+<li><strong>Storage</strong>: Only if you have specific latency/throughput requirements</li>
+<li><strong>Cleanup</strong>: Use “aggressive” preset for disk-constrained environments</li>
+<li><strong>Timeouts</strong>: Increase for long-running operations</li>
+</ul>
+<h2 id="use-configuration-layering-effectively"><a class="header" href="#use-configuration-layering-effectively">Use Configuration Layering Effectively</a></h2>
+<p>Prodigy uses a three-tier configuration hierarchy (src/config/mod.rs:102-154):</p>
+<p><strong>Configuration Precedence</strong> (highest to lowest):</p>
+<ol>
+<li><strong>Workflow configuration</strong> - Specific to a single workflow YAML file</li>
+<li><strong>Project configuration</strong> - <code>.prodigy/config.toml</code> in your project</li>
+<li><strong>Global configuration</strong> - <code>~/.prodigy/config.toml</code> in your home directory</li>
+<li><strong>Built-in defaults</strong> - Sensible defaults from the codebase</li>
+</ol>
+<p><strong>Recommended Usage:</strong></p>
+<pre><code class="language-yaml"># Global config (~/.prodigy/config.toml): User-wide preferences
+[global]
+log_level = "info"
+auto_commit = true
+
+# Project config (.prodigy/config.toml): Project-specific overrides
+[project]
+claude_api_key = "${CLAUDE_API_KEY}"  # Environment variable reference
+auto_commit = false  # Override global setting
+
+# Workflow YAML: Workflow-specific settings
+env:
+  MAX_PARALLEL: 5
+  PROJECT_NAME: "my-project"
+</code></pre>
+<p>See <a href="configuration-precedence-rules.html">Configuration Precedence Rules</a> for detailed examples.</p>
+<h2 id="parameterize-with-environment-variables"><a class="header" href="#parameterize-with-environment-variables">Parameterize with Environment Variables</a></h2>
+<p>Use environment variables for flexible, reusable workflows (src/config/mapreduce.rs:395-449).</p>
+<p><strong>Variable Syntax:</strong></p>
+<pre><code class="language-yaml">env:
+  PROJECT_NAME: "prodigy"
+  MAX_PARALLEL: 3
+  API_URL: "https://api.example.com"
+
+map:
+  max_parallel: $MAX_PARALLEL  # Simple reference
+  agent_template:
+    - shell: "echo Processing ${PROJECT_NAME}"  # Bracketed reference
+    - shell: "curl ${API_URL}/endpoint"
+</code></pre>
+<p><strong>Resolution Order</strong> (src/config/mapreduce.rs:395-449):</p>
+<ol>
+<li>Workflow <code>env:</code> block</li>
+<li>System environment variables</li>
+<li>Error if not found</li>
+</ol>
+<p><strong>Type Flexibility</strong> (src/config/mapreduce.rs:354-393):</p>
+<pre><code class="language-yaml"># Both numeric literals and environment variables are supported
+map:
+  max_parallel: 3              # Numeric literal
+  max_parallel: $MAX_PARALLEL  # Environment variable
+</code></pre>
+<p>See <a href="environment-variables.html">Environment Variables</a> for comprehensive documentation.</p>
+<h2 id="protect-sensitive-values"><a class="header" href="#protect-sensitive-values">Protect Sensitive Values</a></h2>
+<p>Prodigy automatically masks common secret patterns in logs (src/cook/environment/config.rs:78-119).</p>
+<p><strong>Automatic Masking Patterns:</strong></p>
+<ul>
+<li>API keys (contains “api” or “key”)</li>
+<li>Tokens (contains “token”)</li>
+<li>Passwords (contains “password”, “pwd”, “secret”)</li>
+<li>Auth values (contains “auth”)</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code class="language-yaml">env:
+  API_KEY: "sk-abc123def456"      # Auto-masked as "***" in logs
+  PASSWORD: "hunter2"              # Auto-masked
+  AUTH_TOKEN: "ghp_abcdefg"        # Auto-masked
+  NORMAL_VAR: "visible-value"      # Not masked
+</code></pre>
+<p><strong>Explicit Secret Marking:</strong></p>
+<pre><code class="language-yaml">env:
+  CUSTOM_SECRET:
+    secret: true
+    value: "my-sensitive-value"
+</code></pre>
+<p><strong>Best Practices:</strong></p>
+<ol>
+<li>Never hardcode secrets in workflow files</li>
+<li>Use environment variable references: <code>${SECRET_NAME}</code></li>
+<li>Store secrets in system environment or <code>.env</code> files (excluded from git)</li>
+<li>Mark custom sensitive fields with <code>secret: true</code></li>
+<li>Review logs to verify sensitive values are masked</li>
+</ol>
+<h2 id="use-profiles-for-different-environments"><a class="header" href="#use-profiles-for-different-environments">Use Profiles for Different Environments</a></h2>
+<p>Profiles allow environment-specific configuration (src/cook/environment/config.rs:146-162):</p>
+<pre><code class="language-yaml">env:
+  API_URL:
+    default: "http://localhost:3000"
+    staging: "https://staging-api.example.com"
+    prod: "https://api.example.com"
+
+  MAX_PARALLEL:
+    default: 2
+    prod: 10
+
+  DEBUG_MODE:
+    default: true
+    prod: false
+</code></pre>
+<p><strong>Activate a profile:</strong></p>
+<pre><code class="language-bash">prodigy run workflow.yml --profile prod
+</code></pre>
+<p><strong>Use cases:</strong></p>
+<ul>
+<li>Development vs production API endpoints</li>
+<li>Resource limits (lower parallelism in dev)</li>
+<li>Feature flags (enable debug logging in dev)</li>
+<li>Storage backends (local files vs S3 in prod)</li>
+</ul>
+<h2 id="configure-storage-appropriately"><a class="header" href="#configure-storage-appropriately">Configure Storage Appropriately</a></h2>
+<p><strong>Global Storage (Default - Recommended):</strong></p>
+<pre><code class="language-yaml">storage:
+  use_global: true  # Default
+  base_path: "~/.prodigy"  # Default
+</code></pre>
+<p><strong>Benefits:</strong></p>
+<ul>
+<li>Cross-worktree event aggregation for parallel jobs</li>
+<li>Persistent state survives worktree cleanup</li>
+<li>Centralized monitoring and debugging</li>
+<li>Efficient storage deduplication</li>
+</ul>
+<p><strong>Local Storage (Deprecated):</strong></p>
+<pre><code class="language-yaml">storage:
+  use_global: false  # ⚠️ Deprecated
+  base_path: ".prodigy"
+</code></pre>
+<p><strong>Warning:</strong> Local storage is deprecated (src/storage/config.rs:71-73). Use global storage unless you have specific isolation requirements.</p>
+<p><strong>Environment Variable Fallbacks</strong> (src/storage/config.rs:244-286):</p>
+<pre><code class="language-bash"># Precedence: highest to lowest
+export PRODIGY_STORAGE_TYPE="file"        # or "memory"
+export PRODIGY_STORAGE_BASE_PATH="/data/.prodigy"
+export PRODIGY_STORAGE_DIR="/tmp/.prodigy"  # Fallback
+export PRODIGY_STORAGE_PATH="/var/.prodigy"  # Secondary fallback
+</code></pre>
+<p>See <a href="storage-configuration.html">Storage Configuration</a> for detailed options.</p>
+<h2 id="set-appropriate-timeouts"><a class="header" href="#set-appropriate-timeouts">Set Appropriate Timeouts</a></h2>
+<p>Configure timeouts based on operation characteristics (src/app/config.rs:10-63):</p>
+<p><strong>Workflow Timeouts:</strong></p>
+<pre><code class="language-yaml"># Default timeout: 30 seconds per command
+commands:
+  - shell: "quick-test"  # Uses default
+  - shell: "long-build"
+    timeout_secs: 600    # 10 minutes for long operations
+</code></pre>
+<p><strong>MapReduce Timeouts:</strong></p>
+<pre><code class="language-yaml">map:
+  agent_timeout_secs: 300  # 5 minutes per agent
+  max_parallel: 5
+</code></pre>
+<p><strong>Retry Configuration:</strong></p>
+<pre><code class="language-yaml">retry_config:
+  max_attempts: 3           # Default
+  initial_delay_ms: 1000    # 1 second
+  max_delay_ms: 30000       # 30 seconds cap
+  backoff: exponential      # Backoff strategy
+</code></pre>
+<p><strong>Backoff Strategies</strong> (src/storage/config.rs:184-226):</p>
+<ul>
+<li><code>exponential</code>: Delay doubles each retry (2^n * initial_delay)</li>
+<li><code>linear</code>: Delay increases linearly (n * initial_delay)</li>
+<li><code>fibonacci</code>: Delay follows fibonacci sequence</li>
+</ul>
+<h2 id="prefer-simplified-yaml-syntax"><a class="header" href="#prefer-simplified-yaml-syntax">Prefer Simplified YAML Syntax</a></h2>
+<p>Prodigy supports both simplified and verbose syntax (src/config/mapreduce.rs:287-351).</p>
+<p><strong>Simplified Syntax (Recommended):</strong></p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - claude: "/process ${item.path}"
+    - shell: "test -f ${item.path}"
+</code></pre>
+<p><strong>Verbose Syntax (Backward Compatible):</strong></p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    commands:  # ⚠️ Deprecated nested array
+      - claude: "/process ${item.path}"
+      - shell: "test -f ${item.path}"
+</code></pre>
+<p><strong>Why simplified is better:</strong></p>
+<ul>
+<li>Less indentation</li>
+<li>Clearer intent</li>
+<li>Matches standard workflow syntax</li>
+<li>Forward-compatible</li>
+</ul>
+<h2 id="validate-configuration-early"><a class="header" href="#validate-configuration-early">Validate Configuration Early</a></h2>
+<p><strong>Type Safety</strong> (src/config/mapreduce.rs:354-393):</p>
+<ul>
+<li>Workflow YAML is validated at parse time</li>
+<li>Clear error messages include context</li>
+<li>Type mismatches caught before execution</li>
+</ul>
+<p><strong>Example Error Message:</strong></p>
+<pre><code>Error: Environment variable 'MAX_PARALLEL' not found
+Context: Required by map.max_parallel in workflow.yml:12
+Resolution order: workflow env → system environment
+</code></pre>
+<p><strong>Configuration Debugging:</strong></p>
+<pre><code class="language-bash"># View effective configuration after all precedence rules
+prodigy config show
+
+# Validate workflow without running
+prodigy validate workflow.yml
+</code></pre>
+<h2 id="common-configuration-patterns"><a class="header" href="#common-configuration-patterns">Common Configuration Patterns</a></h2>
+<p><strong>Capture Command Output:</strong></p>
+<pre><code class="language-yaml">setup:
+  - shell: "git rev-parse HEAD"
+    capture: "commit_hash"
+  - shell: "echo 'Building commit ${commit_hash}'"
+</code></pre>
+<p><strong>Conditional Execution:</strong></p>
+<pre><code class="language-yaml">map:
+  filter: "item.priority &gt;= 5"  # Only process high-priority items
+  sort_by: "item.priority DESC"  # Process highest priority first
+</code></pre>
+<p><strong>Error Handling:</strong></p>
+<pre><code class="language-yaml">map:
+  agent_template:
+    - shell: "risky-operation ${item.id}"
+      on_failure:
+        - claude: "/diagnose-failure ${item.id}"
+</code></pre>
+<p><strong>Resource Limits:</strong></p>
+<pre><code class="language-yaml">map:
+  max_parallel: 10              # Concurrent agents
+  max_items: 100                # Limit total items processed
+  agent_timeout_secs: 300       # Per-agent timeout
+</code></pre>
+<h2 id="anti-patterns-to-avoid"><a class="header" href="#anti-patterns-to-avoid">Anti-Patterns to Avoid</a></h2>
+<p><strong>❌ Don’t: Hardcode Paths</strong></p>
+<pre><code class="language-yaml">commands:
+  - shell: "cd /Users/alice/project &amp;&amp; make test"
+</code></pre>
+<p><strong>✅ Do: Use Variables</strong></p>
+<pre><code class="language-yaml">env:
+  PROJECT_DIR: "${PWD}"
+commands:
+  - shell: "cd ${PROJECT_DIR} &amp;&amp; make test"
+</code></pre>
+<p><strong>❌ Don’t: Expose Secrets</strong></p>
+<pre><code class="language-yaml">env:
+  API_KEY: "sk-real-key-here"  # Committed to git!
+</code></pre>
+<p><strong>✅ Do: Reference Environment</strong></p>
+<pre><code class="language-yaml">env:
+  API_KEY: "${CLAUDE_API_KEY}"  # From system environment
+</code></pre>
+<p><strong>❌ Don’t: Disable Global Storage Unnecessarily</strong></p>
+<pre><code class="language-yaml">storage:
+  use_global: false  # Deprecated and limits functionality
+</code></pre>
+<p><strong>✅ Do: Use Default Global Storage</strong></p>
+<pre><code class="language-yaml"># No storage configuration needed - global is default
+</code></pre>
+<p><strong>❌ Don’t: Skip Timeouts for Long Operations</strong></p>
+<pre><code class="language-yaml">commands:
+  - shell: "npm install"  # May hang indefinitely
+</code></pre>
+<p><strong>✅ Do: Set Explicit Timeouts</strong></p>
+<pre><code class="language-yaml">commands:
+  - shell: "npm install"
+    timeout_secs: 300
+</code></pre>
+<h2 id="troubleshooting-configuration-issues"><a class="header" href="#troubleshooting-configuration-issues">Troubleshooting Configuration Issues</a></h2>
+<p><strong>Configuration Not Found:</strong></p>
+<pre><code class="language-bash"># Check search paths
+prodigy config show --verbose
+
+# Verify file exists and is valid YAML
+cat .prodigy/config.toml
+yamllint workflow.yml
+</code></pre>
+<p><strong>Wrong Precedence:</strong></p>
+<pre><code class="language-bash"># View effective configuration
+prodigy config show
+
+# Check which file is setting a value
+PRODIGY_LOG_LEVEL=debug prodigy run workflow.yml -v
+</code></pre>
+<p><strong>Environment Variable Not Resolved:</strong></p>
+<pre><code class="language-yaml"># Check variable is defined
+echo $MY_VAR
+
+# Use correct syntax: $VAR or ${VAR}
+# NOT: %VAR% (Windows) or $env:VAR (PowerShell)
+</code></pre>
+<p><strong>Timeout Too Short:</strong></p>
+<pre><code class="language-yaml"># Increase timeouts for slow operations
+commands:
+  - shell: "cargo build --release"
+    timeout_secs: 600  # 10 minutes
+</code></pre>
+<p>See <a href="troubleshooting.html">Troubleshooting</a> for more configuration issues and solutions.</p>
+<h2 id="advanced-configuration"><a class="header" href="#advanced-configuration">Advanced Configuration</a></h2>
+<p><strong>Custom Cleanup Presets:</strong></p>
+<pre><code class="language-yaml"># Aggressive cleanup for CI/CD
+cleanup:
+  preset: "aggressive"
+  cleanup_delay_secs: 5
+  max_worktrees_per_job: 20
+  disk_threshold_mb: 512
+</code></pre>
+<p><strong>Custom Storage Backend:</strong></p>
+<pre><code class="language-yaml">storage:
+  type: "file"  # or "memory" for testing
+  base_path: "/mnt/fast-disk/.prodigy"
+  connection_pool_size: 20  # High-concurrency workloads
+</code></pre>
+<p><strong>Workflow Validation:</strong></p>
+<pre><code class="language-yaml">validation:
+  threshold: 80  # Minimum 80% success rate
+  timeout_secs: 600
+  output_schema: "output-schema.json"  # Validate JSON outputs
+</code></pre>
+<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
+<p><strong>Key Takeaways:</strong></p>
+<ol>
+<li><strong>Trust the defaults</strong> - They’re production-tested and sensible</li>
+<li><strong>Layer your config</strong> - Global → Project → Workflow hierarchy</li>
+<li><strong>Parameterize everything</strong> - Use environment variables for flexibility</li>
+<li><strong>Protect secrets</strong> - Automatic masking + explicit <code>secret: true</code></li>
+<li><strong>Use profiles</strong> - Separate dev, staging, prod configurations</li>
+<li><strong>Global storage</strong> - Default and recommended for all use cases</li>
+<li><strong>Set timeouts</strong> - Prevent hanging on long operations</li>
+<li><strong>Simplified syntax</strong> - Clearer and forward-compatible</li>
+<li><strong>Validate early</strong> - Catch errors before execution</li>
+<li><strong>Monitor effective config</strong> - Use <code>prodigy config show</code> for debugging</li>
+</ol>
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><a href="configuration-precedence-rules.html">Configuration Precedence Rules</a> - Detailed precedence examples</li>
+<li><a href="environment-variables.html">Environment Variables</a> - Comprehensive variable documentation</li>
+<li><a href="storage-configuration.html">Storage Configuration</a> - Storage backend options</li>
+<li><a href="global-configuration-structure.html">Global Configuration Structure</a> - GlobalConfig fields</li>
+<li><a href="complete-configuration-examples.html">Complete Configuration Examples</a> - Real-world examples</li>
+<li><a href="troubleshooting.html">Troubleshooting</a> - Common configuration issues</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../configuration/default-values-reference.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../configuration/troubleshooting.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../configuration/default-values-reference.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../configuration/troubleshooting.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,549 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Common Error Messages - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/troubleshooting/common-error-messages.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="common-error-messages"><a class="header" href="#common-error-messages">Common Error Messages</a></h2>
+<p>This section documents specific error messages you may encounter while using Prodigy, along with their meanings and solutions.</p>
+<h3 id="quick-reference"><a class="header" href="#quick-reference">Quick Reference</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Error Message</th><th>Category</th><th>Common Cause</th></tr></thead><tbody>
+<tr><td><a href="#checkpoint-not-found">checkpoint not found</a></td><td>Resume</td><td>Missing checkpoint files</td></tr>
+<tr><td><a href="#itemsjson-not-found">items.json not found</a></td><td>MapReduce</td><td>Setup phase failed</td></tr>
+<tr><td><a href="#command-not-found-claude">command not found: claude</a></td><td>Environment</td><td>Claude Code not in PATH</td></tr>
+<tr><td><a href="#permission-denied">permission denied</a></td><td>File System</td><td>Insufficient permissions</td></tr>
+<tr><td><a href="#timeout-exceeded">timeout exceeded</a></td><td>Execution</td><td>Slow operation</td></tr>
+<tr><td><a href="#resume-already-in-progress">Resume already in progress</a></td><td>Concurrency</td><td>Lock conflict</td></tr>
+<tr><td><a href="#jsonpath-returned-no-results">JSONPath returned no results</a></td><td>MapReduce</td><td>Invalid JSONPath</td></tr>
+<tr><td><a href="#no-commits-found">No commits found</a></td><td>Git</td><td>No file changes</td></tr>
+<tr><td><a href="#variable-not-found-var">Variable not found</a></td><td>Variables</td><td>Undefined variable</td></tr>
+<tr><td><a href="#invalid-profile-name">Invalid profile</a></td><td>Configuration</td><td>Profile not defined</td></tr>
+<tr><td><a href="#disk-quota-exceeded">Disk quota exceeded</a></td><td>File System</td><td>Out of space</td></tr>
+<tr><td><a href="#job-already-completed">Job already completed</a></td><td>Resume</td><td>Job finished</td></tr>
+<tr><td><a href="#template-not-found">Template not found</a></td><td>Composition</td><td>Template missing</td></tr>
+<tr><td><a href="#required-parameter-not-provided">Required parameter not provided</a></td><td>Composition</td><td>Missing parameter</td></tr>
+<tr><td><a href="#circular-dependency-detected">Circular dependency detected</a></td><td>Composition</td><td>Circular imports</td></tr>
+<tr><td><a href="#concurrent-modification-detected">Concurrent modification detected</a></td><td>Concurrency</td><td>Race condition</td></tr>
+</tbody></table>
+</div>
+<h3 id="checkpoint-not-found"><a class="header" href="#checkpoint-not-found">“checkpoint not found”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Checkpoint not found for session/job {id}</code></p>
+<p><strong>What it means</strong>: Prodigy cannot locate checkpoint files needed to resume execution.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Session or job ID is incorrect</li>
+<li>Checkpoint files were deleted or moved</li>
+<li>Wrong repository context</li>
+<li>Checkpoint never created (workflow didn’t reach checkpoint phase)</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Verify the correct ID: <code>prodigy sessions list</code> or <code>prodigy resume-job list</code></li>
+<li>Check checkpoint directory: <code>~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/</code></li>
+<li>Ensure you’re in the correct git repository</li>
+<li>Start fresh if checkpoint is unrecoverable</li>
+</ol>
+<h3 id="itemsjson-not-found"><a class="header" href="#itemsjson-not-found">“items.json not found”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Input file not found: items.json</code></p>
+<p><strong>What it means</strong>: The MapReduce input file specified in the workflow doesn’t exist.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Setup phase failed to create the file</li>
+<li>Wrong file path in workflow configuration</li>
+<li>File created in wrong directory</li>
+<li>File path is relative but CWD is incorrect</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Check setup phase output for errors</li>
+<li>Verify <code>input:</code> path in workflow YAML</li>
+<li>Ensure file path is correct (relative to workflow directory)</li>
+<li>Run setup phase manually to debug file creation</li>
+</ol>
+<h3 id="command-not-found-claude"><a class="header" href="#command-not-found-claude">“command not found: claude”</a></h3>
+<p><strong>Full message</strong>: <code>bash: claude: command not found</code></p>
+<p><strong>What it means</strong>: The Claude Code CLI executable is not found in the system PATH.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Claude Code not installed</li>
+<li>Installation directory not in PATH</li>
+<li>Wrong executable name in workflow</li>
+<li>Shell environment not configured</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Install Claude Code if not present</li>
+<li>Verify installation: <code>which claude</code></li>
+<li>Add Claude Code to PATH if needed</li>
+<li>Use full path in workflow: <code>/usr/local/bin/claude</code></li>
+</ol>
+<h3 id="permission-denied"><a class="header" href="#permission-denied">“permission denied”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Permission denied: {path}</code> or <code>rm: cannot remove '{path}': Permission denied</code></p>
+<p><strong>What it means</strong>: Insufficient permissions to access or modify a file/directory.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>File/directory owned by different user</li>
+<li>Read-only filesystem</li>
+<li>Locked files or directories</li>
+<li>Insufficient user permissions</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Check file ownership: <code>ls -l {path}</code></li>
+<li>Verify permissions: <code>ls -ld {directory}</code></li>
+<li>Check for locked files: <code>lsof {path}</code></li>
+<li>Run with appropriate permissions or fix ownership</li>
+<li>For worktree cleanup: Use <code>prodigy worktree clean-orphaned</code></li>
+</ol>
+<h3 id="timeout-exceeded"><a class="header" href="#timeout-exceeded">“timeout exceeded”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Operation timed out after {n} seconds</code></p>
+<p><strong>What it means</strong>: A command or phase took longer than the configured timeout.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Operation genuinely slow</li>
+<li>Hung process or deadlock</li>
+<li>Insufficient timeout value</li>
+<li>Resource exhaustion (CPU, memory, disk I/O)</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Increase timeout in workflow configuration</li>
+<li>Check for hung processes: <code>ps aux | grep prodigy</code></li>
+<li>Optimize command performance</li>
+<li>Split work into smaller chunks (use <code>max_items</code>)</li>
+<li>Check system resources: <code>top</code>, <code>df -h</code></li>
+</ol>
+<h3 id="resume-already-in-progress"><a class="header" href="#resume-already-in-progress">“Resume already in progress”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Resume already in progress for job {job_id}. Lock held by: PID {pid} on {hostname}</code></p>
+<p><strong>What it means</strong>: Another process is currently resuming this job.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Concurrent resume attempt</li>
+<li>Stale lock from crashed process</li>
+<li>Multiple terminals running resume</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Wait for other process to complete</li>
+<li>Check if process is running: <code>ps aux | grep {pid}</code></li>
+<li>Remove stale lock if process is dead: <code>rm ~/.prodigy/resume_locks/{job_id}.lock</code></li>
+<li>Retry - stale locks are auto-detected and cleaned</li>
+</ol>
+<p>For details on concurrent resume protection, see “Concurrent Resume Protection (Spec 140)” in the CLAUDE.md file.</p>
+<h3 id="jsonpath-returned-no-results"><a class="header" href="#jsonpath-returned-no-results">“JSONPath returned no results”</a></h3>
+<p><strong>Full message</strong>: <code>Error: JSONPath expression '{path}' returned no results</code></p>
+<p><strong>What it means</strong>: The JSONPath query didn’t match any items in the input file.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Incorrect JSONPath syntax</li>
+<li>Wrong data structure in input file</li>
+<li>Empty input file</li>
+<li>Case-sensitive key mismatch</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Test JSONPath with jq: <code>cat items.json | jq '{your_path}'</code></li>
+<li>Verify input file structure: <code>cat items.json | jq .</code></li>
+<li>Check for typos in key names</li>
+<li>Ensure array brackets are correct: <code>$[*]</code> vs <code>$.items[*]</code></li>
+<li>Validate JSON format: <code>jq . items.json</code></li>
+</ol>
+<h3 id="no-commits-found"><a class="header" href="#no-commits-found">“No commits found”</a></h3>
+<p><strong>Full message</strong>: <code>Error: No commits found in worktree</code> or <code>${step.files_added} returned empty</code></p>
+<p><strong>What it means</strong>: Git context variables are empty because no commits were created.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Commands didn’t modify any files</li>
+<li>Changes not committed</li>
+<li>Wrong git repository context</li>
+<li>Worktree not initialized properly</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Verify commands created changes: <code>git status</code></li>
+<li>Use <code>commit_required: true</code> to enforce commits</li>
+<li>Check git log: <code>git log -1</code></li>
+<li>Ensure working in correct repository</li>
+<li>Check if files were actually modified</li>
+</ol>
+<h3 id="variable-not-found-var"><a class="header" href="#variable-not-found-var">“Variable not found: {var}”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Variable not found: {var}</code> or literal <code>${var}</code> in output</p>
+<p><strong>What it means</strong>: A workflow variable reference couldn’t be resolved.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Variable name typo or case mismatch</li>
+<li>Variable not defined in workflow</li>
+<li>Variable out of scope</li>
+<li>Syntax error in interpolation</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Check variable spelling and case</li>
+<li>Verify variable defined in <code>env:</code> or previous step</li>
+<li>Use <code>capture_output</code> to capture command results</li>
+<li>Check scope (step vs workflow level)</li>
+<li>Verify syntax: <code>${var}</code> not <code>$var</code></li>
+</ol>
+<h3 id="invalid-profile-name"><a class="header" href="#invalid-profile-name">“Invalid profile: {name}”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Invalid profile: {name}</code></p>
+<p><strong>What it means</strong>: The specified profile doesn’t exist in the workflow configuration.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Profile name typo</li>
+<li>Profile not defined in workflow</li>
+<li>Wrong flag syntax</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Check profile name spelling</li>
+<li>Verify profile exists in workflow <code>env:</code> section</li>
+<li>Use correct flag: <code>--profile prod</code></li>
+<li>List available profiles in workflow YAML</li>
+</ol>
+<h3 id="disk-quota-exceeded"><a class="header" href="#disk-quota-exceeded">“Disk quota exceeded”</a></h3>
+<p><strong>Full message</strong>: <code>Error: No space left on device</code> or <code>write: disk quota exceeded</code></p>
+<p><strong>What it means</strong>: Insufficient disk space to complete operation.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Disk full</li>
+<li>Quota limit reached</li>
+<li>Large log files accumulating</li>
+<li>Orphaned worktrees consuming space</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Check disk space: <code>df -h</code></li>
+<li>Clean orphaned worktrees: <code>prodigy worktree clean-orphaned</code></li>
+<li>Remove old logs: <code>rm ~/.prodigy/events/old-job-*/</code></li>
+<li>Clean Claude logs: <code>rm ~/.local/state/claude/logs/old-*.json</code></li>
+<li>Increase disk space or quota</li>
+</ol>
+<h3 id="job-already-completed"><a class="header" href="#job-already-completed">“Job already completed”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Cannot resume job {job_id}: already completed</code></p>
+<p><strong>What it means</strong>: Attempting to resume a job that finished successfully.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Job actually completed</li>
+<li>Wrong job ID</li>
+<li>Attempting re-run instead of resume</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Verify job status: <code>prodigy sessions list</code></li>
+<li>Check for correct job ID</li>
+<li>Start new run instead of resume: <code>prodigy run workflow.yml</code></li>
+<li>Review job results if completion was successful</li>
+</ol>
+<h3 id="template-not-found"><a class="header" href="#template-not-found">“Template not found”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Template '{name}' not found in registry or file system</code></p>
+<p><strong>What it means</strong>: A workflow template referenced in composition cannot be located.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Template name typo</li>
+<li>Template not registered</li>
+<li>Template file doesn’t exist</li>
+<li>Wrong template path</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Check template spelling and case</li>
+<li>List available templates: <code>prodigy template list</code></li>
+<li>Register template if needed: <code>prodigy template register &lt;path&gt;</code></li>
+<li>Verify template file exists at specified path</li>
+<li>Check template registry: <code>~/.prodigy/templates/</code></li>
+</ol>
+<p><strong>Source</strong>: src/cook/workflow/composer_integration.rs:20, src/cook/workflow/composition/registry.rs:119</p>
+<h3 id="required-parameter-not-provided"><a class="header" href="#required-parameter-not-provided">“Required parameter not provided”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Required parameter '{name}' not provided</code></p>
+<p><strong>What it means</strong>: A template requires a parameter that wasn’t provided during workflow composition.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Missing –param flag</li>
+<li>Parameter not in param file</li>
+<li>Template definition requires parameter</li>
+<li>Parameter name mismatch</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Provide parameter: <code>prodigy run workflow.yml --param NAME=value</code></li>
+<li>Use parameter file: <code>--param-file params.json</code></li>
+<li>Check template parameter definitions</li>
+<li>Verify parameter names match exactly (case-sensitive)</li>
+</ol>
+<p>Example parameter file:</p>
+<pre><code class="language-json">{
+  "project_name": "my-project",
+  "version": "1.0.0"
+}
+</code></pre>
+<p><strong>Source</strong>: src/cook/workflow/composer_integration.rs:23</p>
+<h3 id="circular-dependency-detected"><a class="header" href="#circular-dependency-detected">“Circular dependency detected”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Circular dependency detected: {description}</code> or <code>Error: Circular dependency detected in workflow composition</code></p>
+<p><strong>What it means</strong>: Workflow composition has a circular dependency where templates reference each other in a loop.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Template A extends/imports Template B, which extends/imports Template A</li>
+<li>Chain of dependencies forms a cycle</li>
+<li>Sub-workflow references create circular imports</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Review template dependencies and break the cycle</li>
+<li>Restructure templates to have clear dependency hierarchy</li>
+<li>Extract common functionality into a shared template</li>
+<li>Check extends and imports chains</li>
+</ol>
+<p>Example circular dependency:</p>
+<pre><code class="language-yaml"># template-a.yml
+extends: template-b
+
+# template-b.yml
+extends: template-a  # Circular!
+</code></pre>
+<p><strong>Source</strong>: src/cook/workflow/composition/composer.rs:265, 727, src/error/codes.rs:78</p>
+<h3 id="concurrent-modification-detected"><a class="header" href="#concurrent-modification-detected">“Concurrent modification detected”</a></h3>
+<p><strong>Full message</strong>: <code>Error: Concurrent modification detected in checkpoint file</code></p>
+<p><strong>What it means</strong>: Multiple processes tried to modify the same checkpoint simultaneously.</p>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Parallel resume attempts</li>
+<li>File system race condition</li>
+<li>Stale file handle</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Ensure only one resume process runs at a time</li>
+<li>Check for concurrent resume lock</li>
+<li>Wait and retry</li>
+<li>Use resume lock mechanism (automatic in newer versions)</li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../troubleshooting/faq.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../troubleshooting/best-practices-for-debugging.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../troubleshooting/faq.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../troubleshooting/best-practices-for-debugging.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

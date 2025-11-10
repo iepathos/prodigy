@@ -1,0 +1,376 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Installation - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/automated-documentation/installation.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<p>This guide covers installing Prodigy, the prerequisite tools, and optional components for automated documentation workflows.</p>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<p>Before installing Prodigy, ensure you have:</p>
+<p><strong>Required:</strong></p>
+<ul>
+<li><strong>Claude Code CLI</strong> - Prodigy executes Claude commands via the Claude Code CLI
+<ul>
+<li>Install from: https://github.com/anthropics/claude-code</li>
+<li>Verify: <code>claude --version</code></li>
+</ul>
+</li>
+<li><strong>Rust 1.70+</strong> - Required for building Prodigy from source
+<ul>
+<li>Install from: https://rustup.rs/</li>
+<li>Verify: <code>rustc --version</code></li>
+<li>Source: Cargo.toml:4 (edition = “2021” requires Rust 1.56+, recommended 1.70+)</li>
+</ul>
+</li>
+</ul>
+<p><strong>Optional:</strong></p>
+<ul>
+<li><strong>Git 2.25+</strong> - Required for worktree management features</li>
+<li><strong>jq</strong> - Useful for working with JSON outputs and DLQ inspection</li>
+</ul>
+<h2 id="using-cargo-recommended"><a class="header" href="#using-cargo-recommended">Using Cargo (Recommended)</a></h2>
+<p>The simplest way to install Prodigy is via Cargo, Rust’s package manager:</p>
+<pre><code class="language-bash">cargo install prodigy
+</code></pre>
+<p>This command:</p>
+<ol>
+<li>Downloads the latest version from crates.io</li>
+<li>Compiles the binary with optimizations</li>
+<li>Installs to <code>~/.cargo/bin/prodigy</code> (ensure this is in your PATH)</li>
+</ol>
+<p><strong>Verify installation:</strong></p>
+<pre><code class="language-bash">prodigy --version
+# Expected output: prodigy 0.2.7
+</code></pre>
+<p><strong>Source</strong>: README.md:51-55</p>
+<h2 id="from-source"><a class="header" href="#from-source">From Source</a></h2>
+<p>To install the latest development version or contribute to Prodigy, build from source:</p>
+<pre><code class="language-bash"># Clone the repository
+git clone https://github.com/iepathos/prodigy
+cd prodigy
+
+# Build and install
+cargo build --release
+cargo install --path .
+</code></pre>
+<p><strong>Build process:</strong></p>
+<ol>
+<li><code>cargo build --release</code> compiles with optimizations (takes 3-5 minutes)</li>
+<li>Binary is created at <code>target/release/prodigy</code></li>
+<li><code>cargo install --path .</code> copies binary to <code>~/.cargo/bin/</code></li>
+</ol>
+<p><strong>Verify installation:</strong></p>
+<pre><code class="language-bash">prodigy --version
+</code></pre>
+<p><strong>Source</strong>: README.md:57-66</p>
+<h2 id="optional-man-pages"><a class="header" href="#optional-man-pages">Optional: Man Pages</a></h2>
+<p>Prodigy includes comprehensive man pages for CLI reference. Install them with:</p>
+<pre><code class="language-bash">./scripts/install-man-pages.sh
+</code></pre>
+<p>This installs man pages to <code>/usr/local/share/man/man1/</code>. After installation:</p>
+<pre><code class="language-bash"># View main Prodigy documentation
+man prodigy
+
+# View specific command documentation
+man prodigy-run
+man prodigy-resume
+man prodigy-dlq
+</code></pre>
+<p><strong>Source</strong>: README.md:68-69, scripts/install-man-pages.sh</p>
+<h2 id="verification"><a class="header" href="#verification">Verification</a></h2>
+<p>After installation, verify Prodigy is working correctly:</p>
+<p><strong>Check version:</strong></p>
+<pre><code class="language-bash">prodigy --version
+</code></pre>
+<p><strong>View available commands:</strong></p>
+<pre><code class="language-bash">prodigy --help
+</code></pre>
+<p><strong>Test basic functionality:</strong></p>
+<pre><code class="language-bash"># Initialize Claude commands
+prodigy init
+
+# Should create .claude/commands/ directory
+ls -la .claude/commands/
+</code></pre>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="command-not-found-prodigy"><a class="header" href="#command-not-found-prodigy">Command not found: prodigy</a></h3>
+<p><strong>Cause</strong>: <code>~/.cargo/bin</code> is not in your PATH</p>
+<p><strong>Fix</strong>: Add to your shell profile (~/.bashrc, ~/.zshrc, etc.):</p>
+<pre><code class="language-bash">export PATH="$HOME/.cargo/bin:$PATH"
+</code></pre>
+<p>Then reload: <code>source ~/.bashrc</code> (or restart terminal)</p>
+<h3 id="cargo-command-not-found"><a class="header" href="#cargo-command-not-found">cargo: command not found</a></h3>
+<p><strong>Cause</strong>: Rust toolchain not installed</p>
+<p><strong>Fix</strong>: Install Rust via rustup:</p>
+<pre><code class="language-bash">curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+</code></pre>
+<h3 id="build-fails-with-linker-not-found"><a class="header" href="#build-fails-with-linker-not-found">Build fails with “linker not found”</a></h3>
+<p><strong>Cause</strong>: Missing C compiler/linker (required by some Rust dependencies)</p>
+<p><strong>Fix</strong>:</p>
+<ul>
+<li><strong>macOS</strong>: Install Xcode Command Line Tools: <code>xcode-select --install</code></li>
+<li><strong>Linux</strong>: Install build essentials: <code>sudo apt-get install build-essential</code> (Debian/Ubuntu)</li>
+<li><strong>Windows</strong>: Install Visual Studio Build Tools</li>
+</ul>
+<h3 id="permission-denied-when-installing-man-pages"><a class="header" href="#permission-denied-when-installing-man-pages">Permission denied when installing man pages</a></h3>
+<p><strong>Cause</strong>: <code>/usr/local/share/man/man1/</code> requires elevated permissions</p>
+<p><strong>Fix</strong>: Run with sudo:</p>
+<pre><code class="language-bash">sudo ./scripts/install-man-pages.sh
+</code></pre>
+<h2 id="platform-specific-notes"><a class="header" href="#platform-specific-notes">Platform-Specific Notes</a></h2>
+<p><strong>macOS:</strong></p>
+<ul>
+<li>Xcode Command Line Tools recommended for best compatibility</li>
+<li>Man pages install to <code>/usr/local/share/man/man1/</code> by default</li>
+<li>Homebrew users: Cargo is included with <code>brew install rust</code></li>
+</ul>
+<p><strong>Linux:</strong></p>
+<ul>
+<li>Build essentials package required for compilation</li>
+<li>Man pages may require sudo for installation</li>
+<li>Consider using system package manager if available</li>
+</ul>
+<p><strong>Windows:</strong></p>
+<ul>
+<li>Visual Studio Build Tools required for Rust compilation</li>
+<li>Consider using WSL2 for better compatibility with git worktrees</li>
+<li>Man pages not supported on Windows (use <code>prodigy --help</code> instead)</li>
+</ul>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<p>After installation, see:</p>
+<ul>
+<li><a href="quick-start.html">Quick Start</a> - Create your first automated documentation workflow</li>
+<li><a href="understanding-the-workflow.html">Understanding the Workflow</a> - Learn how the automation works</li>
+<li><a href="index.html">index.md</a> - Overview of automated documentation features</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../automated-documentation/quick-start-30-minutes.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../automated-documentation/quick-start.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../automated-documentation/quick-start-30-minutes.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../automated-documentation/quick-start.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

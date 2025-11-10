@@ -1,0 +1,366 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Next Steps - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/automated-documentation/next-steps.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<p>After setting up your automated documentation system, here’s how to build on your foundation and get the most value from continuous documentation maintenance.</p>
+<h3 id="within-this-chapter"><a class="header" href="#within-this-chapter">Within This Chapter</a></h3>
+<p>Complete your understanding of the automated documentation system:</p>
+<ul>
+<li>
+<p><strong><a href="quick-start.html">Quick Start</a></strong> - Get a minimal working documentation workflow running in minutes, from creating the book structure to running your first drift detection</p>
+</li>
+<li>
+<p><strong><a href="quick-start-30-minutes.html">Quick Start (30 Minutes)</a></strong> - Time-boxed tutorial that takes you from zero to a fully configured documentation workflow with validation</p>
+</li>
+<li>
+<p><strong><a href="understanding-the-workflow.html">Understanding the Workflow</a></strong> - Learn how the MapReduce workflow orchestrates setup/map/reduce phases, and how worktree isolation protects your main branch</p>
+</li>
+<li>
+<p><strong><a href="automatic-gap-detection.html">Automatic Gap Detection</a></strong> - Discover how the system identifies missing or incomplete documentation by analyzing your codebase features</p>
+</li>
+<li>
+<p><strong><a href="customization-examples.html">Customization Examples</a></strong> - Real-world examples of adapting the workflow for different project types (CLI tools, libraries, web applications)</p>
+</li>
+<li>
+<p><strong><a href="documentation-versioning.html">Documentation Versioning</a></strong> - Strategies for maintaining documentation across multiple versions and releases</p>
+</li>
+<li>
+<p><strong><a href="github-actions-integration.html">GitHub Actions Integration</a></strong> - Set up continuous documentation with automated drift detection on every push or on a schedule</p>
+</li>
+<li>
+<p><strong><a href="best-practices.html">Best Practices</a></strong> - Proven approaches for review workflows, handling merge conflicts, and maintaining documentation quality at scale</p>
+</li>
+<li>
+<p><strong><a href="troubleshooting.html">Troubleshooting</a></strong> - Solutions to common issues including mdBook build failures, Claude API problems, and workflow debugging techniques</p>
+</li>
+<li>
+<p><strong><a href="advanced-configuration.html">Advanced Configuration</a></strong> - Fine-tune feature extraction, MapReduce parallelism, custom drift rules, and multi-language project support</p>
+</li>
+</ul>
+<h3 id="immediate-next-steps"><a class="header" href="#immediate-next-steps">Immediate Next Steps</a></h3>
+<p><strong>1. Validate Your Setup</strong></p>
+<p>After your first workflow run, verify everything is working:</p>
+<pre><code class="language-bash"># Check that book builds successfully
+cd book &amp;&amp; mdbook build
+
+# Review generated drift reports
+cat .prodigy/book-analysis/drift-*.json | jq '.severity'
+
+# Verify feature extraction captured your project's capabilities
+cat .prodigy/book-analysis/features.json | jq '.features | length'
+</code></pre>
+<p><strong>2. Review and Refine Documentation</strong></p>
+<p>The automated workflow generates updates, but human review ensures quality:</p>
+<ul>
+<li>Read through updated chapters to verify accuracy</li>
+<li>Check that code examples match your actual implementation (file paths in book/src/)</li>
+<li>Validate that cross-references between chapters work correctly</li>
+<li>Ensure terminology matches your project’s conventions</li>
+</ul>
+<p><strong>3. Set Up Continuous Updates</strong></p>
+<p>Integrate documentation maintenance into your development workflow:</p>
+<ul>
+<li>Add GitHub Actions workflow for automated drift detection (see <a href="github-actions-integration.html">GitHub Actions Integration</a>)</li>
+<li>Configure workflow to run on push to main branch or on a schedule</li>
+<li>Set up notifications for documentation drift detection results</li>
+<li>Consider running validation before merging large feature branches</li>
+</ul>
+<p><strong>4. Customize for Your Project</strong></p>
+<p>Adapt the system to your specific needs:</p>
+<ul>
+<li>Adjust chapter structure in your chapters JSON configuration file (workflows/data/[project]-chapters.json)</li>
+<li>Modify feature extraction patterns for your programming language</li>
+<li>Configure MapReduce parallelism based on your chapter count (workflows/book-docs-drift.yml:MAX_PARALLEL)</li>
+<li>Add project-specific Claude commands for specialized documentation tasks</li>
+</ul>
+<p><strong>5. Expand Documentation Coverage</strong></p>
+<p>As your project evolves, grow your documentation:</p>
+<ul>
+<li>Add new chapters for major feature areas</li>
+<li>Create subsections for complex topics that need detailed explanation</li>
+<li>Document edge cases and advanced usage patterns</li>
+<li>Include troubleshooting guides based on user questions</li>
+</ul>
+<h3 id="advanced-topics"><a class="header" href="#advanced-topics">Advanced Topics</a></h3>
+<p>Ready to explore the broader Prodigy ecosystem? These topics build on automated documentation concepts:</p>
+<ul>
+<li>
+<p><strong><a href="../mapreduce/index.html">MapReduce Workflows</a></strong> - Deep dive into the parallel processing architecture that powers book documentation workflows, including setup/map/reduce phases and error handling</p>
+</li>
+<li>
+<p><strong><a href="../environment/index.html">Environment Variables</a></strong> - Learn how to configure workflow behavior through environment variables, secrets management, and profile-based configuration</p>
+</li>
+<li>
+<p><strong><a href="../error-handling.html">Error Handling</a></strong> - Strategies for building resilient workflows that gracefully handle failures, including Dead Letter Queue (DLQ) usage and retry configuration</p>
+</li>
+<li>
+<p><strong><a href="../advanced/index.html">Advanced Features</a></strong> - Explore conditional execution, goal-seeking operations, and complex control flow for sophisticated automation workflows</p>
+</li>
+<li>
+<p><strong><a href="../troubleshooting/index.html">Troubleshooting</a></strong> - Comprehensive guide to debugging workflow issues, examining Claude execution logs, and resolving common problems</p>
+</li>
+</ul>
+<h3 id="learning-path-recommendations"><a class="header" href="#learning-path-recommendations">Learning Path Recommendations</a></h3>
+<p><strong>For Documentation Maintainers:</strong></p>
+<ol>
+<li>Start with <a href="quick-start.html">Quick Start</a> to get the basics running</li>
+<li>Read <a href="understanding-the-workflow.html">Understanding the Workflow</a> to understand the system architecture</li>
+<li>Set up <a href="github-actions-integration.html">GitHub Actions Integration</a> for automation</li>
+<li>Review <a href="best-practices.html">Best Practices</a> for quality maintenance strategies</li>
+</ol>
+<p><strong>For Power Users:</strong></p>
+<ol>
+<li>Complete the <a href="quick-start-30-minutes.html">Quick Start (30 Minutes)</a> tutorial</li>
+<li>Explore <a href="customization-examples.html">Customization Examples</a> for your project type</li>
+<li>Configure <a href="advanced-configuration.html">Advanced Configuration</a> options</li>
+<li>Study <a href="../mapreduce/index.html">MapReduce Workflows</a> to understand the orchestration engine</li>
+</ol>
+<p><strong>For Contributors:</strong></p>
+<ol>
+<li>Understand the <a href="automatic-gap-detection.html">Automatic Gap Detection</a> algorithm</li>
+<li>Review the workflow implementation in workflows/book-docs-drift.yml</li>
+<li>Study Claude commands in .claude/commands/prodigy-<em>-book-</em>.md</li>
+<li>Explore <a href="../advanced/index.html">Advanced Features</a> for extending functionality</li>
+</ol>
+<h3 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h3>
+<p>If you encounter issues or have questions:</p>
+<ul>
+<li>Check <a href="troubleshooting.html">Troubleshooting</a> for common problems and solutions</li>
+<li>Review Claude command execution logs in ~/.claude/projects/[worktree-path]/</li>
+<li>Examine drift reports in .prodigy/book-analysis/drift-*.json for detailed analysis</li>
+<li>Check the Dead Letter Queue (DLQ) for failed items: <code>prodigy dlq show [job-id]</code></li>
+<li>Inspect MapReduce events for workflow execution details in ~/.prodigy/events/</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../automated-documentation/documentation-versioning.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../automated-documentation/benefits.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../automated-documentation/documentation-versioning.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../automated-documentation/benefits.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

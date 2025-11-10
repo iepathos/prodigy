@@ -1,0 +1,553 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Troubleshooting Variable Interpolation - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/variables/troubleshooting-variable-interpolation.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="troubleshooting-variable-interpolation"><a class="header" href="#troubleshooting-variable-interpolation">Troubleshooting Variable Interpolation</a></h2>
+<p>This guide helps you diagnose and fix common variable interpolation issues in Prodigy workflows.</p>
+<h3 id="issue-variables-not-interpolating"><a class="header" href="#issue-variables-not-interpolating">Issue: Variables Not Interpolating</a></h3>
+<p><strong>Symptom:</strong> Literal <code>${var}</code> or <code>$VAR</code> appears in output instead of the value.</p>
+<p><strong>Common Causes:</strong></p>
+<ol>
+<li>
+<p><strong>Variable name typo or case mismatch</strong></p>
+<pre><code class="language-yaml"># Wrong
+- shell: "echo ${Item.path}"  # Should be lowercase: ${item.path}
+
+# Correct
+- shell: "echo ${item.path}"
+</code></pre>
+</li>
+<li>
+<p><strong>Variable doesn’t exist in current scope</strong></p>
+<pre><code class="language-yaml"># Wrong - using item variable in reduce phase
+reduce:
+  - shell: "echo ${item.name}"  # ${item.*} not available here!
+
+# Correct - access via map.results
+reduce:
+  - shell: "echo '${map.results}' | jq -r '.[].item.name'"
+</code></pre>
+</li>
+<li>
+<p><strong>Command failed before setting variable</strong></p>
+<pre><code class="language-yaml">- shell: "cargo test"  # If this fails...
+  capture_output: "tests"
+- shell: "echo ${tests}"  # ...this might be empty
+
+# Better: Check success first
+- shell: |
+    if ${tests.success}; then
+      echo "Tests: ${tests}"
+    else
+      echo "Tests failed: ${tests.stderr}"
+    fi
+</code></pre>
+</li>
+</ol>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Check spelling and case sensitivity</li>
+<li>Verify variable exists in current phase (see phase availability table)</li>
+<li>Use verbose mode (<code>-v</code>) to see variable values during execution</li>
+<li>Echo variables to debug: <code>shell: "echo 'DEBUG: var=${my_var}'"</code></li>
+</ul>
+<h3 id="issue-variable-empty-or-undefined"><a class="header" href="#issue-variable-empty-or-undefined">Issue: Variable Empty or Undefined</a></h3>
+<p><strong>Symptom:</strong> Variable interpolates but contains empty string or null.</p>
+<p><strong>Common Causes:</strong></p>
+<ol>
+<li>
+<p><strong>Variable used before being set</strong></p>
+<pre><code class="language-yaml"># Wrong - using before capture
+- shell: "echo ${count}"
+- shell: "wc -l file.txt"
+  capture_output: "count"
+
+# Correct - capture first, use second
+- shell: "wc -l file.txt"
+  capture_output: "count"
+- shell: "echo ${count}"
+</code></pre>
+</li>
+<li>
+<p><strong>Command produced no output</strong></p>
+<pre><code class="language-yaml">- shell: "find . -name 'nonexistent.txt'"
+  capture_output: "result"  # Will be empty if no matches
+- shell: "echo ${result}"  # Empty string
+</code></pre>
+</li>
+<li>
+<p><strong>Capture not configured</strong></p>
+<pre><code class="language-yaml"># Wrong - forgot capture_output
+- shell: "cargo --version"
+- shell: "echo ${shell.output}"  # Empty unless capture_output: true
+
+# Correct
+- shell: "cargo --version"
+  capture_output: true  # or capture_output: "cargo_version"
+</code></pre>
+</li>
+</ol>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Ensure capture_output is set when you need to save output</li>
+<li>Check command actually produces output</li>
+<li>Use verbose mode to see when variables are set</li>
+<li>Provide defaults: <code>${var:-default_value}</code> (shell syntax)</li>
+</ul>
+<h3 id="issue-phase-specific-variable-not-available"><a class="header" href="#issue-phase-specific-variable-not-available">Issue: Phase-Specific Variable Not Available</a></h3>
+<p><strong>Symptom:</strong> Error about undefined variable or empty value when using phase-specific variables.</p>
+<p><strong>Common Causes:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Wrong Phase</th><th>Correct Phase</th><th>Fix</th></tr></thead><tbody>
+<tr><td><code>${item.*}</code></td><td>Reduce, Setup, Merge</td><td>Map only</td><td>Use <code>${map.results}</code> in reduce</td></tr>
+<tr><td><code>${map.*}</code></td><td>Setup, Map, Merge</td><td>Reduce only</td><td>Move logic to reduce phase</td></tr>
+<tr><td><code>${merge.*}</code></td><td>Setup, Map, Reduce</td><td>Merge only</td><td>Only use in merge commands</td></tr>
+</tbody></table>
+</div>
+<p><strong>Example Problem:</strong></p>
+<pre><code class="language-yaml"># Wrong - can't use ${item} in reduce
+reduce:
+  - shell: "process ${item.name}"  # ERROR!
+
+# Correct - iterate through map.results
+reduce:
+  - shell: "echo '${map.results}' | jq -r '.[] | .item.name' | while read name; do process \"$name\"; done"
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Review phase availability table in main Variables documentation</li>
+<li>Move variable usage to appropriate phase</li>
+<li>In reduce, access item data through <code>${map.results}</code></li>
+<li>Restructure workflow if necessary</li>
+</ul>
+<h3 id="issue-nested-field-access-fails"><a class="header" href="#issue-nested-field-access-fails">Issue: Nested Field Access Fails</a></h3>
+<p><strong>Symptom:</strong> Can’t access nested JSON fields like <code>${var.field.nested}</code>.</p>
+<p><strong>Common Causes:</strong></p>
+<ol>
+<li>
+<p><strong>Format not specified as JSON</strong></p>
+<pre><code class="language-yaml"># Wrong - no format specification
+- shell: "cargo metadata --format-version 1"
+  capture_output: "metadata"
+- shell: "echo ${metadata.workspace_root}"  # Won't work!
+
+# Correct - specify JSON format
+- shell: "cargo metadata --format-version 1"
+  capture_output: "metadata"
+  capture_format: "json"
+- shell: "echo ${metadata.workspace_root}"  # Works!
+</code></pre>
+</li>
+<li>
+<p><strong>Field doesn’t exist in JSON</strong></p>
+<pre><code class="language-yaml">- shell: "echo ${item.nonexistent_field}"  # Empty if field missing
+</code></pre>
+</li>
+<li>
+<p><strong>JSON is invalid</strong></p>
+<pre><code class="language-yaml"># Command produces malformed JSON
+- shell: "echo '{incomplete json'"
+  capture_output: "data"
+  capture_format: "json"  # Will fail to parse
+</code></pre>
+</li>
+</ol>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Always use <code>capture_format: "json"</code> for JSON output</li>
+<li>Verify JSON structure with <code>jq</code>: <code>echo '${var}' | jq .</code></li>
+<li>Check field exists: <code>echo '${var}' | jq -r '.field // "default"'</code></li>
+<li>Validate JSON before capture</li>
+</ul>
+<h3 id="issue-git-context-variables-empty"><a class="header" href="#issue-git-context-variables-empty">Issue: Git Context Variables Empty</a></h3>
+<p><strong>Symptom:</strong> Git variables like <code>${step.files_added}</code> are empty.</p>
+<p><strong>Common Causes:</strong></p>
+<ol>
+<li>
+<p><strong>No commits created</strong></p>
+<pre><code class="language-yaml">- shell: "echo 'hello' &gt; file.txt"
+- shell: "echo ${step.files_added}"  # Empty - no commit yet!
+
+# Correct - ensure command creates commit
+- shell: "echo 'hello' &gt; file.txt"
+  commit_required: true  # Forces commit
+- shell: "echo ${step.files_added}"  # Now has value
+</code></pre>
+</li>
+<li>
+<p><strong>Not in a git repository</strong></p>
+<pre><code class="language-yaml"># Git variables require git repo
+- shell: "echo ${step.files_added}"  # Empty if not in git repo
+</code></pre>
+</li>
+<li>
+<p><strong>No files changed in step</strong></p>
+<pre><code class="language-yaml">- shell: "cargo check"  # Doesn't modify files
+- shell: "echo ${step.files_added}"  # Empty - no files added
+</code></pre>
+</li>
+</ol>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Ensure commands that modify files use <code>commit_required: true</code></li>
+<li>Verify you’re in a git repository</li>
+<li>Check that commands actually modify files</li>
+<li>Use <code>git status</code> to verify changes exist</li>
+</ul>
+<h3 id="issue-format-modifiers-not-working"><a class="header" href="#issue-format-modifiers-not-working">Issue: Format Modifiers Not Working</a></h3>
+<p><strong>Symptom:</strong> Format modifiers like <code>:json</code> or <code>:*.rs</code> don’t apply.</p>
+<p><strong>Common Causes:</strong></p>
+<ol>
+<li>
+<p><strong>Wrong variable type</strong></p>
+<pre><code class="language-yaml"># Wrong - not a git context variable
+- shell: "ls"
+  capture_output: "files"
+- shell: "echo ${files:json}"  # Format modifiers only work on git vars!
+
+# Correct - use capture_format instead
+- shell: "ls"
+  capture_output: "files"
+  capture_format: "json"
+</code></pre>
+</li>
+<li>
+<p><strong>Syntax error</strong></p>
+<pre><code class="language-yaml"># Wrong syntax
+- shell: "echo ${step.files_added:.rs}"  # Missing * in glob
+
+# Correct
+- shell: "echo ${step.files_added:*.rs}"
+</code></pre>
+</li>
+</ol>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Format modifiers (<code>:json</code>, <code>:lines</code>, <code>:csv</code>, <code>:*.ext</code>) only work on git context variables</li>
+<li>For custom captures, use <code>capture_format</code> instead</li>
+<li>Check glob pattern syntax</li>
+</ul>
+<h3 id="debugging-techniques"><a class="header" href="#debugging-techniques">Debugging Techniques</a></h3>
+<h4 id="1-use-verbose-mode"><a class="header" href="#1-use-verbose-mode">1. Use Verbose Mode</a></h4>
+<pre><code class="language-bash"># Run with verbose flag to see variable resolution
+prodigy run workflow.yml -v
+</code></pre>
+<p>Verbose mode shows:</p>
+<ul>
+<li>Variable values at each step</li>
+<li>When variables are captured</li>
+<li>Interpolated command strings before execution</li>
+</ul>
+<h4 id="2-echo-variables-for-debugging"><a class="header" href="#2-echo-variables-for-debugging">2. Echo Variables for Debugging</a></h4>
+<pre><code class="language-yaml">- shell: "echo 'DEBUG: item=${item}'"
+- shell: "echo 'DEBUG: item.path=${item.path}'"
+- shell: "echo 'DEBUG: item_index=${item_index}'"
+</code></pre>
+<h4 id="3-check-claude-json-logs"><a class="header" href="#3-check-claude-json-logs">3. Check Claude JSON Logs</a></h4>
+<p>Claude command logs contain variable interpolation details:</p>
+<pre><code class="language-bash"># View most recent Claude command log
+cat ~/.claude/projects/*/latest.jsonl | jq -c 'select(.type == "assistant")'
+</code></pre>
+<h4 id="4-verify-variables-in-checkpoint-files"><a class="header" href="#4-verify-variables-in-checkpoint-files">4. Verify Variables in Checkpoint Files</a></h4>
+<p>For resume issues, check checkpoint files:</p>
+<pre><code class="language-bash"># View checkpoint variables
+cat ~/.prodigy/state/*/checkpoints/latest.json | jq .variables
+</code></pre>
+<h4 id="5-use-jq-to-explore-json-variables"><a class="header" href="#5-use-jq-to-explore-json-variables">5. Use jq to Explore JSON Variables</a></h4>
+<pre><code class="language-yaml"># Explore structure
+- shell: "echo '${map.results}' | jq ."
+
+# List available keys
+- shell: "echo '${metadata}' | jq 'keys'"
+
+# Pretty print
+- shell: "echo '${item}' | jq -C ."
+</code></pre>
+<h3 id="common-syntax-issues"><a class="header" href="#common-syntax-issues">Common Syntax Issues</a></h3>
+<h4 id="issue-special-characters-in-variables"><a class="header" href="#issue-special-characters-in-variables">Issue: Special Characters in Variables</a></h4>
+<p><strong>Problem:</strong></p>
+<pre><code class="language-yaml"># Variable contains spaces or special chars
+- shell: echo ${item.name}  # Breaks if name has spaces!
+</code></pre>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-yaml"># Always quote variables in shell commands
+- shell: "echo \"${item.name}\""
+</code></pre>
+<h4 id="issue-yaml-string-escaping"><a class="header" href="#issue-yaml-string-escaping">Issue: YAML String Escaping</a></h4>
+<p><strong>Problem:</strong></p>
+<pre><code class="language-yaml"># Single quotes prevent interpolation
+- shell: 'echo ${item.name}'  # Literal ${item.name} printed!
+</code></pre>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-yaml"># Use double quotes for interpolation
+- shell: "echo ${item.name}"
+</code></pre>
+<h4 id="issue-combining-variables-with-text"><a class="header" href="#issue-combining-variables-with-text">Issue: Combining Variables with Text</a></h4>
+<p><strong>Problem:</strong></p>
+<pre><code class="language-yaml"># Ambiguous variable name
+- shell: "echo $item_path"  # Is it ${item_path} or ${item}_path?
+</code></pre>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-yaml"># Use ${} syntax to clarify boundaries
+- shell: "echo ${item}_path"
+- shell: "echo prefix_${item}_suffix"
+</code></pre>
+<h3 id="best-practices-for-avoiding-issues"><a class="header" href="#best-practices-for-avoiding-issues">Best Practices for Avoiding Issues</a></h3>
+<ol>
+<li><strong>Always use <code>${VAR}</code> syntax</strong> - More reliable than <code>$VAR</code></li>
+<li><strong>Check phase availability</strong> - Review phase table before using variables</li>
+<li><strong>Quote shell variables</strong> - Use <code>"${var}"</code> in shell commands</li>
+<li><strong>Capture before use</strong> - Set <code>capture_output</code> before referencing</li>
+<li><strong>Specify JSON format</strong> - Use <code>capture_format: "json"</code> for structured data</li>
+<li><strong>Use verbose mode</strong> - Debug with <code>-v</code> flag</li>
+<li><strong>Validate JSON</strong> - Test with <code>jq</code> before using in workflow</li>
+<li><strong>Document assumptions</strong> - Comment expected variable structure</li>
+<li><strong>Provide fallbacks</strong> - Handle empty variables gracefully</li>
+<li><strong>Test incrementally</strong> - Add variables one at a time</li>
+</ol>
+<h3 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h3>
+<p>If you’re still stuck after trying these debugging techniques:</p>
+<ol>
+<li><strong>Check logs</strong>: Review Claude JSON logs for variable resolution</li>
+<li><strong>Inspect checkpoints</strong>: Look at stored variable values</li>
+<li><strong>Simplify workflow</strong>: Remove complexity to isolate issue</li>
+<li><strong>Review examples</strong>: Check working examples in documentation</li>
+<li><strong>Verify phase</strong>: Double-check variable is available in current phase</li>
+</ol>
+<p><strong>See Also:</strong></p>
+<ul>
+<li><a href="available-variables.html">Available Variables</a> - Full variable reference with phase availability</li>
+<li><a href="custom-variable-capture.html">Custom Variable Capture</a> - Capture configuration and formats</li>
+<li><a href="../examples.html">Examples</a> - Working examples of variable usage</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../variables/custom-variable-capture.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../variables/see-also.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../variables/custom-variable-capture.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../variables/see-also.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

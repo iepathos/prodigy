@@ -1,0 +1,373 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Global Configuration Structure - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/configuration/global-configuration-structure.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="global-configuration-structure"><a class="header" href="#global-configuration-structure">Global Configuration Structure</a></h2>
+<p>Global configuration is stored in <code>~/.prodigy/config.yml</code> in your home directory. These settings apply to all Prodigy projects unless overridden by project-specific configuration.</p>
+<h3 id="location"><a class="header" href="#location">Location</a></h3>
+<ul>
+<li><strong>File</strong>: <code>~/.prodigy/config.yml</code></li>
+<li><strong>Created</strong>: Automatically on first run with defaults</li>
+<li><strong>Format</strong>: YAML</li>
+</ul>
+<h3 id="fields"><a class="header" href="#fields">Fields</a></h3>
+<h4 id="prodigy_home"><a class="header" href="#prodigy_home"><code>prodigy_home</code></a></h4>
+<p><strong>Type</strong>: Path
+<strong>Default</strong>: <code>~/.prodigy</code> (or platform-specific data directory)</p>
+<p>Base directory for global Prodigy data including events, DLQ, state, and worktrees.</p>
+<pre><code class="language-yaml">prodigy_home: /Users/username/.prodigy
+</code></pre>
+<h4 id="default_editor"><a class="header" href="#default_editor"><code>default_editor</code></a></h4>
+<p><strong>Type</strong>: String (optional)
+<strong>Default</strong>: None</p>
+<p>Default text editor for interactive operations. Falls back to <code>EDITOR</code> environment variable if not set.</p>
+<pre><code class="language-yaml">default_editor: vim
+</code></pre>
+<h4 id="log_level"><a class="header" href="#log_level"><code>log_level</code></a></h4>
+<p><strong>Type</strong>: String (optional)
+<strong>Default</strong>: <code>info</code>
+<strong>Valid values</strong>: <code>trace</code>, <code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code></p>
+<p>Controls logging verbosity for Prodigy operations.</p>
+<pre><code class="language-yaml">log_level: debug
+</code></pre>
+<h4 id="claude_api_key"><a class="header" href="#claude_api_key"><code>claude_api_key</code></a></h4>
+<p><strong>Type</strong>: String (optional)
+<strong>Default</strong>: None</p>
+<p>Claude API key for AI-powered commands. Can be overridden by project config or <code>PRODIGY_CLAUDE_API_KEY</code> environment variable.</p>
+<pre><code class="language-yaml">claude_api_key: "sk-ant-api03-..."
+</code></pre>
+<p><strong>Security Note</strong>: Store API keys in environment variables or project config (not committed to version control) rather than global config.</p>
+<h4 id="max_concurrent_specs"><a class="header" href="#max_concurrent_specs"><code>max_concurrent_specs</code></a></h4>
+<p><strong>Type</strong>: Integer (optional)
+<strong>Default</strong>: <code>1</code></p>
+<p>Maximum number of concurrent spec implementations to run in parallel.</p>
+<pre><code class="language-yaml">max_concurrent_specs: 3
+</code></pre>
+<h4 id="auto_commit"><a class="header" href="#auto_commit"><code>auto_commit</code></a></h4>
+<p><strong>Type</strong>: Boolean (optional)
+<strong>Default</strong>: <code>true</code></p>
+<p>Whether to automatically commit changes after successful command execution.</p>
+<pre><code class="language-yaml">auto_commit: false
+</code></pre>
+<h4 id="storage"><a class="header" href="#storage"><code>storage</code></a></h4>
+<p><strong>Type</strong>: Object (optional)
+<strong>Default</strong>: File storage in <code>~/.prodigy</code></p>
+<p>Storage backend configuration for events, DLQ, state, and worktrees. See <a href="storage-configuration.html">Storage Configuration</a> for details.</p>
+<pre><code class="language-yaml">storage:
+  backend: file
+  backend_config:
+    base_dir: ~/.prodigy
+    repository_grouping: true
+</code></pre>
+<p><strong>Storage Fields</strong>:</p>
+<ul>
+<li><code>backend</code>: Storage type (<code>file</code> or <code>memory</code>)</li>
+<li><code>backend_config.base_dir</code>: Base directory for file storage</li>
+<li><code>backend_config.repository_grouping</code>: Group data by repository name (default: true)</li>
+</ul>
+<p>See <a href="storage-configuration.html">Storage Configuration</a> for complete documentation.</p>
+<h4 id="plugins"><a class="header" href="#plugins"><code>plugins</code></a></h4>
+<p><strong>Type</strong>: Object (optional)
+<strong>Default</strong>: None</p>
+<p>Plugin system configuration. See <a href="#plugin-configuration">Plugin Configuration</a> below.</p>
+<h3 id="complete-example"><a class="header" href="#complete-example">Complete Example</a></h3>
+<pre><code class="language-yaml"># ~/.prodigy/config.yml
+prodigy_home: /Users/username/.prodigy
+default_editor: code
+log_level: info
+claude_api_key: "sk-ant-api03-..."
+max_concurrent_specs: 2
+auto_commit: true
+
+storage:
+  backend: file
+  backend_config:
+    base_dir: /Users/username/.prodigy
+    repository_grouping: true
+
+plugins:
+  enabled: true
+  directory: /Users/username/.prodigy/plugins
+  auto_load:
+    - github-integration
+    - slack-notifications
+</code></pre>
+<h3 id="plugin-configuration"><a class="header" href="#plugin-configuration">Plugin Configuration</a></h3>
+<p>The <code>plugins</code> field controls the plugin system:</p>
+<h4 id="enabled"><a class="header" href="#enabled"><code>enabled</code></a></h4>
+<p><strong>Type</strong>: Boolean
+<strong>Default</strong>: <code>false</code></p>
+<p>Enable or disable the plugin system.</p>
+<pre><code class="language-yaml">plugins:
+  enabled: true
+</code></pre>
+<h4 id="directory"><a class="header" href="#directory"><code>directory</code></a></h4>
+<p><strong>Type</strong>: Path
+<strong>Default</strong>: <code>~/.prodigy/plugins</code></p>
+<p>Directory to search for plugins.</p>
+<pre><code class="language-yaml">plugins:
+  directory: /custom/plugin/path
+</code></pre>
+<h4 id="auto_load"><a class="header" href="#auto_load"><code>auto_load</code></a></h4>
+<p><strong>Type</strong>: Array of strings
+<strong>Default</strong>: <code>[]</code></p>
+<p>List of plugin names to automatically load on startup.</p>
+<pre><code class="language-yaml">plugins:
+  auto_load:
+    - plugin-name-1
+    - plugin-name-2
+</code></pre>
+<h3 id="creating-global-config"><a class="header" href="#creating-global-config">Creating Global Config</a></h3>
+<p>If the file doesn’t exist, create it manually:</p>
+<pre><code class="language-bash">mkdir -p ~/.prodigy
+cat &gt; ~/.prodigy/config.yml &lt;&lt; 'EOF'
+log_level: info
+auto_commit: true
+EOF
+</code></pre>
+<h3 id="relationship-to-project-config"><a class="header" href="#relationship-to-project-config">Relationship to Project Config</a></h3>
+<ul>
+<li>Global config applies to <strong>all projects</strong></li>
+<li>Project config (<code>.prodigy/config.yml</code>) <strong>overrides</strong> global config per field</li>
+<li>Settings not specified in project config are <strong>inherited</strong> from global config</li>
+<li>See <a href="configuration-precedence-rules.html">Configuration Precedence Rules</a> for details</li>
+</ul>
+<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
+<ul>
+<li><a href="project-configuration-structure.html">Project Configuration Structure</a></li>
+<li><a href="configuration-precedence-rules.html">Configuration Precedence Rules</a></li>
+<li><a href="environment-variables.html">Environment Variables</a></li>
+<li><a href="default-values-reference.html">Default Values Reference</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../configuration/configuration-precedence-rules.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../configuration/project-configuration-structure.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../configuration/configuration-precedence-rules.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../configuration/project-configuration-structure.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,459 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Workflow Format Comparison - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/mapreduce/workflow-format-comparison.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="workflow-format-comparison"><a class="header" href="#workflow-format-comparison">Workflow Format Comparison</a></h2>
+<p>Prodigy supports multiple workflow format styles to balance simplicity for quick tasks with power for production workflows. This section explains the differences and helps you choose the right format.</p>
+<h3 id="standard-workflow-formats"><a class="header" href="#standard-workflow-formats">Standard Workflow Formats</a></h3>
+<p>Standard workflows (non-MapReduce) can be written in two formats:</p>
+<h4 id="simple-array-format"><a class="header" href="#simple-array-format">Simple Array Format</a></h4>
+<p>For quick workflows, use a simple array of commands:</p>
+<pre><code class="language-yaml"># Simple array format - minimal syntax
+- claude: "/prodigy-coverage"
+  commit_required: true
+
+- shell: "just test"
+  on_failure:
+    claude: "/prodigy-debug-test-failure"
+</code></pre>
+<p><strong>Use this format when:</strong></p>
+<ul>
+<li>Creating quick automation scripts</li>
+<li>No environment variables or profiles needed</li>
+<li>Workflow is self-contained and straightforward</li>
+</ul>
+<h4 id="full-configuration-format"><a class="header" href="#full-configuration-format">Full Configuration Format</a></h4>
+<p>For production workflows, use the full configuration format with metadata:</p>
+<pre><code class="language-yaml"># Full config format - includes metadata and environment
+name: mapreduce-env-example
+mode: mapreduce
+
+env:
+  PROJECT_NAME: "example-project"
+  OUTPUT_DIR: "output"
+  DEBUG_MODE: "false"
+
+# Secrets are a separate top-level configuration
+# They support two formats: Simple and Provider-based
+secrets:
+  # Simple format - directly references environment variable
+  SIMPLE_SECRET: "ENV_VAR_NAME"
+
+  # Provider format - explicit provider configuration
+  API_TOKEN:
+    provider: env
+    key: "GITHUB_TOKEN"
+
+  # File-based secret provider
+  FILE_SECRET:
+    provider: file
+    key: "/path/to/secret/file"
+
+profiles:
+  development:
+    DEBUG_MODE: "true"
+  production:
+    DEBUG_MODE: "false"
+
+# Commands go here
+setup:
+  - shell: "echo Starting $PROJECT_NAME"
+</code></pre>
+<p><strong>Use this format when:</strong></p>
+<ul>
+<li>Deploying to multiple environments (dev, staging, prod)</li>
+<li>Need environment variables or secrets</li>
+<li>Workflow requires parameterization</li>
+<li>Building reusable workflow templates</li>
+</ul>
+<p><strong>Secret Format Details:</strong></p>
+<p>Secrets support two formats (defined in <code>src/cook/environment/config.rs:86-95</code>):</p>
+<ol>
+<li>
+<p><strong>Simple format</strong> - Direct environment variable reference:</p>
+<pre><code class="language-yaml">secrets:
+  API_KEY: "ENV_VAR_NAME"  # Reads from $ENV_VAR_NAME
+</code></pre>
+</li>
+<li>
+<p><strong>Provider format</strong> - Explicit provider configuration:</p>
+<pre><code class="language-yaml">secrets:
+  API_KEY:
+    provider: env          # Providers: env, file, vault, aws
+    key: "GITHUB_TOKEN"    # Source key/path
+    version: "v1"          # Optional version
+</code></pre>
+</li>
+</ol>
+<p><strong>Available Providers</strong> (defined in <code>src/cook/environment/config.rs:101-109</code>):</p>
+<ul>
+<li><code>env</code> - Environment variables (most common)</li>
+<li><code>file</code> - File-based secrets</li>
+<li><code>vault</code> - HashiCorp Vault integration</li>
+<li><code>aws</code> - AWS Secrets Manager integration</li>
+</ul>
+<p>Both formats mask secret values in logs. The Simple format is convenient for environment variables, while Provider format supports advanced secret management systems like Vault and AWS Secrets Manager.</p>
+<p><strong>Note</strong>: For detailed Vault and AWS provider configuration, see <a href="../environment/secrets-management.html">Secrets Management</a> and <a href="./environment-variables-in-configuration.html">Environment Variables in Configuration</a>.</p>
+<p><strong>Source</strong>: Example workflow at <code>workflows/mapreduce-env-example.yml:23-26</code></p>
+<h3 id="mapreduce-syntax-evolution"><a class="header" href="#mapreduce-syntax-evolution">MapReduce Syntax Evolution</a></h3>
+<p>MapReduce workflows have evolved to use simpler, more concise syntax.</p>
+<h4 id="preferred-syntax-current"><a class="header" href="#preferred-syntax-current">Preferred Syntax (Current)</a></h4>
+<p>Commands are listed directly under <code>agent_template</code> and <code>reduce</code>:</p>
+<pre><code class="language-yaml">name: parallel-debt-elimination
+mode: mapreduce
+
+setup:
+  - shell: "debtmap analyze . --output debt_items.json"
+
+map:
+  input: debt_items.json
+  json_path: "$.debt_items[*]"
+
+  # Direct array syntax - preferred
+  agent_template:
+    - claude: "/fix-issue ${item.description}"
+    - shell: "cargo test"
+      on_failure:
+        claude: "/debug-test"
+
+  max_parallel: 10
+
+# Direct array syntax for reduce - preferred
+reduce:
+  - claude: "/summarize-fixes ${map.results}"
+  - shell: "echo Processed ${map.total} items"
+</code></pre>
+<p><strong>Benefits:</strong></p>
+<ul>
+<li>Less nesting, easier to read</li>
+<li>Cleaner YAML structure</li>
+<li>Follows YAML array conventions</li>
+<li>Consistent with standard workflow format</li>
+<li>Forward compatibility - the nested format may be removed in future versions</li>
+</ul>
+<h4 id="legacy-syntax-deprecated"><a class="header" href="#legacy-syntax-deprecated">Legacy Syntax (Deprecated)</a></h4>
+<p>The old format nested commands under a <code>commands</code> field:</p>
+<pre><code class="language-yaml"># Old syntax - deprecated but still supported
+map:
+  input: "work-items.json"
+  json_path: "$.items[*]"
+
+  # Nested under 'commands' - deprecated
+  agent_template:
+    commands:
+      - shell: echo "Processing item ${item.id}"
+      - shell: echo "Completed ${item.task}"
+
+  max_parallel: 3
+
+# Nested under 'commands' - deprecated
+reduce:
+  commands:
+    - shell: echo "Processed ${map.total} items"
+</code></pre>
+<p><strong>Deprecation Notice:</strong></p>
+<ul>
+<li>This format is still supported for backward compatibility</li>
+<li>New workflows should use the direct array syntax</li>
+<li>Future versions may remove support for nested <code>commands</code></li>
+<li>When using the old format, Prodigy emits a warning: “Using deprecated nested ‘commands’ syntax in agent_template. Consider using the simplified array format directly under ‘agent_template’.”</li>
+</ul>
+<p><strong>Source</strong>: Deprecation warnings in <code>src/config/mapreduce.rs:310, 347</code></p>
+<h3 id="migration-guide"><a class="header" href="#migration-guide">Migration Guide</a></h3>
+<p>To migrate from old to new syntax:</p>
+<p><strong>Before (Old):</strong></p>
+<pre><code class="language-yaml">agent_template:
+  commands:
+    - claude: "/process ${item}"
+    - shell: "test ${item.path}"
+
+reduce:
+  commands:
+    - claude: "/summarize ${map.results}"
+</code></pre>
+<p><strong>After (New):</strong></p>
+<pre><code class="language-yaml">agent_template:
+  - claude: "/process ${item}"
+  - shell: "test ${item.path}"
+
+reduce:
+  - claude: "/summarize ${map.results}"
+</code></pre>
+<p><strong>Migration Steps:</strong></p>
+<ol>
+<li>Remove the <code>commands:</code> line from <code>agent_template</code></li>
+<li>Remove the <code>commands:</code> line from <code>reduce</code></li>
+<li>Unindent the command list by one level</li>
+<li>Test the workflow to ensure it works correctly</li>
+</ol>
+<p><strong>Important Notes:</strong></p>
+<ul>
+<li>The workflow format is all-or-nothing - you cannot mix old and new formats within the same workflow</li>
+<li>Both <code>agent_template</code> and <code>reduce</code> must use the same format (both direct array or both nested)</li>
+<li>After migration, run <code>prodigy run workflow.yml --dry-run</code> to validate syntax before executing</li>
+<li>If the workflow fails after migration, check for indentation errors - YAML is whitespace-sensitive</li>
+</ul>
+<h3 id="format-decision-tree"><a class="header" href="#format-decision-tree">Format Decision Tree</a></h3>
+<p>Choose your format based on these questions:</p>
+<ol>
+<li>
+<p><strong>Is this a MapReduce workflow?</strong></p>
+<ul>
+<li>Yes → Use <code>mode: mapreduce</code> with direct array syntax</li>
+<li>No → Continue to question 2</li>
+</ul>
+</li>
+<li>
+<p><strong>Do you need environment variables or profiles?</strong></p>
+<ul>
+<li>Yes → Use full configuration format</li>
+<li>No → Continue to question 3</li>
+</ul>
+</li>
+<li>
+<p><strong>Is this a quick one-off workflow?</strong></p>
+<ul>
+<li>Yes → Use simple array format</li>
+<li>No → Use full configuration format for maintainability</li>
+</ul>
+</li>
+</ol>
+<h3 id="cross-references"><a class="header" href="#cross-references">Cross-References</a></h3>
+<ul>
+<li><a href="./setup-phase-advanced.html">Setup Phase Advanced</a> - Detailed setup phase configuration and patterns</li>
+<li><a href="./index.html">MapReduce Overview</a> - MapReduce workflow fundamentals and phase documentation</li>
+<li><a href="../workflow-basics/full-workflow-structure.html">Full Workflow Structure</a> - Complete workflow configuration reference</li>
+<li><a href="./environment-variables-in-configuration.html">Environment Variables in Configuration</a> - Using variables and secrets in workflows</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../mapreduce/dead-letter-queue-dlq.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../commands.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../mapreduce/dead-letter-queue-dlq.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../commands.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

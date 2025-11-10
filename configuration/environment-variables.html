@@ -1,0 +1,601 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Environment Variables - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/configuration/environment-variables.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
+<p>Prodigy supports two types of environment variables:</p>
+<ol>
+<li><strong>System Environment Variables</strong>: Standard Unix environment variables that control Prodigy’s behavior globally</li>
+<li><strong>Workflow Environment Variables</strong>: Variables defined in workflow YAML files that are available during workflow execution</li>
+</ol>
+<p>This page documents both types. For details on how environment variables interact with other configuration sources, see <a href="configuration-precedence-rules.html">Configuration Precedence Rules</a>.</p>
+<hr />
+<h2 id="workflow-environment-variables"><a class="header" href="#workflow-environment-variables">Workflow Environment Variables</a></h2>
+<p>Workflows can define custom environment variables using the <code>env:</code> block. These variables are available to all commands within the workflow and support advanced features like secrets, profiles, and interpolation.</p>
+<h3 id="basic-syntax"><a class="header" href="#basic-syntax">Basic Syntax</a></h3>
+<pre><code class="language-yaml">name: my-workflow
+
+env:
+  # Plain variables
+  PROJECT_NAME: "prodigy"
+  VERSION: "1.0.0"
+  BUILD_DIR: "target/release"
+
+commands:
+  - shell: "echo Building $PROJECT_NAME version $VERSION"
+  - shell: "cargo build --release --target-dir $BUILD_DIR"
+</code></pre>
+<h3 id="variable-interpolation"><a class="header" href="#variable-interpolation">Variable Interpolation</a></h3>
+<p>Workflow environment variables can be referenced using two syntaxes:</p>
+<ul>
+<li><strong><code>$VAR</code></strong> - Simple variable reference (shell-style)</li>
+<li><strong><code>${VAR}</code></strong> - Bracketed reference (recommended for clarity and complex expressions)</li>
+</ul>
+<pre><code class="language-yaml">env:
+  API_URL: "https://api.example.com"
+  API_VERSION: "v2"
+  ENDPOINT: "${API_URL}/${API_VERSION}"
+
+commands:
+  - shell: "curl ${ENDPOINT}/status"
+  - claude: "/deploy --url $API_URL --version $API_VERSION"
+</code></pre>
+<h3 id="secrets-and-sensitive-data"><a class="header" href="#secrets-and-sensitive-data">Secrets and Sensitive Data</a></h3>
+<p>Mark sensitive values as secrets to automatically mask them in logs and output:</p>
+<pre><code class="language-yaml">env:
+  # Public configuration
+  DATABASE_HOST: "db.example.com"
+
+  # Secret configuration (masked in logs)
+  DATABASE_PASSWORD:
+    secret: true
+    value: "super-secret-password"
+
+  API_KEY:
+    secret: true
+    value: "sk-abc123..."
+
+commands:
+  - shell: "psql -h $DATABASE_HOST -p $DATABASE_PASSWORD"
+  # Output: psql -h db.example.com -p ***
+</code></pre>
+<p><strong>Security Best Practices</strong>:</p>
+<ul>
+<li>Always mark API keys, passwords, and tokens as secrets</li>
+<li>Never commit secret values to version control</li>
+<li>Use environment variable references for secrets: <code>value: "${PROD_API_KEY}"</code></li>
+<li>Rotate secrets regularly</li>
+</ul>
+<h3 id="profiles-for-multiple-environments"><a class="header" href="#profiles-for-multiple-environments">Profiles for Multiple Environments</a></h3>
+<p>Profiles allow different values for different environments (dev, staging, prod):</p>
+<pre><code class="language-yaml">env:
+  # API endpoints vary by environment
+  API_URL:
+    default: "http://localhost:3000"
+    staging: "https://staging.api.com"
+    prod: "https://api.com"
+
+  # Credentials vary by environment
+  API_KEY:
+    secret: true
+    default: "dev-key-123"
+    staging:
+      secret: true
+      value: "${STAGING_API_KEY}"  # From system env
+    prod:
+      secret: true
+      value: "${PROD_API_KEY}"
+
+commands:
+  - shell: "curl -H 'Authorization: Bearer ${API_KEY}' ${API_URL}/health"
+</code></pre>
+<p><strong>Activate a profile</strong>:</p>
+<pre><code class="language-bash"># Use staging profile
+prodigy run workflow.yml --profile staging
+
+# Use prod profile via environment variable
+export PRODIGY_PROFILE=prod
+prodigy run workflow.yml
+</code></pre>
+<h3 id="step-level-environment-overrides"><a class="header" href="#step-level-environment-overrides">Step-Level Environment Overrides</a></h3>
+<p>Individual commands can override workflow environment variables:</p>
+<pre><code class="language-yaml">env:
+  NODE_ENV: "development"
+  LOG_LEVEL: "info"
+
+commands:
+  # Uses workflow-level NODE_ENV
+  - shell: "npm test"
+
+  # Override for this command only
+  - shell: "npm run build"
+    env:
+      NODE_ENV: "production"
+      LOG_LEVEL: "warn"
+
+  # Back to workflow-level NODE_ENV
+  - shell: "npm start"
+</code></pre>
+<p><strong>Precedence</strong>: Step env &gt; Profile env &gt; Workflow env &gt; System env</p>
+<h3 id="mapreduce-environment-variables"><a class="header" href="#mapreduce-environment-variables">MapReduce Environment Variables</a></h3>
+<p>Environment variables work across all MapReduce phases (setup, map, reduce, merge):</p>
+<pre><code class="language-yaml">name: parallel-processing
+mode: mapreduce
+
+env:
+  MAX_PARALLEL: "10"
+  TIMEOUT: "300"
+  OUTPUT_DIR: "/tmp/results"
+
+setup:
+  - shell: "mkdir -p $OUTPUT_DIR"
+  - shell: "generate-work-items.sh &gt; items.json"
+
+map:
+  input: "items.json"
+  json_path: "$[*]"
+  max_parallel: ${MAX_PARALLEL}  # Use env var for parallelism
+
+  agent_template:
+    - claude: "/process ${item.file} --timeout $TIMEOUT"
+    - shell: "cp result.json ${OUTPUT_DIR}/${item.name}.json"
+
+reduce:
+  - shell: "echo Processed ${map.total} items to $OUTPUT_DIR"
+</code></pre>
+<p><strong>Advanced MapReduce Usage</strong>:</p>
+<ul>
+<li>Use env vars for <code>max_parallel</code>, <code>timeout</code>, <code>agent_timeout_secs</code></li>
+<li>Reference in <code>filter</code> and <code>sort_by</code> expressions</li>
+<li>Pass to validation and gap-filling commands</li>
+</ul>
+<h3 id="environment-files-env"><a class="header" href="#environment-files-env">Environment Files (<code>.env</code>)</a></h3>
+<p>Load variables from dotenv-format files (not yet implemented in Prodigy, but planned):</p>
+<pre><code class="language-yaml">env:
+  env_files:
+    - ".env"
+    - ".env.${PRODIGY_PROFILE}"
+
+# .env file format:
+# PROJECT_NAME=prodigy
+# VERSION=1.0.0
+# API_KEY=sk-abc123
+</code></pre>
+<p><strong>Note</strong>: This feature is planned but not yet available. Use system environment variables as a workaround.</p>
+<h3 id="complete-workflow-example"><a class="header" href="#complete-workflow-example">Complete Workflow Example</a></h3>
+<pre><code class="language-yaml">name: deployment-workflow
+
+env:
+  # Project configuration
+  PROJECT_NAME: "my-app"
+  VERSION: "2.1.0"
+
+  # Environment-specific settings
+  DEPLOY_TARGET:
+    default: "dev-server"
+    staging: "staging-cluster"
+    prod: "prod-cluster"
+
+  # Secrets (masked in logs)
+  DEPLOY_TOKEN:
+    secret: true
+    default: "${DEV_TOKEN}"
+    prod:
+      secret: true
+      value: "${PROD_TOKEN}"
+
+commands:
+  - shell: "echo Deploying $PROJECT_NAME v$VERSION to $DEPLOY_TARGET"
+  - shell: "docker build -t ${PROJECT_NAME}:${VERSION} ."
+  - shell: "deploy --target $DEPLOY_TARGET --token $DEPLOY_TOKEN"
+  # Output: deploy --target prod-cluster --token ***
+</code></pre>
+<p>Run with:</p>
+<pre><code class="language-bash"># Development deployment
+prodigy run deploy.yml
+
+# Production deployment
+export PROD_TOKEN="secret-prod-token"
+prodigy run deploy.yml --profile prod
+</code></pre>
+<hr />
+<h2 id="system-environment-variables"><a class="header" href="#system-environment-variables">System Environment Variables</a></h2>
+<p>System environment variables control Prodigy’s global behavior and configuration.</p>
+<h3 id="claude-api-configuration"><a class="header" href="#claude-api-configuration">Claude API Configuration</a></h3>
+<h4 id="prodigy_claude_api_key"><a class="header" href="#prodigy_claude_api_key"><code>PRODIGY_CLAUDE_API_KEY</code></a></h4>
+<p><strong>Purpose</strong>: Claude API key for AI-powered commands
+<strong>Default</strong>: None
+<strong>Overrides</strong>: Global and project <code>claude_api_key</code> settings</p>
+<pre><code class="language-bash">export PRODIGY_CLAUDE_API_KEY="sk-ant-api03-..."
+</code></pre>
+<p>This is the <strong>recommended</strong> way to provide API keys (more secure than storing in config files).</p>
+<h4 id="prodigy_claude_streaming"><a class="header" href="#prodigy_claude_streaming"><code>PRODIGY_CLAUDE_STREAMING</code></a></h4>
+<p><strong>Purpose</strong>: Control Claude JSON streaming output
+<strong>Default</strong>: <code>true</code> (streaming enabled by default)
+<strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<pre><code class="language-bash">export PRODIGY_CLAUDE_STREAMING=false  # Disable streaming
+</code></pre>
+<p>When <code>false</code>, uses legacy print mode instead of JSON streaming.</p>
+<h3 id="general-configuration"><a class="header" href="#general-configuration">General Configuration</a></h3>
+<h4 id="prodigy_log_level"><a class="header" href="#prodigy_log_level"><code>PRODIGY_LOG_LEVEL</code></a></h4>
+<p><strong>Purpose</strong>: Logging verbosity
+<strong>Default</strong>: <code>info</code>
+<strong>Valid values</strong>: <code>trace</code>, <code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code>
+<strong>Overrides</strong>: Global and project <code>log_level</code> settings</p>
+<pre><code class="language-bash">export PRODIGY_LOG_LEVEL=debug
+</code></pre>
+<h4 id="prodigy_editor"><a class="header" href="#prodigy_editor"><code>PRODIGY_EDITOR</code></a></h4>
+<p><strong>Purpose</strong>: Default text editor for interactive operations
+<strong>Default</strong>: None
+<strong>Overrides</strong>: Global <code>default_editor</code> setting
+<strong>Fallback</strong>: <code>EDITOR</code> environment variable</p>
+<pre><code class="language-bash">export PRODIGY_EDITOR=vim
+</code></pre>
+<p>If neither <code>PRODIGY_EDITOR</code> nor <code>EDITOR</code> is set, Prodigy uses system defaults.</p>
+<h4 id="editor"><a class="header" href="#editor"><code>EDITOR</code></a></h4>
+<p><strong>Purpose</strong>: Standard Unix editor variable (fallback)
+<strong>Default</strong>: None
+<strong>Fallback for</strong>: <code>PRODIGY_EDITOR</code></p>
+<pre><code class="language-bash">export EDITOR=nano
+</code></pre>
+<p><strong>Precedence</strong>: <code>PRODIGY_EDITOR</code> takes precedence over <code>EDITOR</code> if both are set.</p>
+<h4 id="prodigy_auto_commit"><a class="header" href="#prodigy_auto_commit"><code>PRODIGY_AUTO_COMMIT</code></a></h4>
+<p><strong>Purpose</strong>: Automatic commit after successful commands
+<strong>Default</strong>: <code>true</code>
+<strong>Valid values</strong>: <code>true</code>, <code>false</code>
+<strong>Overrides</strong>: Global and project <code>auto_commit</code> settings</p>
+<pre><code class="language-bash">export PRODIGY_AUTO_COMMIT=false
+</code></pre>
+<h3 id="storage-configuration"><a class="header" href="#storage-configuration">Storage Configuration</a></h3>
+<h4 id="prodigy_storage_type"><a class="header" href="#prodigy_storage_type"><code>PRODIGY_STORAGE_TYPE</code></a></h4>
+<p><strong>Purpose</strong>: Storage backend type
+<strong>Default</strong>: <code>file</code>
+<strong>Valid values</strong>: <code>file</code>, <code>memory</code>
+<strong>Overrides</strong>: Storage <code>backend</code> setting</p>
+<pre><code class="language-bash">export PRODIGY_STORAGE_TYPE=file
+</code></pre>
+<h4 id="prodigy_storage_base_path"><a class="header" href="#prodigy_storage_base_path"><code>PRODIGY_STORAGE_BASE_PATH</code></a></h4>
+<p><strong>Purpose</strong>: Base directory for file storage
+<strong>Default</strong>: <code>~/.prodigy</code>
+<strong>Overrides</strong>: Storage <code>backend_config.base_dir</code> setting</p>
+<pre><code class="language-bash">export PRODIGY_STORAGE_BASE_PATH=/custom/storage/path
+</code></pre>
+<p><strong>Alternative names</strong> (deprecated, use <code>PRODIGY_STORAGE_BASE_PATH</code>):</p>
+<ul>
+<li><code>PRODIGY_STORAGE_DIR</code></li>
+<li><code>PRODIGY_STORAGE_PATH</code></li>
+</ul>
+<h3 id="workflow-execution"><a class="header" href="#workflow-execution">Workflow Execution</a></h3>
+<h4 id="prodigy_automation"><a class="header" href="#prodigy_automation"><code>PRODIGY_AUTOMATION</code></a></h4>
+<p><strong>Purpose</strong>: Signal automated execution mode
+<strong>Default</strong>: Not set
+<strong>Set by</strong>: Prodigy when executing workflows</p>
+<pre><code class="language-bash">export PRODIGY_AUTOMATION=true
+</code></pre>
+<p>This variable is <strong>set automatically</strong> by Prodigy during workflow execution. It signals to Claude and other tools that execution is automated (not interactive).</p>
+<h4 id="prodigy_claude_console_output"><a class="header" href="#prodigy_claude_console_output"><code>PRODIGY_CLAUDE_CONSOLE_OUTPUT</code></a></h4>
+<p><strong>Purpose</strong>: Force Claude streaming output regardless of verbosity
+<strong>Default</strong>: Not set
+<strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<pre><code class="language-bash">export PRODIGY_CLAUDE_CONSOLE_OUTPUT=true
+</code></pre>
+<p>When set to <code>true</code>, forces JSON streaming output even when verbosity is 0. Useful for debugging specific runs without changing command flags.</p>
+<h3 id="complete-example"><a class="header" href="#complete-example">Complete Example</a></h3>
+<p>Set up a complete Prodigy environment:</p>
+<pre><code class="language-bash"># API key (recommended method)
+export PRODIGY_CLAUDE_API_KEY="sk-ant-api03-..."
+
+# Logging
+export PRODIGY_LOG_LEVEL=info
+
+# Editor
+export PRODIGY_EDITOR=code
+
+# Behavior
+export PRODIGY_AUTO_COMMIT=true
+
+# Storage
+export PRODIGY_STORAGE_TYPE=file
+export PRODIGY_STORAGE_BASE_PATH=/Users/username/.prodigy
+
+# Development/debugging
+export PRODIGY_CLAUDE_STREAMING=true
+export PRODIGY_CLAUDE_CONSOLE_OUTPUT=false
+</code></pre>
+<h3 id="environment-files"><a class="header" href="#environment-files">Environment Files</a></h3>
+<p>You can use <code>.env</code> files (not committed to version control) to manage environment variables:</p>
+<pre><code class="language-bash"># .env (add to .gitignore)
+PRODIGY_CLAUDE_API_KEY=sk-ant-api03-...
+PRODIGY_LOG_LEVEL=debug
+PRODIGY_AUTO_COMMIT=false
+</code></pre>
+<p>Load with:</p>
+<pre><code class="language-bash"># Using direnv
+eval "$(cat .env)"
+
+# Using dotenv tool
+dotenv run prodigy run workflow.yml
+
+# Manually
+export $(cat .env | xargs)
+</code></pre>
+<h3 id="security-best-practices"><a class="header" href="#security-best-practices">Security Best Practices</a></h3>
+<ol>
+<li><strong>Never commit API keys</strong> to version control</li>
+<li><strong>Use environment variables</strong> for secrets (not config files)</li>
+<li><strong>Use <code>.env</code> files</strong> (gitignored) for local development</li>
+<li><strong>Use secret managers</strong> (AWS Secrets Manager, Vault) in production</li>
+<li><strong>Rotate keys regularly</strong> and use project-specific keys when possible</li>
+</ol>
+<p><strong>Example <code>.gitignore</code></strong>:</p>
+<pre><code>.env
+.env.*
+!.env.example
+.prodigy/config.local.yml
+</code></pre>
+<h3 id="precedence-summary"><a class="header" href="#precedence-summary">Precedence Summary</a></h3>
+<p>For any given setting, the effective value comes from (highest to lowest):</p>
+<ol>
+<li><strong>CLI flags</strong> (if applicable)</li>
+<li><strong>Environment variables</strong> ← This level</li>
+<li><strong>Project config</strong> (<code>.prodigy/config.yml</code>)</li>
+<li><strong>Global config</strong> (<code>~/.prodigy/config.yml</code>)</li>
+<li><strong>Defaults</strong> (built-in values)</li>
+</ol>
+<p>Example:</p>
+<pre><code class="language-yaml"># ~/.prodigy/config.yml
+log_level: info
+</code></pre>
+<pre><code class="language-yaml"># .prodigy/config.yml
+log_level: warn
+</code></pre>
+<pre><code class="language-bash">export PRODIGY_LOG_LEVEL=debug  # This wins
+</code></pre>
+<p><strong>Result</strong>: <code>log_level: debug</code></p>
+<h3 id="checking-environment-variables"><a class="header" href="#checking-environment-variables">Checking Environment Variables</a></h3>
+<p>To see which environment variables are active:</p>
+<pre><code class="language-bash"># List all PRODIGY_* variables
+env | grep PRODIGY_
+
+# Check effective configuration (merges all sources)
+prodigy config show
+</code></pre>
+<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
+<ul>
+<li><a href="configuration-precedence-rules.html">Configuration Precedence Rules</a></li>
+<li><a href="global-configuration-structure.html">Global Configuration Structure</a></li>
+<li><a href="project-configuration-structure.html">Project Configuration Structure</a></li>
+<li><a href="storage-configuration.html">Storage Configuration</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../configuration/storage-configuration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../configuration/complete-configuration-examples.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../configuration/storage-configuration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../configuration/complete-configuration-examples.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

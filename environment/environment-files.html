@@ -1,0 +1,481 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Environment Files - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/environment/environment-files.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="environment-files"><a class="header" href="#environment-files">Environment Files</a></h2>
+<p>Load environment variables from <code>.env</code> files:</p>
+<pre><code class="language-yaml"># Environment files to load
+env_files:
+  - .env
+  - .env.local
+  - config/.env.production
+
+commands:
+  - shell: "echo $DATABASE_URL"
+</code></pre>
+<p><strong>Environment File Format:</strong></p>
+<p>Environment files use the standard <code>.env</code> format with <code>KEY=value</code> pairs:</p>
+<pre><code class="language-bash"># .env file example
+DATABASE_URL=postgresql://localhost:5432/mydb
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Comments are supported (lines starting with #)
+API_KEY=secret-key-here
+
+# Empty lines are ignored
+
+# Multi-line values use quotes
+PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBg...
+-----END PRIVATE KEY-----"
+</code></pre>
+<p><strong>Quote Handling:</strong></p>
+<p>Prodigy automatically strips both single and double quotes from the start and end of values during parsing:</p>
+<pre><code class="language-bash"># These all produce the same value: myvalue
+KEY1=myvalue
+KEY2="myvalue"
+KEY3='myvalue'
+
+# For multi-line values, quotes are required but will be stripped
+PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBg...
+-----END PRIVATE KEY-----"
+# Resulting value does NOT include the surrounding quotes
+</code></pre>
+<p><strong>Source:</strong> <code>src/cook/environment/manager.rs:200-207</code></p>
+<p><strong>Parsing Rules:</strong></p>
+<ul>
+<li>Lines starting with <code>#</code> are treated as comments and skipped</li>
+<li>Empty lines are ignored</li>
+<li>Each line must contain an <code>=</code> character to be valid</li>
+<li>Key is everything before the first <code>=</code> (trimmed)</li>
+<li>Value is everything after the first <code>=</code> (trimmed)</li>
+<li>Surrounding quotes (<code>"</code> or <code>'</code>) are automatically removed from values</li>
+</ul>
+<p><strong>Source:</strong> <code>src/cook/environment/manager.rs:190-211</code></p>
+<p><strong>Loading Order and Precedence:</strong></p>
+<p>Environment files are loaded in order (if they exist), with later files overriding earlier files. Missing files are silently skipped with debug logging. This enables layered configuration:</p>
+<pre><code class="language-yaml">env_files:
+  - .env                # Base configuration
+  - .env.local          # Local overrides (gitignored)
+  - .env.production     # Environment-specific settings
+</code></pre>
+<p>Example override behavior:</p>
+<pre><code class="language-bash"># .env (base)
+DATABASE_URL=postgresql://localhost:5432/dev
+API_TIMEOUT=30
+
+# .env.production (overrides)
+DATABASE_URL=postgresql://prod-server:5432/app
+# API_TIMEOUT remains 30 from base file
+</code></pre>
+<p>Precedence order (highest to lowest):</p>
+<ol>
+<li>Global <code>env</code> field in workflow YAML</li>
+<li>Later files in <code>env_files</code> list</li>
+<li>Earlier files in <code>env_files</code> list</li>
+<li>Parent process environment</li>
+</ol>
+<p><strong>File Paths and Resolution:</strong></p>
+<p>Environment file paths can be:</p>
+<ul>
+<li><strong>Absolute paths:</strong> <code>/etc/myapp/.env</code></li>
+<li><strong>Relative paths:</strong> Resolved relative to the workflow file location (e.g., <code>.env</code>, <code>config/.env.production</code>)</li>
+</ul>
+<p><strong>Source:</strong> <code>src/cook/environment/manager.rs:182-215</code></p>
+<p><strong>Error Handling:</strong></p>
+<p>Prodigy handles environment files with the following behavior:</p>
+<ul>
+<li><strong>Missing files:</strong> Silently skipped with debug logging (<code>"Environment file not found: {path}"</code>). This allows optional configuration files and environment-specific files that may not exist in all contexts.</li>
+<li><strong>File read errors:</strong> Will halt workflow execution with an error (e.g., permission denied)</li>
+<li><strong>Invalid syntax:</strong> Will halt workflow execution with an error (e.g., malformed <code>.env</code> format)</li>
+</ul>
+<p><strong>Source:</strong> <code>src/cook/environment/manager.rs:184-186</code></p>
+<p><strong>Example with missing file:</strong></p>
+<pre><code class="language-yaml">env_files:
+  - .env                    # Always exists (base config)
+  - .env.local              # May not exist (personal overrides)
+  - .env.${ENVIRONMENT}     # May not exist (environment-specific)
+</code></pre>
+<p>In this example, if <code>.env.local</code> doesn’t exist, Prodigy logs a debug message and continues. Only <code>.env</code> needs to exist. This is useful for:</p>
+<ul>
+<li>Personal configuration files that are gitignored</li>
+<li>Environment-specific files (<code>.env.production</code>, <code>.env.staging</code>)</li>
+<li>Optional feature flags or overrides</li>
+</ul>
+<p><strong>Troubleshooting:</strong></p>
+<p>To verify which env files are being loaded, run Prodigy with verbose logging:</p>
+<pre><code class="language-bash"># Enable debug logging to see which files are loaded/skipped
+RUST_LOG=debug prodigy run workflow.yml
+</code></pre>
+<p>You’ll see messages like:</p>
+<pre><code>DEBUG prodigy::cook::environment - Environment file not found: .env.local
+INFO  prodigy::cook::environment - Loaded environment from: .env
+</code></pre>
+<p><strong>Common Syntax Errors:</strong></p>
+<p>These will cause workflow execution to halt:</p>
+<pre><code class="language-bash"># INVALID - No = character
+INVALID_LINE
+
+# VALID - Value can be empty
+EMPTY_VALUE=
+
+# INVALID - Unbalanced quotes (opening quote without closing)
+BAD_QUOTE="unclosed value
+
+# VALID - Quotes must match
+GOOD_QUOTE_1="value with spaces"
+GOOD_QUOTE_2='single quoted value'
+
+# INVALID - Mixed quotes
+MIXED_QUOTES="value'
+
+# VALID - Embedded quotes of opposite type
+EMBEDDED="value with 'single' quotes inside"
+</code></pre>
+<hr />
+<h3 id="integration-with-profiles-and-secrets"><a class="header" href="#integration-with-profiles-and-secrets">Integration with Profiles and Secrets</a></h3>
+<p>Environment files work seamlessly with other environment features like profiles and secrets management.</p>
+<p><strong>Combining env_files with profiles:</strong></p>
+<pre><code class="language-yaml"># Base configuration in .env file
+env_files:
+  - .env
+
+# Profile-specific overrides
+profiles:
+  dev:
+    API_URL: http://localhost:3000
+    DEBUG: "true"
+  prod:
+    API_URL: https://api.production.com
+    DEBUG: "false"
+
+commands:
+  - shell: "echo $API_URL"  # Uses profile value if active, otherwise .env value
+</code></pre>
+<p>The precedence order is:</p>
+<ol>
+<li>Profile-specific values (if profile active)</li>
+<li>Global <code>env</code> field values</li>
+<li>Environment file values (later files override earlier)</li>
+<li>Parent process environment</li>
+</ol>
+<p><strong>Loading secrets from env_files:</strong></p>
+<p>Environment files can contain secrets, but you must explicitly mark them as secrets in the workflow configuration:</p>
+<pre><code class="language-yaml"># .env.secrets file
+API_KEY=sk-abc123xyz
+DATABASE_PASSWORD=secret-password
+
+# Workflow configuration
+env_files:
+  - .env.secrets
+
+secrets:
+  # Retrieve from environment variable (loaded from .env.secrets)
+  API_KEY: "${env:API_KEY}"
+  DATABASE_PASSWORD: "${env:DATABASE_PASSWORD}"
+</code></pre>
+<p><strong>Note:</strong> Variables loaded from env_files are NOT automatically masked. You must explicitly mark them as secrets in the <code>secrets</code> section for masking in logs.</p>
+<p><strong>Complete integration example:</strong></p>
+<pre><code class="language-yaml"># Layered configuration strategy
+env_files:
+  - .env                # Base configuration
+  - .env.local          # Local overrides (gitignored)
+  - .env.${ENVIRONMENT} # Environment-specific (e.g., .env.production)
+
+env:
+  PROJECT_NAME: my-project
+  VERSION: "1.0.0"
+
+secrets:
+  # Secrets loaded from env files, masked in logs
+  API_KEY: "${env:API_KEY}"
+  DATABASE_URL: "${env:DATABASE_URL}"
+
+profiles:
+  dev:
+    MAX_WORKERS: "2"
+    TIMEOUT: "60"
+  prod:
+    MAX_WORKERS: "20"
+    TIMEOUT: "30"
+
+commands:
+  - shell: "echo 'Project: $PROJECT_NAME v$VERSION'"
+  - shell: "echo 'Workers: $MAX_WORKERS, Timeout: $TIMEOUT'"
+  - shell: "curl -H 'Authorization: Bearer ***' $API_URL"  # API_KEY masked
+</code></pre>
+<p><strong>Best practices for organizing env files:</strong></p>
+<ol>
+<li><strong>.env</strong>: Base configuration, safe to commit (no secrets)</li>
+<li><strong>.env.local</strong>: Personal overrides, add to .gitignore</li>
+<li><strong>.env.production / .env.staging / .env.dev</strong>: Environment-specific, may contain encrypted secrets</li>
+<li><strong>.env.secrets</strong>: Sensitive values, NEVER commit, always in .gitignore</li>
+</ol>
+<p><strong>Precedence example:</strong></p>
+<pre><code class="language-bash"># .env (base)
+API_URL=http://localhost:3000
+MAX_WORKERS=5
+TIMEOUT=30
+
+# .env.production (overrides)
+API_URL=https://api.production.com
+MAX_WORKERS=20
+</code></pre>
+<pre><code class="language-yaml">env_files:
+  - .env
+  - .env.production  # Overrides API_URL and MAX_WORKERS
+
+env:
+  TIMEOUT: "60"      # Overrides TIMEOUT from both files
+
+profiles:
+  prod:
+    MAX_WORKERS: "50"  # Overrides MAX_WORKERS when --profile prod used
+</code></pre>
+<p>Final values when running with <code>--profile prod</code>:</p>
+<ul>
+<li><code>API_URL</code>: <code>https://api.production.com</code> (from .env.production)</li>
+<li><code>MAX_WORKERS</code>: <code>50</code> (from prod profile - highest precedence)</li>
+<li><code>TIMEOUT</code>: <code>60</code> (from global env field - overrides files)</li>
+</ul>
+<hr />
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><a href="environment-precedence.html">Environment Precedence</a> - Detailed precedence rules for all environment sources</li>
+<li><a href="environment-profiles.html">Environment Profiles</a> - Profile-specific environment configuration</li>
+<li><a href="secrets-management.html">Secrets Management</a> - How to securely handle secrets loaded from env files</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../environment/mapreduce-environment-variables.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../environment/secrets-management.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../environment/mapreduce-environment-variables.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../environment/secrets-management.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

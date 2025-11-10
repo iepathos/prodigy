@@ -1,0 +1,608 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Checkpoint and Resume - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/mapreduce/checkpoint-and-resume.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="checkpoint-and-resume"><a class="header" href="#checkpoint-and-resume">Checkpoint and Resume</a></h2>
+<p>Prodigy provides comprehensive checkpoint and resume capabilities for MapReduce workflows, ensuring work can be recovered from any point of failure. Checkpoints are automatically created during workflow execution, preserving all state needed to continue from where you left off. This enables resilient workflows that can survive interruptions, crashes, or planned pauses without losing progress.</p>
+<h3 id="checkpoint-behavior"><a class="header" href="#checkpoint-behavior">Checkpoint Behavior</a></h3>
+<p>Checkpoints are automatically created at strategic points during workflow execution:</p>
+<p><strong>Setup Phase Checkpointing</strong>:</p>
+<ul>
+<li>Checkpoint created after successful setup completion</li>
+<li>Preserves setup output, generated artifacts, and environment state</li>
+<li>Stored as <code>setup-checkpoint.json</code></li>
+<li>Resume restarts setup from beginning (idempotent operations recommended)</li>
+</ul>
+<p><strong>Map Phase Checkpointing</strong>:</p>
+<ul>
+<li>Checkpoints created after processing configurable number of work items</li>
+<li>Tracks completed, in-progress, and pending work items</li>
+<li>Stores agent results and failure details for recovery</li>
+<li>Resume continues from last successful checkpoint</li>
+<li>In-progress items are moved back to pending on resume</li>
+<li>Stored as <code>map-checkpoint-{timestamp}.json</code></li>
+</ul>
+<p><strong>Reduce Phase Checkpointing</strong>:</p>
+<ul>
+<li>Checkpoint created after each reduce command execution</li>
+<li>Tracks completed steps, step results, variables, and map results</li>
+<li>Enables resume from any point in reduce phase execution</li>
+<li>Resume continues from last completed step</li>
+<li>Stored as <code>reduce-checkpoint-v1-{timestamp}.json</code></li>
+</ul>
+<h3 id="checkpoint-interval-configuration"><a class="header" href="#checkpoint-interval-configuration">Checkpoint Interval Configuration</a></h3>
+<p>Prodigy controls when checkpoints are created through configurable intervals. The checkpoint strategy differs between workflow types:</p>
+<p><strong>Standard Workflow Checkpoints</strong> (src/cook/workflow/checkpoint.rs:20):</p>
+<ul>
+<li><strong>Default interval</strong>: 60 seconds between checkpoints</li>
+<li><strong>Configurable</strong>: Use <code>.with_interval(Duration)</code> in checkpoint manager builder</li>
+<li><strong>Decision logic</strong>: Compares elapsed time since last checkpoint</li>
+</ul>
+<p><strong>MapReduce Checkpoints</strong> (src/cook/execution/mapreduce/checkpoint/types.rs:242-264):</p>
+<ul>
+<li><strong>Default <code>interval_items</code></strong>: 100 work items per checkpoint</li>
+<li><strong>Default <code>interval_duration</code></strong>: 300 seconds (5 minutes) per checkpoint</li>
+<li><strong>Dual triggers</strong>: Checkpoint created when either item count OR duration threshold is reached</li>
+<li><strong>Retention policy</strong>:
+<ul>
+<li><code>max_checkpoints</code>: Keep 10 most recent checkpoints</li>
+<li><code>max_age</code>: Retain checkpoints for 7 days (604,800 seconds)</li>
+<li><code>keep_final</code>: Always preserve final checkpoint</li>
+</ul>
+</li>
+</ul>
+<p><strong>Example MapReduce checkpoint configuration</strong>:</p>
+<pre><code class="language-yaml">name: my-workflow
+mode: mapreduce
+
+checkpoint:
+  interval_items: 50      # Checkpoint every 50 items (default: 100)
+  interval_duration: 600  # Checkpoint every 10 minutes (default: 300s)
+  max_checkpoints: 15     # Keep 15 recent checkpoints (default: 10)
+  max_age: 1209600        # Keep for 14 days (default: 604,800s / 7 days)
+</code></pre>
+<p>These intervals balance between checkpoint overhead and recovery granularity. More frequent checkpoints enable finer-grained resume but increase I/O overhead.</p>
+<h3 id="resume-commands"><a class="header" href="#resume-commands">Resume Commands</a></h3>
+<p>MapReduce jobs can be resumed using either session IDs or job IDs:</p>
+<pre><code class="language-bash"># Resume using session ID
+prodigy resume session-mapreduce-1234567890
+
+# Resume using job ID
+prodigy resume-job mapreduce-1234567890
+
+# Unified resume command (auto-detects ID type)
+prodigy resume mapreduce-1234567890
+</code></pre>
+<p><strong>Session-Job Mapping</strong>:</p>
+<p>The <code>SessionJobMapping</code> structure provides bidirectional mapping between session and job identifiers (src/storage/session_job_mapping.rs:14-26):</p>
+<ul>
+<li><strong>Storage location</strong>: <code>~/.prodigy/state/{repo_name}/mappings/</code></li>
+<li><strong>Mapping fields</strong>:
+<ul>
+<li><code>session_id</code>: Unique identifier for the workflow session</li>
+<li><code>job_id</code>: MapReduce job identifier</li>
+<li><code>workflow_name</code>: Name of the workflow for easier identification</li>
+<li><code>created_at</code>: Timestamp when the mapping was created</li>
+</ul>
+</li>
+<li><strong>Created</strong>: Automatically when MapReduce workflow starts</li>
+<li><strong>Purpose</strong>: Enables resume with either session ID or job ID</li>
+</ul>
+<p>This mapping allows you to resume a workflow using whichever identifier is more convenient or available in your context.</p>
+<h3 id="state-preservation"><a class="header" href="#state-preservation">State Preservation</a></h3>
+<p>All critical state is preserved across resume operations:</p>
+<p><strong>Variables and Context</strong>:</p>
+<ul>
+<li>Workflow variables preserved across resume</li>
+<li>Captured outputs from setup and reduce phases</li>
+<li>Environment variables maintained</li>
+<li>Map results available to reduce phase after resume</li>
+</ul>
+<p><strong>Work Item State</strong>:</p>
+<ul>
+<li><strong>Completed items</strong>: Preserved with full results</li>
+<li><strong>In-progress items</strong>: Moved back to pending on resume</li>
+<li><strong>Failed items</strong>: Tracked with retry counts and error details</li>
+<li><strong>Pending items</strong>: Continue processing from where left off</li>
+</ul>
+<p><strong>Agent State</strong>:</p>
+<ul>
+<li>Active agent information preserved</li>
+<li>Resource allocation tracked</li>
+<li>Worktree paths recorded for cleanup</li>
+</ul>
+<h3 id="resume-strategies"><a class="header" href="#resume-strategies">Resume Strategies</a></h3>
+<p>Based on checkpoint state and phase, different resume strategies apply:</p>
+<ul>
+<li><strong>Setup Phase</strong>: Restart setup from beginning (idempotent operations recommended)</li>
+<li><strong>Map Phase</strong>: Continue from last checkpoint, re-process in-progress items</li>
+<li><strong>Reduce Phase</strong>: Continue from last completed step</li>
+<li><strong>Validate and Continue</strong>: Verify checkpoint integrity before resuming</li>
+</ul>
+<h3 id="storage-structure"><a class="header" href="#storage-structure">Storage Structure</a></h3>
+<p>Checkpoints are stored in a structured directory hierarchy:</p>
+<pre><code>~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/
+├── setup-checkpoint.json           # Setup phase results
+├── map-checkpoint-{timestamp}.json  # Map phase progress
+├── reduce-checkpoint-v1-{timestamp}.json  # Reduce phase progress
+└── job-state.json                  # Overall job state
+</code></pre>
+<h3 id="checkpoint-file-structure"><a class="header" href="#checkpoint-file-structure">Checkpoint File Structure</a></h3>
+<p>Checkpoint files contain JSON-serialized state for recovery. Here’s what each checkpoint type stores:</p>
+<p><strong>MapReduce Checkpoint</strong> (src/cook/execution/mapreduce/checkpoint/types.rs:48-64):</p>
+<pre><code class="language-json">{
+  "metadata": {
+    "checkpoint_id": "ckpt-1704556800",
+    "version": 1,
+    "phase": "Map",
+    "created_at": "2025-01-11T12:00:00Z",
+    "items_processed": 150,
+    "items_total": 500
+  },
+  "work_items": {
+    "pending": ["item-151", "item-152", "..."],
+    "in_progress": [],
+    "completed": ["item-1", "item-2", "..."],
+    "failed": []
+  },
+  "agent_state": {
+    "active_agents": [],
+    "agent_assignments": {},
+    "agent_results": {
+      "item-1": {"status": "success", "commits": ["abc123"]},
+      "item-2": {"status": "success", "commits": ["def456"]}
+    },
+    "resource_allocation": {
+      "max_parallel": 10,
+      "current_agents": 0
+    }
+  },
+  "variables": {
+    "workflow_vars": {"PROJECT_NAME": "prodigy"},
+    "captured_vars": {},
+    "environment_vars": {},
+    "item_vars": {}
+  },
+  "error_state": {
+    "error_count": 0,
+    "dlq_items": [],
+    "error_threshold_reached": false
+  },
+  "reason": "Interval",
+  "checksum": "sha256:abc123..."
+}
+</code></pre>
+<p><strong>Workflow Checkpoint</strong> (src/cook/workflow/checkpoint.rs:26-57):</p>
+<pre><code class="language-json">{
+  "workflow_id": "workflow-1704556800",
+  "version": 1,
+  "execution_state": {
+    "current_step_index": 3,
+    "status": "Running",
+    "started_at": "2025-01-11T12:00:00Z",
+    "updated_at": "2025-01-11T12:05:00Z"
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "shell: cargo build",
+      "status": "Success",
+      "duration": {"secs": 45, "nanos": 0},
+      "completed_at": "2025-01-11T12:01:00Z"
+    }
+  ],
+  "variable_state": {
+    "BUILD_OUTPUT": "/target/release/prodigy",
+    "VERSION": "1.0.0"
+  },
+  "workflow_hash": "sha256:def789..."
+}
+</code></pre>
+<p><strong>Key Fields</strong>:</p>
+<ul>
+<li><strong>metadata/execution_state</strong>: Current progress and timestamps</li>
+<li><strong>work_items</strong>: Work item status tracking (MapReduce only)</li>
+<li><strong>agent_state</strong>: Agent results and resource allocation (MapReduce only)</li>
+<li><strong>variables/variable_state</strong>: Preserved workflow variables for resume</li>
+<li><strong>completed_steps</strong>: Audit trail of successfully completed steps</li>
+<li><strong>checksum/workflow_hash</strong>: Integrity verification</li>
+</ul>
+<p>These structures enable Prodigy to reconstruct exact execution state during resume operations.</p>
+<h3 id="concurrent-resume-protection"><a class="header" href="#concurrent-resume-protection">Concurrent Resume Protection</a></h3>
+<p>Prodigy prevents multiple resume processes from running on the same session/job simultaneously using an RAII-based locking mechanism:</p>
+<p><strong>Lock Behavior</strong>:</p>
+<ul>
+<li>Resume automatically acquires exclusive lock before starting</li>
+<li>Lock creation is atomic - fails if another process holds the lock</li>
+<li>Lock automatically released when resume completes or fails (RAII pattern)</li>
+<li>Stale locks (from crashed processes) are automatically detected and cleaned up</li>
+</ul>
+<p><strong>Lock Metadata</strong>:
+Lock files contain:</p>
+<ul>
+<li>Process ID (PID) of the holding process</li>
+<li>Hostname where the process is running</li>
+<li>Timestamp when lock was acquired</li>
+<li>Job/session ID being locked</li>
+</ul>
+<p><strong>Lock Storage</strong>:</p>
+<pre><code>~/.prodigy/resume_locks/
+├── session-abc123.lock
+├── mapreduce-xyz789.lock
+└── ...
+</code></pre>
+<p><strong>Error Messages</strong>:
+If a resume is blocked by an active lock:</p>
+<pre><code class="language-bash">$ prodigy resume &lt;job_id&gt;
+Error: Resume already in progress for job &lt;job_id&gt;
+Lock held by: PID 12345 on hostname (acquired 2025-01-11 10:30:00 UTC)
+Please wait for the other process to complete, or use --force to override.
+</code></pre>
+<p><strong>Stale Lock Detection</strong>:</p>
+<ul>
+<li>Platform-specific process existence check (Unix: <code>kill -0</code>, Windows: <code>tasklist</code>)</li>
+<li>If holding process is no longer running, lock is automatically removed</li>
+<li>New resume attempt succeeds after stale lock cleanup</li>
+</ul>
+<p><strong>Safety Guarantees</strong>:</p>
+<ul>
+<li><strong>Data Corruption Prevention</strong>: Only one process can modify job state at a time</li>
+<li><strong>No Duplicate Work</strong>: Work items cannot be processed by multiple agents concurrently</li>
+<li><strong>Consistent State</strong>: Checkpoint updates are serialized</li>
+<li><strong>Automatic Cleanup</strong>: RAII pattern ensures locks are released even on errors</li>
+<li><strong>Cross-Host Safety</strong>: Hostname in lock prevents conflicts across machines</li>
+</ul>
+<h3 id="example-resume-workflow"><a class="header" href="#example-resume-workflow">Example Resume Workflow</a></h3>
+<p>Here’s a typical workflow for resuming an interrupted MapReduce job:</p>
+<ol>
+<li><strong>Workflow interrupted</strong> during reduce phase (e.g., laptop closed, terminal killed)</li>
+<li><strong>Find job ID</strong> with <code>prodigy sessions list</code> or <code>prodigy resume-job list</code></li>
+<li><strong>Resume execution</strong> using <code>prodigy resume &lt;session-or-job-id&gt;</code></li>
+<li><strong>Prodigy loads checkpoint</strong> from <code>~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/</code></li>
+<li><strong>Reconstructs execution state</strong> with all variables, work items, and progress</li>
+<li><strong>Continues from last completed step</strong> in reduce phase (or re-processes in-progress map items)</li>
+</ol>
+<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
+<p><strong>Designing Resumable Workflows</strong>:</p>
+<ul>
+<li>Make setup commands idempotent (safe to run multiple times)</li>
+<li>Avoid side effects that can’t be safely repeated</li>
+<li>Use descriptive work item IDs for easier debugging</li>
+<li>Test resume behavior by intentionally interrupting workflows</li>
+</ul>
+<p><strong>Troubleshooting Resume Issues</strong>:</p>
+<ul>
+<li>Check checkpoint files exist: <code>ls ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/</code></li>
+<li>List available sessions: <code>prodigy sessions list</code> (shows session IDs, job IDs, and status)</li>
+<li>List available checkpoints: <code>prodigy checkpoints list</code></li>
+<li>Show detailed checkpoint info: <code>prodigy checkpoints show &lt;job_id&gt;</code></li>
+<li>Validate checkpoint integrity: <code>prodigy checkpoints validate &lt;checkpoint_id&gt;</code></li>
+<li>Review event logs: <code>prodigy events &lt;job_id&gt;</code></li>
+<li>Check for stale locks: <code>ls ~/.prodigy/resume_locks/</code></li>
+<li>Clean old checkpoints: <code>prodigy checkpoints clean --all</code></li>
+</ul>
+<h3 id="troubleshooting-stale-locks"><a class="header" href="#troubleshooting-stale-locks">Troubleshooting Stale Locks</a></h3>
+<p>Resume locks can occasionally become “stale” if a resume process crashes or is forcefully terminated before releasing its lock. Prodigy includes automatic detection and cleanup, but here’s how to troubleshoot persistent lock issues:</p>
+<p><strong>Identifying Stale Locks</strong>:</p>
+<p>When a resume is blocked by a lock, you’ll see this error message:</p>
+<pre><code class="language-bash">$ prodigy resume mapreduce-1234567890
+Error: Resume already in progress for job mapreduce-1234567890
+Lock held by: PID 12345 on hostname (acquired 2025-01-11 10:30:00 UTC)
+Please wait for the other process to complete, or use --force to override.
+</code></pre>
+<p><strong>Automatic Cleanup</strong> (src/cook/execution/resume_lock.rs:96-120):</p>
+<p>Prodigy automatically detects stale locks using platform-specific process existence checks:</p>
+<ul>
+<li><strong>Unix/Linux/macOS</strong>: Uses <code>kill -0 &lt;PID&gt;</code> to check if process is running</li>
+<li><strong>Windows</strong>: Uses <code>tasklist</code> to verify process existence</li>
+<li><strong>Cross-host detection</strong>: Compares hostname in lock file to current system</li>
+</ul>
+<p>If the holding process is no longer running, the lock is automatically removed and resume proceeds.</p>
+<p><strong>Manual Verification Steps</strong>:</p>
+<ol>
+<li>
+<p><strong>Check if the process is actually running</strong>:</p>
+<pre><code class="language-bash"># Extract PID from error message (e.g., 12345)
+ps aux | grep 12345
+</code></pre>
+</li>
+<li>
+<p><strong>Examine the lock file</strong>:</p>
+<pre><code class="language-bash">cat ~/.prodigy/resume_locks/mapreduce-1234567890.lock
+</code></pre>
+<p>Lock file contains:</p>
+<pre><code class="language-json">{
+  "job_id": "mapreduce-1234567890",
+  "process_id": 12345,
+  "hostname": "my-laptop",
+  "acquired_at": "2025-01-11T10:30:00Z"
+}
+</code></pre>
+</li>
+<li>
+<p><strong>Verify process on the same host</strong>:</p>
+<pre><code class="language-bash"># If hostname matches your current system
+ps -p 12345
+
+# If process doesn't exist, the lock is stale
+# Retry resume - it will auto-clean the stale lock
+</code></pre>
+</li>
+<li>
+<p><strong>Cross-host lock scenario</strong>:</p>
+<ul>
+<li>If <code>hostname</code> in lock file differs from your current system, the process may be running elsewhere</li>
+<li>Verify the other system is actually running the resume</li>
+<li>If other system crashed or is offline, the lock is stale</li>
+</ul>
+</li>
+</ol>
+<p><strong>Manual Lock Removal</strong> (last resort):</p>
+<p>If automatic cleanup fails (rare), you can manually remove the lock:</p>
+<pre><code class="language-bash"># ⚠️ Only do this if you're certain the process is dead!
+rm ~/.prodigy/resume_locks/mapreduce-1234567890.lock
+
+# Then retry resume
+prodigy resume mapreduce-1234567890
+</code></pre>
+<p><strong>Prevention Tips</strong>:</p>
+<ul>
+<li>Always let resume processes complete naturally (don’t use <code>kill -9</code>)</li>
+<li>Use <code>Ctrl+C</code> for graceful interruption (triggers RAII cleanup)</li>
+<li>The RAII pattern ensures locks are released even on panic or early exit</li>
+<li>Stale locks are rare in normal operation</li>
+</ul>
+<p><strong>When Automatic Cleanup Fails</strong>:</p>
+<p>Test coverage (tests/concurrent_resume_test.rs:77-105) validates stale lock detection. If you encounter persistent stale locks:</p>
+<ol>
+<li>Verify the lock file has valid JSON structure</li>
+<li>Check file permissions on <code>~/.prodigy/resume_locks/</code></li>
+<li>Confirm platform-specific process check is working (<code>kill -0</code> on Unix, <code>tasklist</code> on Windows)</li>
+<li>Report issue with lock file contents and platform details</li>
+</ol>
+<p><strong>Available checkpoint commands</strong> (src/cli/args.rs:363-413):</p>
+<ul>
+<li><code>prodigy checkpoints list</code> - List all available checkpoints</li>
+<li><code>prodigy checkpoints show &lt;job_id&gt;</code> - Show detailed checkpoint information</li>
+<li><code>prodigy checkpoints validate &lt;checkpoint_id&gt;</code> - Verify checkpoint integrity</li>
+<li><code>prodigy checkpoints clean</code> - Delete checkpoints for completed workflows</li>
+</ul>
+<h3 id="see-also"><a class="header" href="#see-also">See Also</a></h3>
+<ul>
+<li><a href="./dead-letter-queue-dlq.html">Dead Letter Queue (DLQ)</a> - Managing failed work items during resume operations</li>
+<li><a href="./event-tracking.html">Event Tracking</a> - Understanding events logged during checkpoint creation and resume</li>
+<li><a href="./global-storage-architecture.html">Global Storage Architecture</a> - Storage locations for checkpoints and state files</li>
+<li><a href="./troubleshooting.html">Troubleshooting</a> - General MapReduce workflow debugging techniques</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../mapreduce/event-tracking.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../mapreduce/dead-letter-queue-dlq.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../mapreduce/event-tracking.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../mapreduce/dead-letter-queue-dlq.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

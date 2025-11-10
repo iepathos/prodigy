@@ -1,0 +1,606 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Common Patterns - Prodigy Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="AI-powered workflow orchestration for development teams">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Prodigy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/iepathos/prodigy/edit/main/book/src/advanced/common-patterns.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="common-patterns"><a class="header" href="#common-patterns">Common Patterns</a></h2>
+<h3 id="test-fix-verify-loop"><a class="header" href="#test-fix-verify-loop">Test-Fix-Verify Loop</a></h3>
+<p>Automatically fix test failures and verify the fixes:</p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  on_failure:
+    claude: "/fix-tests"
+    commit_required: true  # Ensure fixes create commits for audit trail
+    on_success:
+      shell: "cargo test --release"
+</code></pre>
+<p><strong>Source</strong>: Pattern structure from src/config/command.rs:320-401 (WorkflowStepCommand)</p>
+<p>This pattern:</p>
+<ol>
+<li>Runs tests</li>
+<li>If tests fail, uses Claude to fix them</li>
+<li>Creates a commit for each fix (important for tracking changes)</li>
+<li>If fixes succeed, runs tests again in release mode to verify</li>
+</ol>
+<p><strong>Best Practices:</strong></p>
+<ul>
+<li>Use <code>commit_required: true</code> for automated fixes to maintain audit trail</li>
+<li>Consider adding timeout to prevent indefinite hanging</li>
+<li>Capture test output for debugging: <code>capture_output: "test_results"</code></li>
+</ul>
+<h3 id="mapreduce-massive-parallel-processing"><a class="header" href="#mapreduce-massive-parallel-processing">MapReduce: Massive Parallel Processing</a></h3>
+<p>For large-scale parallel processing, use MapReduce workflows instead of foreach:</p>
+<pre><code class="language-yaml">name: parallel-analysis
+mode: mapreduce
+
+setup:
+  - shell: "find src -name '*.rs' | jq -R -s 'split(\"\n\")[:-1] | map({file: .})' &gt; files.json"
+
+map:
+  input: "files.json"
+  json_path: "$[*]"
+
+  agent_template:
+    - shell: "analyze-file ${item.file}"
+      capture_output: "analysis"
+
+    - shell: "echo '${analysis}' &gt; results/${item.file}.json"
+
+  max_parallel: 10
+
+reduce:
+  - shell: "jq -s '.' results/*.json &gt; aggregated-results.json"
+  - claude: "/summarize-analysis aggregated-results.json"
+</code></pre>
+<p><strong>Source</strong>: workflows/mapreduce-example.yml:1-39</p>
+<p><strong>Use Cases:</strong></p>
+<ul>
+<li>Processing hundreds of files in parallel</li>
+<li>Running tests across large codebases</li>
+<li>Batch data processing with aggregation</li>
+<li>Distributed code analysis</li>
+</ul>
+<p><strong>When to Use MapReduce vs Foreach:</strong></p>
+<ul>
+<li><strong>MapReduce</strong>: 50+ items, need isolation, resumable, complex aggregation</li>
+<li><strong>Foreach</strong>: &lt;50 items, simple iteration, linear processing acceptable</li>
+</ul>
+<p>See the <a href="../mapreduce/index.html">MapReduce</a> chapter for comprehensive details.</p>
+<h3 id="parallel-iteration-with-foreach"><a class="header" href="#parallel-iteration-with-foreach">Parallel Iteration with Foreach</a></h3>
+<p>For simpler parallel iteration over small lists:</p>
+<pre><code class="language-yaml">- foreach: "ls *.txt"
+  parallel: 5
+  do:
+    - shell: "process-file ${item}"
+      capture_output: "result_${item}"
+</code></pre>
+<p><strong>Source</strong>: src/config/command.rs:191-211 (ForeachConfig)</p>
+<p><strong>Note</strong>: The foreach feature exists in the configuration but has limited examples. For robust parallel processing with work isolation and resume capabilities, prefer MapReduce patterns.</p>
+<p><strong>Use Cases:</strong></p>
+<ul>
+<li>Processing small batches (&lt;50 items)</li>
+<li>Simple transformations without complex aggregation</li>
+<li>Quick parallel operations in standard workflows</li>
+</ul>
+<h3 id="gradual-quality-improvement"><a class="header" href="#gradual-quality-improvement">Gradual Quality Improvement</a></h3>
+<p>Iteratively improve code quality until threshold is met:</p>
+<pre><code class="language-yaml">- goal_seek:
+    goal: "Code quality score above 90"
+    shell: "auto-improve.sh"
+    validate: "quality-check.sh"
+    threshold: 90
+    max_attempts: 5
+  commit_required: true
+</code></pre>
+<p><strong>Source</strong>: src/cook/goal_seek/mod.rs:14-41 (GoalSeekConfig), workflows/goal-seeking-examples.yml:29-43</p>
+<p><strong>How It Works:</strong></p>
+<ol>
+<li>Executes the improvement command (<code>auto-improve.sh</code>)</li>
+<li>Runs validation command (<code>quality-check.sh</code>)</li>
+<li>Validation must output <code>score: N</code> where N is 0-100</li>
+<li>If score &gt;= threshold (90), goal is achieved</li>
+<li>Otherwise, repeats up to max_attempts times</li>
+<li>Creates commit when goal is achieved (due to <code>commit_required: true</code>)</li>
+</ol>
+<p><strong>Validation Output Format</strong> (src/cook/goal_seek/validator.rs:37-62):</p>
+<p>Your validation command must output one of these formats:</p>
+<pre><code class="language-bash">score: 85           # Primary format (recommended)
+85%                 # Percentage format
+85/100              # Fraction format
+85 out of 100       # Verbose format
+</code></pre>
+<p>Or JSON format:</p>
+<pre><code class="language-json">{
+  "score": 85,
+  "gaps": ["missing tests", "undocumented functions"]
+}
+</code></pre>
+<p><strong>Real Example</strong> (workflows/goal-seeking-examples.yml:6-14):</p>
+<pre><code class="language-yaml">- goal_seek:
+    goal: "Achieve 90% test coverage"
+    claude: "/prodigy-coverage --improve"
+    validate: "cargo tarpaulin --print-summary 2&gt;/dev/null | grep 'Coverage' | sed 's/.*Coverage=\\([0-9]*\\).*/score: \\1/'"
+    threshold: 90
+    max_attempts: 5
+    timeout_seconds: 300
+  commit_required: true
+</code></pre>
+<h3 id="conditional-deployment"><a class="header" href="#conditional-deployment">Conditional Deployment</a></h3>
+<p>Deploy only when all tests pass:</p>
+<pre><code class="language-yaml">- shell: "cargo test --format json"
+  capture_output: "test_results"
+  capture_format: "json"  # Required to parse output as JSON for field access
+
+- shell: "deploy.sh"
+  when: "${test_results.passed == test_results.total}"
+  on_success:
+    shell: "notify-success.sh"
+  on_failure:
+    shell: "rollback.sh"
+</code></pre>
+<p><strong>Source</strong>: src/config/command.rs:WorkflowStepCommand.when field, src/config/capture.rs</p>
+<p><strong>Pattern Components:</strong></p>
+<ul>
+<li>Capture test results as JSON</li>
+<li><code>capture_format: "json"</code> is <strong>required</strong> to enable JSON field access in <code>when</code> clauses</li>
+<li>Deploy only if all tests passed (conditional execution via <code>when</code>)</li>
+<li>Send notification on success</li>
+<li>Rollback on failure</li>
+</ul>
+<p><strong>Important</strong>: Without <code>capture_format: "json"</code>, the <code>when</code> clause cannot access object fields like <code>test_results.passed</code>. The output would be treated as a plain string.</p>
+<h3 id="multi-stage-validation"><a class="header" href="#multi-stage-validation">Multi-Stage Validation</a></h3>
+<p>Validate through multiple quality gates:</p>
+<pre><code class="language-yaml">- claude: "/implement-feature"
+  validate:
+    result_file: ".prodigy/validation-result.json"
+    threshold: 100
+    on_incomplete:
+      claude: "/fix-validation-gaps"
+      max_attempts: 3
+      commit_required: true
+</code></pre>
+<p><strong>Source</strong>: src/cook/workflow/validation.rs:11-49 (ValidationConfig), workflows/spec.yml:12-19</p>
+<p><strong>How Validation Works:</strong></p>
+<p>The validation command must write a JSON file with this schema (src/cook/workflow/validation.rs:216-239):</p>
+<pre><code class="language-json">{
+  "completion_percentage": 85.0,
+  "status": "Incomplete",
+  "implemented": ["feature_a", "feature_b"],
+  "missing": ["feature_c"],
+  "gaps": {
+    "feature_c": {
+      "description": "Missing error handling",
+      "location": "src/main.rs:45",
+      "severity": "High",
+      "suggested_fix": "Add try-catch block"
+    }
+  }
+}
+</code></pre>
+<p><strong>Required Fields:</strong></p>
+<ul>
+<li><code>completion_percentage</code>: 0-100 (compared against threshold)</li>
+<li><code>status</code>: “Complete” | “Incomplete” | “Failed” | “Skipped”</li>
+<li><code>gaps</code>: Object mapping gap IDs to GapDetail objects</li>
+</ul>
+<p><strong>If completion_percentage &lt; threshold:</strong></p>
+<ul>
+<li><code>on_incomplete</code> commands execute</li>
+<li>Validation variables available: <code>${validation.gaps}</code>, <code>${validation.incomplete_specs}</code></li>
+<li>Process repeats up to <code>max_attempts</code> times</li>
+</ul>
+<p><strong>Real Example</strong> (workflows/spec.yml:12-19):</p>
+<pre><code class="language-yaml">validate:
+  result_file: ".prodigy/spec-validation.json"
+  threshold: 100
+  on_incomplete:
+    claude: "/prodigy-refine-specs ${validation.incomplete_specs} --gaps ${validation.gaps}"
+    max_attempts: 5
+    commit_required: true
+</code></pre>
+<h3 id="progressive-enhancement"><a class="header" href="#progressive-enhancement">Progressive Enhancement</a></h3>
+<p>Build features incrementally with validation at each stage:</p>
+<pre><code class="language-yaml"># Stage 1: Basic implementation
+- claude: "/implement-basic-feature"
+  validate:
+    shell: "basic-tests.sh"
+    threshold: 100
+
+# Stage 2: Add edge case handling
+- claude: "/add-edge-cases"
+  validate:
+    shell: "comprehensive-tests.sh"
+    threshold: 100
+
+# Stage 3: Optimize performance
+- claude: "/optimize-performance"
+  validate:
+    shell: "benchmark.sh"
+    threshold: 95
+</code></pre>
+<h3 id="fail-fast-with-early-validation"><a class="header" href="#fail-fast-with-early-validation">Fail-Fast with Early Validation</a></h3>
+<p>Validate quickly before expensive operations:</p>
+<pre><code class="language-yaml"># Quick syntax check first
+- shell: "cargo check"
+  on_failure:
+    fail_workflow: true
+
+# Then run expensive tests
+- shell: "cargo test"
+  timeout: 600
+
+# Finally run benchmarks
+- shell: "cargo bench"
+  timeout: 1800
+</code></pre>
+<h3 id="multi-environment-workflow"><a class="header" href="#multi-environment-workflow">Multi-Environment Workflow</a></h3>
+<p>Different behavior based on environment:</p>
+<pre><code class="language-yaml">- shell: "run-tests.sh"
+  env:
+    ENV: "${ENVIRONMENT}"
+  capture_output: "test_results"
+
+- shell: "deploy.sh"
+  when: "${ENVIRONMENT == 'production' &amp;&amp; test_results.exit_code == 0}"
+  env:
+    DEPLOY_TARGET: "production"
+
+- shell: "deploy-staging.sh"
+  when: "${ENVIRONMENT == 'staging' &amp;&amp; test_results.exit_code == 0}"
+  env:
+    DEPLOY_TARGET: "staging"
+</code></pre>
+<h3 id="retry-with-backoff"><a class="header" href="#retry-with-backoff">Retry with Backoff</a></h3>
+<p>Retry failed operations with different strategies:</p>
+<pre><code class="language-yaml">- shell: "flaky-operation.sh"
+  on_failure:
+    shell: "flaky-operation.sh --retry"
+    on_failure:
+      shell: "flaky-operation.sh --force"
+      max_attempts: 3
+</code></pre>
+<h3 id="data-pipeline"><a class="header" href="#data-pipeline">Data Pipeline</a></h3>
+<p>Transform data through multiple stages:</p>
+<pre><code class="language-yaml">- shell: "extract-data.sh"
+  capture_output: "raw_data"
+
+- shell: "transform-data.sh '${raw_data}'"
+  capture_output: "transformed_data"
+  capture_format: "json"
+
+- shell: "validate-data.sh '${transformed_data}'"
+  validate:
+    shell: "schema-check.sh"
+    threshold: 100
+
+- shell: "load-data.sh '${transformed_data}'"
+</code></pre>
+<h3 id="feature-flag-workflow"><a class="header" href="#feature-flag-workflow">Feature Flag Workflow</a></h3>
+<p>Enable features conditionally:</p>
+<pre><code class="language-yaml">- shell: "check-feature-flag.sh new-feature"
+  capture_output: "feature_enabled"
+  capture_format: "boolean"
+
+- claude: "/implement-new-feature"
+  when: "${feature_enabled}"
+
+- shell: "run-tests.sh"
+  env:
+    FEATURE_NEW: "${feature_enabled}"
+</code></pre>
+<h3 id="environment-profile-pattern"><a class="header" href="#environment-profile-pattern">Environment Profile Pattern</a></h3>
+<p>Use environment profiles for multi-environment workflows:</p>
+<pre><code class="language-yaml">env:
+  DATABASE_URL:
+    default: "postgres://localhost/dev"
+    staging: "postgres://staging-server/db"
+    prod: "postgres://prod-server/db"
+
+  API_KEY:
+    secret: true
+    value: "${API_KEY_FROM_ENV}"
+
+- shell: "migrate-database"
+  env:
+    DB_URL: "${DATABASE_URL}"
+
+- shell: "deploy-app"
+  when: "${profile == 'prod'}"
+</code></pre>
+<p><strong>Source</strong>: Environment variables specification (Spec 120), src/config/environment.rs</p>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li><strong>Profile-specific values</strong>: Different configurations per environment (dev/staging/prod)</li>
+<li><strong>Secret masking</strong>: Mark sensitive values with <code>secret: true</code> to mask in logs</li>
+<li><strong>Activation</strong>: Run with <code>prodigy run workflow.yml --profile prod</code></li>
+</ul>
+<p><strong>Use Cases:</strong></p>
+<ul>
+<li>Multi-environment deployments</li>
+<li>Secrets management</li>
+<li>Environment-specific behavior</li>
+</ul>
+<p>See <a href="../configuration/environment-variables.html">Environment Variables</a> for comprehensive details.</p>
+<h3 id="circuit-breaker-and-dlq-retry"><a class="header" href="#circuit-breaker-and-dlq-retry">Circuit Breaker and DLQ Retry</a></h3>
+<p>Handle failures gracefully with Dead Letter Queue retry:</p>
+<pre><code class="language-yaml"># Initial MapReduce workflow with automatic DLQ for failures
+name: resilient-processing
+mode: mapreduce
+
+map:
+  input: "items.json"
+  json_path: "$[*]"
+
+  agent_template:
+    - shell: "process-item ${item.id}"
+      timeout: 60
+      on_failure:
+        # Failures automatically go to DLQ
+        shell: "log-failure ${item.id}"
+
+  max_parallel: 10
+</code></pre>
+<p><strong>After initial run, retry failed items:</strong></p>
+<pre><code class="language-bash"># Retry all failed items from the job
+prodigy dlq retry &lt;job_id&gt;
+
+# Retry with custom parallelism
+prodigy dlq retry &lt;job_id&gt; --max-parallel 5
+
+# Dry run to see what would be retried
+prodigy dlq retry &lt;job_id&gt; --dry-run
+</code></pre>
+<p><strong>Source</strong>: MapReduce DLQ implementation, src/mapreduce/dlq/mod.rs</p>
+<p><strong>How It Works:</strong></p>
+<ol>
+<li>Failed work items automatically go to Dead Letter Queue</li>
+<li>DLQ stores failure reason, timestamp, and retry count</li>
+<li>Use <code>prodigy dlq retry</code> to reprocess failed items</li>
+<li>Supports partial success (some items succeed, others remain in DLQ)</li>
+</ol>
+<p><strong>Use Cases:</strong></p>
+<ul>
+<li>Handling transient failures (network issues, timeouts)</li>
+<li>Incremental retry of failed operations</li>
+<li>Production resilience patterns</li>
+</ul>
+<p>See <a href="../mapreduce/dead-letter-queue-dlq.html">Dead Letter Queue</a> for comprehensive details.</p>
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><a href="goal-seeking-operations.html">Goal-Seeking Operations</a> - Deep dive into goal_seek patterns</li>
+<li><a href="implementation-validation.html">Implementation Validation</a> - Validation command details</li>
+<li><a href="../mapreduce/index.html">MapReduce</a> - Comprehensive parallel processing guide</li>
+<li><a href="../configuration/environment-variables.html">Environment Variables</a> - Environment configuration</li>
+<li><a href="../error-handling.html">Error Handling</a> - Comprehensive error handling strategies</li>
+<li><a href="../mapreduce/dead-letter-queue-dlq.html">Dead Letter Queue</a> - DLQ and retry patterns</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../advanced/best-practices.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../git-context-advanced.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../advanced/best-practices.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../git-context-advanced.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

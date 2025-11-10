@@ -188,12 +188,19 @@
 
 # With output capture
 - shell: "ls -la | wc -l"
-  capture: "file_count"
+  capture_output: "file_count"
 
 # With failure handling
 - shell: "cargo clippy"
   on_failure:
     claude: "/fix-warnings ${shell.output}"
+
+# With nested failure handlers (multi-level error recovery)
+- shell: "cargo test"
+  on_failure:
+    claude: "/debug-test-failures ${shell.output}"
+    on_failure:
+      shell: "notify-team.sh 'Tests failed and debugging unsuccessful'"
 
 # With timeout
 - shell: "cargo bench"
@@ -202,6 +209,12 @@
 # With conditional execution
 - shell: "cargo build --release"
   when: "${tests_passed}"
+
+# Working directory control (use shell cd command)
+- shell: "cd crates/prodigy-core &amp;&amp; cargo test"
+
+# Environment variables (use shell syntax)
+- shell: "PATH=/custom/bin:$PATH rustfmt --check src/**/*.rs"
 </code></pre>
 <h2 id="2-claude-commands"><a class="header" href="#2-claude-commands">2. Claude Commands</a></h2>
 <pre><code class="language-yaml"># Simple Claude command
@@ -216,7 +229,7 @@
 
 # With output capture
 - claude: "/prodigy-generate-plan"
-  capture: "implementation_plan"
+  capture_output: "implementation_plan"
 </code></pre>
 <h2 id="3-goal-seeking-commands"><a class="header" href="#3-goal-seeking-commands">3. Goal-Seeking Commands</a></h2>
 <p>Iteratively refine code until a validation threshold is met.</p>
@@ -338,7 +351,7 @@
 <h2 id="6-validation-commands"><a class="header" href="#6-validation-commands">6. Validation Commands</a></h2>
 <p>Validate implementation completeness with automatic retry.</p>
 <blockquote>
-<p><strong>Deprecation Notice</strong>: The <code>command</code> field in ValidationConfig is deprecated. Use <code>shell</code> instead for shell commands or <code>claude</code> for Claude commands. The <code>command</code> field is still supported for backward compatibility but will be removed in a future version.</p>
+<p><strong>Warning:</strong> The <code>command</code> field in ValidationConfig is deprecated. Use <code>shell</code> instead for shell commands or <code>claude</code> for Claude commands. The <code>command</code> field is still supported for backward compatibility but will be removed in a future version.</p>
 </blockquote>
 <pre><code class="language-yaml">- claude: "/implement-auth-spec"
   validate:
@@ -400,39 +413,100 @@
 <h2 id="command-reference"><a class="header" href="#command-reference">Command Reference</a></h2>
 <h3 id="command-fields"><a class="header" href="#command-fields">Command Fields</a></h3>
 <p>All command types support these common fields:</p>
+<p><strong>Source</strong>: src/config/command.rs:320-401</p>
 <div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>id</code></td><td>string</td><td>Unique identifier for referencing outputs</td></tr>
 <tr><td><code>timeout</code></td><td>number</td><td>Command timeout in seconds</td></tr>
 <tr><td><code>commit_required</code></td><td>boolean</td><td>Whether command should create a git commit</td></tr>
 <tr><td><code>when</code></td><td>string</td><td>Conditional execution expression</td></tr>
-<tr><td><code>capture</code></td><td>string</td><td>Variable name to capture command output (replaces deprecated <code>capture_output: true</code>)</td></tr>
-<tr><td><code>capture_format</code></td><td>enum</td><td>Format: <code>string</code> (default), <code>number</code>, <code>json</code>, <code>lines</code>, <code>boolean</code> (see examples below)</td></tr>
-<tr><td><code>capture_streams</code></td><td>string</td><td>Reserved for future YAML syntax - not yet available in workflows</td></tr>
+<tr><td><code>capture_output</code></td><td>boolean/string</td><td>Capture command output to a variable (boolean for default “output” var, string for custom name)</td></tr>
+<tr><td><code>capture_format</code></td><td>enum</td><td>Output parsing format: <code>string</code> (default), <code>number</code>, <code>json</code>, <code>lines</code>, <code>boolean</code></td></tr>
 <tr><td><code>on_success</code></td><td>object</td><td>Command to run on success</td></tr>
-<tr><td><code>on_failure</code></td><td>object</td><td>OnFailureConfig with nested command, max_attempts, fail_workflow, strategy</td></tr>
-<tr><td><code>validate</code></td><td>object</td><td>Validation configuration</td></tr>
-<tr><td><code>output_file</code></td><td>string</td><td>Redirect command output to a file</td></tr>
+<tr><td><code>on_failure</code></td><td>object</td><td>Error handling configuration (see OnFailure Handler section below)</td></tr>
+<tr><td><code>validate</code></td><td>object</td><td>Validation configuration for implementation completeness</td></tr>
+<tr><td><code>output_file</code></td><td>string</td><td>Redirect command output to a file path</td></tr>
 </tbody></table>
 </div>
-<h3 id="capturestreams-configuration"><a class="header" href="#capturestreams-configuration">CaptureStreams Configuration</a></h3>
-<p><strong>Note:</strong> While <code>capture_streams</code> functionality is implemented internally in Prodigy’s execution engine, it is not yet exposed in the YAML workflow syntax. The field exists in the configuration structs but is currently stored as a string placeholder.</p>
-<p><strong>Current Approach:</strong> Use the <code>capture</code> and <code>capture_format</code> fields to control output capture:</p>
+<p><strong>Note on Field Availability</strong>: All fields in this table are available in the user-facing YAML WorkflowStepCommand format (src/config/command.rs:320-401). Additional fields like <code>working_dir</code>, <code>env</code>, <code>on_exit_code</code>, and <code>capture</code> exist in the internal WorkflowStep representation (src/cook/workflow/executor/data_structures.rs:35-157) but are NOT exposed in YAML. See the Technical Notes section below for workarounds.</p>
+<h3 id="onfailure-handler-configuration"><a class="header" href="#onfailure-handler-configuration">OnFailure Handler Configuration</a></h3>
+<p>The <code>on_failure</code> field accepts an <code>OnFailureConfig</code> which supports multiple configuration formats:</p>
+<p><strong>Source</strong>: src/cook/workflow/on_failure.rs:67-115</p>
+<p><strong>Simple Format - Single Command:</strong></p>
+<pre><code class="language-yaml">- shell: "cargo clippy"
+  on_failure:
+    claude: "/fix-warnings ${shell.output}"
+</code></pre>
+<p><strong>Advanced Format - With Retry Control:</strong></p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  on_failure:
+    claude: "/debug-test-failures ${shell.output}"
+    max_retries: 3              # Maximum retry attempts (default: 1)
+    fail_workflow: false        # Continue workflow even after failure handling
+    retry_original: true        # Retry original command after handler (default: false)
+</code></pre>
+<p><strong>Detailed Format - With Handler Strategy:</strong></p>
+<p>For fine-grained control over failure handling behavior, use the Detailed format with <code>FailureHandlerConfig</code> (src/cook/workflow/on_failure.rs:9-49):</p>
+<pre><code class="language-yaml">- shell: "cargo build"
+  on_failure:
+    commands:
+      - claude: "/analyze-build-errors ${shell.output}"
+      - shell: "cargo clean &amp;&amp; cargo build"
+    strategy: recovery          # recovery, fallback, cleanup, or custom
+    timeout: 300                # Handler timeout in seconds
+    fail_workflow: false        # Whether to fail workflow after handling
+    handler_failure_fatal: true # Whether handler failure should be fatal
+</code></pre>
+<p><strong>Handler Strategies</strong> (src/cook/workflow/on_failure.rs:9-22):</p>
+<ul>
+<li><code>recovery</code> (default) - Attempt to fix the problem and retry the original operation. Use this when failures are transient or can be resolved programmatically.</li>
+<li><code>fallback</code> - Use an alternative approach when the primary method fails. Best for scenarios with multiple valid execution paths.</li>
+<li><code>cleanup</code> - Perform resource cleanup before failing. Use for releasing locks, closing connections, or removing temporary files.</li>
+<li><code>custom</code> - Custom handler logic for specialized error recovery patterns not covered by other strategies.</li>
+</ul>
+<p><strong>Real-World Examples:</strong></p>
+<p>From <code>workflows/coverage.yml</code> (lines 13-17):</p>
+<pre><code class="language-yaml">- shell: "just test"
+  on_failure:
+    claude: "/prodigy-debug-test-failure --spec ${coverage.spec} --output ${shell.output}"
+    max_attempts: 3
+    fail_workflow: false
+</code></pre>
+<p>From <code>workflows/implement.yml</code> (lines 20-30):</p>
+<pre><code class="language-yaml">- shell: "just test"
+  on_failure:
+    claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
+    max_attempts: 5
+    fail_workflow: false
+</code></pre>
+<p><strong>Nested Failure Handlers:</strong></p>
+<pre><code class="language-yaml">- shell: "cargo test"
+  on_failure:
+    claude: "/debug-test-failures ${shell.output}"
+    on_failure:
+      shell: "notify-team.sh 'Tests failed and debugging unsuccessful'"
+</code></pre>
+<h3 id="planned-feature-capturestreams"><a class="header" href="#planned-feature-capturestreams">Planned Feature: CaptureStreams</a></h3>
+<blockquote>
+<p><strong>Note:</strong> The <code>capture_streams</code> field is defined in WorkflowStepCommand (src/config/command.rs:394-396) but is <strong>reserved for future use</strong> and not yet functional in YAML workflows.</p>
+<p><strong>Why it’s not available yet</strong>: The field exists as a <code>String</code> placeholder in the YAML parser, but the execution engine doesn’t yet support fine-grained stream capture control. This feature is planned to provide selective capture of stdout, stderr, exit codes, success status, and execution duration.</p>
+</blockquote>
+<p><strong>Current Approach:</strong> Use the <code>capture_output</code> and <code>capture_format</code> fields to control output capture, which cover most common use cases:</p>
 <pre><code class="language-yaml"># Capture stdout as string (most common use case)
 - shell: "cargo test"
-  capture: "test_output"
+  capture_output: "test_output"
   capture_format: "string"
 
 # Capture exit status as boolean
 - shell: "cargo test"
-  capture: "test_passed"
+  capture_output: "test_passed"
   capture_format: "boolean"
 
 # Capture and parse JSON output
 - shell: "cargo metadata --format-version 1"
-  capture: "project_info"
+  capture_output: "project_info"
   capture_format: "json"
 </code></pre>
-<p><strong>Future Enhancement:</strong> A future version will expose <code>capture_streams</code> in YAML syntax to provide fine-grained control over which streams (stdout, stderr, exit_code, success, duration) are captured. Until then, use the <code>capture</code> and <code>capture_format</code> fields which cover most common use cases.</p>
+<p><strong>When will this be available?</strong> This feature requires execution engine changes to support the internal <code>CaptureStreams</code> type (src/cook/workflow/executor/data_structures.rs:83). Until then, use the <code>capture_output</code> and <code>capture_format</code> fields which cover most common use cases.</p>
 <h3 id="capture-format-examples"><a class="header" href="#capture-format-examples">Capture Format Examples</a></h3>
 <p>The <code>capture_format</code> field controls how captured output is parsed:</p>
 <pre><code class="language-yaml"># String format (default) - raw text output
@@ -461,39 +535,62 @@
   capture_format: "boolean"
 </code></pre>
 <h3 id="deprecated-fields"><a class="header" href="#deprecated-fields">Deprecated Fields</a></h3>
-<p>These fields are deprecated but still supported for backward compatibility:</p>
+<blockquote>
+<p><strong>Warning:</strong> The following fields are deprecated but still supported for backward compatibility. They will be removed in a future version. Please migrate to the recommended alternatives.</p>
+</blockquote>
+<p>These fields are deprecated:</p>
 <ul>
-<li><code>test:</code> - Use <code>shell:</code> with <code>on_failure:</code> instead</li>
-<li><code>command:</code> in ValidationConfig - Use <code>shell:</code> instead</li>
-<li>Nested <code>commands:</code> in <code>agent_template</code> and <code>reduce</code> - Use direct array format instead</li>
-<li>Legacy variable aliases (<code>$ARG</code>, <code>$ARGUMENT</code>, <code>$FILE</code>, <code>$FILE_PATH</code>) - Use modern <code>${item.*}</code> syntax</li>
+<li><code>test:</code> - <strong>Use <code>shell:</code> with <code>on_failure:</code> instead</strong></li>
+<li><code>command:</code> in ValidationConfig - <strong>Use <code>shell:</code> instead</strong></li>
+<li>Nested <code>commands:</code> in <code>agent_template</code> and <code>reduce</code> - <strong>Use direct array format instead</strong></li>
+<li>Legacy variable aliases (<code>$ARG</code>, <code>$ARGUMENT</code>, <code>$FILE</code>, <code>$FILE_PATH</code>) - <strong>Use modern <code>${item.*}</code> syntax</strong></li>
 </ul>
-<p><strong>Migration: capture_output to capture</strong></p>
-<p>The old <code>capture_output: true/false</code> syntax is deprecated. It used a boolean value to enable/disable output capture, but didn’t specify where the output was stored, making it unclear and harder to reference in later commands.</p>
-<p>Old syntax (deprecated):</p>
-<pre><code class="language-yaml">- shell: "ls -la | wc -l"
+<p><strong>Using capture_output Field</strong></p>
+<p>The <code>capture_output</code> field supports both Boolean and String variants for backward compatibility:</p>
+<p><strong>Source</strong>: src/config/command.rs:366-368 (CaptureOutputConfig enum: src/config/command.rs:403-411)</p>
+<pre><code class="language-yaml"># String variant - captures to named variable (recommended)
+- shell: "git rev-parse HEAD"
+  capture_output: "commit_hash"
+
+# Boolean variant - captures to default "output" variable
+- shell: "ls -la | wc -l"
   capture_output: true
 </code></pre>
-<p>New syntax (recommended):</p>
-<pre><code class="language-yaml">- shell: "ls -la | wc -l"
-  capture: "file_count"
+<p><strong>Migration Guide - capture_output Variants:</strong></p>
+<p>The <code>capture_output</code> field accepts both boolean and string values for backward compatibility:</p>
+<div class="table-wrapper"><table><thead><tr><th>Syntax</th><th>Variable Name</th><th>When to Use</th></tr></thead><tbody>
+<tr><td><code>capture_output: true</code></td><td><code>${output}</code></td><td>Quick capture to default variable</td></tr>
+<tr><td><code>capture_output: "myvar"</code></td><td><code>${myvar}</code></td><td>Recommended: explicit variable name</td></tr>
+</tbody></table>
+</div>
+<p><strong>Before and After Examples:</strong></p>
+<pre><code class="language-yaml"># Boolean variant - captures to ${output}
+# BEFORE:
+- shell: "git rev-parse HEAD"
+  capture_output: true
+# Access with: ${output}
+
+# AFTER (recommended):
+- shell: "git rev-parse HEAD"
+  capture_output: "commit_hash"
+# Access with: ${commit_hash}
+
+# String variant - already correct
+- shell: "ls -la | wc -l"
+  capture_output: "file_count"
+# Access with: ${file_count}
 </code></pre>
-<p><strong>Why the change?</strong> The modern <code>capture</code> field requires an explicit variable name, making workflows more maintainable:</p>
-<ul>
-<li><strong>Explicit is better than implicit</strong>: Variable names are self-documenting</li>
-<li><strong>Easier refactoring</strong>: Clear what each command produces</li>
-<li><strong>Better error messages</strong>: References to undefined variables are clearer</li>
-</ul>
-<p>You can then reference the captured value using <code>${file_count}</code> in subsequent commands. The boolean <code>capture_output</code> field is retained for backward compatibility but should not be used in new workflows.</p>
+<p><strong>Note</strong>: The internal WorkflowStep struct (src/cook/workflow/executor/data_structures.rs:75) uses a <code>capture</code> field internally, but this is NOT exposed in the user-facing YAML WorkflowStepCommand struct. Always use <code>capture_output</code> for capturing command output in YAML workflows.</p>
+<p>You can then reference captured values using <code>${commit_hash}</code> or <code>${output}</code> in subsequent commands.</p>
 <hr />
 <h2 id="technical-notes"><a class="header" href="#technical-notes">Technical Notes</a></h2>
 <details>
 <summary>Internal Implementation Fields (for contributors)</summary>
-<p>The following fields are used internally during workflow execution but are NOT part of the YAML configuration syntax. These are implementation details managed by Prodigy’s execution engine, not user-facing configuration options:</p>
+<p>The following fields exist in the internal WorkflowStep struct (src/cook/workflow/executor/data_structures.rs:35-157) but are NOT available in the user-facing WorkflowStepCommand YAML syntax (src/config/command.rs:320-401). These are implementation details managed by Prodigy’s execution engine during workflow execution:</p>
+<p><strong>Execution Control Fields (Internal Only):</strong></p>
 <ul>
 <li><code>handler</code> - Internal HandlerStep for execution routing</li>
 <li><code>retry</code> - Internal RetryConfig for automatic retry logic</li>
-<li><code>env</code> - Not available (use shell environment syntax: <code>ENV=value command</code>)</li>
 <li><code>auto_commit</code> - Internal commit tracking</li>
 <li><code>commit_config</code> - Internal commit configuration</li>
 <li><code>step_validate</code> - Internal validation state</li>
@@ -501,15 +598,52 @@
 <li><code>validation_timeout</code> - Internal validation timing</li>
 <li><code>ignore_validation_failure</code> - Internal validation handling</li>
 </ul>
-<p>These fields are documented here for reference when working on Prodigy’s source code, but should not be used in workflow YAML files.</p>
+<p><strong>Environment and Context Fields (Planned/Not Yet Exposed in YAML):</strong></p>
+<ul>
+<li><code>working_dir</code> - Working directory control (WorkflowStep:99, NOT in WorkflowStepCommand)</li>
+<li><code>env</code> - Environment variable overrides (WorkflowStep:103, NOT in WorkflowStepCommand)</li>
+<li><code>on_exit_code</code> - Exit code specific handlers (WorkflowStep:119, NOT in WorkflowStepCommand)</li>
+<li><code>capture</code> - Variable name for output (WorkflowStep:75, use <code>capture_output</code> in YAML instead)</li>
+</ul>
+<p><strong>Why the separation?</strong> WorkflowStepCommand defines what users can write in YAML. WorkflowStep is the internal runtime representation with additional fields populated during execution. Some features exist in the execution layer but aren’t yet exposed in the YAML syntax.</p>
+<p><strong>Workarounds for missing YAML fields:</strong></p>
+<p>Since <code>cwd</code>, <code>env</code>, and <code>on_exit_code</code> are NOT available in WorkflowStepCommand, use these shell-level alternatives:</p>
+<pre><code class="language-yaml"># Instead of cwd field (NOT available):
+# ❌ - shell: "cargo test"
+#      cwd: "crates/prodigy-core"
+
+# ✓ Use shell cd command:
+- shell: "cd crates/prodigy-core &amp;&amp; cargo test"
+
+# Instead of env field (NOT available):
+# ❌ - shell: "rustfmt --check src/**/*.rs"
+#      env:
+#        PATH: "/custom/bin:${PATH}"
+
+# ✓ Use shell environment syntax:
+- shell: "PATH=/custom/bin:$PATH rustfmt --check src/**/*.rs"
+
+# Instead of on_exit_code field (NOT available):
+# ❌ - shell: "cargo build"
+#      on_exit_code:
+#        1:
+#          claude: "/fix-compile-errors"
+
+# ✓ Use on_failure with conditional logic:
+- shell: "cargo build"
+  on_failure:
+    claude: "/fix-compile-errors ${shell.output}"
+</code></pre>
+<p>These planned features may be exposed in future versions of Prodigy.</p>
 </details>
 <hr />
 <h2 id="cross-references"><a class="header" href="#cross-references">Cross-References</a></h2>
 <p>For more information on related topics:</p>
 <ul>
-<li><strong>Variable Interpolation</strong>: See the Variables chapter for details on using captured outputs like <code>${variable_name}</code> in subsequent commands</li>
-<li><strong>Error Handling</strong>: See the Error Handling chapter for advanced <code>on_failure</code> strategies and retry patterns</li>
-<li><strong>MapReduce Workflows</strong>: See the MapReduce chapter for large-scale parallel command execution</li>
+<li><strong>Variable Interpolation</strong>: See the <a href="./variables/index.html#captured-variables">Variables chapter</a> for details on using captured outputs like <code>${variable_name}</code> in subsequent commands</li>
+<li><strong>Environment Variables</strong>: See the <a href="./environment.html#step-level-environment-variables">Environment Variables chapter</a> for global env, secrets, and profiles</li>
+<li><strong>Error Handling</strong>: See the <a href="./error-handling.html#on-failure-handlers">Error Handling chapter</a> for advanced <code>on_failure</code> strategies and retry patterns</li>
+<li><strong>MapReduce Workflows</strong>: See the <a href="./mapreduce/index.html#map-phase">MapReduce chapter</a> for large-scale parallel command execution with agent templates</li>
 </ul>
 <p><strong>Example: Using Captured Output in Subsequent Commands</strong></p>
 <pre><code class="language-yaml"># Capture build output and use it in later commands
@@ -532,11 +666,11 @@
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="mapreduce.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="mapreduce/workflow-format-comparison.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="variables.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="variables/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -546,11 +680,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="mapreduce.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="mapreduce/workflow-format-comparison.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="variables.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="variables/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
