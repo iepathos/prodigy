@@ -1,0 +1,57 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "variables",
+  "subsection_id": "troubleshooting-variable-interpolation",
+  "subsection_title": "Troubleshooting Variable Interpolation",
+  "subsection_file": "book/src/variables/troubleshooting-variable-interpolation.md",
+  "feature_mappings": [],
+  "drift_detected": false,
+  "severity": "none",
+  "quality_assessment": "Excellent troubleshooting guide with comprehensive coverage of common variable interpolation issues. Well-organized by issue type with clear symptoms, causes, and solutions. All examples are accurate and align with implementation.",
+  "issues": [],
+  "positive_aspects": [
+    "Comprehensive coverage of variable interpolation issues organized by symptom",
+    "Clear distinction between different issue types (not interpolating, empty/undefined, phase-specific, nested field access, git context, format modifiers)",
+    "Accurate examples showing both wrong and correct usage patterns",
+    "Well-structured troubleshooting workflow from symptoms to solutions",
+    "Excellent debugging techniques section with practical tools (verbose mode, echo debugging, Claude logs, checkpoint inspection, jq exploration)",
+    "Common syntax issues section addresses YAML-specific gotchas",
+    "Best practices section provides actionable guidance",
+    "All internal links are valid and properly reference sibling subsections",
+    "Phase availability guidance correctly references the available-variables subsection",
+    "Accurate representation of capture_output and capture_format functionality",
+    "Correct explanation of git context variables (step.*, workflow.*) and their requirements",
+    "Format modifier section accurately describes :json, :lines, :csv, and glob pattern filtering",
+    "Shell-specific syntax issues (quoting, escaping) are well-covered",
+    "Getting Help section provides clear escalation path"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a quick reference table mapping error messages to solutions for faster lookup",
+    "Could include a flowchart for diagnosing variable issues systematically",
+    "Might benefit from a 'Most Common Issues' section at the top for quick wins",
+    "Consider adding links to specific source code files for advanced users wanting to understand implementation details"
+  ],
+  "cross_references": [
+    "available-variables",
+    "custom-variable-capture",
+    "examples"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T11:30:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Variable interpolation troubleshooting",
+      "Variable not interpolating",
+      "Empty or undefined variables",
+      "Phase-specific variable availability",
+      "Nested field access",
+      "Git context variables",
+      "Format modifiers",
+      "Debugging techniques",
+      "Common syntax issues"
+    ],
+    "validation_focus": "Check troubleshooting variable interpolation documentation matches implementation",
+    "internal_links_validated": true,
+    "broken_links_found": 0
+  }
+}
