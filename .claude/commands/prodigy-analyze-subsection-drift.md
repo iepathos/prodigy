@@ -148,6 +148,108 @@ If analyzing a single-file chapter or multi-subsection index:
 - Poor organization
 - Needs better examples
 
+#### Broken Links (Medium Severity):
+- Links to non-existent files
+- Incorrect relative paths
+- References to moved/renamed chapters
+- Links that would break on mdbook build
+
+### Phase 5.5: Validate Internal Links (MANDATORY)
+
+**CRITICAL: Check all internal documentation links are valid.**
+
+Before creating the drift report, scan the current documentation for broken links:
+
+**Step 1: Extract All Internal Links**
+
+```bash
+# Find all markdown links in the current file
+LINK_ERRORS=()
+
+grep -oE '\[([^\]]+)\]\(([^)]+)\)' "$ITEM_FILE" | while IFS= read -r link; do
+  # Extract link text and target
+  link_text=$(echo "$link" | sed 's/\[\([^]]*\)\].*/\1/')
+  link_target=$(echo "$link" | sed 's/.*(\([^)]*\))/\1/')
+
+  # Skip external URLs
+  if [[ "$link_target" =~ ^https?:// ]]; then
+    continue
+  fi
+
+  # Skip anchors-only links (like #section-name)
+  if [[ "$link_target" =~ ^# ]]; then
+    continue
+  fi
+
+  # Resolve the link target relative to current file
+  current_dir=$(dirname "$ITEM_FILE")
+  if [[ "$link_target" == /* ]]; then
+    # Absolute path from book/src
+    resolved_target="${BOOK_DIR}/src${link_target}"
+  else
+    # Relative path
+    resolved_target="${current_dir}/${link_target}"
+  fi
+
+  # Remove anchor if present
+  resolved_file=$(echo "$resolved_target" | sed 's/#.*//')
+
+  # Check if target file exists
+  if [ ! -f "$resolved_file" ]; then
+    echo "❌ BROKEN LINK: [$link_text]($link_target) -> $resolved_file not found"
+    LINK_ERRORS+=({
+      "link_text": "$link_text",
+      "link_target": "$link_target",
+      "expected_file": "$resolved_file",
+      "current_file": "$ITEM_FILE"
+    })
+  fi
+done
+```
+
+**Step 2: Suggest Link Corrections**
+
+For each broken link, attempt to find the correct target:
+
+```bash
+for broken_link in "${LINK_ERRORS[@]}"; do
+  target=$(echo "$broken_link" | jq -r '.link_target')
+  link_text=$(echo "$broken_link" | jq -r '.link_text')
+
+  # Try to find similar files
+  basename_target=$(basename "$target" .md)
+
+  # Check if it's now a multi-subsection chapter
+  if [ -f "${BOOK_DIR}/src/${basename_target}/index.md" ]; then
+    suggested_fix="${basename_target}/index.md"
+    echo "💡 Suggestion: $target -> $suggested_fix (chapter now has subsections)"
+  fi
+
+  # Search for files with similar names
+  similar_files=$(find "${BOOK_DIR}/src" -name "*${basename_target}*.md" -type f)
+  if [ -n "$similar_files" ]; then
+    echo "💡 Possible matches for '$link_text':"
+    echo "$similar_files"
+  fi
+done
+```
+
+**Step 3: Add Broken Links to Drift Report**
+
+Include broken links as drift issues:
+
+```json
+{
+  "type": "broken_links",
+  "severity": "medium",
+  "section": "Cross-References",
+  "description": "Found ${#LINK_ERRORS[@]} broken internal link(s)",
+  "broken_links": LINK_ERRORS,
+  "fix_suggestion": "Update links to point to current file locations. Check if referenced chapters were migrated to multi-subsection structure.",
+  "validation_required": true
+}
+```
+
 ### Phase 6: Assess Quality
 
 **Overall Assessment:**

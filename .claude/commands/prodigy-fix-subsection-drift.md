@@ -352,6 +352,181 @@ EOF
 
 This evidence file helps verify all content is grounded and provides audit trail.
 
+### Phase 3.75: Build Link Resolution Map (MANDATORY)
+
+**CRITICAL: All internal links must point to valid files.**
+
+Before writing any markdown content, build a comprehensive map of all available documentation:
+
+**Step 1: Scan All Documentation Files**
+
+```bash
+# Create a map of all chapters and subsections with multiple lookup keys
+rm -f /tmp/doc_link_map.json
+
+# Initialize JSON structure
+echo '{"chapters": {}, "files": {}, "titles": {}}' > /tmp/doc_link_map.json
+
+# Scan all markdown files in book/src
+find ${BOOK_DIR}/src -name "*.md" -type f | while read md_file; do
+  # Get relative path from book/src
+  rel_path=$(echo "$md_file" | sed "s|${BOOK_DIR}/src/||")
+
+  # Extract title from first H1 or H2 heading
+  title=$(grep -m 1 '^##\? ' "$md_file" | sed 's/^##\? //' | tr '[:upper:]' '[:lower:]')
+
+  # Extract chapter ID (first component of path or filename without .md)
+  if [[ "$rel_path" == *"/"* ]]; then
+    chapter_id=$(echo "$rel_path" | cut -d'/' -f1)
+    # This is a subsection or chapter index
+    is_subsection=true
+  else
+    chapter_id=$(basename "$rel_path" .md)
+    is_subsection=false
+  fi
+
+  # Store in map with multiple keys for lookup
+  # Key by chapter ID, file path, and normalized title
+  jq --arg id "$chapter_id" \
+     --arg path "$rel_path" \
+     --arg title "$title" \
+     --arg is_sub "$is_subsection" \
+     '.chapters[$id] = $path | .files[$path] = $title | .titles[$title] = $path' \
+     /tmp/doc_link_map.json > /tmp/doc_link_map.json.tmp
+  mv /tmp/doc_link_map.json.tmp /tmp/doc_link_map.json
+done
+```
+
+**Step 2: Create Link Resolution Function**
+
+For any link you need to create, use this resolution logic:
+
+```bash
+# Function to resolve a documentation reference to actual file path
+resolve_doc_link() {
+  local reference="$1"  # E.g., "advanced-features", "Advanced Features", "mapreduce"
+
+  # Normalize reference (lowercase, replace spaces with dashes)
+  local normalized=$(echo "$reference" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+
+  # Try various lookup strategies in order:
+
+  # 1. Direct chapter ID match
+  local direct_match=$(jq -r --arg id "$normalized" '.chapters[$id] // empty' /tmp/doc_link_map.json)
+  if [ -n "$direct_match" ]; then
+    echo "$direct_match"
+    return 0
+  fi
+
+  # 2. Title match (case-insensitive)
+  local title_match=$(jq -r --arg title "$reference" '.titles[$title] // empty' /tmp/doc_link_map.json)
+  if [ -n "$title_match" ]; then
+    echo "$title_match"
+    return 0
+  fi
+
+  # 3. Check if it's a directory with index.md
+  if [ -f "${BOOK_DIR}/src/${normalized}/index.md" ]; then
+    echo "${normalized}/index.md"
+    return 0
+  fi
+
+  # 4. Check if it's a single file
+  if [ -f "${BOOK_DIR}/src/${normalized}.md" ]; then
+    echo "${normalized}.md"
+    return 0
+  fi
+
+  # 5. Fuzzy match on similar names
+  local fuzzy_match=$(jq -r --arg ref "$normalized" '.chapters | to_entries[] | select(.key | contains($ref)) | .value | select(. != null) | @text' /tmp/doc_link_map.json | head -1)
+  if [ -n "$fuzzy_match" ]; then
+    echo "⚠ Fuzzy match: $reference -> $fuzzy_match" >&2
+    echo "$fuzzy_match"
+    return 0
+  fi
+
+  # No match found
+  echo "❌ ERROR: Cannot resolve link reference '$reference'" >&2
+  return 1
+}
+```
+
+**Step 3: Calculate Relative Path Prefix**
+
+Determine the correct relative path prefix based on current file depth:
+
+```bash
+# Determine where the current file is located
+CURRENT_FILE="$ITEM_FILE"  # From drift report
+
+# Count directory depth
+DEPTH=$(echo "$CURRENT_FILE" | grep -o '/' | wc -l)
+
+# Calculate relative prefix
+if [ $DEPTH -eq 1 ]; then
+  # File is at book/src/file.md - no prefix needed
+  RELATIVE_PREFIX=""
+elif [ $DEPTH -eq 2 ]; then
+  # File is at book/src/chapter/file.md - need ../
+  RELATIVE_PREFIX="../"
+elif [ $DEPTH -eq 3 ]; then
+  # File is at book/src/chapter/sub/file.md - need ../../
+  RELATIVE_PREFIX="../../"
+else
+  # Deeper nesting
+  RELATIVE_PREFIX=$(printf '../%.0s' $(seq 1 $((DEPTH - 1))))
+fi
+```
+
+**Step 4: Generate Valid Links**
+
+When writing markdown links in your content:
+
+```markdown
+<!-- WRONG: Hard-coded guessed paths -->
+- [Advanced Features](advanced.md)
+- [Command Types](commands.md)
+
+<!-- CORRECT: Use resolved paths -->
+- [Advanced Features](${RELATIVE_PREFIX}$(resolve_doc_link "advanced-features"))
+- [Command Types](${RELATIVE_PREFIX}$(resolve_doc_link "commands"))
+```
+
+**Step 5: Validate All Generated Links**
+
+Before committing, verify all links you've added:
+
+```bash
+# Extract all markdown links from the file you're about to write
+grep -oE '\[([^\]]+)\]\(([^)]+)\)' "$NEW_CONTENT" | while read link; do
+  target=$(echo "$link" | sed 's/.*(\(.*\)).*/\1/')
+
+  # Skip external URLs
+  if [[ "$target" =~ ^https?:// ]]; then
+    continue
+  fi
+
+  # Resolve relative path from current file
+  target_file="${BOOK_DIR}/src/${RELATIVE_PREFIX}${target}"
+
+  # Check if target exists
+  if [ ! -f "$target_file" ]; then
+    echo "❌ BROKEN LINK: $link (resolves to $target_file)"
+    LINK_ERRORS+=("$link")
+  else
+    echo "✓ Valid link: $link"
+  fi
+done
+```
+
+**Link Generation Best Practices:**
+
+1. **ALWAYS use resolve_doc_link() for internal documentation links**
+2. **NEVER hard-code paths like `advanced.md` or `commands.md`**
+3. **ALWAYS validate links before committing**
+4. **Use RELATIVE_PREFIX for cross-chapter links**
+5. **For subsection-to-subsection links within same chapter, use just filename**
+
 ### Phase 4: Fix the Documentation
 
 **Read Current File:**
@@ -447,6 +622,9 @@ Read the markdown file from the drift report.
 
 **General Checks:**
 - All critical and high severity issues addressed
+- **All internal links are valid** (verified against doc_link_map)
+- Links use correct relative paths
+- No broken cross-references
 - All topics from metadata covered
 - Examples are practical and current
 - Cross-references are valid

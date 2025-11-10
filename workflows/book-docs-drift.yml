@@ -67,12 +67,15 @@ reduce:
       claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
       commit_required: true
 
-  # Organize large chapters into subsections for better readability
-  - shell: "python3 scripts/organize_chapters.py --book-dir ${BOOK_DIR} --min-h2-sections 6 --min-lines 400"
-    commit_required: true
-
-  # Verify mdbook still builds after reorganization
-  - shell: "cd book && mdbook build"
+  # NOTE: organize_chapters.py has been removed from the workflow because:
+  # 1. It was creating over-fragmented subsections with minimal content
+  # 2. It doesn't migrate existing content into new subsections
+  # 3. Phase 7.5 in /prodigy-detect-documentation-gaps now handles structure validation
+  # 4. Manual chapter organization is more appropriate for documentation quality
+  #
+  # If you need to organize a large chapter into subsections:
+  # - Use /prodigy-migrate-chapter-to-subsections manually
+  # - Or let /prodigy-detect-documentation-gaps create properly validated subsections
 
   # Clean up temporary analysis files
   - shell: "rm -rf ${ANALYSIS_DIR}"
