@@ -1,0 +1,90 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "troubleshooting",
+  "subsection_id": "common-error-messages",
+  "subsection_title": "Common Error Messages",
+  "subsection_file": "book/src/troubleshooting/common-error-messages.md",
+  "feature_mappings": [],
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent comprehensive coverage of common error messages. All documented errors match implementation. Clear explanations with actionable solutions. Good organization and cross-references.",
+  "issues": [
+    {
+      "type": "minor_improvement",
+      "severity": "low",
+      "section": "Overall Structure",
+      "description": "Consider adding a table of contents or quick reference at the top for easier navigation",
+      "fix_suggestion": "Add a brief TOC listing all error messages at the start of the document for quick scanning",
+      "source_reference": "N/A - documentation organization suggestion"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all major error messages across the system",
+    "Each error includes full message, meaning, causes, and solutions",
+    "Accurate error messages match implementation (verified against src/)",
+    "Good use of code examples to illustrate solutions",
+    "Cross-references to detailed documentation (e.g., Spec 140 for concurrent resume)",
+    "Platform-specific troubleshooting included (e.g., process checks for stale locks)",
+    "Covers workflow composition errors with examples",
+    "Good balance of technical accuracy and accessibility",
+    "Solutions are actionable and specific with command examples",
+    "Includes both common and advanced error scenarios",
+    "References to source code for Template and parameter errors",
+    "Covers resume lock troubleshooting comprehensively",
+    "Includes examples for complex errors like circular dependencies"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a quick reference table at the top listing all errors and their severity/category",
+    "Could add 'Related Errors' sections to connect similar issues",
+    "Consider adding error code numbers if the system uses them (ErrorCode enum exists)",
+    "Could benefit from a 'Most Common' section highlighting the top 5 errors users encounter"
+  ],
+  "cross_references": [
+    "checkpoint-and-resume",
+    "dead-letter-queue-dlq",
+    "worktree-isolation",
+    "composition"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:42:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Checkpoint errors",
+      "MapReduce input file errors",
+      "Claude command errors",
+      "Permission errors",
+      "Timeout errors",
+      "Concurrent resume protection errors",
+      "JSONPath errors",
+      "Git context variable errors",
+      "Variable interpolation errors",
+      "Profile errors",
+      "Disk quota errors",
+      "Job completion errors",
+      "Template errors",
+      "Parameter errors",
+      "Circular dependency errors",
+      "Concurrent modification errors"
+    ],
+    "validation_focus": "Check common error messages documentation matches implementation",
+    "errors_verified": [
+      "checkpoint not found - src/cli/commands/resume.rs:264",
+      "command not found: claude - documented correctly",
+      "Resume already in progress - src/cook/execution/resume_lock.rs",
+      "Template not found - src/cook/workflow/composer_integration.rs:20",
+      "Required parameter not provided - src/cook/workflow/composer_integration.rs:23",
+      "Circular dependency detected - src/cook/workflow/composition/composer.rs:727",
+      "Operation timed out - src/error/helpers.rs:103",
+      "Concurrent modification detected - src/cook/execution/errors.rs:132"
+    ],
+    "verification_notes": [
+      "All error message formats verified against source code",
+      "Resume lock behavior matches Spec 140 implementation",
+      "Template and composition errors match composer_integration.rs error types",
+      "Timeout messages match subprocess and execution error handling",
+      "No broken internal links found in this subsection",
+      "Cross-references to CLAUDE.md Spec 140 are appropriate",
+      "Solutions reference correct file paths and commands"
+    ]
+  }
+}
