@@ -1,0 +1,81 @@
+{
+  "item_type": "chapter",
+  "chapter_id": "error-handling",
+  "chapter_title": "Error Handling",
+  "chapter_file": "book/src/error-handling.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Chapter is comprehensive and mostly accurate, but contains one outdated field reference and could benefit from additional clarifications on command-level error handling behavior",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Error Metrics - Pattern Detection",
+      "description": "Documentation suggests 'timeout_per_agent' field name but this field doesn't exist in the codebase",
+      "current_content": "Timeout errors → \"Consider increasing timeout_per_agent\"",
+      "should_be": "Timeout errors → \"Consider increasing agent_timeout_secs\" (or verify the correct field name)",
+      "fix_suggestion": "Update the suggested remediation text to reference the correct configuration field name. Based on features.json, the field might be 'agent_timeout_secs' or 'timeout_config', not 'timeout_per_agent'.",
+      "source_reference": "src/cook/workflow/error_policy.rs:481"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Command-Level Error Handling - Advanced Configuration",
+      "description": "The interaction between on_failure handlers and max_attempts needs clearer explanation",
+      "current_content": "When max_attempts > 1, Prodigy automatically retries the original command after running the failure handler",
+      "should_be": "Clarify the exact execution order: Does the handler run before each retry? Only on final failure? Are there any conditions where the handler doesn't run?",
+      "fix_suggestion": "Add a concrete example showing the exact execution flow when max_attempts > 1, such as: 'Command fails → Handler runs → Command retries → If fails again, handler runs again → Repeats until max_attempts reached'",
+      "source_reference": "src/cook/workflow/on_failure.rs:99-127"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Command-Level Error Handling",
+      "description": "Missing explanation of how on_failure handlers inherit WorkflowStep fields",
+      "fix_suggestion": "Add a brief note that on_failure handlers can use most WorkflowStep fields (timeout, capture, working_dir, when, nested on_failure), similar to the on_success documentation",
+      "source_reference": "src/cook/workflow/on_failure.rs:114"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Workflow-Level Error Policy - Error Collection Strategies",
+      "description": "The batched error collection syntax is inconsistent with typical YAML array notation",
+      "current_content": "batched:N format (e.g., batched:10)",
+      "should_be": "Clarify if this is a string value 'batched:10' or should be YAML object notation: batched: { size: 10 }",
+      "fix_suggestion": "Add a concrete YAML example showing the correct syntax for batched error collection, matching the ErrorCollectionStrategy::Batched { size: usize } structure",
+      "source_reference": "src/cook/workflow/error_policy.rs:42-43"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of both command-level and workflow-level error handling",
+    "Clear distinction between different error handling levels with comparison table",
+    "Excellent examples showing various error handling patterns",
+    "Good coverage of circuit breaker states and transitions",
+    "Detailed explanation of backoff strategies with calculation formulas",
+    "Thorough documentation of DLQ features and retry commands",
+    "Well-organized best practices section with clear use cases",
+    "Accurate description of error metrics and pattern detection",
+    "Good troubleshooting section with common issues and solutions"
+  ],
+  "improvement_suggestions": [
+    "Add a visual diagram showing the relationship between command-level and workflow-level error handling",
+    "Include more examples of combining on_failure with on_success for complex workflows",
+    "Add a troubleshooting entry for circuit breaker issues",
+    "Consider adding a section on error handling performance implications",
+    "Add cross-references to related chapters (e.g., MapReduce chapter for DLQ, Variables chapter for ${shell.output})"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Command-level error handling",
+      "Workflow-level error policy",
+      "Circuit breakers",
+      "Retry configuration",
+      "Dead Letter Queue",
+      "Error metrics",
+      "Best practices"
+    ],
+    "validation_focus": "Check error handling policies and configurations"
+  }
+}
