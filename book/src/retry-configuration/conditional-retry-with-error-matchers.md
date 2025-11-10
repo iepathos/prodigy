@@ -4,7 +4,11 @@ By default, Prodigy retries all errors when `retry_on` is empty. Use the `retry_
 
 **Source**: `src/cook/retry_v2.rs:100-151` (ErrorMatcher enum definition)
 
-**Note**: All error matching is case-insensitive. Error messages are normalized to lowercase before pattern comparison (src/cook/retry_v2.rs:128-149).
+**Case Sensitivity Behavior**:
+- **Built-in matchers** (Network, Timeout, ServerError, RateLimit): **Case-insensitive** - error messages are normalized to lowercase before matching
+- **Pattern matcher**: **Case-sensitive by default** - matches against original error message case (src/cook/retry_v2.rs:142-148)
+  - Use regex flag `(?i)` for case-insensitive pattern matching
+  - Example: `pattern: '(?i)database locked'` matches "Database Locked", "DATABASE LOCKED", etc.
 
 ### Available Error Matchers
 
@@ -101,16 +105,24 @@ Match specific error messages using regex patterns:
 retry_config:
   attempts: 3
   retry_on:
-    - pattern: "database locked"
-    - pattern: "temporary failure"
-    - pattern: "ECONNRESET"
+    - pattern: "(?i)database locked"    # Case-insensitive: matches any case
+    - pattern: "SQLITE_BUSY"            # Case-sensitive: exact match only
+    - pattern: "(?i)temporary failure"  # Case-insensitive
 ```
 
-**Pattern Syntax**: Regex patterns matched against error message (case-insensitive)
+**Pattern Syntax**:
+- Regex patterns matched against original error message (case-sensitive by default)
+- Use `(?i)` flag at start of pattern for case-insensitive matching
+- Invalid regex patterns return false (no match)
 
-**Source**: `src/cook/retry_v2.rs:113` (Pattern variant)
+**Source**: `src/cook/retry_v2.rs:142-148` (Pattern variant implementation)
 
 **Use Case**: Matching application-specific error messages or database-specific errors.
+
+**Case Sensitivity Examples**:
+- `pattern: "SQLITE_BUSY"` - Only matches "SQLITE_BUSY" (not "sqlite_busy")
+- `pattern: "(?i)SQLITE_BUSY"` - Matches "SQLITE_BUSY", "sqlite_busy", "Sqlite_Busy", etc.
+- `pattern: "(?i)database.*locked"` - Case-insensitive regex with wildcards
 
 ### Combining Multiple Matchers
 
@@ -171,6 +183,44 @@ commands:
 - If curl fails with "404 Not Found" → **Fail immediately** (no retry)
 - If curl fails with "401 Unauthorized" → **Fail immediately** (no retry)
 
+### Regex Pattern Syntax and Case Sensitivity
+
+Understanding case sensitivity is critical when using Pattern matchers:
+
+| Matcher Type | Case Sensitivity | Normalization |
+|-------------|------------------|---------------|
+| Network | Case-insensitive | Error converted to lowercase |
+| Timeout | Case-insensitive | Error converted to lowercase |
+| ServerError | Case-insensitive | Error converted to lowercase |
+| RateLimit | Case-insensitive | Error converted to lowercase |
+| Pattern | **Case-sensitive by default** | No normalization (original case) |
+
+**Making Pattern Matching Case-Insensitive**:
+
+Use the `(?i)` flag at the start of your regex pattern:
+
+```yaml
+retry_on:
+  # Case-insensitive patterns (recommended)
+  - pattern: "(?i)connection refused"  # Matches any case variation
+  - pattern: "(?i)database.*locked"    # Case-insensitive with wildcards
+
+  # Case-sensitive patterns (use with caution)
+  - pattern: "SQLITE_BUSY"             # Only matches exact case
+  - pattern: "ERROR: Authentication"   # Must match exact case
+```
+
+**Invalid Regex Handling**:
+
+If a pattern contains invalid regex syntax, it returns `false` (no match):
+
+```yaml
+retry_on:
+  - pattern: "[invalid(regex"  # Invalid syntax → returns false → no retry
+```
+
+**Source**: src/cook/retry_v2.rs:142-148
+
 ### Advanced Pattern Matching
 
 Use regex patterns for precise error matching:
@@ -179,28 +229,33 @@ Use regex patterns for precise error matching:
 retry_config:
   attempts: 3
   retry_on:
-    - pattern: "SQLite.*database is locked"
+    # Case-insensitive patterns (recommended for flexible matching)
+    - pattern: "(?i)SQLite.*database is locked"
+    - pattern: "(?i)deadlock detected"
+
+    # Case-sensitive pattern (exact match required)
     - pattern: "SQLITE_BUSY"
-    - pattern: "deadlock detected"
 ```
 
-**Pattern Matching** (src/cook/retry_v2.rs:128-149):
-1. Error message is converted to lowercase
-2. Each matcher's `matches()` method is called
-3. For `Pattern` variant, regex is applied (case-insensitive)
-4. If any matcher returns true, error is retryable
+**Pattern Matching Logic** (src/cook/retry_v2.rs:116-150):
+1. Each matcher's `matches()` method is called with the error message
+2. Built-in matchers normalize error to lowercase before checking
+3. Pattern matcher applies regex to **original case** of error message
+4. Invalid regex patterns return false (no match, no retry)
+5. If any matcher returns true, error is retryable
 
 ### Implementation Details
 
 The matching logic is implemented in `ErrorMatcher::matches()`:
 
 ```rust
-// Simplified implementation (src/cook/retry_v2.rs:128-149)
+// Simplified implementation (src/cook/retry_v2.rs:116-150)
 impl ErrorMatcher {
-    pub fn matches(&self, error: &str) -> bool {
-        let error_lower = error.to_lowercase();
+    pub fn matches(&self, error_msg: &str) -> bool {
+        let error_lower = error_msg.to_lowercase();
         match self {
             Self::Network => {
+                // Case-insensitive matching via lowercase normalization
                 error_lower.contains("network")
                     || error_lower.contains("connection")
                     || error_lower.contains("refused")
@@ -222,8 +277,13 @@ impl ErrorMatcher {
                     || error_lower.contains("too many requests")
             }
             Self::Pattern(pattern) => {
-                // Regex matching (case-insensitive)
-                Regex::new(pattern).map(|re| re.is_match(&error_lower)).unwrap_or(false)
+                // Case-sensitive by default - matches against original error_msg
+                // Use (?i) flag in pattern for case-insensitive matching
+                if let Ok(re) = regex::Regex::new(pattern) {
+                    re.is_match(error_msg)  // Uses original case, not error_lower
+                } else {
+                    false  // Invalid regex = no match
+                }
             }
         }
     }
@@ -232,7 +292,7 @@ impl ErrorMatcher {
 
 ### Testing Error Matchers
 
-The retry_v2 module includes comprehensive tests for error matching (src/cook/retry_v2.rs:463-748):
+The retry_v2 module includes tests for built-in matchers (src/cook/retry_v2.rs:463-502):
 
 ```rust
 #[test]
@@ -240,8 +300,29 @@ fn test_error_matcher_network() {
     let matcher = ErrorMatcher::Network;
     assert!(matcher.matches("Connection refused"));
     assert!(matcher.matches("Network unreachable"));
+    assert!(matcher.matches("connection timeout"));  // Case-insensitive
+    assert!(!matcher.matches("Syntax error"));
+}
+
+#[test]
+fn test_error_matcher_timeout() {
+    let matcher = ErrorMatcher::Timeout;
+    assert!(matcher.matches("Operation timeout"));
+    assert!(matcher.matches("Request timed out"));
+    assert!(!matcher.matches("Network error"));
+}
+
+#[test]
+fn test_error_matcher_rate_limit() {
+    let matcher = ErrorMatcher::RateLimit;
+    assert!(matcher.matches("Rate limit exceeded"));
+    assert!(matcher.matches("Error 429"));
+    assert!(matcher.matches("Too many requests"));
+    assert!(!matcher.matches("Server error"));
 }
 ```
+
+**Note**: Pattern matcher tests are not yet implemented in the test suite. The above tests cover Network, Timeout, and RateLimit matchers only.
 
 ### See Also
 
