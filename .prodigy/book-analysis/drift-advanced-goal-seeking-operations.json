@@ -1,0 +1,94 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "advanced",
+  "subsection_id": "goal-seeking-operations",
+  "subsection_title": "Goal-Seeking Operations",
+  "subsection_file": "book/src/advanced/goal-seeking-operations.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is well-structured and covers the core concepts, but has some inaccuracies in examples and missing information about validation output parsing and convergence detection. The validation integration section could be more accurate.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Validation Integration",
+      "description": "Documentation states 'The validation command should output JSON with a `completion_percentage` field' but the implementation actually looks for a 'score' field, not 'completion_percentage'",
+      "current_content": "The validation command should output JSON with a `completion_percentage` field, or Prodigy will parse the output to determine progress.",
+      "should_be": "The validation command should output JSON with a 'score' field (0-100), or Prodigy will parse the output to extract a numeric score using patterns like 'score: 85', '85%', '85/100', or '85 out of 100'.",
+      "fix_suggestion": "Update the validation integration section to accurately reflect the actual validation output format. Mention both JSON format with 'score' field and fallback pattern matching.",
+      "source_reference": "src/cook/goal_seek/validator.rs:65-96 (parse_structured_validation method)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Advanced Goal Seek Configuration / Progressive Refinement",
+      "description": "Documentation doesn't explain the automatic convergence detection feature that stops iterations when no improvement is detected",
+      "fix_suggestion": "Add a subsection explaining that goal-seeking automatically detects convergence (no improvement in last 3 attempts with scores within 2 points) and stops early to prevent wasted iterations. This is a valuable feature for users to understand.",
+      "source_reference": "src/cook/goal_seek/engine.rs:102-109 (convergence detection), engine.rs:179-197 (is_converged method)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Advanced Goal Seek Configuration",
+      "description": "Missing information about validation context environment variables that are available to refinement commands",
+      "fix_suggestion": "Document that refinement commands (after the first attempt) receive validation context via environment variables: PRODIGY_VALIDATION_SCORE (previous score), PRODIGY_VALIDATION_OUTPUT (previous validation output), and PRODIGY_VALIDATION_GAPS (gaps array from JSON validation if available). This helps Claude/shell commands improve based on previous feedback.",
+      "source_reference": "src/cook/goal_seek/engine.rs:128-153 (execute_command_with_context method)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Validation Integration",
+      "description": "Missing examples of JSON validation output format with gaps field",
+      "fix_suggestion": "Add an example showing how to return structured JSON validation with both score and gaps fields, which enables better feedback for iterative refinement.",
+      "source_reference": "src/cook/goal_seek/validator.rs:69-82 (JSON parsing with gaps field)"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "Error Handling",
+      "description": "The error handling example uses 'when' condition checking '${shell.exit_code != 0}', but goal_seek operations don't set shell.exit_code - they return GoalSeekResult variants",
+      "current_content": "# Handle incomplete goal\n- shell: \"echo 'Some tests still failing, proceeding anyway'\"\n  when: \"${shell.exit_code != 0}\"",
+      "should_be": "The example should check if the previous goal-seek failed based on its result, not using shell.exit_code which is not set by goal_seek operations.",
+      "fix_suggestion": "Either remove this example or provide a more accurate way to handle goal-seek failures. Goal-seek operations with fail_on_incomplete: false will continue to the next step regardless of result.",
+      "source_reference": "src/cook/goal_seek/mod.rs:44-76 (GoalSeekResult enum variants)"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Basic Goal Seek",
+      "description": "The basic examples show 'validate: \"cargo test\"' and 'validate: \"quality-check.sh\"' but don't explain that these commands must output a score in a parseable format",
+      "fix_suggestion": "Clarify in the basic examples that validation commands must output 'score: N' format or be wrapped in a script that extracts and formats the score. Reference the validation output format section.",
+      "source_reference": "src/cook/goal_seek/validator.rs:37-62 (extract_score_from_output method)"
+    }
+  ],
+  "positive_aspects": [
+    "Clear progression from basic to advanced configurations",
+    "Good variety of real-world use cases (test coverage, performance, quality)",
+    "Excellent best practices section with practical advice",
+    "Progressive refinement pattern well-explained with multi-stage example",
+    "Error handling section shows how to handle incomplete goals gracefully",
+    "Configuration fields are well-documented with clear descriptions"
+  ],
+  "improvement_suggestions": [
+    "Add a troubleshooting subsection covering common issues (validation command not returning score, convergence happening too early, timeout vs max_attempts)",
+    "Include a section on writing effective validation commands that return clear, actionable feedback",
+    "Explain the difference between timeout_seconds (per-operation) and max_attempts (iteration limit)",
+    "Add visual flowchart or diagram showing the goal-seeking iteration loop",
+    "Mention that validation commands should be fast and deterministic for best results",
+    "Add cross-reference to validation chapter for more details on validation configuration"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Goal-Seeking Operations",
+      "Basic Goal Seek",
+      "Advanced Goal Seek Configuration",
+      "Validation Integration",
+      "Progressive Refinement"
+    ],
+    "validation_focus": "Check goal-seeking operations documentation matches implementation"
+  }
+}
