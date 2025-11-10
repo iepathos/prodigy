@@ -4,60 +4,133 @@
   "subsection_id": "environment-variables-in-configuration",
   "subsection_title": "Environment Variables in Configuration",
   "subsection_file": "book/src/mapreduce/environment-variables-in-configuration.md",
-  "feature_mappings": [
-    "environment.mapreduce",
-    "environment.variables"
-  ],
-  "drift_detected": false,
-  "severity": "low",
-  "quality_assessment": "Excellent documentation that accurately reflects the implementation. The subsection comprehensively covers all four types of environment configuration (env, secrets, env_files, profiles), demonstrates proper variable interpolation syntax, and provides complete working examples. The documentation matches the source code structures in src/config/mapreduce.rs and src/cook/environment/config.rs exactly.",
+  "feature_mappings": ["environment.global_env", "environment.secrets", "environment.profiles", "environment.env_files", "environment.step_env"],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good overall coverage with accurate examples, but broken cross-references need fixing and some terminology clarification needed",
   "issues": [
+    {
+      "type": "broken_links",
+      "severity": "high",
+      "section": "Cross-References",
+      "description": "All 4 cross-reference links point to non-existent files",
+      "broken_links": [
+        {
+          "link_text": "Variables Chapter",
+          "link_target": "./variables.md",
+          "expected_file": "book/src/mapreduce/variables.md",
+          "actual_location": "../variables/index.md",
+          "fix": "Change to ../variables/index.md"
+        },
+        {
+          "link_text": "Setup Phase",
+          "link_target": "./setup-phase.md",
+          "expected_file": "book/src/mapreduce/setup-phase.md",
+          "actual_location": "./setup-phase-advanced.md",
+          "fix": "Change to ./setup-phase-advanced.md"
+        },
+        {
+          "link_text": "Map Phase Configuration",
+          "link_target": "./map-phase-configuration.md",
+          "expected_file": "book/src/mapreduce/map-phase-configuration.md",
+          "actual_location": "Not found - may be in index.md",
+          "fix": "Either create dedicated subsection or link to ./index.md#map-phase or remove this link"
+        },
+        {
+          "link_text": "Reduce Phase",
+          "link_target": "./reduce-phase.md",
+          "expected_file": "book/src/mapreduce/reduce-phase.md",
+          "actual_location": "Not found - may be in index.md",
+          "fix": "Either create dedicated subsection or link to ./index.md#reduce-phase or remove this link"
+        }
+      ],
+      "fix_suggestion": "Update cross-reference section to link to actual file locations. Consider whether map/reduce phase configuration warrants dedicated subsections or if they should be covered in index.md.",
+      "validation_required": true
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Configuration Fields - Secrets",
+      "description": "Documentation shows secret provider syntax that may not be fully implemented",
+      "current_content": "secrets:\n  DB_PASSWORD:\n    provider: vault\n    key: \"database/prod/password\"\n    version: \"v2\"",
+      "should_be": "Verify if provider-based secrets are implemented. Features.json says 'providers: Support for secret providers (planned)'",
+      "fix_suggestion": "Either mark provider-based secrets as 'planned/future' or verify implementation exists. Current simple format (${env:VAR}) appears to be the working syntax.",
+      "source_reference": "features.json:environment.secrets.providers"
+    },
+    {
+      "type": "inconsistent_terminology",
+      "severity": "low",
+      "section": "Configuration Fields - Secrets vs Basic Environment",
+      "description": "The distinction between 'env' block and 'secrets' block may confuse users",
+      "current_content": "Documentation shows both 'env' and 'secrets' as separate top-level blocks",
+      "should_be": "Clarify that secrets use special syntax within env block based on actual implementation",
+      "fix_suggestion": "Review actual workflow configuration structure in code. Based on features.json, secrets appear to be marked within the env structure with secret: true flag, not necessarily a separate top-level block.",
+      "source_reference": "features.json:environment.secrets.structure - 'SecretValue type with value and secret flag'"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Variable Interpolation",
+      "description": "Missing explanation of interpolation in env values themselves",
+      "feature_reference": "environment.global_env.interpolation",
+      "fix_suggestion": "Add example showing how env values can reference other env variables or system environment variables. Example: API_URL: \"${BASE_URL}/api/v1\"",
+      "source_reference": "features.json:environment.global_env.interpolation"
+    },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Complete Example",
-      "description": "Example shows setup phase with timeout field at line 128, but the timeout syntax is inconsistent with the WorkflowStep structure",
-      "current_content": "setup:\n  timeout: \"300\"\n  - shell: \"echo Processing $PROJECT_NAME v$VERSION\"",
-      "should_be": "setup:\n  timeout: \"300\"\n  commands:\n    - shell: \"echo Processing $PROJECT_NAME v$VERSION\"",
-      "fix_suggestion": "The simplified setup syntax (direct array) should not include timeout at the same level as commands. Either use the full config format with 'commands:' key, or move timeout inside the setup config block.",
-      "source_reference": "src/config/mapreduce.rs:136-158 (SetupPhaseConfig)"
+      "section": "Running with Different Configurations",
+      "description": "Example shows command-line env override but doesn't explain precedence clearly",
+      "current_content": "MAX_WORKERS=10 prodigy run workflow.yml --profile prod",
+      "should_be": "Explain that command-line env vars override profile values",
+      "fix_suggestion": "Add note about precedence: 'Command-line environment variables override profile settings, which override the base env block.'",
+      "source_reference": "features.json:environment.step_env.precedence"
     }
   ],
   "positive_aspects": [
-    "Clear and comprehensive coverage of all four environment configuration types",
-    "Excellent examples demonstrating each configuration type",
-    "Accurate documentation of secret providers (env, file, vault, aws)",
-    "Correct variable interpolation syntax ($VAR and ${VAR})",
-    "Proper explanation of environment variable precedence and inheritance",
-    "Good security best practices section",
-    "Helpful cross-references to related subsections",
-    "Step-level environment overrides correctly documented with env field",
-    "Profiles activation with --profile flag accurately documented",
-    "Running examples show realistic usage patterns"
+    "Clear structure with all four configuration types explained",
+    "Excellent complete example showing all features together",
+    "Good best practices section covering security and organizational concerns",
+    "Accurate representation of secret masking behavior",
+    "Practical running examples for different scenarios",
+    "Step-level environment override section is accurate"
   ],
   "improvement_suggestions": [
-    "Fix the setup timeout syntax inconsistency in the complete example",
-    "Consider adding a troubleshooting section for common environment variable issues",
-    "Could add an example showing environment variable resolution order (env files -> env -> profiles -> step-level)",
-    "Might benefit from showing how secrets are masked in actual log output"
+    "Fix all cross-reference links to point to actual files",
+    "Clarify whether provider-based secrets are implemented or planned",
+    "Consider adding a visual diagram showing environment precedence hierarchy",
+    "Add troubleshooting section for common environment variable issues",
+    "Include example of using environment variables in max_parallel field",
+    "Show how to verify which environment values are active (debugging aid)",
+    "Link to the main Environment Configuration chapter for more comprehensive coverage"
   ],
   "cross_references": [
-    "variables",
-    "setup-phase",
-    "map-phase-configuration",
-    "reduce-phase"
+    "../variables/index.md",
+    "./setup-phase-advanced.md",
+    "./index.md",
+    "../environment/index.md",
+    "../environment/mapreduce-environment-variables.md",
+    "../environment/secrets-management.md",
+    "../environment/environment-profiles.md"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-09T23:43:36Z",
+    "analyzed_at": "2025-01-11T00:00:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "environment variables",
-      "secrets",
+      "secrets management",
       "profiles",
-      "configuration",
       "env_files",
+      "step-level overrides",
       "variable interpolation"
     ],
-    "validation_focus": "Check environment variable configuration in MapReduce workflows"
+    "validation_focus": "Check environment variable configuration in MapReduce workflows",
+    "features_analyzed": {
+      "global_env": "Covered with static, dynamic, and interpolation aspects",
+      "secrets": "Covered with caveats about provider implementation status",
+      "profiles": "Well documented with activation examples",
+      "env_files": "Documented with precedence rules",
+      "step_env": "Documented with precedence and isolation"
+    }
   }
 }
