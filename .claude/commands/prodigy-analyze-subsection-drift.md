@@ -138,7 +138,45 @@ If analyzing a single-file chapter or multi-subsection index:
 - No example provided for complex feature
 - Use cases not clear
 
-#### Missing Best Practices (Low Severity):
+#### Missing Best Practices (Low Severity - CONTEXT-AWARE):
+
+**IMPORTANT: Only flag this for appropriate document types.**
+
+**DO NOT flag "Missing Best Practices" for:**
+- Technical reference pages documenting syntax or configuration options
+- Individual subsections within chapters (non-index.md files)
+- Pages that document specific implementation details
+- Files in chapters that already have a dedicated best-practices.md file
+- Files that are themselves subsections (check if parent directory has index.md)
+
+**DO flag "Missing Best Practices" for:**
+- Chapter-level index.md files without any best practices content
+- Standalone guide pages at the book root level
+- Tutorial or conceptual chapters without practical guidance
+
+**Detection Logic:**
+```bash
+# Determine if this file should have best practices
+SHOULD_HAVE_BEST_PRACTICES=false
+
+# Check if this is a chapter index file
+if [[ "$ITEM_FILE" == */index.md ]]; then
+  SHOULD_HAVE_BEST_PRACTICES=true
+fi
+
+# Check if chapter already has dedicated best-practices.md
+CHAPTER_DIR=$(dirname "$ITEM_FILE")
+if [ -f "$CHAPTER_DIR/best-practices.md" ]; then
+  SHOULD_HAVE_BEST_PRACTICES=false
+fi
+
+# Skip for subsections (files in directories with index.md)
+if [[ "$ITEM_FILE" != */index.md ]] && [ -f "$CHAPTER_DIR/index.md" ]; then
+  SHOULD_HAVE_BEST_PRACTICES=false
+fi
+```
+
+**Only flag if SHOULD_HAVE_BEST_PRACTICES=true AND:**
 - Common pattern not documented
 - Gotcha not mentioned
 - Optimization tip missing

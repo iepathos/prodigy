@@ -80,10 +80,10 @@ Extract chapter metadata:
 
 #### Step 2: Load Available Templates
 
-Read all templates from `.prodigy/book-templates/`:
+Read all templates from `workflows/data/book-templates/`:
 
 ```bash
-TEMPLATE_DIR=".prodigy/book-templates"
+TEMPLATE_DIR="workflows/data/book-templates"
 if [ ! -d "$TEMPLATE_DIR" ]; then
     echo "Warning: Template directory not found: $TEMPLATE_DIR"
     echo "Using structural organization instead"

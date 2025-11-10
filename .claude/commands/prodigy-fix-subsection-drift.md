@@ -28,6 +28,56 @@ You are fixing documentation drift for either a full chapter or a single subsect
 - Maintain subsection scope and focus
 - Don't accidentally modify sibling subsections
 
+### Phase 1.5: Anti-Pattern Prevention (CRITICAL)
+
+**DO NOT add these sections unless explicitly appropriate:**
+
+1. **"Best Practices" sections** - Only add to:
+   - Chapter-level index.md files
+   - Standalone guide pages at book root
+   - NOT to technical reference pages, syntax documentation, or subsections
+
+2. **"See Also" sections** - Only add when:
+   - There's a specific prerequisite relationship
+   - There's a non-obvious connection between topics
+   - NOT a generic list of all other chapter subsections
+   - NOT circular references (subsection A → subsection B → subsection A)
+
+3. **"Troubleshooting" sections** - Only add to:
+   - Complex features with common pitfalls
+   - Chapter-level troubleshooting.md files
+   - NOT to simple syntax reference pages
+   - NOT to files documenting straightforward configuration options
+
+4. **"Next Steps" / "Related Topics" / "Further Reading"** - Consolidate into:
+   - A single section in chapter index.md
+   - NOT separate stub files (<100 lines)
+   - NOT repeated in every subsection
+
+**Detection Logic:**
+```bash
+# Check document type
+IS_INDEX_FILE=false
+IS_SUBSECTION=false
+IS_REFERENCE_PAGE=false
+
+if [[ "$ITEM_FILE" == */index.md ]]; then
+  IS_INDEX_FILE=true
+elif [[ "$ITEM_FILE" == */* ]] && [ -f "$(dirname "$ITEM_FILE")/index.md" ]; then
+  IS_SUBSECTION=true
+fi
+
+# Detect reference pages (syntax, configuration, API docs)
+if grep -qi "syntax\|configuration\|reference\|api" "$ITEM_FILE" | head -1; then
+  IS_REFERENCE_PAGE=true
+fi
+```
+
+**Before adding any meta-section:**
+- Check if chapter already has dedicated file (best-practices.md, troubleshooting.md)
+- Verify file is appropriate type (index vs subsection vs reference)
+- Ensure content adds value, not just boilerplate
+
 ### Phase 2: Parse Input and Load Drift Report
 
 **Extract Parameters:**
