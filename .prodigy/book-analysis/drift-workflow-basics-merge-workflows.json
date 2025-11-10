@@ -1,0 +1,102 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "workflow-basics",
+  "subsection_id": "merge-workflows",
+  "subsection_title": "Merge Workflows",
+  "subsection_file": "book/src/workflow-basics/merge-workflows.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Subsection has good structure and clear examples, but contains incorrect YAML syntax in the main example and is missing the required second parameter for the Claude merge command. The documentation also lacks explanation of the two supported configuration formats and streaming output control.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Merge Workflow Configuration",
+      "description": "Documentation shows incorrect YAML syntax mixing direct array commands with timeout field. The actual implementation supports two distinct formats: (1) Direct array of commands (simplified format), or (2) Config object with 'commands' array and optional 'timeout' field.",
+      "current_content": "merge:\n  - shell: \"git fetch origin\"\n  - shell: \"git merge origin/main\"\n  - shell: \"cargo test\"\n  - claude: \"/prodigy-merge-worktree ${merge.source_branch}\"\n  timeout: 600  # Optional: timeout for entire merge phase (seconds)",
+      "should_be": "merge:\n  commands:\n    - shell: \"git fetch origin\"\n    - shell: \"git merge origin/main\"\n    - shell: \"cargo test\"\n    - claude: \"/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}\"\n  timeout: 600  # Optional: timeout for entire merge phase (seconds)",
+      "fix_suggestion": "Update example to use correct config object syntax with 'commands' field. Show both formats: simplified (direct array without timeout) and full config (with commands and timeout fields).",
+      "source_reference": "src/config/mapreduce.rs:84-124"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Claude Command Example",
+      "description": "Example shows '/prodigy-merge-worktree ${merge.source_branch}' with only one parameter, but the command requires BOTH source_branch AND target_branch to ensure merge targets the correct original branch (not hardcoded main/master).",
+      "current_content": "claude: \"/prodigy-merge-worktree ${merge.source_branch}\"",
+      "should_be": "claude: \"/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}\"",
+      "fix_suggestion": "Add second parameter ${merge.target_branch} to all /prodigy-merge-worktree examples. Include explanatory note: 'Important: Always pass both ${merge.source_branch} and ${merge.target_branch} to the /prodigy-merge-worktree command. This ensures the merge targets the branch you were on when you started the workflow, not a hardcoded main/master branch.'",
+      "source_reference": "CLAUDE.md lines 81-93, src/worktree/merge_orchestrator.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Configuration Formats",
+      "description": "Documentation doesn't explain that merge workflows support two different configuration formats with different use cases.",
+      "fix_suggestion": "Add subsection 'Configuration Formats' explaining: (1) Simplified format (direct array of commands, no timeout support), (2) Full format (config object with commands array and optional timeout field). Include examples of both.",
+      "source_reference": "src/config/mapreduce.rs:96-123"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Claude Streaming Output",
+      "description": "Documentation doesn't mention that Claude commands in merge workflows support streaming output control for better visibility into merge operations.",
+      "fix_suggestion": "Add section 'Claude Merge Streaming' after variable reference: 'Claude commands in merge workflows respect verbosity settings:\n- Use -v flag for real-time streaming output\n- Set PRODIGY_CLAUDE_CONSOLE_OUTPUT=true to force streaming regardless of verbosity\n- Default behavior shows clean minimal output\n\nThis provides full visibility into Claude's merge operations and tool invocations.'",
+      "source_reference": "src/worktree/merge_orchestrator.rs:521-534, 690-703"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Available merge variables",
+      "description": "Variable list is provided but lacks context about when they're available and how interpolation works.",
+      "fix_suggestion": "Add context before variable list: 'The following variables are available exclusively within merge workflow commands. Variable interpolation happens before command execution, and these variables are NOT available in setup/map/reduce phases.'",
+      "source_reference": "src/worktree/merge_orchestrator.rs:470-500"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Environment Variables",
+      "description": "Documentation doesn't mention that merge workflows have access to workflow environment variables for parameterization.",
+      "fix_suggestion": "Add note after variable reference: 'Merge workflows also have access to all workflow environment variables defined in the env block, including profile-specific values and secrets.'",
+      "source_reference": "src/worktree/merge_orchestrator.rs:53"
+    },
+    {
+      "type": "missing_best_practice",
+      "severity": "low",
+      "section": "Best Practices",
+      "description": "Missing guidance on common patterns and best practices for merge workflows.",
+      "fix_suggestion": "Add 'Best Practices' section: (1) Always pass both ${merge.source_branch} and ${merge.target_branch} to /prodigy-merge-worktree, (2) Run tests before final merge to catch integration issues, (3) Use git fetch to sync with upstream changes before merging, (4) Consider adding conflict resolution commands for complex merges, (5) Use timeout field for long-running merge operations.",
+      "source_reference": "tests/merge_workflow_integration.rs"
+    }
+  ],
+  "positive_aspects": [
+    "Clear introduction explaining the purpose and benefits of merge workflows",
+    "Good use case examples (tests, validation, conflict resolution, upstream sync)",
+    "Concise variable reference list with clear naming",
+    "Clean YAML example showing the basic structure",
+    "Helpful comment indicating timeout is optional"
+  ],
+  "improvement_suggestions": [
+    "Show both configuration formats (simplified array vs full config) with examples",
+    "Add cross-reference to Environment Variables section for advanced parameterization",
+    "Include example of merge workflow with conflict resolution steps",
+    "Add troubleshooting section for common merge workflow issues",
+    "Consider adding diagram showing merge workflow execution flow"
+  ],
+  "cross_references": [
+    "environment-variables",
+    "command-types"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:42:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Merge Workflows",
+      "Custom Merge Configuration",
+      "Merge Variables",
+      "Worktree Integration"
+    ],
+    "validation_focus": "Check merge workflows documentation matches implementation"
+  }
+}
