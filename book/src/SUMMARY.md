@@ -60,8 +60,6 @@
   - [Implementation Validation](advanced/implementation-validation.md)
   - [Parallel Iteration with Foreach](advanced/parallel-iteration-with-foreach.md)
   - [Goal-Seeking Operations](advanced/goal-seeking-operations.md)
-  - [Best Practices](advanced/best-practices.md)
-  - [Common Patterns](advanced/common-patterns.md)
 - [Advanced Git Context](git-context-advanced.md)
 - [Workflow Composition](composition/index.md)
   - [Workflow Extension (Inheritance)](composition/workflow-extension-inheritance.md)

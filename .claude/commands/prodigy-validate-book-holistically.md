@@ -329,6 +329,62 @@ done
 }
 ```
 
+#### Anti-Pattern 7: Meta-Sections in Feature Chapters
+
+**Issue**: "Best Practices" or "Common Patterns" files appear as subsections within feature-focused chapters (like "Advanced Features").
+
+**Why This Is Wrong:**
+- Feature chapters should only contain features/capabilities, not meta-guidance
+- "Best Practices" and "Common Patterns" are general workflow advice, not specific features
+- This mixes "what" (features) with "how to use well" (guidance) at the wrong level
+- Appropriate locations: chapter-level dedicated files for unified topics (environment, retry-configuration) or root-level guides
+
+**Detection Logic:**
+```bash
+# Check SUMMARY.md for meta-sections under feature chapters
+grep -A 20 "Advanced Features\|Advanced Topics" "$BOOK_DIR/SUMMARY.md" | while IFS= read -r LINE; do
+  # Check if line is a meta-section under feature chapter
+  if echo "$LINE" | grep -qi "\- \[Best Practices\]\|\- \[Common Patterns\]"; then
+    # Extract file path
+    FILE=$(echo "$LINE" | grep -oP '\[.*?\]\(\K[^\)]+')
+
+    # Verify it's under a feature-focused chapter (not environment, retry-configuration, etc.)
+    if [[ "$FILE" =~ ^advanced/ ]]; then
+      echo "META_IN_FEATURES: $FILE is meta-section under feature chapter"
+    fi
+  fi
+done
+```
+
+**Report Format:**
+```json
+{
+  "type": "meta_sections_in_feature_chapters",
+  "severity": "medium",
+  "files": [
+    {
+      "file": "advanced/best-practices.md",
+      "parent_chapter": "Advanced Features",
+      "meta_type": "Best Practices",
+      "recommendation": "Remove - general workflow guidance doesn't belong in feature chapter"
+    },
+    {
+      "file": "advanced/common-patterns.md",
+      "parent_chapter": "Advanced Features",
+      "meta_type": "Common Patterns",
+      "recommendation": "Remove - patterns should be in workflow-basics or distributed to relevant chapters"
+    }
+  ]
+}
+```
+
+**Appropriate Locations for Meta-Sections:**
+- `environment/best-practices.md` ✅ - Specific to environment configuration
+- `retry-configuration/best-practices.md` ✅ - Specific to retry strategies
+- `composition/best-practices.md` ✅ - Specific to workflow composition
+- `advanced/best-practices.md` ❌ - Too general, mixed features
+- `workflow-basics.md` ✅ - Root-level guide can have general best practices
+
 ### Phase 5: Generate Holistic Validation Report
 
 **Compile All Findings:**
@@ -346,7 +402,8 @@ done
     {/* Anti-Pattern 3 findings */},
     {/* Anti-Pattern 4 findings */},
     {/* Anti-Pattern 5 findings */},
-    {/* Anti-Pattern 6 findings */}
+    {/* Anti-Pattern 6 findings */},
+    {/* Anti-Pattern 7 findings */}
   ],
   "summary": {
     "redundant_best_practices": 6,
@@ -354,13 +411,15 @@ done
     "circular_see_also": 12,
     "generic_see_also": 30,
     "over_fragmented_chapters": 3,
-    "stub_navigation_files": 8
+    "stub_navigation_files": 8,
+    "meta_sections_in_feature_chapters": 2
   },
   "recommendations": [
     "Remove 6 redundant Best Practices sections",
     "Remove 6 Best Practices sections from technical reference pages",
     "Consolidate 3 over-fragmented chapters",
-    "Merge 8 stub navigation files into chapter indexes"
+    "Merge 8 stub navigation files into chapter indexes",
+    "Remove 2 meta-sections from feature chapters"
   ]
 }
 ```
@@ -455,6 +514,29 @@ jq -r '.issues[] | select(.type == "stub_navigation_file") | .files[] | .file' "
   rm "$BOOK_DIR/src/SUMMARY.md.tmp" 2>/dev/null || true
 
   echo "  ✓ Consolidated $STUB_FILE into index.md"
+done
+```
+
+#### Fix 4: Remove Meta-Sections from Feature Chapters
+
+```bash
+# For each meta-section in feature chapters
+jq -r '.issues[] | select(.type == "meta_sections_in_feature_chapters") | .files[] | .file' "$OUTPUT" | while read -r META_FILE; do
+  META_PATH="$BOOK_DIR/src/$META_FILE"
+  META_BASENAME=$(basename "$META_FILE")
+
+  # Remove the file
+  if [ -f "$META_PATH" ]; then
+    rm "$META_PATH"
+    echo "  ✓ Removed meta-section $META_FILE from feature chapter"
+  fi
+
+  # Remove from SUMMARY.md
+  # Match lines like "  - [Best Practices](advanced/best-practices.md)"
+  sed -i.tmp "/\[.*\]($META_FILE)/d" "$BOOK_DIR/src/SUMMARY.md"
+  rm "$BOOK_DIR/src/SUMMARY.md.tmp" 2>/dev/null || true
+
+  echo "  ✓ Updated SUMMARY.md to remove $META_BASENAME"
 done
 ```
 
