@@ -1,0 +1,81 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "workflow-basics",
+  "subsection_id": "complete-example",
+  "subsection_title": "Complete Example",
+  "subsection_file": "book/src/workflow-basics/complete-example.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "The example shows some correct syntax but has a critical error in the merge workflow and doesn't accurately reflect the actual format accepted by Prodigy. The merge command is missing a required parameter.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Custom merge workflow",
+      "description": "The merge workflow example is missing the required ${merge.target_branch} parameter in the /prodigy-merge-worktree command",
+      "current_content": "- claude: \"/prodigy-merge-worktree ${merge.source_branch}\"",
+      "should_be": "- claude: \"/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}\"",
+      "fix_suggestion": "Update the merge command to include both source and target branch parameters. This is critical according to CLAUDE.md which states: 'Always pass both ${merge.source_branch} and ${merge.target_branch} to the /prodigy-merge-worktree command.'",
+      "source_reference": "workflows/implement.yml:40, CLAUDE.md merge workflow documentation"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Environment configuration",
+      "description": "The env_files feature is shown but not explained. Users need to understand that this loads .env files in dotenv format.",
+      "fix_suggestion": "Add a comment explaining that env_files loads environment variables from .env files in dotenv format",
+      "source_reference": "src/config/workflow.rs:27-29, features.json environment.global_env"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Complete Example",
+      "description": "The example doesn't show the simple array format for workflows, which is a common and valid format",
+      "fix_suggestion": "Consider showing or mentioning that workflows can also be defined as a simple array of commands without the full configuration object",
+      "source_reference": "src/config/workflow.rs:40-73 (Deserialize implementation), features.json workflow_basics.structure"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Profiles",
+      "description": "The profiles section shows the syntax but doesn't explain how to activate a profile or what it does",
+      "fix_suggestion": "Add a brief comment explaining that profiles are activated via --profile flag (e.g., 'prodigy run workflow.yml --profile ci')",
+      "source_reference": "features.json environment.profiles"
+    },
+    {
+      "type": "missing_best_practice",
+      "severity": "low",
+      "section": "Merge workflow",
+      "description": "The merge workflow doesn't demonstrate testing or validation before merge, which is a best practice",
+      "fix_suggestion": "Consider adding a shell command that runs tests before the merge (e.g., 'cargo test') to demonstrate merge validation best practices",
+      "source_reference": "workflows/implement.yml:32-40 shows more complete merge workflow with validation"
+    }
+  ],
+  "positive_aspects": [
+    "Clear, concise example combining multiple features",
+    "Shows environment configuration with both env and profiles",
+    "Demonstrates the merge customization feature",
+    "Uses correct YAML syntax and structure",
+    "Good progression showing standard workflow commands before merge"
+  ],
+  "improvement_suggestions": [
+    "Add brief inline comments explaining what each section does",
+    "Fix the critical error in the merge workflow command",
+    "Show or mention activation of profiles (--profile flag)",
+    "Consider adding one example of error handling (on_failure) to show workflow robustness",
+    "Add a comment about env_files loading dotenv format files"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Complete Example",
+      "environment variables",
+      "profiles",
+      "merge workflows"
+    ],
+    "validation_focus": "Check complete example documentation matches implementation"
+  }
+}
