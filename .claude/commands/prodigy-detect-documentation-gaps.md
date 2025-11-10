@@ -349,7 +349,7 @@ Write the complete chapters JSON back to disk with proper formatting (if any gap
 **For New Chapters:**
 
 1. **Determine Stub Content:**
-   Generate markdown following this template structure:
+   Generate markdown following this minimal template structure:
 
 ```markdown
 # {Chapter Title}
@@ -368,36 +368,16 @@ Write the complete chapters JSON back to disk with proper formatting (if any gap
 # Example configuration
 ```
 
-## Use Cases
+## Usage
 
-### {Use Case 1 Name}
-
-{Description and example}
-
-## Examples
-
-### Basic Example
-
-```yaml
-# Example workflow
-```
-
-## Best Practices
-
-- {Best practice 1}
-- {Best practice 2}
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue**: {Common problem}
-**Solution**: {How to fix}
+{Basic usage examples}
 
 ## See Also
 
 - [Related documentation](link)
 ```
+
+**Note**: Do NOT include Prerequisites, Installation, Best Practices, or Troubleshooting sections in chapter stubs. These belong in dedicated files or the chapter index.md only
 
 2. **Customize Content for Feature:**
    - Use chapter title from definition
@@ -427,7 +407,7 @@ Write the complete chapters JSON back to disk with proper formatting (if any gap
 **For New Subsections:**
 
 1. **Determine Stub Content:**
-   Generate markdown following this subsection template:
+   Generate markdown following this minimal subsection template:
 
 ```markdown
 # {Subsection Title}
@@ -448,34 +428,14 @@ Write the complete chapters JSON back to disk with proper formatting (if any gap
 
 ## Usage
 
-### Basic Usage
-
-{Simple example demonstrating the core functionality}
-
-```yaml
-# Example
-```
-
-### Advanced Usage
-
-{More complex examples if applicable}
-
-## Best Practices
-
-- {Best practice 1}
-- {Best practice 2}
-- {Best practice 3}
-
-## Common Issues
-
-**Issue**: {Common problem specific to this subsection}
-**Solution**: {How to fix}
+{Simple examples demonstrating the core functionality}
 
 ## Related Subsections
 
-- [Related Subsection 1](../related-subsection.md)
-- [Related Subsection 2](../another-subsection.md)
+- [Related Subsection](../related-subsection.md)
 ```
+
+**Note**: Do NOT include Prerequisites, Installation, Best Practices, or Troubleshooting sections in subsection stubs. These belong in the parent chapter index.md or dedicated files
 
 2. **Customize Content for Subsection:**
    - Use subsection title from definition

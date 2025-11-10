@@ -10,6 +10,7 @@ Prodigy combines the power of Claude AI with workflow orchestration to:
 - **Process work in parallel** - MapReduce-style parallel execution across git worktrees
 - **Maintain quality** - Built-in validation, error handling, and retry mechanisms
 - **Track changes** - Full git integration with automatic commits and merge workflows
+- **Generate living documentation** - Keep docs synchronized with code automatically
 
 ## Quick Start
 
@@ -29,6 +30,14 @@ Run it:
 prodigy run workflow.yml
 ```
 
+## Documentation Features
+
+This book itself is maintained using Prodigy's automated documentation system! Learn how to set up automated, always-up-to-date documentation for your own project:
+
+- [Automated Documentation Overview](automated-documentation/index.md) - How it works
+- [Quick Start (15 minutes)](automated-documentation/quick-start.md) - Fast setup
+- [Tutorial (30 minutes)](automated-documentation/tutorial.md) - Comprehensive guide
+
 ## Key Concepts
 
 - **Workflows**: YAML files defining sequences of commands
@@ -39,6 +48,7 @@ prodigy run workflow.yml
 
 ## Next Steps
 
-- [Workflow Basics](workflow-basics.md) - Learn workflow fundamentals
+- [Workflow Basics](workflow-basics/index.md) - Learn workflow fundamentals
+- [MapReduce Workflows](mapreduce/index.md) - Parallel processing at scale
 - [Command Types](commands.md) - Explore available command types
 - [Examples](examples.md) - See real-world workflows

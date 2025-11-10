@@ -359,6 +359,5 @@ The validation system ensures:
 - [Understanding the Workflow](understanding-the-workflow.md) - Overview of documentation workflow phases
 - [Troubleshooting](troubleshooting.md) - Common issues and solutions
 - [Quick Start](quick-start.md) - Getting started with automated documentation
-- [Customization Examples](customization-examples.md) - Real-world configuration patterns
 - [Environment Variables](../configuration/environment-variables.md) - Detailed environment variable reference
 - [Configuration Precedence Rules](../configuration/configuration-precedence-rules.md) - How configuration values are resolved

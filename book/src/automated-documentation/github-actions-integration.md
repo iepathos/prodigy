@@ -473,5 +473,4 @@ Verify the condition matches exactly. Common mistakes:
 - [Quick Start](quick-start.md) - Get started with Prodigy's automated documentation
 - [Understanding the Workflow](understanding-the-workflow.md) - Deep dive into how the book workflow works
 - [Troubleshooting](troubleshooting.md) - General troubleshooting for documentation workflows
-- [Best Practices](best-practices.md) - Documentation best practices and conventions
 - [Real-World Example](real-world-example-prodigys-own-documentation.md) - See Prodigy's own documentation workflow in action

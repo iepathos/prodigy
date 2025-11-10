@@ -32,27 +32,57 @@ You are fixing documentation drift for either a full chapter or a single subsect
 
 **DO NOT add these sections unless explicitly appropriate:**
 
-1. **"Best Practices" sections** - Only add to:
+1. **"Prerequisites" sections** - Only add to:
+   - installation.md files (e.g., automated-documentation/installation.md)
+   - Root-level getting-started.md or setup guides
+   - NOT to chapter index.md files (link to installation.md instead)
+   - NOT to subsections or technical reference pages
+
+   **Replacement pattern:**
+   ```markdown
+   ## Prerequisites
+
+   Before getting started, ensure you have:
+   - [Prerequisite 1](installation.md#prerequisite-1)
+   - [Prerequisite 2](installation.md#prerequisite-2)
+
+   See the [Installation Guide](installation.md) for detailed setup instructions.
+   ```
+
+2. **"Installation" sections** - Only add to:
+   - Dedicated installation.md files within each major chapter
+   - Root-level installation.md
+   - NOT to chapter index.md files
+   - NOT to subsections or feature documentation
+
+3. **"Best Practices" sections** - Only add to:
    - Chapter-level index.md files
+   - Dedicated best-practices.md files
    - Standalone guide pages at book root
    - NOT to technical reference pages, syntax documentation, or subsections
 
-2. **"See Also" sections** - Only add when:
+4. **"See Also" sections** - Only add when:
    - There's a specific prerequisite relationship
    - There's a non-obvious connection between topics
    - NOT a generic list of all other chapter subsections
    - NOT circular references (subsection A → subsection B → subsection A)
 
-3. **"Troubleshooting" sections** - Only add to:
+5. **"Troubleshooting" sections** - Only add to:
    - Complex features with common pitfalls
    - Chapter-level troubleshooting.md files
    - NOT to simple syntax reference pages
    - NOT to files documenting straightforward configuration options
 
-4. **"Next Steps" / "Related Topics" / "Further Reading"** - Consolidate into:
+6. **"Next Steps" / "Related Topics" / "Further Reading"** - Consolidate into:
    - A single section in chapter index.md
    - NOT separate stub files (<100 lines)
    - NOT repeated in every subsection
+
+7. **"Quick Start" sections** - Only add to:
+   - Dedicated quick-start.md files
+   - Chapter index.md for major features
+   - NOT repeated in multiple files within the same chapter
+   - NOT in subsections (use "Usage" instead)
 
 **Detection Logic:**
 ```bash
@@ -77,6 +107,25 @@ fi
 - Check if chapter already has dedicated file (best-practices.md, troubleshooting.md)
 - Verify file is appropriate type (index vs subsection vs reference)
 - Ensure content adds value, not just boilerplate
+
+**Special Case: automated-documentation/index.md**
+- DO NOT add full Prerequisites list (link to installation.md)
+- DO NOT add detailed Installation instructions (link to installation.md)
+- DO NOT add multiple Quick Start sections (provide brief overview + links to quick-start.md and tutorial.md)
+- DO include: Overview, How It Works, organized links to related topics
+
+**Prerequisite Consolidation Check:**
+```bash
+# Detect prerequisites in non-installation files
+if [[ "$ITEM_FILE" =~ automated-documentation/index\.md$ ]] && grep -q "^## Prerequisites" "$ITEM_FILE"; then
+  echo "WARNING: Prerequisites section found in index.md - should link to installation.md instead"
+fi
+
+# Check for installation instructions in index files
+if [[ "$ITEM_FILE" =~ /index\.md$ ]] && grep -qi "cargo install\|rustup\|npm install" "$ITEM_FILE"; then
+  echo "WARNING: Installation commands found in index.md - should link to installation.md instead"
+fi
+```
 
 ### Phase 2: Parse Input and Load Drift Report
 

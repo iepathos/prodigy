@@ -368,7 +368,4 @@ See also:
 - [Sub-Workflows](sub-workflows.md)
 - [Composition Metadata](composition-metadata.md)
 - [Complete Examples](complete-examples.md)
-- [Best Practices](best-practices.md)
 - [Troubleshooting](troubleshooting.md)
-- [Related Chapters](related-chapters.md)
-- [Further Reading](further-reading.md)

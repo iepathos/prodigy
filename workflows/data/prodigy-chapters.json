@@ -635,33 +635,6 @@
           "validation": "Check automatic gap detection documentation matches implementation"
         },
         {
-          "id": "benefits",
-          "title": "Benefits",
-          "file": "book/src/automated-documentation/benefits.md",
-          "topics": [
-            "Benefits"
-          ],
-          "validation": "Check benefits documentation matches implementation"
-        },
-        {
-          "id": "best-practices",
-          "title": "Best Practices",
-          "file": "book/src/automated-documentation/best-practices.md",
-          "topics": [
-            "Best Practices"
-          ],
-          "validation": "Check best practices documentation matches implementation"
-        },
-        {
-          "id": "customization-examples",
-          "title": "Customization Examples",
-          "file": "book/src/automated-documentation/customization-examples.md",
-          "topics": [
-            "Customization Examples"
-          ],
-          "validation": "Check customization examples documentation matches implementation"
-        },
-        {
           "id": "documentation-versioning",
           "title": "Documentation Versioning",
           "file": "book/src/automated-documentation/documentation-versioning.md",
@@ -689,15 +662,6 @@
           "validation": "Check installation documentation matches implementation"
         },
         {
-          "id": "next-steps",
-          "title": "Next Steps",
-          "file": "book/src/automated-documentation/next-steps.md",
-          "topics": [
-            "next steps"
-          ],
-          "validation": "Check next steps documentation matches implementation"
-        },
-        {
           "id": "quick-start",
           "title": "Quick Start",
           "file": "book/src/automated-documentation/quick-start.md",
@@ -707,13 +671,13 @@
           "validation": "Check quick start documentation matches implementation"
         },
         {
-          "id": "quick-start-30-minutes",
-          "title": "Quick Start (30 Minutes)",
-          "file": "book/src/automated-documentation/quick-start-30-minutes.md",
+          "id": "tutorial",
+          "title": "Tutorial (30 Minutes)",
+          "file": "book/src/automated-documentation/tutorial.md",
           "topics": [
-            "Quick Start (30 Minutes)"
+            "Tutorial (30 Minutes)"
           ],
-          "validation": "Check quick start (30 minutes) documentation matches implementation"
+          "validation": "Check tutorial documentation matches implementation"
         },
         {
           "id": "real-world-example-prodigys-own-documentation",
@@ -935,19 +899,6 @@
       "index_file": "book/src/composition/index.md",
       "subsections": [
         {
-          "id": "best-practices",
-          "title": "Best Practices",
-          "file": "book/src/composition/best-practices.md",
-          "topics": [
-            "Best Practices",
-            "When to Use Each Feature",
-            "Workflow Organization",
-            "Parameter Naming Conventions",
-            "Template Registry Best Practices"
-          ],
-          "validation": "Check best practices documentation matches implementation"
-        },
-        {
           "id": "complete-examples",
           "title": "Complete Examples",
           "file": "book/src/composition/complete-examples.md",
@@ -987,15 +938,6 @@
           "validation": "Check default values documentation matches implementation"
         },
         {
-          "id": "further-reading",
-          "title": "Further Reading",
-          "file": "book/src/composition/further-reading.md",
-          "topics": [
-            "Further Reading"
-          ],
-          "validation": "Check further reading documentation matches implementation"
-        },
-        {
           "id": "parameter-definitions",
           "title": "Parameter Definitions",
           "file": "book/src/composition/parameter-definitions.md",
@@ -1007,15 +949,6 @@
             "Default Values"
           ],
           "validation": "Check parameter definitions documentation matches implementation"
-        },
-        {
-          "id": "related-chapters",
-          "title": "Related Chapters",
-          "file": "book/src/composition/related-chapters.md",
-          "topics": [
-            "Related Chapters"
-          ],
-          "validation": "Check related chapters documentation matches implementation"
         },
         {
           "id": "sub-workflows",
