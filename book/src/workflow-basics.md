@@ -92,11 +92,12 @@ Prodigy supports several command types, each designed for specific use cases.
 | `shell:` | Execute shell commands | Command string |
 | `claude:` | Execute Claude Code commands | Command string (starts with `/`) |
 | `write_file:` | Create/update files with formatting | `path`, `content`, `format` |
-| `validate:` | Check implementation completeness | `shell`/`claude`/`commands`, `threshold` |
 | `goal_seek:` | Iterative refinement to threshold | `goal`, `validate`, `threshold`, `max_attempts` |
 | `foreach:` | Iterate over items | `foreach`, `do`, `parallel`, `continue_on_error` |
 
 **Source**: src/config/command.rs:319-380
+
+**Note**: The `validate` field is used within `goal_seek` commands, not as a standalone command type. See [Validation in Goal-Seek](#validation-in-goal-seek) for details.
 
 ### Shell Commands
 
@@ -135,7 +136,7 @@ Claude commands:
 - Stream output in verbose mode
 - Create detailed JSON logs for debugging
 
-See [Claude Integration](./claude-integration.md) for detailed information on using Claude commands in workflows.
+See [Command Types](./workflow-basics/command-types.md) for detailed information on all available command types, including Claude commands.
 
 ### Write File Commands
 
@@ -174,43 +175,38 @@ Use cases:
 - Create reports with proper formatting
 - Write data with validation
 
-### Validate Commands
+### Validation in Goal-Seek
 
-Verify implementation completeness against requirements:
-
-```yaml
-- validate:
-    claude: "/prodigy-validate-spec $ARG --output .prodigy/validation-result.json"
-    result_file: ".prodigy/validation-result.json"
-    threshold: 100
-```
+The `validate` field is used within `goal_seek` commands to verify implementation completeness. It's not a standalone command type, but rather a configuration field that defines how to validate progress toward a goal.
 
 **Source**: src/cook/workflow/validation.rs:12-27
 
-Validate commands support:
+**Real-world example** from workflows/implement.yml:8:
+```yaml
+- goal_seek:
+    goal: "Implement specification requirements"
+    claude: "/implement-spec $ARG"
+    validate:
+      claude: "/prodigy-validate-spec $ARG --output .prodigy/validation-result.json"
+      result_file: ".prodigy/validation-result.json"
+      threshold: 100
+    max_attempts: 5
+```
+
+The `validate` field supports:
 - **shell**: Shell command for validation
 - **claude**: Claude command for validation
 - **commands**: Multi-step validation sequence
-- **result_file**: JSON file with validation results
+- **result_file**: JSON file with validation results containing a score
 - **threshold**: Minimum score to pass (0-100)
-- **on_incomplete**: Actions to take if validation fails
 
-**Real-world example** from workflows/implement.yml:8:
-```yaml
-goal_seek:
-  goal: "Implement specification requirements"
-  claude: "/implement-spec $ARG"
-  validate:
-    claude: "/prodigy-validate-spec $ARG --output .prodigy/validation-result.json"
-    result_file: ".prodigy/validation-result.json"
-    threshold: 100
-  max_attempts: 5
-```
+**Note**: The `validate` field is specifically designed for use within `goal_seek` commands, not as a standalone command type. See [Goal-Seek Commands](#goal-seek-commands) below for more details.
 
 Use cases:
 - Specification coverage checking
 - Documentation quality validation
 - Feature completeness verification
+- Test coverage improvement tracking
 
 ### Deprecated and Internal Commands
 
@@ -310,6 +306,8 @@ Foreach commands support:
 - **parallel**: Execute items in parallel - `false`, `true`, or number of parallel jobs (default: `false`)
 - **continue_on_error**: Continue processing remaining items if one fails (default: `false`)
 - **max_items**: Limit number of items to process (optional)
+
+**Implementation Note**: While you use `do:` in YAML, the internal representation uses `do_block` to avoid Rust keyword conflicts. This is transparent to workflow authors - always use `do:` in your YAML files.
 
 **Example with command input:**
 ```yaml
@@ -461,7 +459,7 @@ commands:
 - MapReduce: `${item.*}`, `${map.results}`, `${map.total}`
 - Merge: `${merge.source_branch}`, `${merge.target_branch}`, `${merge.worktree}`
 
-See [Variable Reference](./variables-and-interpolation.md) for complete documentation.
+See [Variables](./variables/index.md) for complete documentation on all available variables and interpolation syntax.
 
 ## Environment Configuration
 
@@ -538,7 +536,7 @@ Activate a profile:
 prodigy run workflow.yml --profile prod
 ```
 
-See [Environment Variables](./environment-variables.md) for comprehensive coverage.
+See [Environment Variables](./environment/index.md) for comprehensive coverage of environment configuration, secrets, profiles, and precedence rules.
 
 ## Step-Level Configuration
 
@@ -574,6 +572,8 @@ Capture command output to variables for use in subsequent steps:
   capture_format: json  # Parse output as JSON
   capture_streams: both  # Capture stdout and stderr (options: stdout, stderr, both)
 ```
+
+**Note**: The `capture` field is shorthand for `capture_output` with default settings (plain text format, stdout only). Use `capture_output` when you need advanced configuration with `capture_format` or `capture_streams`.
 
 **Source**: src/config/command.rs:366-396
 
@@ -650,7 +650,7 @@ merge:
 
 **Important**: Always merge to `${merge.target_branch}`, not a hardcoded branch name. This ensures changes merge back to wherever you started (master, feature branch, etc.).
 
-See [Merge Workflows](./merge-workflows.md) for advanced patterns.
+See [Merge Workflows](./workflow-basics/merge-workflows.md) for advanced patterns and conflict resolution strategies.
 
 ## Running Workflows
 
@@ -705,7 +705,7 @@ If execution is interrupted, resume from checkpoint:
 prodigy resume
 ```
 
-See [Checkpoint and Resume](./checkpoint-and-resume.md) for details.
+See [Checkpoint and Resume](./mapreduce/checkpoint-and-resume.md) for details on resuming both standard and MapReduce workflows.
 
 ## Worktree Isolation
 
@@ -880,8 +880,8 @@ Include cleanup steps at the end of workflows:
 
 Now that you understand workflow basics, explore:
 
-- **[MapReduce Workflows](./mapreduce-overview.md)**: Parallel processing for large-scale tasks
+- **[MapReduce Workflows](./mapreduce/index.md)**: Parallel processing for large-scale tasks with parallel agent execution
 - **[Error Handling](./error-handling.md)**: Advanced failure recovery and retry strategies
-- **[Output Capture](./output-capture.md)**: Working with command outputs and variables
-- **[Environment Variables](./environment-variables.md)**: Comprehensive environment configuration
-- **[Claude Integration](./claude-integration.md)**: Leveraging Claude Code in workflows
+- **[Variable Capture](./variables/custom-variable-capture.md)**: Advanced techniques for working with command outputs and variables
+- **[Environment Variables](./environment/index.md)**: Comprehensive environment configuration, secrets, and profiles
+- **[Command Types](./workflow-basics/command-types.md)**: Detailed reference for all available command types
