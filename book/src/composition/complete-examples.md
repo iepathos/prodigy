@@ -9,21 +9,23 @@ This example uses templates, parameters, and inheritance for environment-specifi
 **base-ci-template.yml** (template in registry):
 ```yaml
 name: ci-pipeline-template
+mode: standard
 
 parameters:
-  definitions:
-    environment:
-      type: String
+  required:
+    - name: environment
+      type: string
       description: "Deployment environment"
       validation: "matches('^(dev|staging|prod)$')"
 
-    replicas:
-      type: Number
+  optional:
+    - name: replicas
+      type: number
       description: "Number of service replicas"
       default: 1
 
-    run_tests:
-      type: Boolean
+    - name: run_tests
+      type: boolean
       description: "Whether to run test suite"
       default: true
 
@@ -42,26 +44,30 @@ commands:
   - shell: "kubectl scale deployment app --replicas=${replicas}"
 ```
 
+**Source**: Template and parameter structure from src/cook/workflow/composition/mod.rs:75-129
+
 **dev-deployment.yml**:
 ```yaml
 name: dev-deployment
+mode: standard
 
 template:
-  source:
-    registry: "ci-pipeline-template"
+  source: "ci-pipeline-template"  # Registry name
   with:
     environment: "dev"
     replicas: 1
     run_tests: false  # Skip tests in dev for speed
 ```
 
+**Source**: TemplateSource is an untagged enum accepting string values (src/cook/workflow/composition/mod.rs:86-95)
+
 **prod-deployment.yml**:
 ```yaml
 name: prod-deployment
+mode: standard
 
 template:
-  source:
-    registry: "ci-pipeline-template"
+  source: "ci-pipeline-template"  # Registry name
   with:
     environment: "prod"
     replicas: 5
@@ -95,9 +101,9 @@ mode: standard
 imports:
   - path: "shared/common-setup.yml"
 
-sub_workflows:
-  # Test all services in parallel
-  - name: "api-tests"
+workflows:
+  # Test all services in parallel using workflow map (not array)
+  api-tests:
     source: "services/api/test.yml"
     working_dir: "./services/api"
     parallel: true
@@ -105,7 +111,7 @@ sub_workflows:
       - "coverage"
       - "test_count"
 
-  - name: "worker-tests"
+  worker-tests:
     source: "services/worker/test.yml"
     working_dir: "./services/worker"
     parallel: true
@@ -113,7 +119,7 @@ sub_workflows:
       - "coverage"
       - "test_count"
 
-  - name: "frontend-tests"
+  frontend-tests:
     source: "apps/frontend/test.yml"
     working_dir: "./apps/frontend"
     parallel: true
@@ -129,6 +135,8 @@ commands:
       echo "  Frontend: ${frontend-tests.test_count} tests, ${frontend-tests.coverage}% coverage"
   - shell: "generate-combined-report.sh"
 ```
+
+**Source**: Sub-workflows use HashMap, not array (src/cook/workflow/composition/mod.rs:49 and src/cook/workflow/composition/sub_workflow.rs:14-45)
 
 ### Example 3: Layered Configuration with Extends
 
@@ -202,32 +210,34 @@ Combines imports, extends, template, parameters, and sub-workflows.
 **templates/microservice-ci.yml**:
 ```yaml
 name: microservice-ci-template
+mode: standard
 
 parameters:
-  definitions:
-    service_name:
-      type: String
+  required:
+    - name: service_name
+      type: string
       description: "Name of the microservice"
 
-    language:
-      type: String
+    - name: language
+      type: string
       description: "Programming language"
       validation: "matches('^(rust|typescript|python)$')"
 
-    test_timeout:
-      type: Number
+  optional:
+    - name: test_timeout
+      type: number
       description: "Test timeout in seconds"
       default: 300
 
 defaults:
   coverage_threshold: "80"
 
-sub_workflows:
-  - name: "lint"
+workflows:
+  lint:
     source: "workflows/${language}/lint.yml"
     working_dir: "./services/${service_name}"
 
-  - name: "test"
+  test:
     source: "workflows/${language}/test.yml"
     working_dir: "./services/${service_name}"
     timeout: "${test_timeout}"
@@ -246,13 +256,13 @@ commands:
 **service-api-ci.yml** (uses the template):
 ```yaml
 name: api-service-ci
+mode: standard
 
 imports:
   - path: "shared/docker-utils.yml"
 
 template:
-  source:
-    file: "templates/microservice-ci.yml"
+  source: "templates/microservice-ci.yml"  # File path
   with:
     service_name: "api"
     language: "rust"
@@ -267,29 +277,39 @@ commands:
 
 Demonstrates using a template registry for standardized workflows across teams.
 
-**Setup Registry** (one-time):
+**Setup Registry**:
+
+Templates can be stored in two locations:
+- Global: `~/.prodigy/templates/` (available to all projects)
+- Local: `.prodigy/templates/` (project-specific)
+
 ```bash
+# Global templates (one-time setup)
 mkdir -p ~/.prodigy/templates
 cp standard-ci.yml ~/.prodigy/templates/
 cp security-scan.yml ~/.prodigy/templates/
-cp deployment.yml ~/.prodigy/templates/
+
+# Or use project-local templates
+mkdir -p .prodigy/templates
+cp deployment.yml .prodigy/templates/
 ```
+
+**Source**: TemplateRegistry and FileTemplateStorage (src/cook/workflow/composition/registry.rs)
 
 **team-workflow.yml**:
 ```yaml
 name: team-workflow
 mode: standard
 
-# Use multiple registry templates
+# Use registry template (string value, not nested object)
 template:
-  source:
-    registry: "standard-ci"
+  source: "standard-ci"  # Registry name
   with:
     project_type: "rust"
 
 # Import additional registry workflows
 imports:
-  - path: ~/.prodigy/templates/security-scan.yml
+  - path: "~/.prodigy/templates/security-scan.yml"
 
 # Extend with team-specific configuration
 commands:
@@ -303,6 +323,7 @@ Builds complexity through layers of composition.
 **Layer 1 - Base** (minimal.yml):
 ```yaml
 name: minimal
+mode: standard
 defaults:
   timeout: 300
 commands:
@@ -312,6 +333,7 @@ commands:
 **Layer 2 - Add Testing** (with-tests.yml):
 ```yaml
 name: with-tests
+mode: standard
 extends: "minimal.yml"
 commands:
   - shell: "cargo test"
@@ -320,6 +342,7 @@ commands:
 **Layer 3 - Add Linting** (with-quality.yml):
 ```yaml
 name: with-quality
+mode: standard
 extends: "with-tests.yml"
 commands:
   - shell: "cargo fmt --check"
@@ -329,12 +352,14 @@ commands:
 **Layer 4 - Full CI** (full-ci.yml):
 ```yaml
 name: full-ci
+mode: standard
 extends: "with-quality.yml"
 
 parameters:
-  definitions:
-    deploy_env:
-      type: String
+  required:
+    - name: deploy_env
+      type: string
+      description: "Deployment environment"
 
 commands:
   - shell: "cargo build --release"
