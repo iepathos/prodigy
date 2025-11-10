@@ -6,6 +6,27 @@
 
 This chapter demonstrates practical Prodigy workflows with real-world examples. Examples progress from simple to advanced, covering standard workflows, MapReduce parallel processing, error handling, and advanced features.
 
+## Quick Reference
+
+Find the right example for your use case:
+
+| Use Case | Example | Key Features |
+|----------|---------|--------------|
+| Simple build/test pipeline | Example 1 | Basic commands, error handling |
+| Iterative optimization | Example 2 | Goal seeking, validation feedback |
+| Loop over configurations | Example 3 | Foreach iteration, parallel processing |
+| Parallel code processing | Example 4, 8 | MapReduce, distributed work |
+| Conditional logic | Example 5 | Capture output, when clauses |
+| Multi-step validation | Example 6 | Validation with gap filling |
+| Environment configuration | Example 7 | Env vars, secrets, profiles |
+| Dead Letter Queue (DLQ) | Example 8 | Error handling, retry failed items |
+| Generate config files | Example 9 | write_file with JSON/YAML/text |
+| Advanced git tracking | Example 10 | Git context variables, working_dir |
+| External service resilience | Example 11 | Circuit breakers, fail fast |
+| Retry with backoff | Example 12 | Exponential/linear/custom backoff |
+| Reusable workflows | Example 13 | Composition (preview feature) |
+| Custom merge process | Example 14 | Merge workflows, pre-merge validation |
+
 ## Example 1: Simple Build and Test
 
 ```yaml
@@ -111,8 +132,8 @@ map:
   agent_template:
     - claude: "/review-file ${item.path}"
       id: "review"
-      capture_output: "review_result"
-      capture_format: "json"  # Formats: string, json, lines, number, boolean - see Example 5
+      capture_output: "review_result"  # Capture command output for use in later steps
+      capture_format: "json"  # Parse output as JSON (see Example 5 for all format options)
     - shell: "cargo check ${item.path}"
   max_parallel: 5
 
@@ -458,11 +479,12 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
   working_dir: "${env.DEPLOY_DIR}"  # Path from environment variable
 ```
 
-**Note:** The `working_dir` field:
+**Note:** The `working_dir` field is fully implemented and production-ready:
 - Accepts relative or absolute paths
 - Supports variable interpolation (e.g., `"${env.PROJECT_DIR}"`)
 - Falls back to current execution context if not specified
 - Paths are resolved to absolute paths automatically
+- Relative paths are resolved via the workflow execution context
 
 **Git Context Variables (Spec 122):**
 Prodigy automatically tracks file changes during workflow execution and exposes them as variables:
@@ -511,8 +533,12 @@ Prodigy automatically tracks file changes during workflow execution and exposes 
 **Supported Formats and Filters:**
 - `:json` - Format as JSON array
 - `:*.rs` - Filter by glob pattern (e.g., `*.rs`, `src/**/*.py`)
-- `|pattern:**/*.rs` - Advanced glob pattern filtering
+- `|pattern:**/*.rs` - Alternative syntax for glob pattern filtering (equivalent to `:pattern`)
 - `|basename` - Extract just file names without paths
+
+**Note:** Both `:pattern` and `|pattern:` syntaxes are valid and equivalent. Use whichever is more readable in your context:
+- `${git.modified_files:*.rs}` - Colon syntax (more concise)
+- `${git.modified_files|pattern:**/*.rs}` - Pipe syntax (more explicit)
 
 **Source**: Git context tracking from src/cook/workflow/git_context.rs:1-120, variable resolution from src/cook/workflow/git_context.rs:36-42
 
