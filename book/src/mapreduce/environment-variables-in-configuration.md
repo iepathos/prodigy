@@ -21,49 +21,59 @@ env:
 
 **2. Secrets Configuration**
 
-Secret values are defined within the `env` block and marked with the `secret: true` flag. They are automatically masked in logs, output, events, and checkpoints:
+Secrets are defined in a dedicated `secrets:` block (separate from `env:`). Secret values are automatically masked in logs, output, events, and checkpoints.
+
+**Source**: `src/config/workflow.rs:24-26` - WorkflowConfig with `secrets: HashMap<String, SecretValue>` field
+
+**Simple Secret Syntax (Recommended for most cases):**
 
 ```yaml
-env:
-  # Basic environment variable
-  PROJECT_NAME: "my-project"
+secrets:
+  # Reference to environment variable
+  API_KEY: "${env:SECRET_API_KEY}"
 
-  # Secret environment variable (masked in logs)
-  API_KEY:
-    secret: true
-    value: "${env:SECRET_API_KEY}"
-
-  # Another secret
-  DB_PASSWORD:
-    secret: true
-    value: "my-secret-password"
+  # Direct secret value (not recommended - use env refs instead)
+  DB_PASSWORD: "my-secret-password"
 ```
 
-**Source**: `src/cook/environment/config.rs:84-96` - SecretValue enum
+**Provider-Based Secret Syntax:**
 
-**Secret Provider Support**:
+```yaml
+secrets:
+  API_TOKEN:
+    provider: env
+    key: "GITHUB_TOKEN"
 
-The codebase defines a `SecretValue` enum supporting both simple string secrets and provider-based secrets:
-
-```rust
-pub enum SecretValue {
-    Simple(String),
-    Provider {
-        provider: SecretProvider,
-        key: String,
-        version: Option<String>,
-    },
-}
+  AWS_SECRET:
+    provider: aws
+    key: "prod/api/credentials"
+    version: "v1"  # Optional version
 ```
+
+**Source**: `src/cook/environment/config.rs:86-96` - SecretValue enum with Simple and Provider variants
 
 **Supported Secret Providers** (defined in `src/cook/environment/config.rs:99-112`):
-- `env` - Environment variable reference
-- `file` - File-based secrets
+- `env` - Environment variable reference (fully supported)
+- `file` - File-based secrets (fully supported)
 - `vault` - HashiCorp Vault integration (planned)
 - `aws` - AWS Secrets Manager (planned)
-- `custom` - Custom provider support
+- `custom` - Custom provider support (planned)
 
-**Note**: Provider-based secrets (vault, aws) are defined in the type system but not yet fully implemented. The current working syntax uses the simple format with `secret: true` flag and environment variable references like `${env:VAR_NAME}`.
+**Real-World Examples**:
+
+From `workflows/mapreduce-env-example.yml:22-26`:
+```yaml
+secrets:
+  API_TOKEN:
+    provider: env
+    key: "GITHUB_TOKEN"
+```
+
+From `workflows/environment-example.yml:20-23`:
+```yaml
+secrets:
+  API_KEY: "${env:SECRET_API_KEY}"
+```
 
 **3. Environment Files (`env_files`)**
 
@@ -131,6 +141,22 @@ env:
 
 **Source**: `src/cook/environment/config.rs:39-60` - EnvValue supports Static, Dynamic, and Conditional variants
 
+**Real-World Composition Example**:
+
+From `workflows/mapreduce-env-example.yml:78`:
+```yaml
+env:
+  PROJECT_NAME: "my-project"
+  OUTPUT_DIR: "output"
+  REPORT_FORMAT: "json"
+
+reduce:
+  # Composing multiple env vars in a single path
+  - shell: "cp summary.$REPORT_FORMAT $OUTPUT_DIR/${PROJECT_NAME}-summary.$REPORT_FORMAT"
+```
+
+This demonstrates environment variable composition across different workflow variables to build complex paths dynamically.
+
 **Supported Fields:**
 - `max_parallel` - Control parallelism dynamically
 - `agent_timeout_secs` - Adjust timeouts per environment
@@ -182,10 +208,9 @@ env:
   VERSION: "1.0.0"
   OUTPUT_DIR: "output"
 
-  # Secret with environment variable reference
-  API_KEY:
-    secret: true
-    value: "${env:SECRET_API_KEY}"
+# Secrets (masked in logs)
+secrets:
+  API_KEY: "${env:SECRET_API_KEY}"
 
 # Environment files
 env_files:
@@ -271,15 +296,18 @@ Step-level variables inherit from global `env` and active `profiles`, with step-
 ### Best Practices
 
 **Secrets vs Environment Variables:**
-- Use secrets with `secret: true` flag for sensitive data (API keys, passwords, tokens)
-- Use plain `env` for non-sensitive configuration (timeouts, URLs, feature flags)
+- Use the dedicated `secrets:` block for sensitive data (API keys, passwords, tokens)
+- Use plain `env:` block for non-sensitive configuration (timeouts, URLs, feature flags)
 - Secrets are automatically masked in all logs and outputs
+- **Recommended**: Use simple secret syntax with environment variable references: `API_KEY: "${env:SECRET_API_KEY}"`
+- **Advanced**: Use provider-based syntax for complex scenarios: `API_TOKEN: { provider: env, key: "GITHUB_TOKEN" }`
 
 **Security Considerations:**
 - Never commit secrets to version control
 - Use environment variable references like `${env:SECRET_VAR}` to inject secrets at runtime
 - Leverage `.env.local` files (git-ignored) for local development
-- For production, provider-based secrets (Vault, AWS Secrets Manager) are planned but not yet fully implemented
+- Provider-based secrets for Vault and AWS Secrets Manager are defined in the type system but not yet fully implemented
+- File-based secrets are fully supported for reading secrets from files
 
 **Profile Usage:**
 - Use profiles for multi-environment deployment (dev, staging, prod)

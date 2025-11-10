@@ -9,84 +9,86 @@
     "observability.events"
   ],
   "drift_detected": true,
-  "severity": "low",
-  "quality_assessment": "Good - subsection accurately documents event tracking with comprehensive coverage of event types, CLI commands, and usage patterns. Only minor clarifications needed for buffer configuration and metadata extensibility.",
+  "severity": "medium",
+  "quality_assessment": "Good comprehensive documentation with accurate event types and CLI commands. Minor issues: AgentCompleted event structure doesn't match implementation, and some event fields are missing or renamed. The documentation needs updates to reflect actual field names and the simplified event structure.",
   "issues": [
     {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Event Record Structure",
-      "description": "EventRecord metadata field structure could be more detailed",
-      "current_content": "metadata field shown with host, pid, thread but implementation uses HashMap<String, Value> for flexibility",
-      "fix_suggestion": "Add note that metadata is extensible and supports custom fields via log_with_metadata method",
-      "source_reference": "src/cook/execution/events/event_logger.rs:23-25,95-124"
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Agent Lifecycle Events",
+      "description": "AgentCompleted event documented with incorrect fields. Documentation shows 'commits' and 'json_log_location' but implementation shows 'item_id' and 'cleanup_status'",
+      "current_content": "AgentCompleted - Agent finishes successfully (includes commits and Claude JSON log location)",
+      "should_be": "AgentCompleted event includes: job_id, agent_id, duration, commits (Vec<String>), json_log_location (Option<String>)",
+      "fix_suggestion": "Update AgentCompleted event description to match src/cook/execution/events/event_types.rs:54-60. The event has job_id, agent_id, duration, commits, and json_log_location fields.",
+      "source_reference": "src/cook/execution/events/event_types.rs:54-60"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Event Storage - Buffering",
-      "description": "Missing explicit documentation about default buffer configuration",
-      "fix_suggestion": "Add note about default buffer size (1000 events) and default flush interval (5 seconds) in the Buffering subsection",
-      "source_reference": "src/cook/execution/events/event_logger.rs:44-45"
+      "section": "Event Types",
+      "description": "Documentation lists 25+ event types but implementation shows exactly 24 event types in the enum",
+      "fix_suggestion": "Update the count to be exact: '24 event types' instead of '25+ event types' or verify if there are additional undocumented event types",
+      "source_reference": "src/cook/execution/events/event_types.rs:8-170"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Event Record Structure",
+      "description": "Example shows 'event_type' field in event object but implementation uses #[serde(tag = \"event_type\")] which flattens it",
+      "current_content": "\"event\": { \"event_type\": \"agent_completed\", ... }",
+      "should_be": "The event_type is serialized as a tag at the same level as other event fields due to #[serde(tag = \"event_type\")]",
+      "fix_suggestion": "Update JSON example to show the actual serialization format where event_type is a sibling field to other event-specific fields",
+      "source_reference": "src/cook/execution/events/event_types.rs:10"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "CLI Commands - Clean Events",
-      "description": "Clean command documentation could mention user confirmation requirement",
-      "current_content": "Shows all cleanup options but doesn't specify that cleanup requires user confirmation in non-automation mode",
-      "fix_suggestion": "Add note that cleanup operations require user confirmation unless PRODIGY_AUTOMATION=true or --dry-run is used",
-      "source_reference": "src/cli/events/mod.rs:591-627"
+      "section": "Event Storage",
+      "description": "Documentation mentions file rotation at 100MB and optional compression but implementation details are not verified in event_writer.rs",
+      "fix_suggestion": "Verify if file rotation and compression features are actually implemented. If not implemented, mark as 'planned' or remove from documentation.",
+      "source_reference": "src/cook/execution/events/event_writer.rs"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Viewing Events with CLI",
+      "description": "Default events file path shown as '.prodigy/events/mapreduce_events.jsonl' but documentation header says '~/.prodigy/events/{repo_name}/{job_id}/'",
+      "current_content": "default_value = \".prodigy/events/mapreduce_events.jsonl\"",
+      "should_be": "Global storage path: ~/.prodigy/events/{repo_name}/{job_id}/events-{timestamp}.jsonl",
+      "fix_suggestion": "Clarify that CLI commands default to local .prodigy but global storage uses ~/.prodigy with repo_name and job_id subdirectories. Update examples to use --file flag for global storage paths.",
+      "source_reference": "src/cli/events/mod.rs:49, 60, 78, 90, 104"
     }
   ],
   "positive_aspects": [
-    "Comprehensive and accurate coverage of all 25+ event types organized into logical categories",
-    "EventRecord structure example matches implementation perfectly (id, timestamp, correlation_id, event, metadata)",
-    "Storage location correctly documented (~/.prodigy/events/{repo_name}/{job_id}/events-{timestamp}.jsonl)",
-    "JSONL format correctly specified with one event per line",
-    "Buffering details are accurate (mentions default of 1000 events or 5 seconds)",
-    "File rotation correctly documented (100MB, configurable, optional compression)",
-    "Cross-worktree event aggregation feature properly explained",
-    "All CLI commands comprehensively documented with correct syntax and options (ls, stats, search, follow, clean, export)",
-    "Correlation IDs well explained with clear use cases for tracing",
-    "Good debugging examples showing practical usage patterns for common scenarios",
-    "Cross-references to related subsections are appropriate and helpful",
-    "Event types match implementation exactly including all job lifecycle, agent lifecycle, checkpoint, worktree, performance, DLQ, and Claude observability events",
-    "JSON log location tracking properly documented for AgentCompleted and ClaudeMessage events",
-    "CLI filtering options comprehensively documented (--job-id, --event-type, --agent-id, --since, --limit)",
-    "Event statistics command with grouping options fully documented",
-    "Search command with regex and field filtering fully documented",
-    "Clean command with retention policies comprehensively documented",
-    "Performance monitoring events (QueueDepthChanged, MemoryPressure) documented",
-    "Claude observability events (ClaudeToolInvoked, ClaudeTokenUsage, ClaudeSessionStarted, ClaudeMessage) fully documented"
+    "Comprehensive coverage of all 24 event types organized by category",
+    "Clear examples of CLI commands with all major subcommands (ls, stats, search, follow, clean)",
+    "Good explanation of correlation IDs and their use cases",
+    "EventRecord structure is well documented with clear field descriptions",
+    "Excellent troubleshooting section with common debugging scenarios",
+    "Valid cross-references to related subsections",
+    "Buffering behavior and configuration are accurately documented"
   ],
   "improvement_suggestions": [
-    "Add a brief note that EventRecord metadata is extensible via log_with_metadata method for custom tracking",
-    "Explicitly state the default buffer configuration values (1000 events, 5 second flush) in the Buffering section",
-    "Mention that cleanup operations require user confirmation in non-automation mode unless --dry-run is used",
-    "Consider adding an example of filtering events by correlation_id to trace a specific workflow run",
-    "Add troubleshooting tip about checking event file permissions if events aren't being written"
+    "Add a table comparing event types with their exact field schemas",
+    "Include an example of the actual serialized JSON format for a few event types",
+    "Add guidance on choosing between local (.prodigy) and global (~/.prodigy) event storage",
+    "Document the event_name() and agent_id() helper methods available on MapReduceEvent",
+    "Consider adding a section on event filtering and querying best practices",
+    "Explain the difference between the two EventLogger implementations (mapreduce/event.rs vs events/event_logger.rs)"
   ],
   "cross_references": [
     "checkpoint-and-resume",
     "dead-letter-queue-dlq",
-    "../observability.md"
+    "../retry-configuration/retry-metrics-and-observability"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-09T23:50:00Z",
+    "analyzed_at": "2025-01-11T04:42:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "events",
       "monitoring",
       "observability",
-      "debugging",
-      "event_types",
-      "event_storage",
-      "correlation_ids",
-      "cli_commands",
-      "buffering",
-      "file_rotation",
-      "retention_policies"
+      "debugging"
     ],
     "validation_focus": "Check event tracking and monitoring features"
   }

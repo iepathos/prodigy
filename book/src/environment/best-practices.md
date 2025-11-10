@@ -22,6 +22,14 @@ This section provides guidelines for effective environment variable management, 
 - Managing .env files in version control (without secrets)
 - Local development overrides (.env.local)
 
+**When to use step-level env overrides:**
+- Command-specific configuration that overrides global/profile values
+- Per-step resource limits or timeouts
+- Temporary environment changes for individual commands
+- Testing different configurations in the same workflow
+
+See [Per-Command Environment Overrides](per-command-environment-overrides.md) for detailed step-level env documentation.
+
 ### Naming Conventions
 
 **Follow these naming conventions for clarity:**
@@ -60,22 +68,43 @@ env:
 2. **Always use the secrets block for sensitive values**
    ```yaml
    secrets:
-     # Simple format - retrieves from environment variable
-     API_KEY: "${env:SECRET_API_KEY}"  # Masked in all logs
+     # Simple format - loads from environment variable
+     API_KEY: "my-secret-value"  # Masked in all logs
+
+     # Provider format - explicitly specify source
+     DATABASE_PASSWORD:
+       provider: env
+       key: DB_PASSWORD  # Retrieves from $DB_PASSWORD env var
    ```
 
-3. **Use external secret providers in production**
+3. **Use external secret providers**
+
+   **Currently implemented providers** (src/cook/environment/secret_store.rs:35-46):
+   - `env` - Load from environment variable (EnvSecretProvider)
+   - `file` - Load from file path (FileSecretProvider)
+
    ```yaml
    secrets:
+     # Load from environment variable
      API_KEY:
-       provider: vault
-       key: secret/data/api-keys
+       provider: env
+       key: SECRET_API_KEY
+
+     # Load from file
+     DATABASE_PASSWORD:
+       provider: file
+       key: /etc/secrets/db-password
    ```
+
+   **Planned providers** (not yet implemented):
+   - `vault` - HashiCorp Vault integration (declared in config.rs:106)
+   - `aws` - AWS Secrets Manager (declared in config.rs:108)
+   - `custom` - Custom provider support (declared in config.rs:110)
 
 4. **Minimize secret exposure**
    - Only expose secrets to commands that need them
    - Use short-lived tokens when possible
-   - Prefer secret providers over inline values
+   - Use `file` provider to avoid secrets in environment variables
 
 5. **Verify secret masking**
    - Check logs to ensure secrets are masked (appear as `***`)
@@ -84,25 +113,28 @@ env:
 **Secret organization pattern:**
 
 ```yaml
-# Good - Organized and provider-backed
+# Good - Organized with file-based secrets
 env_files:
   - .env              # Non-sensitive config
   - .env.local        # Local overrides (gitignored)
 
 secrets:
-  # Production secrets from Vault
+  # Production secrets from files (managed by deployment system)
   DATABASE_PASSWORD:
-    provider: vault
-    key: secret/data/db/prod
+    provider: file
+    key: /run/secrets/db-password
 
   API_KEY:
-    provider: aws
-    key: api-key-prod
+    provider: file
+    key: /run/secrets/api-key
 
-  # Local dev secrets from env file (for local testing only)
-  DEV_API_KEY: "${env:DEV_API_KEY}"
-    # Loaded from .env.local, still masked
+  # Development secrets from environment (for local testing)
+  DEV_API_KEY:
+    provider: env
+    key: DEV_API_KEY  # Loaded from environment, still masked in logs
 ```
+
+**Source**: Secret provider implementations in src/cook/environment/secret_store.rs:34-148
 
 ### Profile Organization Strategies
 
@@ -173,12 +205,16 @@ env:
 
 **2. Precedence confusion:**
 
-Remember the order (highest to lowest):
-1. Profile values (when profile active)
-2. Global `env` field
-3. Later `env_files` entries
-4. Earlier `env_files` entries
-5. Parent process environment
+Remember the order (highest to lowest priority):
+1. **Step-level env** - Per-command overrides (see [Per-Command Environment Overrides](per-command-environment-overrides.md))
+2. **Profile values** - When profile is active via `--profile` flag
+3. **Global `env` field** - Workflow-level environment variables
+4. **Environment files** - Later files override earlier ones (from `env_files`)
+5. **Parent process environment** - Inherited from shell (if `inherit: true`)
+
+**Source**: Implementation in src/cook/environment/manager.rs:88-156
+
+For detailed explanation of precedence rules, see [Environment Precedence](environment-precedence.md).
 
 **3. Forgetting to mark secrets:**
 
@@ -193,7 +229,9 @@ commands:
 
 # Solution - Use secrets block to mask in logs
 secrets:
-  API_KEY: "${env:SECRET_API_KEY}"
+  API_KEY:
+    provider: env
+    key: SECRET_API_KEY  # Retrieves from environment, masked in all output
 ```
 
 **4. Hardcoding environment-specific values:**
@@ -301,12 +339,20 @@ profiles:
     MAX_WORKERS: "20"
     TIMEOUT: "30"
 
-# Layer 5: Secrets (separate management)
+# Layer 5: Step-level overrides (per-command)
+commands:
+  - shell: "process-data"
+    env:
+      TIMEOUT: "60"  # Override for this command only
+
+# Layer 6: Secrets (separate management)
 secrets:
   API_KEY:
-    provider: vault
-    key: secret/data/api-key
+    provider: file
+    key: /run/secrets/api-key
 ```
+
+**Source**: Precedence implementation in src/cook/environment/manager.rs:88-156
 
 **Benefits:**
 - Clear separation of concerns
@@ -357,7 +403,7 @@ Before deploying workflows to production:
 
 - [ ] All secrets defined in `secrets` block for masking
 - [ ] Secret files in `.gitignore`
-- [ ] Production secrets use secret provider (vault/aws/etc)
+- [ ] Production secrets use `file` provider (vault/aws planned for future)
 - [ ] Verified secrets masked in logs with `-v` mode
 - [ ] No hardcoded credentials in workflow YAML
 - [ ] Environment variables documented in README
@@ -365,6 +411,7 @@ Before deploying workflows to production:
 - [ ] Tested all profiles work correctly
 - [ ] No sensitive data in environment variable names
 - [ ] Secrets rotated regularly
+- [ ] File-based secrets have restricted permissions (chmod 600)
 
 See also:
 - [Environment Precedence](environment-precedence.md) for understanding resolution order

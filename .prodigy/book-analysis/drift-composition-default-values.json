@@ -1,0 +1,66 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "composition",
+  "subsection_id": "default-values",
+  "subsection_title": "Default Values",
+  "subsection_file": "book/src/composition/default-values.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Subsection is mostly accurate but contains outdated information about implementation status and has a confusing precedence example",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Implementation Status",
+      "description": "Documentation claims apply_defaults merge logic is 'TODO' but implementation is complete",
+      "current_content": "⏳ Merge logic with parameters (TODO in apply_defaults at composer.rs:217-257)\n\n*Note: The `apply_defaults` function is called during composition and defaults are validated/stored, but the actual merge logic to apply defaults to parameters is pending implementation. The infrastructure is complete and defaults are tracked in CompositionMetadata.*",
+      "should_be": "apply_defaults is fully implemented and functional. It merges defaults into environment variables and parameter definitions. The function is located at composer.rs:217-257.",
+      "fix_suggestion": "Remove the TODO notice and update implementation status to show that apply_defaults is complete. The function applies defaults to both environment variables and parameter definitions.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:217-257"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Parameter Precedence",
+      "description": "Precedence list conflicts with example - documentation shows 'Parameter default values' have lowest priority, but example shows parameter default (600) overriding workflow default (300)",
+      "current_content": "Parameter Precedence:\n1. CLI `--param` flags (highest priority)\n2. `--param-file` JSON values\n3. Workflow `defaults` values\n4. Parameter `default` values (lowest priority)\n\nExample:\ntimeout:\n  type: Number\n  default: 600  # Parameter default overrides workflow default",
+      "should_be": "Either fix precedence order to match example (parameter defaults have higher priority than workflow defaults), or fix example to show workflow defaults overriding parameter defaults",
+      "fix_suggestion": "The precedence list appears to be incorrect based on the example. The actual implementation shows that parameter defaults can override workflow defaults. Update the precedence documentation to accurately reflect the implementation behavior, or clarify how these two default mechanisms interact.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:245-254, src/cook/workflow/composer_integration.rs:66-72"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Defaults Field Structure",
+      "description": "Missing information about how defaults interact with CLI --param flags",
+      "fix_suggestion": "Add a section explaining how defaults are overridden by CLI parameters, with a concrete example showing: prodigy run workflow.yml --param timeout=900 overriding a default value",
+      "source_reference": "src/cook/workflow/composer_integration.rs:68-72"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of defaults field structure with comprehensive examples",
+    "Good coverage of different value types (string, number, boolean, array, object)",
+    "Practical examples showing defaults with environment variables",
+    "Template integration example is helpful",
+    "Best practices section provides useful guidance",
+    "All internal cross-references are valid and work correctly"
+  ],
+  "improvement_suggestions": [
+    "Clarify the actual precedence rules with concrete examples from the codebase",
+    "Add example showing how defaults interact with --param-file",
+    "Include troubleshooting section for common default-related issues",
+    "Add note about type conversion when defaults are applied to environment variables"
+  ],
+  "cross_references": [
+    "parameter-definitions",
+    "template-system",
+    "workflow-extension-inheritance"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-09T22:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": ["Default Values", "Basic Syntax", "Defaults Field Structure", "Parameter Precedence", "Example with Precedence"],
+    "validation_focus": "Check default values documentation matches implementation"
+  }
+}

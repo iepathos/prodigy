@@ -1,0 +1,104 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "retry-configuration",
+  "subsection_id": "related-topics",
+  "subsection_title": "Related Topics",
+  "subsection_file": "book/src/retry-configuration/related-topics.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "All four internal links are broken. This subsection links to non-existent files in the retry-configuration directory. The links should either point to top-level chapters (like Error Handling) or to MapReduce subsections (like DLQ). Additionally, the subsection doesn't provide context about how these topics relate to retry configuration.",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "high",
+      "section": "Cross-References",
+      "description": "Found 4 broken internal link(s)",
+      "broken_links": [
+        {
+          "link_text": "Error Handling",
+          "target": "./error-handling.md",
+          "expected_path": "book/src/retry-configuration/error-handling.md",
+          "current_file": "book/src/retry-configuration/related-topics.md",
+          "suggested_fix": "../error-handling.md",
+          "explanation": "Error Handling is a top-level chapter, not in retry-configuration directory"
+        },
+        {
+          "link_text": "Workflow Configuration",
+          "target": "./workflow-configuration.md",
+          "expected_path": "book/src/retry-configuration/workflow-configuration.md",
+          "current_file": "book/src/retry-configuration/related-topics.md",
+          "suggested_fix": "../configuration/workflow-configuration.md",
+          "explanation": "Workflow Configuration is in the configuration chapter directory"
+        },
+        {
+          "link_text": "MapReduce",
+          "target": "./mapreduce.md",
+          "expected_path": "book/src/retry-configuration/mapreduce.md",
+          "current_file": "book/src/retry-configuration/related-topics.md",
+          "suggested_fix": "../mapreduce/index.md",
+          "explanation": "MapReduce is now a multi-subsection chapter with index.md"
+        },
+        {
+          "link_text": "Dead Letter Queue",
+          "target": "./dead-letter-queue.md",
+          "expected_path": "book/src/retry-configuration/dead-letter-queue.md",
+          "current_file": "book/src/retry-configuration/related-topics.md",
+          "suggested_fix": "../mapreduce/dead-letter-queue-dlq.md",
+          "explanation": "DLQ is a subsection within the MapReduce chapter"
+        }
+      ],
+      "fix_suggestion": "Update links to point to current file locations. Check if referenced chapters were migrated to multi-subsection structure.",
+      "source_reference": "book/src/error-handling.md, book/src/configuration/workflow-configuration.md, book/src/mapreduce/index.md, book/src/mapreduce/dead-letter-queue-dlq.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Related Topics",
+      "description": "No explanatory text about how related topics connect to retry configuration",
+      "current_content": "Only contains bare list of links without context",
+      "should_be": "Should explain why each topic is relevant and how it relates to retry behavior",
+      "fix_suggestion": "Add 1-2 sentences per link explaining the relationship to retry configuration",
+      "source_reference": "book/src/retry-configuration/index.md"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Related Topics",
+      "description": "Missing links to other relevant retry-related topics",
+      "current_content": "Links to generic workflow and error topics",
+      "should_be": "Should also reference Failure Actions (sibling subsection), Troubleshooting, and Best Practices",
+      "fix_suggestion": "Add links to: failure-actions.md, troubleshooting.md, best-practices.md within retry-configuration chapter",
+      "source_reference": "book/src/retry-configuration/"
+    }
+  ],
+  "positive_aspects": [
+    "Identifies key related topics (error handling, configuration, MapReduce, DLQ)",
+    "Clean, simple structure"
+  ],
+  "improvement_suggestions": [
+    "Fix all broken links to point to correct file locations",
+    "Add brief explanatory text for each link describing the relationship",
+    "Include links to sibling subsections within retry-configuration chapter",
+    "Consider organizing links into categories: 'Within This Chapter' and 'Related Chapters'"
+  ],
+  "cross_references": [
+    "error-handling",
+    "workflow-configuration",
+    "mapreduce",
+    "dead-letter-queue-dlq",
+    "failure-actions",
+    "troubleshooting",
+    "best-practices"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Related Topics"
+    ],
+    "validation_focus": "Check related topics documentation matches implementation",
+    "internal_links_validated": 4,
+    "broken_links_found": 4
+  }
+}

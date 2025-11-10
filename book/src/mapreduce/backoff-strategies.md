@@ -197,8 +197,10 @@ retry_config:
 - Testing specific delay sequences
 
 **Edge cases**:
-- Empty `delays` array: Uses `max_delay` for all attempts
-- Attempt exceeds array length: Uses `max_delay`
+- Empty `delays` array: Uses `max_delay` for all attempts (fallback behavior)
+- Attempt exceeds array length: Uses `max_delay` (fallback behavior)
+
+This ensures predictable behavior when custom delays are exhausted or misconfigured, preventing undefined delay calculations.
 
 **Source**: [src/cook/retry_v2.rs:88-89](../../src/cook/retry_v2.rs), [src/cook/retry_v2.rs:298-301](../../src/cook/retry_v2.rs) (calculation logic)
 
@@ -341,8 +343,8 @@ Invalid formats: `1 second`, `500`, `2 minutes`
 
 ### See Also
 
-- [Basic Retry Configuration](./basic-retry-configuration.md) - Full RetryConfig documentation
+- [Basic Retry Configuration](../retry-configuration/basic-retry-configuration.md) - Full RetryConfig documentation
 - [Dead Letter Queue (DLQ)](./dead-letter-queue-dlq.md) - What happens when retries are exhausted
 - [Checkpoint and Resume](./checkpoint-and-resume.md) - How retry state is preserved for resume
-- [Timeout Configuration](./timeout-configuration.md) - Interaction between backoff and timeouts
+- [Timeout Configuration](../advanced/timeout-configuration.md) - Interaction between backoff and timeouts
 - [Error Collection Strategies](./error-collection-strategies.md) - Overall error handling in MapReduce

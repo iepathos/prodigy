@@ -1,0 +1,47 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "variables",
+  "subsection_id": "custom-variable-capture",
+  "subsection_title": "Custom Variable Capture",
+  "subsection_file": "book/src/variables/custom-variable-capture.md",
+  "feature_mappings": [],
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent documentation with comprehensive coverage, accurate examples, and clear explanations. All documented features match implementation.",
+  "issues": [],
+  "positive_aspects": [
+    "Comprehensive coverage of all capture_output modes (boolean, string variable name)",
+    "Accurate documentation of capture_format options (string, json, lines, number, boolean)",
+    "Complete capture_streams documentation with correct defaults (stdout: true, stderr: false, exit_code: true, success: true, duration: true)",
+    "Excellent metadata field documentation (${var.stderr}, ${var.exit_code}, ${var.success}, ${var.duration})",
+    "Clear examples for all major use cases",
+    "Good explanation of variable scoping across workflow phases",
+    "Accurate source code references (src/cook/workflow/variables.rs:269-291)",
+    "Helpful best practices section",
+    "Well-structured with progressive complexity",
+    "Practical comparison of capture_format: json vs manual jq parsing"
+  ],
+  "improvement_suggestions": [
+    "Could add troubleshooting section for common capture issues (e.g., JSON parse failures, variable shadowing)",
+    "Could mention how captured variables interact with secrets/masking",
+    "Could add performance notes about memory usage with large JSON captures",
+    "Could include example of capture in foreach loops for completeness"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Custom Variable Capture",
+      "Basic Syntax",
+      "Default Variable Names",
+      "Capture Formats",
+      "Metadata Fields",
+      "Capture Streams",
+      "Variable Scoping",
+      "JSON Field Access",
+      "Best Practices"
+    ],
+    "validation_focus": "Check custom variable capture documentation matches implementation"
+  }
+}

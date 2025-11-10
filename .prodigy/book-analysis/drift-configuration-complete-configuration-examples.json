@@ -1,0 +1,106 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "configuration",
+  "subsection_id": "complete-configuration-examples",
+  "subsection_title": "Complete Configuration Examples",
+  "subsection_file": "book/src/configuration/complete-configuration-examples.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Subsection is essentially empty with only a header. This is a critical gap as it should provide comprehensive configuration examples demonstrating all major Prodigy features in realistic, production-ready scenarios.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Complete Configuration Examples",
+      "description": "Entire subsection content is missing. Only the header '## Complete Configuration Examples' exists with no actual examples or documentation.",
+      "fix_suggestion": "Add comprehensive configuration examples covering: (1) Full standard workflow with all options, (2) Complete MapReduce workflow with all phases, (3) Environment variables, secrets, and profiles, (4) Error handling and retry patterns, (5) Validation and goal-seeking examples, (6) Real-world use cases combining multiple features",
+      "source_reference": "src/config/workflow.rs, src/config/mapreduce.rs, workflows/*.yml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Standard Workflow Example",
+      "description": "Missing complete example of a standard workflow demonstrating all configuration options",
+      "fix_suggestion": "Add a comprehensive standard workflow example showing: workflow name, environment variables, secrets, profiles, multiple command types (claude, shell, goal_seek, foreach, write_file, validate), error handlers (on_failure, on_success), conditional execution (when), output capture, git context variables, and merge workflow",
+      "source_reference": "src/config/workflow.rs:WorkflowConfig, src/config/command.rs:WorkflowStepCommand"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "MapReduce Workflow Example",
+      "description": "Missing complete example of a MapReduce workflow with all phases configured",
+      "fix_suggestion": "Add a comprehensive MapReduce example showing: setup phase (with capture_outputs and timeout), map phase (with input, json_path, agent_template, max_parallel, filter, sort_by, timeout_config), reduce phase (with map result aggregation), and merge phase (with custom merge workflow). Include error handling and DLQ configuration.",
+      "source_reference": "src/config/mapreduce.rs:MapReduceWorkflow, workflows/book-docs-drift.yml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Environment Configuration Example",
+      "description": "Missing example demonstrating environment variables, secrets, and profiles",
+      "fix_suggestion": "Add an example showing: global env block with static variables, secrets with masking (secret: true), profile-specific values (dev/staging/prod), step-level env overrides, and environment variable interpolation in commands and configuration fields",
+      "source_reference": "src/config/workflow.rs:EnvironmentConfig, features.json:environment"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Error Handling Patterns",
+      "description": "Missing examples of comprehensive error handling and retry strategies",
+      "fix_suggestion": "Add examples showing: workflow-level error handling (on_item_failure strategies: dlq/retry/skip/stop), command-level on_failure handlers with max_attempts, circuit breaker configuration, failure thresholds, retry with backoff strategies (exponential, linear, fibonacci), and error collection modes",
+      "source_reference": "src/cook/workflow/error_policy.rs, features.json:error_handling"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Validation and Goal-Seeking Examples",
+      "description": "Missing examples of validation configuration and goal-seeking workflows",
+      "fix_suggestion": "Add examples showing: (1) Validation with expected_schema, threshold, on_incomplete handler, and gap filling, (2) Goal-seeking with measurable goals, validate commands, threshold configuration, and iterative refinement patterns",
+      "source_reference": "src/cook/goal_seek/mod.rs, src/cook/workflow/validation.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Real-World Use Cases",
+      "description": "Missing practical examples demonstrating common workflow patterns and combinations",
+      "fix_suggestion": "Add 2-3 realistic examples from common_patterns in features.json: (1) Build and Test with automated fixing, (2) Spec Implementation with Validation and gap filling, (3) Documentation Maintenance workflow. Show how features compose for real tasks.",
+      "source_reference": "features.json:common_patterns, workflows/implement-with-tests.yml, workflows/book-docs-drift.yml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Annotated Examples",
+      "description": "Missing code comments and annotations explaining configuration choices",
+      "fix_suggestion": "Add inline comments to each example explaining: why certain options are chosen, when to use specific features, what alternatives exist, and common pitfalls to avoid. Help users understand not just syntax but decision-making.",
+      "source_reference": "N/A"
+    }
+  ],
+  "positive_aspects": [
+    "Header exists and is properly formatted",
+    "Subsection is correctly placed in Configuration chapter structure"
+  ],
+  "improvement_suggestions": [
+    "Organize examples by complexity: start with simple complete workflow, then add complexity incrementally",
+    "Include a 'Quick Reference' section at the top showing all configurable fields and their purpose",
+    "Add cross-references to specific subsections for detailed explanations of each feature",
+    "Include troubleshooting tips for common configuration mistakes",
+    "Provide links to example workflow files in the repository (workflows/ directory)",
+    "Consider adding a comparison table showing when to use different workflow modes (standard vs MapReduce)",
+    "Include performance considerations for configuration choices (e.g., parallelism, timeouts)",
+    "Add version compatibility notes if configuration syntax evolved across versions"
+  ],
+  "cross_references": [
+    "workflow-structure",
+    "environment-variables-and-secrets",
+    "error-handling-and-retry-strategies",
+    "validation-and-goal-seeking",
+    "mapreduce-basics"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:42:44Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Complete Configuration Examples"
+    ],
+    "validation_focus": "Check complete configuration examples documentation matches implementation"
+  }
+}

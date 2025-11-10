@@ -5,32 +5,40 @@
   "chapter_file": "book/src/error-handling.md",
   "drift_detected": true,
   "severity": "low",
-  "quality_assessment": "Chapter is comprehensive and mostly accurate with excellent structure and examples. Minor issues found relate to terminology inconsistencies (timeout_per_agent vs agent_timeout_secs), a YAML syntax error in the batched error collection example, and some incomplete explanations. Overall, the documentation effectively guides users through error handling from simple to complex patterns.",
+  "quality_assessment": "Chapter is comprehensive and accurate with excellent structure and examples. The documentation effectively guides users through error handling from simple to complex patterns. Minor drift exists: actual implementation uses 'timeout_per_agent' in error messages (not 'agent_timeout_secs'), and network error suggestion says 'retry settings' (not 'retry configuration'). Documentation could be improved with notes about max_attempts/max_retries aliasing and capture field usage. Overall quality is very good.",
   "issues": [
     {
-      "type": "inconsistent_terminology",
-      "severity": "medium",
-      "section": "Error Metrics Pattern Detection (Line 332)",
-      "description": "Suggested remediation uses 'timeout_per_agent' but this field doesn't exist in MapReduceWorkflowConfig",
-      "current_content": "**Timeout errors** → \"Consider increasing timeout_per_agent\"",
-      "should_be": "**Timeout errors** → \"Consider increasing agent_timeout_secs\"",
-      "fix_suggestion": "Update line 332 to use correct field name 'agent_timeout_secs' from MapPhaseYaml config. This matches the actual suggestion in error_policy.rs:481",
-      "source_reference": "src/config/mapreduce.rs (MapPhaseYaml has agent_timeout_secs field, not timeout_per_agent)"
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Error Metrics Pattern Detection (Line 336)",
+      "description": "Documentation references 'agent_timeout_secs' but actual implementation suggests 'timeout_per_agent'",
+      "current_content": "**Timeout errors** → \"Consider increasing agent_timeout_secs\"",
+      "should_be": "**Timeout errors** → \"Consider increasing timeout_per_agent\"",
+      "fix_suggestion": "Update line 336 to match the actual error message from src/cook/workflow/error_policy.rs:481 which uses 'timeout_per_agent'",
+      "source_reference": "src/cook/workflow/error_policy.rs:481"
     },
     {
-      "type": "incorrect_example",
-      "severity": "medium",
-      "section": "Best Practices - Combined Error Handling Strategies (Line 499)",
-      "description": "Example shows 'batch_size: 10' directly under error_policy but ErrorCollectionStrategy::Batched expects nested structure",
-      "current_content": "error_collection: batched\nbatch_size: 10",
-      "should_be": "error_collection:\n  batched:\n    size: 10",
-      "fix_suggestion": "Update YAML example to properly nest batch_size inside the batched variant structure as: error_collection: { batched: { size: 10 } }",
-      "source_reference": "src/cook/workflow/error_policy.rs:42-44 (ErrorCollectionStrategy::Batched { size: usize })"
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Error Metrics Pattern Detection (Line 337)",
+      "description": "Documentation references 'retry configuration' but implementation says 'retry settings'",
+      "current_content": "**Network errors** → \"Check network connectivity and retry configuration\"",
+      "should_be": "**Network errors** → \"Check network connectivity and retry settings\"",
+      "fix_suggestion": "Update line 337 to match the exact error message from implementation",
+      "source_reference": "src/cook/workflow/error_policy.rs:483"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Advanced Configuration",
+      "description": "Documentation doesn't mention that max_attempts is an alias for max_retries",
+      "fix_suggestion": "Add note that max_attempts and max_retries are aliases and both are supported for backward compatibility. This is documented in the migration note on line 60 but could be mentioned in the Advanced Configuration section as well.",
+      "source_reference": "src/cook/workflow/on_failure.rs:103"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Error Metrics (Lines 304-338)",
+      "section": "Error Metrics Pattern Detection (Lines 332-345)",
       "description": "Pattern detection section correctly lists three error types with remediations, but could be clearer about which error types get specific suggestions",
       "current_content": "Lists Timeout, Network, and Permission errors with specific remediations. Generic remediation mentioned in Note.",
       "should_be": "Make it explicit that only these three types get specific suggestions, all others get generic 'Review error logs' suggestion",
@@ -40,12 +48,11 @@
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Circuit Breaker Monitoring (Lines 233-245)",
-      "description": "Section mentions monitoring circuit breaker state but doesn't verify if the suggested CLI commands actually exist",
-      "current_content": "prodigy events list <job_id> | grep -i circuit\nprodigy events watch <job_id>",
-      "should_verify": "Check if these CLI commands are actually implemented",
-      "fix_suggestion": "Verify the actual CLI commands available for querying circuit breaker events. If they don't exist, update to show how users can actually monitor circuit state (e.g., through event logs or API)",
-      "source_reference": "CLI command verification needed"
+      "section": "Circuit Breaker Monitoring (Lines 239-250)",
+      "description": "Section shows CLI commands (prodigy events ls, prodigy events follow) but notes they are stubs",
+      "current_content": "Shows prodigy events ls --job-id <job_id> | grep -i circuit and prodigy events follow --job-id <job_id>",
+      "fix_suggestion": "The documentation already includes a helpful note: 'Note: The events CLI commands are defined but currently have stub implementations. Event data is stored in ~/.prodigy/events/{repo_name}/{job_id}/ and can be inspected directly as JSONL files.' This is accurate and helpful.",
+      "source_reference": "Lines 249-250 in error-handling.md"
     },
     {
       "type": "incomplete_explanation",
@@ -97,7 +104,7 @@
     "Add example showing how to access error metrics programmatically via Prodigy API"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-09T23:43:36Z",
+    "analyzed_at": "2025-01-11T03:42:44Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Command-level error handling (on_failure with simple, advanced, and detailed forms)",

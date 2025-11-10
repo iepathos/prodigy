@@ -1,0 +1,73 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "workflow-basics",
+  "subsection_id": "available-fields",
+  "subsection_title": "Available Fields",
+  "subsection_file": "book/src/workflow-basics/available-fields.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Subsection provides basic field listing but lacks field type details, relationships, and important context about field interactions. Documentation is accurate but incomplete.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Field Descriptions",
+      "description": "Table lacks detail about field types and constraints - no mention that commands is Vec<WorkflowCommand>, env is HashMap<String, String>, etc.",
+      "fix_suggestion": "Add type information column or expand descriptions to clarify exact types (e.g., 'commands: Array<WorkflowCommand>', 'env: Map<String, String>')",
+      "source_reference": "src/config/workflow.rs:11-38"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Field Relationships",
+      "description": "Missing explanation of how fields interact - no mention that profiles override env, or that secrets are a special type of environment variable",
+      "fix_suggestion": "Add section explaining field precedence and relationships, especially for environment variable resolution",
+      "source_reference": "src/config/workflow.rs:19-33"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Simple vs Full Format",
+      "description": "Note about simple array format is accurate but could be clearer about when to use each format",
+      "fix_suggestion": "Add guidance on choosing between formats: 'Use simple array for quick scripts with no env vars; use full format when you need environment configuration'",
+      "source_reference": "src/config/workflow.rs:49-50"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Field Details",
+      "description": "Missing cross-references to detailed documentation for complex fields like merge workflow and profiles",
+      "fix_suggestion": "Add links to Environment Variables and Custom Merge Workflows sections for readers who need detailed information",
+      "source_reference": "src/config/workflow.rs:35-37"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "name Field",
+      "description": "Missing the optional 'name' field from the table - this field exists in WorkflowConfig but is not documented",
+      "fix_suggestion": "Add row: '| name | String | No | Workflow name for identification (defaults to \"default\") |'",
+      "source_reference": "src/config/workflow.rs:12-14"
+    }
+  ],
+  "positive_aspects": [
+    "Clear table format for field reference",
+    "Accurate required/optional designations",
+    "Good note about simple vs full format distinction",
+    "Concise and scannable structure"
+  ],
+  "improvement_suggestions": [
+    "Add examples showing both simple and full formats side-by-side",
+    "Include type information for each field to help users understand structure",
+    "Add cross-references to related sections (Environment Variables, Merge Workflows)",
+    "Explain precedence rules for environment variable fields",
+    "Add the missing 'name' field to the table"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:42:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": ["Available Fields", "Workflow Structure", "Standard Workflow Configuration"],
+    "validation_focus": "Check available fields documentation matches implementation"
+  }
+}

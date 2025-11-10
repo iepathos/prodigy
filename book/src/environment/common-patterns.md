@@ -1,10 +1,17 @@
 ## Common Patterns
 
-This section provides practical patterns and realistic examples for environment configuration in Prodigy workflows.
+This section provides practical patterns and realistic examples for environment configuration in Prodigy workflows. All examples are validated against the actual implementation and real workflow files.
+
+> **Source References**: Examples based on:
+> - src/config/workflow.rs:12-39 (WorkflowConfig structure)
+> - src/cook/environment/config.rs:12-144 (Environment configuration types)
+> - workflows/mapreduce-env-example.yml (Complete working example)
 
 ### Multi-Environment Deployment Pattern
 
-Use profiles to manage different deployment environments with environment-specific configurations:
+Use profiles to manage different deployment environments with environment-specific configurations.
+
+> **Profile Support**: Profiles provide environment-specific variable overrides (src/cook/environment/config.rs:116-124). Activate with `--profile <name>` flag.
 
 ```yaml
 name: multi-env-deployment
@@ -39,9 +46,10 @@ profiles:
     DEBUG: "false"
 
 secrets:
+  # Secrets from environment variables (supported)
   DATABASE_PASSWORD:
-    provider: vault
-    key: secret/data/db/${PROFILE}
+    provider: env
+    key: DB_PASSWORD
 
 commands:
   - shell: "echo 'Deploying $PROJECT_NAME v$VERSION to $PROFILE environment'"
@@ -60,6 +68,15 @@ prodigy run deploy.yml --profile prod
 
 Combine env files with secret providers for secure credential management:
 
+> **Currently Supported Providers** (src/cook/environment/secret_store.rs:40-41):
+> - `env` - Environment variables
+> - `file` - File-based secrets
+>
+> **Planned Providers** (defined but not yet implemented):
+> - `vault` - HashiCorp Vault integration
+> - `aws` - AWS Secrets Manager
+> - `custom` - Custom provider support
+
 ```yaml
 name: secure-workflow
 
@@ -73,23 +90,22 @@ env:
   REGION: us-west-2
 
 secrets:
-  # Production secrets from AWS Secrets Manager
+  # Secrets from environment variables (currently supported)
   AWS_ACCESS_KEY:
-    provider: aws
-    key: prod/aws-credentials/access_key
+    provider: env
+    key: AWS_ACCESS_KEY_ID
 
   AWS_SECRET_KEY:
-    provider: aws
-    key: prod/aws-credentials/secret_key
+    provider: env
+    key: AWS_SECRET_ACCESS_KEY
 
-  # Database credentials from Vault
+  # Secrets from files (currently supported)
   DATABASE_URL:
-    provider: vault
-    key: secret/data/database/prod
+    provider: file
+    key: /path/to/secrets/database_url.txt
 
-  # API key loaded from env file but masked
-  THIRD_PARTY_API_KEY: "${env:THIRD_PARTY_API_KEY}"
-    # Loaded from .env.local, still masked in logs
+  # Simple secret reference (loaded from env)
+  THIRD_PARTY_API_KEY: "${THIRD_PARTY_API_KEY}"
 
 commands:
   - shell: "aws s3 ls --region $REGION"  # Uses AWS credentials
@@ -160,22 +176,17 @@ map:
 
 ### Environment Variable Composition Pattern
 
-Layer configuration from multiple sources with clear precedence:
+Layer configuration from multiple sources with clear precedence (src/cook/environment/config.rs:12-36):
+
+> **Note**: env_files paths are static and don't support variable interpolation. Use profiles to handle environment-specific file loading.
 
 ```yaml
 name: layered-config
 
-# Layer 1: Base defaults from .env
+# Layer 1: Base defaults and local overrides
 env_files:
-  - .env
-
-# Layer 2: Environment-specific from .env.<environment>
-env_files:
-  - .env.${ENVIRONMENT}
-
-# Layer 3: Local overrides (highest precedence for files)
-env_files:
-  - .env.local
+  - .env              # Base configuration
+  - .env.local        # Local overrides (if exists)
 
 # Layer 4: Global workflow values (override env files)
 env:
@@ -198,16 +209,23 @@ commands:
   - shell: "echo 'Mode: $EXECUTION_MODE, Workers: $MAX_WORKERS'"
 ```
 
+**Precedence Order** (highest to lowest):
+1. Profile variables (when profile is active)
+2. Global `env` variables
+3. Variables from `env_files` (later files override earlier)
+4. Inherited system environment variables
+
 **File structure:**
 ```
 .env                  # Base: MAX_WORKERS=5, API_URL=http://localhost
-.env.production       # Prod: API_URL=https://api.prod.com
-.env.local           # Local: MAX_WORKERS=2 (for your machine)
+.env.local           # Local: MAX_WORKERS=2 (overrides .env)
 ```
 
 ### CI/CD Integration Pattern
 
-Use environment variables to make workflows portable across CI/CD systems:
+Use environment variables to make workflows portable across CI/CD systems.
+
+> **Conditional Execution**: Commands support the `when` field for conditional execution based on environment variables (src/config/command.rs:388).
 
 ```yaml
 name: ci-cd-workflow
@@ -400,9 +418,13 @@ profiles:
     MAX_INSTANCES: "15"
 
 secrets:
+  # AWS credentials from environment (currently supported)
   AWS_ACCESS_KEY:
-    provider: aws
-    key: deploy/${REGION}/credentials
+    provider: env
+    key: AWS_ACCESS_KEY_ID
+  AWS_SECRET_KEY:
+    provider: env
+    key: AWS_SECRET_ACCESS_KEY
 
 commands:
   - shell: "echo 'Deploying to $REGION'"
@@ -502,13 +524,14 @@ profiles:
 
 # Layer 4: Secrets
 secrets:
+  # Currently supported: env and file providers
   AWS_ACCESS_KEY:
-    provider: aws
-    key: ${ENVIRONMENT}/pipeline/credentials
+    provider: env
+    key: AWS_ACCESS_KEY_ID
 
   DATABASE_URL:
-    provider: vault
-    key: secret/data/${ENVIRONMENT}/database
+    provider: file
+    key: /secrets/${ENVIRONMENT}/database_url.txt
 
 setup:
   - shell: "echo 'Starting $PROJECT_NAME v$VERSION in $ENVIRONMENT'"

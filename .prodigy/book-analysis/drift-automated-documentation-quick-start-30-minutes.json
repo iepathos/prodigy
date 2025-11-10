@@ -1,0 +1,102 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "automated-documentation",
+  "subsection_id": "quick-start-30-minutes",
+  "subsection_title": "Quick Start (30 Minutes)",
+  "subsection_file": "book/src/automated-documentation/quick-start-30-minutes.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Subsection is completely empty - no content exists at all. This is a critical documentation gap.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Entire Subsection",
+      "description": "Subsection file contains only the heading with no body content",
+      "fix_suggestion": "Create comprehensive quick start guide covering basic automated documentation workflow setup and execution",
+      "source_reference": "workflows/book-docs-drift.yml, .prodigy/book-config.json"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Prerequisites",
+      "description": "No prerequisites section explaining what users need before starting",
+      "fix_suggestion": "Add prerequisites: Rust/Cargo, Claude Code CLI, mdBook, Git repository with documentation",
+      "source_reference": "README.md installation section"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Configuration Setup",
+      "description": "No explanation of .prodigy/book-config.json setup",
+      "fix_suggestion": "Document book-config.json structure: project_name, book_dir, analysis_targets, chapter_file",
+      "source_reference": ".prodigy/book-config.json schema in automated_documentation feature"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Running the Workflow",
+      "description": "No instructions on how to run the automated documentation workflow",
+      "fix_suggestion": "Add step-by-step workflow execution: 'prodigy run workflows/book-docs-drift.yml'",
+      "source_reference": "workflows/book-docs-drift.yml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Understanding the Phases",
+      "description": "No explanation of setup/map/reduce phases in automated documentation context",
+      "fix_suggestion": "Briefly explain: Setup (feature analysis), Map (drift detection/fixing), Reduce (book build)",
+      "source_reference": "automated_documentation.workflow_phases in features.json"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Example Output",
+      "description": "No example showing what users should expect to see",
+      "fix_suggestion": "Include sample output showing drift detection, fixing, and successful completion",
+      "source_reference": "MapReduce execution events and logging"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Next Steps",
+      "description": "No guidance on what to do after completing quick start",
+      "fix_suggestion": "Link to advanced features, customization options, and troubleshooting",
+      "source_reference": "Other automated-documentation subsections"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Common Issues",
+      "description": "No quick troubleshooting tips for first-time users",
+      "fix_suggestion": "Add 2-3 most common issues: configuration errors, missing prerequisites, Claude API setup",
+      "source_reference": "troubleshooting.common_issues in features.json"
+    }
+  ],
+  "positive_aspects": [
+    "Section heading is correctly named and positioned",
+    "File exists in correct location within automated-documentation chapter"
+  ],
+  "improvement_suggestions": [
+    "Start with a brief overview of what automated documentation provides",
+    "Use a step-by-step numbered format for clarity",
+    "Include code blocks for commands and configuration examples",
+    "Add visual indicators (✓ success messages) to show expected progress",
+    "Keep examples minimal and focused on getting started quickly",
+    "Ensure all commands are copy-paste ready",
+    "Link to detailed subsections for users wanting more depth"
+  ],
+  "cross_references": [
+    "benefits",
+    "configuration",
+    "customization",
+    "github-actions-integration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [],
+    "validation_focus": "Check quick start (30 minutes) documentation matches implementation"
+  }
+}

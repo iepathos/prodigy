@@ -30,6 +30,8 @@ map:
         backoff: fixed
 ```
 
+> **Note**: `backoff: fixed` is the shorthand for the Fixed unit variant. Equivalent to `backoff: { fixed: null }` (src/cook/retry_v2.rs:75).
+
 **When to Use**:
 - Simple retry scenarios where timing is not critical
 - Testing and development environments
@@ -139,6 +141,8 @@ map:
         backoff: fibonacci
 ```
 
+> **Note**: `backoff: fibonacci` is the shorthand for the Fibonacci unit variant, similar to Fixed (src/cook/retry_v2.rs:87).
+
 **Example Timeline** (initial_delay=1s):
 - Attempt 1: 1s (fib(1) = 1)
 - Attempt 2: 1s (fib(2) = 1)
@@ -171,12 +175,18 @@ map:
         backoff:
           custom:
             delays:
-              - "1s"
-              - "3s"
-              - "7s"
-              - "15s"
+              - secs: 1
+                nanos: 0
+              - secs: 3
+                nanos: 0
+              - secs: 7
+                nanos: 0
+              - secs: 15
+                nanos: 0
               # Attempt 5 would use max_delay (60s)
 ```
+
+> **Note**: Custom backoff delays use Duration struct format (`{secs: N, nanos: 0}`) instead of humantime strings like "1s". This is because `Vec<Duration>` doesn't have the `humantime_serde` annotation (src/cook/retry_v2.rs:89).
 
 **Example Timeline**:
 - Attempt 1: 1s (delays[0])
@@ -217,8 +227,8 @@ map:
         jitter: true             # Add randomization (±25% by default)
         jitter_factor: 0.25
         retry_on:
-          - error: "timeout"
-          - error: "connection refused"
+          - timeout              # Built-in timeout matcher
+          - pattern: "connection refused"  # Custom pattern for specific errors
 ```
 
 **How It Works Together**:
@@ -226,6 +236,9 @@ map:
 2. Calculated delay is capped at `max_delay`
 3. If `jitter: true`, randomization is applied (±`jitter_factor` percentage)
 4. Final delay is applied before next retry attempt
+5. If `retry_on` is specified, error must match one of the matchers to trigger retry
+
+> **Error Matcher Syntax**: The `retry_on` field uses `ErrorMatcher` enum variants. Built-in matchers (`timeout`, `network`, `server_error`, `rate_limit`) use lowercase names. Custom patterns use `pattern: "regex"` syntax. See [Conditional Retry with Error Matchers](conditional-retry-with-error-matchers.md) for complete documentation.
 
 See also:
 - [Basic Retry Configuration](basic-retry-configuration.md) - Overall retry configuration options

@@ -1,0 +1,127 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "retry-configuration",
+  "subsection_id": "troubleshooting",
+  "subsection_title": "Troubleshooting",
+  "subsection_file": "book/src/retry-configuration/troubleshooting.md",
+  "feature_mappings": [],
+  "drift_detected": false,
+  "severity": "none",
+  "quality_assessment": "Excellent - comprehensive troubleshooting guide with accurate implementation references, working examples, and valid cross-references",
+  "issues": [],
+  "positive_aspects": [
+    "Comprehensive coverage of common retry configuration issues",
+    "Each issue includes symptoms, causes, and solutions with code examples",
+    "Accurate source code references with line numbers (e.g., src/cook/retry_v2.rs:128-149)",
+    "Good use of YAML examples showing both problematic and corrected configurations",
+    "Well-structured debugging workflow at the end",
+    "All cross-references to sibling subsections are valid and working",
+    "Clear explanations of retry_budget behavior with concrete examples",
+    "Circuit breaker troubleshooting matches implementation (src/cook/retry_v2.rs:325-397)",
+    "Error matcher matching logic correctly documented as case-insensitive",
+    "Jitter configuration explained with MapReduce thundering herd scenario",
+    "RetryMetrics structure accurately documented (src/cook/retry_v2.rs:399-422)"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a 'Quick Diagnostic Checklist' section at the top for rapid issue identification",
+    "Could include a troubleshooting decision tree diagram to help users navigate to relevant sections",
+    "Might benefit from adding actual log output examples showing what users would see for each issue",
+    "Consider adding a section on troubleshooting retry behavior in MapReduce workflows specifically"
+  ],
+  "cross_references": [
+    "basic-retry-configuration",
+    "backoff-strategies",
+    "conditional-retry-with-error-matchers",
+    "best-practices",
+    "complete-examples"
+  ],
+  "link_validation": {
+    "total_internal_links": 5,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "checked_links": [
+      {
+        "text": "Basic Retry Configuration",
+        "target": "./basic-retry-configuration.md",
+        "status": "valid"
+      },
+      {
+        "text": "Backoff Strategies",
+        "target": "./backoff-strategies.md",
+        "status": "valid"
+      },
+      {
+        "text": "Conditional Retry with Error Matchers",
+        "target": "./conditional-retry-with-error-matchers.md",
+        "status": "valid"
+      },
+      {
+        "text": "Best Practices",
+        "target": "./best-practices.md",
+        "status": "valid"
+      },
+      {
+        "text": "Complete Examples",
+        "target": "./complete-examples.md",
+        "status": "valid"
+      }
+    ]
+  },
+  "implementation_verification": {
+    "retry_config_structure": {
+      "verified": true,
+      "source": "src/cook/retry_v2.rs:16-52",
+      "notes": "RetryConfig struct matches documentation"
+    },
+    "error_matcher_logic": {
+      "verified": true,
+      "source": "src/cook/retry_v2.rs:116-151",
+      "notes": "Case-insensitive matching correctly documented"
+    },
+    "retry_budget_behavior": {
+      "verified": true,
+      "source": "src/cook/retry_v2.rs:238-243",
+      "notes": "Budget checked before each retry, delay-only calculation confirmed"
+    },
+    "circuit_breaker": {
+      "verified": true,
+      "source": "src/cook/retry_v2.rs:325-397",
+      "notes": "Threshold and recovery timeout behavior matches documentation"
+    },
+    "jitter_application": {
+      "verified": true,
+      "source": "src/cook/retry_v2.rs:308-317",
+      "notes": "Jitter factor application matches documented behavior"
+    },
+    "retry_metrics": {
+      "verified": true,
+      "source": "src/cook/retry_v2.rs:399-422",
+      "notes": "RetryMetrics fields match documentation"
+    },
+    "default_values": {
+      "verified": true,
+      "sources": [
+        "src/cook/retry_v2.rs:443-461"
+      ],
+      "values": {
+        "attempts": 3,
+        "initial_delay": "1s",
+        "max_delay": "30s",
+        "jitter_factor": 0.3,
+        "exponential_base": 2.0
+      }
+    }
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-09T22:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Troubleshooting",
+      "Issue: Retries Not Triggering",
+      "Issue: Retries Happening But Taking Too Long",
+      "Issue: Circuit Breaker Always Open",
+      "Issue: Thundering Herd (Multiple Parallel Agents Retrying Simultaneously)"
+    ],
+    "validation_focus": "Check troubleshooting documentation matches implementation"
+  }
+}

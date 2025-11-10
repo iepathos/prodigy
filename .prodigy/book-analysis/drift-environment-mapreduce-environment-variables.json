@@ -1,0 +1,99 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "environment",
+  "subsection_id": "mapreduce-environment-variables",
+  "subsection_title": "MapReduce Environment Variables",
+  "subsection_file": "book/src/environment/mapreduce-environment-variables.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Subsection has good coverage of environment variables in MapReduce phases but contains several critical errors: incorrect write_file syntax in examples, wrong secrets configuration syntax, and missing explanation of environment variable resolution timing. The examples are well-structured but need corrections to match actual implementation.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Reduce Phase Environment Variables",
+      "description": "write_file command syntax is incorrect - write_file is not a standalone command but a field within a WorkflowStep",
+      "current_content": "reduce:\n  - shell: \"echo 'Processed ${map.successful}/${map.total} items'\"\n  - write_file:\n      path: ${OUTPUT_PATH}\n      content: ${map.results}\n      format: ${REPORT_FORMAT}",
+      "should_be": "reduce:\n  - shell: \"echo 'Processed ${map.successful}/${map.total} items'\"\n  - write_file:\n      path: \"${OUTPUT_PATH}\"\n      content: \"${map.results}\"\n      format: \"json\"",
+      "fix_suggestion": "Correct write_file syntax: 1) path and content should be quoted strings, 2) format should use literal 'json' not env var (format is an enum field, not interpolated), 3) clarify that write_file is a command field like shell/claude",
+      "source_reference": "src/config/command.rs:280-298 (WriteFileConfig struct)"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Complete Example: Parameterized MapReduce Workflow",
+      "description": "write_file format field incorrectly uses environment variable - format is an enum field that must be a literal value (text/json/yaml), not interpolated",
+      "current_content": "reduce:\n  - write_file:\n      path: ${OUTPUT_DIR}/summary.json\n      content: |\n        {\n          \"project\": \"$PROJECT_NAME\",\n          ...\n        }\n      format: json",
+      "should_be": "Same structure but clarify that 'format: json' is correct - it's an enum literal, not an interpolated variable. Only path and content support interpolation.",
+      "fix_suggestion": "Add note explaining that format field accepts enum literals (text, json, yaml) only - environment variable interpolation doesn't apply to enum fields",
+      "source_reference": "src/config/command.rs:303-314 (WriteFileFormat enum)"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Common Patterns - Dynamic input generation",
+      "description": "Incorrect secrets configuration syntax - secrets should be defined within env block with secret: true, not in separate secrets block",
+      "current_content": "env:\n  DATA_SOURCE: https://api.example.com/v1/items\n\nsecrets:\n  API_KEY: \"${env:SECRET_API_KEY}\"",
+      "should_be": "env:\n  DATA_SOURCE: https://api.example.com/v1/items\n  API_KEY:\n    secret: true\n    value: \"sk-actual-key-value\"",
+      "fix_suggestion": "Remove separate 'secrets:' block and move API_KEY into env block with secret: true flag. Explain that secrets are just env vars with masking enabled. The ${env:...} syntax for external providers is not currently implemented.",
+      "source_reference": "src/config/workflow.rs (WorkflowConfig.env), features.json:environment.secrets"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Map Phase Environment Variables",
+      "description": "Missing explanation of when/how environment variables are resolved for max_parallel and agent_timeout_secs",
+      "fix_suggestion": "Add explanation that max_parallel and agent_timeout_secs support both numeric literals and environment variable references (e.g., max_parallel: ${MAX_WORKERS}), and these are resolved at workflow parse time using the resolve_env_or_parse method. This is different from command interpolation which happens at execution time.",
+      "source_reference": "src/config/mapreduce.rs:527-540 (to_map_phase method with resolve_env_or_parse)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Best Practices for MapReduce Environment Variables",
+      "description": "Missing best practice about environment variable resolution order and precedence",
+      "fix_suggestion": "Add best practice explaining environment variable precedence chain: Step env > Workflow profile > Workflow env > System env. This helps users understand which env var will be used when multiple sources define the same variable.",
+      "source_reference": "features.json:configuration.precedence_chain"
+    },
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "Cross-References",
+      "description": "Found 0 broken internal link(s) - all cross-references are valid",
+      "broken_links": [],
+      "fix_suggestion": "All internal links validated successfully. Cross-references to environment-profiles.md, secrets-management.md, and environment-precedence.md are correct."
+    }
+  ],
+  "positive_aspects": [
+    "Excellent coverage of all MapReduce phases (setup, map, reduce, merge)",
+    "Clear examples showing environment variable usage in each phase",
+    "Good explanation of parameterizing max_parallel and agent_timeout_secs",
+    "Helpful complete example demonstrating real-world usage",
+    "Well-organized common patterns section with practical use cases",
+    "Good cross-references to related subsections"
+  ],
+  "improvement_suggestions": [
+    "Add a section explaining the difference between env var resolution at parse time (for config fields) vs execution time (for command interpolation)",
+    "Include troubleshooting section for common environment variable issues (undefined vars, wrong interpolation syntax, etc.)",
+    "Add example showing how to use step-level env to override workflow-level env in map phase",
+    "Clarify which fields support environment variable interpolation vs which require literal values",
+    "Add note about environment variable validation - what happens if a referenced env var is undefined"
+  ],
+  "cross_references": [
+    "environment-profiles",
+    "secrets-management",
+    "environment-precedence"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:50:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "MapReduce Environment Variables",
+      "Setup Phase Environment Variables",
+      "Map Phase Environment Variables",
+      "Reduce Phase Environment Variables",
+      "Merge Phase Environment Variables"
+    ],
+    "validation_focus": "Check mapreduce environment variables documentation matches implementation"
+  }
+}

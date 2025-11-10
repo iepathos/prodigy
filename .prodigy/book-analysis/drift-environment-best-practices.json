@@ -1,0 +1,104 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "environment",
+  "subsection_id": "best-practices",
+  "subsection_title": "Best Practices",
+  "subsection_file": "book/src/environment/best-practices.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Comprehensive best practices with some accuracy issues regarding precedence order, unimplemented secret providers, and missing step-level env documentation",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Avoiding Common Pitfalls - Precedence confusion",
+      "description": "Precedence order documentation is incomplete - missing 'step-level env' and 'config file' layers",
+      "current_content": "Remember the order (highest to lowest):\n1. Profile values (when profile active)\n2. Global `env` field\n3. Later `env_files` entries\n4. Earlier `env_files` entries\n5. Parent process environment",
+      "should_be": "Remember the order (highest to lowest):\n1. Step-level env (per-command overrides)\n2. Profile values (when profile active)\n3. Global `env` field\n4. Config file (.prodigy/config.toml)\n5. Later `env_files` entries\n6. Earlier `env_files` entries\n7. Parent process environment",
+      "fix_suggestion": "Add step-level env as highest precedence and config file between global env and env_files",
+      "source_reference": "src/cook/environment/config.rs:precedence_chain, features.json:596"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Environment Variable Usage",
+      "description": "Missing documentation for step-level environment variable overrides",
+      "fix_suggestion": "Add section explaining per-command env overrides using 'env:' field within command definitions",
+      "feature_reference": "environment.step_env",
+      "source_reference": "features.json:383-388"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Secrets Management Guidelines - Use external secret providers",
+      "description": "Documentation shows Vault and AWS secret providers as if fully implemented, but they are only enum placeholders with no actual implementation",
+      "current_content": "secrets:\n  API_KEY:\n    provider: vault\n    key: secret/data/api-keys",
+      "should_be": "Currently only 'env' and 'file' providers are implemented. Vault and AWS support is planned for future releases.\n\nAvailable providers:\n- env: Load from environment variable\n- file: Load from file path",
+      "fix_suggestion": "Remove or clearly mark Vault/AWS examples as 'future' or 'planned'. Only document env and file providers as currently available",
+      "source_reference": "src/cook/environment/secret_store.rs:40-41 (only env and file providers registered), src/cook/environment/config.rs:101-112 (enum includes vault/aws but no implementation)"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Secrets Management Guidelines - Always use the secrets block",
+      "description": "Example shows '${env:SECRET_API_KEY}' syntax which is not documented in features.json secret format",
+      "current_content": "secrets:\n  # Simple format - retrieves from environment variable\n  API_KEY: \"${env:SECRET_API_KEY}\"  # Masked in all logs",
+      "should_be": "Clarify that this is SecretValue::Simple format which loads from environment variable",
+      "fix_suggestion": "Update example to match documented SecretValue formats (Simple vs Provider) and explain the syntax",
+      "source_reference": "src/cook/environment/config.rs:85-96 (SecretValue enum)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Security Checklist",
+      "description": "Checklist mentions secret provider but doesn't clarify which providers are actually available",
+      "current_content": "- [ ] Production secrets use secret provider (vault/aws/etc)",
+      "should_be": "- [ ] Production secrets use secret provider (env or file - vault/aws planned)",
+      "fix_suggestion": "Update checklist to reflect currently implemented providers",
+      "source_reference": "src/cook/environment/secret_store.rs:40-41"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of naming conventions with clear examples",
+    "Excellent security checklist covering most important concerns",
+    "Good anti-patterns section showing what to avoid",
+    "Performance considerations are well-documented",
+    "Testing guidance is practical and actionable",
+    "Environment variable composition layered strategy is clear",
+    "All cross-references to related subsections are valid",
+    "Documentation practices section is thorough and helpful"
+  ],
+  "improvement_suggestions": [
+    "Add explicit section on step-level environment overrides with examples",
+    "Clarify which secret providers are currently implemented vs planned",
+    "Update precedence documentation to include all layers (step env, config file)",
+    "Add example of using step-level env to override global/profile values",
+    "Consider adding troubleshooting section for common environment variable issues",
+    "Add note about dynamic_variables capability mentioned in features.json",
+    "Include reference to configuration precedence subsection for detailed explanation"
+  ],
+  "cross_references": [
+    "environment-precedence",
+    "secrets-management",
+    "environment-profiles",
+    "common-patterns"
+  ],
+  "link_validation": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Best Practices",
+      "Environment Variable Usage",
+      "Naming Conventions",
+      "Secrets Management Guidelines",
+      "Profile Organization Strategies"
+    ],
+    "validation_focus": "Check best practices documentation matches implementation"
+  }
+}

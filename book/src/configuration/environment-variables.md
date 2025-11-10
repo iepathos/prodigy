@@ -1,8 +1,244 @@
 ## Environment Variables
 
-Prodigy recognizes environment variables for configuration, overriding file-based settings. Environment variables have higher precedence than file configuration but lower than CLI flags.
+Prodigy supports two types of environment variables:
 
-See [Configuration Precedence Rules](configuration-precedence-rules.md) for details on how environment variables interact with other configuration sources.
+1. **System Environment Variables**: Standard Unix environment variables that control Prodigy's behavior globally
+2. **Workflow Environment Variables**: Variables defined in workflow YAML files that are available during workflow execution
+
+This page documents both types. For details on how environment variables interact with other configuration sources, see [Configuration Precedence Rules](configuration-precedence-rules.md).
+
+---
+
+## Workflow Environment Variables
+
+Workflows can define custom environment variables using the `env:` block. These variables are available to all commands within the workflow and support advanced features like secrets, profiles, and interpolation.
+
+### Basic Syntax
+
+```yaml
+name: my-workflow
+
+env:
+  # Plain variables
+  PROJECT_NAME: "prodigy"
+  VERSION: "1.0.0"
+  BUILD_DIR: "target/release"
+
+commands:
+  - shell: "echo Building $PROJECT_NAME version $VERSION"
+  - shell: "cargo build --release --target-dir $BUILD_DIR"
+```
+
+### Variable Interpolation
+
+Workflow environment variables can be referenced using two syntaxes:
+
+- **`$VAR`** - Simple variable reference (shell-style)
+- **`${VAR}`** - Bracketed reference (recommended for clarity and complex expressions)
+
+```yaml
+env:
+  API_URL: "https://api.example.com"
+  API_VERSION: "v2"
+  ENDPOINT: "${API_URL}/${API_VERSION}"
+
+commands:
+  - shell: "curl ${ENDPOINT}/status"
+  - claude: "/deploy --url $API_URL --version $API_VERSION"
+```
+
+### Secrets and Sensitive Data
+
+Mark sensitive values as secrets to automatically mask them in logs and output:
+
+```yaml
+env:
+  # Public configuration
+  DATABASE_HOST: "db.example.com"
+
+  # Secret configuration (masked in logs)
+  DATABASE_PASSWORD:
+    secret: true
+    value: "super-secret-password"
+
+  API_KEY:
+    secret: true
+    value: "sk-abc123..."
+
+commands:
+  - shell: "psql -h $DATABASE_HOST -p $DATABASE_PASSWORD"
+  # Output: psql -h db.example.com -p ***
+```
+
+**Security Best Practices**:
+- Always mark API keys, passwords, and tokens as secrets
+- Never commit secret values to version control
+- Use environment variable references for secrets: `value: "${PROD_API_KEY}"`
+- Rotate secrets regularly
+
+### Profiles for Multiple Environments
+
+Profiles allow different values for different environments (dev, staging, prod):
+
+```yaml
+env:
+  # API endpoints vary by environment
+  API_URL:
+    default: "http://localhost:3000"
+    staging: "https://staging.api.com"
+    prod: "https://api.com"
+
+  # Credentials vary by environment
+  API_KEY:
+    secret: true
+    default: "dev-key-123"
+    staging:
+      secret: true
+      value: "${STAGING_API_KEY}"  # From system env
+    prod:
+      secret: true
+      value: "${PROD_API_KEY}"
+
+commands:
+  - shell: "curl -H 'Authorization: Bearer ${API_KEY}' ${API_URL}/health"
+```
+
+**Activate a profile**:
+
+```bash
+# Use staging profile
+prodigy run workflow.yml --profile staging
+
+# Use prod profile via environment variable
+export PRODIGY_PROFILE=prod
+prodigy run workflow.yml
+```
+
+### Step-Level Environment Overrides
+
+Individual commands can override workflow environment variables:
+
+```yaml
+env:
+  NODE_ENV: "development"
+  LOG_LEVEL: "info"
+
+commands:
+  # Uses workflow-level NODE_ENV
+  - shell: "npm test"
+
+  # Override for this command only
+  - shell: "npm run build"
+    env:
+      NODE_ENV: "production"
+      LOG_LEVEL: "warn"
+
+  # Back to workflow-level NODE_ENV
+  - shell: "npm start"
+```
+
+**Precedence**: Step env > Profile env > Workflow env > System env
+
+### MapReduce Environment Variables
+
+Environment variables work across all MapReduce phases (setup, map, reduce, merge):
+
+```yaml
+name: parallel-processing
+mode: mapreduce
+
+env:
+  MAX_PARALLEL: "10"
+  TIMEOUT: "300"
+  OUTPUT_DIR: "/tmp/results"
+
+setup:
+  - shell: "mkdir -p $OUTPUT_DIR"
+  - shell: "generate-work-items.sh > items.json"
+
+map:
+  input: "items.json"
+  json_path: "$[*]"
+  max_parallel: ${MAX_PARALLEL}  # Use env var for parallelism
+
+  agent_template:
+    - claude: "/process ${item.file} --timeout $TIMEOUT"
+    - shell: "cp result.json ${OUTPUT_DIR}/${item.name}.json"
+
+reduce:
+  - shell: "echo Processed ${map.total} items to $OUTPUT_DIR"
+```
+
+**Advanced MapReduce Usage**:
+- Use env vars for `max_parallel`, `timeout`, `agent_timeout_secs`
+- Reference in `filter` and `sort_by` expressions
+- Pass to validation and gap-filling commands
+
+### Environment Files (`.env`)
+
+Load variables from dotenv-format files (not yet implemented in Prodigy, but planned):
+
+```yaml
+env:
+  env_files:
+    - ".env"
+    - ".env.${PRODIGY_PROFILE}"
+
+# .env file format:
+# PROJECT_NAME=prodigy
+# VERSION=1.0.0
+# API_KEY=sk-abc123
+```
+
+**Note**: This feature is planned but not yet available. Use system environment variables as a workaround.
+
+### Complete Workflow Example
+
+```yaml
+name: deployment-workflow
+
+env:
+  # Project configuration
+  PROJECT_NAME: "my-app"
+  VERSION: "2.1.0"
+
+  # Environment-specific settings
+  DEPLOY_TARGET:
+    default: "dev-server"
+    staging: "staging-cluster"
+    prod: "prod-cluster"
+
+  # Secrets (masked in logs)
+  DEPLOY_TOKEN:
+    secret: true
+    default: "${DEV_TOKEN}"
+    prod:
+      secret: true
+      value: "${PROD_TOKEN}"
+
+commands:
+  - shell: "echo Deploying $PROJECT_NAME v$VERSION to $DEPLOY_TARGET"
+  - shell: "docker build -t ${PROJECT_NAME}:${VERSION} ."
+  - shell: "deploy --target $DEPLOY_TARGET --token $DEPLOY_TOKEN"
+  # Output: deploy --target prod-cluster --token ***
+```
+
+Run with:
+
+```bash
+# Development deployment
+prodigy run deploy.yml
+
+# Production deployment
+export PROD_TOKEN="secret-prod-token"
+prodigy run deploy.yml --profile prod
+```
+
+---
+
+## System Environment Variables
+
+System environment variables control Prodigy's global behavior and configuration.
 
 ### Claude API Configuration
 

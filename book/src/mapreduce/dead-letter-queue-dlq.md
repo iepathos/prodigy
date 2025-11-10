@@ -121,7 +121,7 @@ Each attempt in `failure_history` is a `FailureDetail` object (src/cook/executio
 - `agent_id`: ID of the agent that failed
 - `step_failed`: Command string that failed (e.g., "shell: cargo test")
 - `duration_ms`: How long the attempt ran before failing (u64)
-- `json_log_location`: Path to Claude JSON log for debugging (Optional, see [Claude Command Observability](../debugging/claude-command-observability.md))
+- `json_log_location`: Path to Claude JSON log for debugging (Optional, see [Best Practices for Debugging](../troubleshooting/best-practices-for-debugging.md))
 
 #### Error Types
 
@@ -347,7 +347,7 @@ cat $(prodigy dlq inspect item-123 | jq -r '.failure_history[0].json_log_locatio
 cat /path/to/session.json | jq '.'
 ```
 
-For more details on Claude JSON logs, see [Claude Command Observability](../debugging/claude-command-observability.md).
+For more details on Claude JSON logs, see [Best Practices for Debugging](../troubleshooting/best-practices-for-debugging.md) and [Retry Metrics and Observability](../retry-configuration/retry-metrics-and-observability.md).
 
 ### Common Debugging Workflow
 
@@ -493,6 +493,7 @@ jq '.item_count' ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapre
 
 - [Checkpoint and Resume](./checkpoint-and-resume.md): DLQ state preserved in checkpoints
 - [Event Tracking](./event-tracking.md): DLQ operations emit trackable events
-- [Error Handling](./error-handling.md): Broader error handling strategies
-- [Worktree Architecture](./worktree-architecture.md): Agent isolation and artifact preservation
-- [Claude Command Observability](../debugging/claude-command-observability.md): Using JSON logs for debugging failed items
+- [Error Handling](../error-handling.md): Broader error handling strategies
+- [Worktree Architecture](../mapreduce-worktree-architecture.md): Agent isolation and artifact preservation
+- [Best Practices for Debugging](../troubleshooting/best-practices-for-debugging.md): Using JSON logs and DLQ for debugging failed items
+- [Retry Metrics and Observability](../retry-configuration/retry-metrics-and-observability.md): Monitoring retry behavior and failures

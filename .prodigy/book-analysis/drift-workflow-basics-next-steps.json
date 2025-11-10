@@ -1,0 +1,119 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "workflow-basics",
+  "subsection_id": "next-steps",
+  "subsection_title": "Next Steps",
+  "subsection_file": "book/src/workflow-basics/next-steps.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "All internal links are broken - documentation structure has changed but Next Steps subsection was not updated to reflect new organization",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "high",
+      "section": "Cross-References",
+      "description": "Found 6 broken internal links - all referenced files have moved or been reorganized into multi-subsection chapters",
+      "broken_links": [
+        {
+          "link_text": "Command Types",
+          "original_target": "commands.md",
+          "expected_path": "book/src/workflow-basics/commands.md",
+          "actual_location": "book/src/workflow-basics/command-types.md OR book/src/commands.md",
+          "suggested_fix": "Update to command-types.md (renamed file within same directory)"
+        },
+        {
+          "link_text": "Advanced Features",
+          "original_target": "advanced.md",
+          "expected_path": "book/src/workflow-basics/advanced.md",
+          "actual_location": "book/src/advanced/index.md",
+          "suggested_fix": "Update to ../advanced/index.md (chapter moved to separate directory with subsections)"
+        },
+        {
+          "link_text": "Environment Variables",
+          "original_target": "environment.md",
+          "expected_path": "book/src/workflow-basics/environment.md",
+          "actual_location": "book/src/environment/index.md OR book/src/workflow-basics/environment-configuration.md",
+          "suggested_fix": "Update to ../environment/index.md (chapter moved to separate directory) OR environment-configuration.md (subsection within workflow-basics)"
+        },
+        {
+          "link_text": "Error Handling",
+          "original_target": "error-handling.md",
+          "expected_path": "book/src/workflow-basics/error-handling.md",
+          "actual_location": "book/src/error-handling.md",
+          "suggested_fix": "Update to ../error-handling.md (moved to top level)"
+        },
+        {
+          "link_text": "MapReduce Workflows",
+          "original_target": "mapreduce/index.md",
+          "expected_path": "book/src/workflow-basics/mapreduce/index.md",
+          "actual_location": "book/src/mapreduce/index.md",
+          "suggested_fix": "Update to ../mapreduce/index.md (mapreduce is top-level chapter)"
+        },
+        {
+          "link_text": "Variables",
+          "original_target": "variables.md",
+          "expected_path": "book/src/workflow-basics/variables.md",
+          "actual_location": "book/src/variables/index.md",
+          "suggested_fix": "Update to ../variables/index.md (chapter moved to separate directory with subsections)"
+        }
+      ],
+      "fix_suggestion": "Update all links to point to current file locations. Most chapters were migrated from single files to multi-subsection structure in separate directories.",
+      "source_reference": "book/src/workflow-basics/next-steps.md:5-10"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Next Steps",
+      "description": "Missing links to new workflow-basics subsections that were added after this file was created",
+      "current_content": "Only 6 next step links provided",
+      "should_be": "Should include links to all subsections within workflow-basics chapter",
+      "fix_suggestion": "Add links to: Full Workflow Structure, Command-Level Options, and Environment Configuration subsections within workflow-basics",
+      "source_reference": "book/src/workflow-basics/ directory structure"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Next Steps",
+      "description": "No brief description of what each linked section covers",
+      "current_content": "Just section names and links",
+      "should_be": "Include 1-2 sentence description of what the reader will learn in each section",
+      "fix_suggestion": "Add brief descriptions after each link to help readers prioritize which sections to explore first"
+    }
+  ],
+  "positive_aspects": [
+    "Clear, concise structure",
+    "Logical progression from basic to advanced topics",
+    "Good categorization of related topics"
+  ],
+  "improvement_suggestions": [
+    "Fix all broken links to point to current documentation structure",
+    "Add links to workflow-basics subsections (command-level-options.md, full-workflow-structure.md, environment-configuration.md)",
+    "Add brief descriptions for each next step to guide readers",
+    "Consider organizing into categories: 'Within Workflow Basics' vs 'Advanced Topics'",
+    "Add estimated reading time or complexity level for each section"
+  ],
+  "cross_references": [
+    "command-types",
+    "advanced/index",
+    "environment/index",
+    "error-handling",
+    "mapreduce/index",
+    "variables/index",
+    "full-workflow-structure",
+    "command-level-options",
+    "environment-configuration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:42:44Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": ["next steps", "documentation navigation"],
+    "validation_focus": "Check next steps documentation matches implementation",
+    "link_validation": {
+      "total_internal_links": 6,
+      "broken_links": 6,
+      "valid_links": 0,
+      "external_links": 0
+    }
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "automated-documentation",
+  "subsection_id": "troubleshooting",
+  "subsection_title": "Troubleshooting",
+  "subsection_file": "book/src/automated-documentation/troubleshooting.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Subsection is essentially empty - only has heading with no content. Needs comprehensive troubleshooting documentation for automated documentation workflows including common issues, debugging techniques, and recovery strategies.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Common Issues",
+      "description": "No documentation for common issues when running documentation workflows",
+      "feature_reference": "automated_documentation.workflow_phases",
+      "fix_suggestion": "Add section documenting common problems: feature analysis failures, drift detection errors, validation failures, book build errors, merge conflicts",
+      "source_reference": "workflows/book-docs-drift.yml, .claude/commands/prodigy-analyze-features-for-book.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Debugging Techniques",
+      "description": "No guidance on how to debug documentation workflow failures",
+      "feature_reference": "automated_documentation.map",
+      "fix_suggestion": "Add section explaining how to: check drift reports in .prodigy/book-analysis/, inspect validation results, review Claude logs, examine DLQ for failed chapters",
+      "source_reference": "src/mapreduce/event.rs, src/mapreduce/dlq.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "File Locations",
+      "description": "No documentation of where to find analysis artifacts and logs",
+      "feature_reference": "automated_documentation.setup",
+      "fix_suggestion": "Document key file locations: .prodigy/book-analysis/features.json, .prodigy/book-analysis/drift-*.json, .prodigy/book-analysis/gaps.json, .prodigy/book-analysis/flattened-items.json",
+      "source_reference": ".claude/commands/prodigy-analyze-features-for-book.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Validation Failures",
+      "description": "No guidance on handling validation failures in map phase",
+      "feature_reference": "automated_documentation.map.validation",
+      "fix_suggestion": "Explain how validation works, what the completeness score means, how to debug low scores, and how to manually fix documentation that fails validation",
+      "source_reference": "workflows/book-docs-drift.yml:validate configuration"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Book Build Errors",
+      "description": "No troubleshooting for mdbook build failures",
+      "feature_reference": "automated_documentation.reduce.book_build",
+      "fix_suggestion": "Document common mdbook errors: broken links, missing files, invalid markdown syntax, SUMMARY.md structure issues, and how to fix them",
+      "source_reference": ".claude/commands/prodigy-fix-book-build-errors.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Feature Analysis Issues",
+      "description": "No troubleshooting for feature analysis phase",
+      "feature_reference": "automated_documentation.setup.feature_analysis",
+      "fix_suggestion": "Document issues like: codebase analysis failures, missing source files, incorrect analysis_targets in book-config.json, feature extraction errors",
+      "source_reference": ".claude/commands/prodigy-analyze-features-for-book.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Gap Detection Problems",
+      "description": "No guidance on debugging gap detection failures",
+      "feature_reference": "automated_documentation.setup.gap_detection",
+      "fix_suggestion": "Explain how gap detection works, what to do when no gaps are found (might be configuration issue), how to validate gap detection results",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Resume and Recovery",
+      "description": "No documentation on resuming failed documentation workflows",
+      "feature_reference": "mapreduce.checkpoint_resume",
+      "fix_suggestion": "Explain how to resume interrupted documentation workflows, where checkpoints are stored, how to retry failed chapters from DLQ",
+      "source_reference": "Related to checkpoint-and-resume subsection"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Performance Tips",
+      "description": "No performance optimization guidance",
+      "feature_reference": "automated_documentation.map",
+      "fix_suggestion": "Add tips for optimizing documentation workflows: adjusting max_parallel, processing subset of chapters, using filters to target specific documentation",
+      "source_reference": "workflows/book-docs-drift.yml:max_parallel configuration"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Configuration Issues",
+      "description": "No troubleshooting for book-config.json problems",
+      "feature_reference": "automated_documentation.book_config_structure",
+      "fix_suggestion": "Document common configuration errors: invalid JSON, missing required fields, incorrect paths, analysis_targets misconfiguration",
+      "source_reference": ".prodigy/book-config.json"
+    }
+  ],
+  "positive_aspects": [
+    "Section heading is properly formatted",
+    "File exists in correct location"
+  ],
+  "improvement_suggestions": [
+    "Add comprehensive troubleshooting content covering all phases of documentation workflow",
+    "Include practical examples of debugging commands and techniques",
+    "Provide cross-references to related subsections (workflow basics, checkpoint-and-resume)",
+    "Add FAQ section for quick reference",
+    "Include common error messages with explanations and fixes",
+    "Consider adding a troubleshooting decision tree or flowchart",
+    "Link to relevant Claude commands used in documentation workflow"
+  ],
+  "cross_references": [
+    "workflow-basics",
+    "checkpoint-and-resume", 
+    "dead-letter-queue-dlq",
+    "event-tracking"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T12:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [],
+    "validation_focus": "Check troubleshooting documentation matches implementation"
+  }
+}

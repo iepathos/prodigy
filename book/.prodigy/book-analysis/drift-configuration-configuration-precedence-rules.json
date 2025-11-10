@@ -1,0 +1,99 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "configuration",
+  "subsection_id": "configuration-precedence-rules",
+  "subsection_title": "Configuration Precedence Rules",
+  "subsection_file": "book/src/configuration/configuration-precedence-rules.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "The subsection provides a clear and accurate explanation of configuration precedence rules, with good examples demonstrating the hierarchy. However, there are some issues: (1) The documented command 'prodigy config show' does not exist in the codebase, (2) The implementation shows environment variable merging happens via Config::merge_env_vars() but the precedence documentation doesn't fully align with the actual implementation order, and (3) Missing some environment variables that are actually supported in the code.",
+  "issues": [
+    {
+      "type": "incorrect_command",
+      "severity": "high",
+      "section": "Checking Effective Configuration",
+      "description": "Documentation references 'prodigy config show' command that does not exist in the codebase",
+      "current_content": "prodigy config show",
+      "should_be": "Command does not exist - either implement it or remove the documentation",
+      "fix_suggestion": "Either implement 'prodigy config show' command or remove this section. There is no ConfigCommands enum or config subcommand in src/cli/args.rs",
+      "source_reference": "src/cli/args.rs:23-24 (Commands enum has no Config variant)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Precedence Hierarchy",
+      "description": "Missing information about profile-based configuration precedence",
+      "fix_suggestion": "Add explanation of profile precedence between environment variables and CLI flags. Profiles allow environment-specific configurations and fit into the precedence chain.",
+      "source_reference": "src/config/workflow.rs (profiles field), .prodigy/book-analysis/features.json:364 (precedence: Step env > Profile env > Global env > System env)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Environment Variables",
+      "description": "Documentation doesn't list all supported PRODIGY_* environment variables",
+      "fix_suggestion": "Add reference to complete list of environment variables or expand the examples. Supported variables include: PRODIGY_CLAUDE_API_KEY, PRODIGY_LOG_LEVEL, PRODIGY_EDITOR, PRODIGY_AUTO_COMMIT, PRODIGY_AUTOMATION, PRODIGY_STORAGE_TYPE, PRODIGY_STORAGE_BASE_PATH, PRODIGY_HOME, and others.",
+      "source_reference": "src/config/mod.rs:111-131 (merge_env_vars function)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Precedence Hierarchy",
+      "description": "Missing explanation that EDITOR environment variable is also supported as fallback",
+      "fix_suggestion": "Document that if PRODIGY_EDITOR is not set, the standard EDITOR environment variable is used as fallback",
+      "source_reference": "src/config/mod.rs:120-124"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "How Settings Override Each Other",
+      "description": "The step-by-step loading process is accurate but doesn't mention the timing of environment variable application in code",
+      "fix_suggestion": "Clarify that environment variables are applied via Config::merge_env_vars() after configuration files are loaded, ensuring they override file-based settings as documented",
+      "source_reference": "src/config/mod.rs:111-131 (merge_env_vars implementation)"
+    }
+  ],
+  "positive_aspects": [
+    "Clear and logical precedence hierarchy (highest to lowest priority)",
+    "Excellent concrete examples showing how precedence works in practice",
+    "Good explanation of field-level vs file-level precedence",
+    "Examples demonstrate realistic use cases (API keys, auto-commit, mixed sources)",
+    "Well-organized with clear section headings",
+    "Accurate description of configuration loading order",
+    "Links to related documentation (environment-variables.md, default-values-reference.md)"
+  ],
+  "improvement_suggestions": [
+    "Add a note about workflow-level profiles and their position in the precedence chain",
+    "Include a diagram or table showing the complete precedence hierarchy including profiles",
+    "Add troubleshooting section for common precedence-related issues",
+    "Consider adding an example showing profile-based configuration overrides",
+    "Either implement 'prodigy config show' command or replace with alternative for checking effective configuration (e.g., inspecting the Config structure programmatically or adding debug output)",
+    "Add cross-reference to Storage Configuration subsection for PRODIGY_STORAGE_* variables",
+    "Mention that boolean environment variables are parsed (e.g., PRODIGY_AUTO_COMMIT accepts 'true'/'false' strings)"
+  ],
+  "cross_references": [
+    "environment-variables",
+    "default-values-reference",
+    "workflow-configuration",
+    "global-configuration-structure",
+    "project-configuration-structure"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T08:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Configuration Precedence Rules",
+      "Precedence Hierarchy",
+      "How Settings Override Each Other",
+      "Examples",
+      "Field-Level Precedence"
+    ],
+    "validation_focus": "Check configuration precedence rules documentation matches implementation",
+    "implementation_references": [
+      "src/config/mod.rs:111-131 (merge_env_vars)",
+      "src/config/mod.rs:133-146 (getter methods showing precedence)",
+      "src/config/loader.rs:31-55 (configuration loading)",
+      "src/core/config/mod.rs:30-40 (config merging functions)",
+      "src/cli/args.rs:23-24 (Commands enum - no config subcommand)"
+    ]
+  }
+}

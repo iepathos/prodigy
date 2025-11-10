@@ -9,74 +9,36 @@
     "workflow.formats"
   ],
   "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Subsection contains accurate MapReduce syntax information but has critical broken links that will cause mdbook build failures",
+  "severity": "low",
+  "quality_assessment": "Good - Documentation accurately covers workflow format variations and MapReduce syntax evolution. Found one minor documentation enhancement opportunity regarding additional secret providers.",
   "issues": [
     {
-      "type": "broken_links",
-      "severity": "high",
-      "section": "Cross-References",
-      "description": "All 4 cross-reference links at the end of the document point to non-existent files",
-      "broken_links": [
-        {
-          "link_text": "Setup Phase",
-          "link_target": "./setup-phase.md",
-          "expected_file": "book/src/mapreduce/setup-phase.md",
-          "current_file": "book/src/mapreduce/workflow-format-comparison.md",
-          "actual_file": "book/src/mapreduce/setup-phase-advanced.md"
-        },
-        {
-          "link_text": "Map Phase",
-          "link_target": "./map-phase.md",
-          "expected_file": "book/src/mapreduce/map-phase.md",
-          "current_file": "book/src/mapreduce/workflow-format-comparison.md",
-          "suggested_fix": "This subsection may no longer exist as a standalone file; content may have been integrated into index.md or other subsections"
-        },
-        {
-          "link_text": "Reduce Phase",
-          "link_target": "./reduce-phase.md",
-          "expected_file": "book/src/mapreduce/reduce-phase.md",
-          "current_file": "book/src/mapreduce/workflow-format-comparison.md",
-          "suggested_fix": "This subsection may no longer exist as a standalone file; content may have been integrated into index.md or other subsections"
-        },
-        {
-          "link_text": "Basic Workflow Structure",
-          "link_target": "../workflow-basics/basic-structure.md",
-          "expected_file": "book/src/workflow-basics/basic-structure.md",
-          "current_file": "book/src/mapreduce/workflow-format-comparison.md",
-          "possible_matches": [
-            "book/src/workflow-basics/full-workflow-structure.md",
-            "book/src/workflow-basics/index.md"
-          ]
-        }
-      ],
-      "fix_suggestion": "Update cross-reference links to point to actual existing files:\n  - Replace setup-phase.md with setup-phase-advanced.md\n  - Replace map-phase.md and reduce-phase.md with links to relevant sections in index.md or remove if content is covered elsewhere\n  - Replace basic-structure.md with either full-workflow-structure.md or index.md\n  - Verify all links with: mdbook test or manual checking",
-      "validation_required": true
-    },
-    {
-      "type": "missing_content",
+      "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Full Configuration Format",
-      "description": "Example doesn't show the simpler secret syntax (Simple variant)",
-      "fix_suggestion": "Add an example showing both secret formats:\n```yaml\nsecrets:\n  # Simple format - reads from environment variable\n  SIMPLE_SECRET: \"ENV_VAR_NAME\"\n  \n  # Provider format - explicit provider configuration\n  GITHUB_TOKEN:\n    provider: env\n    key: \"GITHUB_TOKEN\"\n  \n  FILE_SECRET:\n    provider: file\n    key: \"/path/to/secret/file\"\n```",
-      "source_reference": "src/cook/environment/config.rs:86-95"
+      "section": "Full Configuration Format - Secret Format Details",
+      "description": "Documentation only mentions 'env' and 'file' secret providers, but implementation includes additional providers (Vault, AWS)",
+      "current_content": "Providers: env, file (line 89)",
+      "should_be": "Providers: env, file, vault, aws (as defined in src/cook/environment/config.rs:101-109)",
+      "fix_suggestion": "Add a note that additional providers (vault, aws) are available in the implementation but may require additional configuration. Or clarify that this documentation focuses on the most commonly used providers.",
+      "source_reference": "src/cook/environment/config.rs:101-109"
     }
   ],
   "positive_aspects": [
-    "MapReduce syntax evolution is accurately documented with correct deprecation warnings",
-    "Direct array vs nested commands format is clearly explained with examples",
-    "Migration guide provides step-by-step instructions matching the actual implementation",
-    "Deprecation warning messages match source code exactly (src/config/mapreduce.rs:310, 347)",
-    "Format decision tree provides clear guidance for choosing the right format",
-    "Examples demonstrate both old and new syntax effectively",
-    "Secrets example using provider-based configuration is actually correct - matches SecretValue::Provider implementation"
+    "Clear comparison between simple array and full configuration formats",
+    "Excellent coverage of MapReduce syntax evolution (preferred vs legacy)",
+    "Detailed migration guide with before/after examples",
+    "Accurate documentation of secret format (Simple vs Provider)",
+    "Well-structured decision tree for format selection",
+    "Good use of source code references (e.g., src/cook/environment/config.rs:86-95)",
+    "Appropriate cross-references to related subsections",
+    "All internal links validated and working correctly",
+    "Clear deprecation warnings for legacy syntax with exact source locations",
+    "Format examples match actual implementation"
   ],
   "improvement_suggestions": [
-    "Add a troubleshooting section for common format-related errors (e.g., 'unexpected value' when mixing formats)",
-    "Include a note about YAML sensitivity to indentation, especially after migration",
-    "Add examples of validation commands (e.g., 'prodigy run --dry-run') to verify syntax after migration",
-    "Show both simple and provider-based secret formats in the full config example",
-    "Consider adding a visual diagram showing the evolution of MapReduce syntax formats"
+    "Consider adding a note about additional secret providers (vault, aws) available in the implementation",
+    "Could add a brief example showing how to activate profiles (already covered in Environment Variables subsection, so cross-reference may be sufficient)",
+    "Consider adding a troubleshooting section for common format migration issues (though this may be better in a general troubleshooting section)"
   ],
   "cross_references": [
     "setup-phase-advanced",
@@ -84,43 +46,24 @@
     "full-workflow-structure",
     "environment-variables-in-configuration"
   ],
+  "link_validation": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "valid_links": [
+      "./setup-phase-advanced.md",
+      "./index.md",
+      "../workflow-basics/full-workflow-structure.md",
+      "./environment-variables-in-configuration.md"
+    ]
+  },
   "metadata": {
-    "analyzed_at": "2025-01-11T01:17:20Z",
+    "analyzed_at": "2025-01-11T03:42:44Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "workflow formats",
-      "MapReduce syntax",
-      "format comparison",
-      "migration guide",
-      "deprecation warnings"
+      "syntax",
+      "formats",
+      "comparison"
     ],
-    "validation_focus": "Check workflow format comparisons",
-    "actual_files_in_mapreduce": [
-      "backoff-strategies.md",
-      "checkpoint-and-resume.md",
-      "common-pitfalls.md",
-      "dead-letter-queue-dlq.md",
-      "environment-variables-in-configuration.md",
-      "error-collection-strategies.md",
-      "event-tracking.md",
-      "global-storage-architecture.md",
-      "index.md",
-      "performance-tuning.md",
-      "real-world-use-cases.md",
-      "setup-phase-advanced.md",
-      "troubleshooting.md",
-      "workflow-format-comparison.md"
-    ],
-    "actual_files_in_workflow_basics": [
-      "available-fields.md",
-      "command-level-options.md",
-      "command-types.md",
-      "complete-example.md",
-      "environment-configuration.md",
-      "full-workflow-structure.md",
-      "index.md",
-      "merge-workflows.md",
-      "next-steps.md"
-    ]
+    "validation_focus": "Check workflow format comparisons"
   }
 }

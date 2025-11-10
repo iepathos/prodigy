@@ -1,0 +1,121 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "advanced",
+  "subsection_id": "best-practices",
+  "subsection_title": "Best Practices",
+  "subsection_file": "book/src/advanced/best-practices.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good foundational practices with clear examples, but missing coverage of newer features and some advanced patterns. Practices are accurate but could be enhanced with more sophisticated recommendations.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Overall Coverage",
+      "description": "Missing best practices for several advanced features: git context variables, validation with on_incomplete, exit code handlers, step metadata",
+      "fix_suggestion": "Add examples showing best practices for: 1) Using git context variables for change-aware workflows, 2) Validation with automatic gap filling via on_incomplete, 3) Exit code handlers for fine-grained error handling, 4) Step IDs for complex workflow orchestration",
+      "source_reference": "features.json - git_context, validation, error_handling"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Section 4: Validate Critical Changes",
+      "description": "Missing on_incomplete configuration which is a key feature of validation",
+      "current_content": "Shows validate with commands and threshold but not on_incomplete handler",
+      "should_be": "Include on_incomplete configuration to show automatic gap filling capability",
+      "fix_suggestion": "Add on_incomplete example:\n```yaml\nvalidate:\n  commands:\n    - shell: \"cargo test\"\n    - shell: \"cargo clippy -- -D warnings\"\n  threshold: 100\n  on_incomplete:\n    claude: \"/fix-issues\"\n    max_attempts: 3\n    fail_workflow: true\n```",
+      "source_reference": "features.json - command_types.validation.on_incomplete_configuration"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Section 3: Handle Failures Gracefully",
+      "description": "Example shows 'commit_required: true' which is not a field in on_failure handler",
+      "current_content": "on_failure:\n  claude: \"/fix-failing-tests\"\n  max_attempts: 2\n  fail_workflow: true",
+      "should_be": "commit_required is a field on the main command, not in on_failure. The on_failure handler has its own commit_required field",
+      "fix_suggestion": "Update example to show commit_required at the correct level or remove if not needed. According to features.json, on_failure has: claude, shell, max_attempts, fail_workflow, commit_required",
+      "source_reference": "features.json - error_handling.command_level.on_failure"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Section 9: Use Exit Code Handlers",
+      "description": "Feature marked as 'future' in features.json but presented as current feature",
+      "current_content": "Shows on_exit_code as working feature with syntax: on_exit_code:\n  1: {claude: \"/fix-test-failures\"}",
+      "should_be": "Either note this is a planned feature or verify it's actually implemented",
+      "fix_suggestion": "Check if on_exit_code is actually implemented. If not, either remove this section or clearly mark as 'Coming Soon' feature",
+      "source_reference": "features.json - error_handling.command_level.on_exit_code - 'description': 'Map specific exit codes to actions (future)'"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Section 6: Leverage Parallel Execution",
+      "description": "Missing best practice about work item independence verification",
+      "fix_suggestion": "Add guidance on how to verify items are truly independent: 'Test with sequential execution first (parallel: 1) to verify correct behavior, then increase parallelism'",
+      "source_reference": "features.json - best_practices.mapreduce"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Missing Section",
+      "description": "No best practices for MapReduce workflows despite being a major feature",
+      "fix_suggestion": "Add section '11. Design Idempotent MapReduce Work Items' with examples:\n- Design work items that can be safely retried\n- Avoid shared state between agents\n- Use DLQ for failed items\n- Test with small item sets first\n- Monitor with event tracking",
+      "source_reference": "features.json - best_practices.mapreduce"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Missing Section",
+      "description": "No best practices for using git context variables for change-aware workflows",
+      "fix_suggestion": "Add section showing best practices for:\n- Using step.files_changed to selectively run tests\n- Combining format modifiers with pattern filters\n- Leveraging workflow-level git variables for summaries",
+      "source_reference": "features.json - git_context_advanced"
+    }
+  ],
+  "positive_aspects": [
+    "Clear, actionable examples for each practice",
+    "Good progression from basic to advanced patterns",
+    "Proper use of code blocks with YAML syntax highlighting",
+    "Well-structured with numbered sections",
+    "Examples are practical and realistic",
+    "Guidelines sections provide helpful context",
+    "No broken internal links"
+  ],
+  "improvement_suggestions": [
+    "Add best practices for MapReduce workflows (idempotency, DLQ usage, parallelism tuning)",
+    "Include examples of git context variable usage patterns",
+    "Add best practice for validation with on_incomplete (automatic gap filling)",
+    "Show best practices for combining multiple advanced features",
+    "Add troubleshooting tips for common best practice violations",
+    "Include performance considerations (e.g., when to use parallel vs sequential)",
+    "Add section on workflow testing and validation strategies",
+    "Consider adding anti-patterns section (what NOT to do)",
+    "Add examples showing integration of best practices (not just isolated examples)"
+  ],
+  "cross_references": [
+    "error-handling",
+    "validation-workflows",
+    "mapreduce-basics",
+    "git-context"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Variable naming",
+      "Timeouts",
+      "Error handling",
+      "Validation",
+      "Step IDs",
+      "Parallel execution",
+      "Conditionals",
+      "Environment variables",
+      "Exit code handlers",
+      "Documentation"
+    ],
+    "validation_focus": "Check best practices documentation matches implementation",
+    "feature_mapping_note": "Empty feature_mapping indicates general best practices guide, not tied to specific features",
+    "internal_links_validated": true,
+    "broken_links_found": 0
+  }
+}

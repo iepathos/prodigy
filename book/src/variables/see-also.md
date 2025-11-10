@@ -15,7 +15,7 @@
 - **Phase Availability**: Variables have different availability depending on workflow phase (setup, map, reduce, merge)
 - **Variable Scoping**: Setup captures are workflow-wide, map captures are agent-local, reduce captures are step-forward
 - **Format Modifiers**: Git context variables support format modifiers (:json, :lines, :csv, :*.ext), while custom captures use capture_format
-- **Metadata Fields**: All captured variables include .success, .exit_code, .stderr, and .duration fields
+- **Metadata Fields**: All captured variables include .success, .exit_code, .stderr, and .duration fields. Goal-seeking commands also provide validation.completion, validation.gaps, and validation.status metadata
 
 ### External Resources
 
@@ -27,7 +27,7 @@
 
 **Phase-Specific Variables:**
 - Setup: All standard variables, custom captures (workflow-wide scope)
-- Map: item.*, item_index, item_total + inherited setup captures
+- Map: item.*, item_index, item_total, worker.id + inherited setup captures
 - Reduce: map.total, map.successful, map.failed, map.results
 - Merge: merge.worktree, merge.source_branch, merge.target_branch
 
@@ -35,7 +35,7 @@
 - step.files_added, step.files_modified, step.files_deleted, step.files_changed
 - step.commits, step.commit_count, step.insertions, step.deletions
 - workflow.commits, workflow.commit_count
-- Format modifiers: :json, :lines, :csv, :*.ext
+- Format modifiers: :json, :lines (or :newline), :csv (or :comma), :*.ext
 
 **Custom Capture:**
 - capture_output: "var_name" - Creates ${var_name}

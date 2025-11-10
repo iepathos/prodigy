@@ -4,7 +4,7 @@ All MapReduce execution events are logged to `~/.prodigy/events/{repo_name}/{job
 
 ### Event Types
 
-Prodigy tracks 25+ event types across different categories:
+Prodigy tracks 24 event types across different categories:
 
 #### Job Lifecycle Events
 - `JobStarted` - Job begins with config and total items
@@ -14,11 +14,11 @@ Prodigy tracks 25+ event types across different categories:
 - `JobResumed` - Job resumed from checkpoint with pending items
 
 #### Agent Lifecycle Events
-- `AgentStarted` - Agent begins processing work item (includes worktree and attempt number)
+- `AgentStarted` - Agent begins processing work item (includes item_id, worktree, and attempt number)
 - `AgentProgress` - Agent reports progress percentage and current step
-- `AgentCompleted` - Agent finishes successfully (includes commits and Claude JSON log location)
+- `AgentCompleted` - Agent finishes successfully with job_id, agent_id, duration, commits (Vec<String>), and optional json_log_location
 - `AgentFailed` - Agent fails with error and retry eligibility
-- `AgentRetrying` - Agent retries with backoff delay
+- `AgentRetrying` - Agent retries with attempt number and backoff delay in milliseconds
 
 #### Checkpoint Events
 - `CheckpointCreated` - Checkpoint saved with version and completed agent count
@@ -72,6 +72,8 @@ Each event is wrapped in an `EventRecord` with rich metadata:
 }
 ```
 
+**Note**: The `event_type` field is serialized using serde's tagged enum format (`#[serde(tag = "event_type")]`), which means it appears as a sibling field alongside other event-specific fields within the `event` object.
+
 **Fields:**
 - `id` - Unique UUID for this event
 - `timestamp` - When the event occurred (UTC)
@@ -99,9 +101,12 @@ Events are stored in JSONL (JSON Lines) format with one event per line.
 **Source**: EventLogger configuration in src/cook/execution/events/event_logger.rs:44-45
 
 **File Rotation:**
-- Log files automatically rotate at 100MB (configurable)
-- Optional compression for archived files
+- Log files automatically rotate at 100MB (configurable via `with_rotation()`)
+- Rotated files are moved with timestamp suffix: `events-{timestamp}.jsonl.rotated`
+- Compression support is implemented but currently moves files without actual compression (marked as TODO in implementation)
 - Cross-worktree event aggregation for parallel jobs
+
+**Source**: Rotation implementation in src/cook/execution/events/event_writer.rs:rotation_size field and rotate_if_needed() method
 
 ### Correlation IDs
 
@@ -120,11 +125,18 @@ Use correlation IDs to:
 
 ### Viewing Events with CLI
 
+**Note on Event File Paths**: The CLI commands use `.prodigy/events/mapreduce_events.jsonl` as the default path for backward compatibility. However, MapReduce workflows using global storage write events to `~/.prodigy/events/{repo_name}/{job_id}/events-{timestamp}.jsonl`. Use the `--file` flag to specify the global storage path when querying events from MapReduce jobs.
+
+**Source**: CLI default paths in src/cli/events/mod.rs (all subcommands use `default_value = ".prodigy/events/mapreduce_events.jsonl"`)
+
 #### List Events
 
 ```bash
-# List all events for a job
+# List all events for a job (local storage)
 prodigy events ls --job-id <job_id>
+
+# List events from global storage
+prodigy events ls --job-id <job_id> --file ~/.prodigy/events/{repo_name}/{job_id}/events-{timestamp}.jsonl
 
 # Filter by event type
 prodigy events ls --job-id <job_id> --event-type agent_completed

@@ -1,0 +1,73 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "workflow-basics",
+  "subsection_id": "full-workflow-structure",
+  "subsection_title": "Full Workflow Structure",
+  "subsection_file": "book/src/workflow-basics/full-workflow-structure.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Subsection contains incorrect merge syntax that will cause YAML parsing errors. The timeout field is shown as a sibling to command array items, which is invalid. Documentation needs correction to show proper merge workflow formats.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Full Workflow Structure",
+      "description": "Merge workflow syntax is incorrect - timeout shown as sibling to command array items instead of being wrapped in config object",
+      "current_content": "merge:\n  - shell: \"git fetch origin\"\n  - claude: \"/merge-worktree ${merge.source_branch}\"\n  timeout: 600",
+      "should_be": "merge:\n  commands:\n    - shell: \"git fetch origin\"\n    - claude: \"/merge-worktree ${merge.source_branch}\"\n  timeout: 600\n\n# OR simplified format without timeout:\nmerge:\n  - shell: \"git fetch origin\"\n  - claude: \"/merge-worktree ${merge.source_branch}\"",
+      "fix_suggestion": "Correct the merge syntax to show both valid formats: (1) direct array without timeout, (2) config object with commands and optional timeout fields",
+      "source_reference": "src/config/mapreduce.rs:86-116 (MergeWorkflow struct and deserializer)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Full Workflow Structure",
+      "description": "Missing explanation of merge workflow formats and when to use each",
+      "fix_suggestion": "Add brief explanation: 'Merge workflow supports two formats: (1) Direct array for simple cases, (2) Config object with timeout field for operations that need time limits'",
+      "source_reference": "src/config/mapreduce.rs:103-112"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Merge Variables",
+      "description": "Documentation shows ${merge.source_branch} but omits ${merge.target_branch}, ${merge.worktree}, and ${merge.session_id}",
+      "fix_suggestion": "Document all merge context variables: ${merge.worktree}, ${merge.source_branch}, ${merge.target_branch}, ${merge.session_id}",
+      "feature_reference": "merge.variables",
+      "source_reference": "features.json:336-339"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Merge Workflow Purpose",
+      "description": "No explanation of what merge workflow does or when to use custom merge vs default behavior",
+      "fix_suggestion": "Add brief description: 'Custom merge workflow executes when merging worktree changes back to main branch. Use for validation, conflict resolution, or pre-merge testing.'",
+      "source_reference": "CLAUDE.md section on Custom Merge Workflows"
+    }
+  ],
+  "positive_aspects": [
+    "Shows clear full workflow format with all major fields",
+    "Includes environment variables, secrets, env_files, and profiles",
+    "Example demonstrates variable interpolation",
+    "Clean, readable YAML syntax"
+  ],
+  "improvement_suggestions": [
+    "Add comment explaining the difference between simple array format and full config format",
+    "Include example showing when profiles are useful",
+    "Cross-reference to environment variables section for more details",
+    "Add note about when custom merge workflow is needed vs default behavior"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-11-09T03:42:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Full Workflow Structure",
+      "Environment Variables",
+      "Secrets",
+      "Profiles",
+      "Merge Workflow"
+    ],
+    "validation_focus": "Check full workflow structure documentation matches implementation"
+  }
+}

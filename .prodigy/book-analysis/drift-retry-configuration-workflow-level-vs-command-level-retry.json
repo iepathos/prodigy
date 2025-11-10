@@ -1,0 +1,57 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "retry-configuration",
+  "subsection_id": "workflow-level-vs-command-level-retry",
+  "subsection_title": "Workflow-Level vs Command-Level Retry",
+  "subsection_file": "book/src/retry-configuration/workflow-level-vs-command-level-retry.md",
+  "feature_mappings": [],
+  "drift_detected": false,
+  "severity": "none",
+  "quality_assessment": "Documentation is accurate and comprehensive. All code references match implementation, examples are correct, and cross-references are valid.",
+  "issues": [],
+  "positive_aspects": [
+    "Clear distinction between command-level (retry_v2) and workflow-level (error_policy) retry systems",
+    "Accurate code references: src/cook/retry_v2.rs and src/cook/workflow/error_policy.rs exist and match documented structure",
+    "Comprehensive feature comparison table clearly shows capabilities of each system",
+    "Excellent examples showing how to use both systems together",
+    "All internal cross-references are valid and files exist",
+    "Well-structured decision tree helps users choose appropriate retry strategy",
+    "Accurate field documentation matches actual struct definitions in code",
+    "Clear explanation of retry flow with step-by-step breakdown",
+    "Good coverage of use cases for each retry system"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a troubleshooting section for common retry configuration mistakes",
+    "Could add performance implications of different backoff strategies",
+    "May benefit from visual diagram showing retry flow for both systems"
+  ],
+  "cross_references": [
+    "basic-retry-configuration",
+    "backoff-strategies",
+    "best-practices",
+    "complete-examples"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T08:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Workflow-Level vs Command-Level Retry",
+      "Command-Level Retry (retry_v2)",
+      "Workflow-Level Retry (error_policy)",
+      "Using Both Systems Together",
+      "Key Differences"
+    ],
+    "validation_focus": "Check workflow-level vs command-level retry documentation matches implementation",
+    "code_references_validated": [
+      "src/cook/retry_v2.rs:14-52 (RetryConfig fields)",
+      "src/cook/workflow/error_policy.rs:131-179 (WorkflowErrorPolicy fields)",
+      "src/cook/workflow/error_policy.rs:90-129 (Workflow-level RetryConfig)"
+    ],
+    "cross_references_validated": [
+      "./basic-retry-configuration.md - exists",
+      "./backoff-strategies.md - exists",
+      "./best-practices.md - exists",
+      "./complete-examples.md - exists"
+    ]
+  }
+}

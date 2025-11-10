@@ -70,23 +70,44 @@ Workflows can be specified in multiple ways:
 
 ### Environment Variables in Workflows
 
-Workflows can reference project variables and environment variables:
-
-```yaml
-# .prodigy/config.yml
-variables:
-  environment: staging
-  api_url: https://staging.api.com
-```
+Workflows have a dedicated `env:` block for defining environment variables with advanced features like secrets, profiles, and step-level overrides:
 
 ```yaml
 # .prodigy/workflow.yml
+name: deployment
+
+env:
+  # Plain variables
+  ENVIRONMENT: staging
+  API_URL: https://staging.api.com
+
+  # Secret variables (masked in logs)
+  API_KEY:
+    secret: true
+    value: "${STAGING_API_KEY}"  # From system env
+
+  # Profile-specific values
+  DEPLOY_TARGET:
+    default: dev-server
+    staging: staging-cluster
+    prod: prod-cluster
+
 commands:
-  - name: deploy
-    args: ["${environment}"]
-    options:
-      api_url: "${api_url}"
+  - shell: "deploy --env ${ENVIRONMENT} --url ${API_URL} --key ${API_KEY}"
+    # Output: deploy --env staging --url https://staging.api.com --key ***
 ```
+
+**Key Features**:
+- **Secrets**: Automatically masked in all output (`secret: true`)
+- **Profiles**: Different values for dev/staging/prod environments
+- **Step Overrides**: Override variables for specific commands
+- **Interpolation**: Reference system environment variables
+
+See [Environment Variables - Workflow Section](environment-variables.md#workflow-environment-variables) for complete documentation.
+
+**Note**: Project config `variables` are separate from workflow `env` and serve different purposes:
+- **Workflow `env:`**: Runtime environment variables, supports secrets and profiles
+- **Config `variables:`**: Project metadata and settings (deprecated for workflow use)
 
 ### MapReduce Workflows
 
