@@ -1,0 +1,71 @@
+# Validation Summary for Troubleshooting Chapter
+
+## Content Metrics
+- Total lines: 843
+- index.md: 300 lines
+- common-error-messages.md: 318 lines  
+- faq.md: 195 lines
+- best-practices-for-debugging.md: 30 lines
+
+## Structure
+- Level-2 headings:
+  - index.md: 21 headings
+  - common-error-messages.md: 17 headings
+  - faq.md: 11 headings
+- Code examples:
+  - index.md: 8 code blocks
+  - common-error-messages.md: 2 code blocks
+  - faq.md: 8 code blocks
+- Source references:
+  - index.md: 3 references
+  - common-error-messages.md: 3 references
+  - faq.md: 1 reference
+
+## Drift Issues Resolved
+- Critical: 0
+- High: 6/6 (100%) - All broken references fixed
+- Medium: 5/5 (100%) - Added missing content sections
+- Low: 4/4 (100%) - All improvements applied
+
+## Code Validation
+- All source references verified against actual codebase
+- CLI commands verified from src/cli/args.rs and src/cli/commands/events.rs
+- Error types verified from src/cook/workflow/composer_integration.rs
+- Foreach implementation verified from src/cook/execution/foreach.rs
+- All referenced files exist
+
+## Changes Made
+
+### Broken References Fixed (High Severity)
+✓ Updated ../advanced-features/environment-variables.md → ../environment/index.md (2 occurrences)
+✓ Updated ../advanced-features/git-context-variables.md → ../git-context-advanced.md
+✓ Updated ../observability/claude-json-logs.md → reference to CLAUDE.md Spec 126 (2 occurrences)
+✓ Updated ../mapreduce/dead-letter-queue.md → ../mapreduce/dead-letter-queue-dlq.md
+✓ Updated ../mapreduce/cleanup-failure-handling.md → reference to CLAUDE.md Spec 136 (2 occurrences)
+✓ Updated ../mapreduce/concurrent-resume-protection.md → reference to CLAUDE.md Spec 140
+
+### Missing Content Added (Medium Severity)
+✓ Added workflow composition and template errors section (3 new error types)
+  - Template not found
+  - Required parameter not provided
+  - Circular dependency detected
+✓ Added foreach command errors section with practical examples
+✓ Added dry-run mode to debug tips
+
+### CLI Commands Updated (Low Severity)
+✓ Updated events CLI examples to match actual implementation
+  - prodigy events ls --job-id <job_id>
+  - prodigy events follow --job-id <job_id>
+  - prodigy events stats
+
+## Quality Gates
+✓ Meets minimum content requirements (843 lines > 100 minimum for chapters)
+✓ All critical issues resolved (0 critical issues)
+✓ All high severity issues resolved (6/6)
+✓ All medium severity issues resolved (5/5)
+✓ All low severity issues resolved (4/4)
+✓ All examples grounded in codebase
+✓ All source references validated
+✓ All broken links fixed
+
+Status: READY TO COMMIT

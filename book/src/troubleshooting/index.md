@@ -91,7 +91,7 @@ See [MapReduce Checkpoint and Resume](../mapreduce/checkpoint-and-resume.md) for
 - Increase max-parallel for retry if parallelism helps
 - Check json_log_location in DLQ for detailed error info
 
-See [Dead Letter Queue](../mapreduce/dead-letter-queue.md) for complete DLQ management details.
+See [Dead Letter Queue (DLQ)](../mapreduce/dead-letter-queue-dlq.md) for complete DLQ management details.
 
 ### Worktree cleanup failures
 
@@ -111,7 +111,7 @@ See [Dead Letter Queue](../mapreduce/dead-letter-queue.md) for complete DLQ mana
 - Verify file permissions on worktree directory
 - Manual cleanup if necessary: `rm -rf ~/.prodigy/worktrees/<path>`
 
-See [Cleanup Failure Handling](../mapreduce/cleanup-failure-handling.md) for detailed cleanup guidance.
+For more on cleanup failures, see "Cleanup Failure Handling (Spec 136)" in the CLAUDE.md file.
 
 ### Environment variables not resolved
 
@@ -130,7 +130,7 @@ See [Cleanup Failure Handling](../mapreduce/cleanup-failure-handling.md) for det
 - Check variable scope (global vs step-level)
 - Ensure env_files loaded correctly
 
-See [Environment Variables](../advanced-features/environment-variables.md) for variable configuration details.
+See [Environment Configuration](../environment/index.md) for variable configuration details.
 
 ### Git context variables empty
 
@@ -149,7 +149,40 @@ See [Environment Variables](../advanced-features/environment-variables.md) for v
 - Use appropriate format modifier (e.g., :json, :newline)
 - Check git status to verify changes exist
 
-See [Git Context Variables](../advanced-features/git-context-variables.md) for available git variables.
+See [Advanced Git Context](../git-context-advanced.md) for available git variables.
+
+### Foreach iteration failures
+
+**Symptoms:** Foreach command fails partway through, items skipped, or parallel execution errors
+
+**Causes:**
+- Command failure with continue_on_error disabled
+- Parallel execution resource exhaustion
+- Variable interpolation errors in item context
+- Max items limit reached unexpectedly
+
+**Solutions:**
+- Enable continue_on_error to process remaining items on failure
+- Reduce parallelism: `parallel: 5` instead of `parallel: true`
+- Verify ${item}, ${index}, ${total} variable interpolation
+- Check max_items setting matches expectations
+- Review progress bar output for failure patterns
+- Use shell command for debugging: `shell: "echo Processing ${item}"`
+
+Example foreach with error handling:
+```yaml
+foreach:
+  input:
+    list: ["file1.py", "file2.py", "file3.py"]
+  parallel: 5
+  max_items: 10
+  continue_on_error: true
+  commands:
+    - shell: "echo Processing ${item} (${index}/${total})"
+    - claude: "/refactor ${item}"
+```
+
+**Source**: src/cook/execution/foreach.rs:44-515
 
 ### Claude command fails with "command not found"
 
@@ -167,6 +200,18 @@ See [Git Context Variables](../advanced-features/git-context-variables.md) for a
 - Use full path if necessary: `/path/to/claude`
 
 ## Debug Tips
+
+### Use dry-run mode to preview execution
+
+```bash
+prodigy run workflow.yml --dry-run
+```
+
+**Shows:** Preview of commands that would be executed without actually running them
+
+**Use when:** Verifying workflow steps before execution, testing variable interpolation, checking command syntax
+
+**Source**: src/cli/args.rs:64
 
 ### Use verbose mode for execution details
 
@@ -188,17 +233,26 @@ prodigy logs --latest --summary
 
 **Use when:** Claude command failed, understanding why Claude made certain decisions
 
-See [Claude JSON Logs](../observability/claude-json-logs.md) for detailed log analysis.
+For more on Claude JSON logs, see the "Viewing Claude Execution Logs (Spec 126)" section in the project CLAUDE.md file.
 
 ### Inspect event logs for execution timeline
 
 ```bash
-prodigy events list <job_id>
+# List events for a job
+prodigy events ls --job-id <job_id>
+
+# Follow events in real-time
+prodigy events follow --job-id <job_id>
+
+# Show event statistics
+prodigy events stats
 ```
 
-**Shows:** Detailed execution timeline, agent starts/completions, durations
+**Shows:** Detailed execution timeline, agent starts/completions, durations, real-time event stream
 
-**Use when:** Understanding workflow execution flow, finding bottlenecks
+**Use when:** Understanding workflow execution flow, finding bottlenecks, monitoring active jobs
+
+**Source**: src/cli/commands/events.rs:22-98
 
 ### Review DLQ for failed item details
 

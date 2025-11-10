@@ -111,7 +111,7 @@ This section documents specific error messages you may encounter while using Pro
 3. Remove stale lock if process is dead: `rm ~/.prodigy/resume_locks/{job_id}.lock`
 4. Retry - stale locks are auto-detected and cleaned
 
-See [Concurrent Resume Protection](../mapreduce/concurrent-resume-protection.md) for details.
+For details on concurrent resume protection, see "Concurrent Resume Protection (Spec 140)" in the CLAUDE.md file.
 
 ### "JSONPath returned no results"
 
@@ -222,6 +222,83 @@ See [Concurrent Resume Protection](../mapreduce/concurrent-resume-protection.md)
 2. Check for correct job ID
 3. Start new run instead of resume: `prodigy run workflow.yml`
 4. Review job results if completion was successful
+
+### "Template not found"
+
+**Full message**: `Error: Template '{name}' not found in registry or file system`
+
+**What it means**: A workflow template referenced in composition cannot be located.
+
+**Causes**:
+- Template name typo
+- Template not registered
+- Template file doesn't exist
+- Wrong template path
+
+**Solutions**:
+1. Check template spelling and case
+2. List available templates: `prodigy template list`
+3. Register template if needed: `prodigy template register <path>`
+4. Verify template file exists at specified path
+5. Check template registry: `~/.prodigy/templates/`
+
+**Source**: src/cook/workflow/composer_integration.rs:20, src/cook/workflow/composition/registry.rs:119
+
+### "Required parameter not provided"
+
+**Full message**: `Error: Required parameter '{name}' not provided`
+
+**What it means**: A template requires a parameter that wasn't provided during workflow composition.
+
+**Causes**:
+- Missing --param flag
+- Parameter not in param file
+- Template definition requires parameter
+- Parameter name mismatch
+
+**Solutions**:
+1. Provide parameter: `prodigy run workflow.yml --param NAME=value`
+2. Use parameter file: `--param-file params.json`
+3. Check template parameter definitions
+4. Verify parameter names match exactly (case-sensitive)
+
+Example parameter file:
+```json
+{
+  "project_name": "my-project",
+  "version": "1.0.0"
+}
+```
+
+**Source**: src/cook/workflow/composer_integration.rs:23
+
+### "Circular dependency detected"
+
+**Full message**: `Error: Circular dependency detected: {description}` or `Error: Circular dependency detected in workflow composition`
+
+**What it means**: Workflow composition has a circular dependency where templates reference each other in a loop.
+
+**Causes**:
+- Template A extends/imports Template B, which extends/imports Template A
+- Chain of dependencies forms a cycle
+- Sub-workflow references create circular imports
+
+**Solutions**:
+1. Review template dependencies and break the cycle
+2. Restructure templates to have clear dependency hierarchy
+3. Extract common functionality into a shared template
+4. Check extends and imports chains
+
+Example circular dependency:
+```yaml
+# template-a.yml
+extends: template-b
+
+# template-b.yml
+extends: template-a  # Circular!
+```
+
+**Source**: src/cook/workflow/composition/composer.rs:265, 727, src/error/codes.rs:78
 
 ### "Concurrent modification detected"
 
