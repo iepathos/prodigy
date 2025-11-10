@@ -1,0 +1,119 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "troubleshooting",
+  "subsection_id": "best-practices-for-debugging",
+  "subsection_title": "Best Practices for Debugging",
+  "subsection_file": "book/src/troubleshooting/best-practices-for-debugging.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good foundation but missing important debugging environment variables, advanced techniques, and workflow-specific debugging practices. Content is accurate and well-organized but incomplete coverage of debugging capabilities.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Environment Variables",
+      "description": "Missing documentation for debugging environment variables PRODIGY_CLAUDE_STREAMING, PRODIGY_CLAUDE_CONSOLE_OUTPUT, and PRODIGY_LOG_LEVEL",
+      "fix_suggestion": "Add section explaining debugging environment variables:\n- PRODIGY_CLAUDE_STREAMING: Control JSON streaming output (true/false)\n- PRODIGY_CLAUDE_CONSOLE_OUTPUT: Force streaming output regardless of verbosity\n- PRODIGY_LOG_LEVEL: Control log verbosity (trace, debug, info, warn, error)",
+      "source_reference": "src/config/mod.rs:116, src/cook/execution/claude.rs:429-433"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Advanced Log Analysis",
+      "description": "Missing advanced techniques for analyzing Claude JSON logs with jq for specific debugging scenarios",
+      "fix_suggestion": "Add practical jq examples:\n- Extract error messages: cat log.json | jq 'select(.type == \"error\")'\n- View tool invocations: cat log.json | jq '.content[]? | select(.type == \"tool_use\")'\n- Analyze token usage: cat log.json | jq '.usage'\n- Filter by specific tool: cat log.json | jq '.content[]? | select(.name == \"Bash\")'",
+      "source_reference": "CLAUDE.md project documentation section 'Viewing Claude Execution Logs'"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Workflow-Specific Debugging",
+      "description": "Missing debugging practices specific to workflow types (standard, MapReduce, goal_seek, foreach)",
+      "fix_suggestion": "Add subsections for:\n- Standard workflow debugging: Variable interpolation, step-by-step execution\n- MapReduce debugging: Agent isolation issues, parallel execution problems, merge conflicts\n- Goal seek debugging: Score validation, convergence issues, threshold tuning\n- Foreach debugging: Parallel execution issues, item processing failures",
+      "source_reference": "features.json:best_practices sections for workflow_design, mapreduce, testing"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Interactive Debugging Techniques",
+      "description": "Missing guidance on using dry-run flags, manual intervention points, and interactive debugging",
+      "fix_suggestion": "Add tips for:\n- Using --dry-run with dlq retry to preview actions\n- Pausing workflows to inspect intermediate state\n- Manual checkpoint inspection and modification\n- Using git log in worktrees to trace execution history",
+      "source_reference": "src/cli/commands/logs.rs, worktree debugging practices"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Checkpoint Inspection (Item 12)",
+      "description": "Item 12 mentions inspecting checkpoints but doesn't explain what to look for or how to interpret checkpoint state",
+      "current_content": "Inspect checkpoint state: Check ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/ when resume fails",
+      "should_be": "Add guidance on:\n- What files to check (map-checkpoint-*.json, reduce-checkpoint-*.json, setup-checkpoint.json)\n- Key fields to inspect (work_items state, completed/pending counts, variables)\n- How to identify corruption or inconsistencies\n- When to manually edit vs. restart",
+      "fix_suggestion": "Expand checkpoint inspection guidance with specific file types and what to look for",
+      "source_reference": "CLAUDE.md MapReduce Checkpoint and Resume section"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Performance Debugging",
+      "description": "Missing guidance on debugging performance issues and resource constraints",
+      "fix_suggestion": "Add performance debugging tips:\n- Use timing data from session state to identify slow steps\n- Monitor parallel execution with event logs\n- Identify bottlenecks in MapReduce with agent duration tracking\n- Debugging timeout issues with timeout_config and agent_timeout_secs",
+      "source_reference": "features.json:advanced_features.timeout_control, mapreduce.configuration.timeout_config"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Common Patterns",
+      "description": "Missing references to common debugging patterns from troubleshooting.common_issues in features.json",
+      "fix_suggestion": "Add cross-references to common issues subsection for:\n- Variable interpolation debugging patterns\n- MapReduce item discovery problems\n- Timeout debugging strategies\n- Validation debugging techniques",
+      "source_reference": "features.json:troubleshooting.common_issues"
+    }
+  ],
+  "positive_aspects": [
+    "Well-organized numbered list format is easy to scan",
+    "Covers core debugging areas: logs, events, DLQ, checkpoints, worktrees",
+    "Includes specific commands with full paths (e.g., prodigy logs --latest)",
+    "Good progression from simple (verbosity) to advanced (DLQ, checkpoints)",
+    "Mentions prodigy logs command with practical flags (--latest, --tail)",
+    "References both global storage paths (~/.prodigy/) and Claude-specific paths",
+    "Includes collaborative debugging advice (item 14: ask for help with full context)"
+  ],
+  "improvement_suggestions": [
+    "Add a table or quick reference for debugging commands at the top",
+    "Group related debugging techniques into subsections (Logs, State, Workflows, Resources)",
+    "Include a troubleshooting decision tree: 'Start here based on your symptom'",
+    "Add code blocks with complete debugging command examples",
+    "Include expected output examples for key debugging commands",
+    "Add links to related subsections (Common Issues, Error Handling, Event Tracking)",
+    "Consider adding a 'Quick Debugging Checklist' at the start",
+    "Include examples of what good vs. problematic output looks like"
+  ],
+  "cross_references": [
+    "common-issues",
+    "error-handling",
+    "event-tracking",
+    "dead-letter-queue-dlq",
+    "checkpoint-and-resume",
+    "worktree-management"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:42:44Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Verbosity flags",
+      "Variable interpolation debugging",
+      "Log and state inspection",
+      "Claude JSON logs",
+      "DLQ for MapReduce failures",
+      "Incremental testing",
+      "Input validation",
+      "Resource monitoring",
+      "Version control",
+      "Error message analysis",
+      "Checkpoint inspection",
+      "Worktree history"
+    ],
+    "validation_focus": "Check best practices for debugging documentation matches implementation",
+    "internal_links_found": 0,
+    "broken_links": []
+  }
+}
