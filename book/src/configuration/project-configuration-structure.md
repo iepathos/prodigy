@@ -97,6 +97,22 @@ variables:
 
 These variables can be referenced in workflows using `${variable_name}` syntax.
 
+**Note**: For workflow-level environment variables (with secrets, profiles, and step-level overrides), use the `env:` block in workflow files instead. See [Environment Variables](environment-variables.md) for details.
+
+#### `storage`
+
+**Type**: Object (optional)
+**Default**: Inherits from global config
+
+Project-specific storage configuration. See [Storage Configuration](storage-configuration.md) for details.
+
+```yaml
+storage:
+  backend: file
+  backend_config:
+    base_dir: /custom/project/storage
+```
+
 ### Complete Example
 
 ```yaml
