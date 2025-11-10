@@ -23,8 +23,10 @@ DATABASE_URL=postgresql://localhost:5432/mydb
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
-# Comments are supported
+# Comments are supported (lines starting with #)
 API_KEY=secret-key-here
+
+# Empty lines are ignored
 
 # Multi-line values use quotes
 PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
@@ -32,9 +34,39 @@ MIIEvQIBADANBg...
 -----END PRIVATE KEY-----"
 ```
 
+**Quote Handling:**
+
+Prodigy automatically strips both single and double quotes from the start and end of values during parsing:
+
+```bash
+# These all produce the same value: myvalue
+KEY1=myvalue
+KEY2="myvalue"
+KEY3='myvalue'
+
+# For multi-line values, quotes are required but will be stripped
+PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBg...
+-----END PRIVATE KEY-----"
+# Resulting value does NOT include the surrounding quotes
+```
+
+**Source:** `src/cook/environment/manager.rs:200-207`
+
+**Parsing Rules:**
+
+- Lines starting with `#` are treated as comments and skipped
+- Empty lines are ignored
+- Each line must contain an `=` character to be valid
+- Key is everything before the first `=` (trimmed)
+- Value is everything after the first `=` (trimmed)
+- Surrounding quotes (`"` or `'`) are automatically removed from values
+
+**Source:** `src/cook/environment/manager.rs:190-211`
+
 **Loading Order and Precedence:**
 
-Environment files are loaded in order, with later files overriding earlier files. This enables layered configuration:
+Environment files are loaded in order (if they exist), with later files overriding earlier files. Missing files are silently skipped with debug logging. This enables layered configuration:
 
 ```yaml
 env_files:
@@ -61,9 +93,77 @@ Precedence order (highest to lowest):
 3. Earlier files in `env_files` list
 4. Parent process environment
 
+**File Paths and Resolution:**
+
+Environment file paths can be:
+- **Absolute paths:** `/etc/myapp/.env`
+- **Relative paths:** Resolved relative to the workflow file location (e.g., `.env`, `config/.env.production`)
+
+**Source:** `src/cook/environment/manager.rs:182-215`
+
 **Error Handling:**
 
-If an env file specified in `env_files` does not exist or contains invalid syntax, Prodigy will report an error and halt workflow execution. Use absolute paths or paths relative to the workflow file location.
+Prodigy handles environment files with the following behavior:
+
+- **Missing files:** Silently skipped with debug logging (`"Environment file not found: {path}"`). This allows optional configuration files and environment-specific files that may not exist in all contexts.
+- **File read errors:** Will halt workflow execution with an error (e.g., permission denied)
+- **Invalid syntax:** Will halt workflow execution with an error (e.g., malformed `.env` format)
+
+**Source:** `src/cook/environment/manager.rs:184-186`
+
+**Example with missing file:**
+
+```yaml
+env_files:
+  - .env                    # Always exists (base config)
+  - .env.local              # May not exist (personal overrides)
+  - .env.${ENVIRONMENT}     # May not exist (environment-specific)
+```
+
+In this example, if `.env.local` doesn't exist, Prodigy logs a debug message and continues. Only `.env` needs to exist. This is useful for:
+- Personal configuration files that are gitignored
+- Environment-specific files (`.env.production`, `.env.staging`)
+- Optional feature flags or overrides
+
+**Troubleshooting:**
+
+To verify which env files are being loaded, run Prodigy with verbose logging:
+
+```bash
+# Enable debug logging to see which files are loaded/skipped
+RUST_LOG=debug prodigy run workflow.yml
+```
+
+You'll see messages like:
+```
+DEBUG prodigy::cook::environment - Environment file not found: .env.local
+INFO  prodigy::cook::environment - Loaded environment from: .env
+```
+
+**Common Syntax Errors:**
+
+These will cause workflow execution to halt:
+
+```bash
+# INVALID - No = character
+INVALID_LINE
+
+# VALID - Value can be empty
+EMPTY_VALUE=
+
+# INVALID - Unbalanced quotes (opening quote without closing)
+BAD_QUOTE="unclosed value
+
+# VALID - Quotes must match
+GOOD_QUOTE_1="value with spaces"
+GOOD_QUOTE_2='single quoted value'
+
+# INVALID - Mixed quotes
+MIXED_QUOTES="value'
+
+# VALID - Embedded quotes of opposite type
+EMBEDDED="value with 'single' quotes inside"
+```
 
 ---
 
@@ -189,4 +289,10 @@ Final values when running with `--profile prod`:
 - `TIMEOUT`: `60` (from global env field - overrides files)
 
 ---
+
+## See Also
+
+- [Environment Precedence](environment-precedence.md) - Detailed precedence rules for all environment sources
+- [Environment Profiles](environment-profiles.md) - Profile-specific environment configuration
+- [Secrets Management](secrets-management.md) - How to securely handle secrets loaded from env files
 
