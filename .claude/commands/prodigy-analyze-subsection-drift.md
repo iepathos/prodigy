@@ -158,97 +158,65 @@ If analyzing a single-file chapter or multi-subsection index:
 
 **CRITICAL: Check all internal documentation links are valid.**
 
-Before creating the drift report, scan the current documentation for broken links:
+Before creating the drift report, scan the current documentation for broken links.
 
-**Step 1: Extract All Internal Links**
+**Step 1: Extract All Internal Links from Current File**
 
-```bash
-# Find all markdown links in the current file
-LINK_ERRORS=()
+Read `$ITEM_FILE` and find all markdown links:
+1. Search for the pattern `[link text](target path)`
+2. Extract both the link text and target path
+3. For each link found:
+   - **Skip external URLs** (starting with `http://` or `https://`)
+   - **Skip anchor-only links** (starting with `#`)
+   - Keep internal file links for validation
 
-grep -oE '\[([^\]]+)\]\(([^)]+)\)' "$ITEM_FILE" | while IFS= read -r link; do
-  # Extract link text and target
-  link_text=$(echo "$link" | sed 's/\[\([^]]*\)\].*/\1/')
-  link_target=$(echo "$link" | sed 's/.*(\([^)]*\))/\1/')
+**Step 2: Validate Each Internal Link**
 
-  # Skip external URLs
-  if [[ "$link_target" =~ ^https?:// ]]; then
-    continue
-  fi
+For each internal link found:
+1. Determine the current file's directory (parent directory of `$ITEM_FILE`)
+2. Resolve the link target relative to the current file:
+   - If target starts with `/`: Treat as absolute path from `book/src/`
+   - Otherwise: Treat as relative path from current file's directory
+3. Remove any anchor fragment (e.g., `file.md#section` → `file.md`)
+4. Check if the resolved target file exists
+5. **If file does NOT exist**: Record as broken link with:
+   - Link text
+   - Original target path
+   - Expected resolved file path
+   - Current file path
 
-  # Skip anchors-only links (like #section-name)
-  if [[ "$link_target" =~ ^# ]]; then
-    continue
-  fi
+**Step 3: Suggest Corrections for Broken Links**
 
-  # Resolve the link target relative to current file
-  current_dir=$(dirname "$ITEM_FILE")
-  if [[ "$link_target" == /* ]]; then
-    # Absolute path from book/src
-    resolved_target="${BOOK_DIR}/src${link_target}"
-  else
-    # Relative path
-    resolved_target="${current_dir}/${link_target}"
-  fi
+For each broken link:
+1. Extract the base filename from the target (remove `.md` extension)
+2. Check common migration patterns:
+   - **Single-file to multi-subsection**: Check if `${BOOK_DIR}/src/{basename}/index.md` exists
+   - If it does, suggest: `{basename}/index.md` (chapter now has subsections)
+3. Search for similar files:
+   - Find all `.md` files in `${BOOK_DIR}/src/` containing the basename
+   - List these as possible matches
+4. Record suggested fix for each broken link
 
-  # Remove anchor if present
-  resolved_file=$(echo "$resolved_target" | sed 's/#.*//')
+**Step 4: Add Broken Links to Drift Issues**
 
-  # Check if target file exists
-  if [ ! -f "$resolved_file" ]; then
-    echo "❌ BROKEN LINK: [$link_text]($link_target) -> $resolved_file not found"
-    LINK_ERRORS+=({
-      "link_text": "$link_text",
-      "link_target": "$link_target",
-      "expected_file": "$resolved_file",
-      "current_file": "$ITEM_FILE"
-    })
-  fi
-done
-```
+If any broken links were found:
+1. Create a drift issue with:
+   - `type`: "broken_links"
+   - `severity`: "medium"
+   - `section`: "Cross-References"
+   - `description`: "Found X broken internal link(s)"
+   - `broken_links`: Array of broken link details
+   - `fix_suggestion`: "Update links to point to current file locations. Check if referenced chapters were migrated to multi-subsection structure."
+2. Include suggested corrections for each broken link
+3. Add this issue to the drift report's issues array
 
-**Step 2: Suggest Link Corrections**
+**Step 5: Report Link Validation Results**
 
-For each broken link, attempt to find the correct target:
-
-```bash
-for broken_link in "${LINK_ERRORS[@]}"; do
-  target=$(echo "$broken_link" | jq -r '.link_target')
-  link_text=$(echo "$broken_link" | jq -r '.link_text')
-
-  # Try to find similar files
-  basename_target=$(basename "$target" .md)
-
-  # Check if it's now a multi-subsection chapter
-  if [ -f "${BOOK_DIR}/src/${basename_target}/index.md" ]; then
-    suggested_fix="${basename_target}/index.md"
-    echo "💡 Suggestion: $target -> $suggested_fix (chapter now has subsections)"
-  fi
-
-  # Search for files with similar names
-  similar_files=$(find "${BOOK_DIR}/src" -name "*${basename_target}*.md" -type f)
-  if [ -n "$similar_files" ]; then
-    echo "💡 Possible matches for '$link_text':"
-    echo "$similar_files"
-  fi
-done
-```
-
-**Step 3: Add Broken Links to Drift Report**
-
-Include broken links as drift issues:
-
-```json
-{
-  "type": "broken_links",
-  "severity": "medium",
-  "section": "Cross-References",
-  "description": "Found ${#LINK_ERRORS[@]} broken internal link(s)",
-  "broken_links": LINK_ERRORS,
-  "fix_suggestion": "Update links to point to current file locations. Check if referenced chapters were migrated to multi-subsection structure.",
-  "validation_required": true
-}
-```
+Include in drift analysis output:
+- Total internal links found
+- Number of broken links
+- List of broken links with suggested fixes
+- If no broken links: Note that all cross-references are valid
 
 ### Phase 6: Assess Quality
 

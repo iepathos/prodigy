@@ -352,180 +352,78 @@ EOF
 
 This evidence file helps verify all content is grounded and provides audit trail.
 
-### Phase 3.75: Build Link Resolution Map (MANDATORY)
+### Phase 3.75: Resolve and Validate All Links (MANDATORY)
 
 **CRITICAL: All internal links must point to valid files.**
 
-Before writing any markdown content, build a comprehensive map of all available documentation:
+Before writing any markdown content with links, you must discover what documentation exists and calculate correct paths.
 
-**Step 1: Scan All Documentation Files**
+**Step 1: Build Documentation Inventory**
 
-```bash
-# Create a map of all chapters and subsections with multiple lookup keys
-rm -f /tmp/doc_link_map.json
+Scan `${BOOK_DIR}/src/` to discover all available markdown files:
+1. Find all `.md` files recursively
+2. For each file, record:
+   - Full relative path from `book/src/` (e.g., `mapreduce/checkpoint-and-resume.md`)
+   - Chapter ID (directory name or filename without `.md`)
+   - Title (extracted from first H1 or H2 heading in the file)
+   - Whether it's a subsection (path contains `/`) or single-file chapter
+3. Build a lookup map with these keys:
+   - By chapter ID: `"mapreduce" → "mapreduce/index.md"`
+   - By file path: `"mapreduce/checkpoint-and-resume.md" → "Checkpoint and Resume"`
+   - By normalized title: `"checkpoint and resume" → "mapreduce/checkpoint-and-resume.md"`
 
-# Initialize JSON structure
-echo '{"chapters": {}, "files": {}, "titles": {}}' > /tmp/doc_link_map.json
+**Step 2: Calculate Relative Path Prefix for Current File**
 
-# Scan all markdown files in book/src
-find ${BOOK_DIR}/src -name "*.md" -type f | while read md_file; do
-  # Get relative path from book/src
-  rel_path=$(echo "$md_file" | sed "s|${BOOK_DIR}/src/||")
+Determine where the current file is located (from `$ITEM_FILE` in drift report):
+1. Count how many `/` characters are in the path
+2. Calculate relative prefix:
+   - Depth 1 (e.g., `book/src/intro.md`): No prefix needed
+   - Depth 2 (e.g., `book/src/mapreduce/index.md`): Use `../`
+   - Depth 3 (e.g., `book/src/mapreduce/subsection/file.md`): Use `../../`
+   - Depth N: Use `../` repeated (N-1) times
 
-  # Extract title from first H1 or H2 heading
-  title=$(grep -m 1 '^##\? ' "$md_file" | sed 's/^##\? //' | tr '[:upper:]' '[:lower:]')
+**Step 3: Resolve Documentation References to Valid Paths**
 
-  # Extract chapter ID (first component of path or filename without .md)
-  if [[ "$rel_path" == *"/"* ]]; then
-    chapter_id=$(echo "$rel_path" | cut -d'/' -f1)
-    # This is a subsection or chapter index
-    is_subsection=true
-  else
-    chapter_id=$(basename "$rel_path" .md)
-    is_subsection=false
-  fi
+When you need to link to a chapter or subsection, resolve the reference using this strategy:
+1. Normalize the reference (lowercase, replace spaces with dashes)
+2. Try these lookups in order:
+   - **Direct chapter ID match**: Check if it's in the chapter ID map
+   - **Title match**: Check if it matches a title in the map
+   - **Directory with index**: Check if `${BOOK_DIR}/src/{normalized}/index.md` exists
+   - **Single file**: Check if `${BOOK_DIR}/src/{normalized}.md` exists
+   - **Fuzzy match**: Search for chapter IDs containing the normalized reference
+3. If a match is found, return the relative path
+4. If NO match is found, **flag as error** - do not create this link
 
-  # Store in map with multiple keys for lookup
-  # Key by chapter ID, file path, and normalized title
-  jq --arg id "$chapter_id" \
-     --arg path "$rel_path" \
-     --arg title "$title" \
-     --arg is_sub "$is_subsection" \
-     '.chapters[$id] = $path | .files[$path] = $title | .titles[$title] = $path' \
-     /tmp/doc_link_map.json > /tmp/doc_link_map.json.tmp
-  mv /tmp/doc_link_map.json.tmp /tmp/doc_link_map.json
-done
-```
+**Step 4: Generate Links with Correct Paths**
 
-**Step 2: Create Link Resolution Function**
+When writing markdown links in your documentation:
+1. For each cross-reference, use the resolution strategy from Step 3
+2. Prepend the relative prefix from Step 2
+3. **Examples:**
+   - Current file: `book/src/workflow-basics/next-steps.md` (depth 2, prefix `../`)
+   - Link to "Advanced Features": Resolve to `advanced/index.md`, full link: `../advanced/index.md`
+   - Link to "Command Types": Resolve to `commands.md`, full link: `../commands.md`
+   - Link to "MapReduce": Resolve to `mapreduce/index.md`, full link: `../mapreduce/index.md`
 
-For any link you need to create, use this resolution logic:
+**Step 5: Validate All Links Before Committing**
 
-```bash
-# Function to resolve a documentation reference to actual file path
-resolve_doc_link() {
-  local reference="$1"  # E.g., "advanced-features", "Advanced Features", "mapreduce"
+After writing your content, extract and validate all internal links:
+1. Find all markdown links: `[text](path)`
+2. For each internal link (not starting with `http://` or `https://`):
+   - Resolve the full file path relative to current file
+   - Check if the target file exists
+   - If it doesn't exist, **this is an error** - the link is broken
+3. **If ANY broken links are found**, fix them before committing
+4. Report: "Validated X links, all valid" or "Found Y broken links, fixed them"
 
-  # Normalize reference (lowercase, replace spaces with dashes)
-  local normalized=$(echo "$reference" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+**Link Generation Rules:**
 
-  # Try various lookup strategies in order:
-
-  # 1. Direct chapter ID match
-  local direct_match=$(jq -r --arg id "$normalized" '.chapters[$id] // empty' /tmp/doc_link_map.json)
-  if [ -n "$direct_match" ]; then
-    echo "$direct_match"
-    return 0
-  fi
-
-  # 2. Title match (case-insensitive)
-  local title_match=$(jq -r --arg title "$reference" '.titles[$title] // empty' /tmp/doc_link_map.json)
-  if [ -n "$title_match" ]; then
-    echo "$title_match"
-    return 0
-  fi
-
-  # 3. Check if it's a directory with index.md
-  if [ -f "${BOOK_DIR}/src/${normalized}/index.md" ]; then
-    echo "${normalized}/index.md"
-    return 0
-  fi
-
-  # 4. Check if it's a single file
-  if [ -f "${BOOK_DIR}/src/${normalized}.md" ]; then
-    echo "${normalized}.md"
-    return 0
-  fi
-
-  # 5. Fuzzy match on similar names
-  local fuzzy_match=$(jq -r --arg ref "$normalized" '.chapters | to_entries[] | select(.key | contains($ref)) | .value | select(. != null) | @text' /tmp/doc_link_map.json | head -1)
-  if [ -n "$fuzzy_match" ]; then
-    echo "⚠ Fuzzy match: $reference -> $fuzzy_match" >&2
-    echo "$fuzzy_match"
-    return 0
-  fi
-
-  # No match found
-  echo "❌ ERROR: Cannot resolve link reference '$reference'" >&2
-  return 1
-}
-```
-
-**Step 3: Calculate Relative Path Prefix**
-
-Determine the correct relative path prefix based on current file depth:
-
-```bash
-# Determine where the current file is located
-CURRENT_FILE="$ITEM_FILE"  # From drift report
-
-# Count directory depth
-DEPTH=$(echo "$CURRENT_FILE" | grep -o '/' | wc -l)
-
-# Calculate relative prefix
-if [ $DEPTH -eq 1 ]; then
-  # File is at book/src/file.md - no prefix needed
-  RELATIVE_PREFIX=""
-elif [ $DEPTH -eq 2 ]; then
-  # File is at book/src/chapter/file.md - need ../
-  RELATIVE_PREFIX="../"
-elif [ $DEPTH -eq 3 ]; then
-  # File is at book/src/chapter/sub/file.md - need ../../
-  RELATIVE_PREFIX="../../"
-else
-  # Deeper nesting
-  RELATIVE_PREFIX=$(printf '../%.0s' $(seq 1 $((DEPTH - 1))))
-fi
-```
-
-**Step 4: Generate Valid Links**
-
-When writing markdown links in your content:
-
-```markdown
-<!-- WRONG: Hard-coded guessed paths -->
-- [Advanced Features](advanced.md)
-- [Command Types](commands.md)
-
-<!-- CORRECT: Use resolved paths -->
-- [Advanced Features](${RELATIVE_PREFIX}$(resolve_doc_link "advanced-features"))
-- [Command Types](${RELATIVE_PREFIX}$(resolve_doc_link "commands"))
-```
-
-**Step 5: Validate All Generated Links**
-
-Before committing, verify all links you've added:
-
-```bash
-# Extract all markdown links from the file you're about to write
-grep -oE '\[([^\]]+)\]\(([^)]+)\)' "$NEW_CONTENT" | while read link; do
-  target=$(echo "$link" | sed 's/.*(\(.*\)).*/\1/')
-
-  # Skip external URLs
-  if [[ "$target" =~ ^https?:// ]]; then
-    continue
-  fi
-
-  # Resolve relative path from current file
-  target_file="${BOOK_DIR}/src/${RELATIVE_PREFIX}${target}"
-
-  # Check if target exists
-  if [ ! -f "$target_file" ]; then
-    echo "❌ BROKEN LINK: $link (resolves to $target_file)"
-    LINK_ERRORS+=("$link")
-  else
-    echo "✓ Valid link: $link"
-  fi
-done
-```
-
-**Link Generation Best Practices:**
-
-1. **ALWAYS use resolve_doc_link() for internal documentation links**
-2. **NEVER hard-code paths like `advanced.md` or `commands.md`**
-3. **ALWAYS validate links before committing**
-4. **Use RELATIVE_PREFIX for cross-chapter links**
-5. **For subsection-to-subsection links within same chapter, use just filename**
+1. **NEVER hard-code paths** like `advanced.md`, `commands.md`, `environment.md`
+2. **ALWAYS resolve paths** using the discovery and lookup process
+3. **ALWAYS validate** that target files exist
+4. **Use correct relative prefixes** based on file depth
+5. **For same-chapter subsections**, you can use just the filename (e.g., `other-subsection.md`)
 
 ### Phase 4: Fix the Documentation
 
