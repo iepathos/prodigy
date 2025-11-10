@@ -2,36 +2,85 @@
 
 Prodigy tracks metadata about workflow composition for debugging and dependency analysis. This metadata provides visibility into how workflows are composed, what dependencies exist, and when composition occurred.
 
+> **Implementation Status**: The composition metadata types and dependency tracking are fully implemented in the core composition system. These features are accessible programmatically via the WorkflowComposer API. CLI integration for viewing composition metadata in workflows is under development (Spec 131-133).
+
 ### CompositionMetadata Structure
 
 Every composed workflow includes metadata tracking all composition operations:
 
+**Source**: `src/cook/workflow/composition/mod.rs:153-170`
+
 ```rust
-CompositionMetadata {
-    sources: Vec<String>,          // File paths of all loaded workflows
-    templates: Vec<String>,        // Template names/sources used
-    parameters: HashMap<String, Value>,  // Final parameter values
-    composed_at: DateTime,         // Composition timestamp
-    dependencies: Vec<DependencyInfo>,   // Dependency graph
+/// Metadata about workflow composition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompositionMetadata {
+    /// Source files involved in composition
+    pub sources: Vec<PathBuf>,
+
+    /// Templates used
+    pub templates: Vec<String>,
+
+    /// Parameters applied
+    pub parameters: HashMap<String, Value>,
+
+    /// Composition timestamp
+    pub composed_at: chrono::DateTime<chrono::Utc>,
+
+    /// Dependency graph
+    pub dependencies: Vec<DependencyInfo>,
 }
 ```
+
+**Field Details**:
+- `sources`: File paths of all workflow files involved in composition (as `PathBuf` objects)
+- `templates`: Template names/sources used during composition
+- `parameters`: Final parameter values applied to the workflow (as `serde_json::Value`)
+- `composed_at`: ISO 8601 timestamp when composition occurred (UTC timezone)
+- `dependencies`: Complete dependency graph with all imports, extends, templates, and sub-workflows
 
 ### Dependency Tracking
 
 Each dependency includes detailed information:
 
+**Source**: `src/cook/workflow/composition/mod.rs:172-183`
+
 ```rust
-DependencyInfo {
-    dependency_type: DependencyType,  // Import, Extends, Template, SubWorkflow
-    source: String,                    // Source file or template name
-    target: Option<String>,            // Target workflow name
-    resolved_path: Option<String>,     // Resolved file path
+/// Information about workflow dependencies
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DependencyInfo {
+    /// Source of the dependency
+    pub source: PathBuf,
+
+    /// Type of dependency
+    pub dep_type: DependencyType,
+
+    /// Resolved path or name
+    pub resolved: String,
 }
 ```
+
+**Field Details**:
+- `source`: Source file path of the dependency (as `PathBuf`)
+- `dep_type`: Type of dependency (Import, Extends, Template, or SubWorkflow)
+- `resolved`: Resolved file path or template name (as `String`)
 
 ### Dependency Types
 
 Prodigy tracks four types of dependencies:
+
+**Source**: `src/cook/workflow/composition/mod.rs:185-193`
+
+```rust
+/// Type of workflow dependency
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DependencyType {
+    Import,
+    Extends,
+    Template,
+    SubWorkflow,
+}
+```
 
 **Import Dependencies:**
 ```yaml
@@ -39,9 +88,9 @@ imports:
   - path: "shared/utilities.yml"
 
 # Creates DependencyInfo:
-# type: Import
-# source: "shared/utilities.yml"
-# resolved_path: "/full/path/to/shared/utilities.yml"
+# dep_type: DependencyType::Import
+# source: PathBuf::from("shared/utilities.yml")
+# resolved: "/full/path/to/shared/utilities.yml"
 ```
 
 **Extends Dependencies:**
@@ -49,9 +98,9 @@ imports:
 extends: "base-config.yml"
 
 # Creates DependencyInfo:
-# type: Extends
-# source: "base-config.yml"
-# resolved_path: "/full/path/to/base-config.yml"
+# dep_type: DependencyType::Extends
+# source: PathBuf::from("base-config.yml")
+# resolved: "/full/path/to/base-config.yml"
 ```
 
 **Template Dependencies:**
@@ -61,9 +110,9 @@ template:
     registry: "ci-pipeline"
 
 # Creates DependencyInfo:
-# type: Template
-# source: "registry:ci-pipeline"
-# resolved_path: "~/.prodigy/templates/ci-pipeline.yml"
+# dep_type: DependencyType::Template
+# source: PathBuf::from("registry:ci-pipeline")
+# resolved: "~/.prodigy/templates/ci-pipeline.yml"
 ```
 
 **SubWorkflow Dependencies:**
@@ -73,21 +122,22 @@ sub_workflows:
     source: "workflows/test.yml"
 
 # Creates DependencyInfo:
-# type: SubWorkflow
-# source: "workflows/test.yml"
-# target: "tests"
-# resolved_path: "/full/path/to/workflows/test.yml"
+# dep_type: DependencyType::SubWorkflow
+# source: PathBuf::from("workflows/test.yml")
+# resolved: "/full/path/to/workflows/test.yml"
 ```
 
 ### Viewing Composition Metadata
 
-**During Dry-Run:**
+> **Note**: CLI commands for viewing composition metadata in workflow execution are under development. Currently, metadata can be accessed programmatically via the WorkflowComposer API (see [Programmatic Access](#programmatic-access) below).
+
+**Future CLI Usage** (planned):
 ```bash
-# Show composition metadata
+# Show composition metadata (planned feature)
 prodigy run workflow.yml --dry-run --show-composition
 ```
 
-**Output Example:**
+**Expected Output:**
 ```
 Composition Metadata:
   Composed at: 2025-01-11T20:00:00Z
@@ -112,24 +162,33 @@ Composition Metadata:
 
 ### Programmatic Access
 
-Access metadata in code:
+Access metadata in code using the WorkflowComposer API:
+
+**Source**: `src/cook/workflow/composition/composer.rs:21-37`
 
 ```rust
-use prodigy::workflow::composition::ComposerBuilder;
+use prodigy::cook::workflow::composition::{WorkflowComposer, TemplateRegistry};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::path::Path;
 
-let composer = ComposerBuilder::new()
-    .with_registry(registry)
-    .build();
+// Create composer with template registry
+let registry = Arc::new(TemplateRegistry::new());
+let composer = WorkflowComposer::new(registry);
 
-let composed = composer.compose_workflow(&workflow).await?;
-let metadata = composed.metadata();
+// Compose workflow with parameters
+let params = HashMap::new();
+let composed = composer.compose(Path::new("workflow.yml"), params).await?;
+
+// Access metadata
+let metadata = &composed.metadata;
 
 // Inspect dependencies
 for dep in &metadata.dependencies {
-    println!("{:?}: {} -> {:?}",
-        dep.dependency_type,
-        dep.source,
-        dep.resolved_path
+    println!("{:?}: {} -> {}",
+        dep.dep_type,
+        dep.source.display(),
+        dep.resolved
     );
 }
 
@@ -140,6 +199,31 @@ println!("Composed at: {}", metadata.composed_at);
 for (name, value) in &metadata.parameters {
     println!("Parameter {}: {:?}", name, value);
 }
+
+// List source files
+println!("Sources:");
+for source in &metadata.sources {
+    println!("  - {}", source.display());
+}
+
+// List templates used
+println!("Templates:");
+for template in &metadata.templates {
+    println!("  - {}", template);
+}
+```
+
+**Real-World Example** (from `src/cook/workflow/composition/composer.rs:45-51`):
+
+```rust
+// Metadata is created during composition
+let mut metadata = CompositionMetadata {
+    sources: vec![source.to_path_buf()],
+    templates: Vec::new(),
+    parameters: params.clone(),
+    composed_at: chrono::Utc::now(),
+    dependencies: Vec::new(),
+};
 ```
 
 ### Dependency Graph Visualization
@@ -174,8 +258,8 @@ workflow.yml
 # Before changing base-config.yml, find all dependents
 grep -r "extends.*base-config" workflows/
 
-# View composition metadata to see full dependency chain
-prodigy run each-dependent.yml --dry-run --show-composition
+# View composition metadata programmatically
+# (CLI integration for --show-composition is under development)
 ```
 
 **Compliance and Auditing:**
@@ -186,16 +270,24 @@ prodigy run each-dependent.yml --dry-run --show-composition
 
 ### Metadata in Composed Workflows
 
-Composed workflows carry metadata through execution:
+Composed workflows carry metadata through the composition process:
+
+**Source**: `src/cook/workflow/composition/mod.rs:143-151`
 
 ```rust
-let workflow = composer.compose_workflow(&input).await?;
+// ComposedWorkflow structure
+pub struct ComposedWorkflow {
+    /// The composed workflow
+    pub workflow: ComposableWorkflow,
 
-// Metadata is preserved in composed workflow
-assert!(workflow.composition_metadata.is_some());
+    /// Metadata about the composition
+    pub metadata: CompositionMetadata,
+}
 
-let metadata = workflow.composition_metadata.unwrap();
-println!("This workflow was composed from {} sources", metadata.sources.len());
+// Access metadata from composed workflow
+let composed = composer.compose(source, params).await?;
+println!("This workflow was composed from {} sources",
+    composed.metadata.sources.len());
 ```
 
 ### Circular Dependency Detection
@@ -220,54 +312,60 @@ Dependency chain:
   2. workflow-b.yml (extends workflow-a.yml) <- Circular!
 ```
 
-### Parameter Source Tracking
+### Parameter Tracking
 
-Metadata tracks parameter origins:
+Metadata tracks final parameter values applied during composition:
 
 ```yaml
-# base.yml
-defaults:
-  timeout: 300
-
 # workflow.yml
-extends: "base.yml"
 parameters:
   definitions:
+    environment:
+      type: string
+      required: true
     timeout:
+      type: integer
       default: 600
 ```
 
-**Metadata shows:**
+**Metadata captures:**
+```rust
+metadata.parameters = {
+    "environment": "production",
+    "timeout": 600,
+}
 ```
-Parameters:
-  timeout: 600
-    Source: parameter default (overrides workflow default 300)
-    Origin: workflow.yml:4
-```
+
+The `parameters` field in `CompositionMetadata` stores the final resolved parameter values as a `HashMap<String, Value>`. This enables reproducibility and debugging of composed workflows.
 
 ### Caching and Performance
 
-Composition metadata supports caching:
+Composition metadata enables future caching optimizations:
 
-- Workflows with identical metadata can reuse composition
-- Timestamp enables cache invalidation
-- Dependency hashes detect source changes
-- Registry templates cache by version
+- `composed_at` timestamp can be used for cache invalidation
+- `sources` list enables dependency-based cache busting
+- `dependencies` graph supports incremental composition
+- `parameters` hash can detect identical compositions
 
-### Thread-Safety
+> **Note**: Workflow caching is a planned feature. Currently, metadata is generated fresh on each composition.
 
-Metadata operations are thread-safe:
+### Data Structure Properties
+
+CompositionMetadata uses standard Rust types for broad compatibility:
 
 ```rust
-// Composition metadata uses Arc<RwLock<>>
-let metadata = workflow.composition_metadata.clone();
-
-// Safe to share across threads
-tokio::spawn(async move {
-    let deps = metadata.read().await;
-    println!("Dependencies: {:?}", deps.dependencies);
-});
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompositionMetadata {
+    // All fields use standard types
+    pub sources: Vec<PathBuf>,           // Cloneable
+    pub templates: Vec<String>,          // Cloneable
+    pub parameters: HashMap<String, Value>,  // Cloneable
+    pub composed_at: chrono::DateTime<chrono::Utc>,  // Copy
+    pub dependencies: Vec<DependencyInfo>,   // Cloneable
+}
 ```
+
+The struct derives `Clone`, making it easy to share metadata across components without requiring explicit synchronization primitives.
 
 ### Related Topics
 
