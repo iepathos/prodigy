@@ -71,6 +71,7 @@ criterion = { version = "0.7", features = ["html_reports", "async_tokio"] }
 tempfile = "3.23"
 libc = "0.2"
 proptest = "1.9.0"
+serial_test = "3.2.0"
 
 # Benchmark configurations
 [[bench]]

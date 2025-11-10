@@ -288,6 +288,7 @@ impl StorageConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::env;
     use std::time::Duration;
 
@@ -369,6 +370,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_storage_config_from_env_defaults() {
         // Clear relevant env vars
         env::remove_var("PRODIGY_STORAGE_TYPE");
@@ -390,6 +392,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_storage_config_from_env_file_type() {
         env::set_var("PRODIGY_STORAGE_TYPE", "file");
         env::set_var("PRODIGY_STORAGE_BASE_PATH", "/custom/path");
@@ -410,6 +413,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_storage_config_from_env_memory_type() {
         env::set_var("PRODIGY_STORAGE_TYPE", "memory");
 
@@ -428,6 +432,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_storage_config_from_env_invalid_type() {
         env::set_var("PRODIGY_STORAGE_TYPE", "invalid");
 
