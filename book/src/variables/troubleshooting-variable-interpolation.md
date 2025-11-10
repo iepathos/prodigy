@@ -224,7 +224,7 @@ reduce:
    ```
 
 **Solutions:**
-- Format modifiers (`:json`, `:newline`, `:*.ext`) only work on git context variables
+- Format modifiers (`:json`, `:lines`, `:csv`, `:*.ext`) only work on git context variables
 - For custom captures, use `capture_format` instead
 - Check glob pattern syntax
 

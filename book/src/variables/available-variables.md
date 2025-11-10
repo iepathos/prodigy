@@ -8,15 +8,21 @@ These variables capture output from the most recently executed command:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `${last.output}` | Output from the last command of any type | `echo ${last.output}` |
+| `${last.output}` | Output from the last command of any type (shell, claude, handler) | `echo ${last.output}` |
 | `${last.exit_code}` | Exit code from the last command | `if [ ${last.exit_code} -eq 0 ]` |
-| `${shell.output}` | Output from the last shell command | `echo ${shell.output}` |
-| `${claude.output}` | Output from the last Claude command | `echo ${claude.output}` |
+| `${shell.output}` | Output from the last shell command specifically | `echo ${shell.output}` |
+| `${claude.output}` | Output from the last Claude command specifically | `echo ${claude.output}` |
+
+**Note:** Use `${last.output}` when you need output from any command type. Use `${shell.output}` or `${claude.output}` when you specifically want output from that command type.
 
 **Example:**
 ```yaml
 - shell: "cargo test --lib"
 - shell: "echo 'Test output: ${shell.output}'"
+
+# last.output works with any command type
+- claude: "/analyze-code"
+- shell: "echo 'Claude analysis: ${last.output}'"
 ```
 
 ### Workflow Context Variables
@@ -101,7 +107,11 @@ Variables tracking git changes throughout workflow execution:
 | `${step.files_added}` | Files added in current step | `echo ${step.files_added}` |
 | `${step.files_modified}` | Files modified in current step | `echo ${step.files_modified}` |
 | `${step.files_deleted}` | Files deleted in current step | `echo ${step.files_deleted}` |
+| `${step.files_changed}` | All changed files (added + modified + deleted) | `echo ${step.files_changed}` |
 | `${step.commits}` | Commits in current step | `echo ${step.commits}` |
+| `${step.commit_count}` | Number of commits in step | `echo "${step.commit_count} commits"` |
+| `${step.insertions}` | Lines inserted in step | `echo "+${step.insertions}"` |
+| `${step.deletions}` | Lines deleted in step | `echo "-${step.deletions}"` |
 | `${workflow.commits}` | All commits in workflow | `git show ${workflow.commits}` |
 | `${workflow.commit_count}` | Total number of commits | `echo "${workflow.commit_count} commits"` |
 
@@ -115,8 +125,8 @@ Git context variables support multiple output formats:
 |----------|-------------|---------|
 | (default) | Space-separated list | `${step.files_added}` → `file1.rs file2.rs` |
 | `:json` | JSON array format | `${step.files_added:json}` → `["file1.rs", "file2.rs"]` |
-| `:newline` | Newline-separated list | `${step.files_added:newline}` → `file1.rs\nfile2.rs` |
-| `:comma` | Comma-separated list | `${step.files_added:comma}` → `file1.rs,file2.rs` |
+| `:lines` | Newline-separated list | `${step.files_added:lines}` → `file1.rs\nfile2.rs` |
+| `:csv` | Comma-separated list | `${step.files_added:csv}` → `file1.rs,file2.rs` |
 | `:*.ext` | Glob pattern filter | `${step.files_added:*.rs}` → only Rust files |
 | `:path/**/*.ext` | Path with glob | `${step.files_added:src/**/*.rs}` → Rust files in src/ |
 
@@ -127,7 +137,7 @@ Git context variables support multiple output formats:
 
 # Newline format for iteration
 - shell: |
-    echo '${step.files_modified:newline}' | while read file; do
+    echo '${step.files_modified:lines}' | while read file; do
       cargo fmt "$file"
     done
 
