@@ -1,0 +1,89 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "automated-documentation",
+  "subsection_id": "quick-start",
+  "subsection_title": "Quick Start",
+  "subsection_file": "book/src/automated-documentation/quick-start.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "File contains completely wrong content - SUMMARY.md formatting instructions instead of Quick Start guide. Needs complete rewrite based on index.md quick start section and actual workflow implementation.",
+  "issues": [
+    {
+      "type": "incorrect_content",
+      "severity": "critical",
+      "section": "Entire file",
+      "description": "File contains SUMMARY.md formatting instructions instead of Quick Start guide content",
+      "current_content": "## Quick Start\n\nTODO: Add quick start guide\nEOF\n\n# Repeat for other chapters...\n```\n\nUpdate `book/src/SUMMARY.md`:\n\n```markdown\n# Summary\n\n[Introduction](intro.md)\n\n# User Guide\n\n- [Getting Started](getting-started.md)\n- [User Guide](user-guide.md)\n- [Configuration](configuration.md)\n\n# Reference\n\n- [Troubleshooting](troubleshooting.md)\n```",
+      "should_be": "Practical quick start guide based on content from index.md showing: 1) Prerequisites check, 2) Book initialization steps, 3) Configuration setup, 4) Running the workflow, 5) Reviewing results",
+      "fix_suggestion": "Replace entire file content with practical quick start steps. Extract quick start section from index.md (lines 16-34) and expand with workflow examples, configuration snippets, and expected output examples.",
+      "source_reference": "book/src/automated-documentation/index.md:16-34"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Prerequisites",
+      "description": "Missing prerequisite verification steps",
+      "fix_suggestion": "Add commands to verify prerequisites: `prodigy --version`, `mdbook --version`, `git --version`, `claude --version`",
+      "source_reference": "book/src/automated-documentation/index.md:36-79"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Configuration",
+      "description": "Missing book-config.json and workflow file setup instructions",
+      "fix_suggestion": "Add section showing how to create .prodigy/book-config.json and workflows/book-docs.yml with minimal working examples",
+      "source_reference": ".prodigy/book-analysis/features.json:automated_documentation.book_config_structure"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Running Workflow",
+      "description": "Missing example workflow execution with expected output",
+      "fix_suggestion": "Show `prodigy run workflows/book-docs.yml` command with sample console output showing setup/map/reduce phases",
+      "source_reference": "book/src/automated-documentation/index.md:28-32"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Next Steps",
+      "description": "Missing guidance on what to do after first run",
+      "fix_suggestion": "Add section explaining how to review changes, handle failures, and customize the workflow",
+      "source_reference": "book/src/automated-documentation/index.md:137-153"
+    }
+  ],
+  "positive_aspects": [
+    "File exists in correct location",
+    "Has correct title heading (## Quick Start)",
+    "Is referenced from index.md and SUMMARY.md"
+  ],
+  "improvement_suggestions": [
+    "Extract and expand the inline quick start from index.md into this dedicated file",
+    "Add concrete examples with expected output at each step",
+    "Include troubleshooting tips for common first-run issues",
+    "Link to quick-start-30-minutes.md for detailed walkthrough",
+    "Show minimal working configuration files inline",
+    "Add verification steps to confirm setup is correct",
+    "Include example of reviewing generated documentation",
+    "Explain relationship to quick-start-30-minutes.md (this is condensed version)"
+  ],
+  "cross_references": [
+    "quick-start-30-minutes",
+    "installation",
+    "understanding-the-workflow",
+    "troubleshooting",
+    "index"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Quick setup",
+      "Prerequisites",
+      "First workflow run",
+      "Basic configuration"
+    ],
+    "validation_focus": "Check quick start documentation matches implementation",
+    "relationship_to_sibling_files": "This should be a condensed version of quick-start-30-minutes.md, extracting the absolute minimum steps needed. Currently has wrong content entirely."
+  }
+}
