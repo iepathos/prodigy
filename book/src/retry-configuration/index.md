@@ -29,6 +29,29 @@ The `RetryConfig` struct controls retry behavior with the following fields:
 | `retry_budget` | `Option<Duration>` | `None` | Maximum total time for all retry attempts |
 | `on_failure` | `FailureAction` | `Stop` | Action to take after all retries exhausted |
 
+**Source**: RetryConfig struct defined in `src/cook/retry_v2.rs:14-52`
+
+### Circuit Breakers
+
+Circuit breakers are configured separately via `RetryExecutor`, **not as part of RetryConfig**. Circuit breakers provide fail-fast behavior when downstream systems are consistently failing, preventing resource exhaustion from repeated failed retries.
+
+**Configuration** (programmatic):
+```rust
+let executor = RetryExecutor::new(retry_config)
+    .with_circuit_breaker(
+        5,                          // failure_threshold: open after 5 consecutive failures
+        Duration::from_secs(30)     // recovery_timeout: attempt recovery after 30 seconds
+    );
+```
+
+**Source**: `src/cook/retry_v2.rs:184-188` (with_circuit_breaker method), `src/cook/retry_v2.rs:325-397` (CircuitBreaker implementation)
+
+**Circuit States**:
+- **Closed**: Normal operation, retries are attempted
+- **Open**: Circuit tripped, requests fail immediately without retry
+- **HalfOpen**: Testing recovery, limited requests allowed
+
+See [Best Practices](best-practices.md) for guidance on combining retry with circuit breakers for high-reliability systems.
 
 ## Additional Topics
 

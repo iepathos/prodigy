@@ -41,10 +41,13 @@ imports:
 
 ### Import Fields
 
-Each import can specify:
+Each import can specify (defined in `WorkflowImport` struct, src/cook/workflow/composition/mod.rs:52-65):
 - **path** (required): Relative or absolute path to workflow file
 - **alias** (optional): Namespace alias for imported workflows
 - **selective** (optional): List of specific workflow names to import
+
+**Source**: `WorkflowImport` struct in src/cook/workflow/composition/mod.rs:52-65
+**Test example**: tests/workflow_composition_test.rs:95-106 shows import usage with both alias and selective fields
 
 ### How Imports Work
 
@@ -54,6 +57,9 @@ When a workflow is imported:
 3. If selective is specified, only named workflows are included
 4. Imported workflows are merged into the current workflow's configuration
 5. Circular dependencies are detected and prevented
+
+**Implementation**: Import processing in src/cook/workflow/composition/composer.rs:98-133 (`process_imports` function)
+**Circular dependency detection**: src/cook/workflow/composition/composer.rs:56 and validation in `validate_composition` (lines 259-273)
 
 ### Use Cases
 

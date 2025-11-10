@@ -89,7 +89,7 @@ Logs contain:
 - Token usage statistics
 - Error details and stack traces
 
-See [Claude JSON Logs](../observability/claude-json-logs.md) for detailed analysis techniques.
+For detailed log analysis techniques, see "Viewing Claude Execution Logs (Spec 126)" in the project CLAUDE.md file.
 
 ### What does "command not found: claude" mean?
 
@@ -123,7 +123,7 @@ Common causes of cleanup failures:
 - Permission issues (verify with `ls -ld`)
 - Insufficient disk space (check with `df -h`)
 
-See [Cleanup Failure Handling](../mapreduce/cleanup-failure-handling.md) for details.
+For details on cleanup failures, see "Cleanup Failure Handling (Spec 136)" in the CLAUDE.md file.
 
 ### Why are environment variables not being resolved?
 
@@ -144,7 +144,7 @@ env:
     prod: "prod-server"
 ```
 
-See [Environment Variables](../advanced-features/environment-variables.md) for configuration details.
+See [Environment Configuration](../environment/index.md) for configuration details.
 
 ### How do I debug timeout errors?
 
@@ -178,10 +178,18 @@ Event logs use a global storage architecture:
 **How to view**:
 ```bash
 # List events for a job
-prodigy events list <job_id>
+prodigy events ls --job-id <job_id>
+
+# Follow events in real-time
+prodigy events follow --job-id <job_id>
+
+# Show event statistics
+prodigy events stats
 
 # View detailed event timeline
 cat ~/.prodigy/events/{repo_name}/{job_id}/events-*.jsonl
 ```
+
+**Source**: src/cli/commands/events.rs:22-98
 
 Events are shared across worktrees, enabling centralized monitoring of parallel jobs.

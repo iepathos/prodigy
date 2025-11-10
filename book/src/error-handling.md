@@ -186,7 +186,9 @@ error_policy:
 **Error Collection Strategies:**
 - `aggregate` - Collect all errors and report at the end (default)
 - `immediate` - Report errors as they occur
-- `batched: {size: N}` - Report errors in batches of N items
+- `batched:N` - Report errors in batches of N items (e.g., `batched:10`)
+
+**Source**: ErrorCollectionStrategy enum in src/cook/workflow/error_policy.rs:33-44
 
 ### Circuit Breaker
 
@@ -236,13 +238,15 @@ To check the circuit breaker state during MapReduce execution, monitor the event
 
 ```bash
 # View circuit breaker events for a job
-prodigy events list <job_id> | grep -i circuit
+prodigy events ls --job-id <job_id> | grep -i circuit
 
-# Watch for circuit state changes in real-time
-prodigy events watch <job_id>
+# Follow circuit state changes in real-time
+prodigy events follow --job-id <job_id>
 ```
 
 Circuit breaker state transitions are logged as `CircuitOpen` and `CircuitClosed` events, allowing you to track when the circuit opens due to failures and when it recovers.
+
+**Note**: The `events` CLI commands are defined but currently have stub implementations. Event data is stored in `~/.prodigy/events/{repo_name}/{job_id}/` and can be inspected directly as JSONL files.
 
 ### Retry Configuration with Backoff
 
@@ -327,15 +331,17 @@ You can also access metrics programmatically via the Prodigy API or through CLI 
 
 **Pattern Detection:**
 
-Prodigy automatically detects recurring error patterns when an error type occurs 3 or more times. The `failure_patterns` field includes suggested remediation actions:
+Prodigy automatically detects recurring error patterns when an error type occurs 3 or more times. The following error types receive specific remediation suggestions in the `failure_patterns` field:
 
 - **Timeout errors** → "Consider increasing agent_timeout_secs"
 - **Network errors** → "Check network connectivity and retry configuration"
 - **Permission errors** → "Verify file permissions and access rights"
 
-**Note:** Other error types receive a generic suggestion: "Review error logs for more details."
+All other error types receive a generic suggestion: "Review error logs for more details."
 
 These suggestions help diagnose and resolve systemic issues in MapReduce jobs.
+
+**Source**: Pattern detection logic in src/cook/workflow/error_policy.rs:478-489
 
 ---
 
@@ -496,8 +502,8 @@ error_policy:
     timeout: 60s
     half_open_requests: 5
 
-  error_collection: batched
-  batch_size: 10                  # Report errors in batches
+  # Report errors in batches of 10
+  error_collection: batched:10
 
 map:
   agent_template:

@@ -9,113 +9,57 @@
     "mapreduce.resume"
   ],
   "drift_detected": true,
-  "severity": "critical",
-  "quality_assessment": "Subsection is critically incomplete with only a 1-sentence overview. Missing all essential documentation for checkpoint structure, resume commands, state preservation, and concurrent protection that are fully implemented in the codebase.",
+  "severity": "low",
+  "quality_assessment": "Subsection is comprehensive and accurate with excellent coverage of checkpoint and resume features. Documentation matches implementation well. Only minor improvements needed for completeness.",
   "issues": [
     {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Checkpoint Behavior",
-      "description": "Missing documentation for checkpoint creation at different phases (setup, map, reduce)",
-      "feature_reference": "session_management.checkpoints",
-      "fix_suggestion": "Add section explaining when checkpoints are created in each phase: setup (after completion), map (after configurable number of items), reduce (after each step)",
-      "source_reference": "src/cook/execution/mapreduce/checkpoint/types.rs:PhaseType, CLAUDE.md:487-507"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Checkpoint Structure",
-      "description": "No documentation of checkpoint file structure and storage locations",
-      "feature_reference": "session_management.checkpoints.checkpoint_files",
-      "fix_suggestion": "Document checkpoint files: setup-checkpoint.json, map-checkpoint-{timestamp}.json, reduce-checkpoint-v1-{timestamp}.json stored in ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/",
-      "source_reference": "src/cook/execution/mapreduce/checkpoint/types.rs:MapReduceCheckpoint"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Resume Commands",
-      "description": "Missing documentation for resume commands and session-job ID mapping",
-      "feature_reference": "session_management.resume.commands",
-      "fix_suggestion": "Document three resume commands: 'prodigy resume <session-id>', 'prodigy resume-job <job-id>', 'prodigy resume <id>' (auto-detects). Explain bidirectional session-job mapping stored in ~/.prodigy/state/{repo_name}/mappings/",
-      "source_reference": "src/storage/session_job_mapping.rs:SessionJobMapping, CLAUDE.md:509-518"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "State Preservation",
-      "description": "No explanation of what state is preserved across resume operations",
-      "feature_reference": "session_management.resume.state_preservation",
-      "fix_suggestion": "Document that variables, context, work items, completed steps, and workflow variables are all preserved. Explain how in-progress items are moved back to pending on resume.",
-      "source_reference": "src/cook/execution/mapreduce/checkpoint/types.rs:ExecutionState, WorkItemState"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Resume Strategies",
-      "description": "Missing documentation for phase-specific resume strategies",
-      "feature_reference": "session_management.resume.resume_strategies",
-      "fix_suggestion": "Add section explaining different resume strategies by phase: Setup (restart from beginning, idempotent recommended), Map (continue from checkpoint, re-process in-progress), Reduce (continue from last completed step)",
-      "source_reference": "CLAUDE.md:552-557"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Concurrent Resume Protection",
-      "description": "No mention of RAII-based locking to prevent concurrent resume operations",
-      "feature_reference": "session_management.resume.concurrent_protection",
-      "fix_suggestion": "Document RAII-based locking mechanism stored in ~/.prodigy/resume_locks/ that prevents multiple resume processes from running on same job/session",
-      "source_reference": "src/cook/execution/resume_lock.rs:ResumeLock, CLAUDE.md:631-687"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Storage Structure",
-      "description": "Missing documentation for checkpoint storage directory structure",
-      "feature_reference": "session_management.checkpoints.storage",
-      "fix_suggestion": "Document storage structure showing checkpoint directory layout with example paths",
-      "source_reference": "CLAUDE.md:559-565"
-    },
-    {
-      "type": "missing_content",
+      "type": "incorrect_example",
       "severity": "low",
-      "section": "Example Resume Workflow",
-      "description": "No examples showing typical resume workflow steps",
-      "feature_reference": "session_management.resume",
-      "fix_suggestion": "Add example workflow: 1) Workflow interrupted, 2) Find job with 'prodigy sessions list', 3) Resume with 'prodigy resume <id>', 4) System loads checkpoint, 5) Continues from last step",
-      "source_reference": "CLAUDE.md:567-573"
+      "section": "Best Practices - Troubleshooting Resume Issues",
+      "description": "Documentation mentions 'prodigy checkpoints validate <job_id>' command, but this command does not exist in the CLI",
+      "current_content": "Verify checkpoint integrity with `prodigy checkpoints validate <job_id>`",
+      "should_be": "Remove or replace with actual available commands: 'prodigy checkpoints list' or 'prodigy checkpoints clean'",
+      "fix_suggestion": "Update troubleshooting section to reference actual CLI commands. The CheckpointCommands enum in src/cli/args.rs:363 shows only 'list' and 'clean' subcommands are available, not 'validate'.",
+      "source_reference": "src/cli/args.rs:363-389"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Overview",
-      "description": "The 1-sentence overview provides no actionable information for users",
-      "current_content": "MapReduce workflows automatically save checkpoints to enable resumption after interruption.",
-      "should_be": "A comprehensive introduction explaining what checkpoints are, when they're created, how to resume, and what state is preserved",
-      "fix_suggestion": "Expand overview to cover checkpoint concept, automatic creation points, resume commands, and benefits of checkpoint system"
+      "severity": "low",
+      "section": "Session-Job Mapping",
+      "description": "Missing details about workflow_name field in SessionJobMapping structure",
+      "current_content": "Bidirectional mapping stored in `~/.prodigy/state/{repo_name}/mappings/`\n- Maps session IDs to job IDs and vice versa\n- Created when MapReduce workflow starts\n- Enables resume with either identifier",
+      "should_be": "Include workflow_name field and created_at timestamp in mapping description",
+      "fix_suggestion": "Add bullet point: '- Stores workflow name and creation timestamp for tracking and debugging'",
+      "source_reference": "src/storage/session_job_mapping.rs:14-26"
     }
   ],
   "positive_aspects": [
-    "Correct title matches feature scope",
-    "File exists in correct location within MapReduce chapter"
+    "Comprehensive coverage of checkpoint behavior across all phases (setup, map, reduce)",
+    "Clear explanation of checkpoint storage structure with exact file paths",
+    "Excellent documentation of concurrent resume protection (RAII-based locking)",
+    "Detailed session-job mapping explanation with bidirectional lookup",
+    "Well-structured state preservation section covering all critical state types",
+    "Good example resume workflow showing step-by-step process",
+    "Strong best practices section with practical troubleshooting guidance",
+    "Accurate technical details matching implementation (checkpoint file naming, storage paths)",
+    "Clear explanation of resume strategies for different phases",
+    "Helpful cross-references to related subsections (Session Management, DLQ)"
   ],
   "improvement_suggestions": [
-    "Add comprehensive sections matching CLAUDE.md structure (lines 487-573)",
-    "Include code examples showing checkpoint file structure",
-    "Add troubleshooting section for common resume issues",
-    "Include best practices for designing resumable workflows",
-    "Add cross-reference to concurrent resume protection (Spec 140) documentation",
-    "Show examples of checkpoint files with actual JSON structure",
-    "Document checkpoint integrity verification process",
-    "Explain relationship between UnifiedSession and checkpoints"
+    "Fix the 'prodigy checkpoints validate' command reference to use actual available commands",
+    "Add workflow_name field to Session-Job Mapping description for completeness",
+    "Consider adding a troubleshooting entry for 'checkpoint not found' scenarios",
+    "Could add example output showing what checkpoint files look like on disk",
+    "Consider adding a note about checkpoint size considerations for large workflows"
   ],
   "cross_references": [
     "session-management",
     "dead-letter-queue-dlq",
-    "event-tracking",
-    "storage-architecture"
+    "concurrent-resume-protection",
+    "global-storage-architecture"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T20:00:00Z",
+    "analyzed_at": "2025-01-11T23:43:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "checkpoints",
@@ -124,11 +68,11 @@
       "recovery"
     ],
     "validation_focus": "Check checkpoint structure and resume behavior documented",
-    "implementation_sources": [
-      "src/cook/execution/mapreduce/checkpoint/types.rs",
+    "implementation_references": [
       "src/storage/session_job_mapping.rs",
+      "src/cook/execution/mapreduce/checkpoint/manager.rs",
       "src/cook/execution/resume_lock.rs",
-      "CLAUDE.md:487-573"
+      "src/cli/args.rs:363-389"
     ]
   }
 }

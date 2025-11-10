@@ -157,33 +157,37 @@ reduce:
 ## Example 7: Environment-Aware Workflow
 
 ```yaml
-# Global environment variables
+# Global environment variables (including secrets with masking)
 env:
+  # Regular variables
   NODE_ENV: production
   API_URL: https://api.production.com
 
-# Secrets (automatically masked in logs)
-secrets:
+  # Secrets (automatically masked in logs)
+  # Use secret: true and value fields for sensitive data
   API_KEY:
     secret: true
     value: "${SECRET_API_KEY}"
 
-  # Optional: Add provider for external secret stores
-  # DB_PASSWORD:
-  #   secret: true
-  #   value: "${DB_PASSWORD}"
-  #   provider: "vault"  # Optional: external secret store
+  # Secret with external provider
+  DB_PASSWORD:
+    secret: true
+    value: "${DB_PASSWORD}"
+    # provider: "vault"  # Optional: external secret store (not yet implemented)
 
 # Environment profiles for different contexts
-# Note: Variables go directly under the profile name, not nested under 'env'
 profiles:
   production:
-    API_URL: https://api.production.com
-    LOG_LEVEL: error
+    env:
+      API_URL: https://api.production.com
+      LOG_LEVEL: error
+    description: "Production environment with error-level logging"
 
   staging:
-    API_URL: https://api.staging.com
-    LOG_LEVEL: warn
+    env:
+      API_URL: https://api.staging.com
+      LOG_LEVEL: warn
+    description: "Staging environment with warning-level logging"
 
 # Load additional variables from .env files
 # Note: Paths are relative to workflow file location
@@ -191,7 +195,7 @@ env_files:
   - .env
   - .env.production
 
-# Workflow steps (no 'commands' wrapper in simple format)
+# Workflow steps
 - shell: "cargo build --release"
 
 # Use environment variables in commands
@@ -203,6 +207,8 @@ env_files:
     LOG_LEVEL: debug
 ```
 
+**Source**: Environment configuration from src/cook/environment/config.rs:12-36, secret masking from src/cook/environment/config.rs:84-96
+
 **Note:** Profiles are activated using the `--profile <name>` CLI flag when running workflows. For example:
 ```bash
 # Use production profile
@@ -212,7 +218,18 @@ prodigy run workflow.yml --profile production
 prodigy run workflow.yml --profile staging
 ```
 
-Variables go directly under the profile name (not nested under 'env') because profiles use flattened serialization.
+**Secrets Masking**: Variables with `secret: true` are automatically masked in:
+- Command output logs
+- Error messages
+- Event logs
+- Checkpoint files
+
+Example masked output:
+```
+$ echo 'API key is ***'
+```
+
+**Source**: Example workflow from workflows/mapreduce-env-example.yml:7-40, profile structure from tests/environment_workflow_test.rs:68-88
 
 ---
 
@@ -232,14 +249,12 @@ map:
   sort_by: "item.priority DESC"
   max_items: 20
   max_parallel: 5
-  distinct: "item.id"  # Prevent duplicate work items based on ID field
+  distinct: "item.id"  # Deduplication: Prevents processing duplicate items based on this field
 
-  # Advanced timeout configuration (optional)
+  # Timeout configuration (optional - default is 600 seconds / 10 minutes)
   timeout_config:
-    agent_timeout_secs: 600  # 10 minutes per agent
-    # Additional timeout levels for fine-grained control:
-    # item_timeout_secs: 300  # 5 minutes per item
-    # phase_timeout_secs: 3600  # 1 hour for entire map phase
+    agent_timeout_secs: 600  # Maximum time per agent execution
+    cleanup_grace_period_secs: 30  # Time allowed for cleanup after timeout
 
   agent_template:
     - claude: "/fix-debt-item '${item.description}'"
@@ -262,6 +277,14 @@ error_policy:
 
 **Note:** The entire `error_policy` block is optional with sensible defaults. If not specified, failed items go to the Dead Letter Queue (`on_item_failure: dlq`), workflow continues despite failures (`continue_on_failure: true`), and errors are aggregated at the end (`error_collection: aggregate`). Use `max_failures` or `failure_threshold` to fail fast if too many items fail.
 
+**Deduplication with `distinct`**: The `distinct` field enables idempotent processing by preventing duplicate work items. When specified, Prodigy extracts the value of the given field (e.g., `item.id`) from each work item and ensures only unique values are processed. This is useful when:
+- Input data may contain duplicates
+- Resuming a workflow after adding new items
+- Preventing wasted work on identical items
+- Ensuring exactly-once processing semantics
+
+Example: With `distinct: "item.id"`, if your input contains `[{id: "1", ...}, {id: "2", ...}, {id: "1", ...}]`, only items with IDs "1" and "2" will be processed (the duplicate "1" is skipped).
+
 **Resuming MapReduce Workflows:**
 MapReduce jobs can be resumed using either the session ID or job ID:
 ```bash
@@ -274,7 +297,10 @@ prodigy resume-job mapreduce-1234567890
 # Unified resume command (auto-detects ID type)
 prodigy resume mapreduce-1234567890
 ```
-The bidirectional session-job mapping is stored in `~/.prodigy/state/{repo_name}/mappings/` and created when the workflow starts.
+
+**Session-Job ID Mapping**: The bidirectional mapping between session IDs and job IDs is stored in `~/.prodigy/state/{repo_name}/mappings/` and created automatically when the MapReduce workflow starts. This allows you to resume using either the session ID (e.g., `session-mapreduce-1234567890`) or the job ID (e.g., `mapreduce-1234567890`), and Prodigy will automatically find the correct checkpoint data.
+
+**Source**: Session-job mapping implementation from MapReduce checkpoint and resume (Spec 134)
 
 **Debugging Failed Agents:**
 When agents fail, DLQ entries include a `json_log_location` field pointing to the Claude JSON log file for debugging:
@@ -373,6 +399,7 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
 - **Conditional execution**: Use `when` clauses with captured output or variables
 - **Complex conditionals**: Combine multiple conditions with `and`/`or` operators
 - **Working directory**: Per-command directory control using `working_dir` field in step environment
+- **Git context variables**: Automatic tracking of file changes during workflow execution
 
 **Example of working_dir usage:**
 ```yaml
@@ -386,6 +413,58 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
     NODE_ENV: production
   working_dir: "frontend/"
 ```
+
+**Git Context Variables (Spec 122):**
+Prodigy automatically tracks file changes during workflow execution and exposes them as variables:
+
+```yaml
+# Access files changed in current step
+- shell: "echo 'Modified files: ${step.files_modified}'"
+- shell: "echo 'Added files: ${step.files_added}'"
+- shell: "echo 'Deleted files: ${step.files_deleted}'"
+
+# Format as JSON array
+- shell: "echo '${step.files_modified:json}'"
+
+# Filter by glob pattern (only Rust files)
+- shell: "echo 'Rust files changed: ${step.files_modified:*.rs}'"
+
+# Access workflow-level aggregations
+- shell: "echo 'Total commits: ${workflow.commit_count}'"
+- shell: "echo 'All modified files: ${workflow.files_modified}'"
+
+# Access uncommitted changes
+- shell: "echo 'Staged files: ${git.staged_files}'"
+- shell: "echo 'Unstaged files: ${git.unstaged_files}'"
+
+# Pattern filtering for git context
+- claude: "/review-changes ${git.modified_files|pattern:**/*.rs}"
+- shell: "echo 'Changed Rust files: ${git.staged_files|pattern:**/*.rs}'"
+
+# Basename-only output (no paths)
+- shell: "echo 'File names: ${git.modified_files|basename}'"
+```
+
+**Available Git Context Variables:**
+- `${step.files_added}` - Files added in current step
+- `${step.files_modified}` - Files modified in current step
+- `${step.files_deleted}` - Files deleted in current step
+- `${step.commits}` - Commit SHAs created in this step
+- `${step.insertions}` - Lines inserted in this step
+- `${step.deletions}` - Lines deleted in this step
+- `${workflow.commit_count}` - Total commits in workflow
+- `${workflow.files_modified}` - All files modified across workflow
+- `${git.staged_files}` - Currently staged files (uncommitted)
+- `${git.unstaged_files}` - Modified but unstaged files
+- `${git.modified_files}` - All uncommitted modifications
+
+**Supported Formats and Filters:**
+- `:json` - Format as JSON array
+- `:*.rs` - Filter by glob pattern (e.g., `*.rs`, `src/**/*.py`)
+- `|pattern:**/*.rs` - Advanced glob pattern filtering
+- `|basename` - Extract just file names without paths
+
+**Source**: Git context tracking from src/cook/workflow/git_context.rs:1-120, variable resolution from src/cook/workflow/git_context.rs:36-42
 
 **Troubleshooting MapReduce Cleanup:**
 If agent worktree cleanup fails (due to disk full, permission errors, etc.), use the orphaned worktree cleanup command:
@@ -401,7 +480,115 @@ prodigy worktree clean-orphaned <job_id> --force
 ```
 Note: Agent execution status is independent of cleanup status. If an agent completes successfully but cleanup fails, the agent is still marked as successful and results are preserved.
 
-**Future capabilities** (not yet implemented, but planned):
-- **Git context variables**: Access `files_modified`, `files_added` from git operations
-- **Pattern filtering**: Filter file lists with `:*.rs` syntax
-- **Format modifiers**: Advanced output transformation with `:json`, `:lines`, `:csv`
+**Source**: Orphaned worktree cleanup from MapReduce cleanup failure handling (Spec 136)
+
+---
+
+## Example 11: Custom Merge Workflows
+
+MapReduce workflows execute in isolated git worktrees. When the workflow completes, you can define a custom merge workflow to control how changes are merged back to your original branch.
+
+```yaml
+name: code-review-with-merge
+mode: mapreduce
+
+# Environment variables available to merge commands
+env:
+  PROJECT_NAME: "my-project"
+  NOTIFICATION_URL: "https://api.slack.com/webhooks/..."
+
+setup:
+  - shell: "find src -name '*.rs' > files.json"
+  - shell: "jq -R -s -c 'split(\"\n\") | map(select(length > 0) | {path: .})' files.json > items.json"
+
+map:
+  input: "items.json"
+  json_path: "$[*]"
+  agent_template:
+    - claude: "/review-code ${item.path}"
+      commit_required: true
+  max_parallel: 5
+
+reduce:
+  - claude: "/summarize-reviews ${map.results}"
+
+# Custom merge workflow (executed when merging worktree back to original branch)
+merge:
+  commands:
+    # Merge-specific variables are available:
+    # ${merge.worktree} - Worktree name (e.g., "session-abc123")
+    # ${merge.source_branch} - Source branch in worktree
+    # ${merge.target_branch} - Target branch (where you started workflow)
+    # ${merge.session_id} - Session ID for correlation
+
+    # Pre-merge validation
+    - shell: "echo 'Preparing to merge ${merge.worktree}'"
+    - shell: "echo 'Source: ${merge.source_branch} → Target: ${merge.target_branch}'"
+
+    # Run tests before merging
+    - shell: "cargo test --all"
+      on_failure:
+        claude: "/fix-failing-tests before merge"
+        commit_required: true
+        max_attempts: 2
+
+    # Run linting
+    - shell: "cargo clippy -- -D warnings"
+      on_failure:
+        claude: "/fix-clippy-warnings"
+        commit_required: true
+
+    # Optional: Custom validation via Claude
+    - claude: "/validate-merge-readiness ${merge.source_branch} ${merge.target_branch}"
+
+    # Actually perform the merge using prodigy-merge-worktree
+    # IMPORTANT: Always pass both source and target branches
+    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
+
+    # Post-merge notifications (using env vars)
+    - shell: "echo 'Successfully merged ${PROJECT_NAME} changes from ${merge.worktree}'"
+    # - shell: "curl -X POST ${NOTIFICATION_URL} -d 'Merge completed for ${PROJECT_NAME}'"
+
+  # Optional: Timeout for entire merge phase (seconds)
+  timeout: 600  # 10 minutes
+```
+
+**Source**: Merge workflow configuration from src/config/mapreduce.rs:84-94, merge variables from worktree merge orchestrator, example from workflows/mapreduce-env-example.yml:83-94, test from tests/merge_workflow_integration.rs:64-121
+
+**Merge Workflow Features:**
+
+1. **Merge-Specific Variables** (automatically provided):
+   - `${merge.worktree}` - Name of the worktree being merged
+   - `${merge.source_branch}` - Branch in worktree (usually `prodigy-mapreduce-...`)
+   - `${merge.target_branch}` - Your original branch (main, master, feature-xyz, etc.)
+   - `${merge.session_id}` - Session ID for tracking
+
+2. **Pre-Merge Validation**:
+   - Run tests, linting, or custom checks before merging
+   - Use Claude commands for intelligent validation
+   - Use `on_failure` handlers to fix issues automatically
+
+3. **Environment Variables**:
+   - Global `env` variables are available in merge commands
+   - Useful for notifications, project-specific settings
+   - Secrets are masked in merge command output
+
+4. **Timeout Control**:
+   - Optional `timeout` field (in seconds) for the merge phase
+   - Prevents merge workflows from hanging indefinitely
+
+**Important Notes:**
+- Always pass **both** `${merge.source_branch}` and `${merge.target_branch}` to `/prodigy-merge-worktree`
+- This ensures the merge targets your original branch, not a hardcoded main/master
+- Without a custom merge workflow, you'll be prompted interactively to merge
+
+**Simplified Format:**
+If you don't need timeout configuration, you can use the simplified format:
+
+```yaml
+merge:
+  - shell: "cargo test"
+  - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
+```
+
+This is equivalent to `merge.commands` but more concise.

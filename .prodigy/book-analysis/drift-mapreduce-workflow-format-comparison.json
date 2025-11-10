@@ -4,76 +4,55 @@
   "subsection_id": "workflow-format-comparison",
   "subsection_title": "Workflow Format Comparison",
   "subsection_file": "book/src/mapreduce/workflow-format-comparison.md",
-  "feature_mappings": ["mapreduce.syntax", "workflow.formats"],
-  "drift_detected": true,
-  "severity": "critical",
-  "quality_assessment": "Subsection is completely empty - critical content missing. This subsection should explain the differences between standard workflow and MapReduce workflow syntax, and clarify the deprecated vs preferred command formats.",
+  "feature_mappings": [
+    "mapreduce.syntax",
+    "workflow.formats"
+  ],
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Subsection accurately documents the workflow format evolution and syntax differences. The documentation correctly explains both the legacy nested format and the preferred direct array format, and provides clear migration guidance.",
   "issues": [
     {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Overall Structure",
-      "description": "Subsection is completely empty except for title - missing all content explaining workflow format differences",
-      "feature_reference": "workflow.formats",
-      "fix_suggestion": "Add comprehensive comparison of workflow formats: simple array format vs full config format, standard workflows vs MapReduce workflows",
-      "source_reference": "workflows/coverage.yml (simple array), workflows/mapreduce-example.yml (MapReduce full config)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "MapReduce Syntax Evolution",
-      "description": "Missing documentation of the simplified MapReduce syntax where commands are directly under agent_template and reduce (not nested under 'commands' field)",
-      "feature_reference": "mapreduce.syntax.agent_template_syntax",
-      "fix_suggestion": "Explain the syntax change: old format used 'agent_template: { commands: [...] }' while new preferred format is 'agent_template: [...]'. Show both formats with clear deprecation warning.",
-      "source_reference": "workflows/mapreduce-example.yml:14-16 (new syntax), examples/mapreduce-json-input.yml:29-35 (old deprecated syntax with 'commands' wrapper)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Standard Workflow Formats",
-      "description": "Missing explanation of standard workflow format options: simple array vs full config with name/env/profiles",
-      "feature_reference": "workflow.formats.simple_array",
-      "fix_suggestion": "Show examples of both formats: 1) Simple array format (just list of steps) for quick workflows, 2) Full config format with 'name', 'commands', 'env', 'secrets', 'profiles' for production workflows. Explain when to use each.",
-      "source_reference": "workflows/coverage.yml (simple array), workflows/mapreduce-env-example.yml (full config with env)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Legacy Compatibility",
-      "description": "No mention of backward compatibility for legacy 'commands:' wrapper field (deprecated but supported)",
-      "feature_reference": "workflow.formats.legacy_commands_field",
-      "fix_suggestion": "Document that old { commands: [...] } format is still supported for backward compatibility but deprecated. Show migration path from old to new syntax.",
-      "source_reference": "src/config/command.rs (supports both formats)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Reduce Phase Syntax",
-      "description": "Missing documentation of reduce phase syntax simplification (same as agent_template)",
-      "feature_reference": "mapreduce.syntax.reduce_syntax",
-      "fix_suggestion": "Explain that reduce phase also uses direct array syntax: 'reduce: [...]' instead of 'reduce: { commands: [...] }'. Show side-by-side comparison.",
-      "source_reference": "workflows/mapreduce-example.yml:30-31 (new reduce syntax), workflows/debtmap-reduce.yml:29-39 (shows both agent_template and reduce using direct array)"
-    },
-    {
-      "type": "missing_content",
+      "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Examples",
-      "description": "No side-by-side examples showing old vs new syntax or simple vs full config formats",
-      "feature_reference": "workflow.formats.format_flexibility",
-      "fix_suggestion": "Add visual comparison tables or side-by-side YAML examples showing: 1) Old agent_template syntax vs new, 2) Simple workflow array vs full config, 3) Standard workflow vs MapReduce workflow structure",
-      "source_reference": "examples/mapreduce-json-input.yml vs workflows/mapreduce-example.yml"
+      "section": "Full Configuration Format",
+      "description": "Documentation shows 'secrets' as a top-level field but doesn't explain it's integrated with the 'env' block in modern Prodigy",
+      "current_content": "secrets:\n  API_TOKEN:\n    provider: env\n    key: \"GITHUB_TOKEN\"",
+      "should_be": "Environment variables with secret masking should be shown as part of the env block with secret: true flag, per Spec 120",
+      "fix_suggestion": "Update example to show secrets as part of env block: 'env:\\n  API_TOKEN:\\n    secret: true\\n    provider: env\\n    key: \"GITHUB_TOKEN\"' or clarify that secrets is a separate top-level configuration",
+      "source_reference": "src/config/mapreduce.rs:35-40 shows env field with EnvConfig, CLAUDE.md Spec 120 documents env vars with secret flag"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Migration Guide",
+      "description": "Could benefit from mentioning the deprecation warning that Prodigy emits when using nested format",
+      "fix_suggestion": "Add note: 'When using the old nested format, Prodigy emits a warning: \"Using deprecated nested 'commands' syntax in agent_template. Consider using the simplified array format directly under 'agent_template'.\"'",
+      "source_reference": "src/config/mapreduce.rs:310 and src/config/mapreduce.rs:347 emit tracing::warn for deprecated syntax"
+    },
+    {
+      "type": "missing_best_practices",
+      "severity": "low",
+      "section": "Format Decision Tree",
+      "description": "Could mention that the simplified format is preferred not just for cleanliness, but also for forward compatibility",
+      "fix_suggestion": "Add note in decision tree: 'The direct array syntax is preferred for forward compatibility, as the nested format may be removed in future versions'",
+      "source_reference": "src/config/mapreduce.rs comments indicate the old format is deprecated"
     }
   ],
   "positive_aspects": [
-    "Title clearly indicates subsection purpose"
+    "Clear side-by-side comparison of old vs new syntax",
+    "Excellent migration guide with before/after examples",
+    "Well-structured decision tree for format selection",
+    "Accurate documentation of the untagged enum deserialization supporting both formats",
+    "Good explanation of when to use simple array vs full config format for standard workflows",
+    "Helpful cross-references to related subsections"
   ],
   "improvement_suggestions": [
-    "Add visual comparison table showing old vs new MapReduce syntax side-by-side",
-    "Include migration guide for users upgrading from old syntax to new syntax",
-    "Show complete working examples of each format variant",
-    "Cross-reference to Setup Phase and Map/Reduce Phase subsections for deeper details",
-    "Add decision tree or flowchart: 'Which format should I use?'",
-    "Include note about deprecation warnings for old syntax"
+    "Add a note about the deprecation warnings in the migration section",
+    "Clarify the relationship between 'secrets' and 'env' configuration (are they separate or integrated?)",
+    "Consider adding a troubleshooting tip about what to do if workflow fails after migration",
+    "Add example showing mixed usage (some commands in new format, some in old - if supported) or explicitly state this isn't possible",
+    "Consider adding a timeline or version info for when the new format was introduced"
   ],
   "cross_references": [
     "setup-phase",
@@ -82,9 +61,21 @@
     "../workflow-basics/basic-structure"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T19:37:34Z",
+    "analyzed_at": "2025-11-09T23:43:36Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
-    "topics_covered": ["syntax", "formats", "comparison"],
-    "validation_focus": "Check workflow format comparisons"
+    "topics_covered": [
+      "syntax",
+      "formats",
+      "comparison",
+      "migration",
+      "backward compatibility"
+    ],
+    "validation_focus": "Check workflow format comparisons",
+    "implementation_verified": [
+      "src/config/mapreduce.rs:281-315 - AgentTemplate untagged enum deserialization",
+      "src/config/mapreduce.rs:317-352 - ReducePhaseYaml untagged enum deserialization",
+      "src/config/mapreduce.rs:96-124 - MergeWorkflow untagged enum deserialization",
+      "src/config/mapreduce.rs:192-221 - SetupPhaseConfig untagged enum deserialization"
+    ]
   }
 }

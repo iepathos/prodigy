@@ -111,11 +111,9 @@ env_files:
   - .env.secrets
 
 secrets:
-  API_KEY:
-    secret: true
-    # Value loaded from .env.secrets, but marked as secret for masking
-  DATABASE_PASSWORD:
-    secret: true
+  # Retrieve from environment variable (loaded from .env.secrets)
+  API_KEY: "${env:API_KEY}"
+  DATABASE_PASSWORD: "${env:DATABASE_PASSWORD}"
 ```
 
 **Note:** Variables loaded from env_files are NOT automatically masked. You must explicitly mark them as secrets in the `secrets` section for masking in logs.
@@ -134,11 +132,9 @@ env:
   VERSION: "1.0.0"
 
 secrets:
-  API_KEY:
-    secret: true
-    # Loaded from env file but masked in logs
-  DATABASE_URL:
-    secret: true
+  # Secrets loaded from env files, masked in logs
+  API_KEY: "${env:API_KEY}"
+  DATABASE_URL: "${env:DATABASE_URL}"
 
 profiles:
   dev:

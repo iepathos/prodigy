@@ -233,9 +233,9 @@ map:
 ```yaml
 env:
   DATA_SOURCE: https://api.example.com/v1/items
-  API_KEY:
-    secret: true
-    value: sk-...
+
+secrets:
+  API_KEY: "${env:SECRET_API_KEY}"
 
 setup:
   - shell: "curl -H 'Authorization: Bearer ${API_KEY}' $DATA_SOURCE > items.json"

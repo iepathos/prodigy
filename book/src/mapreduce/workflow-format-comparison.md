@@ -39,6 +39,8 @@ env:
   OUTPUT_DIR: "output"
   DEBUG_MODE: "false"
 
+# Secrets are a separate top-level configuration
+# They support provider-based secret management
 secrets:
   API_TOKEN:
     provider: env
@@ -100,6 +102,7 @@ reduce:
 - Cleaner YAML structure
 - Follows YAML array conventions
 - Consistent with standard workflow format
+- Forward compatibility - the nested format may be removed in future versions
 
 #### Legacy Syntax (Deprecated)
 
@@ -129,6 +132,7 @@ reduce:
 - This format is still supported for backward compatibility
 - New workflows should use the direct array syntax
 - Future versions may remove support for nested `commands`
+- When using the old format, Prodigy emits a warning: "Using deprecated nested 'commands' syntax in agent_template. Consider using the simplified array format directly under 'agent_template'." (src/config/mapreduce.rs:310, 347)
 
 ### Migration Guide
 
@@ -161,6 +165,12 @@ reduce:
 2. Remove the `commands:` line from `reduce`
 3. Unindent the command list by one level
 4. Test the workflow to ensure it works correctly
+
+**Important Notes:**
+- The workflow format is all-or-nothing - you cannot mix old and new formats within the same workflow
+- Both `agent_template` and `reduce` must use the same format (both direct array or both nested)
+- After migration, run `prodigy run workflow.yml --dry-run` to validate syntax before executing
+- If the workflow fails after migration, check for indentation errors - YAML is whitespace-sensitive
 
 ### Format Decision Tree
 

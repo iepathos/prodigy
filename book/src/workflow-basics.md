@@ -45,9 +45,8 @@ env:
   LOG_LEVEL: info
 
 secrets:
-  API_KEY:
-    secret: true
-    value: "sk-abc123"
+  # Simple string format - value is retrieved from environment variable
+  API_KEY: "${env:SECRET_API_KEY}"
 
 commands:
   - shell: echo "Running $PROJECT_NAME quality checks"
@@ -85,6 +84,19 @@ commands:
 ## Command Types
 
 Prodigy supports several command types, each designed for specific use cases.
+
+### Command Type Reference
+
+| Command Type | Purpose | Key Fields |
+|--------------|---------|------------|
+| `shell:` | Execute shell commands | Command string |
+| `claude:` | Execute Claude Code commands | Command string (starts with `/`) |
+| `write_file:` | Create/update files with formatting | `path`, `content`, `format` |
+| `validate:` | Check implementation completeness | `shell`/`claude`/`commands`, `threshold` |
+| `goal_seek:` | Iterative refinement to threshold | `goal`, `validate`, `threshold`, `max_attempts` |
+| `foreach:` | Iterate over items | `foreach`, `do`, `parallel`, `continue_on_error` |
+
+**Source**: src/config/command.rs:319-380
 
 ### Shell Commands
 
@@ -125,82 +137,203 @@ Claude commands:
 
 See [Claude Integration](./claude-integration.md) for detailed information on using Claude commands in workflows.
 
-### Test Commands
+### Write File Commands
 
-Execute tests with automatic failure analysis:
+Create or update files with automatic formatting and validation:
 
 ```yaml
+- write_file:
+    path: ".prodigy/map-results.json"
+    content: "${map.results}"
+    format: json
+    create_dirs: true
+```
+
+**Source**: src/config/command.rs:280-298
+
+Write file commands support:
+- **path**: File path with variable interpolation
+- **content**: File content with variable interpolation
+- **format**: Output format - `text` (default), `json` (with validation), or `yaml` (with formatting)
+- **mode**: File permissions in octal (default: `"0644"`)
+- **create_dirs**: Create parent directories if needed (default: `false`)
+
+**Real-world example** from workflows/debtmap-reduce.yml:105:
+```yaml
+reduce:
+  - write_file:
+      path: ".prodigy/map-results.json"
+      content: "${map.results}"
+      format: json
+      create_dirs: true
+```
+
+Use cases:
+- Generate configuration files from templates
+- Export workflow results to JSON/YAML
+- Create reports with proper formatting
+- Write data with validation
+
+### Validate Commands
+
+Verify implementation completeness against requirements:
+
+```yaml
+- validate:
+    claude: "/prodigy-validate-spec $ARG --output .prodigy/validation-result.json"
+    result_file: ".prodigy/validation-result.json"
+    threshold: 100
+```
+
+**Source**: src/cook/workflow/validation.rs:12-27
+
+Validate commands support:
+- **shell**: Shell command for validation
+- **claude**: Claude command for validation
+- **commands**: Multi-step validation sequence
+- **result_file**: JSON file with validation results
+- **threshold**: Minimum score to pass (0-100)
+- **on_incomplete**: Actions to take if validation fails
+
+**Real-world example** from workflows/implement.yml:8:
+```yaml
+goal_seek:
+  goal: "Implement specification requirements"
+  claude: "/implement-spec $ARG"
+  validate:
+    claude: "/prodigy-validate-spec $ARG --output .prodigy/validation-result.json"
+    result_file: ".prodigy/validation-result.json"
+    threshold: 100
+  max_attempts: 5
+```
+
+Use cases:
+- Specification coverage checking
+- Documentation quality validation
+- Feature completeness verification
+
+### Deprecated and Internal Commands
+
+**Test Command (Deprecated)**
+
+The `test:` command type is deprecated and will show a warning when used. Use `shell:` with `on_failure:` instead:
+
+```yaml
+# Old (deprecated):
 - test: cargo test --all
   on_failure:
     debug_command: cargo test --verbose
-    collect_artifacts:
-      - target/debug/test-results.xml
-      - logs/*.log
+
+# New (preferred):
+- shell: cargo test --all
+  on_failure:
+    - shell: cargo test --verbose
 ```
 
-Test commands provide:
-- Automatic test result tracking
-- Debug command execution on failure
-- Artifact collection for CI/CD
-- Detailed failure reporting
+**Source**: src/config/command.rs:447-462
+
+**Analyze Command (Internal)**
+
+The `analyze:` command type is used internally by Prodigy and is not intended for direct use in workflow files.
+
+**Source**: src/config/command.rs:330-332
 
 ### Goal-Seek Commands
 
-Run validation with automatic retry until success criteria met:
+Iteratively refine code until validation score meets threshold:
 
 ```yaml
 - goal_seek:
-    description: "Code passes all quality checks"
-    validation:
-      command: cargo clippy -- -D warnings
-      success_criteria:
-        exit_code: 0
-    fix_command: claude /fix-clippy-warnings
-    max_attempts: 3
+    goal: "Achieve 90% test coverage"
+    claude: "/improve-test-coverage"
+    validate: "cargo tarpaulin --print-summary 2>/dev/null | grep 'Coverage' | sed 's/.*Coverage=\\([0-9]*\\).*/score: \\1/'"
+    threshold: 90
+    max_attempts: 5
+    timeout_seconds: 300
 ```
 
-Goal-seek commands enable:
-- Iterative improvement workflows
-- Automatic error correction
-- Validation-driven development
-- Quality gate enforcement
+**Source**: src/cook/goal_seek/mod.rs:15-41
+
+Goal-seek commands support:
+- **goal**: Human-readable description of the objective
+- **claude**: Claude command for refinement (optional, use this OR shell)
+- **shell**: Shell command for refinement (optional, use this OR claude)
+- **validate**: Command that outputs `score: N` where N is 0-100
+- **threshold**: Minimum score to succeed (0-100)
+- **max_attempts**: Maximum refinement iterations
+- **timeout_seconds**: Optional timeout for entire operation
+- **fail_on_incomplete**: Whether to fail workflow if threshold not met
+
+**Real-world example** from workflows/goal-seeking-examples.yml:9:
+```yaml
+- goal_seek:
+    goal: "Achieve 90% test coverage"
+    claude: "/improve-test-coverage"
+    validate: "cargo tarpaulin --print-summary 2>/dev/null | grep 'Coverage' | sed 's/.*Coverage=\\([0-9]*\\).*/score: \\1/'"
+    threshold: 90
+    max_attempts: 5
+    timeout_seconds: 300
+```
+
+**How it works:**
+1. Run validation command to get current score
+2. If score < threshold, run refinement command (claude or shell)
+3. Re-run validation to check if score improved
+4. Repeat until threshold met or max_attempts reached
+
+Goal-seek enables:
+- Test coverage improvement
+- Performance optimization
+- Code quality enforcement
+- Iterative refinement workflows
 
 ### Foreach Commands
 
 Iterate over items with nested command sequences:
 
 ```yaml
-- foreach:
-    items: ["src/main.rs", "src/lib.rs", "src/utils.rs"]
-    variable: file
-    commands:
-      - shell: echo "Processing ${file}"
-      - shell: rustfmt ${file}
-      - shell: cargo check --bin ${file}
+- foreach: ["src/main.rs", "src/lib.rs", "src/utils.rs"]
+  do:
+    - shell: echo "Processing ${item}"
+    - shell: rustfmt ${item}
+    - shell: cargo check
+  parallel: false
+  continue_on_error: false
+  max_items: 10
 ```
+
+**Source**: src/config/command.rs:191-211
 
 Foreach commands support:
-- Array iteration
-- Variable binding
-- Nested command execution
-- Dynamic workflow generation
+- **foreach**: Input source - either a list `["item1", "item2"]` or a command that outputs items
+- **do**: Commands to execute for each item (item available as `${item}`)
+- **parallel**: Execute items in parallel - `false`, `true`, or number of parallel jobs (default: `false`)
+- **continue_on_error**: Continue processing remaining items if one fails (default: `false`)
+- **max_items**: Limit number of items to process (optional)
 
-### Handler Commands
-
-Execute custom handlers for advanced workflows:
-
+**Example with command input:**
 ```yaml
-- handler:
-    name: custom-validator
-    attributes:
-      severity: high
-      timeout: 300
+- foreach: "ls src/*.rs"
+  do:
+    - shell: rustfmt ${item}
+    - shell: cargo check
+  parallel: 4
+  continue_on_error: true
 ```
 
-Handlers enable:
-- Plugin-style extensibility
-- Custom command types
-- Advanced integration scenarios
+**Example with parallel execution:**
+```yaml
+- foreach: ["test1.txt", "test2.txt", "test3.txt"]
+  do:
+    - shell: process ${item}
+  parallel: 3  # Process 3 items concurrently
+```
+
+Foreach enables:
+- Batch file processing
+- Parallel execution of similar tasks
+- Dynamic workflow generation
+- Multi-target operations
 
 ## Command Syntax Formats
 
@@ -219,22 +352,21 @@ Prodigy parses these strings into structured commands internally.
 
 ### Structured Format (WorkflowStep)
 
-Add configuration like timeouts, environment variables, and handlers:
+Add configuration like timeouts, output capture, and error handlers:
 
 ```yaml
 - shell: cargo test
   timeout: 300
-  env:
-    RUST_BACKTRACE: "1"
+  capture_output: test_results
   on_failure:
     - shell: cargo test --verbose
 ```
 
 This format provides:
 - Per-step timeout control
-- Step-level environment variables
+- Output capture and variable binding
 - Error handling configuration
-- Output capture declarations
+- Conditional execution control
 
 ### SimpleObject Format
 
@@ -281,7 +413,7 @@ Duration: 3.2s
 ```
 
 **Failure Handling**: When a command fails:
-1. Execution stops (unless `allow_failure: true` or `on_failure` handler configured)
+1. Execution stops (unless `continue_on_error: true` or `on_failure` handler configured)
 2. Error details captured in logs
 3. Worktree preserved for debugging
 4. No merge to main repository occurs
@@ -355,12 +487,12 @@ Mask sensitive values in logs and output:
 
 ```yaml
 secrets:
-  DATABASE_URL:
-    secret: true
-    value: "postgresql://user:password@localhost/db"
+  # Simple string format - retrieves from environment variable
+  DATABASE_URL: "${env:DATABASE_URL}"
+  # Provider-based format with explicit provider
   API_KEY:
-    secret: true
-    value: "sk-abc123"
+    provider: env
+    key: "SECRET_API_KEY"
 
 commands:
   - shell: curl -H "Authorization: Bearer ${API_KEY}" https://api.example.com
@@ -410,7 +542,7 @@ See [Environment Variables](./environment-variables.md) for comprehensive covera
 
 ## Step-Level Configuration
 
-Individual commands can override workflow-level settings:
+Individual commands can be configured with additional options:
 
 ### Timeout
 
@@ -421,25 +553,40 @@ Set maximum execution time per command (in seconds):
   timeout: 600  # 10 minutes
 ```
 
-### Working Directory
+**Source**: src/config/command.rs:382-384
 
-Change directory for a specific command:
+### Output Capture
 
+Capture command output to variables for use in subsequent steps:
+
+**Simple capture** - Store stdout in a variable:
 ```yaml
-- shell: npm install
-  working_dir: frontend/
+- shell: git rev-parse HEAD
+  capture: commit_hash
+
+- shell: echo "Current commit: ${commit_hash}"
 ```
 
-### Step Environment
+**Advanced capture** - Configure format and streams:
+```yaml
+- shell: cargo test --all
+  capture_output: test_results
+  capture_format: json  # Parse output as JSON
+  capture_streams: both  # Capture stdout and stderr (options: stdout, stderr, both)
+```
 
-Add or override environment variables:
+**Source**: src/config/command.rs:366-396
+
+### Output Redirection
+
+Redirect command output to a file:
 
 ```yaml
-- shell: cargo test
-  env:
-    RUST_BACKTRACE: full
-    RUST_LOG: debug
+- shell: cargo test --all
+  output_file: test-results.txt
 ```
+
+**Source**: src/config/command.rs:398-400
 
 ### Commit Required
 
@@ -450,6 +597,8 @@ Control whether the step must create a git commit:
   commit_required: false  # Don't require changes
 ```
 
+**Source**: src/config/command.rs:354-356
+
 ### Conditional Execution
 
 Execute step only if condition evaluates to true:
@@ -458,6 +607,8 @@ Execute step only if condition evaluates to true:
 - shell: cargo build --release
   when: "${tests_passed}"  # Only run if tests_passed is true
 ```
+
+**Source**: src/config/command.rs:386-388
 
 ## Custom Merge Workflows
 

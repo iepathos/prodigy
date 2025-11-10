@@ -13,18 +13,33 @@ The DLQ integrates with MapReduce through the `on_item_failure` policy, which de
 DLQ data is stored in the global Prodigy directory using this structure:
 
 ```
-~/.prodigy/dlq/{repo_name}/{job_id}/dlq.json
+~/.prodigy/state/{repo_name}/mapreduce/dlq/{job_id}/
+├── items/                  # Individual item files
+│   ├── item-123.json      # DeadLetteredItem for item-123
+│   ├── item-456.json      # DeadLetteredItem for item-456
+│   └── ...
+└── index.json             # DLQ index metadata
 ```
 
 For example:
 ```
-~/.prodigy/dlq/prodigy/mapreduce-1234567890/dlq.json
+~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/
+├── items/
+│   └── item-123.json
+└── index.json
 ```
+
+**Storage Implementation** (src/cook/execution/dlq.rs:518-638):
+- Each failed item is stored as a separate JSON file in the `items/` directory
+- File naming: `{item_id}.json` (e.g., `item-123.json`)
+- `index.json` maintains a list of all item IDs and metadata for fast lookups
+- Items are loaded into memory on-demand for operations
 
 This global storage architecture enables:
 - **Cross-worktree access**: Multiple worktrees working on the same job share DLQ data
 - **Persistent state**: DLQ survives worktree cleanup
 - **Centralized monitoring**: All failures accessible from a single location
+- **Scalability**: Individual item files prevent loading entire DLQ into memory
 
 ### DLQ Item Structure
 
@@ -34,91 +49,113 @@ Each failed item in the DLQ is stored as a `DeadLetteredItem` with comprehensive
 {
   "item_id": "item-123",
   "item_data": { "file": "src/main.rs", "priority": 5 },
+  "first_attempt": "2025-01-11T10:25:00Z",
+  "last_attempt": "2025-01-11T10:30:00Z",
+  "failure_count": 3,
   "failure_history": [
     {
       "attempt_number": 1,
       "timestamp": "2025-01-11T10:30:00Z",
-      "error_type": "CommandFailed",
+      "error_type": { "CommandFailed": { "exit_code": 101 } },
       "error_message": "cargo test failed with exit code 101",
-      "stack_trace": "...",
+      "stack_trace": "thread 'main' panicked at src/main.rs:42...",
       "agent_id": "agent-1",
-      "step_failed": 2,
+      "step_failed": "shell: cargo test",
       "duration_ms": 45000,
       "json_log_location": "/path/to/claude-session.json"
     }
   ],
-  "failure_reason": "Command execution failed after 3 attempts",
-  "timestamp": "2025-01-11T10:30:00Z",
-  "retry_count": 3,
-  "json_log_location": "/path/to/claude-session.json",
+  "error_signature": "CommandFailed::cargo test failed with exit",
   "reprocess_eligible": true,
   "manual_review_required": false,
   "worktree_artifacts": {
     "worktree_path": "/path/to/worktree",
     "branch_name": "agent-1",
-    "uncommitted_changes": ["src/main.rs"],
-    "error_logs": ["error.log"]
+    "uncommitted_changes": "src/main.rs modified",
+    "error_logs": "error.log contents..."
   }
 }
 ```
 
 #### Key Fields
 
+**Source**: `DeadLetteredItem` struct (src/cook/execution/dlq.rs:32-43)
+
 - `item_id`: Unique identifier for the work item
 - `item_data`: Original work item data from input JSON
+- `first_attempt`: Timestamp of first failure attempt (DateTime<Utc>)
+- `last_attempt`: Timestamp of most recent failure attempt (DateTime<Utc>)
+- `failure_count`: Number of failed attempts (u32)
 - `failure_history`: Array of `FailureDetail` objects capturing each attempt
-- `failure_reason`: High-level summary of why item failed
-- `timestamp`: When item was added to DLQ
-- `retry_count`: Number of failed attempts
-- `json_log_location`: Path to Claude JSON log for debugging (see [Claude Command Observability](../debugging/claude-command-observability.md))
+- `error_signature`: Simplified error pattern for grouping similar failures
 - `reprocess_eligible`: Whether item can be retried automatically
 - `manual_review_required`: Whether item needs human intervention
-- `worktree_artifacts`: Captured state from failed agent's worktree
+- `worktree_artifacts`: Captured state from failed agent's worktree (Optional)
 
 ### Failure Detail Fields
 
-Each attempt in `failure_history` is a `FailureDetail` object:
+Each attempt in `failure_history` is a `FailureDetail` object (src/cook/execution/dlq.rs:46-59):
 
 ```json
 {
   "attempt_number": 1,
   "timestamp": "2025-01-11T10:30:00Z",
-  "error_type": "CommandFailed",
+  "error_type": { "CommandFailed": { "exit_code": 101 } },
   "error_message": "cargo test failed with exit code 101",
   "stack_trace": "thread 'main' panicked at src/main.rs:42...",
   "agent_id": "agent-1",
-  "step_failed": 2,
+  "step_failed": "claude: /process '${item}'",
   "duration_ms": 45000,
   "json_log_location": "/path/to/claude-session.json"
 }
 ```
 
+**Field Details**:
+- `attempt_number`: Sequential attempt counter (u32)
+- `timestamp`: When this attempt occurred (DateTime<Utc>)
+- `error_type`: Error classification (see Error Types below)
+- `error_message`: Human-readable error description
+- `stack_trace`: Optional detailed stack trace
+- `agent_id`: ID of the agent that failed
+- `step_failed`: Command string that failed (e.g., "shell: cargo test")
+- `duration_ms`: How long the attempt ran before failing (u64)
+- `json_log_location`: Path to Claude JSON log for debugging (Optional, see [Claude Command Observability](../debugging/claude-command-observability.md))
+
 #### Error Types
 
-The `error_type` field uses the `ErrorType` enum:
+The `error_type` field uses the `ErrorType` enum (src/cook/execution/dlq.rs:62-71):
 
 - `Timeout`: Agent execution exceeded timeout
-- `CommandFailed`: Shell or Claude command returned non-zero exit code
+- `CommandFailed { exit_code: i32 }`: Shell or Claude command returned non-zero exit code (includes exit code for diagnostics)
 - `WorktreeError`: Git worktree operation failed
 - `MergeConflict`: Merge back to parent worktree failed
 - `ValidationFailed`: Validation command failed
 - `ResourceExhausted`: System resources (memory, disk) exhausted
 - `Unknown`: Unclassified error
 
+**Example from tests** (tests/dlq_agent_integration_test.rs:69):
+```rust
+error_type: ErrorType::CommandFailed { exit_code: 1 }
+```
+
 ### Worktree Artifacts
 
-The `WorktreeArtifacts` structure captures the agent's execution environment:
+The `WorktreeArtifacts` structure captures the agent's execution environment (src/cook/execution/dlq.rs:74-80):
 
-- `worktree_path`: Path to agent's isolated worktree
-- `branch_name`: Git branch created for agent
-- `uncommitted_changes`: Files modified but not committed
-- `error_logs`: Captured error output files
+- `worktree_path`: Path to agent's isolated worktree (PathBuf)
+- `branch_name`: Git branch created for agent (String)
+- `uncommitted_changes`: Files modified but not committed (Option<String>)
+- `error_logs`: Captured error output (Option<String>)
+
+**Note**: Both `uncommitted_changes` and `error_logs` are stored as optional strings, not arrays. If present, they contain descriptive text about the changes/logs rather than file lists.
 
 These artifacts are preserved for debugging and can be accessed after failure.
 
 ## DLQ Commands
 
-Prodigy provides comprehensive CLI commands for managing the DLQ:
+Prodigy provides comprehensive CLI commands for managing the DLQ.
+
+**Implementation Status**: The DLQ CLI commands are defined (src/cli/args.rs:609-679) but currently implemented as stubs (src/cli/commands/dlq.rs:9-73). The commands print status messages but do not yet perform the operations described below. Full implementation is planned.
 
 ### List Command
 
@@ -179,35 +216,41 @@ Analysis output includes:
 
 ### Retry Command
 
-Reprocess failed items:
+Reprocess failed items (src/cli/args.rs:640-659):
 
 ```bash
-# Retry all failed items for a job
-prodigy dlq retry mapreduce-1234567890
+# Retry all failed items for a workflow
+prodigy dlq retry <workflow_id>
 
-# Control parallelism (default: 5, uses workflow's max_parallel)
-prodigy dlq retry mapreduce-1234567890 --max-parallel 10
+# Control parallelism (default: 10)
+prodigy dlq retry <workflow_id> --parallel 10
 
 # Filter items to retry
-prodigy dlq retry mapreduce-1234567890 --filter 'item.priority >= 5'
+prodigy dlq retry <workflow_id> --filter 'item.priority >= 5'
 
-# Limit retry attempts per item
-prodigy dlq retry mapreduce-1234567890 --max-retries 2
+# Limit retry attempts per item (default: 3)
+prodigy dlq retry <workflow_id> --max-retries 2
 
-# Force retry without confirmation
-prodigy dlq retry mapreduce-1234567890 --force
+# Force retry even if not eligible
+prodigy dlq retry <workflow_id> --force
 ```
+
+**Note**: The retry command uses `workflow_id` as the positional argument, which corresponds to the MapReduce job identifier. The parallelism default is 10 concurrent workers.
 
 #### Retry Behavior
 
+The retry functionality is designed to handle large-scale DLQ reprocessing:
+
 - **Streaming support**: Items are processed incrementally to avoid memory issues with large DLQs
-- **Parallel execution**: Respects workflow's `max_parallel` setting or custom `--max-parallel` value
+- **Parallel execution**: Uses `--parallel` flag (default: 10) to control concurrent workers
 - **State updates**:
   - Successful items are removed from DLQ
   - Failed items remain with updated `failure_history`
-  - `retry_count` is incremented
+  - `failure_count` is incremented
 - **Correlation tracking**: Maintains original item IDs and correlation metadata
 - **Interruption safe**: Supports stopping and resuming retry operations
+
+**Implementation Note**: The DLQ reprocessing logic uses the `DeadLetterQueue::reprocess` method (src/cook/execution/dlq.rs:202-233) which filters for `reprocess_eligible` items before attempting retry.
 
 ### Export Command
 
@@ -394,9 +437,46 @@ Continue Processing Other Items
 - **Parallelism**: Tune `--max-parallel` based on failure type (CPU-bound vs I/O-bound)
 - **Filtering**: Use `--filter` to target specific subsets of failures
 
+## Advanced: DLQ Storage Internals
+
+For advanced debugging or direct file access, understanding the DLQ storage structure can be helpful.
+
+### Index File Structure
+
+The `index.json` file provides metadata about the DLQ (src/cook/execution/dlq.rs:608-637):
+
+```json
+{
+  "job_id": "mapreduce-1234567890",
+  "item_count": 3,
+  "item_ids": ["item-123", "item-456", "item-789"],
+  "updated_at": "2025-01-11T10:30:00Z"
+}
+```
+
+This index is automatically updated when items are added or removed from the DLQ.
+
+### Direct File Access
+
+To inspect DLQ items directly:
+
+```bash
+# List all DLQ items for a job
+ls ~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/items/
+
+# View a specific item
+cat ~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/items/item-123.json | jq
+
+# Count total items
+jq '.item_count' ~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/index.json
+```
+
+**Note**: Direct file access is provided for debugging. Always use the Prodigy CLI commands for production operations to ensure data consistency.
+
 ## Cross-References
 
 - [Checkpoint and Resume](./checkpoint-and-resume.md): DLQ state preserved in checkpoints
 - [Event Tracking](./event-tracking.md): DLQ operations emit trackable events
 - [Error Handling](./error-handling.md): Broader error handling strategies
 - [Worktree Architecture](./worktree-architecture.md): Agent isolation and artifact preservation
+- [Claude Command Observability](../debugging/claude-command-observability.md): Using JSON logs for debugging failed items

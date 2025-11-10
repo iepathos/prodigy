@@ -9,227 +9,165 @@
     "error_handling.dlq"
   ],
   "drift_detected": true,
-  "severity": "critical",
-  "quality_assessment": "Subsection is critically incomplete with only a single sentence. Needs comprehensive documentation covering DLQ structure, storage location, retry commands, failure analysis, and integration with MapReduce workflow.",
+  "severity": "medium",
+  "quality_assessment": "The subsection provides comprehensive coverage of DLQ functionality with accurate examples and detailed command documentation. Minor discrepancies exist between documented field types and actual implementation, and CLI command stubs need implementation. Overall structure and concepts are solid, with good cross-referencing and practical examples.",
   "issues": [
     {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Overview",
-      "description": "No explanation of what DLQ is, why it's needed, or how it integrates with MapReduce workflows",
-      "feature_reference": "storage_architecture.dlq.description",
-      "fix_suggestion": "Add overview explaining DLQ purpose: capturing persistently failing items for analysis while allowing job to continue",
-      "source_reference": "src/cook/execution/dlq.rs:1-3"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Storage Structure",
-      "description": "Missing documentation of DLQ storage location and file structure",
-      "feature_reference": "storage_architecture.dlq.storage",
-      "fix_suggestion": "Document storage path: ~/.prodigy/dlq/{repo_name}/{job_id}/dlq.json and explain global storage architecture",
-      "source_reference": "storage_architecture.dlq.storage"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
+      "type": "incorrect_information",
+      "severity": "medium",
       "section": "DLQ Item Structure",
-      "description": "Missing documentation of DeadLetteredItem structure and fields",
-      "feature_reference": "storage_architecture.dlq.contents",
-      "fix_suggestion": "Document all fields: item_id, item_data, failure_history, failure_reason, timestamp, retry_count, json_log_location, reprocess_eligible, manual_review_required",
-      "source_reference": "src/cook/execution/dlq.rs:30-42"
+      "description": "Documentation shows step_failed as integer (line 45), but implementation uses String type",
+      "current_content": "\"step_failed\": 2",
+      "should_be": "\"step_failed\": \"shell: cargo test\"",
+      "fix_suggestion": "Update example to show step_failed as a String describing the command that failed, not a numeric step index",
+      "source_reference": "src/cook/execution/dlq.rs:54"
     },
     {
-      "type": "missing_content",
-      "severity": "high",
+      "type": "incorrect_information",
+      "severity": "medium",
       "section": "Failure Detail Fields",
-      "description": "No documentation of FailureDetail structure capturing attempt information",
-      "feature_reference": "storage_architecture.dlq.contents.failure_history",
-      "fix_suggestion": "Document FailureDetail fields: attempt_number, timestamp, error_type, error_message, stack_trace, agent_id, step_failed, duration_ms, json_log_location",
-      "source_reference": "src/cook/execution/dlq.rs:44-58"
+      "description": "Documentation shows step_failed as numeric (line 90), inconsistent with actual String type",
+      "current_content": "\"step_failed\": 2",
+      "should_be": "\"step_failed\": \"claude: /process '${item}'\"",
+      "fix_suggestion": "Update FailureDetail example to use String value for step_failed field matching implementation",
+      "source_reference": "src/cook/execution/dlq.rs:54"
     },
     {
       "type": "missing_content",
-      "severity": "high",
+      "severity": "low",
+      "section": "DLQ Item Structure",
+      "description": "Documentation missing first_attempt and last_attempt timestamp fields that exist in implementation",
+      "fix_suggestion": "Add first_attempt and last_attempt DateTime<Utc> fields to DeadLetteredItem structure documentation",
+      "source_reference": "src/cook/execution/dlq.rs:35-36"
+    },
+    {
+      "type": "incorrect_information",
+      "severity": "low",
+      "section": "DLQ Item Structure",
+      "description": "Documentation uses retry_count field (line 52), but implementation uses failure_count",
+      "current_content": "\"retry_count\": 3",
+      "should_be": "\"failure_count\": 3",
+      "fix_suggestion": "Update field name to failure_count to match implementation, or add both fields if retry_count is derived",
+      "source_reference": "src/cook/execution/dlq.rs:37"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "DLQ Item Structure",
+      "description": "Documentation missing error_signature field that exists in implementation",
+      "fix_suggestion": "Add error_signature: String field to DeadLetteredItem example - used for grouping similar failures in pattern analysis",
+      "source_reference": "src/cook/execution/dlq.rs:39"
+    },
+    {
+      "type": "incorrect_information",
+      "severity": "low",
+      "section": "Worktree Artifacts",
+      "description": "uncommitted_changes field documented as array (line 59), but implementation uses Option<String>",
+      "current_content": "\"uncommitted_changes\": [\"src/main.rs\"]",
+      "should_be": "\"uncommitted_changes\": \"src/main.rs modified\"",
+      "fix_suggestion": "Update uncommitted_changes type to Option<String> or clarify the actual serialization format",
+      "source_reference": "src/cook/execution/dlq.rs:78"
+    },
+    {
+      "type": "incorrect_information",
+      "severity": "low",
+      "section": "Worktree Artifacts",
+      "description": "error_logs field documented as array (line 60), but implementation uses Option<String>",
+      "current_content": "\"error_logs\": [\"error.log\"]",
+      "should_be": "\"error_logs\": \"error.log contents...\"",
+      "fix_suggestion": "Update error_logs type to Option<String> to match implementation",
+      "source_reference": "src/cook/execution/dlq.rs:79"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
       "section": "Error Types",
-      "description": "Missing documentation of ErrorType enum values",
-      "feature_reference": "storage_architecture.dlq.contents.failure_history",
-      "fix_suggestion": "Document error types: Timeout, CommandFailed, WorktreeError, MergeConflict, ValidationFailed, ResourceExhausted, Unknown",
-      "source_reference": "src/cook/execution/dlq.rs:60-70"
+      "description": "CommandFailed error type documented without exit_code field that exists in implementation",
+      "current_content": "- `CommandFailed`: Shell or Claude command returned non-zero exit code",
+      "should_be": "- `CommandFailed { exit_code: i32 }`: Shell or Claude command returned non-zero exit code",
+      "fix_suggestion": "Update ErrorType::CommandFailed documentation to show it contains exit_code field for diagnostic purposes",
+      "source_reference": "src/cook/execution/dlq.rs:65"
     },
     {
-      "type": "missing_content",
+      "type": "incomplete_implementation",
       "severity": "high",
       "section": "DLQ Commands",
-      "description": "No documentation of available DLQ management commands",
-      "feature_reference": "storage_architecture.dlq.retry.command",
-      "fix_suggestion": "Document all DLQ commands: list, inspect, analyze, export, purge, retry, stats, clear with their options",
-      "source_reference": "src/cli/args.rs:578-674"
+      "description": "All DLQ CLI commands are stubs that only print messages - no actual implementation yet",
+      "fix_suggestion": "Add implementation status note in documentation that DLQ CLI commands are planned but currently stubs, or implement the commands to match documented behavior",
+      "source_reference": "src/cli/commands/dlq.rs:9-73"
     },
     {
-      "type": "missing_content",
-      "severity": "high",
+      "type": "incorrect_information",
+      "severity": "low",
       "section": "Retry Command",
-      "description": "Missing comprehensive retry command documentation",
-      "feature_reference": "storage_architecture.dlq.retry",
-      "fix_suggestion": "Document retry command: prodigy dlq retry <workflow_id> [--max-parallel N] [--filter EXPR] [--max-retries N] [--force]",
-      "source_reference": "src/cli/args.rs:639-659"
+      "description": "Documentation shows --max-parallel flag but CLI implementation uses --parallel",
+      "current_content": "prodigy dlq retry mapreduce-1234567890 --max-parallel 10",
+      "should_be": "prodigy dlq retry mapreduce-1234567890 --parallel 10",
+      "fix_suggestion": "Update command examples to use --parallel flag to match CLI implementation (default: 10)",
+      "source_reference": "src/cli/args.rs:653"
     },
     {
-      "type": "missing_content",
+      "type": "incorrect_information",
       "severity": "medium",
-      "section": "List Command",
-      "description": "No documentation of list command for viewing DLQ items",
-      "feature_reference": "storage_architecture.dlq",
-      "fix_suggestion": "Document: prodigy dlq list [--job-id ID] [--eligible] [--limit N]",
-      "source_reference": "src/cli/args.rs:580-592"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Inspect Command",
-      "description": "Missing inspect command for detailed item examination",
-      "feature_reference": "storage_architecture.dlq",
-      "fix_suggestion": "Document: prodigy dlq inspect <item_id> [--job-id ID]",
-      "source_reference": "src/cli/args.rs:594-601"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Analyze Command",
-      "description": "No documentation of failure pattern analysis command",
-      "feature_reference": "storage_architecture.dlq",
-      "fix_suggestion": "Document: prodigy dlq analyze [--job-id ID] [--export PATH]",
-      "source_reference": "src/cli/args.rs:603-611"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Export Command",
-      "description": "Missing export command documentation",
-      "feature_reference": "storage_architecture.dlq",
-      "fix_suggestion": "Document: prodigy dlq export <output> [--job-id ID] [--format json|csv]",
-      "source_reference": "src/cli/args.rs:613-624"
+      "section": "Retry Command",
+      "description": "Documentation shows job_id as positional argument, but CLI expects workflow_id",
+      "current_content": "prodigy dlq retry mapreduce-1234567890",
+      "should_be": "prodigy dlq retry <workflow_id>",
+      "fix_suggestion": "Clarify relationship between workflow_id and job_id in retry command documentation, or update CLI parameter naming for consistency",
+      "source_reference": "src/cli/args.rs:642"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Purge Command",
-      "description": "No documentation of purge command for cleanup",
-      "feature_reference": "storage_architecture.dlq",
-      "fix_suggestion": "Document: prodigy dlq purge --older-than-days N [--job-id ID] [--yes]",
-      "source_reference": "src/cli/args.rs:626-638"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Stats Command",
-      "description": "Missing stats command documentation",
-      "feature_reference": "storage_architecture.dlq",
-      "fix_suggestion": "Document: prodigy dlq stats [--workflow-id ID]",
-      "source_reference": "src/cli/args.rs:661-665"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Clear Command",
-      "description": "No documentation of clear command",
-      "feature_reference": "storage_architecture.dlq",
-      "fix_suggestion": "Document: prodigy dlq clear <workflow_id> [--yes]",
-      "source_reference": "src/cli/args.rs:667-674"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Integration with MapReduce",
-      "description": "Missing explanation of how DLQ integrates with MapReduce workflow",
-      "feature_reference": "error_handling.workflow_level.on_item_failure.dlq",
-      "fix_suggestion": "Explain automatic DLQ routing for failed items (default for MapReduce), alternative policies (retry, skip, stop, custom)",
-      "source_reference": "features.json:error_handling.workflow_level.on_item_failure"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "JSON Log Location",
-      "description": "Missing documentation of json_log_location field for debugging",
-      "feature_reference": "storage_architecture.dlq.contents.json_log_location",
-      "fix_suggestion": "Document json_log_location field in FailureDetail for accessing Claude execution logs",
-      "source_reference": "src/cook/execution/dlq.rs:56-58"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Worktree Artifacts",
-      "description": "No documentation of WorktreeArtifacts captured for failed items",
-      "feature_reference": "storage_architecture.dlq.contents",
-      "fix_suggestion": "Document WorktreeArtifacts: worktree_path, branch_name, uncommitted_changes, error_logs",
-      "source_reference": "src/cook/execution/dlq.rs:72-79"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Retry Configuration",
-      "description": "Missing documentation of retry options and parallelism",
-      "feature_reference": "storage_architecture.dlq.retry.parallel",
-      "fix_suggestion": "Document configurable parallelism (default: 5, uses workflow's max_parallel), max_retries option, filter expressions",
-      "source_reference": "storage_architecture.dlq.retry"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "State Update Behavior",
-      "description": "No explanation of how DLQ state updates after retry",
-      "feature_reference": "storage_architecture.dlq.retry.state_update",
-      "fix_suggestion": "Explain: successful items removed, failed items kept with updated history",
-      "source_reference": "storage_architecture.dlq.retry.state_update"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Streaming Support",
-      "description": "Missing mention of streaming for large DLQs",
-      "feature_reference": "storage_architecture.dlq.retry.streaming",
-      "fix_suggestion": "Mention streaming support to avoid memory issues with large DLQs",
-      "source_reference": "storage_architecture.dlq.retry.streaming"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Failure Analysis",
-      "description": "No documentation of failure pattern analysis capabilities",
-      "feature_reference": "storage_architecture.dlq",
-      "fix_suggestion": "Document FailureAnalysis output: pattern_groups, error_distribution, temporal_distribution",
-      "source_reference": "src/cook/execution/dlq.rs:88-95"
+      "section": "Retry Command",
+      "description": "Documentation shows max_parallel default as 5, but CLI default is 10",
+      "current_content": "default: 5, uses workflow's max_parallel",
+      "should_be": "default: 10",
+      "fix_suggestion": "Update default parallelism value to 10 to match CLI implementation",
+      "source_reference": "src/cli/args.rs:653"
     }
   ],
   "positive_aspects": [
-    "Clear title indicates subsection focus",
-    "First sentence correctly identifies core DLQ purpose (failed items stored for review and retry)"
+    "Comprehensive coverage of DLQ concepts and workflow integration",
+    "Clear explanation of DLQ storage structure and global architecture benefits",
+    "Detailed documentation of DeadLetteredItem and FailureDetail structures with JSON examples",
+    "Complete documentation of all CLI commands with usage examples and options",
+    "Excellent cross-referencing to related subsections (checkpoints, events, error handling, Claude logs)",
+    "Strong coverage of debugging workflow with Claude JSON logs integration",
+    "Well-structured best practices section distinguishing automatic retry vs manual fix scenarios",
+    "Clear explanation of failure flow diagram and integration with MapReduce on_item_failure policy",
+    "Good performance considerations section covering large DLQs, parallelism tuning, and filtering",
+    "Comprehensive command reference with all options documented (list, inspect, analyze, export, purge, retry, stats, clear)"
   ],
   "improvement_suggestions": [
-    "Add comprehensive overview section explaining DLQ role in MapReduce fault tolerance",
-    "Include practical examples of common DLQ workflows (list items, inspect failure, retry)",
-    "Add troubleshooting section for common DLQ issues",
-    "Document best practices for DLQ management (when to retry vs manual fix)",
-    "Include example DLQ item JSON structure for reference",
-    "Add workflow diagram showing item flow from map failure to DLQ to retry",
-    "Document relationship between DLQ and on_item_failure policy",
-    "Include metrics and statistics available through stats command"
+    "Correct field types in examples to match implementation (step_failed: String, failure_count, uncommitted_changes: Option<String>, error_logs: Option<String>)",
+    "Add missing fields to documentation (first_attempt, last_attempt, error_signature)",
+    "Update ErrorType::CommandFailed to show { exit_code: i32 } structure",
+    "Clarify workflow_id vs job_id terminology consistently throughout retry command documentation",
+    "Add implementation status note for CLI commands (currently stubs awaiting implementation)",
+    "Update --max-parallel flag to --parallel in all examples",
+    "Correct default parallelism value from 5 to 10",
+    "Consider adding note about actual DLQ storage internals: items stored as individual JSON files in ~/.prodigy/state/{repo}/mapreduce/dlq/{job_id}/items/ directory",
+    "Add example showing DLQ index.json structure for advanced debugging",
+    "Consider documenting DLQStorage internal structure for users who need direct file access"
   ],
   "cross_references": [
     "checkpoint-and-resume",
     "event-tracking",
     "error-handling",
-    "worktree-architecture"
+    "worktree-architecture",
+    "claude-command-observability"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T19:37:34Z",
+    "analyzed_at": "2025-01-11T00:00:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "failed items",
       "retry",
       "DLQ",
-      "error handling"
+      "error handling",
+      "failure analysis",
+      "worktree artifacts"
     ],
     "validation_focus": "Check DLQ structure and retry commands documented"
   }
