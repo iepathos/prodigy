@@ -341,6 +341,8 @@ All other error types receive a generic suggestion: "Review error logs for more 
 
 These suggestions help diagnose and resolve systemic issues in MapReduce jobs.
 
+**Note:** Only the three error types listed above receive specific remediation suggestions. All other error types (such as compilation errors, runtime panics, or custom application errors) receive the generic "Review error logs" suggestion.
+
 **Source**: Pattern detection logic in src/cook/workflow/error_policy.rs:478-489
 
 ---
