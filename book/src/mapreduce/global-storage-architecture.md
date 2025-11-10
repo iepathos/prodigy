@@ -82,6 +82,7 @@ Isolated git worktrees for parallel execution:
 - **Path pattern**: `~/.prodigy/worktrees/{repo_name}/session-{id}/`
 - **Content**: Git worktree for session/agent execution, temporary files, execution artifacts
 - **Usage**: Isolated execution environment, parallel agent processing, clean separation from main repo
+- **Cross-reference**: See [MapReduce Worktree Architecture](../mapreduce-worktree-architecture.md) for worktree isolation details
 
 #### Sessions
 Unified session tracking for all workflow executions (src/unified_session/):
@@ -183,6 +184,9 @@ find ~/.prodigy/events -type d -mtime +30 -exec rm -rf {} +
 # Clear processed DLQ items for a workflow
 prodigy dlq clear <workflow_id>
 
+# Purge old DLQ items (older than N days)
+prodigy dlq purge --older-than-days 30
+
 # Remove orphaned worktrees after failed cleanup
 prodigy worktree clean-orphaned <job_id>
 ```
@@ -192,8 +196,14 @@ Monitor storage and sessions:
 # List active sessions and their status
 prodigy sessions list
 
+# Show details about a specific session
+prodigy sessions show <session_id>
+
 # View DLQ statistics for a workflow
 prodigy dlq stats --workflow-id <workflow_id>
+
+# Analyze failure patterns in DLQ
+prodigy dlq analyze --job-id <job_id>
 
 # Check resume locks (detect stuck jobs)
 ls ~/.prodigy/resume_locks/
@@ -201,6 +211,16 @@ ls ~/.prodigy/resume_locks/
 # List all repositories using global storage
 ls ~/.prodigy/events/
 ```
+
+**Available DLQ Commands** (src/cli/args.rs:578-675):
+- `list` - List items in the Dead Letter Queue
+- `inspect` - Inspect a specific DLQ item
+- `analyze` - Analyze failure patterns
+- `export` - Export DLQ items to a file
+- `purge` - Purge old items from the DLQ
+- `retry` - Retry failed items
+- `stats` - Show DLQ statistics
+- `clear` - Clear processed items from DLQ
 
 **Note**: The `health_check()` method exists in the GlobalStorage implementation (src/storage/global.rs:115) but is not currently exposed as a CLI command. It's used internally for programmatic health verification.
 

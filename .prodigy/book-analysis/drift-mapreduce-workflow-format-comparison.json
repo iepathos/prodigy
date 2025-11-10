@@ -8,74 +8,119 @@
     "mapreduce.syntax",
     "workflow.formats"
   ],
-  "drift_detected": false,
-  "severity": "low",
-  "quality_assessment": "Subsection accurately documents the workflow format evolution and syntax differences. The documentation correctly explains both the legacy nested format and the preferred direct array format, and provides clear migration guidance.",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Subsection contains accurate MapReduce syntax information but has critical broken links that will cause mdbook build failures",
   "issues": [
     {
-      "type": "incomplete_explanation",
+      "type": "broken_links",
+      "severity": "high",
+      "section": "Cross-References",
+      "description": "All 4 cross-reference links at the end of the document point to non-existent files",
+      "broken_links": [
+        {
+          "link_text": "Setup Phase",
+          "link_target": "./setup-phase.md",
+          "expected_file": "book/src/mapreduce/setup-phase.md",
+          "current_file": "book/src/mapreduce/workflow-format-comparison.md",
+          "actual_file": "book/src/mapreduce/setup-phase-advanced.md"
+        },
+        {
+          "link_text": "Map Phase",
+          "link_target": "./map-phase.md",
+          "expected_file": "book/src/mapreduce/map-phase.md",
+          "current_file": "book/src/mapreduce/workflow-format-comparison.md",
+          "suggested_fix": "This subsection may no longer exist as a standalone file; content may have been integrated into index.md or other subsections"
+        },
+        {
+          "link_text": "Reduce Phase",
+          "link_target": "./reduce-phase.md",
+          "expected_file": "book/src/mapreduce/reduce-phase.md",
+          "current_file": "book/src/mapreduce/workflow-format-comparison.md",
+          "suggested_fix": "This subsection may no longer exist as a standalone file; content may have been integrated into index.md or other subsections"
+        },
+        {
+          "link_text": "Basic Workflow Structure",
+          "link_target": "../workflow-basics/basic-structure.md",
+          "expected_file": "book/src/workflow-basics/basic-structure.md",
+          "current_file": "book/src/mapreduce/workflow-format-comparison.md",
+          "possible_matches": [
+            "book/src/workflow-basics/full-workflow-structure.md",
+            "book/src/workflow-basics/index.md"
+          ]
+        }
+      ],
+      "fix_suggestion": "Update cross-reference links to point to actual existing files:\n  - Replace setup-phase.md with setup-phase-advanced.md\n  - Replace map-phase.md and reduce-phase.md with links to relevant sections in index.md or remove if content is covered elsewhere\n  - Replace basic-structure.md with either full-workflow-structure.md or index.md\n  - Verify all links with: mdbook test or manual checking",
+      "validation_required": true
+    },
+    {
+      "type": "missing_content",
       "severity": "low",
       "section": "Full Configuration Format",
-      "description": "Documentation shows 'secrets' as a top-level field but doesn't explain it's integrated with the 'env' block in modern Prodigy",
-      "current_content": "secrets:\n  API_TOKEN:\n    provider: env\n    key: \"GITHUB_TOKEN\"",
-      "should_be": "Environment variables with secret masking should be shown as part of the env block with secret: true flag, per Spec 120",
-      "fix_suggestion": "Update example to show secrets as part of env block: 'env:\\n  API_TOKEN:\\n    secret: true\\n    provider: env\\n    key: \"GITHUB_TOKEN\"' or clarify that secrets is a separate top-level configuration",
-      "source_reference": "src/config/mapreduce.rs:35-40 shows env field with EnvConfig, CLAUDE.md Spec 120 documents env vars with secret flag"
-    },
-    {
-      "type": "unclear_content",
-      "severity": "low",
-      "section": "Migration Guide",
-      "description": "Could benefit from mentioning the deprecation warning that Prodigy emits when using nested format",
-      "fix_suggestion": "Add note: 'When using the old nested format, Prodigy emits a warning: \"Using deprecated nested 'commands' syntax in agent_template. Consider using the simplified array format directly under 'agent_template'.\"'",
-      "source_reference": "src/config/mapreduce.rs:310 and src/config/mapreduce.rs:347 emit tracing::warn for deprecated syntax"
-    },
-    {
-      "type": "missing_best_practices",
-      "severity": "low",
-      "section": "Format Decision Tree",
-      "description": "Could mention that the simplified format is preferred not just for cleanliness, but also for forward compatibility",
-      "fix_suggestion": "Add note in decision tree: 'The direct array syntax is preferred for forward compatibility, as the nested format may be removed in future versions'",
-      "source_reference": "src/config/mapreduce.rs comments indicate the old format is deprecated"
+      "description": "Example doesn't show the simpler secret syntax (Simple variant)",
+      "fix_suggestion": "Add an example showing both secret formats:\n```yaml\nsecrets:\n  # Simple format - reads from environment variable\n  SIMPLE_SECRET: \"ENV_VAR_NAME\"\n  \n  # Provider format - explicit provider configuration\n  GITHUB_TOKEN:\n    provider: env\n    key: \"GITHUB_TOKEN\"\n  \n  FILE_SECRET:\n    provider: file\n    key: \"/path/to/secret/file\"\n```",
+      "source_reference": "src/cook/environment/config.rs:86-95"
     }
   ],
   "positive_aspects": [
-    "Clear side-by-side comparison of old vs new syntax",
-    "Excellent migration guide with before/after examples",
-    "Well-structured decision tree for format selection",
-    "Accurate documentation of the untagged enum deserialization supporting both formats",
-    "Good explanation of when to use simple array vs full config format for standard workflows",
-    "Helpful cross-references to related subsections"
+    "MapReduce syntax evolution is accurately documented with correct deprecation warnings",
+    "Direct array vs nested commands format is clearly explained with examples",
+    "Migration guide provides step-by-step instructions matching the actual implementation",
+    "Deprecation warning messages match source code exactly (src/config/mapreduce.rs:310, 347)",
+    "Format decision tree provides clear guidance for choosing the right format",
+    "Examples demonstrate both old and new syntax effectively",
+    "Secrets example using provider-based configuration is actually correct - matches SecretValue::Provider implementation"
   ],
   "improvement_suggestions": [
-    "Add a note about the deprecation warnings in the migration section",
-    "Clarify the relationship between 'secrets' and 'env' configuration (are they separate or integrated?)",
-    "Consider adding a troubleshooting tip about what to do if workflow fails after migration",
-    "Add example showing mixed usage (some commands in new format, some in old - if supported) or explicitly state this isn't possible",
-    "Consider adding a timeline or version info for when the new format was introduced"
+    "Add a troubleshooting section for common format-related errors (e.g., 'unexpected value' when mixing formats)",
+    "Include a note about YAML sensitivity to indentation, especially after migration",
+    "Add examples of validation commands (e.g., 'prodigy run --dry-run') to verify syntax after migration",
+    "Show both simple and provider-based secret formats in the full config example",
+    "Consider adding a visual diagram showing the evolution of MapReduce syntax formats"
   ],
   "cross_references": [
-    "setup-phase",
-    "map-phase",
-    "reduce-phase",
-    "../workflow-basics/basic-structure"
+    "setup-phase-advanced",
+    "index",
+    "full-workflow-structure",
+    "environment-variables-in-configuration"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-09T23:43:36Z",
+    "analyzed_at": "2025-01-11T01:17:20Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "syntax",
-      "formats",
-      "comparison",
-      "migration",
-      "backward compatibility"
+      "workflow formats",
+      "MapReduce syntax",
+      "format comparison",
+      "migration guide",
+      "deprecation warnings"
     ],
     "validation_focus": "Check workflow format comparisons",
-    "implementation_verified": [
-      "src/config/mapreduce.rs:281-315 - AgentTemplate untagged enum deserialization",
-      "src/config/mapreduce.rs:317-352 - ReducePhaseYaml untagged enum deserialization",
-      "src/config/mapreduce.rs:96-124 - MergeWorkflow untagged enum deserialization",
-      "src/config/mapreduce.rs:192-221 - SetupPhaseConfig untagged enum deserialization"
+    "actual_files_in_mapreduce": [
+      "backoff-strategies.md",
+      "checkpoint-and-resume.md",
+      "common-pitfalls.md",
+      "dead-letter-queue-dlq.md",
+      "environment-variables-in-configuration.md",
+      "error-collection-strategies.md",
+      "event-tracking.md",
+      "global-storage-architecture.md",
+      "index.md",
+      "performance-tuning.md",
+      "real-world-use-cases.md",
+      "setup-phase-advanced.md",
+      "troubleshooting.md",
+      "workflow-format-comparison.md"
+    ],
+    "actual_files_in_workflow_basics": [
+      "available-fields.md",
+      "command-level-options.md",
+      "command-types.md",
+      "complete-example.md",
+      "environment-configuration.md",
+      "full-workflow-structure.md",
+      "index.md",
+      "merge-workflows.md",
+      "next-steps.md"
     ]
   }
 }

@@ -36,9 +36,15 @@ Created at the start of MapReduce workflow execution:
 
 **Branch**: Follows `prodigy-{session-id}` pattern. The session ID includes a timestamp (e.g., `session-mapreduce-20250112_143052`), so the full branch name becomes `prodigy-session-mapreduce-20250112_143052` (source: src/worktree/builder.rs:176-178)
 
-**Named vs Pool-Allocated Worktrees**:
-- **Named Worktrees**: MapReduce coordinators typically create named session worktrees with explicit session IDs (e.g., `session-mapreduce-20250112_143052`). These have predictable paths and are easy to track.
-- **Pool-Allocated Worktrees**: When agents request worktrees via `WorktreeRequest::Anonymous` (source: src/cook/execution/mapreduce/resources/worktree.rs:42), they receive pre-allocated worktrees from the pool. All worktrees have names and branches - "pool-allocated" refers to the allocation strategy (from pool) rather than lack of identity. This enables efficient resource reuse.
+**Worktree Allocation Strategies**:
+
+All worktrees in Prodigy have names, paths, and git branches - the distinction is in how they're allocated:
+
+- **Directly-Created Worktrees**: MapReduce coordinators create session worktrees with explicit, predictable names (e.g., `session-mapreduce-20250112_143052`). These have deterministic paths and are easy to locate.
+
+- **Pool-Allocated Worktrees**: When agents request worktrees via `WorktreeRequest::Anonymous` (source: src/cook/execution/mapreduce/resources/worktree.rs:42), they receive pre-allocated worktrees from a shared pool. These worktrees have pool-assigned names rather than request-specific names. The pool allocation strategy enables efficient resource reuse across multiple agents.
+
+**Important**: Both allocation strategies produce worktrees with full identity (name, path, branch). The difference is in naming predictability and resource management approach.
 
 ### Child Worktrees
 
@@ -152,6 +158,14 @@ Agents are added to a merge queue as they complete:
 
 **Queue Architecture**: Merge queue is managed in-memory by a background worker task using a tokio unbounded mpsc channel (`mpsc::unbounded_channel::<MergeRequest>()`). Merge requests are processed sequentially via this channel, eliminating MERGE_HEAD race conditions. Queue state is not persisted - merge operations are atomic (source: src/cook/execution/mapreduce/merge_queue.rs:70).
 
+**Resume and Recovery**: The merge queue state is reconstructed on resume from checkpoint data (source: src/cook/execution/mapreduce/merge_queue.rs:153). When a MapReduce workflow is interrupted and resumed, the queue is rebuilt based on:
+- Completed agents: Already merged, skip re-merging
+- Failed agents: Tracked in DLQ, can be retried separately
+- In-progress agents: Moved back to pending status, will be re-executed
+- Pending agents: Continue processing from where left off
+
+Any in-progress merges at the time of interruption are retried from the agent worktree state. This ensures no agent results are lost during resume.
+
 **Queue Processing**: Queue processes `MergeRequest` objects containing:
 - `agent_id`: Unique agent identifier
 - `branch_name`: Agent's git branch to merge
@@ -177,17 +191,19 @@ If a standard git merge fails with conflicts, the merge queue automatically invo
 **Conflict Resolution Flow**:
 1. Standard git merge attempted
 2. If conflicts detected, invoke Claude with `/prodigy-merge-worktree {branch_name}`
-3. Claude is executed with `PRODIGY_AUTOMATION=true` environment variable to signal automated execution mode (source: src/cook/execution/mapreduce/merge_queue.rs:98-99)
+3. Claude is executed with `PRODIGY_AUTOMATION=true` environment variable (source: src/cook/execution/mapreduce/merge_queue.rs:98-99)
 4. Claude analyzes conflicts and attempts resolution
 5. If Claude succeeds, merge completes automatically
 6. If Claude fails, agent is marked as failed and added to DLQ
+
+**PRODIGY_AUTOMATION Environment Variable**: When set to `true`, this signals to Claude Code that it's operating in automated workflow mode and should use appropriate merge strategies without requiring user interaction. Claude will attempt to resolve conflicts autonomously using standard git merge strategies and code analysis.
 
 **Benefits**:
 - Reduces manual merge conflict resolution overhead
 - Handles common conflict patterns automatically
 - Preserves full context for debugging via Claude logs
 - Falls back gracefully to DLQ for complex conflicts
-- Automated execution mode ensures Claude uses appropriate merge strategies
+- Automated execution mode ensures non-interactive conflict resolution
 
 This automatic conflict resolution is especially useful when multiple agents modify overlapping code areas.
 
@@ -246,15 +262,15 @@ git log --oneline
 
 ### Finding Agent Worktree Paths
 
-Agent worktrees may be **directly created** (with predictable names) or **pool-allocated** (with pool-assigned names). To correlate agent IDs to worktree paths:
+Agent worktrees may be **directly-created** (with predictable names) or **pool-allocated** (with pool-assigned names). To correlate agent IDs to worktree paths:
 
-**Directly-Created Worktrees** (predictable paths):
+**Directly-Created Worktrees** (deterministic paths):
 ```bash
 # Pattern: ~/.prodigy/worktrees/{project}/mapreduce-agent-{job_id}_agent_{n}
 cd ~/.prodigy/worktrees/{project}/mapreduce-agent-*
 ```
 
-**Pool-Allocated Worktrees** (pool-assigned names):
+**Pool-Allocated Worktrees** (pool-assigned paths):
 ```bash
 # List all worktrees and correlate by branch name
 git worktree list
@@ -263,7 +279,7 @@ git worktree list
 git branch -a | grep prodigy-mapreduce-agent
 ```
 
-Note: "Pool-allocated" doesn't mean the worktree lacks a name - it means the name was assigned by the pool allocation strategy rather than explicit creation.
+**Note**: Both allocation strategies produce fully-identified worktrees with names, paths, and branches. Pool allocation assigns names from the pool's naming scheme, while direct creation uses request-specific naming patterns. Use `WorktreeInfo` tracking (described below) to correlate agent IDs to actual worktree locations.
 
 **WorktreeInfo Tracking**: Prodigy captures worktree metadata in `WorktreeInfo` structs containing:
 - `name`: Worktree identifier
@@ -388,4 +404,4 @@ git log --oneline | grep "Merge"
 
 - [MapReduce Workflows](mapreduce/index.md) - MapReduce workflow basics
 - [Error Handling](error-handling.md) - Handling merge failures
-- [Troubleshooting](troubleshooting.md) - General troubleshooting guide
+- [Troubleshooting](troubleshooting/index.md) - General troubleshooting guide

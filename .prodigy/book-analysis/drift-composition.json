@@ -5,225 +5,111 @@
   "chapter_file": "book/src/composition/index.md",
   "drift_detected": true,
   "severity": "high",
-  "quality_assessment": "Chapter index provides basic import documentation with examples, but lacks comprehensive coverage of the template system, CLI commands, parameter validation, and advanced features. Implementation is robust but documentation is incomplete. Subsections remain mostly empty stubs.",
+  "quality_assessment": "Chapter structure is excellent with multi-subsection organization and comprehensive coverage. However, there is critical drift regarding implementation status - the index.md claims full implementation and working examples, but the code shows partial implementation with CLI integration pending.",
   "issues": [
-    {
-      "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Workflow Imports",
-      "description": "Imports section in index.md has basic syntax and examples, but missing merge behavior explanation and circular dependency prevention",
-      "current_content": "Shows basic import syntax with path, alias, and selective fields. Includes use case examples.",
-      "should_be": "Add explanation of how imports are merged, what happens with conflicts, and how circular dependencies are detected and prevented",
-      "feature_reference": "workflow_composition.template_system.imports",
-      "fix_suggestion": "Add section on merge behavior, conflict resolution, and circular dependency protection. Document the WorkflowComposer.process_imports flow.",
-      "source_reference": "src/cook/workflow/composition/composer.rs:98-133 (process_imports), line 56 mentions circular dependency detection"
-    },
-    {
-      "type": "missing_content",
-      "severity": "critical",
-      "section": "Template System",
-      "description": "template-system.md file is empty stub with no examples or explanation (only 5 lines)",
-      "current_content": "## Template System\n\nTemplates provide reusable workflow patterns that can be instantiated with different parameters. Templates can be stored in a registry or loaded from files.\n\n",
-      "feature_reference": "workflow_composition.template_system",
-      "fix_suggestion": "Document template usage with WorkflowTemplate struct (name, source, with, override fields). Show examples of file-based templates, registry templates, and template parameterization. Explain TemplateSource options (File, Registry, Url - though Url not yet implemented).",
-      "source_reference": "src/cook/workflow/composition/mod.rs:67-95 (WorkflowTemplate, TemplateSource), src/cook/workflow/composition/composer.rs:161-197 (apply_template), src/cook/workflow/composition/registry.rs (TemplateRegistry)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "critical",
-      "section": "Parameter Definitions",
-      "description": "parameter-definitions.md is empty stub - no documentation of parameter syntax or validation (only 5 lines)",
-      "current_content": "## Parameter Definitions\n\nDefine parameters with type validation to create flexible, reusable workflows.\n\n",
-      "feature_reference": "workflow_composition.template_system.parameters",
-      "fix_suggestion": "Document ParameterDefinitions (required/optional), Parameter struct (name, type, description, default, validation), ParameterType enum (String, Number, Boolean, Array, Object, Any). Show type validation, default values, and custom validation expressions. Include CLI usage with --param and --param-file.",
-      "source_reference": "src/cook/workflow/composition/mod.rs:97-141 (ParameterDefinitions, Parameter, ParameterType), src/cook/workflow/composition/mod.rs:226-280 (validate_parameters), src/cli/args.rs:67-73 (CLI params)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "critical",
-      "section": "Workflow Extension (Inheritance)",
-      "description": "workflow-extension-inheritance.md is empty stub (only 5 lines)",
-      "current_content": "## Workflow Extension (Inheritance)\n\nExtend a base workflow to inherit its configuration. Child workflows override parent values, allowing you to customize specific aspects while maintaining common configuration.\n\n",
-      "feature_reference": "workflow_composition.template_system.inheritance",
-      "fix_suggestion": "Document 'extends' field for workflow inheritance. Explain merge strategy where child overrides parent. Show examples of extending base workflows for different environments (dev, staging, prod) while sharing common setup.",
-      "source_reference": "src/cook/workflow/composition/mod.rs:31-33 (extends field), src/cook/workflow/composition/composer.rs:135-159 (apply_inheritance)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "critical",
-      "section": "Sub-Workflows",
-      "description": "sub-workflows.md has implementation status note but lacks comprehensive documentation (only 7 lines)",
-      "current_content": "## Sub-Workflows\n\nExecute child workflows as part of a parent workflow. Sub-workflows can run in parallel and have their own parameters and outputs.\n\n*Implementation Status: Sub-workflow configuration, validation (`validate_sub_workflows` in `composer.rs:381-395`), and composition are fully implemented. Sub-workflow definitions work correctly and are validated. The `SubWorkflowExecutor` structure exists (`sub_workflow.rs:181-227`) but execution integration with the main workflow executor runtime is in progress.*\n\n",
-      "feature_reference": "workflow_composition.sub_workflows",
-      "fix_suggestion": "Document SubWorkflow struct (source, parameters, inputs, outputs, parallel, continue_on_error, timeout, working_dir). Explain parent-child context isolation, output variable extraction, and parallel execution. Show examples of modular pipelines with reusable validation/test sub-workflows.",
-      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:13-66 (SubWorkflow, SubWorkflowResult), src/cook/workflow/composition/sub_workflow.rs:67-227 (SubWorkflowExecutor)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "critical",
-      "section": "Default Values",
-      "description": "default-values.md is empty stub (only 4 lines)",
-      "current_content": "## Default Values\n\nSet default values for parameters and environment variables.\n\n",
-      "feature_reference": "workflow_composition.template_system.parameters",
-      "fix_suggestion": "Document 'defaults' field as HashMap<String, Value> for setting default parameter values and environment variables. Explain precedence rules (explicit params > defaults). Show how defaults simplify workflow usage by reducing required parameters.",
-      "source_reference": "src/cook/workflow/composition/mod.rs:43-45 (defaults field), src/cook/workflow/composition/composer.rs:217-257 (apply_defaults)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Complete Examples",
-      "description": "complete-examples.md is empty (only 3 lines) - no end-to-end examples",
-      "current_content": "## Complete Examples\n\n",
-      "fix_suggestion": "Provide complete examples showing: (1) Template-based CI/CD pipeline with parameters, (2) Multi-environment deployment using extends, (3) Modular workflow with sub-workflows, (4) Workflow import for shared utilities, (5) Complex composition using multiple features together.",
-      "source_reference": "tests/workflow_composition_test.rs (integration tests showing usage patterns)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Best Practices",
-      "description": "best-practices.md is empty (only 3 lines) - no guidance on composition patterns",
-      "current_content": "## Best Practices\n\n",
-      "fix_suggestion": "Document best practices: (1) When to use templates vs extends vs imports, (2) Parameter naming conventions, (3) Template organization in registry, (4) Versioning strategies, (5) Avoiding circular dependencies, (6) Testing composed workflows, (7) Performance considerations.",
-      "source_reference": "src/cook/workflow/composition/composer.rs:259-273 (validate_composition, circular dependency check)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Composition Metadata",
-      "description": "composition-metadata.md is almost empty (only 4 lines)",
-      "current_content": "## Composition Metadata\n\nProdigy tracks metadata about workflow composition for debugging and dependency analysis.\n\n",
-      "feature_reference": "workflow_composition",
-      "fix_suggestion": "Document CompositionMetadata structure (sources, templates, parameters, composed_at, dependencies). Explain DependencyInfo tracking (Import, Extends, Template, SubWorkflow types). Show how to inspect composition metadata for debugging.",
-      "source_reference": "src/cook/workflow/composition/mod.rs:153-193 (CompositionMetadata, DependencyInfo, DependencyType)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Troubleshooting",
-      "description": "troubleshooting.md is empty (only 3 lines)",
-      "current_content": "## Troubleshooting\n\n",
-      "fix_suggestion": "Document common issues: (1) Circular dependency errors, (2) Template not found in registry, (3) Parameter validation failures, (4) Import path resolution, (5) Type mismatch errors, (6) Base workflow resolution failures.",
-      "source_reference": "src/cook/workflow/composition/composer.rs (error contexts throughout)"
-    },
     {
       "type": "outdated_information",
       "severity": "high",
-      "section": "index.md Overview and features.json",
-      "description": "Features.json says composition is 'Planned feature' but implementation is mostly complete",
-      "current_content": "features.json: \"status\": \"Planned feature - Template system and sub-workflows (Spec 131-133)\", \"implementation_status\": \"Architecture designed, CLI interface specified, integration pending\"",
-      "should_be": "Status should reflect that imports, extends, templates, parameters are implemented and tested. Sub-workflow config works, executor integration in progress. Only URL template sources are pending.",
-      "fix_suggestion": "Update features.json and documentation to reflect actual implementation status. Note that core composition features (imports, extends, templates, parameters, defaults) are functional with comprehensive tests, sub-workflow configuration is complete but execution integration is in progress, and only URL-based template loading is marked as future work.",
-      "source_reference": "src/cook/workflow/composition/* (full implementation), tests/workflow_composition_test.rs (passing tests), src/cook/workflow/composition/composer.rs:178 (URL source returns error)"
+      "section": "Workflow Imports - Implementation Status",
+      "description": "Index.md shows working import examples with detailed implementation references (e.g., 'Implementation: Import processing in src/cook/workflow/composition/composer.rs:98-133'), suggesting imports are fully functional. However, features.json indicates 'implementation_status: Partially implemented - core composition logic exists, CLI integration pending (Spec 131-133)'.",
+      "current_content": "### How Imports Work\n\nWhen a workflow is imported:\n1. The external file is loaded and parsed\n2. If an alias is specified, imported content is namespaced under that alias\n3. If selective is specified, only named workflows are included\n4. Imported workflows are merged into the current workflow's configuration\n5. Circular dependencies are detected and prevented\n\n**Implementation**: Import processing in src/cook/workflow/composition/composer.rs:98-133 (`process_imports` function)",
+      "should_be": "Add implementation status note explaining that while core composition logic is implemented, full CLI integration for using imports in `prodigy run` workflows is pending. Users can compose workflows programmatically but not yet through the CLI.",
+      "fix_suggestion": "Add an 'Implementation Status' section after the overview explaining: 'The workflow composition system is currently in partial implementation. Core composition logic (WorkflowComposer, TemplateRegistry, parameter validation) is complete and tested. However, full CLI integration is pending - you cannot yet use imports, extends, or templates directly in `prodigy run` workflows. Use the `prodigy template` commands for template management. See Spec 131-133 for implementation roadmap.'",
+      "source_reference": ".prodigy/book-analysis/features.json:338 (workflow_composition.implementation_status)"
+    },
+    {
+      "type": "misleading_examples",
+      "severity": "high",
+      "section": "Basic Import Syntax",
+      "description": "The examples show YAML workflow files using imports, extends, and templates, implying users can create these workflows and run them with `prodigy run workflow.yml`. However, the CLI integration is not complete - is_composable_workflow() detection exists but integration with run command is pending.",
+      "current_content": "```yaml\nname: my-workflow\nmode: standard\n\nimports:\n  # Simple import - loads entire workflow\n  - path: \"workflows/common-setup.yml\"\n```",
+      "should_be": "Examples should include a note that these features are accessible via the template system but not yet integrated into the main `prodigy run` command.",
+      "fix_suggestion": "Add a callout box before examples: '**Note**: Composition features are currently accessible through the `prodigy template` CLI commands. Direct usage in `prodigy run` workflows is under development. See the [Template System](template-system.md) section for current usage patterns.'",
+      "source_reference": "src/cook/workflow/composer_integration.rs:43-90 (parse_composable_workflow function exists but may not be integrated)"
     },
     {
       "type": "missing_content",
-      "severity": "high",
-      "section": "All subsection files",
-      "description": "No YAML syntax examples in any subsection files",
-      "fix_suggestion": "Add complete YAML examples showing: (1) imports with path/alias/selective, (2) extends with base workflow, (3) template usage with parameters, (4) parameters with type validation, (5) workflows with sub-workflow definitions, (6) defaults configuration. Show both minimal and full syntax forms.",
-      "source_reference": "src/cook/workflow/composition/mod.rs:21-50 (ComposableWorkflow struct shows all fields)"
+      "severity": "medium",
+      "section": "Template System - CLI Usage",
+      "description": "Index.md shows template usage in YAML but doesn't explain how to actually use the `prodigy template` commands which ARE implemented.",
+      "current_content": "Only shows YAML syntax for template usage, no CLI command examples",
+      "should_be": "Include examples of the working CLI commands: `prodigy template register`, `prodigy template list`, `prodigy template show`, etc.",
+      "fix_suggestion": "Add a 'Using Templates via CLI' section showing: `prodigy template register refactor-example.yml --name refactor-base`, `prodigy template list`, `prodigy template show refactor-base`. Cross-reference to template-system.md for full details.",
+      "source_reference": "src/cli/template.rs:1-388 (TemplateManager with full CLI implementation)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Implementation References",
+      "description": "Index.md provides good source references for composition internals but doesn't explain the distinction between 'implemented in code' vs 'accessible via CLI' vs 'integrated into workflow execution'.",
+      "current_content": "Shows implementation file paths but no explanation of what works vs what's pending",
+      "should_be": "Clearly state what users can do TODAY vs what's coming soon",
+      "fix_suggestion": "Add an 'Implementation Roadmap' subsection in index.md: **What Works Today**: Template management via `prodigy template` CLI, programmatic composition via WorkflowComposer API, parameter validation. **In Development**: Direct usage of imports/extends/templates in `prodigy run` workflows, compose subcommand integration, full workflow composition in MapReduce workflows.",
+      "source_reference": "src/cli/router.rs:199-234 (template commands wired), src/cli/args.rs:333-907 (template CLI args defined)"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Template System",
-      "description": "No explanation of TemplateRegistry or TemplateStorage in any file",
-      "fix_suggestion": "Document how templates are stored and retrieved. Explain local registry in ~/.prodigy/templates/. Show how to publish templates to registry. Note that remote registry support is planned. Explain caching behavior.",
-      "source_reference": "src/cook/workflow/composition/registry.rs (TemplateRegistry, TemplateStorage, FileTemplateStorage)"
+      "severity": "low",
+      "section": "Sub-Workflows",
+      "description": "Index.md mentions sub-workflows in the overview and links to sub-workflows.md, but doesn't explain their current implementation status or how they differ from imports.",
+      "current_content": "Brief mention in overview: 'Execute sub-workflows in parallel or sequentially'",
+      "should_be": "Explain that SubWorkflow, SubWorkflowExecutor, and SubWorkflowResult are implemented types with execution support",
+      "fix_suggestion": "Clarify in overview: Sub-workflows are fully implemented and allow defining named workflows within a workflow for reuse. They have independent variable scope and can be executed via SubWorkflowExecutor.",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs (SubWorkflow implementation)"
     },
     {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Parameter Definitions",
-      "description": "No documentation of validation expressions",
-      "fix_suggestion": "Document validation field syntax. Note that structure exists but custom validation expression evaluation is not yet implemented (field is stored and logged but not enforced). Type validation IS fully implemented.",
-      "source_reference": "src/cook/workflow/composition/mod.rs:268-276 (validation TODO comment)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "CLI Integration",
-      "description": "No documentation of how to use composition features from CLI",
-      "fix_suggestion": "Document --param and --param-file flags in 'prodigy run' command. Show how to pass parameters to composed workflows. Explain parameter precedence (CLI > file > defaults).",
-      "source_reference": "src/cli/args.rs:67-73 (params and param_file fields)"
+      "type": "missing_best_practice",
+      "severity": "low",
+      "section": "Overview",
+      "description": "No mention of when to use composition features vs when to keep workflows simple",
+      "current_content": "Lists what composition allows but not when to use it",
+      "should_be": "Include guidance on appropriate use cases for composition",
+      "fix_suggestion": "Add to overview: 'Use composition features when: (1) Multiple projects share common workflow patterns, (2) You need to parameterize workflows for different environments, (3) Building a library of reusable workflow components. For simple, project-specific workflows, direct YAML without composition is often clearer.'",
+      "source_reference": "General best practice for code reuse patterns"
     }
   ],
   "positive_aspects": [
-    "Chapter structure with subsections is well-organized and follows book patterns",
-    "index.md provides good high-level overview of what composition enables",
-    "Sub-workflows.md includes implementation status note (good transparency)",
-    "Related chapters and further reading sections exist with proper structure",
-    "File organization separates different composition concepts cleanly"
+    "Excellent multi-subsection structure with clear separation of topics",
+    "Good source code references with file paths and line numbers",
+    "Comprehensive coverage of composition data structures (WorkflowImport, ParameterDefinitions, etc.)",
+    "Clear examples of YAML syntax for each composition feature",
+    "Links to subsection pages are all valid",
+    "Good organization with overview, detailed sections, and cross-references",
+    "Implementation details like circular dependency detection are well documented"
   ],
   "improvement_suggestions": [
-    "Populate ALL subsection files with comprehensive content matching implementation",
-    "Add complete YAML examples for each composition feature in every relevant file",
-    "Create migration guide from non-composed to composed workflows",
-    "Add decision tree diagram: when to use imports vs extends vs templates vs sub-workflows",
-    "Document composition metadata inspection (how to view CompositionMetadata programmatically)",
-    "Add visual diagrams showing composition flow: imports → extends → templates → parameters → defaults",
-    "Create cookbook of common composition patterns with real-world examples",
-    "Document CLI integration thoroughly (--param, --param-file flags and their usage)",
-    "Add performance considerations for deeply composed workflows and caching benefits",
-    "Document debugging techniques for composition issues (error messages, metadata inspection)",
-    "Add section on testing composed workflows",
-    "Document async nature of composition operations",
-    "Explain thread-safety guarantees (Arc<RwLock> usage)",
-    "Add section on organizing templates for teams (directory structure, naming conventions)",
-    "Document merge behavior differences: imports/templates vs extends inheritance"
+    "Add a prominent 'Implementation Status' callout at the top of index.md explaining what works today (template CLI) vs what's in development (run command integration)",
+    "Create a 'Quickstart' section showing working examples with `prodigy template` CLI commands",
+    "Add a 'Limitations' section explaining that composition features are not yet integrated into `prodigy run` command",
+    "Consider a migration guide for when CLI integration is complete: 'How to convert template-based workflows to composable workflows'",
+    "Add troubleshooting entry for 'Why can't I use imports in my workflow YAML?' with explanation of current status",
+    "Link to Spec 131-133 in the implementation references for users who want to track progress or contribute",
+    "Add examples showing the WorkflowComposer API for programmatic usage, since that IS fully implemented",
+    "Clarify the relationship between TemplateRegistry (for storing templates), TemplateStorage (persistence), and WorkflowComposer (composition logic)"
+  ],
+  "cross_references": [
+    "template-system.md",
+    "workflow-extension-inheritance.md",
+    "parameter-definitions.md",
+    "sub-workflows.md",
+    "best-practices.md"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T23:45:00Z",
+    "analyzed_at": "2025-01-11T00:00:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Workflow imports",
       "Template definitions",
       "Template parameters",
       "Workflow extension",
-      "Template usage"
+      "Template usage",
+      "Sub-workflows",
+      "Parameter validation",
+      "Composition metadata"
     ],
     "validation_focus": "Check composition features match implementation and syntax examples are valid",
-    "structure_type": "multi_subsection_chapter",
-    "subsection_files": [
-      "index.md (114 lines - has import documentation with examples)",
-      "template-system.md (5 lines - empty stub)",
-      "parameter-definitions.md (5 lines - empty stub)",
-      "workflow-extension-inheritance.md (5 lines - empty stub)",
-      "sub-workflows.md (7 lines - status note only)",
-      "default-values.md (4 lines - empty stub)",
-      "composition-metadata.md (4 lines - empty stub)",
-      "complete-examples.md (3 lines - empty)",
-      "best-practices.md (3 lines - empty)",
-      "troubleshooting.md (3 lines - empty)",
-      "related-chapters.md",
-      "further-reading.md"
-    ],
-    "implementation_status_discovered": {
-      "fully_implemented": [
-        "ComposableWorkflow struct and parsing",
-        "WorkflowImport (path, alias, selective fields)",
-        "Workflow extends field and inheritance merging",
-        "WorkflowTemplate with File and Registry sources",
-        "TemplateRegistry with FileTemplateStorage",
-        "ParameterDefinitions (required/optional)",
-        "Parameter type validation (all 6 types)",
-        "SubWorkflow configuration and validation",
-        "Circular dependency detection",
-        "Dependency tracking (DependencyInfo)",
-        "Template and workflow caching",
-        "CLI parameter support (--param, --param-file)"
-      ],
-      "partially_implemented": [
-        "Selective imports (config works, filtering TODO)",
-        "Template parameter substitution (validation works, command substitution TODO)",
-        "Default value application (stored and called, merge logic TODO)",
-        "Sub-workflow execution (config complete, executor runtime integration in progress)"
-      ],
-      "not_implemented": [
-        "URL template sources (explicit error)",
-        "Custom validation expressions (field stored, no evaluation engine)",
-        "Template override application (TODO in apply_overrides)"
-      ]
-    }
+    "multi_subsection_chapter": true,
+    "subsection_count": 11,
+    "all_links_valid": true
   }
 }

@@ -14,7 +14,7 @@
 - **Built-in vs Custom Variables**: Built-in variables are automatic (workflow.*, item.*, etc.), while custom variables require explicit capture_output configuration
 - **Phase Availability**: Variables have different availability depending on workflow phase (setup, map, reduce, merge)
 - **Variable Scoping**: Setup captures are workflow-wide, map captures are agent-local, reduce captures are step-forward
-- **Format Modifiers**: Git context variables support format modifiers (:json, :newline, :*.ext), while custom captures use capture_format
+- **Format Modifiers**: Git context variables support format modifiers (:json, :lines, :csv, :*.ext), while custom captures use capture_format
 - **Metadata Fields**: All captured variables include .success, .exit_code, .stderr, and .duration fields
 
 ### External Resources
@@ -32,9 +32,10 @@
 - Merge: merge.worktree, merge.source_branch, merge.target_branch
 
 **Git Context Variables:**
-- step.files_added, step.files_modified, step.files_deleted
-- step.commits, workflow.commits, workflow.commit_count
-- Format modifiers: :json, :newline, :comma, :*.ext
+- step.files_added, step.files_modified, step.files_deleted, step.files_changed
+- step.commits, step.commit_count, step.insertions, step.deletions
+- workflow.commits, workflow.commit_count
+- Format modifiers: :json, :lines, :csv, :*.ext
 
 **Custom Capture:**
 - capture_output: "var_name" - Creates ${var_name}

@@ -2,144 +2,126 @@
   "item_type": "chapter",
   "chapter_id": "variables",
   "chapter_title": "Variables and Interpolation",
-  "chapter_file": "book/src/variables/index.md",
+  "chapter_file": "book/src/variables.md",
+  "actual_structure": "multi-subsection",
+  "actual_index_file": "book/src/variables/index.md",
   "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Chapter has comprehensive coverage of variable types and capture mechanisms, but contains critical syntax error for default values that would cause user errors. Implementation details are well-documented but the incorrect default value syntax is a significant issue. Missing documentation of strict mode and template caching features.",
+  "severity": "low",
+  "quality_assessment": "Chapter content is accurate and comprehensive. The multi-subsection structure provides excellent organization with clear separation of concerns: overview (index), reference (available-variables), advanced usage (custom-variable-capture), and troubleshooting. All documented features match implementation. Minor improvements possible around recent features and cross-references.",
+  "structural_note": "The item JSON indicates type='single-file' pointing to 'book/src/variables.md', but the chapter has been migrated to a multi-subsection structure with 'book/src/variables/' directory containing: index.md, available-variables.md, custom-variable-capture.md, troubleshooting-variable-interpolation.md, and see-also.md. This is expected evolution for complex chapters.",
   "issues": [
     {
-      "type": "incorrect_syntax",
-      "severity": "high",
-      "section": "Variable Interpolation Syntax",
-      "description": "Documentation shows incorrect default value syntax: ${var|default:fallback} but implementation uses ${var:-default}",
-      "current_content": "${var|default:fallback} (book/src/variables/available-variables.md:161)",
-      "should_be": "${var:-default}",
-      "fix_suggestion": "Update all examples to use the correct ${var:-default} syntax consistent with bash/shell conventions. Search and replace all instances of '|default:' with ':-' in the variables chapter.",
-      "source_reference": "src/cook/execution/interpolation.rs:277 - parse_variable_expression function uses ':-' separator"
-    },
-    {
-      "type": "test_code_drift",
-      "severity": "medium",
-      "section": "Test Suite",
-      "description": "Test file contains test_interpolation_missing_variable_fallback using ${missing|default:not_found} syntax which doesn't match implementation",
-      "current_content": "Test on line 920-926 in src/cook/workflow/variables.rs shows ${missing|default:not_found}",
-      "should_be": "Test should use ${missing:-not_found} to match actual interpolation.rs implementation",
-      "fix_suggestion": "Update test code to use correct syntax or document if this test is intentionally checking for unsupported syntax error handling",
-      "source_reference": "src/cook/workflow/variables.rs:920-926"
-    },
-    {
       "type": "missing_content",
-      "severity": "medium",
-      "section": "Variable Interpolation Syntax",
-      "description": "Missing documentation of strict_mode behavior for variable interpolation",
-      "fix_suggestion": "Add section explaining strict mode vs. non-strict mode:\n\n**Interpolation Modes:**\n\n- **Non-strict mode (default):** Leaves placeholders unresolved when variable is undefined\n  - Example: `${undefined}` stays as `${undefined}` in output\n  - With default: `${undefined:-fallback}` becomes `fallback`\n  - Use case: Workflows that can handle partial variable resolution\n\n- **Strict mode:** Fails immediately on undefined variables\n  - Example: `${undefined}` causes workflow to fail with error listing all available variables\n  - Provides comprehensive error message showing what variables are available\n  - Use case: Production workflows requiring all variables to be properly defined\n\n**Configuration:**\nStrict mode is configured per InterpolationEngine instance. Currently controlled at the workflow execution level.\n\n**Best Practice:** Use strict mode during development to catch variable name typos and scope issues early.",
-      "source_reference": "src/cook/execution/interpolation.rs:16-17, :104-137"
+      "severity": "low",
+      "section": "Available Variables (Git Context Variables)",
+      "description": "Documentation shows git context format modifier ':newline' but implementation and features.json show it should be ':lines'",
+      "current_content": "| `:newline` | Newline-separated list | `${step.files_added:newline}` → `file1.rs\\nfile2.rs` |",
+      "should_be": "| `:lines` | Newline-separated list | `${step.files_added:lines}` → `file1.rs\\nfile2.rs` |",
+      "fix_suggestion": "Update format modifier name from ':newline' to ':lines' to match implementation. Also update all examples using ':newline' to use ':lines'",
+      "source_reference": "src/cook/workflow/git_context.rs, features.json lines 164-167",
+      "file": "book/src/variables/available-variables.md",
+      "line_reference": "118"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Performance Considerations",
-      "description": "Missing documentation of template caching for performance",
-      "fix_suggestion": "Add note in a performance or advanced section:\n\n**Template Caching:**\n\nProdigy automatically caches parsed templates for performance. When the same variable template is used multiple times (e.g., in MapReduce workflows processing thousands of items), the template is parsed once and reused.\n\n**Benefits:**\n- Faster interpolation for repeated templates\n- Reduced CPU usage in large MapReduce workflows\n- Automatic - no configuration needed\n\n**When it matters:**\n- MapReduce workflows with many work items (>100)\n- Workflows with complex nested variable expressions\n- High-frequency variable interpolation in loops",
-      "source_reference": "src/cook/execution/interpolation.rs:18-19, :67-75"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Variable Scoping and Precedence",
-      "description": "Missing documentation of InterpolationContext parent chain for nested variable resolution",
-      "fix_suggestion": "Add to the Variable Scoping section:\n\n**Parent Context Resolution:**\n\nVariable resolution walks up a parent context chain when variables are not found in the current context. This enables:\n\n- Nested workflow contexts to inherit variables from parent workflows\n- Foreach loops to access both loop-level and workflow-level variables\n- Map agents to access setup phase variables\n\n**Resolution Order:**\n1. Check current context\n2. If not found, check parent context\n3. If not found in parent, check parent's parent\n4. Continue until variable is found or no parent exists\n\n**Example:**\n```yaml\nsetup:\n  - shell: \"echo 'workspace'\"\n    capture_output: \"workspace_root\"  # Available to all agents\n\nmap:\n  agent_template:\n    - shell: \"echo 'processing'\"\n      capture_output: \"item_status\"  # Only in this agent\n    - shell: \"cd ${workspace_root}\"  # Resolved from parent (setup) context\n```",
-      "source_reference": "src/cook/execution/interpolation.rs:200-226 - get_available_variables_summary shows parent context walking"
+      "section": "Available Variables (Git Context Variables)",
+      "description": "Documentation shows format modifier ':comma' but implementation shows ':csv'",
+      "current_content": "| `:comma` | Comma-separated list | `${step.files_added:comma}` → `file1.rs,file2.rs` |",
+      "should_be": "| `:csv` | Comma-separated list | `${step.files_added:csv}` → `file1.rs,file2.rs` |",
+      "fix_suggestion": "Update format modifier name from ':comma' to ':csv' to match implementation in features.json",
+      "source_reference": "features.json lines 164-167",
+      "file": "book/src/variables/available-variables.md",
+      "line_reference": "119"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Custom Variable Capture > CaptureStreams",
-      "description": "CaptureStreams defaults are shown in table but not explained clearly",
-      "current_content": "Table shows defaults but doesn't explain what happens when stderr: false",
-      "fix_suggestion": "Clarify default behavior:\n\n**CaptureStreams Defaults:**\n- `stdout: true` - Command output is captured (default)\n- `stderr: false` - Error output is NOT captured by default (prevents noise)\n- `exit_code: true` - Exit code is always captured\n- `success: true` - Boolean success status is always captured  \n- `duration: true` - Execution duration is always captured\n\n**Common Patterns:**\n```yaml\n# Capture both stdout and stderr for debugging\ncapture_streams:\n  stdout: true\n  stderr: true  # Override default to capture errors\n\n# Only capture exit code for validation\ncapture_streams:\n  stdout: false  # Don't capture output\n  stderr: false\n  exit_code: true  # Just check if it succeeded\n```",
-      "source_reference": "src/cook/workflow/variables.rs:269-291, book/src/variables/custom-variable-capture.md:94-111"
+      "section": "Available Variables (Git Context Variables)",
+      "description": "Missing documentation for additional git context variables: step.files_changed, step.commit_count, step.insertions, step.deletions",
+      "fix_suggestion": "Add documentation for these git context variables from features.json: step.files_changed (all changed files), step.commit_count (number of commits), step.insertions (lines inserted), step.deletions (lines deleted)",
+      "source_reference": "features.json lines 149-156",
+      "file": "book/src/variables/available-variables.md"
     },
     {
-      "type": "missing_best_practice",
+      "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Custom Variable Capture > Best Practices",
-      "description": "Missing guidance on when to use capture_format vs. manual parsing with jq",
-      "fix_suggestion": "Add to Best Practices section:\n\n**Choosing Between capture_format and Manual Parsing:**\n\n**Use capture_format: json when:**\n- You need to access nested fields directly: `${metadata.workspace.root}`\n- The JSON structure is stable and well-defined\n- You want simple field access without complex transformations\n- Example: `cargo metadata` output for accessing package info\n\n**Use manual jq parsing when:**\n- You need complex filtering or transformations\n- You want to extract only specific fields\n- The JSON structure varies or is deeply nested\n- You need to combine or reshape data\n- Example: Filtering test results or aggregating metrics\n\n**Combined approach:**\n```yaml\n# Capture as JSON for direct access\n- shell: \"cargo metadata --format-version 1\"\n  capture_output: \"metadata\"\n  capture_format: \"json\"\n\n# Access simple fields directly\n- shell: \"echo 'Root: ${metadata.workspace_root}'\"\n\n# Use jq for complex operations\n- shell: |\n    echo '${metadata}' | jq '.packages[] | select(.name == \"prodigy\")'\n  capture_output: \"prodigy_package\"\n  capture_format: \"json\"\n```",
-      "source_reference": "book/src/variables/custom-variable-capture.md:143-161, :289-297"
+      "section": "Custom Variable Capture (Format Modifiers)",
+      "description": "Example shows ':newline' format modifier which doesn't exist in implementation",
+      "current_content": "# Newline format for iteration\n- shell: |\n    echo '${step.files_modified:newline}' | while read file; do",
+      "should_be": "# Newline format for iteration\n- shell: |\n    echo '${step.files_modified:lines}' | while read file; do",
+      "fix_suggestion": "Update example to use correct ':lines' format modifier",
+      "source_reference": "features.json lines 164-167",
+      "file": "book/src/variables/custom-variable-capture.md",
+      "line_reference": "129-132"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Available Variables",
+      "description": "Missing documentation for 'last.output' variable which is a standard variable for capturing last command output",
+      "fix_suggestion": "While shell.output and claude.output are documented, last.output is mentioned in StandardVariables but not clearly documented in the reference table. Consider adding explicit mention that last.output captures output from any command type, not just shell or claude.",
+      "source_reference": "src/cook/workflow/variables.rs:35, features.json line 128",
+      "file": "book/src/variables/available-variables.md"
     }
   ],
   "positive_aspects": [
-    "Comprehensive coverage of all variable types (standard, workflow, step, item, MapReduce, git, merge, validation)",
-    "Excellent phase availability table showing which variables work in each phase",
-    "Clear distinction between built-in and custom captured variables",
-    "Well-organized subsection structure with separate files for different topics",
-    "Strong coverage of git context format modifiers with examples",
-    "Good variable scoping documentation with phase-by-phase breakdown",
-    "Extensive examples for capture formats (string, json, lines, number, boolean)",
-    "Detailed metadata fields documentation (stderr, exit_code, success, duration)",
-    "Clear explanation of reduce phase accessing item data through map.results",
-    "Comprehensive troubleshooting section for common variable issues",
-    "Good best practices section with naming conventions and shadowing warnings"
+    "Comprehensive coverage of all variable types: standard, workflow context, step context, item variables, MapReduce variables, git context, merge variables, and validation variables",
+    "Excellent subsection organization separating reference (available-variables.md), advanced usage (custom-variable-capture.md), and troubleshooting",
+    "Clear phase availability table showing which variables work in which phases (setup, map, reduce, merge)",
+    "Detailed documentation of git context format modifiers with examples",
+    "Comprehensive custom capture documentation including formats (string, json, lines, number, boolean) and metadata fields",
+    "Strong troubleshooting section with common issues, symptoms, causes, and solutions",
+    "Good coverage of template caching, parent context resolution, and variable scoping",
+    "Accurate documentation of default value syntax (${var:-default})",
+    "Excellent explanation of interpolation modes (strict vs non-strict)",
+    "Source code references provide traceability to implementation"
   ],
   "improvement_suggestions": [
-    "Fix critical default value syntax error (highest priority)",
-    "Add strict mode vs. non-strict mode documentation",
-    "Document template caching performance feature",
-    "Explain parent context resolution chain",
-    "Add decision guide for capture_format vs. manual parsing",
-    "Include debugging section showing how to use verbose mode to inspect variable values",
-    "Add examples of complex variable expressions combining modifiers",
-    "Show how to handle missing variables gracefully with default values",
-    "Document error messages and how to interpret interpolation failures",
-    "Add cross-reference to environment variables chapter for env var vs. captured var comparison"
+    "Fix format modifier naming inconsistencies (':newline' → ':lines', ':comma' → ':csv') throughout all subsections",
+    "Add missing git context variables (step.files_changed, step.commit_count, step.insertions, step.deletions) to Available Variables reference",
+    "Consider adding a quick reference table at the top of index.md showing all variable categories with one-line descriptions",
+    "Add cross-reference to Environment Variables chapter for clarity on the difference between workflow variables (${var}) and environment variables ($ENV or ${ENV})",
+    "Consider adding examples of combining git context variables with jq for complex filtering",
+    "Add note about variable precedence when custom captures shadow built-in names (documented in available-variables.md but could be more prominent)",
+    "Update troubleshooting section example references from ':newline' to ':lines' for consistency"
+  ],
+  "cross_references": [
+    "environment/index.md",
+    "mapreduce/index.md",
+    "workflow-basics/index.md",
+    "error-handling/index.md"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T00:00:00Z",
+    "analyzed_at": "2025-01-11T18:30:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
       "Standard variables",
       "Output variables",
       "MapReduce variables",
       "Custom capture",
-      "Variable interpolation",
-      "Scoping and precedence",
       "Git context variables",
       "Merge variables",
       "Validation variables",
-      "Capture formats",
-      "Metadata fields",
-      "Troubleshooting"
+      "Variable scoping",
+      "Interpolation modes",
+      "Format modifiers",
+      "Template caching",
+      "Parent context resolution"
     ],
     "validation_focus": "Check all variable types and interpolation syntax",
     "subsections_analyzed": [
-      {
-        "file": "index.md",
-        "status": "Good overview with phase availability table",
-        "line_count": 34
-      },
-      {
-        "file": "available-variables.md",
-        "status": "Comprehensive, but contains default value syntax error",
-        "line_count": 257
-      },
-      {
-        "file": "custom-variable-capture.md",
-        "status": "Well-documented with examples",
-        "line_count": 297
-      },
-      {
-        "file": "troubleshooting-variable-interpolation.md",
-        "status": "Good troubleshooting coverage",
-        "line_count": 356
-      },
-      {
-        "file": "see-also.md",
-        "status": "Adequate cross-references",
-        "line_count": 42
-      }
+      "index.md",
+      "available-variables.md",
+      "custom-variable-capture.md",
+      "troubleshooting-variable-interpolation.md",
+      "see-also.md"
     ],
-    "total_content_lines": 986,
-    "completion_percentage": 85
+    "implementation_references": [
+      "src/cook/execution/interpolation.rs",
+      "src/cook/workflow/variables.rs",
+      "src/cook/workflow/git_context.rs",
+      "src/cook/workflow/executor/context.rs"
+    ]
   }
 }

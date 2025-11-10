@@ -2,132 +2,90 @@
   "item_type": "chapter",
   "chapter_id": "environment",
   "chapter_title": "Environment Configuration",
-  "chapter_file": "book/src/environment/index.md",
+  "chapter_file": "book/src/environment.md",
   "drift_detected": true,
   "severity": "high",
-  "quality_assessment": "Chapter structure is well-organized with good architecture overview, but has significant drift issues. The secret management examples show incorrect syntax that doesn't match the SecretValue enum implementation. Several subsections are stubs with no meaningful content: mapreduce-environment-variables.md, best-practices.md, and common-patterns.md. The incorrect secret syntax examples appear in multiple places throughout the book and would cause user errors.",
+  "quality_assessment": "Chapter was successfully migrated to multi-subsection structure. The new index.md provides comprehensive and accurate documentation of environment features. However, the original file path no longer exists, which represents structural drift.",
   "issues": [
     {
-      "type": "incorrect_examples",
-      "severity": "critical",
-      "section": "Secrets Management and Environment Files",
-      "description": "Documentation shows incorrect secret syntax 'secret: true' with 'value' field that doesn't match SecretValue enum implementation",
-      "current_content": "secrets:\n  API_KEY:\n    secret: true\n    value: \"sk-abc123\"",
-      "should_be": "secrets:\n  API_KEY: \"sk-abc123\"  # Simple string format (SecretValue::Simple)\n  # OR provider-based:\n  DATABASE_URL:\n    provider: env\n    key: \"DB_CONNECTION\"",
-      "fix_suggestion": "Update all secret examples to match SecretValue enum which has two variants: Simple(String) for direct values, and Provider{provider, key, version} for provider-based secrets. The 'secret: true' syntax does not exist in the code.",
-      "source_reference": "src/cook/environment/config.rs:86-96 (SecretValue enum with Simple and Provider variants)",
-      "locations": [
-        "book/src/workflow-basics.md (lines 48-50, 491-496)",
-        "book/src/environment/environment-files.md (lines 114-118)",
-        "book/src/mapreduce/environment-variables-in-configuration.md",
-        "book/src/examples.md"
-      ]
-    },
-    {
-      "type": "missing_content",
+      "type": "structural_change",
       "severity": "high",
-      "section": "MapReduce Environment Variables (mapreduce-environment-variables.md)",
-      "description": "Subsection file is nearly empty - only contains heading and one introductory sentence with no actual content",
-      "current_content": "File is 252 bytes with only:\n## MapReduce Environment Variables\n\nIn MapReduce workflows, environment variables provide powerful parameterization across all phases (setup, map, reduce, and merge). This enables workflows to be reusable across different projects and configurations.",
-      "should_be": "Should comprehensively document environment variable usage in MapReduce workflows with examples for each phase",
-      "fix_suggestion": "Add comprehensive documentation covering:\n- How env vars are available in setup phase\n- Using env vars in map phase (agent_template)\n- Accessing env vars in reduce phase\n- Environment variables in merge workflows\n- Examples of parameterizing max_parallel with env vars (e.g., ${MAX_WORKERS})\n- Examples of using env vars for input file paths, timeouts, and configuration\n- Integration with MapReduce-specific variables like ${item}, ${map.results}\n- Best practices for MapReduce parameterization",
-      "source_reference": "features.json lines 59, 73, 79 show env var support in MapReduce; book/src/environment/mapreduce-environment-variables.md is stub"
+      "section": "File Structure",
+      "description": "Chapter migrated from single file to multi-subsection structure",
+      "current_content": "book/src/environment.md (no longer exists)",
+      "should_be": "book/src/environment/index.md (now the main entry point)",
+      "fix_suggestion": "Update references to book/src/environment.md to point to book/src/environment/index.md. The chapter now has a comprehensive subsection structure with dedicated files for secrets, profiles, environment files, precedence, MapReduce variables, per-command overrides, best practices, and common patterns.",
+      "source_reference": "book/src/environment/"
     },
     {
-      "type": "missing_content",
+      "type": "documentation_architecture",
       "severity": "medium",
-      "section": "Best Practices (best-practices.md)",
-      "description": "Subsection file is nearly empty - only 19 bytes with no content",
-      "current_content": "File contains essentially no meaningful content",
-      "should_be": "Should provide comprehensive best practices for environment variable usage, secrets management, and profile organization",
-      "fix_suggestion": "Add best practices covering:\n- When to use env vars vs profiles vs env_files\n- Secret management guidelines (never commit secrets, use providers)\n- Environment variable naming conventions (uppercase, underscores)\n- Profile organization strategies (dev/staging/prod structure)\n- Avoiding common pitfalls (variable name conflicts, precedence confusion)\n- Security best practices (masking, minimal exposure)\n- Documentation practices for environment configuration\n- Testing environment configurations",
-      "source_reference": "book/src/environment/best-practices.md is stub; features.json has extensive best_practices section that could inform this"
+      "section": "Internal vs User-Facing Capabilities",
+      "description": "Documentation correctly distinguishes between WorkflowConfig (user-facing YAML) and EnvironmentConfig (internal runtime)",
+      "fix_suggestion": "This is actually correct and well-documented. The index.md clearly explains that the env field in workflow YAML only supports static strings (HashMap<String, String>), while the internal EnvironmentConfig has richer EnvValue types (Static, Dynamic, Conditional). This distinction is important and accurately documented.",
+      "source_reference": "src/config/workflow.rs:22, src/cook/environment/config.rs:12-48"
     },
     {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Common Patterns (common-patterns.md)",
-      "description": "Subsection file is nearly empty - only 20 bytes with no content",
-      "current_content": "File contains essentially no meaningful content",
-      "should_be": "Should provide common patterns and realistic examples for environment configuration",
-      "fix_suggestion": "Add common patterns covering:\n- Multi-environment deployment pattern (dev/staging/prod with profiles)\n- Secrets management pattern (env provider + external secret store)\n- Profile-based configuration strategy (base + environment-specific overrides)\n- Environment variable composition (combining env_files + env + profiles)\n- CI/CD integration patterns (using env vars for parameterization)\n- Local development patterns (.env.local for personal settings)\n- Template parameterization (using env vars to make workflows reusable)",
-      "source_reference": "book/src/environment/common-patterns.md is stub; features.json common_patterns section has examples"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Environment Files (environment-files.md)",
-      "description": "Missing explanation of how env_files interact with profiles and secrets",
-      "current_content": "Documentation covers env_files basic usage and precedence but doesn't explain interaction with other features",
-      "should_be": "Should explain how env_files work together with profiles, secrets, and global env",
-      "fix_suggestion": "Add section explaining:\n- Can env_files load secrets? If so, how are they marked as secrets?\n- How do env_files interact with profile-specific values?\n- Example combining env_files + profiles + secrets\n- Best practices for organizing .env files by environment\n- Precedence when env_files, profiles, and global env all define same variable",
-      "source_reference": "book/src/environment/environment-files.md lacks integration examples"
-    },
-    {
-      "type": "missing_content",
+      "type": "missing_cross_reference",
       "severity": "low",
-      "section": "Variable Interpolation (index.md)",
-      "description": "Index mentions '$VAR and ${VAR}' syntax but doesn't provide detailed explanation or examples",
-      "current_content": "index.md line 43 mentions interpolation briefly: 'interpolation: [\"$VAR for simple cases\", \"${VAR} for complex expressions\"]'",
-      "should_be": "Should have dedicated section or subsection with comprehensive examples showing when to use each syntax",
-      "fix_suggestion": "Add examples to index.md showing:\n- Simple variable reference: $VAR\n- Bracketed reference: ${VAR} (preferred for clarity)\n- When ${VAR} is required (complex expressions, adjacent to other text)\n- Variable interpolation in shell commands\n- Variable interpolation in Claude commands\n- Variable interpolation in file paths and URLs\n- Escaping variables when literal $ is needed ($$VAR or \\$VAR)",
-      "source_reference": "features.json line 280 mentions both syntaxes but index.md lacks detailed examples"
+      "section": "Related Chapters",
+      "description": "Index page could link to related chapters for better navigation",
+      "fix_suggestion": "Add cross-references to related chapters like 'MapReduce Workflows', 'Variables', and 'Configuration' at the end of the index page.",
+      "source_reference": "book/src/environment/index.md"
     }
   ],
   "positive_aspects": [
-    "Clear architecture overview in index.md distinguishing WorkflowConfig from EnvironmentConfig",
-    "Accurate documentation of limitations (no step-level env field in WorkflowStepCommand, profiles not CLI-activatable)",
-    "Good explanation of precedence order in environment-precedence.md",
-    "Well-structured multi-subsection organization with logical topic separation",
-    "Clear distinction between user-facing YAML config and internal runtime features",
-    "environment-files.md provides good coverage of .env file format and loading order",
-    "secrets-management.md correctly documents SecretProvider enum variants (env, file, vault, aws, custom)",
-    "environment-profiles.md correctly notes profile infrastructure exists but --profile flag not implemented",
-    "per-command-environment-overrides.md accurately explains no env field exists in WorkflowStepCommand",
-    "environment-precedence.md provides clear 4-level precedence hierarchy with examples"
+    "Comprehensive migration to multi-subsection structure with 8 dedicated subsections",
+    "Clear explanation of variable interpolation with $VAR vs ${VAR} syntax",
+    "Excellent distinction between WorkflowConfig (user-facing) and EnvironmentConfig (internal)",
+    "Well-documented variable interpolation examples covering all use cases",
+    "Good best practices section covering when to use each syntax",
+    "Accurate technical details match source code implementation",
+    "Cross-references to other environment subsections are present and correct",
+    "Environment inheritance is accurately documented (default: true)"
   ],
   "improvement_suggestions": [
-    "Complete mapreduce-environment-variables.md with comprehensive MapReduce examples (highest priority)",
-    "Add content to best-practices.md subsection with security and naming guidelines",
-    "Add content to common-patterns.md subsection with realistic workflow examples",
-    "Add integration examples showing env_files + profiles + secrets working together",
-    "Add detailed variable interpolation section with $VAR vs ${VAR} examples",
-    "Add troubleshooting subsection for common environment issues (variable not found, masking verification, precedence confusion)",
-    "Add cross-references between subsections where features interact (e.g., env_files referencing profiles)",
-    "Consider adding diagrams showing environment resolution flow and precedence order"
+    "Add troubleshooting section for common environment variable issues",
+    "Include more real-world examples combining environment variables with MapReduce",
+    "Add performance considerations for large environment configurations",
+    "Document environment variable resolution order more explicitly"
   ],
+  "structural_changes": {
+    "migration": "single-file to multi-subsection",
+    "old_path": "book/src/environment.md",
+    "new_structure": {
+      "index": "book/src/environment/index.md",
+      "subsections": [
+        "best-practices.md",
+        "common-patterns.md",
+        "environment-files.md",
+        "environment-precedence.md",
+        "environment-profiles.md",
+        "mapreduce-environment-variables.md",
+        "per-command-environment-overrides.md",
+        "secrets-management.md"
+      ]
+    }
+  },
   "metadata": {
-    "analyzed_at": "2025-11-09T23:43:36Z",
+    "analyzed_at": "2025-11-09T18:00:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "Global environment",
+      "Global environment variables",
+      "Variable interpolation syntax",
       "Secrets management",
-      "Profiles",
-      "Step-level environment",
-      "Environment files",
-      "Environment precedence",
-      "MapReduce environment variables (stub)",
-      "Best practices (stub)",
-      "Common patterns (stub)"
+      "Environment profiles",
+      "Environment files (.env)",
+      "Per-command environment overrides",
+      "Environment precedence rules",
+      "Best practices and common patterns"
     ],
     "validation_focus": "Check environment configuration options and syntax",
-    "subsections_status": {
-      "index.md": "complete (61 lines)",
-      "environment-files.md": "complete (70 lines)",
-      "secrets-management.md": "complete (52 lines)",
-      "environment-profiles.md": "complete (45 lines)",
-      "per-command-environment-overrides.md": "complete (35 lines)",
-      "environment-precedence.md": "complete (38 lines)",
-      "mapreduce-environment-variables.md": "stub (5 lines, 252 bytes)",
-      "best-practices.md": "stub (19 bytes)",
-      "common-patterns.md": "stub (20 bytes)"
-    },
-    "code_references_verified": [
-      "src/config/workflow.rs:12-39 - WorkflowConfig with env, secrets, env_files, profiles fields",
-      "src/cook/environment/config.rs:12-36 - EnvironmentConfig with active_profile field",
-      "src/cook/environment/config.rs:84-112 - SecretValue and SecretProvider enums",
-      "src/cook/environment/config.rs:115-124 - EnvProfile struct",
-      "src/cli/args.rs - No --profile flag in RunArgs (verified profiles not CLI-activatable)"
+    "implementation_accuracy": "High - documentation accurately reflects source code",
+    "source_files_verified": [
+      "src/config/workflow.rs",
+      "src/cook/environment/mod.rs",
+      "src/cook/environment/config.rs"
     ]
   }
 }

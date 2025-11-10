@@ -5,57 +5,87 @@
   "chapter_file": "book/src/advanced/index.md",
   "drift_detected": true,
   "severity": "high",
-  "quality_assessment": "Chapter covers core advanced features well but has one critical issue with on_exit_code documentation showing a feature that isn't implemented in WorkflowStepCommand. Also missing duration field in capture_streams, and step-level environment configuration details need clarification.",
+  "quality_assessment": "Chapter covers core advanced features well but has several issues: (1) Work item file path is incorrect (points to non-existent book/src/advanced.md instead of book/src/advanced/index.md), (2) on_exit_code documentation shows unimplemented feature, (3) Multi-step remediation example shows incorrect syntax mixing TestDebugConfig with commands array, (4) Missing duration field in capture_streams. The file path issue is critical for workflow execution.",
   "issues": [
+    {
+      "type": "critical_path_error",
+      "severity": "critical",
+      "section": "File Location",
+      "description": "Work item JSON specifies file: 'book/src/advanced.md' which does not exist. The actual chapter is at book/src/advanced/index.md (multi-subsection chapter structure).",
+      "current_content": "Work item: {\"file\":\"book/src/advanced.md\",\"id\":\"advanced\",\"title\":\"Advanced Features\",...}",
+      "should_be": "{\"file\":\"book/src/advanced/index.md\",\"id\":\"advanced\",\"title\":\"Advanced Features\",...}",
+      "fix_suggestion": "Update work item generation in flattened-items.json to use index.md for multi-subsection chapters. This is a workflow infrastructure issue, not documentation drift.",
+      "source_reference": "book/src/advanced/ is a directory with index.md and subsection files"
+    },
+    {
+      "type": "incorrect_syntax",
+      "severity": "high",
+      "section": "On Failure Handlers - Multi-Step Remediation (lines 115-129)",
+      "description": "Example shows commands array in on_failure configuration, but TestDebugConfig (used in WorkflowStepCommand) does NOT support a commands array. This syntax only exists in OnFailureConfig::Detailed (execution layer), not exposed in YAML.",
+      "current_content": "on_failure:\n  commands:\n    - claude: \"/analyze-test-failures\"\n    - shell: \"cargo fmt\"\n    - claude: \"/verify-fixes\"\n  max_attempts: 3\n  fail_workflow: true",
+      "should_be": "TestDebugConfig only supports single claude command:\non_failure:\n  claude: \"/analyze-test-failures\"\n  max_attempts: 3\n  fail_workflow: true\n  commit_required: true",
+      "fix_suggestion": "REMOVE the multi-step remediation section (lines 115-129) OR completely rewrite to clarify this is NOT supported in YAML config. TestDebugConfig only allows a single claude command. For multi-step error recovery, users must chain steps with their own on_failure handlers at each step.",
+      "source_reference": "src/config/command.rs:168-183 (TestDebugConfig - no commands field), src/cook/workflow/on_failure.rs:25-49 (FailureHandlerConfig has commands array but is execution-layer only)"
+    },
     {
       "type": "missing_content",
       "severity": "high",
-      "section": "Exit Code Handlers (lines 128-141)",
-      "description": "Documentation shows on_exit_code handler but this feature is not implemented in WorkflowStepCommand YAML config layer",
-      "current_content": "- shell: \"cargo test\"\n  on_exit_code:\n    1: {claude: \"/fix-test-failures\"}\n    2: {shell: \"retry-flaky-tests.sh\"}\n    101: {claude: \"/fix-compilation-errors\"}\n    255: {fail_workflow: true}",
-      "should_be": "Feature exists in normalized workflow structures (WorkflowStep) but not exposed in YAML config (WorkflowStepCommand)",
-      "fix_suggestion": "REMOVE this section from documentation until on_exit_code is implemented in WorkflowStepCommand. The feature exists internally but isn't user-facing yet.",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand (field not present), src/cook/workflow/normalized.rs:69 (on_exit_code exists in WorkflowStep)"
+      "section": "Exit Code Handlers (referenced but removed)",
+      "description": "Previous drift report mentioned on_exit_code handlers are not implemented in WorkflowStepCommand. Confirmed - this field does not exist in the YAML config layer.",
+      "current_content": "No on_exit_code documentation in current file (may have been in older version)",
+      "should_be": "Do not document on_exit_code until implemented in WorkflowStepCommand",
+      "fix_suggestion": "Feature exists in WorkflowStep (execution layer) but not in WorkflowStepCommand (config layer). Keep this feature out of documentation until YAML support is added.",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand (field not present)"
     },
     {
       "type": "missing_content",
       "severity": "medium",
-      "section": "Stream Capture Control (lines 230-245)",
-      "description": "Missing duration field in CaptureStreams structured format documentation",
+      "section": "Stream Capture Control (lines 218-235)",
+      "description": "Missing duration field in CaptureStreams structured format example. The struct has 5 fields (stdout, stderr, exit_code, success, duration) but example only shows 4.",
       "current_content": "capture_streams:\n  stdout: true\n  stderr: true\n  exit_code: true\n  success: true",
-      "should_be": "capture_streams:\n  stdout: true\n  stderr: true\n  exit_code: true\n  success: true\n  duration: true",
-      "fix_suggestion": "Add duration field to structured format example and explain that it captures command execution duration in seconds",
-      "source_reference": "src/cook/workflow/variables.rs:269-292 (CaptureStreams struct includes duration field with default true)"
+      "should_be": "capture_streams:\n  stdout: true\n  stderr: true\n  exit_code: true\n  success: true\n  duration: true  # Capture execution duration in seconds",
+      "fix_suggestion": "Add duration field to structured example at line 229, and add explanation: '- `duration: true` - Capture command execution duration in seconds (default: true)'",
+      "source_reference": "src/cook/workflow/variables.rs:268-292 (CaptureStreams includes duration field, default true)"
     },
     {
       "type": "incomplete_explanation",
       "severity": "medium",
-      "section": "Stream Capture Control (lines 248-250)",
-      "description": "Documentation correctly mentions untagged enum deserialization but implementation details differ from what's shown",
-      "current_content": "Shows both string and structured object formats with note about flexibility",
-      "should_be": "Clarify that capture_streams accepts EITHER a simple string (stdout/stderr/both) OR a structured object (CaptureStreams)",
-      "fix_suggestion": "Update Format Flexibility note to: 'The capture_streams field supports two formats: (1) Simple string values (\"stdout\", \"stderr\", \"both\") stored as Option<String> in config, or (2) Structured object with boolean fields parsed into CaptureStreams struct during execution. Use the simple format for basic cases, structured format when you need fine-grained control over exit_code, success, or duration capture.'",
-      "source_reference": "src/config/command.rs:395 (capture_streams: Option<String>), src/cook/workflow/variables.rs:269 (CaptureStreams struct)"
+      "section": "Capture Formats (lines 166-193)",
+      "description": "Documentation shows capture formats but doesn't explain error handling when parsing fails",
+      "current_content": "Lists formats (string, number, json, lines, boolean) with examples",
+      "should_add": "Explanation of what happens when format parsing fails",
+      "fix_suggestion": "Add note after line 193: '> **Error Handling:** If parsing fails (e.g., non-numeric output with `capture_format: number`), the command will fail with a descriptive error. Use `capture_format: string` (default) when output format is unreliable.'",
+      "source_reference": "src/cook/workflow/variables.rs:260-265 (CaptureFormat enum)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Output Capture",
+      "description": "Missing documentation for last.* variables that work with any command type",
+      "current_content": "Mentions shell.output, claude.output for specific commands, but not generic last.* variables",
+      "should_add": "Document ${last.output} and ${last.exit_code} for command-agnostic capture",
+      "fix_suggestion": "Add section after line 162: '**Command-Agnostic Capture:**\n\nThe `last.*` variables capture output from any command type:\n```yaml\n- shell: \"cargo test\"\n  capture_output: \"test_result\"  # Or use ${last.output} in next step\n\n- claude: \"/analyze ${last.output}\"  # Works with any prior command\n```'",
+      "source_reference": "features.json:variables.standard lists last.output and last.exit_code"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Step-Level Environment Overrides (lines 266-289)",
-      "description": "Step-level environment configuration fields shown but not present in WorkflowStepCommand",
-      "current_content": "Shows env, working_dir, clear_env, inherit fields in example",
-      "should_be": "Only working_dir/cwd are actually in WorkflowStepCommand. env, clear_env, inherit may be in NormalizedWorkflowStep or execution layer",
-      "fix_suggestion": "Verify which fields are actually in WorkflowStepCommand. If env/clear_env/inherit aren't there, either remove from docs or clarify they're execution-layer features not available in YAML config. Update example to only show fields that users can actually configure.",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand does not include env, clear_env, inherit fields"
+      "section": "Stream Capture Control - Format Flexibility (lines 239-249)",
+      "description": "Explanation of dual format support could be clearer about when each is used",
+      "current_content": "Mentions simple string vs structured format but implementation details are vague",
+      "should_be": "Clarify that capture_streams is stored as Option<String> in config, parsed to CaptureStreams during execution",
+      "fix_suggestion": "Revise lines 239-249 to: 'The `capture_streams` field accepts two formats:\n\n1. **Simple string** (`\"stdout\"`, `\"stderr\"`, `\"both\"`) - Stored as `Option<String>` in YAML config, best for basic stream selection\n2. **Structured object** - Parsed into `CaptureStreams` struct during execution, enables fine-grained control over `exit_code`, `success`, and `duration` capture\n\nUse simple format for basic cases, structured format when you need detailed execution metadata.'",
+      "source_reference": "src/config/command.rs:396 (capture_streams: Option<String>), src/cook/workflow/variables.rs:268-292 (CaptureStreams struct)"
     },
     {
-      "type": "incorrect_example",
+      "type": "incomplete_explanation",
       "severity": "low",
-      "section": "On Success Handlers (lines 79-91)",
-      "description": "Complex on_success example shows incorrect nesting of validate field",
-      "current_content": "on_success:\n  claude: /verify-build-artifacts\n  validate:\n    shell: check-binary-size.sh\n    threshold: 100\n  on_failure:\n    claude: /optimize-binary-size",
-      "should_be": "validate is a separate field at WorkflowStepCommand level, not nested configuration under claude",
-      "fix_suggestion": "Update example to show on_success as Box<WorkflowStepCommand> properly:\n```yaml\n- shell: \"cargo build --release\"\n  on_success:\n    claude: \"/verify-build-artifacts\"\n    validate:\n      shell: \"check-binary-size.sh\"\n      threshold: 100\n    on_failure:\n      claude: \"/optimize-binary-size\"\n```\nOr clarify that this shows a complete workflow step with all its fields",
-      "source_reference": "src/config/command.rs:376 (on_success: Option<Box<WorkflowStepCommand>>), line 379 (validate is a separate field in WorkflowStepCommand)"
+      "section": "Execution Context (lines 265-271)",
+      "description": "Note about step-level environment configuration is correct but could be clearer about what IS exposed",
+      "current_content": "States that env, clear_env, inherit, working_dir, cwd are internal features not exposed in YAML",
+      "should_be": "Clarify which features ARE exposed (if any) vs which are internal-only",
+      "fix_suggestion": "Verify if working_dir/cwd are actually exposed in WorkflowStepCommand. If not, current note is accurate. If yes, update to: 'Step-level working directory (`cwd`) is available in YAML configuration. Other execution context features (env, clear_env, inherit) are internal-only.'",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand (check for cwd/working_dir fields)"
     }
   ],
   "positive_aspects": [
@@ -66,36 +96,53 @@
     "Type coercion explanation is clear and accurate (lines 47-50)",
     "Good cross-references to related subsections at end",
     "On failure handler defaults accurately documented (max_attempts: 3, fail_workflow: false, commit_required: true)",
-    "Multi-step remediation with commands array documented (lines 115-126)",
-    "Nested conditionals example shows practical chaining (lines 143-156)",
-    "Output file redirection documented (lines 251-264)"
+    "Nested conditionals example shows practical chaining (lines 131-143)",
+    "Output file redirection documented (lines 250-263)",
+    "Source code references provided for CaptureStreams and WorkflowStepCommand",
+    "Note about step-level environment configuration being internal-only is accurate"
   ],
   "improvement_suggestions": [
-    "CRITICAL: Remove on_exit_code section until feature is implemented in WorkflowStepCommand",
-    "Add duration field to capture_streams structured format example with explanation",
-    "Clarify which step-level environment fields (env, clear_env, inherit) are actually available in YAML config",
-    "Fix on_success complex example to show proper field structure",
+    "CRITICAL: Fix work item file path in flattened-items.json generation (infrastructure issue)",
+    "CRITICAL: Remove or completely rewrite multi-step remediation section (incorrect syntax)",
+    "Add duration field to capture_streams structured format example",
+    "Add error handling explanation for capture format parsing failures",
+    "Document last.* variables for command-agnostic output capture",
+    "Clarify when to use simple vs structured capture_streams format",
     "Add troubleshooting section for common conditional execution issues",
-    "Include example of combining capture_output with capture_format and capture_streams all together",
-    "Add performance considerations for nested conditionals",
-    "Include example showing how to access nested fields in captured JSON (${var.field.subfield})",
-    "Add note about execution order: when clause evaluates first, then on_success/on_failure after command completes",
-    "Clarify relationship between timeout at command level vs workflow/phase levels"
+    "Include example combining capture_output, capture_format, and capture_streams together",
+    "Add example showing nested field access in captured JSON (${var.field.subfield})",
+    "Clarify execution order: when evaluates before execution, on_success/on_failure after"
+  ],
+  "cross_references": [
+    "step-identification.md",
+    "timeout-configuration.md",
+    "implementation-validation.md",
+    "parallel-iteration-with-foreach.md",
+    "goal-seeking-operations.md",
+    "best-practices.md",
+    "common-patterns.md",
+    "../workflow-basics.md"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-09T23:43:00Z",
+    "analyzed_at": "2025-01-11T02:05:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
-      "Conditional execution",
-      "Expression syntax",
+      "Conditional execution with when clause",
+      "Expression syntax for conditions",
+      "On success handlers",
+      "On failure handlers",
+      "Nested conditionals",
       "Output capture formats",
       "Stream capture control",
-      "Nested conditionals",
-      "Timeouts"
+      "Output file redirection",
+      "Execution context"
     ],
-    "validation_focus": "Check advanced features match implementation in WorkflowStepCommand",
+    "validation_focus": "Check advanced features match implementation",
     "critical_findings": [
-      "on_exit_code documented but not implemented in user-facing config layer"
-    ]
+      "Work item file path incorrect (points to non-existent book/src/advanced.md)",
+      "Multi-step remediation example shows unsupported commands array syntax",
+      "Missing duration field in capture_streams documentation"
+    ],
+    "file_location_status": "CRITICAL - Work item JSON points to non-existent file"
   }
 }

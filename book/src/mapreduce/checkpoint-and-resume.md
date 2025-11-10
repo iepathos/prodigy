@@ -43,13 +43,19 @@ prodigy resume mapreduce-1234567890
 ```
 
 **Session-Job Mapping**:
-- Bidirectional mapping stored in `~/.prodigy/state/{repo_name}/mappings/`
-- Maps session IDs to job IDs and vice versa
-- Created when MapReduce workflow starts
-- Stores workflow name and creation timestamp for tracking and debugging
-- Enables resume with either identifier
 
-**Source**: `SessionJobMapping` structure in src/storage/session_job_mapping.rs:14-26
+The `SessionJobMapping` structure provides bidirectional mapping between session and job identifiers (src/storage/session_job_mapping.rs:14-26):
+
+- **Storage location**: `~/.prodigy/state/{repo_name}/mappings/`
+- **Mapping fields**:
+  - `session_id`: Unique identifier for the workflow session
+  - `job_id`: MapReduce job identifier
+  - `workflow_name`: Name of the workflow for easier identification
+  - `created_at`: Timestamp when the mapping was created
+- **Created**: Automatically when MapReduce workflow starts
+- **Purpose**: Enables resume with either session ID or job ID
+
+This mapping allows you to resume a workflow using whichever identifier is more convenient or available in your context.
 
 ### State Preservation
 
@@ -133,7 +139,12 @@ Please wait for the other process to complete, or use --force to override.
 - If holding process is no longer running, lock is automatically removed
 - New resume attempt succeeds after stale lock cleanup
 
-For more details on concurrent resume protection, see [Concurrent Resume Protection (Spec 140)](../advanced/concurrent-resume-protection.md).
+**Safety Guarantees**:
+- **Data Corruption Prevention**: Only one process can modify job state at a time
+- **No Duplicate Work**: Work items cannot be processed by multiple agents concurrently
+- **Consistent State**: Checkpoint updates are serialized
+- **Automatic Cleanup**: RAII pattern ensures locks are released even on errors
+- **Cross-Host Safety**: Hostname in lock prevents conflicts across machines
 
 ### Example Resume Workflow
 
@@ -156,16 +167,24 @@ Here's a typical workflow for resuming an interrupted MapReduce job:
 
 **Troubleshooting Resume Issues**:
 - Check checkpoint files exist: `ls ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`
+- List available sessions: `prodigy sessions list` (shows session IDs, job IDs, and status)
 - List available checkpoints: `prodigy checkpoints list`
 - Show detailed checkpoint info: `prodigy checkpoints show <job_id>`
+- Validate checkpoint integrity: `prodigy checkpoints validate <checkpoint_id>`
 - Review event logs: `prodigy events <job_id>`
 - Check for stale locks: `ls ~/.prodigy/resume_locks/`
 - Clean old checkpoints: `prodigy checkpoints clean --all`
 
-**Available checkpoint commands** (src/cli/args.rs:363-398):
+**Available checkpoint commands** (src/cli/args.rs:363-413):
 - `prodigy checkpoints list` - List all available checkpoints
 - `prodigy checkpoints show <job_id>` - Show detailed checkpoint information
+- `prodigy checkpoints validate <checkpoint_id>` - Verify checkpoint integrity
 - `prodigy checkpoints clean` - Delete checkpoints for completed workflows
 
-For more information on session management, see [Session Management](../core-concepts/session-management.md). For failed item tracking, see [Dead Letter Queue (DLQ)](./dead-letter-queue-dlq.md).
+### See Also
+
+- [Dead Letter Queue (DLQ)](./dead-letter-queue-dlq.md) - Managing failed work items during resume operations
+- [Event Tracking](./event-tracking.md) - Understanding events logged during checkpoint creation and resume
+- [Global Storage Architecture](./global-storage-architecture.md) - Storage locations for checkpoints and state files
+- [Troubleshooting](./troubleshooting.md) - General MapReduce workflow debugging techniques
 

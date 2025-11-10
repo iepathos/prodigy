@@ -5,151 +5,127 @@
   "chapter_file": "book/src/workflow-basics.md",
   "drift_detected": true,
   "severity": "medium",
-  "quality_assessment": "Chapter is well-structured and covers most fundamentals. Main issues are documenting deprecated/non-existent features (test, handler commands) and missing accurate documentation for write_file command. The working_dir example is incorrect - this feature doesn't exist in WorkflowStepCommand. The chapter should focus on the 6 actual command types: claude, shell, goal_seek, foreach, write_file, and validate.",
+  "quality_assessment": "Chapter is comprehensive and well-structured with accurate code examples. Main issues are broken internal links to non-existent files. The chapter references files that should exist but are missing, breaking navigation. Content itself is accurate and matches implementation.",
   "issues": [
     {
-      "type": "outdated_information",
-      "severity": "high",
-      "section": "Command Types - Test Commands",
-      "description": "Documents 'test:' command type which is deprecated and shows deprecation warning when used",
-      "current_content": "Test commands section describes test: as a supported command type with debug_command and collect_artifacts",
-      "should_be": "Remove test command documentation or add clear deprecation notice explaining it's converted to shell with on_failure",
-      "fix_suggestion": "Either remove the Test Commands section entirely or add prominent deprecation warning that test: is converted to shell: with on_failure: internally",
-      "source_reference": "src/config/command.rs:447-462 shows test command is deprecated and converted to shell"
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "Cross-References and Next Steps",
+      "description": "Found 7 broken internal links referencing non-existent files",
+      "broken_links": [
+        {
+          "link_text": "Claude Integration",
+          "link_target": "./claude-integration.md",
+          "expected_file": "book/src/claude-integration.md",
+          "current_file": "book/src/workflow-basics.md",
+          "line_references": [138, 887]
+        },
+        {
+          "link_text": "Variable Reference",
+          "link_target": "./variables-and-interpolation.md",
+          "expected_file": "book/src/variables-and-interpolation.md",
+          "current_file": "book/src/workflow-basics.md",
+          "line_references": [464]
+        },
+        {
+          "link_text": "Environment Variables",
+          "link_target": "./environment-variables.md",
+          "expected_file": "book/src/environment-variables.md",
+          "current_file": "book/src/workflow-basics.md",
+          "line_references": [541, 886]
+        },
+        {
+          "link_text": "Merge Workflows",
+          "link_target": "./merge-workflows.md",
+          "expected_file": "book/src/merge-workflows.md",
+          "current_file": "book/src/workflow-basics.md",
+          "line_references": [653]
+        },
+        {
+          "link_text": "Checkpoint and Resume",
+          "link_target": "./checkpoint-and-resume.md",
+          "expected_file": "book/src/checkpoint-and-resume.md",
+          "current_file": "book/src/workflow-basics.md",
+          "line_references": [708]
+        },
+        {
+          "link_text": "MapReduce Workflows",
+          "link_target": "./mapreduce-overview.md",
+          "expected_file": "book/src/mapreduce-overview.md",
+          "current_file": "book/src/workflow-basics.md",
+          "line_references": [883]
+        },
+        {
+          "link_text": "Output Capture",
+          "link_target": "./output-capture.md",
+          "expected_file": "book/src/output-capture.md",
+          "current_file": "book/src/workflow-basics.md",
+          "line_references": [885]
+        }
+      ],
+      "fix_suggestion": "Update all broken links to point to existing files in subdirectories or create the missing files. Likely these should point to subdirectory index files:\n- ./claude-integration.md → (needs creation or link to relevant section)\n- ./variables-and-interpolation.md → ./variables/index.md\n- ./environment-variables.md → ./environment/index.md or ./configuration/environment-variables.md\n- ./merge-workflows.md → ./workflow-basics/merge-workflows.md\n- ./checkpoint-and-resume.md → ./mapreduce/checkpoint-and-resume.md\n- ./mapreduce-overview.md → ./mapreduce/index.md\n- ./output-capture.md → ./variables/custom-variable-capture.md (or needs creation)",
+      "validation_required": true
     },
     {
       "type": "missing_content",
-      "severity": "high",
-      "section": "Command Types - Write File Commands",
-      "description": "write_file command type is not documented but exists in implementation",
-      "fix_suggestion": "Add Write File Commands section documenting path, content, format (text/json/yaml), mode, and create_dirs fields",
-      "source_reference": "src/config/command.rs:280-295, features.json:98-103"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
+      "severity": "low",
       "section": "Command Types - Validate Commands",
-      "description": "validate command type is not documented but is supported",
-      "fix_suggestion": "Add Validate Commands section documenting validation config for checking implementation completeness",
-      "source_reference": "src/config/command.rs:379-380, features.json:105-110"
-    },
-    {
-      "type": "incorrect_examples",
-      "severity": "high",
-      "section": "Command Types - Handler Commands",
-      "description": "Documents 'handler:' command type which doesn't exist in WorkflowStepCommand implementation",
-      "current_content": "Handler Commands section with name and attributes fields",
-      "should_be": "This command type does not exist and should be removed",
-      "fix_suggestion": "Remove the Handler Commands section entirely - this is not a supported command type in WorkflowStepCommand",
-      "source_reference": "src/config/command.rs:413-499 WorkflowStepCommand deserialization only supports: claude, shell, analyze, test, goal_seek, foreach, write_file"
-    },
-    {
-      "type": "incorrect_examples",
-      "severity": "high",
-      "section": "Step-Level Configuration - Working Directory",
-      "description": "Documents working_dir field which doesn't exist in WorkflowStepCommand",
-      "current_content": "working_dir: frontend/ example shown",
-      "should_be": "This field does not exist in the implementation",
-      "fix_suggestion": "Remove the Working Directory subsection - working_dir is not a supported field in WorkflowStepCommand",
-      "source_reference": "src/config/command.rs:306-401 WorkflowStepCommand fields - no working_dir field exists"
-    },
-    {
-      "type": "incorrect_examples",
-      "severity": "high",
-      "section": "Step-Level Configuration - Step Environment",
-      "description": "Documents env field at step level which doesn't exist in WorkflowStepCommand",
-      "current_content": "Shows env field on individual shell commands",
-      "should_be": "env is not a field on WorkflowStepCommand, only on workflow level",
-      "fix_suggestion": "Remove Step Environment subsection or clarify that environment variables are workflow-level only",
-      "source_reference": "src/config/command.rs:306-401 WorkflowStepCommand fields - no env field on individual steps"
+      "description": "Documentation shows 'validate:' as a command type but implementation shows it's a field on WorkflowStepCommand, not a standalone command type",
+      "current_content": "Lines 177-214 document validate: as if it's a command type like shell: or claude:",
+      "should_be": "validate: is a field that can be added to any command for validation, particularly used with goal_seek",
+      "fix_suggestion": "Clarify that 'validate' is not a standalone command type but a configuration field. Move to 'Step-Level Configuration' section or clarify in context of goal_seek.",
+      "source_reference": "src/config/command.rs:379-380"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
+      "severity": "low",
       "section": "Command Types - Foreach Commands",
-      "description": "Foreach documentation incomplete - uses old fields structure",
-      "current_content": "Shows items, variable, commands structure",
-      "should_be": "foreach field is the input (ForeachInput), do block contains commands, supports parallel and continue_on_error",
-      "fix_suggestion": "Update foreach example to match actual ForeachConfig structure: foreach (input), do (commands), parallel, continue_on_error, max_items",
-      "source_reference": "src/config/command.rs:191-209 ForeachConfig structure"
+      "description": "Documentation doesn't explain the 'do' field must be wrapped in 'do_block' internally due to Rust keyword restrictions",
+      "fix_suggestion": "Add note that while YAML uses 'do:', the internal representation uses 'do_block' to avoid Rust keyword conflicts. Users should use 'do:' in YAML.",
+      "source_reference": "src/config/command.rs:200-202"
     },
     {
-      "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Command Types - Goal-Seek Commands",
-      "description": "Goal-seek documentation uses different field structure than implementation",
-      "current_content": "Shows description, validation, fix_command, max_attempts structure",
-      "should_be": "Should match GoalSeekConfig actual fields",
-      "fix_suggestion": "Review goal_seek implementation and update example to match actual GoalSeekConfig structure from features.json",
-      "source_reference": "src/cook/goal_seek/ modules, features.json:86-90"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Step-Level Configuration",
-      "description": "Missing documentation for capture field (simpler than capture_output)",
-      "fix_suggestion": "Document capture field as alternative to capture_output for simpler variable capture",
-      "source_reference": "Variable capture is mentioned in examples but not fully documented as a step-level field"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "medium",
-      "section": "Failure Handling",
-      "description": "Documentation shows allow_failure but implementation uses continue_on_error",
-      "current_content": "Mentions allow_failure: true in failure handling section",
-      "should_be": "Use continue_on_error terminology which is what the implementation uses",
-      "fix_suggestion": "Replace allow_failure references with continue_on_error to match implementation",
-      "source_reference": "src/config/command.rs:206 ForeachConfig.continue_on_error"
-    },
-    {
-      "type": "missing_content",
+      "type": "unclear_content",
       "severity": "low",
-      "section": "Command Types",
-      "description": "analyze command type exists but not documented",
-      "fix_suggestion": "Add brief note about analyze command type or mark as internal/experimental if not user-facing",
-      "source_reference": "src/config/command.rs:468 helper.analyze field"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Step-Level Configuration",
-      "description": "Missing documentation for capture_streams and output_file fields",
-      "fix_suggestion": "Document capture_streams (which streams to capture) and output_file (redirect output to file) fields",
-      "source_reference": "src/config/command.rs:394-400 capture_streams and output_file fields"
+      "section": "Step-Level Configuration - Output Capture",
+      "description": "Documentation shows both 'capture' and 'capture_output' without clearly distinguishing between them",
+      "current_content": "Lines 562-576 show both 'capture: commit_hash' and 'capture_output: test_results'",
+      "should_be": "Clarify that 'capture' is the simple form and 'capture_output' is the field name with advanced options (format, streams)",
+      "fix_suggestion": "Add explicit note: \"Note: 'capture' is shorthand for 'capture_output' with default settings. Use 'capture_output' for advanced configuration with 'capture_format' and 'capture_streams'.\"",
+      "source_reference": "src/config/command.rs:366-396"
     }
   ],
   "positive_aspects": [
-    "Clear, progressive structure from simple to complex",
-    "Good explanation of three workflow formats (array, full config, legacy)",
-    "Excellent coverage of variable interpolation with both ${VAR} and $VAR syntax",
-    "Strong environment variables section covering plain vars, secrets, env files, and profiles",
-    "Good troubleshooting section with practical solutions",
-    "Helpful best practices section",
-    "Worktree isolation explanation is accurate and helpful",
-    "Merge workflow documentation is clear and includes important merge variables"
+    "Excellent progression from simple to complex (Simple Array → Full Configuration → Legacy)",
+    "Comprehensive command type reference table with source code references",
+    "Real-world examples from actual workflow files",
+    "Clear explanation of sequential execution model",
+    "Well-documented variable interpolation with both ${VAR} and $VAR syntaxes",
+    "Good troubleshooting section with common issues and solutions",
+    "Best practices section with actionable advice",
+    "Accurate source code references throughout (e.g., src/config/command.rs:319-380)",
+    "Clear examples of worktree isolation benefits and verification"
   ],
   "improvement_suggestions": [
-    "Focus on the 6 actual command types: claude, shell, goal_seek, foreach, write_file, validate",
-    "Remove or deprecate documentation for test and handler command types",
-    "Remove working_dir and step-level env documentation (these don't exist)",
-    "Update foreach and goal_seek examples to match actual implementation structures",
-    "Add write_file and validate command documentation",
-    "Clarify that env is workflow-level only, not step-level",
-    "Replace allow_failure with continue_on_error throughout",
-    "Consider adding a 'Command Type Reference' table showing all 6 types with their key fields",
-    "Add note about analyze command if it's user-facing, or omit if internal"
+    "Fix all broken internal links to point to existing documentation",
+    "Add a note about 'capture' vs 'capture_output' distinction",
+    "Clarify that 'validate' is a field, not a standalone command type",
+    "Consider adding a 'File Structure' section explaining the subdirectory organization",
+    "Add cross-references to the workflow-basics/ subdirectory for detailed explanations"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T00:00:00Z",
-    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "analyzed_at": "2025-01-11T01:20:00Z",
+    "feature_inventory": "Code-based analysis (no features.json provided)",
     "topics_covered": [
       "Standard workflows",
       "Basic structure",
       "Command execution",
+      "Command types (shell, claude, write_file, goal_seek, foreach, validate)",
       "Variable interpolation",
       "Environment configuration",
+      "Worktree isolation",
       "Merge workflows",
-      "Worktree isolation"
+      "Error handling"
     ],
     "validation_focus": "Check basic workflow syntax and structure documentation"
   }

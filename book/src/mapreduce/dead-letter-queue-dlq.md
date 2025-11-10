@@ -13,7 +13,7 @@ The DLQ integrates with MapReduce through the `on_item_failure` policy, which de
 DLQ data is stored in the global Prodigy directory using this structure:
 
 ```
-~/.prodigy/state/{repo_name}/mapreduce/dlq/{job_id}/
+~/.prodigy/dlq/{repo_name}/{job_id}/mapreduce/dlq/{job_id}/
 ├── items/                  # Individual item files
 │   ├── item-123.json      # DeadLetteredItem for item-123
 │   ├── item-456.json      # DeadLetteredItem for item-456
@@ -23,16 +23,18 @@ DLQ data is stored in the global Prodigy directory using this structure:
 
 For example:
 ```
-~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/
+~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/
 ├── items/
 │   └── item-123.json
 └── index.json
 ```
 
-**Storage Implementation** (src/cook/execution/dlq.rs:518-638):
-- Each failed item is stored as a separate JSON file in the `items/` directory
+**Storage Implementation**:
+- `GlobalStorage` provides the base path: `~/.prodigy/dlq/{repo_name}/{job_id}` (src/storage/global.rs:47)
+- `DLQStorage` adds subdirectories: `mapreduce/dlq/{job_id}` for backward compatibility (src/cook/execution/dlq.rs:529)
+- Each failed item is stored as a separate JSON file in the `items/` directory (src/cook/execution/dlq.rs:536)
 - File naming: `{item_id}.json` (e.g., `item-123.json`)
-- `index.json` maintains a list of all item IDs and metadata for fast lookups
+- `index.json` maintains a list of all item IDs and metadata for fast lookups (src/cook/execution/dlq.rs:608-637)
 - Items are loaded into memory on-demand for operations
 
 This global storage architecture enables:
@@ -62,14 +64,14 @@ Each failed item in the DLQ is stored as a `DeadLetteredItem` with comprehensive
       "agent_id": "agent-1",
       "step_failed": "shell: cargo test",
       "duration_ms": 45000,
-      "json_log_location": "/path/to/claude-session.json"
+      "json_log_location": "/Users/user/.local/state/claude/logs/session-abc123.json"
     }
   ],
   "error_signature": "CommandFailed::cargo test failed with exit",
   "reprocess_eligible": true,
   "manual_review_required": false,
   "worktree_artifacts": {
-    "worktree_path": "/path/to/worktree",
+    "worktree_path": "/Users/user/.prodigy/worktrees/prodigy/agent-1",
     "branch_name": "agent-1",
     "uncommitted_changes": "src/main.rs modified",
     "error_logs": "error.log contents..."
@@ -153,9 +155,16 @@ These artifacts are preserved for debugging and can be accessed after failure.
 
 ## DLQ Commands
 
-Prodigy provides comprehensive CLI commands for managing the DLQ.
+> **⚠️ PLANNED FEATURE**: The DLQ CLI commands are currently implemented as stubs that only print status messages. Full functionality is planned for a future release.
+>
+> **Current Status** (as of implementation):
+> - Command definitions exist in src/cli/args.rs:577-677
+> - Stub implementations in src/cli/commands/dlq.rs:1-74
+> - Commands will print confirmation messages but do not execute actual operations
+>
+> See [DLQ Integration](#integration-with-mapreduce) for current workflow-level DLQ functionality.
 
-**Implementation Status**: The DLQ CLI commands are defined (src/cli/args.rs:609-679) but currently implemented as stubs (src/cli/commands/dlq.rs:9-73). The commands print status messages but do not yet perform the operations described below. Full implementation is planned.
+Prodigy provides comprehensive CLI commands for managing the DLQ. The following sections describe the planned command interface.
 
 ### List Command
 
@@ -216,7 +225,9 @@ Analysis output includes:
 
 ### Retry Command
 
-Reprocess failed items (src/cli/args.rs:640-659):
+> **⚠️ STUB**: This command is not yet implemented. Description below shows planned interface.
+
+Reprocess failed items (src/cli/args.rs:640-654):
 
 ```bash
 # Retry all failed items for a workflow
@@ -235,7 +246,12 @@ prodigy dlq retry <workflow_id> --max-retries 2
 prodigy dlq retry <workflow_id> --force
 ```
 
-**Note**: The retry command uses `workflow_id` as the positional argument, which corresponds to the MapReduce job identifier. The parallelism default is 10 concurrent workers.
+**Command Parameters**:
+- `<workflow_id>`: The workflow/job identifier to retry items from (e.g., "mapreduce-1234567890")
+- `--parallel`: Number of concurrent retry workers (default: 10, src/cli/args.rs:653)
+- `--max-retries`: Maximum retry attempts per item (default: 3, src/cli/args.rs:648)
+- `--filter`: Expression to filter which items to retry (default: all eligible items, src/cli/args.rs:644)
+- `--force`: Force retry of items marked as not eligible (default: false, src/cli/args.rs:650)
 
 #### Retry Behavior
 
@@ -404,7 +420,7 @@ on_item_failure: dlq
        ↓
 Create DeadLetteredItem
        ↓
-Save to ~/.prodigy/dlq/{repo}/{job_id}/dlq.json
+Save to ~/.prodigy/dlq/{repo}/{job_id}/mapreduce/dlq/{job_id}/items/{item_id}.json
        ↓
 Continue Processing Other Items
 ```
@@ -462,13 +478,13 @@ To inspect DLQ items directly:
 
 ```bash
 # List all DLQ items for a job
-ls ~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/items/
+ls ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/items/
 
 # View a specific item
-cat ~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/items/item-123.json | jq
+cat ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/items/item-123.json | jq
 
 # Count total items
-jq '.item_count' ~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/index.json
+jq '.item_count' ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/index.json
 ```
 
 **Note**: Direct file access is provided for debugging. Always use the Prodigy CLI commands for production operations to ensure data consistency.

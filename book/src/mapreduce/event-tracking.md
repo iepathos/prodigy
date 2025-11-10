@@ -230,9 +230,31 @@ prodigy events ls --event-type dlq_item_added
 prodigy events ls --event-type dlq_analysis_generated
 ```
 
+**Trace specific workflow run:**
+```bash
+# Filter events by correlation_id to trace entire workflow execution
+prodigy events search "<correlation_id>"
+
+# Find correlation_id from recent job
+prodigy events ls --job-id <job_id> --limit 1
+```
+
+### Troubleshooting
+
+**Events not being written:**
+- Check event file permissions in `~/.prodigy/events/{repo_name}/{job_id}/`
+- Verify directory exists and is writable
+- Check disk space availability
+- Review buffer configuration if events are delayed
+
+**Missing events:**
+- Events may be buffered (default: 5 second flush interval)
+- Check if logger was properly shut down (ensures buffer flush)
+- Verify event type filter isn't excluding events
+
 ### Cross-References
 
-- See [Observability](../observability.md) for general monitoring and logging
 - See [Checkpoint and Resume](checkpoint-and-resume.md) for checkpoint events
 - See [Dead Letter Queue (DLQ)](dead-letter-queue-dlq.md) for DLQ event details
+- See [Retry Metrics and Observability](../retry-configuration/retry-metrics-and-observability.md) for retry-specific monitoring
 
