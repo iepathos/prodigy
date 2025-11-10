@@ -61,10 +61,10 @@ error_collection: immediate
 error_collection: batched:10
 ```
 - Collects errors in memory until batch size is reached
-- When N errors collected, logs the entire batch via `warn!` level logging
-- Batch buffer is cleared after logging
+- When N errors collected, logs the entire batch via `warn!` level logging and automatically clears the buffer
 - Use for: Progress updates without spam, monitoring long-running jobs
 - Trade-off: Balance between noise and visibility (e.g., `batched:10` reports every 10 failures)
+- **Implementation**: Buffer is cleared using `drain(..)` after each batch is logged (src/cook/workflow/error_policy.rs:593)
 
 ### Complete Example
 
@@ -96,5 +96,5 @@ map:
 
 **Note**: If `error_collection` is not specified, the default behavior is `aggregate`.
 
-See also: [Error Handling](../error-handling.md), [Dead Letter Queue](dead-letter-queue-dlq.md), [Circuit Breaker Configuration](circuit-breaker-configuration.md)
+See also: [Error Handling](../error-handling.md), [Dead Letter Queue](dead-letter-queue-dlq.md)
 
