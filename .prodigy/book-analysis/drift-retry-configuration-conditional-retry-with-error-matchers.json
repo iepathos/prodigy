@@ -1,0 +1,85 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "retry-configuration",
+  "subsection_id": "conditional-retry-with-error-matchers",
+  "subsection_title": "Conditional Retry with Error Matchers",
+  "subsection_file": "book/src/retry-configuration/conditional-retry-with-error-matchers.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Documentation is mostly accurate but contains a critical error regarding Pattern matcher case sensitivity. The claim that Pattern matching is case-insensitive contradicts the actual implementation.",
+  "issues": [
+    {
+      "type": "incorrect_information",
+      "severity": "high",
+      "section": "Custom Pattern Matching",
+      "description": "Documentation incorrectly states that Pattern matching is case-insensitive, but implementation shows it uses the original error message (not lowercased) for regex matching",
+      "current_content": "**Pattern Syntax**: Regex patterns matched against error message (case-insensitive) ... Pattern Matching (src/cook/retry_v2.rs:128-149): 1. Error message is converted to lowercase 2. Each matcher's `matches()` method is called 3. For `Pattern` variant, regex is applied (case-insensitive)",
+      "should_be": "Pattern matching is case-SENSITIVE by default. Users must use case-insensitive regex flags (?i) if they want case-insensitive matching",
+      "fix_suggestion": "Correct the documentation to reflect that Pattern matching is case-sensitive by default. Show example using (?i) flag for case-insensitive regex: pattern: '(?i)database locked'",
+      "source_reference": "src/cook/retry_v2.rs:142-148 - Pattern variant uses error_msg (original case) not error_lower"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Implementation Details",
+      "description": "The simplified implementation code example shows Pattern matching against error_lower, but the actual implementation uses error_msg (original case)",
+      "current_content": "Self::Pattern(pattern) => {\n    // Regex matching (case-insensitive)\n    Regex::new(pattern).map(|re| re.is_match(&error_lower)).unwrap_or(false)\n}",
+      "should_be": "Self::Pattern(pattern) => {\n    // Regex matching (case-sensitive by default, use (?i) flag for case-insensitive)\n    if let Ok(re) = regex::Regex::new(pattern) {\n        re.is_match(error_msg)\n    } else {\n        false\n    }\n}",
+      "fix_suggestion": "Update the implementation details section to show the actual code and clarify case sensitivity behavior",
+      "source_reference": "src/cook/retry_v2.rs:142-148"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Custom Pattern Matching",
+      "description": "Missing example showing how to use case-insensitive regex flag (?i) for Pattern matchers",
+      "fix_suggestion": "Add example: retry_on:\n  - pattern: '(?i)database locked'  # Case-insensitive match\n  - pattern: 'SQLITE_BUSY'          # Case-sensitive match",
+      "source_reference": "src/cook/retry_v2.rs:142-148"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Testing Error Matchers",
+      "description": "Missing tests for Pattern matcher in test suite",
+      "fix_suggestion": "Mention that Pattern matcher tests are not yet implemented in the codebase (only Network, Timeout, and RateLimit matchers are tested)",
+      "source_reference": "src/cook/retry_v2.rs:463-502 - No Pattern matcher tests found"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all ErrorMatcher variants",
+    "Clear examples for each built-in matcher (Network, Timeout, ServerError, RateLimit)",
+    "Good explanation of OR logic for multiple matchers",
+    "Excellent source code references throughout",
+    "Well-documented edge case (empty retry_on retries all errors)",
+    "Strong practical use cases for each matcher type",
+    "All internal links are valid and point to existing files"
+  ],
+  "improvement_suggestions": [
+    "Add a dedicated section on regex syntax and case sensitivity for Pattern matcher",
+    "Include troubleshooting section for common regex pattern mistakes",
+    "Add table comparing case sensitivity behavior: built-in matchers (always case-insensitive) vs Pattern matcher (case-sensitive by default)",
+    "Show examples of complex regex patterns with multiple capture groups",
+    "Document regex pattern validation failure behavior (returns false on invalid regex)"
+  ],
+  "cross_references": [
+    "basic-retry-configuration",
+    "failure-actions",
+    "best-practices",
+    "complete-examples"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-09T23:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Conditional Retry with Error Matchers",
+      "Available Error Matchers",
+      "Combining Multiple Matchers",
+      "Empty retry_on (Retry All Errors)",
+      "Selective Retry Example"
+    ],
+    "validation_focus": "Check conditional retry with error matchers documentation matches implementation",
+    "internal_links_validated": true,
+    "broken_links_found": 0
+  }
+}
