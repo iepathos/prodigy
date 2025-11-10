@@ -1,6 +1,6 @@
 ## Installation
 
-This guide covers installing Prodigy, the prerequisite tools, and optional components for automated documentation workflows.
+This guide covers installing Prodigy and the prerequisite tools needed to run AI-powered workflow automation.
 
 ## Prerequisites
 
@@ -15,9 +15,18 @@ Before installing Prodigy, ensure you have:
   - Verify: `rustc --version`
   - Source: Cargo.toml:4 (edition = "2021" requires Rust 1.56+, recommended 1.70+)
 
+**Required for MapReduce Workflows:**
+- **Git 2.25+** - Required for worktree isolation and parallel execution
+  - Install from: https://git-scm.com/
+  - Verify: `git --version`
+  - Note: Git worktrees are used to isolate parallel work in MapReduce workflows
+
 **Optional:**
-- **Git 2.25+** - Required for worktree management features
-- **jq** - Useful for working with JSON outputs and DLQ inspection
+- **mdBook** - Required only for documentation workflows
+  - Install: `cargo install mdbook`
+  - Verify: `mdbook --version`
+- **jq** - Useful for inspecting JSON outputs and DLQ items
+  - Install from: https://jqlang.github.io/jq/
 
 ## Using Cargo (Recommended)
 
@@ -170,7 +179,13 @@ sudo ./scripts/install-man-pages.sh
 
 ## Next Steps
 
-After installation, see:
-- [Quick Start](quick-start.md) - Create your first automated documentation workflow
-- [Understanding the Workflow](understanding-the-workflow.md) - Learn how the automation works
-- [index.md](index.md) - Overview of automated documentation features
+After installation, explore Prodigy's features:
+
+**Getting Started:**
+- [Introduction](intro.md) - Overview of Prodigy's capabilities
+- [Workflow Basics](workflow-basics/index.md) - Learn how to write workflows
+
+**Popular Use Cases:**
+- [Automated Documentation](automated-documentation/index.md) - Keep docs synchronized with code
+- [MapReduce Workflows](mapreduce/index.md) - Parallel processing at scale
+- [Examples](examples.md) - See real-world workflow examples

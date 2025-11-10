@@ -1,6 +1,7 @@
 # Summary
 
 [Introduction](intro.md)
+[Installation](installation.md)
 
 # User Guide
 
@@ -87,7 +88,6 @@
 - [Error Handling](error-handling.md)
 - [MapReduce Worktree Architecture](mapreduce-worktree-architecture.md)
 - [Automated Documentation](automated-documentation/index.md)
-  - [Installation](automated-documentation/installation.md)
   - [Quick Start](automated-documentation/quick-start.md)
   - [Tutorial (30 Minutes)](automated-documentation/tutorial.md)
   - [Understanding the Workflow](automated-documentation/understanding-the-workflow.md)

@@ -12,14 +12,13 @@ By the end of this tutorial, you'll have:
 
 ### Prerequisites
 
-Before starting, ensure you have completed the **[Installation](installation.md)** guide with all prerequisites installed:
-- Rust and Cargo
-- Prodigy
+Before starting, ensure you have [installed Prodigy](../installation.md) and the required tools:
+- Prodigy (via `cargo install prodigy`)
 - Claude Code CLI
-- mdBook
+- mdBook (for building documentation)
 - Git (initialized repository)
 
-If you haven't installed these yet, visit the [Installation guide](installation.md) first
+If you haven't installed these yet, visit the [Installation guide](../installation.md) first
 
 ### Step 1: Initialize Your Book Structure
 

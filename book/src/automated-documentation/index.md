@@ -32,8 +32,8 @@ The generalized commands work for any codebase: Rust, Python, JavaScript, etc.
 
 Ready to get started? Here's the fastest path:
 
-1. **[Install prerequisites](installation.md)** - Prodigy, mdBook, Claude Code CLI, Git
-2. **[Follow the Quick Start guide](quick-start.md)** - 15-20 minute setup
+1. **[Install Prodigy](../installation.md)** - Prodigy, Claude Code CLI, Rust
+2. **[Follow the Quick Start guide](quick-start.md)** - 15-20 minute setup for automated docs
 3. **Or dive deeper with the [Tutorial](tutorial.md)** - 30 minute comprehensive walkthrough
 
 Choose your path based on your time and experience level
@@ -98,7 +98,6 @@ For detailed information about each phase, see the subsections below.
 ## Additional Topics
 
 ### Getting Started
-- [Installation](installation.md) - Prerequisites and setup
 - [Quick Start](quick-start.md) - 15-20 minute guide
 - [Tutorial](tutorial.md) - 30 minute comprehensive walkthrough
 

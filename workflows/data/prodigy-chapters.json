@@ -1,6 +1,19 @@
 {
   "chapters": [
     {
+      "id": "installation",
+      "title": "Installation",
+      "file": "book/src/installation.md",
+      "type": "single-file",
+      "topics": [
+        "Installation",
+        "Prerequisites",
+        "Cargo Installation",
+        "Building from Source"
+      ],
+      "validation": "Check installation documentation matches implementation"
+    },
+    {
       "id": "workflow-basics",
       "title": "Workflow Basics",
       "type": "multi-subsection",
@@ -651,15 +664,6 @@
             "GitHub Actions Integration"
           ],
           "validation": "Check github actions integration documentation matches implementation"
-        },
-        {
-          "id": "installation",
-          "title": "Installation",
-          "file": "book/src/automated-documentation/installation.md",
-          "topics": [
-            "Installation"
-          ],
-          "validation": "Check installation documentation matches implementation"
         },
         {
           "id": "quick-start",
