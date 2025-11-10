@@ -1,0 +1,114 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "automated-documentation",
+  "subsection_id": "understanding-the-workflow",
+  "subsection_title": "Understanding the Workflow",
+  "subsection_file": "book/src/automated-documentation/understanding-the-workflow.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Subsection is critically incomplete - only contains a brief note about Spec 127 when it should provide a comprehensive explanation of the workflow architecture, phases, and execution model",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Overall Structure",
+      "description": "Subsection is nearly empty - only 5 lines with a single note about Spec 127",
+      "current_content": "Only contains: '> **Note**: All workflow phases execute in isolated git worktrees using a parent/child architecture...'",
+      "should_be": "Should provide detailed explanation of MapReduce workflow phases (setup, map, reduce, merge), worktree architecture, execution flow, and how components interact",
+      "fix_suggestion": "Expand subsection to match the scope indicated in the parent chapter index.md:117-124 which mentions worktree isolation, agent worktrees, change merging, and execution flow",
+      "source_reference": "book/src/automated-documentation/index.md:117-124, features.json:mapreduce_worktree_architecture"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Workflow Phases",
+      "description": "No explanation of the four workflow phases mentioned in parent chapter",
+      "current_content": "Missing",
+      "should_be": "Should explain Setup Phase (feature analysis), Map Phase (parallel processing), Reduce Phase (validation), and Merge Phase (integration) with examples",
+      "fix_suggestion": "Add sections explaining each phase, their purpose, and how they work together. Reference parent chapter content at index.md:87-116",
+      "source_reference": "book/src/automated-documentation/index.md:87-116"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Worktree Architecture",
+      "description": "Brief mention of worktree isolation but no detailed explanation of parent/child architecture",
+      "current_content": "Only one sentence in a note block",
+      "should_be": "Should explain parent worktree hosts setup/reduce/merge phases, child worktrees for each agent, automatic merge back to parent, and user confirmation for final merge",
+      "fix_suggestion": "Add dedicated section explaining worktree hierarchy, branch naming, merge flow, and isolation guarantees. Include diagram or concrete example",
+      "source_reference": "features.json:mapreduce_worktree_architecture, src/cook/execution/mapreduce/resources/worktree.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Execution Model",
+      "description": "No explanation of how work items are processed, distributed, or how results are aggregated",
+      "current_content": "Missing",
+      "should_be": "Should explain work item distribution, parallel execution, agent lifecycle, result collection, and error handling (DLQ)",
+      "fix_suggestion": "Add section on execution mechanics including parallelism, work distribution, agent isolation, and failure handling",
+      "source_reference": "features.json:mapreduce.phases.map, features.json:mapreduce.capabilities"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Quality Guarantees",
+      "description": "No mention of validation, quality checks, or how the workflow ensures documentation quality",
+      "current_content": "Missing",
+      "should_be": "Should explain validation checkpoints, build verification, code-grounded examples, and retry mechanisms",
+      "fix_suggestion": "Add section on quality guarantees referencing parent chapter content at index.md:126-134",
+      "source_reference": "book/src/automated-documentation/index.md:126-134"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Cross-references",
+      "description": "No links to related documentation or other subsections",
+      "current_content": "Missing",
+      "should_be": "Should link to workflow basics, MapReduce configuration, troubleshooting, and other relevant sections",
+      "fix_suggestion": "Add 'See Also' section with links to related documentation",
+      "source_reference": "book/src/automated-documentation/index.md:137-154"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Spec 127 Reference",
+      "description": "References Spec 127 but doesn't explain what it means or why it matters",
+      "current_content": "Mentions 'Spec 127' without context",
+      "should_be": "Should explain what Spec 127 is and why worktree isolation is important for safety and reliability",
+      "fix_suggestion": "Expand the note to explain the benefit of isolation - main repo stays clean, parallel execution is safe, failed workflows don't pollute working directory",
+      "source_reference": "CLAUDE.md worktree isolation section"
+    }
+  ],
+  "positive_aspects": [
+    "Correctly identifies Spec 127 as relevant to worktree isolation",
+    "Note format draws attention to important architectural detail",
+    "Mentions parent/child architecture which is accurate"
+  ],
+  "improvement_suggestions": [
+    "Add visual diagram showing worktree hierarchy and execution flow",
+    "Include concrete example of a workflow running through all phases",
+    "Add code examples showing how to configure phases in YAML",
+    "Include troubleshooting tips for common workflow issues",
+    "Link to specific workflow files as reference implementations",
+    "Explain relationship between this workflow and general MapReduce workflows"
+  ],
+  "cross_references": [
+    "quick-start-30-minutes",
+    "installation", 
+    "automatic-gap-detection",
+    "troubleshooting",
+    "advanced-configuration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T12:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Workflow phases",
+      "Worktree architecture",
+      "Execution model",
+      "Quality guarantees"
+    ],
+    "validation_focus": "Check understanding the workflow documentation matches implementation"
+  }
+}
