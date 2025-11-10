@@ -9,9 +9,39 @@
     "error_handling.dlq"
   ],
   "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "The subsection provides comprehensive coverage of DLQ functionality with accurate examples and detailed command documentation. Minor discrepancies exist between documented field types and actual implementation, and CLI command stubs need implementation. Overall structure and concepts are solid, with good cross-referencing and practical examples.",
+  "severity": "high",
+  "quality_assessment": "The subsection provides comprehensive documentation of DLQ structure and features, but contains critical inaccuracies about storage paths that could mislead users. The DLQ storage location is incorrectly documented as ~/.prodigy/state/{repo}/mapreduce/dlq/ when it should be ~/.prodigy/dlq/{repo}/. Additionally, CLI commands are stubs awaiting implementation. Despite these issues, the structure and concepts are well-explained with good cross-referencing.",
   "issues": [
+    {
+      "type": "incorrect_information",
+      "severity": "critical",
+      "section": "Storage Structure",
+      "description": "Documentation shows fundamentally incorrect DLQ storage path structure throughout the document",
+      "current_content": "~/.prodigy/state/{repo_name}/mapreduce/dlq/{job_id}/",
+      "should_be": "~/.prodigy/dlq/{repo_name}/{job_id}/ (DLQStorage adds mapreduce/dlq subdirectories)",
+      "fix_suggestion": "The actual path is: ~/.prodigy/dlq/{repo_name}/{job_id}/ from GlobalStorage, then DLQStorage.job_dir() adds mapreduce/dlq/{job_id} resulting in ~/.prodigy/dlq/{repo_name}/{job_id}/mapreduce/dlq/{job_id}/items/. All examples throughout the document need to be corrected to reflect this structure.",
+      "source_reference": "src/storage/global.rs:46-54, src/cook/execution/dlq.rs:528-530"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "high",
+      "section": "Storage Structure - Example Path",
+      "description": "Example storage path shows incorrect location",
+      "current_content": "~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/",
+      "should_be": "~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/items/",
+      "fix_suggestion": "Update storage path example to show the correct nesting. GlobalStorage provides base path ~/.prodigy/dlq/{repo}/{job_id}, then DLQStorage adds mapreduce/dlq/{job_id} subdirectories for backward compatibility.",
+      "source_reference": "src/storage/global.rs:46-54, src/cook/execution/dlq.rs:528-530"
+    },
+    {
+      "type": "incorrect_information",
+      "severity": "high",
+      "section": "Advanced: DLQ Storage Internals - Direct File Access",
+      "description": "Commands for direct file access use incorrect storage paths",
+      "current_content": "ls ~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-1234567890/items/",
+      "should_be": "ls ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/items/",
+      "fix_suggestion": "Update all bash command examples for direct file access to use correct DLQ storage location. This affects multiple examples in lines 465-472.",
+      "source_reference": "src/storage/global.rs:46-54"
+    },
     {
       "type": "incorrect_information",
       "severity": "medium",
@@ -92,8 +122,10 @@
       "type": "incomplete_implementation",
       "severity": "high",
       "section": "DLQ Commands",
-      "description": "All DLQ CLI commands are stubs that only print messages - no actual implementation yet",
-      "fix_suggestion": "Add implementation status note in documentation that DLQ CLI commands are planned but currently stubs, or implement the commands to match documented behavior",
+      "description": "All DLQ CLI commands are stubs that only print messages - no actual implementation yet. Documentation should make this more prominent.",
+      "current_content": "Implementation Status: The DLQ CLI commands are defined (src/cli/args.rs:609-679) but currently implemented as stubs (src/cli/commands/dlq.rs:9-73). The commands print status messages but do not yet perform the operations described below. Full implementation is planned.",
+      "should_be": "Add a prominent warning at the top of the DLQ Commands section stating that all commands are currently stubs. Move implementation status from line 158 to directly after the section header.",
+      "fix_suggestion": "Restructure the DLQ Commands section to lead with implementation status. Consider adding a visual indicator (e.g., '⚠️ PLANNED FEATURE') to make it clear these commands are not yet functional. Update each command subsection to note stub status.",
       "source_reference": "src/cli/commands/dlq.rs:9-73"
     },
     {
@@ -140,16 +172,19 @@
     "Comprehensive command reference with all options documented (list, inspect, analyze, export, purge, retry, stats, clear)"
   ],
   "improvement_suggestions": [
+    "CRITICAL: Correct all DLQ storage paths throughout document from ~/.prodigy/state/{repo}/mapreduce/dlq/ to ~/.prodigy/dlq/{repo}/{job_id}/mapreduce/dlq/{job_id}/",
     "Correct field types in examples to match implementation (step_failed: String, failure_count, uncommitted_changes: Option<String>, error_logs: Option<String>)",
     "Add missing fields to documentation (first_attempt, last_attempt, error_signature)",
     "Update ErrorType::CommandFailed to show { exit_code: i32 } structure",
     "Clarify workflow_id vs job_id terminology consistently throughout retry command documentation",
-    "Add implementation status note for CLI commands (currently stubs awaiting implementation)",
+    "Make CLI stub implementation status more prominent - add warning banner at top of DLQ Commands section",
     "Update --max-parallel flag to --parallel in all examples",
     "Correct default parallelism value from 5 to 10",
-    "Consider adding note about actual DLQ storage internals: items stored as individual JSON files in ~/.prodigy/state/{repo}/mapreduce/dlq/{job_id}/items/ directory",
-    "Add example showing DLQ index.json structure for advanced debugging",
-    "Consider documenting DLQStorage internal structure for users who need direct file access"
+    "Add troubleshooting section for common DLQ issues (path not found, permission errors, corrupted items)",
+    "Consider adding diagram showing DLQ flow from agent failure → storage → retry",
+    "Add validation steps for verifying DLQ is working correctly",
+    "Include examples of how to manually inspect DLQ JSON files for debugging",
+    "Document performance characteristics: How large can DLQ grow? Memory implications of large DLQs?"
   ],
   "cross_references": [
     "checkpoint-and-resume",
@@ -158,17 +193,37 @@
     "worktree-architecture",
     "claude-command-observability"
   ],
+  "link_validation": {
+    "broken_links": [],
+    "validation_passed": true,
+    "notes": "All internal cross-references are valid. Links to checkpoint-and-resume, event-tracking, error-handling, worktree-architecture, and claude-command-observability subsections are correct."
+  },
   "metadata": {
-    "analyzed_at": "2025-01-11T00:00:00Z",
+    "analyzed_at": "2025-01-11T18:30:00Z",
     "feature_inventory": ".prodigy/book-analysis/features.json",
     "topics_covered": [
+      "dead letter queue",
       "failed items",
-      "retry",
-      "DLQ",
+      "DLQ structure",
+      "DLQ commands",
+      "retry functionality",
       "error handling",
+      "debugging",
       "failure analysis",
-      "worktree artifacts"
+      "worktree artifacts",
+      "storage architecture"
     ],
-    "validation_focus": "Check DLQ structure and retry commands documented"
+    "validation_focus": "Check DLQ structure and retry commands documented",
+    "source_files_referenced": [
+      "src/cook/execution/dlq.rs",
+      "src/cli/commands/dlq.rs",
+      "src/cli/args.rs",
+      "src/storage/global.rs",
+      "tests/dlq_agent_integration_test.rs"
+    ],
+    "critical_findings": [
+      "DLQ storage path documentation is incorrect throughout the document - uses ~/.prodigy/state/ when actual location is ~/.prodigy/dlq/",
+      "All DLQ CLI commands are stubs with no implementation - documentation should make this more prominent"
+    ]
   }
 }
