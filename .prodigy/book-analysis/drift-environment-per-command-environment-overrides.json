@@ -1,0 +1,60 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "environment",
+  "subsection_id": "per-command-environment-overrides",
+  "subsection_title": "Per-Command Environment Overrides",
+  "subsection_file": "book/src/environment/per-command-environment-overrides.md",
+  "feature_mappings": [],
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Documentation is technically accurate and correctly states that WorkflowStepCommand does not have an env field in the YAML syntax. Shell-based environment override techniques are properly documented.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Shell-based Environment Techniques",
+      "description": "Documentation could be enhanced with information about StepEnvironment struct existence and future plans",
+      "current_content": "Note: A `StepEnvironment` struct exists in the internal runtime (`EnvironmentConfig`), but it is not currently exposed in the WorkflowStepCommand YAML syntax.",
+      "fix_suggestion": "Add a brief note about the StepEnvironment struct's intended purpose and that it may be exposed in future versions. Could also mention that the struct supports working_dir, clear_env, and temporary fields beyond just env variables.",
+      "source_reference": "src/cook/environment/config.rs:126-144 (StepEnvironment struct definition)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Shell-based Environment Techniques",
+      "description": "Missing example of combining shell environment syntax with output redirection or complex shell features",
+      "fix_suggestion": "Add an example showing how to use shell environment overrides with redirection or other shell features, e.g., 'ENV_VAR=value command > output.txt'",
+      "source_reference": "src/config/command.rs:326-401 (WorkflowStepCommand definition shows shell field exists)"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate statement that WorkflowStepCommand does NOT have an env field",
+    "Correct guidance to use shell-level environment syntax",
+    "Clear examples of shell environment override techniques",
+    "Proper distinction between legacy Command struct (which has env via CommandMetadata) and modern WorkflowStepCommand format",
+    "Good warning with IMPORTANT flag to set expectations correctly",
+    "Practical examples showing multiple variables, directory changes, and combinations"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a troubleshooting section for common pitfalls with shell environment syntax",
+    "Could add example showing how to debug environment variable resolution",
+    "Might add cross-reference to the Environment Precedence subsection to explain how shell-level overrides interact with global env",
+    "Could mention that StepEnvironment struct exists internally and may be exposed in future versions for more structured per-step environment control"
+  ],
+  "cross_references": [
+    "environment-precedence",
+    "profiles",
+    "secrets"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T03:43:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Per-command environment overrides",
+      "Shell-level environment syntax",
+      "WorkflowStepCommand vs Command struct differences",
+      "StepEnvironment internal struct"
+    ],
+    "validation_focus": "Check per-command environment overrides documentation matches implementation"
+  }
+}
