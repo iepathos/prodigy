@@ -1,0 +1,136 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "automated-documentation",
+  "subsection_id": "advanced-configuration",
+  "subsection_title": "Advanced Configuration",
+  "subsection_file": "book/src/automated-documentation/advanced-configuration.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Subsection is essentially empty with only a heading. Requires complete content covering advanced configuration topics for automated documentation workflows.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Entire Document",
+      "description": "Subsection contains only a heading with no content whatsoever",
+      "feature_reference": "configuration, environment, advanced_features",
+      "fix_suggestion": "Add comprehensive content covering: 1) Workflow configuration files (global vs project), 2) Environment variables and profiles for documentation workflows, 3) Advanced MapReduce settings (parallelism tuning, timeout configuration), 4) Book configuration customization (.prodigy/book-config.json), 5) Claude settings for documentation generation, 6) Storage and worktree configuration, 7) DLQ retry strategies for failed documentation items",
+      "source_reference": "features.json:configuration, features.json:environment, .prodigy/book-config.json, workflows/book-docs-drift.yml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Configuration Files",
+      "description": "No documentation of configuration file locations and precedence",
+      "feature_reference": "configuration.file_locations, configuration.precedence_chain",
+      "fix_suggestion": "Document: 1) Global config (~/.prodigy/config.toml), 2) Project config (.prodigy/config.toml), 3) Workflow env variables, 4) Precedence chain: Step env > Workflow profile > Workflow env > Config file > System env",
+      "source_reference": "features.json:configuration.file_locations, features.json:configuration.precedence_chain"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Environment Variables",
+      "description": "No documentation of environment variable usage in documentation workflows",
+      "feature_reference": "environment.global_env, environment.profiles, environment.secrets",
+      "fix_suggestion": "Document: 1) Defining environment variables in workflow YAML (env: block), 2) Using profiles for different environments (--profile flag), 3) Secret masking for sensitive data (secret: true), 4) Environment variable interpolation in workflows (${VAR} syntax), 5) Example: workflows/book-docs-drift.yml env block showing PROJECT_NAME, FEATURES_PATH, MAX_PARALLEL",
+      "source_reference": "features.json:environment, workflows/book-docs-drift.yml:8-21"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "MapReduce Tuning",
+      "description": "No documentation of MapReduce performance tuning for documentation workflows",
+      "feature_reference": "mapreduce.configuration.timeout_config, mapreduce.configuration.max_parallel",
+      "fix_suggestion": "Document: 1) max_parallel setting for controlling concurrent documentation agents, 2) agent_timeout_secs for long-running documentation tasks, 3) setup_timeout for feature analysis phase, 4) reduce_timeout for book build phase, 5) Trade-offs between parallelism and resource usage, 6) Example from workflows/book-docs-drift.yml showing MAX_PARALLEL=3 for balanced performance",
+      "source_reference": "features.json:mapreduce.configuration, workflows/book-docs-drift.yml:59"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Book Configuration",
+      "description": "No documentation of .prodigy/book-config.json customization",
+      "feature_reference": "automated_documentation.book_config_structure",
+      "fix_suggestion": "Document: 1) Book configuration file structure (.prodigy/book-config.json), 2) analysis_targets for defining what to analyze, 3) custom_analysis options (include_examples, include_best_practices, include_troubleshooting), 4) chapter_file location, 5) How to adapt configuration for different project types (Rust, Python, JavaScript, etc.)",
+      "source_reference": "features.json:automated_documentation.book_config_structure, .prodigy/book-config.json"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Claude Settings",
+      "description": "No documentation of Claude-specific configuration for documentation generation",
+      "feature_reference": "configuration.claude_settings",
+      "fix_suggestion": "Document: 1) PRODIGY_CLAUDE_STREAMING for controlling JSON streaming output, 2) PRODIGY_CLAUDE_CONSOLE_OUTPUT for forcing streaming in verbose mode, 3) Claude log locations (~/.local/state/claude/logs/), 4) Using -v flag for debugging Claude interactions, 5) Analyzing Claude logs for troubleshooting failed documentation agents",
+      "source_reference": "features.json:configuration.claude_settings"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Error Handling",
+      "description": "No documentation of error handling configuration for documentation workflows",
+      "feature_reference": "error_handling.workflow_level, retry_configuration",
+      "fix_suggestion": "Document: 1) error_policy configuration (on_item_failure: dlq), 2) DLQ usage for failed documentation items (prodigy dlq retry), 3) Retry strategies with backoff, 4) max_failures threshold to prevent runaway workflows, 5) Example from workflows/book-docs-drift.yml showing error_policy configuration",
+      "source_reference": "features.json:error_handling, features.json:retry_configuration, workflows/book-docs-drift.yml:86-90"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Storage Configuration",
+      "description": "No documentation of storage and worktree configuration",
+      "feature_reference": "configuration.storage_settings, configuration.worktree_settings",
+      "fix_suggestion": "Document: 1) Global storage location (~/.prodigy/), 2) Worktree location (~/.prodigy/worktrees/{repo_name}/), 3) Repository grouping for events/DLQ/state, 4) Cleanup policies (automatic on success, orphan registry on failure), 5) When to use prodigy worktree clean-orphaned",
+      "source_reference": "features.json:configuration.storage_settings, features.json:configuration.worktree_settings"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Validation Configuration",
+      "description": "No documentation of validation and quality gate configuration",
+      "feature_reference": "command_types.validation, advanced_features.output_capture",
+      "fix_suggestion": "Document: 1) validate: configuration for quality gates, 2) threshold setting for completion percentage, 3) on_incomplete handler for automatic gap filling, 4) result_file for reading validation results from file, 5) Example from workflows/book-docs-drift.yml showing validation with 100% threshold and gap filling",
+      "source_reference": "features.json:command_types.validation, workflows/book-docs-drift.yml:49-57"
+    },
+    {
+      "type": "missing_examples",
+      "severity": "medium",
+      "section": "All Sections",
+      "description": "No practical examples of advanced configuration usage",
+      "fix_suggestion": "Include real-world examples from: 1) workflows/book-docs-drift.yml (comprehensive MapReduce documentation workflow), 2) .prodigy/book-config.json (book configuration structure), 3) workflows/environment-example.yml (if exists, showing environment and profile usage), 4) Common configuration patterns for documentation workflows",
+      "source_reference": "workflows/book-docs-drift.yml, .prodigy/book-config.json"
+    }
+  ],
+  "positive_aspects": [
+    "Heading is properly formatted as H2 for subsection",
+    "Follows mdBook subsection naming conventions"
+  ],
+  "improvement_suggestions": [
+    "Add introductory paragraph explaining what advanced configuration topics will be covered",
+    "Organize content into clear sections with H3 headings",
+    "Include code examples from actual workflow files (workflows/book-docs-drift.yml)",
+    "Add cross-references to related subsections (Understanding the Workflow, Troubleshooting)",
+    "Include a configuration checklist for optimizing documentation workflows",
+    "Add troubleshooting section for common configuration mistakes",
+    "Reference actual configuration files from the Prodigy repository for concrete examples"
+  ],
+  "cross_references": [
+    "understanding-the-workflow",
+    "troubleshooting",
+    "quick-start",
+    "customization-examples"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "configuration files",
+      "environment variables",
+      "MapReduce tuning",
+      "book configuration",
+      "Claude settings",
+      "error handling",
+      "storage settings",
+      "validation"
+    ],
+    "validation_focus": "Check advanced configuration documentation matches implementation"
+  }
+}
