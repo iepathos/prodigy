@@ -51,6 +51,8 @@ For more control over error handling behavior:
 - `max_attempts` - Maximum retry attempts for the original command (default: `1`)
 - `max_retries` - Alternative name for `max_attempts` (both are supported for backward compatibility)
 
+**Source**: FailureHandlerConfig struct in src/cook/workflow/on_failure.rs:26
+
 **Notes:**
 - When `max_attempts > 1`, Prodigy automatically retries the original command after running the failure handler (the deprecated `retry_original` flag is no longer needed)
 - Retry behavior is now controlled by the `max_attempts`/`max_retries` value, not a separate flag
@@ -156,6 +158,7 @@ For MapReduce workflows, you can configure workflow-level error policies that co
 ### Basic Configuration
 
 ```yaml
+# Source: workflows/mkdocs-drift.yml:79-83
 name: process-items
 mode: mapreduce
 
@@ -195,6 +198,7 @@ error_policy:
 Prevent cascading failures by opening a circuit after consecutive failures:
 
 ```yaml
+# Source: src/cook/workflow/error_policy.rs:48
 error_policy:
   circuit_breaker:
     failure_threshold: 5      # Open circuit after 5 consecutive failures
@@ -248,11 +252,28 @@ Circuit breaker state transitions are logged as `CircuitOpen` and `CircuitClosed
 
 **Note**: The `events` CLI commands are defined but currently have stub implementations. Event data is stored in `~/.prodigy/events/{repo_name}/{job_id}/` and can be inspected directly as JSONL files.
 
+#### Circuit Breaker Example
+
+```yaml
+error_policy:
+  circuit_breaker:
+    failure_threshold: 3
+    success_threshold: 2
+    timeout: "30s"
+    half_open_requests: 1
+
+- shell: "curl https://api.example.com/health"
+  # After 3 failures, circuit opens
+  # After 30s, allows 1 test request
+  # After 2 successes, circuit closes
+```
+
 ### Retry Configuration with Backoff
 
 Configure automatic retry behavior for failed items:
 
 ```yaml
+# Source: src/cook/workflow/error_policy.rs:108
 error_policy:
   on_item_failure: retry
   retry_config:
@@ -303,6 +324,19 @@ backoff:
 
 > **Note:** All duration values use humantime format (e.g., `1s`, `100ms`, `2m`, `30s`) for consistency. This applies to both BackoffStrategy delays and CircuitBreakerConfig timeout.
 
+#### Jitter
+
+Add randomization to prevent thundering herd:
+```yaml
+retry_config:
+  max_attempts: 5
+  jitter: true
+  backoff:
+    exponential:
+      initial: "1s"
+      multiplier: 2.0
+```
+
 ### Error Metrics
 
 Prodigy automatically tracks error metrics for MapReduce jobs using the `ErrorMetrics` structure:
@@ -315,6 +349,8 @@ Prodigy automatically tracks error metrics for MapReduce jobs using the `ErrorMe
 - `failure_rate` - Percentage of failures (0.0 to 1.0)
 - `error_types` - Map of error types to their frequency counts
 - `failure_patterns` - Detected recurring error patterns with suggested remediation
+
+**Source**: ErrorMetrics struct in src/cook/workflow/error_policy.rs:196
 
 **Accessing Metrics:**
 
@@ -333,7 +369,7 @@ You can also access metrics programmatically via the Prodigy API or through CLI 
 
 Prodigy automatically detects recurring error patterns when an error type occurs 3 or more times. The following error types receive specific remediation suggestions in the `failure_patterns` field:
 
-- **Timeout errors** → "Consider increasing timeout_per_agent"
+- **Timeout errors** → "Consider increasing agent_timeout_secs in timeout_config"
 - **Network errors** → "Check network connectivity and retry settings"
 - **Permission errors** → "Verify file permissions and access rights"
 
@@ -366,6 +402,7 @@ Failed items are automatically sent to the DLQ with:
 - Failure reason and error message
 - Timestamp of failure
 - Attempt history
+- JSON log location for debugging
 
 ### Retrying Failed Items
 
@@ -389,6 +426,16 @@ prodigy dlq retry <job_id> --dry-run
 - Updates DLQ state (removes successful, keeps failed)
 - Supports interruption and resumption
 - Shared across worktrees for centralized failure tracking
+
+### View DLQ Contents
+
+```bash
+# Show failed items
+prodigy dlq show <job_id>
+
+# Get JSON format
+prodigy dlq show <job_id> --format json
+```
 
 ### DLQ Storage
 
@@ -476,6 +523,59 @@ The `${shell.output}` variable contains the command's stdout/stderr output.
     fail_workflow: true   # Still fail workflow after cleanup
 ```
 
+**Resilient API Integration:**
+```yaml
+error_policy:
+  retry_config:
+    max_attempts: 5
+    backoff:
+      exponential:
+        initial: "2s"
+        multiplier: 2.0
+        max_delay: "60s"
+    jitter: true
+
+  circuit_breaker:
+    failure_threshold: 3
+    success_threshold: 2
+    timeout: "30s"
+
+- shell: "curl -f https://api.example.com/data"
+  on_failure:
+    shell: "echo 'API unavailable, will retry with backoff'"
+```
+
+**MapReduce with DLQ:**
+```yaml
+mode: mapreduce
+
+error_policy:
+  on_item_failure: dlq
+  max_failures: 10
+  failure_threshold: 0.1  # Stop at 10% failure rate
+
+map:
+  input: "items.json"
+  json_path: "$[*]"
+  agent_template:
+    - claude: "/process ${item}"
+      timeout: 300
+      on_failure:
+        shell: "echo 'Item ${item.id} failed, sent to DLQ'"
+```
+
+**Progressive Error Handling:**
+```yaml
+- shell: "cargo test"
+  on_failure:
+    - claude: "/analyze-test-failure ${shell.stderr}"
+    - shell: "cargo clean"
+    - shell: "cargo test"  # Retry after clean
+      on_failure:
+        - claude: "/deep-analysis ${shell.stderr}"
+        - shell: "notify-team.sh 'Tests still failing after retry'"
+```
+
 **Combined Error Handling Strategies (MapReduce):**
 
 For complex MapReduce workflows, combine multiple error handling features:
@@ -524,3 +624,12 @@ This configuration provides multiple layers of protection:
 3. Circuit breaker to prevent overwhelming failing dependencies
 4. Failure thresholds to stop runaway jobs early
 5. Batched error reporting to reduce noise
+
+---
+
+## See Also
+
+- [Conditional Execution](conditional-execution.md) - Using conditions with error handlers
+- [Dead Letter Queue](../mapreduce/dead-letter-queue-dlq.md) - DLQ details and retry
+- [MapReduce Workflows](../mapreduce/index.md) - Error handling at scale
+- [Command Types](command-types.md) - Commands supporting error handlers

@@ -323,5 +323,5 @@ validate: |
 
 **See Also:**
 - [Implementation Validation](implementation-validation.md) - Using goal-seeking for spec validation
-- [Error Handling](../error-handling.md) - Workflow-level error handling
+- [Error Handling](../workflow-basics/error-handling.md) - Workflow-level error handling
 - Technical documentation: docs/goal-seeking.md in repository

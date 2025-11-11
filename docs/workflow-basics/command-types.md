@@ -2,6 +2,20 @@
 
 Prodigy supports several types of commands in workflows. **Each command step must specify exactly one command type** - they are mutually exclusive.
 
+### Quick Reference
+
+| Command Type | Primary Use Case | Key Features |
+|-------------|------------------|--------------|
+| [`shell:`](#shell-commands) | Execute shell commands | Output capture, conditional execution, timeouts |
+| [`claude:`](#claude-commands) | Run Claude AI commands | Variable interpolation, commit tracking, output declarations |
+| [`goal_seek:`](#goal-seek-commands) | Iterative refinement | Score-based validation, automatic retry, convergence detection |
+| [`foreach:`](#foreach-commands) | Parallel iteration | Process lists in parallel, item limits, error handling |
+| [`write_file:`](#write-file-commands) | Create files | Format validation (JSON/YAML), directory creation, permissions |
+| [`validate:`](#validation-commands) | Implementation validation | Threshold checking, gap detection, multi-step validation |
+
+!!! tip "Command Exclusivity"
+    Each workflow step must use exactly one command type. You cannot combine `shell:` and `claude:` in the same step. Use `on_success:` or `on_failure:` to chain commands together.
+
 ### Shell Commands
 
 Execute shell commands during workflow execution.
@@ -47,12 +61,12 @@ Execute shell commands during workflow execution.
     claude: "/prodigy-debug-test-failure --spec ${coverage.spec} --output ${shell.output}"
 ```
 
-**Use Cases**:
-- Running build commands
-- Executing tests
-- File operations
-- Running analysis tools
-- Generating data files
+!!! example "Common Use Cases"
+    - Running build commands (`cargo build`, `npm install`)
+    - Executing tests (`cargo test`, `pytest`)
+    - File operations (`mkdir`, `cp`, `rm`)
+    - Running analysis tools (`cargo clippy`, `eslint`)
+    - Generating data files
 
 ### Claude Commands
 
@@ -106,12 +120,12 @@ Execute Claude CLI commands via Claude Code.
   timeout: 300
 ```
 
-**Use Cases**:
-- Running custom Claude commands
-- Code analysis and generation
-- Implementing specifications
-- Debugging test failures
-- Code review and linting
+!!! example "Common Use Cases"
+    - Running custom Claude commands (slash commands)
+    - Code analysis and generation
+    - Implementing specifications from markdown
+    - Debugging test failures with AI assistance
+    - Automated code review and linting
 
 ### Goal Seek Commands
 
@@ -179,12 +193,15 @@ score: 85
   commit_required: true
 ```
 
-**Use Cases**:
-- Iteratively improving code quality
-- Achieving test coverage thresholds
-- Performance optimization
-- Fixing linting issues
-- Implementing specifications completely
+!!! example "Common Use Cases"
+    - Iteratively improving code quality until metrics are met
+    - Achieving test coverage thresholds (e.g., 90% coverage)
+    - Performance optimization to target benchmarks
+    - Fixing linting issues until clean
+    - Implementing specifications completely with validation
+
+!!! warning "Validation Score Format"
+    The validate command **must** output `score: <number>` (0-100) for goal-seeking to work. Example: `echo "score: 85"`
 
 ### Foreach Commands
 
@@ -234,11 +251,14 @@ Inside `do` commands, use `${item}` to reference the current item.
     continue_on_error: true
 ```
 
-**Use Cases**:
-- Processing multiple files
-- Running operations on a list of identifiers
-- Batch operations with parallelism
-- Conditional processing of items
+!!! example "Common Use Cases"
+    - Processing multiple files (e.g., formatting all `.rs` files)
+    - Running operations on a list of identifiers
+    - Batch operations with controlled parallelism
+    - Conditional processing based on item properties
+
+!!! tip "Parallel Execution"
+    Set `parallel: 5` to process 5 items concurrently. Use `parallel: false` for sequential processing.
 
 ### Write File Commands
 
@@ -280,12 +300,15 @@ Write content to files with format validation and directory creation.
     create_dirs: true
 ```
 
-**Use Cases**:
-- Saving workflow results to files
-- Generating configuration files
-- Writing JSON/YAML data with validation
-- Creating reports and logs
-- Persisting intermediate data
+!!! example "Common Use Cases"
+    - Saving workflow results to files
+    - Generating configuration files from templates
+    - Writing JSON/YAML data with automatic validation
+    - Creating reports and logs
+    - Persisting intermediate data between workflow steps
+
+!!! tip "Format Validation"
+    Use `format: json` or `format: yaml` to automatically validate and pretty-print output. Invalid content will fail the step.
 
 ### Validation Commands
 
@@ -355,12 +378,17 @@ validate:
     max_attempts: 3
 ```
 
-**Use Cases**:
-- Verifying specification completeness
-- Checking implementation against requirements
-- Validating test coverage
-- Ensuring documentation quality
-- Multi-step validation pipelines
+!!! example "Common Use Cases"
+    - Verifying specification completeness
+    - Checking implementation against requirements
+    - Validating test coverage meets thresholds
+    - Ensuring documentation quality standards
+    - Multi-step validation pipelines
+
+!!! info "Validate vs Goal Seek"
+    **`validate:`** is for one-time validation with gap detection and retry logic.
+    **`goal_seek:`** is for iterative refinement until a score threshold is met.
+    Use `validate:` for spec checking, `goal_seek:` for quality improvement.
 
 ### Common Fields
 
@@ -404,7 +432,9 @@ Each workflow step must specify **exactly one** command type. You cannot combine
 
 ### Deprecated: Test Command
 
-The `test:` command syntax is deprecated. Use `shell:` with `on_failure:` instead.
+!!! warning "Deprecated Syntax"
+    The `test:` command syntax is deprecated and will be removed in a future version.
+    Use `shell:` with `on_failure:` instead for the same functionality.
 
 **Source**: src/config/command.rs:446-463
 
@@ -423,6 +453,8 @@ The `test:` command syntax is deprecated. Use `shell:` with `on_failure:` instea
     claude: "/debug-test"
 ```
 
+The migration is straightforward: replace `test:` → `command:` with `shell:` and keep all other fields unchanged.
+
 ## See Also
 
 - [Available Fields](available-fields.md) - Complete reference of all command fields
@@ -430,4 +462,4 @@ The `test:` command syntax is deprecated. Use `shell:` with `on_failure:` instea
 - [Parallel Iteration with Foreach](../advanced/parallel-iteration-with-foreach.md) - Foreach best practices
 - [Implementation Validation](../advanced/implementation-validation.md) - Validation strategies
 - [Variables](../variables/index.md) - Variable interpolation in commands
-- [Error Handling](../error-handling.md) - Error handling strategies
+- [Error Handling](error-handling.md) - Error handling strategies

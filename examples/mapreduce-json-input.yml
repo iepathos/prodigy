@@ -36,8 +36,11 @@ map:
   # Run up to 3 agents in parallel
   max_parallel: 3
 
-  # Timeout per agent
-  timeout_per_agent: 60
+  # Timeout configuration (optional)
+  # Note: agent_timeout_secs can also be configured via timeout_config block
+  # See docs/examples.md Example 8 for full timeout_config syntax
+  timeout_config:
+    agent_timeout_secs: 60  # Maximum time per agent (seconds)
 
 # Reduce phase - aggregate results
 reduce:

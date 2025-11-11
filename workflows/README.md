@@ -59,12 +59,13 @@ MapReduce workflows enable parallel processing across multiple isolated worktree
 
 ### Configuration Options
 - `max_parallel`: Number of concurrent agents (default: 10)
-- `timeout_per_agent`: Maximum time per agent (default: 600s)
-- `retry_on_failure`: Retry attempts for failed agents (default: 2)
+- `timeout_config.agent_timeout_secs`: Maximum time per agent (default: 600s)
 - `max_items`: Limit number of items to process
 - `offset`: Skip first N items
 - `sort_by`: Sort items before processing
 - `filter`: Filter expression to select items
+
+**Note:** `timeout_per_agent` and `retry_on_failure` are deprecated. Use `timeout_config` and `error_policy` instead. See docs/examples.md Example 8 for current syntax.
 
 ## Usage Examples
 

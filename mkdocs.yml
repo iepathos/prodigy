@@ -92,16 +92,23 @@ nav:
   - User Guide:
     - Workflow Basics:
       - workflow-basics/index.md
+      - Workflow Structure: workflow-basics/workflow-structure.md
       - Full Workflow Structure: workflow-basics/full-workflow-structure.md
       - Available Fields: workflow-basics/available-fields.md
       - Command Types: workflow-basics/command-types.md
       - Command-Level Options: workflow-basics/command-level-options.md
+      - Conditional Execution: workflow-basics/conditional-execution.md
+      - Error Handling: workflow-basics/error-handling.md
+      - Variables: workflow-basics/variables.md
+      - Environment: workflow-basics/environment.md
       - Environment Configuration: workflow-basics/environment-configuration.md
       - Merge Workflows: workflow-basics/merge-workflows.md
       - Complete Example: workflow-basics/complete-example.md
       - Next Steps: workflow-basics/next-steps.md
     - MapReduce Workflows:
       - mapreduce/index.md
+      - Overview: mapreduce/overview.md
+      - Work Distribution: mapreduce/work-distribution.md
       - Environment Variables in Configuration: mapreduce/environment-variables-in-configuration.md
       - Backoff Strategies: mapreduce/backoff-strategies.md
       - Error Collection Strategies: mapreduce/error-collection-strategies.md
@@ -131,6 +138,7 @@ nav:
     - Configuration:
       - configuration/index.md
       - Configuration Precedence Rules: configuration/configuration-precedence-rules.md
+      - Global Config: configuration/global-config.md
       - Global Configuration Structure: configuration/global-configuration-structure.md
       - Project Configuration Structure: configuration/project-configuration-structure.md
       - Workflow Configuration: configuration/workflow-configuration.md
@@ -151,6 +159,11 @@ nav:
       - Implementation Validation: advanced/implementation-validation.md
       - Parallel Iteration with Foreach: advanced/parallel-iteration-with-foreach.md
       - Goal-Seeking Operations: advanced/goal-seeking-operations.md
+      - Composition: advanced/composition.md
+      - Git Integration: advanced/git-integration.md
+      - Observability: advanced/observability.md
+      - Sessions: advanced/sessions.md
+      - Storage: advanced/storage.md
     - Advanced Git Context: git-context-advanced.md
     - Workflow Composition:
       - composition/index.md
@@ -177,7 +190,7 @@ nav:
       - Best Practices: retry-configuration/best-practices.md
       - Troubleshooting: retry-configuration/troubleshooting.md
       - Implementation References: retry-configuration/implementation-references.md
-    - Error Handling: error-handling.md
+    - Error Handling: workflow-basics/error-handling.md
     - MapReduce Worktree Architecture: mapreduce-worktree-architecture.md
     - Automated Documentation:
       - automated-documentation/index.md

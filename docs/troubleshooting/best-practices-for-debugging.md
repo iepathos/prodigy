@@ -81,6 +81,120 @@ Streaming is enabled by default for auditability. Only disable in CI/CD environm
 
 **See also**: [Common Issues](index.md#variables-not-interpolating) for variable troubleshooting patterns.
 
+### Profile Debugging
+
+Profiles allow different configuration values for different environments (dev, staging, prod). When profile-specific values aren't being used, debug the profile selection and fallback behavior.
+
+**Verify Active Profile**:
+```bash
+# Check which profile is active (from command line)
+prodigy run workflow.yml --profile prod -v
+
+# Profile is shown in verbose output during variable interpolation
+```
+
+**Profile Configuration Structure** (Source: CLAUDE.md "Environment Variables (Spec 120)"):
+```yaml
+env:
+  API_URL:
+    default: "http://localhost:3000"
+    staging: "https://staging.api.com"
+    prod: "https://api.com"
+
+  DEBUG_MODE:
+    default: "true"
+    prod: "false"
+```
+
+**Common Profile Issues**:
+
+1. **Profile not applied**: Using default value instead of profile-specific
+   - **Debug**: Check `--profile` flag is passed correctly
+   - **Verify**: Profile name matches exactly (case-sensitive)
+   - **Test**: Echo variable to see which value is used: `shell: "echo API_URL=$API_URL"`
+
+2. **Profile doesn't exist**: "Invalid profile" error
+   - **Debug**: List defined profiles in `env:` section of workflow
+   - **Fix**: Add profile definition or use correct profile name
+
+3. **Variable undefined in profile**: Falls back to default
+   - **Debug**: Check if variable has profile-specific value defined
+   - **Expected**: Fallback to `default` is normal behavior if profile value missing
+
+**Debugging Profile Selection**:
+```bash
+# Add debug output to workflow
+- shell: "echo Active environment: $ENVIRONMENT"
+- shell: "echo API URL: $API_URL"
+- shell: "echo Debug mode: $DEBUG_MODE"
+```
+
+**Profile Fallback Behavior**:
+- If profile value exists: Use profile-specific value
+- If profile value missing: Fall back to `default`
+- If no `default`: Variable is undefined
+
+### Sub-Workflow Debugging
+
+Sub-workflows allow composing complex workflows from smaller, reusable pieces. Debugging sub-workflows requires understanding result passing, context isolation, and failure propagation.
+
+**Sub-Workflow Execution Flow** (Source: features.json:workflow_composition.sub_workflows):
+```yaml
+# Parent workflow
+steps:
+  - sub_workflow: "./workflows/build.yml"
+    capture_result: build_output
+
+  - sub_workflow: "./workflows/test.yml"
+    params:
+      artifact_path: "${build_output.artifact_path}"
+```
+
+**Common Sub-Workflow Issues**:
+
+1. **Result not passed correctly between sub-workflows**
+   - **Debug**: Check `capture_result` is used to capture sub-workflow output
+   - **Verify**: Variable interpolation uses correct captured variable name
+   - **Test**: Echo captured result to verify structure
+
+2. **Sub-workflow failure doesn't fail parent**
+   - **Debug**: Check failure propagation settings
+   - **Expected**: By default, sub-workflow failures should fail parent workflow
+
+3. **Context isolation issues**: Variables not available in sub-workflow
+   - **Debug**: Use `params:` to explicitly pass variables to sub-workflow
+   - **Understanding**: Sub-workflows have isolated context by default
+   - **Solution**: Pass required variables via `params`
+
+**Debugging Sub-Workflow Execution**:
+```bash
+# Check sub-workflow was invoked
+cat ~/.prodigy/sessions/{session-id}.json | jq '.workflow_data.completed_steps'
+
+# View sub-workflow results
+cat ~/.prodigy/sessions/{session-id}.json | jq '.workflow_data.variables |
+  to_entries[] | select(.key | contains("result"))'
+
+# Check sub-workflow commits in worktree
+cd ~/.prodigy/worktrees/{repo}/{session}/
+git log --grep="sub_workflow" --oneline
+```
+
+**Sub-Workflow Parameter Passing**:
+```yaml
+# Explicit parameter passing
+- sub_workflow: "./workflows/deploy.yml"
+  params:
+    environment: "staging"
+    version: "${build_version}"
+    artifact: "${build_artifact}"
+```
+
+**Debugging Parameter Interpolation**:
+- Use verbose mode: `prodigy run workflow.yml -v`
+- Add echo statements in sub-workflow to verify parameters received
+- Check sub-workflow definition expects parameters with correct names
+
 ### Log and State Inspection
 
 **Event Logs** (MapReduce execution tracking):
@@ -242,6 +356,63 @@ Different workflow types have different debugging considerations:
 - Check parallel execution limits (`max_parallel`)
 - Verify item processing order if order matters
 - Debug failed items with individual command execution
+
+### Circuit Breaker Debugging
+
+When commands fail repeatedly, Prodigy's circuit breaker prevents further attempts until recovery timeout expires. Understanding circuit breaker states is essential for troubleshooting persistent failures.
+
+**Circuit Breaker States** (Source: src/cook/retry_state.rs:126-149):
+- **Closed**: Normal operation, retries allowed
+- **Open**: Circuit tripped due to failures, all attempts immediately fail
+- **Half-Open**: Testing recovery, limited attempts allowed
+
+**Diagnosing Circuit Breaker Issues**:
+
+```bash
+# Check checkpoint for circuit breaker state
+cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/*checkpoint*.json | \
+  jq '.circuit_breaker_states'
+
+# Look for open circuits
+cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/*checkpoint*.json | \
+  jq '.circuit_breaker_states | to_entries[] | select(.value.state == "Open")'
+```
+
+**Circuit Breaker Configuration** (from retry config):
+```yaml
+# Source: src/cook/retry_state.rs:126-144
+retry:
+  circuit_breaker:
+    failure_threshold: 5        # Failures before opening
+    recovery_timeout: 30s       # Wait before half-open
+    half_open_max_calls: 3      # Test attempts in half-open
+```
+
+**Common Circuit Breaker Problems**:
+
+1. **Circuit stuck open**: Too many failures, waiting for recovery_timeout
+   - **Solution**: Wait for timeout to expire, or fix underlying issue and restart
+   - **Debug**: Check `last_failure_at` timestamp and `recovery_timeout`
+
+2. **Circuit repeatedly opening**: Underlying issue not resolved
+   - **Solution**: Fix root cause (permissions, credentials, resource availability)
+   - **Debug**: Review `failure_count` and error messages in retry history
+
+3. **Half-open failures**: Recovery attempts still failing
+   - **Solution**: Increase `recovery_timeout` to allow more time for system recovery
+   - **Debug**: Check `half_open_success_count` vs `half_open_max_calls`
+
+**Adjusting Circuit Breaker Thresholds**:
+- Increase `failure_threshold` for transient errors: `failure_threshold: 10`
+- Increase `recovery_timeout` for slow-recovering services: `recovery_timeout: 60s`
+- Increase `half_open_max_calls` for more recovery attempts: `half_open_max_calls: 5`
+
+**Monitoring Circuit Breaker State**:
+```bash
+# View circuit state transitions over time
+cat ~/.prodigy/events/{repo}/{job_id}/events-*.jsonl | \
+  jq 'select(.circuit_breaker_state) | {timestamp, command_id, state: .circuit_breaker_state}'
+```
 
 ### Performance Debugging
 

@@ -4,101 +4,110 @@
   "section_title": "Reference",
   "page_id": "examples",
   "page_title": "Examples",
-  "page_file": "book/src/examples.md",
+  "page_file": "docs/examples.md",
   "drift_detected": true,
-  "severity": "low",
-  "quality_assessment": "Examples documentation is comprehensive, accurate, and well-structured. The page content itself is correct and reflects current syntax. Minor issue: Several example files in the examples/ directory use outdated syntax, but this does not affect the documentation quality since the docs show the correct syntax.",
+  "severity": "medium",
+  "quality_assessment": "Examples are comprehensive and well-structured, but contain deprecated syntax in some actual example files that contradicts documentation guidance",
   "issues": [
     {
-      "type": "outdated_example_files",
-      "severity": "low",
-      "section": "External Example Files",
-      "description": "Example files in examples/ directory use deprecated agent_template syntax",
-      "current_content": "agent_template:\n  commands:\n    - shell: ...",
-      "should_be": "agent_template:\n  - shell: ...",
-      "fix_suggestion": "Update example files (mapreduce-json-input.yml, mapreduce-command-input.yml, capture-output-custom-vars.yml, capture-parallel-analysis.yml) to remove the nested 'commands:' array under agent_template. The documentation already shows the correct syntax in Example 4 and elsewhere.",
-      "source_reference": "tests/write_file_integration_test.rs:22-25, tests/mapreduce_command_input_test.rs:28-31 show correct syntax without 'commands:' nesting",
-      "affected_files": [
-        "examples/mapreduce-json-input.yml:29-35",
-        "examples/mapreduce-command-input.yml:17-21",
-        "examples/capture-output-custom-vars.yml:25-38",
-        "examples/capture-parallel-analysis.yml:34-80"
-      ]
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Example 4: Parallel Code Review",
+      "description": "Two actual example YAML files in the repository still use deprecated 'timeout_per_agent' syntax",
+      "current_content": "examples/mapreduce-json-input.yml:40 and examples/mapreduce-command-input.yml:26 both use 'timeout_per_agent: 60'",
+      "should_be": "Should use 'agent_timeout_secs' or 'timeout_config' as documented in Example 8",
+      "fix_suggestion": "Update examples/mapreduce-json-input.yml and examples/mapreduce-command-input.yml to use current timeout syntax (agent_timeout_secs or timeout_config block)",
+      "source_reference": "src/cli/yaml_validator.rs:108-113 shows timeout_per_agent is deprecated and blocked by validator"
     },
     {
-      "type": "inconsistent_env_syntax",
+      "type": "inconsistent_examples",
+      "severity": "medium",
+      "section": "Example 8: Complex MapReduce with Error Handling",
+      "description": "Documentation shows 'on_failure' as nested commands under agent_template, but actual workflow files show different usage patterns",
+      "current_content": "Documentation shows:\n```yaml\nagent_template:\n  - shell: \"cargo test\"\n    on_failure:\n      claude: \"/debug-and-fix\"\n```",
+      "should_be": "Verify if on_failure should be a single command or an array of commands. Actual workflows show mixed usage.",
+      "fix_suggestion": "Clarify on_failure syntax - should it be a single command or an array? Update Example 8 to show the canonical pattern that matches src/config/ definitions.",
+      "source_reference": "Multiple workflow files show 'on_failure:' with various syntaxes - needs clarification"
+    },
+    {
+      "type": "missing_content",
       "severity": "low",
-      "section": "Example 7: Environment Variables",
-      "description": "Two valid approaches for secrets exist - documentation shows modern approach, one example file uses legacy approach",
-      "current_content": "workflows/mapreduce-env-example.yml uses top-level 'secrets:' field with provider/key structure",
-      "alternative_syntax": "env:\n  API_KEY:\n    secret: true\n    value: \"${SECRET_KEY}\"",
-      "fix_suggestion": "Both syntaxes are valid (supported by src/cook/environment/config.rs:84-96). Documentation correctly shows the modern approach. Consider updating mapreduce-env-example.yml to use the modern syntax for consistency, or add a note that both approaches are supported.",
-      "source_reference": "src/cook/environment/config.rs:12-36 (EnvironmentConfig), features.json:environment_management.secrets"
+      "section": "Example 14: Custom Merge Workflows",
+      "description": "Merge workflow example doesn't demonstrate timeout failure scenarios or what happens when merge commands fail",
+      "fix_suggestion": "Add a note or sub-example showing what happens when merge validation fails, and how to recover",
+      "source_reference": "src/config/mapreduce.rs:84-94 defines merge timeout, but error scenarios not covered"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Example 6: Multi-Step Validation",
+      "description": "Validation example shows 'validate' command structure but doesn't explain the full validation lifecycle or how validation.gaps is populated",
+      "fix_suggestion": "Add explanation of how validation.gaps variable is populated and what format it expects from the validation script/command",
+      "source_reference": "features.json:command_types.validate shows implementation_completeness_validation capabilities"
+    },
+    {
+      "type": "broken_links",
+      "severity": "low",
+      "section": "Cross-References",
+      "description": "All internal documentation links are valid",
+      "broken_links": [],
+      "validation_summary": "Checked 2 internal links: workflow-basics/error-handling.md and mapreduce/backoff-strategies.md - both exist"
     }
   ],
   "positive_aspects": [
-    "Comprehensive coverage of 14 different use cases from simple to advanced",
-    "Progressive complexity - examples build from simple to complex logically",
-    "Excellent source code references throughout with specific line numbers",
-    "All internal links are valid (error-handling.md, mapreduce/backoff-strategies.md)",
-    "Clear explanations of when to use each feature",
-    "Strong coverage of MapReduce, environment variables, retry strategies, and error handling",
-    "Quick reference table provides excellent navigation",
-    "Examples include practical debugging and troubleshooting guidance",
-    "Source references are accurate and verifiable",
-    "Syntax in documentation matches current implementation perfectly",
-    "Last verified timestamp (2025-01-11) with commit hash for traceability"
+    "Comprehensive coverage of all major workflow features",
+    "Clear progression from simple to advanced examples",
+    "Excellent quick reference table at the top",
+    "Good use of source references to actual code",
+    "Strong explanations of goal seeking, circuit breakers, and retry strategies",
+    "Well-structured sections with consistent formatting",
+    "Good balance of YAML examples and explanatory text",
+    "Examples demonstrate both standard and MapReduce workflow modes",
+    "Clear documentation of merge workflows with environment variables",
+    "Good coverage of environment variables, secrets, and profiles"
   ],
   "improvement_suggestions": [
-    "Add note in Example 7 that two secret syntaxes are supported (modern env-based vs legacy top-level)",
-    "Consider adding an example showing foreach with error handling and DLQ integration",
-    "Example 13 (Workflow Composition) could benefit from clearer status (currently marked as preview/pending CLI)",
-    "Add cross-reference from Example 8 to Example 11 for circuit breaker usage in MapReduce",
-    "Consider adding example combining circuit breakers with retry configuration",
-    "Add example showing write_file command usage (mentioned in quick reference but not demonstrated)",
-    "Consider adding timestamps or version info for when syntax changed (for users with old workflows)"
-  ],
-  "validation_notes": [
-    "All 14 examples validated against features.json inventory",
-    "Syntax matches test files in tests/ directory",
-    "Internal links verified to exist",
-    "Source code references spot-checked and accurate",
-    "Example files in examples/ directory reviewed for consistency",
-    "No broken links found",
-    "No missing features or undocumented capabilities"
+    "Fix the deprecated timeout_per_agent usage in examples/mapreduce-json-input.yml and examples/mapreduce-command-input.yml",
+    "Clarify on_failure syntax - ensure consistency between documentation and actual workflow examples",
+    "Add troubleshooting section for common example-running issues",
+    "Consider adding a 'Running These Examples' section showing how to execute them",
+    "Add note about which examples are self-contained vs. which require project setup",
+    "Consider adding expected output snippets for each example to show what success looks like",
+    "Add cross-reference from Example 8 to DLQ documentation page for deep dive on failure handling"
   ],
   "cross_references": [
-    "error-handling.md",
-    "mapreduce/backoff-strategies.md",
-    "mapreduce/checkpoint-and-resume.md",
-    "mapreduce/dead-letter-queue-dlq.md",
-    "environment/secrets-management.md",
-    "variables/custom-variable-capture.md"
+    "workflow-basics/error-handling",
+    "mapreduce/backoff-strategies",
+    "workflow-basics/environment-variables",
+    "mapreduce/checkpoint-resume",
+    "mapreduce/dead-letter-queue"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-11T09:45:00Z",
+    "analyzed_at": "2025-01-11T21:24:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
     "topics_covered": [
       "Practical workflows",
       "Use cases",
       "Best practices",
-      "Build and test pipelines",
-      "Goal seeking",
-      "MapReduce parallel processing",
-      "Environment configuration",
+      "Standard workflows",
+      "MapReduce workflows",
       "Error handling",
+      "Environment variables",
+      "Goal seeking",
       "Circuit breakers",
       "Retry strategies",
-      "Custom merge workflows",
-      "Conditional execution",
-      "Variable capture",
-      "Git context tracking"
+      "Workflow composition",
+      "Custom merge workflows"
     ],
     "validation_focus": "Check examples are valid and work with current syntax",
     "examples_count": 14,
-    "internal_links_checked": 2,
-    "internal_links_valid": 2,
-    "source_references_checked": 12,
-    "source_references_valid": 12
+    "deprecated_syntax_found": true,
+    "deprecated_fields": [
+      "timeout_per_agent"
+    ],
+    "affected_files": [
+      "examples/mapreduce-json-input.yml",
+      "examples/mapreduce-command-input.yml"
+    ]
   }
 }

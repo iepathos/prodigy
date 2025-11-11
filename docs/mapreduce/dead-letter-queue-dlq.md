@@ -31,7 +31,8 @@ For example:
 
 **Storage Implementation**:
 - `GlobalStorage` provides the base path: `~/.prodigy/dlq/{repo_name}/{job_id}` (src/storage/global.rs:47)
-- `DLQStorage` adds subdirectories: `mapreduce/dlq/{job_id}` for backward compatibility (src/cook/execution/dlq.rs:529)
+- `DLQStorage` adds subdirectories: `mapreduce/dlq/{job_id}` (src/cook/execution/dlq.rs:529)
+  - **Note**: The redundant `mapreduce/dlq/{job_id}` subdirectory structure is maintained for backward compatibility with earlier DLQ implementations. This ensures existing DLQ data remains accessible after upgrades.
 - Each failed item is stored as a separate JSON file in the `items/` directory (src/cook/execution/dlq.rs:536)
 - File naming: `{item_id}.json` (e.g., `item-123.json`)
 - `index.json` maintains a list of all item IDs and metadata for fast lookups (src/cook/execution/dlq.rs:608-637)
@@ -48,6 +49,7 @@ This global storage architecture enables:
 Each failed item in the DLQ is stored as a `DeadLetteredItem` with comprehensive failure information:
 
 ```json
+# Source: src/cook/execution/dlq.rs:32-43 (DeadLetteredItem struct)
 {
   "item_id": "item-123",
   "item_data": { "file": "src/main.rs", "priority": 5 },
@@ -99,6 +101,7 @@ Each failed item in the DLQ is stored as a `DeadLetteredItem` with comprehensive
 Each attempt in `failure_history` is a `FailureDetail` object (src/cook/execution/dlq.rs:46-59):
 
 ```json
+# Source: src/cook/execution/dlq.rs:46-59 (FailureDetail struct)
 {
   "attempt_number": 1,
   "timestamp": "2025-01-11T10:30:00Z",
@@ -135,8 +138,9 @@ The `error_type` field uses the `ErrorType` enum (src/cook/execution/dlq.rs:62-7
 - `ResourceExhausted`: System resources (memory, disk) exhausted
 - `Unknown`: Unclassified error
 
-**Example from tests** (tests/dlq_agent_integration_test.rs:69):
+**Example from tests**:
 ```rust
+// Source: tests/dlq_agent_integration_test.rs:69
 error_type: ErrorType::CommandFailed { exit_code: 1 }
 ```
 
@@ -227,9 +231,10 @@ Analysis output includes:
 
 > **⚠️ STUB**: This command is not yet implemented. Description below shows planned interface.
 
-Reprocess failed items (src/cli/args.rs:640-654):
+Reprocess failed items:
 
 ```bash
+# Source: src/cli/args.rs:640-659
 # Retry all failed items for a workflow
 prodigy dlq retry <workflow_id>
 
@@ -249,9 +254,9 @@ prodigy dlq retry <workflow_id> --force
 **Command Parameters**:
 - `<workflow_id>`: The workflow/job identifier to retry items from (e.g., "mapreduce-1234567890")
 - `--parallel`: Number of concurrent retry workers (default: 10, src/cli/args.rs:653)
-- `--max-retries`: Maximum retry attempts per item (default: 3, src/cli/args.rs:648)
-- `--filter`: Expression to filter which items to retry (default: all eligible items, src/cli/args.rs:644)
-- `--force`: Force retry of items marked as not eligible (default: false, src/cli/args.rs:650)
+- `--max-retries`: Maximum retry attempts per item (default: 3, src/cli/args.rs:649)
+- `--filter`: Expression to filter which items to retry (default: all eligible items, src/cli/args.rs:645)
+- `--force`: Force retry of items marked as not eligible (default: false, src/cli/args.rs:657)
 
 #### Retry Behavior
 
@@ -383,6 +388,7 @@ For more details on Claude JSON logs, see [Best Practices for Debugging](../trou
 The DLQ is tightly integrated with MapReduce workflows through the `on_item_failure` policy:
 
 ```yaml
+# Source: Workflow configuration (see src/config/mapreduce.rs for MapConfig schema)
 name: my-workflow
 mode: mapreduce
 
@@ -462,6 +468,7 @@ For advanced debugging or direct file access, understanding the DLQ storage stru
 The `index.json` file provides metadata about the DLQ (src/cook/execution/dlq.rs:608-637):
 
 ```json
+# Source: src/cook/execution/dlq.rs:608-637 (index structure)
 {
   "job_id": "mapreduce-1234567890",
   "item_count": 3,
@@ -493,7 +500,7 @@ jq '.item_count' ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapre
 
 - [Checkpoint and Resume](./checkpoint-and-resume.md): DLQ state preserved in checkpoints
 - [Event Tracking](./event-tracking.md): DLQ operations emit trackable events
-- [Error Handling](../error-handling.md): Broader error handling strategies
+- [Error Handling](../workflow-basics/error-handling.md): Broader error handling strategies
 - [Worktree Architecture](../mapreduce-worktree-architecture.md): Agent isolation and artifact preservation
 - [Best Practices for Debugging](../troubleshooting/best-practices-for-debugging.md): Using JSON logs and DLQ for debugging failed items
 - [Retry Metrics and Observability](../retry-configuration/retry-metrics-and-observability.md): Monitoring retry behavior and failures
