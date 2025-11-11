@@ -369,7 +369,7 @@ You can also access metrics programmatically via the Prodigy API or through CLI 
 
 Prodigy automatically detects recurring error patterns when an error type occurs 3 or more times. The following error types receive specific remediation suggestions in the `failure_patterns` field:
 
-- **Timeout errors** → "Consider increasing timeout_per_agent"
+- **Timeout errors** → "Consider increasing agent_timeout_secs in timeout_config"
 - **Network errors** → "Check network connectivity and retry settings"
 - **Permission errors** → "Verify file permissions and access rights"
 
