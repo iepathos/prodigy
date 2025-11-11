@@ -1,0 +1,361 @@
+[
+  {
+    "id": "index",
+    "title": "Home",
+    "file": "docs/index.md",
+    "type": "single-file",
+    "topics": [
+      "Introduction",
+      "Getting started",
+      "Quick start"
+    ],
+    "validation": "Check that home page provides clear introduction and navigation"
+  },
+  {
+    "id": "workflow-structure",
+    "title": "Workflow Structure",
+    "file": "docs/workflow-basics/workflow-structure.md",
+    "section_id": "workflow-basics",
+    "section_title": "Workflow Basics",
+    "type": "section-page",
+    "topics": [
+      "Basic structure",
+      "Command execution",
+      "Available fields"
+    ],
+    "validation": "Check basic workflow syntax and structure documentation"
+  },
+  {
+    "id": "command-types",
+    "title": "Command Types",
+    "file": "docs/workflow-basics/command-types.md",
+    "section_id": "workflow-basics",
+    "section_title": "Workflow Basics",
+    "type": "section-page",
+    "topics": [
+      "Shell commands",
+      "Claude commands",
+      "Goal-seeking",
+      "Foreach"
+    ],
+    "validation": "Check all command types are documented"
+  },
+  {
+    "id": "variables",
+    "title": "Variables and Interpolation",
+    "file": "docs/workflow-basics/variables.md",
+    "section_id": "workflow-basics",
+    "section_title": "Workflow Basics",
+    "type": "section-page",
+    "topics": [
+      "Variable interpolation",
+      "Standard variables",
+      "MapReduce variables",
+      "Capture variables",
+      "Output formats"
+    ],
+    "validation": "Check variable syntax, interpolation engine, and capture formats are documented",
+    "feature_mapping": [
+      "variable_system.standard_variables",
+      "variable_system.mapreduce_variables",
+      "variable_system.capture_variables",
+      "variable_system.interpolation"
+    ],
+    "auto_generated": true,
+    "source_feature": "variable_system"
+  },
+  {
+    "id": "environment",
+    "title": "Environment Variables",
+    "file": "docs/workflow-basics/environment.md",
+    "section_id": "workflow-basics",
+    "section_title": "Workflow Basics",
+    "type": "section-page",
+    "topics": [
+      "Global environment variables",
+      "Secrets management",
+      "Profile support",
+      "Environment files"
+    ],
+    "validation": "Check environment variable configuration, secrets masking, and profile usage are documented",
+    "feature_mapping": [
+      "environment_management.global_env",
+      "environment_management.secrets",
+      "environment_management.profiles",
+      "environment_management.env_files"
+    ],
+    "auto_generated": true,
+    "source_feature": "environment_management"
+  },
+  {
+    "id": "conditional-execution",
+    "title": "Conditional Execution",
+    "file": "docs/workflow-basics/conditional-execution.md",
+    "section_id": "workflow-basics",
+    "section_title": "Workflow Basics",
+    "type": "section-page",
+    "topics": [
+      "When clauses",
+      "On failure handlers",
+      "On success handlers",
+      "Conditional logic"
+    ],
+    "validation": "Check conditional execution syntax and use cases are documented",
+    "feature_mapping": [
+      "conditional_execution.when_clauses",
+      "conditional_execution.on_failure",
+      "conditional_execution.on_success"
+    ],
+    "auto_generated": true,
+    "source_feature": "conditional_execution"
+  },
+  {
+    "id": "error-handling",
+    "title": "Error Handling",
+    "file": "docs/workflow-basics/error-handling.md",
+    "section_id": "workflow-basics",
+    "section_title": "Workflow Basics",
+    "type": "section-page",
+    "topics": [
+      "Workflow-level policies",
+      "Command-level handlers",
+      "Circuit breakers",
+      "Retry strategies"
+    ],
+    "validation": "Check error handling policies, retry configuration, and circuit breakers are documented",
+    "feature_mapping": [
+      "error_handling.workflow_level",
+      "error_handling.command_level",
+      "error_handling.advanced_features.circuit_breaker",
+      "error_handling.advanced_features.retry_configuration"
+    ],
+    "auto_generated": true,
+    "source_feature": "error_handling"
+  },
+  {
+    "id": "mapreduce-overview",
+    "title": "Overview",
+    "file": "docs/mapreduce/overview.md",
+    "section_id": "mapreduce",
+    "section_title": "MapReduce Workflows",
+    "type": "section-page",
+    "topics": [
+      "MapReduce mode",
+      "Setup phase",
+      "Map phase",
+      "Reduce phase"
+    ],
+    "validation": "Check MapReduce overview and concepts"
+  },
+  {
+    "id": "work-distribution",
+    "title": "Work Distribution",
+    "file": "docs/mapreduce/work-distribution.md",
+    "section_id": "mapreduce",
+    "section_title": "MapReduce Workflows",
+    "type": "section-page",
+    "topics": [
+      "JSONPath extraction",
+      "Filtering and sorting",
+      "Pagination",
+      "Deduplication"
+    ],
+    "validation": "Check work item management, JSONPath usage, filtering, and sorting are documented",
+    "feature_mapping": [
+      "mapreduce_workflows.core_capabilities.work_distribution"
+    ],
+    "auto_generated": true,
+    "source_feature": "mapreduce_workflows"
+  },
+  {
+    "id": "checkpoint-resume",
+    "title": "Checkpoint and Resume",
+    "file": "docs/mapreduce/checkpoint-resume.md",
+    "section_id": "mapreduce",
+    "section_title": "MapReduce Workflows",
+    "type": "section-page",
+    "topics": [
+      "Checkpoints",
+      "Resume",
+      "State management"
+    ],
+    "validation": "Check checkpoint structure and resume behavior documented",
+    "feature_mapping": [
+      "mapreduce.checkpoint",
+      "mapreduce.resume"
+    ]
+  },
+  {
+    "id": "dlq",
+    "title": "Dead Letter Queue",
+    "file": "docs/mapreduce/dlq.md",
+    "section_id": "mapreduce",
+    "section_title": "MapReduce Workflows",
+    "type": "section-page",
+    "topics": [
+      "Failed items",
+      "Retry",
+      "DLQ management"
+    ],
+    "validation": "Check DLQ structure and retry commands documented",
+    "feature_mapping": [
+      "mapreduce.dlq",
+      "error_handling.dlq"
+    ]
+  },
+  {
+    "id": "composition",
+    "title": "Workflow Composition",
+    "file": "docs/advanced/composition.md",
+    "section_id": "advanced",
+    "section_title": "Advanced Features",
+    "type": "section-page",
+    "topics": [
+      "Imports",
+      "Inheritance",
+      "Templates",
+      "Parameters",
+      "Sub-workflows"
+    ],
+    "validation": "Check workflow composition features including imports, extends, templates, and sub-workflows are documented",
+    "feature_mapping": [
+      "workflow_composition.imports",
+      "workflow_composition.inheritance",
+      "workflow_composition.templates",
+      "workflow_composition.parameters",
+      "workflow_composition.sub_workflows"
+    ],
+    "auto_generated": true,
+    "source_feature": "workflow_composition"
+  },
+  {
+    "id": "git-integration",
+    "title": "Git Integration",
+    "file": "docs/advanced/git-integration.md",
+    "section_id": "advanced",
+    "section_title": "Advanced Features",
+    "type": "section-page",
+    "topics": [
+      "Worktree management",
+      "Commit tracking",
+      "Merge workflows",
+      "Branch tracking"
+    ],
+    "validation": "Check worktree isolation, commit tracking, and merge workflow features are documented",
+    "feature_mapping": [
+      "git_integration.worktree_management",
+      "git_integration.commit_tracking",
+      "git_integration.merge_workflows",
+      "git_integration.branch_tracking"
+    ],
+    "auto_generated": true,
+    "source_feature": "git_integration"
+  },
+  {
+    "id": "sessions",
+    "title": "Session Management",
+    "file": "docs/advanced/sessions.md",
+    "section_id": "advanced",
+    "section_title": "Advanced Features",
+    "type": "section-page",
+    "topics": [
+      "Session types",
+      "Session lifecycle",
+      "Resume capabilities",
+      "State persistence"
+    ],
+    "validation": "Check session tracking, lifecycle states, and resume features are documented",
+    "feature_mapping": [
+      "session_management.session_types",
+      "session_management.lifecycle",
+      "session_management.resume"
+    ],
+    "auto_generated": true,
+    "source_feature": "session_management"
+  },
+  {
+    "id": "observability",
+    "title": "Observability and Logging",
+    "file": "docs/advanced/observability.md",
+    "section_id": "advanced",
+    "section_title": "Advanced Features",
+    "type": "section-page",
+    "topics": [
+      "Event tracking",
+      "Claude observability",
+      "Verbosity control",
+      "Log analysis"
+    ],
+    "validation": "Check event logging, Claude log tracking, and verbosity settings are documented",
+    "feature_mapping": [
+      "observability.event_tracking",
+      "observability.claude_observability",
+      "observability.verbosity_control"
+    ],
+    "auto_generated": true,
+    "source_feature": "observability"
+  },
+  {
+    "id": "storage",
+    "title": "Storage Architecture",
+    "file": "docs/advanced/storage.md",
+    "section_id": "advanced",
+    "section_title": "Advanced Features",
+    "type": "section-page",
+    "topics": [
+      "Global storage structure",
+      "Cross-repository organization",
+      "Event storage",
+      "State persistence"
+    ],
+    "validation": "Check storage directories, organization structure, and benefits are documented",
+    "feature_mapping": [
+      "storage_architecture.structure",
+      "storage_architecture.benefits"
+    ],
+    "auto_generated": true,
+    "source_feature": "storage_architecture"
+  },
+  {
+    "id": "global-config",
+    "title": "Global Configuration",
+    "file": "docs/configuration/global-config.md",
+    "section_id": "configuration",
+    "section_title": "Configuration",
+    "type": "section-page",
+    "topics": [
+      "Config file locations",
+      "Precedence rules",
+      "Claude settings"
+    ],
+    "validation": "Check configuration structure matches Settings struct"
+  },
+  {
+    "id": "examples",
+    "title": "Examples",
+    "file": "docs/reference/examples.md",
+    "section_id": "reference",
+    "section_title": "Reference",
+    "type": "section-page",
+    "topics": [
+      "Practical workflows",
+      "Use cases",
+      "Best practices"
+    ],
+    "validation": "Check examples are valid and work with current syntax"
+  },
+  {
+    "id": "troubleshooting",
+    "title": "Troubleshooting",
+    "file": "docs/reference/troubleshooting.md",
+    "section_id": "reference",
+    "section_title": "Reference",
+    "type": "section-page",
+    "topics": [
+      "Common issues",
+      "Debug tips",
+      "FAQ"
+    ],
+    "validation": "Check troubleshooting covers common user issues"
+  }
+]
