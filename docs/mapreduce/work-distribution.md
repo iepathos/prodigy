@@ -16,6 +16,7 @@ Work distribution features:
 Work items can come from JSON files or command outputs:
 
 ```yaml
+# Source: src/config/mapreduce.rs
 map:
   input: "items.json"          # JSON file
   json_path: "$.items[*]"      # JSONPath to extract items
@@ -24,6 +25,7 @@ map:
 Or from command output:
 
 ```yaml
+# Source: workflows/debtmap-reduce.yml
 setup:
   - shell: "generate-items.sh"
     capture:
@@ -55,6 +57,7 @@ json_path: "$.items[?(@.score >= 5)]"
 Filter items using boolean expressions:
 
 ```yaml
+# Source: src/cook/execution/data_pipeline/filter.rs
 map:
   input: "items.json"
   json_path: "$.items[*]"
@@ -80,6 +83,7 @@ filter: "item.priority == 'high' || (item.score >= 8 && item.category == 'critic
 Process items in a specific order:
 
 ```yaml
+# Source: src/cook/execution/data_pipeline/sorter.rs
 map:
   input: "items.json"
   json_path: "$.items[*]"
@@ -96,6 +100,7 @@ Sort options:
 Process large datasets in chunks:
 
 ```yaml
+# Source: src/cook/execution/data_pipeline/mod.rs:177-191
 map:
   input: "items.json"
   json_path: "$.items[*]"
@@ -113,25 +118,46 @@ Use pagination for:
 Remove duplicate items by field:
 
 ```yaml
+# Source: src/config/mapreduce.rs:261
 map:
   input: "items.json"
   json_path: "$.items[*]"
-  deduplicate_by: "item.id"
+  distinct: "item.id"
 ```
 
 Deduplication uses the first occurrence of each unique value.
+
+!!! note "Null Value Handling"
+    Items with null values for the distinct field are treated as having a 'null' key and are deduplicated together. This means only the first item with a null value will be kept.
+
+## Processing Pipeline Order
+
+When multiple work distribution features are used together, they are applied in a specific order:
+
+1. **JSONPath extraction** - Extract items from input JSON
+2. **Filtering** - Apply filter expressions to select items
+3. **Sorting** - Order items by specified fields
+4. **Deduplication** - Remove duplicates by distinct field
+5. **Offset** - Skip first N items
+6. **Limit** (max_items) - Truncate to maximum count
+
+This order ensures predictable behavior when combining features.
+
+!!! tip "Filter Expression Evaluation"
+    When evaluating filter expressions, accessing non-existent fields returns false. This means items without the specified field will be filtered out. Always ensure your items have the expected structure, or use functions like `is_null()` to handle missing fields explicitly.
 
 ## Combining Distribution Features
 
 All features can be combined for complex work distribution:
 
 ```yaml
+# Source: workflows/debtmap-reduce.yml:79-81
 map:
   input: "tasks.json"
   json_path: "$.tasks[*]"
   filter: "item.status == 'pending' && item.score >= 5"
   sort_by: "item.priority DESC"
-  deduplicate_by: "item.task_id"
+  distinct: "item.task_id"
   offset: 0
   max_items: 50
   max_parallel: 10
