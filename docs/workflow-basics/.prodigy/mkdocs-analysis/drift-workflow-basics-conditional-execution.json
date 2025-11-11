@@ -1,0 +1,111 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "conditional-execution",
+  "page_title": "Conditional Execution",
+  "page_file": "docs/workflow-basics/conditional-execution.md",
+  "feature_mappings": [
+    "conditional_execution.when_clauses",
+    "conditional_execution.on_failure",
+    "conditional_execution.on_success"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page covers core conditional execution features well but has broken cross-references and could benefit from more implementation-accurate examples",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "See Also",
+      "description": "Found 2 broken internal link(s) in cross-references",
+      "broken_links": [
+        {
+          "link_text": "Command Types",
+          "original_target": "command-types.md",
+          "expected_path": "docs/workflow-basics/command-types.md",
+          "current_file": "docs/workflow-basics/conditional-execution.md",
+          "exists": false,
+          "suggested_fix": "This appears to be a reference to command documentation. Based on the codebase structure, command types are documented in workflow-structure.md which covers shell, claude, test, goal_seek, foreach, write_file, and handler commands."
+        },
+        {
+          "link_text": "Variables and Interpolation",
+          "original_target": "variables.md",
+          "expected_path": "docs/workflow-basics/variables.md",
+          "current_file": "docs/workflow-basics/conditional-execution.md",
+          "exists": true,
+          "suggested_fix": "Link target exists and is correct"
+        }
+      ],
+      "fix_suggestion": "Update 'command-types.md' link to reference existing documentation. Consider linking to 'workflow-structure.md' which documents all command types."
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "On Failure Handlers",
+      "description": "Documentation shows simplified on_failure syntax but doesn't explain all available configuration options",
+      "current_content": "on_failure:\n  - claude: \"/fix-test-failures\"\n  - shell: \"cargo test\"",
+      "should_be": "on_failure can accept multiple formats:\n1. Single command string\n2. Multiple command array\n3. Advanced configuration with fail_workflow, max_retries, and retry_original flags\n4. Detailed configuration with strategy, timeout, capture, and handler_failure_fatal",
+      "fix_suggestion": "Add section explaining OnFailureConfig variants: SingleCommand, MultipleCommands, Advanced (with fail_workflow, max_retries), and Detailed (with strategy, timeout, capture)",
+      "source_reference": "src/cook/workflow/on_failure.rs:OnFailureConfig"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Escalation Control",
+      "description": "Example shows continue_on_error but doesn't explain its relationship with on_failure's fail_workflow option",
+      "current_content": "continue_on_error: true  # Don't fail workflow",
+      "should_be": "Explain that continue_on_error controls whether the workflow continues regardless of failure handling, while on_failure.fail_workflow controls whether to fail after running recovery handlers",
+      "fix_suggestion": "Add explanation distinguishing continue_on_error (skip failure entirely) from on_failure.fail_workflow (fail after handling)",
+      "source_reference": "src/config/command.rs:CommandMetadata.continue_on_error, src/cook/workflow/on_failure.rs:OnFailureConfig.should_fail_workflow"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "On Failure Handlers",
+      "description": "Missing documentation for handler strategy types and their use cases",
+      "feature_reference": "conditional_execution.on_failure.strategies",
+      "fix_suggestion": "Add section explaining HandlerStrategy enum: Recovery (fix the problem), Fallback (alternative approach), Cleanup (resource cleanup), Custom (user-defined logic)",
+      "source_reference": "src/cook/workflow/on_failure.rs:HandlerStrategy"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "On Failure Handlers",
+      "description": "Missing documentation for on_exit_code handlers",
+      "feature_reference": "conditional_execution.on_exit_code",
+      "fix_suggestion": "Add section showing how to handle specific exit codes with on_exit_code configuration",
+      "source_reference": "src/cook/workflow/executor/data_structures.rs:WorkflowStep.on_exit_code"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of when clauses with good operator coverage",
+    "Practical examples showing AI-assisted recovery patterns",
+    "Good progression from simple to complex conditional logic",
+    "Examples use real-world scenarios (build, test, deploy)",
+    "Shows combining when clauses with handlers effectively"
+  ],
+  "improvement_suggestions": [
+    "Add troubleshooting section for common conditional execution issues",
+    "Include example of Detailed on_failure configuration with capture and strategy",
+    "Show how to use handler_failure_fatal to control cascading failures",
+    "Add example of on_exit_code for handling specific exit conditions",
+    "Clarify the execution order when both on_failure and continue_on_error are present"
+  ],
+  "cross_references": [
+    "error-handling",
+    "variables",
+    "workflow-structure"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T09:45:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "When clauses",
+      "On failure handlers",
+      "On success handlers",
+      "Conditional logic"
+    ],
+    "validation_focus": "Check conditional execution syntax and use cases are documented"
+  }
+}
