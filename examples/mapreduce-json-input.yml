@@ -27,12 +27,11 @@ map:
 
   # Template for each parallel agent
   agent_template:
-    commands:
-      - shell: echo "Processing item ${item.id}: ${item.task} for ${item.file}"
-      - shell: |
-          # Simulate processing
-          sleep 1
-          echo "Completed ${item.task} on ${item.file}"
+    - shell: echo "Processing item ${item.id}: ${item.task} for ${item.file}"
+    - shell: |
+        # Simulate processing
+        sleep 1
+        echo "Completed ${item.task} on ${item.file}"
 
   # Run up to 3 agents in parallel
   max_parallel: 3
@@ -42,7 +41,6 @@ map:
 
 # Reduce phase - aggregate results
 reduce:
-  commands:
-    - shell: echo "Processed ${map.total} items"
-    - shell: echo "Successful: ${map.successful}, Failed: ${map.failed}"
-    - shell: rm -f work-items.json
+  - shell: echo "Processed ${map.total} items"
+  - shell: echo "Successful: ${map.successful}, Failed: ${map.failed}"
+  - shell: rm -f work-items.json
