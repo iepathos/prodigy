@@ -1,0 +1,94 @@
+{
+  "item_type": "page",
+  "page_id": "index",
+  "page_title": "Home",
+  "page_file": "book/src/index.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Home page provides good introduction and navigation but misses several key features that would help users understand Prodigy's full capabilities",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "What is Prodigy?",
+      "description": "Missing mention of checkpoint and resume capabilities, which are critical for long-running workflows",
+      "feature_reference": "session_management.resume",
+      "fix_suggestion": "Add bullet point highlighting checkpoint and resume capabilities for long-running operations",
+      "source_reference": "src/session/unified_session.rs, src/mapreduce/checkpoint.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "What is Prodigy?",
+      "description": "Dead Letter Queue (DLQ) and failure handling not mentioned, which is a key differentiator for production reliability",
+      "feature_reference": "error_handling.advanced_features.dead_letter_queue",
+      "fix_suggestion": "Add bullet point about automated failure recovery and DLQ for failed items",
+      "source_reference": "src/mapreduce/dlq.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Quick Start",
+      "description": "Quick start example doesn't show workflow structure with name/mode fields",
+      "feature_reference": "workflow_basics",
+      "fix_suggestion": "Update quick start example to include minimal workflow metadata (name field) for consistency with full workflow structure",
+      "source_reference": "src/config/workflow.rs:WorkflowConfig"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Key Concepts",
+      "description": "Variables section mentions 'captured and interpolated' but doesn't highlight the comprehensive variable system with defaults, aliases, and nested field access",
+      "feature_reference": "variable_system.interpolation",
+      "fix_suggestion": "Expand variables bullet to mention output capture formats (json, lines, number) and interpolation features",
+      "source_reference": "src/interpolation/engine.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Key Concepts",
+      "description": "Environment variables and secrets management not mentioned in key concepts despite being a major feature",
+      "feature_reference": "environment_management",
+      "fix_suggestion": "Add key concept for environment configuration including secrets and profiles",
+      "source_reference": "src/config/environment.rs"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Key Concepts",
+      "description": "Validation bullet is too brief - doesn't explain implementation validation vs test validation",
+      "feature_reference": "command_types.validate",
+      "fix_suggestion": "Clarify that validation includes both automated testing and implementation completeness checking",
+      "source_reference": "src/workflow/commands/validate.rs"
+    }
+  ],
+  "positive_aspects": [
+    "Clear, concise introduction that explains what Prodigy is and why it exists",
+    "Excellent self-referential example (documentation maintained by Prodigy itself)",
+    "Good progressive disclosure - starts simple, then directs to detailed docs",
+    "Quick start example is genuinely quick and demonstrates core value",
+    "All internal links are valid and point to correct files",
+    "Navigation structure is clear with logical grouping",
+    "Highlights automated documentation as a unique feature"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a 'Use Cases' section showing where Prodigy excels (code reviews, refactoring, documentation, testing)",
+    "Add a brief comparison or positioning statement (e.g., 'Like GitHub Actions but with AI' or 'MapReduce for code changes')",
+    "Include a visual diagram or workflow illustration in the introduction",
+    "Add a 'Why Prodigy?' section highlighting key differentiators (DLQ, checkpoints, worktree isolation)",
+    "Consider adding a success metric or testimonial if available",
+    "Link to MapReduce section earlier since it's a key differentiator"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-11-11T10:03:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["Introduction", "Getting started", "Quick start"],
+    "validation_focus": "Check that home page provides clear introduction and navigation",
+    "link_validation": {
+      "total_internal_links": 7,
+      "broken_links": 0,
+      "valid_links": 7
+    }
+  }
+}
