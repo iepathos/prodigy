@@ -119,6 +119,7 @@ echo "gaps: Missing tests for auth module"
 ## Example 4: Parallel Code Review
 
 ```yaml
+# Source: Based on examples/mapreduce-json-input.yml and examples/mapreduce-command-input.yml
 name: parallel-code-review
 mode: mapreduce
 
@@ -192,6 +193,7 @@ reduce:
 ## Example 6: Multi-Step Validation
 
 ```yaml
+# Source: Validation pattern from src/cook/goal_seek/mod.rs and features.json
 - claude: "/implement-feature auth"
   commit_required: true
   validate:
@@ -206,6 +208,48 @@ reduce:
       commit_required: true
       max_attempts: 2
 ```
+
+**Validation Lifecycle Explanation:**
+
+The validation system follows this flow:
+1. **Execute validation commands** - Run tests, linting, and custom validation scripts
+2. **Parse result file** - Read `validation.json` to extract score and gaps
+3. **Check threshold** - Compare score against threshold (90 in this example)
+4. **Populate `validation.gaps`** - If score < threshold, extract gaps from result file
+5. **Execute `on_incomplete`** - Pass gaps to Claude for targeted fixes
+
+**Result File Format:**
+
+The validation result file (`validation.json`) should contain:
+```json
+{
+  "score": 75,
+  "gaps": [
+    "Missing tests for login endpoint",
+    "No error handling for invalid tokens",
+    "Documentation incomplete for auth module"
+  ]
+}
+```
+
+The `${validation.gaps}` variable is populated from the `gaps` array in the result file. If the result file doesn't contain a `gaps` field, validation will fail with an error.
+
+**Alternative: Shell Script Validation**
+
+You can also use shell scripts that output structured data:
+```yaml
+validate:
+  commands:
+    - shell: |
+        # Run tests and extract missing coverage
+        cargo tarpaulin --output-format json > coverage.json
+        # Parse coverage and create validation result
+        jq '{score: .coverage, gaps: .uncovered_files}' coverage.json > validation.json
+  result_file: "validation.json"
+  threshold: 80
+```
+
+**Note:** Validation is a one-time completion check, distinct from `goal_seek` which iteratively improves until a threshold is met. Use validation when you want to verify completeness and have Claude fill specific gaps.
 
 ---
 
@@ -311,6 +355,7 @@ The modern `env`-based approach is recommended for consistency, but legacy workf
 ## Example 8: Complex MapReduce with Error Handling
 
 ```yaml
+# Source: Combines patterns from src/config/mapreduce.rs and workflows/debtmap-reduce.yml
 name: tech-debt-elimination
 mode: mapreduce
 
@@ -336,6 +381,7 @@ map:
       commit_required: true
     - shell: "cargo test"
       on_failure:
+        # on_failure accepts a single command (shell or claude)
         claude: "/debug-and-fix"
 
 reduce:
@@ -348,6 +394,29 @@ error_policy:
   max_failures: 5  # Optional: stop after N failures
   failure_threshold: 0.3  # Optional: stop if >30% fail
   error_collection: aggregate  # Default: aggregate (Options: aggregate, immediate, batched:{size})
+```
+
+**on_failure Syntax Note**: The `on_failure` field accepts a **single command** (either `shell:` or `claude:`), not an array of commands. The command structure is:
+```yaml
+on_failure:
+  claude: "/fix-command"
+  # or
+  shell: "echo 'Fixing...'"
+  max_attempts: 3       # Optional: retry the on_failure handler
+  commit_required: true # Optional: require commit after fixing
+```
+
+For multiple failure recovery steps, nest handlers:
+```yaml
+# Source: Pattern from workflows/implement-with-tests.yml:36-39
+- shell: "cargo test"
+  on_failure:
+    claude: "/fix-tests"
+    commit_required: true
+    on_failure:
+      # Nested handler for second-level failure
+      claude: "/fix-tests --deep-analysis"
+      commit_required: true
 ```
 
 **Note:** The entire `error_policy` block is optional with sensible defaults. If not specified, failed items go to the Dead Letter Queue (`on_item_failure: dlq`), workflow continues despite failures (`continue_on_failure: true`), and errors are aggregated at the end (`error_collection: aggregate`). Use `max_failures` or `failure_threshold` to fail fast if too many items fail.
@@ -928,6 +997,26 @@ merge:
 - Always pass **both** `${merge.source_branch}` and `${merge.target_branch}` to `/prodigy-merge-worktree`
 - This ensures the merge targets your original branch, not a hardcoded main/master
 - Without a custom merge workflow, you'll be prompted interactively to merge
+
+**Handling Merge Failures:**
+If merge validation fails (e.g., tests fail, linting fails), the `on_failure` handlers will attempt to fix the issues. If fixes cannot be applied automatically, the merge workflow will fail, and changes remain in the worktree for manual review:
+
+```yaml
+# Source: Pattern from workflows/mapreduce-env-example.yml:83-94
+- shell: "cargo test --all"
+  on_failure:
+    claude: "/fix-failing-tests before merge"
+    commit_required: true
+    max_attempts: 2
+    # If tests still fail after 2 attempts, workflow stops
+    # Changes remain in worktree at ~/.prodigy/worktrees/{repo_name}/{session_id}/
+```
+
+**Recovery from Failed Merge:**
+1. Navigate to the worktree: `cd ~/.prodigy/worktrees/{repo_name}/{session_id}/`
+2. Fix issues manually and commit changes
+3. Resume the merge workflow: `prodigy resume {session_id}`
+4. Or manually merge: `git checkout {target_branch} && git merge {source_branch}`
 
 **Simplified Format:**
 If you don't need timeout configuration, you can use the simplified format:
