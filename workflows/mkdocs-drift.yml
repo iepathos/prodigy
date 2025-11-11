@@ -2,7 +2,7 @@
 # This workflow analyzes the codebase and updates docs/*.md files
 # to reflect the latest supported features and syntax.
 
-name: prodigy-mkdocs-docs-drift-detection
+name: prodigy-mkdocs-drift-detection
 mode: mapreduce
 
 # Environment variables for parameterization
