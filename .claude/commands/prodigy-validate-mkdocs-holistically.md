@@ -52,7 +52,123 @@ if [ ! -f "mkdocs.yml" ]; then
 fi
 ```
 
-### Phase 3: Scan Documentation Structure
+### Phase 3: MkDocs-Specific Validation
+
+**CRITICAL: These checks must pass before proceeding with content validation.**
+
+**Step 1: Verify index.md Exists**
+
+```bash
+if [ ! -f "$DOCS_DIR/index.md" ]; then
+    echo "❌ CRITICAL: Missing index.md landing page"
+    echo "   MkDocs requires a homepage at $DOCS_DIR/index.md"
+
+    if [ "$AUTO_FIX" = "true" ]; then
+        echo "   Creating basic index.md..."
+        cat > "$DOCS_DIR/index.md" <<'EOF'
+# ${PROJECT_NAME} Documentation
+
+Welcome to the ${PROJECT_NAME} documentation.
+
+## Contents
+
+See the navigation menu for available documentation sections.
+EOF
+        echo "   ✓ Created $DOCS_DIR/index.md"
+    else
+        exit 1
+    fi
+fi
+```
+
+**Step 2: Validate mkdocs.yml Navigation Completeness**
+
+Check for orphaned files (files in docs/ not referenced in mkdocs.yml nav):
+
+```bash
+# Extract all files referenced in mkdocs.yml nav
+grep -oP ':\s*\K[^\s]+\.md' mkdocs.yml | sort > /tmp/nav-files.txt
+
+# Find all actual markdown files in docs/
+find "$DOCS_DIR" -name "*.md" -type f | sed "s|^$DOCS_DIR/||" | sort > /tmp/actual-files.txt
+
+# Find orphaned files (in docs/ but not in nav)
+comm -13 /tmp/nav-files.txt /tmp/actual-files.txt > /tmp/orphaned-files.txt
+
+ORPHANED_COUNT=$(wc -l < /tmp/orphaned-files.txt)
+
+if [ "$ORPHANED_COUNT" -gt 0 ]; then
+    echo "⚠ WARNING: $ORPHANED_COUNT file(s) not included in mkdocs.yml nav:"
+    cat /tmp/orphaned-files.txt | while read -r FILE; do
+        echo "  - $FILE"
+    done
+
+    if [ "$AUTO_FIX" = "true" ]; then
+        echo ""
+        echo "  Note: Orphaned files should be added to mkdocs.yml nav manually"
+        echo "  Auto-fix cannot determine correct nav position automatically"
+    fi
+
+    # Store for report
+    ORPHANED_FILES=$(cat /tmp/orphaned-files.txt)
+fi
+
+# Find missing files (in nav but not in docs/)
+comm -23 /tmp/nav-files.txt /tmp/actual-files.txt > /tmp/missing-files.txt
+
+MISSING_COUNT=$(wc -l < /tmp/missing-files.txt)
+
+if [ "$MISSING_COUNT" -gt 0 ]; then
+    echo "❌ ERROR: $MISSING_COUNT file(s) referenced in nav but missing from docs/:"
+    cat /tmp/missing-files.txt | while read -r FILE; do
+        echo "  - $FILE"
+    done
+
+    if [ "$AUTO_FIX" != "true" ]; then
+        exit 1
+    fi
+fi
+```
+
+**Step 3: Run mkdocs build --strict**
+
+```bash
+echo "Running mkdocs build --strict to validate links..."
+
+# Capture build output
+MKDOCS_OUTPUT=$(mkdocs build --strict 2>&1)
+MKDOCS_EXIT=$?
+
+if [ $MKDOCS_EXIT -ne 0 ]; then
+    echo "❌ mkdocs build --strict FAILED"
+    echo ""
+    echo "$MKDOCS_OUTPUT" | head -50
+    echo ""
+
+    # Extract broken link count
+    BROKEN_LINKS=$(echo "$MKDOCS_OUTPUT" | grep -c "WARNING.*not found")
+    ERRORS=$(echo "$MKDOCS_OUTPUT" | grep -c "ERROR")
+
+    echo "Summary:"
+    echo "  Broken links: $BROKEN_LINKS"
+    echo "  Errors: $ERRORS"
+
+    # Store for report
+    MKDOCS_BUILD_FAILED=true
+    MKDOCS_BUILD_OUTPUT="$MKDOCS_OUTPUT"
+
+    if [ "$AUTO_FIX" != "true" ]; then
+        echo ""
+        echo "Fix these issues manually or run with --auto-fix true"
+        exit 1
+    fi
+else
+    echo "✓ mkdocs build --strict passed"
+    MKDOCS_BUILD_FAILED=false
+fi
+```
+
+### Phase 4: Scan Documentation Structure
 
 **Step 1: Build Chapter Inventory**
 
@@ -90,7 +206,7 @@ For each file:
 3. **Parent chapter**: If subsection, which chapter does it belong to
 4. **Line range**: Where the Best Practices section starts/ends
 
-### Phase 4: Detect Anti-Patterns
+### Phase 5: Detect Anti-Patterns
 
 #### Anti-Pattern 1: Redundant Best Practices Sections
 
@@ -279,7 +395,7 @@ grep -A 20 "Advanced Features\|Advanced Topics" mkdocs.yml | while IFS= read -r 
 done
 ```
 
-### Phase 5: Generate Holistic Validation Report
+### Phase 6: Generate Holistic Validation Report
 
 **Compile All Findings:**
 
@@ -290,7 +406,34 @@ done
   "docs_dir": "$DOCS_DIR",
   "total_files": 147,
   "total_chapters": 15,
+  "mkdocs_specific": {
+    "index_md_exists": true,
+    "mkdocs_build_passed": false,
+    "orphaned_files": ["advanced/sessions.md", "config/global.md"],
+    "missing_files": [],
+    "broken_links_count": 23,
+    "build_errors_count": 0
+  },
   "issues_found": [
+    {
+      "type": "missing_index",
+      "severity": "critical",
+      "description": "No index.md landing page found",
+      "auto_fixable": true
+    },
+    {
+      "type": "orphaned_files",
+      "severity": "high",
+      "files": ["advanced/sessions.md", "config/global.md"],
+      "description": "Files exist but not referenced in mkdocs.yml nav"
+    },
+    {
+      "type": "mkdocs_build_failed",
+      "severity": "high",
+      "broken_links": 23,
+      "errors": 0,
+      "description": "mkdocs build --strict failed with broken links"
+    },
     {/* Anti-Pattern 1 findings */},
     {/* Anti-Pattern 2 findings */},
     {/* Anti-Pattern 3 findings */},
@@ -300,6 +443,10 @@ done
     {/* Anti-Pattern 7 findings */}
   ],
   "summary": {
+    "missing_index": 0,
+    "orphaned_files": 2,
+    "missing_nav_files": 0,
+    "broken_links": 23,
     "redundant_best_practices": 6,
     "best_practices_in_reference": 6,
     "circular_see_also": 12,
@@ -309,12 +456,15 @@ done
     "meta_sections_in_feature_chapters": 2
   },
   "recommendations": [
+    "Add 2 orphaned files to mkdocs.yml nav structure",
+    "Fix 23 broken links in markdown files",
     "Remove 6 redundant Best Practices sections",
     "Remove 6 Best Practices sections from technical reference pages",
     "Consolidate 3 over-fragmented chapters",
     "Merge 8 stub navigation files into chapter indexes",
     "Remove 2 meta-sections from feature chapters"
-  ]
+  ],
+  "status": "issues_found"
 }
 ```
 
@@ -329,7 +479,7 @@ echo "  Issues found: ${TOTAL_ISSUES}"
 echo "  Report written to: $OUTPUT"
 ```
 
-### Phase 6: Auto-Fix Mode (Optional)
+### Phase 7: Auto-Fix Mode (Optional)
 
 If `--auto-fix true`, perform automatic fixes for clear-cut issues.
 
@@ -449,7 +599,7 @@ Based on holistic validation report: $OUTPUT"
 fi
 ```
 
-### Phase 7: Summary Output
+### Phase 8: Summary Output
 
 **If Auto-Fix Enabled:**
 ```
@@ -501,6 +651,13 @@ Detailed report: .prodigy/mkdocs-validation.json
 
 ### Success Criteria
 
+**MkDocs-Specific Checks:**
+- [ ] index.md exists (or created if auto-fix enabled)
+- [ ] All files in docs/ are included in mkdocs.yml nav
+- [ ] All files in nav exist in docs/
+- [ ] mkdocs build --strict passes without errors
+
+**Content Validation:**
 - [ ] All chapters scanned and categorized
 - [ ] All Best Practices sections identified and validated
 - [ ] Redundancy detected across chapters
