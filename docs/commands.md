@@ -535,7 +535,7 @@ These planned features may be exposed in future versions of Prodigy.
 For more information on related topics:
 - **Variable Interpolation**: See the [Variables chapter](./variables/custom-variable-capture.md) for details on using captured outputs like `${variable_name}` in subsequent commands
 - **Environment Variables**: See the [Environment Variables chapter](./environment/index.md) for global env, secrets, and profiles
-- **Error Handling**: See the [Error Handling chapter](./error-handling.md#command-level-error-handling) for advanced `on_failure` strategies and retry patterns
+- **Error Handling**: See the [Error Handling chapter](./workflow-basics/error-handling.md#command-level-error-handling) for advanced `on_failure` strategies and retry patterns
 - **MapReduce Workflows**: See the [MapReduce chapter](./mapreduce/index.md#complete-structure) for large-scale parallel command execution with agent templates
 
 **Example: Using Captured Output in Subsequent Commands**
