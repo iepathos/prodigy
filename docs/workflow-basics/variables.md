@@ -32,8 +32,8 @@ Available in MapReduce workflows:
 - `${map.successful}` - Count of successfully processed items
 - `${map.failed}` - Count of failed items
 - `${map.total}` - Total item count
-- `${map.key}` - Key for grouping map outputs
-- `${worker.id}` - Identifier for parallel worker
+- `${map.key}` - Optional key for grouping or identifying map outputs (rarely used)
+- `${worker.id}` - Identifier for parallel worker processing the current item
 
 ### Merge Variables
 
@@ -49,6 +49,7 @@ Available in merge workflows:
 Capture command outputs for use in subsequent steps:
 
 ```yaml
+# Source: examples/capture-json-processing.yml
 # Capture as string (default)
 - shell: "git rev-parse HEAD"
   capture_output: commit_sha
@@ -67,15 +68,22 @@ Capture command outputs for use in subsequent steps:
 - shell: "wc -l < file.txt"
   capture_output: line_count
   capture_format: number
+
+# Capture as boolean
+- shell: "git diff --quiet && echo true || echo false"
+  capture_output: repo_clean
+  capture_format: boolean
 ```
 
 ### Capture Formats
 
+The following capture formats are supported (defined in `src/cook/workflow/variables.rs:253-265`):
+
 - **string** - Raw text output (default)
-- **json** - Parse JSON and access fields with dot notation
-- **lines** - Split output into array of lines
-- **number** - Parse numeric value
-- **boolean** - Parse true/false value
+- **json** - Parse JSON and access nested fields with dot notation
+- **lines** - Split output into array of lines (one per line break)
+- **number** - Parse numeric value (integer or float)
+- **boolean** - Parse true/false value from output
 
 ### Capture Metadata
 
@@ -115,24 +123,32 @@ Additional metadata available for captured outputs:
 ### Array Access
 
 ```yaml
-# Access array elements
-- shell: "echo ${items[0]}"
-- shell: "echo ${items[-1]}"  # Last element
+# Source: src/cook/execution/interpolation.rs:781-789
+# Access array elements using bracket notation
+- shell: "echo ${items[0]}"      # First element
+- shell: "echo ${items[1]}"      # Second element
+- shell: "echo ${items[-1]}"     # Last element (if supported)
 ```
+
+!!! note "Array Indexing Syntax"
+    Prodigy uses bracket notation `[index]` for array access. Dot notation (e.g., `items.0`) is not supported for array indexing.
 
 ## Variable Aliases
 
 Prodigy supports aliases for backward compatibility:
 
-- `$item` → `${item}`
-- `$workflow_name` → `${workflow.name}`
-- Legacy snake_case variables map to dot notation
+- `$item` → `${item}` (both syntaxes work)
+- `$workflow_name` → `${workflow.name}` (legacy snake_case maps to dot notation)
+
+!!! tip "Use Dot Notation"
+    New workflows should prefer dot notation (`${workflow.name}`) over legacy underscore variables (`$workflow_name`) for consistency and clarity.
 
 ## Examples
 
 ### Capturing and Using JSON Output
 
 ```yaml
+# Source: examples/capture-json-processing.yml:8-14
 - shell: "jq -c '{name, version}' package.json"
   capture_output: pkg
   capture_format: json
@@ -154,6 +170,7 @@ Prodigy supports aliases for backward compatibility:
 ### MapReduce Variable Flow
 
 ```yaml
+# Source: src/cook/workflow/variables.rs:738-750
 mode: mapreduce
 
 map:
@@ -165,6 +182,33 @@ reduce:
   - shell: "echo Processing ${map.total} files"
   - shell: "echo Successful: ${map.successful}"
   - claude: "/summarize ${map.results}"
+```
+
+## Common Patterns
+
+### Using Capture Metadata
+
+Access metadata from captured outputs:
+
+```yaml
+- shell: "npm test"
+  capture_output: test_results
+
+- shell: "echo Tests completed in ${test_results.duration}ms"
+  when: "${test_results.success} == true"
+
+- shell: "echo Test failures: ${test_results.stderr}"
+  when: "${test_results.exit_code} != 0"
+```
+
+### Default Values for Optional Configuration
+
+Provide fallbacks when variables may not be set:
+
+```yaml
+- shell: "echo API URL: ${API_URL|default:http://localhost:3000}"
+- shell: "echo Environment: ${ENVIRONMENT|default:development}"
+- shell: "echo Timeout: ${TIMEOUT|default:300} seconds"
 ```
 
 ## See Also
