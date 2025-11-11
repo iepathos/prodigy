@@ -134,7 +134,12 @@
         "description": "Implementation completeness validation",
         "capabilities": [
           "Automated validation execution",
-          "Success criteria checking"
+          "Success criteria checking",
+          "JSON schema validation",
+          "Multi-step validation support",
+          "Gap-filling on incomplete implementations",
+          "Result file reading",
+          "Configurable completion thresholds"
         ]
       },
       "write_file": {
@@ -645,6 +650,7 @@
       "Spec 121 - Claude Observability",
       "Spec 126 - Claude Logs",
       "Spec 127 - Worktree Isolation",
+      "Spec 128 - Immutable Environment Context",
       "Spec 131-133 - Workflow Composition",
       "Spec 134 - MapReduce Checkpoint and Resume",
       "Spec 136 - Cleanup Failure Handling",
