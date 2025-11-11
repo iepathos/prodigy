@@ -1,0 +1,98 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "environment",
+  "page_title": "Environment Variables",
+  "page_file": "docs/workflow-basics/environment.md",
+  "feature_mappings": [
+    "environment_management.global_env",
+    "environment_management.secrets",
+    "environment_management.profiles",
+    "environment_management.env_files"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good coverage of core features with accurate examples. Minor issues with broken links and missing usage patterns. Content is well-organized and examples are correct.",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "See Also",
+      "description": "Found 1 broken internal link: '../configuration/global-config.md' does not exist",
+      "broken_links": [
+        {
+          "link_text": "Global Configuration",
+          "target": "../configuration/global-config.md",
+          "current_file": "docs/workflow-basics/environment.md"
+        }
+      ],
+      "fix_suggestion": "Remove the broken link to '../configuration/global-config.md' or create the configuration section if planned. The page references a non-existent configuration directory."
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Variable Interpolation",
+      "description": "Missing explanation of both ${VAR} and $VAR syntax support, though both syntaxes are shown in examples",
+      "feature_reference": "variable_system.interpolation",
+      "current_content": "Use environment variables in commands with `$VAR` or `${VAR}` syntax",
+      "should_be": "Explain when to use each syntax: ${VAR} for clarity and complex expressions, $VAR for simple references",
+      "fix_suggestion": "Add a brief note explaining: '${VAR}' is recommended for clarity and works in all contexts, while '$VAR' provides a more concise shell-style syntax for simple variable references.",
+      "source_reference": "variable_system.interpolation in features.json"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Usage in Workflow Phases",
+      "description": "Missing examples of using environment variables in MapReduce workflows (setup, map, reduce phases)",
+      "feature_reference": "environment_management.capabilities",
+      "fix_suggestion": "Add a section showing environment variable usage in different workflow phases: setup phase, map phase agent templates, and reduce phase commands. Reference the MapReduce documentation for detailed context.",
+      "source_reference": "docs/mapreduce/ for MapReduce-specific usage patterns"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Profile Support",
+      "description": "Missing explanation of profile-specific secrets feature",
+      "feature_reference": "environment_management.secrets",
+      "current_content": "Shows basic profile usage for non-secret values",
+      "should_be": "Show how to combine profiles with secrets for environment-specific credentials",
+      "fix_suggestion": "Add an example combining profiles and secrets:\n```yaml\nenv:\n  API_KEY:\n    secret: true\n    default: \"sk-dev-...\"\n    prod: \"sk-prod-...\"\n```",
+      "source_reference": "environment_management.secrets.profile-specific secrets"
+    }
+  ],
+  "positive_aspects": [
+    "Clear, concise overview of all four main features (global env, secrets, profiles, env files)",
+    "Accurate YAML examples that match current implementation",
+    "Good explanation of secrets masking in output",
+    "Correct precedence rules documentation",
+    "Well-organized with logical flow from simple to complex",
+    "Proper use of code blocks and formatting"
+  ],
+  "improvement_suggestions": [
+    "Add a troubleshooting section for common issues (variable not interpolating, secret not masked, profile not applied)",
+    "Include an example combining multiple features (env file + profiles + secrets)",
+    "Add a note about environment variable inheritance to all commands",
+    "Consider adding a best practices callout for security (mark sensitive data as secrets, use profiles for credentials)",
+    "Cross-reference to the Variables and Interpolation page for advanced variable features like nested field access and default values"
+  ],
+  "cross_references": [
+    "variables",
+    "workflow-structure",
+    "mapreduce/overview"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T09:45:57Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Global environment variables",
+      "Secrets management",
+      "Profile support",
+      "Environment files"
+    ],
+    "validation_focus": "Check environment variable configuration, secrets masking, and profile usage are documented",
+    "total_internal_links_found": 3,
+    "broken_links_count": 1,
+    "valid_links_count": 2
+  }
+}

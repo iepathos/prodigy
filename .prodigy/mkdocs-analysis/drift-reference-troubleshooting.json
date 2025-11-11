@@ -1,0 +1,197 @@
+{
+  "item_type": "section-page",
+  "section_id": "reference",
+  "section_title": "Reference",
+  "page_id": "troubleshooting",
+  "page_title": "Troubleshooting",
+  "page_file": "docs/reference/troubleshooting.md",
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Page does not exist - needs to be created with comprehensive troubleshooting guidance based on codebase analysis",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Entire Page",
+      "description": "Troubleshooting page does not exist - this is a critical reference page that users need when encountering issues",
+      "fix_suggestion": "Create comprehensive troubleshooting page covering common issues, error codes, debugging techniques, and resolution steps",
+      "source_reference": "src/error/codes.rs:ErrorCode"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Error Code Reference",
+      "description": "No documentation of error code ranges and meanings",
+      "current_content": "N/A - page doesn't exist",
+      "should_be": "Document error code categories: 1000-1999 (Config), 2000-2999 (Session), 3000-3999 (Storage), 4000-4999 (Execution), 5000-5999 (Workflow), 6000-6999 (Git), 7000-7999 (Validation)",
+      "fix_suggestion": "Add comprehensive error code reference with categories, meanings, and common resolutions",
+      "source_reference": "src/error/codes.rs:1-242"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Common Issues",
+      "description": "Missing documentation of common failure scenarios and solutions",
+      "fix_suggestion": "Document common issues: MapReduce agent failures, resume failures, variable interpolation errors, worktree cleanup failures, merge conflicts",
+      "feature_reference": "meta_content.troubleshooting.common_issues",
+      "source_reference": "features.json:602-628"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Session Issues",
+      "description": "No troubleshooting guidance for session-related errors",
+      "fix_suggestion": "Document session error codes (2001: Session not found, 2004: Session locked, 2006: Invalid state) with resolution steps",
+      "source_reference": "src/error/codes.rs:28-37"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Storage Issues",
+      "description": "No troubleshooting guidance for storage-related errors",
+      "fix_suggestion": "Document storage errors (3001: I/O error, 3003: Disk full, 3007: Lock failed, 3011: Serialization error) with resolution steps",
+      "source_reference": "src/error/codes.rs:39-52, src/storage/error.rs:10-145"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Git Issues",
+      "description": "No troubleshooting guidance for git-related errors",
+      "fix_suggestion": "Document git errors (6001: Not a repo, 6003: Merge conflict, 6006: Uncommitted changes, 6008: Worktree exists, 6009: Worktree not found) with resolution steps",
+      "source_reference": "src/error/codes.rs:82-105"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "DLQ Troubleshooting",
+      "description": "Missing troubleshooting guidance for Dead Letter Queue operations",
+      "fix_suggestion": "Add section on inspecting DLQ items, understanding failure history, and using 'prodigy dlq show <job_id>' and 'prodigy dlq retry' commands",
+      "feature_reference": "error_handling.advanced_features.dead_letter_queue",
+      "source_reference": "features.json:301-311"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Orphaned Worktree Cleanup",
+      "description": "Missing guidance on cleaning up orphaned worktrees after cleanup failures",
+      "fix_suggestion": "Document 'prodigy worktree clean-orphaned <job_id>' command with --dry-run and --force flags, explain common causes (permission denied, disk full, directory busy)",
+      "feature_reference": "mapreduce_workflows.core_capabilities.parallel_execution",
+      "source_reference": "src/cli/commands/worktree/orphaned_cleanup.rs, features.json:736-768"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Resume Failures",
+      "description": "Missing troubleshooting for resume operation failures",
+      "fix_suggestion": "Document common resume issues: session not found, concurrent resume locks, corrupted checkpoints, and resolution steps including 'prodigy sessions list' and 'prodigy resume-job list'",
+      "feature_reference": "session_management.resume",
+      "source_reference": "features.json:445-453"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Variable Interpolation Errors",
+      "description": "Missing troubleshooting for variable interpolation failures",
+      "fix_suggestion": "Document common variable issues: incorrect syntax (${var} not {var}), variable not in scope, missing default values, and how to debug with InterpolationEngine errors",
+      "feature_reference": "variable_system.interpolation",
+      "source_reference": "features.json:194-202"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Debugging Techniques",
+      "description": "Missing documentation of debugging tools and techniques",
+      "fix_suggestion": "Document debugging workflow: -v flag for Claude streaming, event logs inspection, JSON log analysis, checkpoint file review, DLQ analysis",
+      "feature_reference": "meta_content.troubleshooting.debugging_techniques",
+      "source_reference": "features.json:629-635"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Claude Observability",
+      "description": "Missing guidance on using Claude JSON logs for debugging",
+      "fix_suggestion": "Document how to find and analyze Claude JSON logs at ~/.local/state/claude/logs/, accessing json_log_location from DLQ items, and using 'prodigy logs' command",
+      "feature_reference": "observability.claude_observability",
+      "source_reference": "features.json:476-490"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Workflow Validation Errors",
+      "description": "Missing troubleshooting for workflow validation failures",
+      "fix_suggestion": "Document workflow validation errors (5002: Invalid syntax, 5004: Validation failed, 5011: Variable not found, 5012: Interpolation error) with examples and fixes",
+      "source_reference": "src/error/codes.rs:67-80"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Execution Timeout Issues",
+      "description": "Missing guidance on handling command timeout failures",
+      "fix_suggestion": "Document timeout errors (4002: Execution timeout, 5005: Workflow timeout), how to adjust timeouts, and when to use longer timeouts",
+      "source_reference": "src/error/codes.rs:54-65"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Concurrent Resume Protection",
+      "description": "Missing explanation of resume locks and how to handle stuck locks",
+      "fix_suggestion": "Document concurrent resume protection (Spec 140), explain lock error messages, stale lock detection, and manual cleanup if needed",
+      "feature_reference": "session_management.resume.concurrent_resume_protection",
+      "source_reference": "features.json:452"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Performance Troubleshooting",
+      "description": "Missing guidance on diagnosing and resolving performance issues",
+      "fix_suggestion": "Document performance troubleshooting: adjusting max_parallel, resource contention, agent timeouts, filtering work items, checkpoint overhead",
+      "feature_reference": "meta_content.best_practices.performance",
+      "source_reference": "features.json:567-572"
+    }
+  ],
+  "positive_aspects": [
+    "Error handling architecture is comprehensive with structured error codes",
+    "Multiple debugging tools available (DLQ, event logs, Claude JSON logs)",
+    "Clear error code categorization makes diagnosis easier",
+    "Features.json contains troubleshooting section with common issues"
+  ],
+  "improvement_suggestions": [
+    "Create page with clear sections: Error Codes, Common Issues, Debugging Techniques",
+    "Include code examples showing error messages and their resolutions",
+    "Add cross-references to related pages (DLQ, Sessions, Worktrees, Observability)",
+    "Provide quick reference table of error code ranges",
+    "Include flowcharts for debugging workflows (e.g., 'Agent Failed' → 'Check DLQ' → 'Inspect JSON log' → 'Retry')",
+    "Add troubleshooting decision trees (e.g., 'Resume failed?' → check reasons → solutions)",
+    "Document environment-specific issues (permissions, disk space, network)",
+    "Include examples of using CLI commands for debugging (prodigy dlq show, prodigy sessions list, prodigy logs)",
+    "Add section on reading and interpreting error messages",
+    "Provide links to GitHub issues for known bugs and workarounds"
+  ],
+  "cross_references": [
+    "dlq",
+    "sessions",
+    "worktrees",
+    "observability",
+    "error-handling",
+    "checkpoint-resume"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T09:45:57Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Error codes",
+      "Common issues",
+      "Debugging techniques",
+      "Session troubleshooting",
+      "Storage issues",
+      "Git problems",
+      "DLQ operations",
+      "Resume failures",
+      "Variable errors",
+      "Performance issues"
+    ],
+    "validation_focus": "Check troubleshooting covers common user issues",
+    "page_exists": false,
+    "requires_creation": true
+  }
+}

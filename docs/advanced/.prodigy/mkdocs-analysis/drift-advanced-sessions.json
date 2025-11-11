@@ -1,0 +1,129 @@
+{
+  "item_type": "section-page",
+  "section_id": "advanced",
+  "section_title": "Advanced Features",
+  "page_id": "sessions",
+  "page_title": "Session Management",
+  "page_file": "docs/advanced/sessions.md",
+  "feature_mappings": [
+    "session_management.session_types",
+    "session_management.lifecycle",
+    "session_management.resume"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page covers core session concepts but lacks detail on MapReduce session data structure and resume state preservation mechanisms",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "MapReduce Sessions",
+      "description": "MapReduce session example missing several key data fields documented in features",
+      "current_content": "mapreduce_data shows only job_id, current_phase, work_items_completed, work_items_total",
+      "should_include": [
+        "Work item states (pending, in-progress, completed, failed)",
+        "Agent results with commits",
+        "Phase checkpoints (setup, map, reduce)",
+        "DLQ items"
+      ],
+      "fix_suggestion": "Expand MapReduce session example to show complete data structure including work item states, agent results, checkpoints, and DLQ items",
+      "feature_reference": "session_management.session_types.mapreduce_sessions.data"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Session Lifecycle",
+      "description": "Lifecycle transitions are documented but lack detail on the specific operations during each transition",
+      "current_content": "State transition diagram shows states but not the operations during transitions",
+      "should_include": [
+        "Creation with metadata - what metadata is captured on creation",
+        "Progress updates - how and when sessions are updated",
+        "Checkpoint creation - when checkpoints are created during lifecycle",
+        "Completion with timing - what timing data is captured"
+      ],
+      "fix_suggestion": "Add a subsection explaining the operations that occur during each lifecycle transition, linking to the checkpoint and timing features",
+      "feature_reference": "session_management.lifecycle.transitions"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Resume Capabilities",
+      "description": "Resume features lack explanation of state reconstruction and item re-execution behavior",
+      "current_content": "Documents how to resume but not what happens during resume",
+      "should_include": [
+        "Checkpoint-based state reconstruction - how session state is restored from checkpoints",
+        "In-progress item re-execution - what happens to items that were in-progress when interrupted",
+        "Variable and context preservation - how workflow variables are maintained across resume"
+      ],
+      "fix_suggestion": "Add subsections under 'Resume Capabilities' explaining state reconstruction process, in-progress item handling, and variable preservation",
+      "feature_reference": "session_management.resume.features"
+    },
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "Cross-References",
+      "description": "Found 3 broken internal link(s) - target documentation files do not exist",
+      "broken_links": [
+        {
+          "link_text": "Checkpoint and Resume",
+          "target": "../mapreduce/checkpoint-resume.md",
+          "resolved_path": "docs/mapreduce/checkpoint-resume.md",
+          "status": "File does not exist",
+          "line": 191
+        },
+        {
+          "link_text": "Storage Architecture",
+          "target": "storage.md",
+          "resolved_path": "docs/advanced/storage.md",
+          "status": "File does not exist",
+          "line": 192
+        },
+        {
+          "link_text": "Observability and Logging",
+          "target": "observability.md",
+          "resolved_path": "docs/advanced/observability.md",
+          "status": "File does not exist",
+          "line": 193
+        }
+      ],
+      "fix_suggestion": "These cross-references point to documentation pages that should be created. Either create the target pages or remove the broken links until the pages exist."
+    }
+  ],
+  "positive_aspects": [
+    "Clear overview of session management purpose and capabilities",
+    "Good explanation of session-job mapping for MapReduce",
+    "Concrete examples with JSON structure for both session types",
+    "Comprehensive coverage of concurrent resume protection with lock mechanism",
+    "Well-structured session storage location documentation",
+    "Practical examples of resume commands with different ID types"
+  ],
+  "improvement_suggestions": [
+    "Add a 'Resume Behavior' subsection explaining what happens during resume: state reconstruction, checkpoint loading, in-progress item handling",
+    "Expand MapReduce session example to show full data structure with all tracked fields",
+    "Add examples showing how session metadata changes during execution (e.g., before/after progress update)",
+    "Include a troubleshooting section for common session-related issues (session not found, corrupt checkpoints, etc.)",
+    "Link to storage architecture documentation once it exists to explain session persistence",
+    "Add a note about session cleanup and retention policies if applicable"
+  ],
+  "cross_references": [
+    "checkpoint-resume",
+    "storage",
+    "observability"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T09:46:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Session types",
+      "Session lifecycle",
+      "Resume capabilities",
+      "State persistence"
+    ],
+    "validation_focus": "Check session tracking, lifecycle states, and resume features are documented",
+    "link_validation": {
+      "total_internal_links": 3,
+      "broken_links": 3,
+      "valid_links": 0
+    }
+  }
+}

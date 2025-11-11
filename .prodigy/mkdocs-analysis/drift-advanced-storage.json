@@ -1,0 +1,58 @@
+{
+  "item_type": "section-page",
+  "section_id": "advanced",
+  "section_title": "Advanced Features",
+  "page_id": "storage",
+  "page_title": "Storage Architecture",
+  "page_file": "docs/advanced/storage.md",
+  "feature_mappings": [
+    "storage_architecture.structure",
+    "storage_architecture.benefits"
+  ],
+  "drift_detected": false,
+  "severity": "none",
+  "quality_assessment": "Excellent documentation with comprehensive coverage of storage architecture. All mapped features are accurately documented with clear examples and organization.",
+  "issues": [],
+  "positive_aspects": [
+    "Complete and accurate coverage of all storage directory paths",
+    "Clear hierarchical structure showing nested directories",
+    "Concrete examples showing repository-specific organization",
+    "Well-documented JSONL event format with examples",
+    "Comprehensive explanation of all four storage benefits",
+    "Practical cleanup and maintenance commands included",
+    "Valid cross-references to related documentation pages",
+    "Good use of code blocks for directory structures",
+    "Clear section organization progressing from overview to details",
+    "Includes DLQ storage structure with JSON examples"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a note about storage disk space requirements for large MapReduce jobs",
+    "Could mention storage growth patterns and when to consider cleanup",
+    "Might benefit from a troubleshooting section for storage-related issues (e.g., permissions, disk full)"
+  ],
+  "cross_references": [
+    "sessions.md",
+    "observability.md",
+    "git-integration.md"
+  ],
+  "link_validation": {
+    "total_internal_links": 3,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T09:45:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Global storage structure",
+      "Cross-repository organization",
+      "Event storage",
+      "State persistence",
+      "DLQ storage",
+      "Worktree storage",
+      "Storage benefits",
+      "Cleanup and maintenance"
+    ],
+    "validation_focus": "Check storage directories, organization structure, and benefits are documented"
+  }
+}

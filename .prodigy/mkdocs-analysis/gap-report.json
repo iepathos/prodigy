@@ -1,0 +1,190 @@
+{
+  "analysis_date": "2025-11-11T00:00:00Z",
+  "features_analyzed": 14,
+  "documented_pages": 9,
+  "gaps_found": 10,
+  "gaps": [
+    {
+      "severity": "high",
+      "type": "missing_page",
+      "feature_category": "variable_system",
+      "feature_description": "Unified variable interpolation and capture across all workflow types",
+      "recommended_page_id": "variables",
+      "recommended_title": "Variables and Interpolation",
+      "recommended_file": "docs/workflow-basics/variables.md",
+      "recommended_section": "workflow-basics",
+      "is_new_section": false
+    },
+    {
+      "severity": "high",
+      "type": "missing_page",
+      "feature_category": "environment_management",
+      "feature_description": "Comprehensive environment variable management with secrets and profiles",
+      "recommended_page_id": "environment",
+      "recommended_title": "Environment Variables",
+      "recommended_file": "docs/workflow-basics/environment.md",
+      "recommended_section": "workflow-basics",
+      "is_new_section": false
+    },
+    {
+      "severity": "high",
+      "type": "missing_page",
+      "feature_category": "conditional_execution",
+      "feature_description": "Dynamic workflow control based on runtime conditions",
+      "recommended_page_id": "conditional-execution",
+      "recommended_title": "Conditional Execution",
+      "recommended_file": "docs/workflow-basics/conditional-execution.md",
+      "recommended_section": "workflow-basics",
+      "is_new_section": false
+    },
+    {
+      "severity": "high",
+      "type": "missing_page",
+      "feature_category": "error_handling",
+      "feature_description": "Multi-level error handling with circuit breakers and retry strategies",
+      "recommended_page_id": "error-handling",
+      "recommended_title": "Error Handling",
+      "recommended_file": "docs/workflow-basics/error-handling.md",
+      "recommended_section": "workflow-basics",
+      "is_new_section": false
+    },
+    {
+      "severity": "high",
+      "type": "missing_page",
+      "feature_category": "workflow_composition",
+      "feature_description": "Build complex workflows from reusable components and templates",
+      "recommended_page_id": "composition",
+      "recommended_title": "Workflow Composition",
+      "recommended_file": "docs/advanced/composition.md",
+      "recommended_section": "advanced",
+      "is_new_section": true
+    },
+    {
+      "severity": "high",
+      "type": "missing_page",
+      "feature_category": "git_integration",
+      "feature_description": "Deep git integration with worktree isolation and smart merging",
+      "recommended_page_id": "git-integration",
+      "recommended_title": "Git Integration",
+      "recommended_file": "docs/advanced/git-integration.md",
+      "recommended_section": "advanced",
+      "is_new_section": false
+    },
+    {
+      "severity": "high",
+      "type": "missing_page",
+      "feature_category": "session_management",
+      "feature_description": "Unified session tracking and lifecycle management",
+      "recommended_page_id": "sessions",
+      "recommended_title": "Session Management",
+      "recommended_file": "docs/advanced/sessions.md",
+      "recommended_section": "advanced",
+      "is_new_section": false
+    },
+    {
+      "severity": "high",
+      "type": "missing_page",
+      "feature_category": "observability",
+      "feature_description": "Comprehensive execution monitoring and debugging",
+      "recommended_page_id": "observability",
+      "recommended_title": "Observability and Logging",
+      "recommended_file": "docs/advanced/observability.md",
+      "recommended_section": "advanced",
+      "is_new_section": false
+    },
+    {
+      "severity": "high",
+      "type": "missing_page",
+      "feature_category": "storage_architecture",
+      "feature_description": "Global storage with cross-repository organization",
+      "recommended_page_id": "storage",
+      "recommended_title": "Storage Architecture",
+      "recommended_file": "docs/advanced/storage.md",
+      "recommended_section": "advanced",
+      "is_new_section": false
+    },
+    {
+      "severity": "medium",
+      "type": "missing_page",
+      "feature_category": "mapreduce_workflows",
+      "feature_description": "Work distribution and parallel execution details",
+      "recommended_page_id": "work-distribution",
+      "recommended_title": "Work Distribution",
+      "recommended_file": "docs/mapreduce/work-distribution.md",
+      "recommended_section": "mapreduce",
+      "is_new_section": false
+    }
+  ],
+  "actions_taken": [
+    {
+      "action": "updated_page_definitions",
+      "file_path": "workflows/data/mkdocs-chapters.json",
+      "pages_added": 10
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "docs/workflow-basics/variables.md",
+      "type": "page",
+      "section_id": "workflow-basics"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "docs/workflow-basics/environment.md",
+      "type": "page",
+      "section_id": "workflow-basics"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "docs/workflow-basics/conditional-execution.md",
+      "type": "page",
+      "section_id": "workflow-basics"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "docs/workflow-basics/error-handling.md",
+      "type": "page",
+      "section_id": "workflow-basics"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "docs/mapreduce/work-distribution.md",
+      "type": "page",
+      "section_id": "mapreduce"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "docs/advanced/composition.md",
+      "type": "page",
+      "section_id": "advanced"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "docs/advanced/git-integration.md",
+      "type": "page",
+      "section_id": "advanced"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "docs/advanced/sessions.md",
+      "type": "page",
+      "section_id": "advanced"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "docs/advanced/observability.md",
+      "type": "page",
+      "section_id": "advanced"
+    },
+    {
+      "action": "created_stub_file",
+      "file_path": "docs/advanced/storage.md",
+      "type": "page",
+      "section_id": "advanced"
+    },
+    {
+      "action": "generated_flattened_items",
+      "file_path": ".prodigy/mkdocs-analysis/flattened-items.json",
+      "total_pages": 19
+    }
+  ]
+}

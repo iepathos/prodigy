@@ -1,0 +1,654 @@
+{
+  "workflow_basics": {
+    "type": "major_feature",
+    "description": "Core workflow execution model supporting sequential command execution with environment configuration",
+    "capabilities": {
+      "sequential_execution": "Execute commands in defined order with state tracking",
+      "command_types": "Support for Claude AI commands, shell commands, and specialized operations",
+      "environment_configuration": "Global and per-step environment variables with secrets management",
+      "profile_support": "Multiple environment profiles for different contexts (dev, staging, prod)"
+    }
+  },
+  "mapreduce_workflows": {
+    "type": "major_feature",
+    "description": "Parallel processing framework for massive-scale operations across distributed work items",
+    "phases": {
+      "setup": {
+        "description": "Optional initialization phase for preparing work items and environment",
+        "capabilities": [
+          "Command execution before parallel processing",
+          "Variable capture from setup outputs",
+          "Timeout configuration",
+          "Checkpointing for resume"
+        ]
+      },
+      "map": {
+        "description": "Parallel processing of work items across isolated agents",
+        "capabilities": [
+          "JSONPath-based item extraction from input sources",
+          "Parallel execution with configurable concurrency",
+          "Per-item agent templates with command sequences",
+          "Filtering, sorting, and deduplication of work items",
+          "Timeout configuration per agent",
+          "Isolated git worktree execution"
+        ]
+      },
+      "reduce": {
+        "description": "Aggregation phase combining results from map operations",
+        "capabilities": [
+          "Access to aggregated map results",
+          "Sequential result processing",
+          "Variable interpolation with map outputs",
+          "Checkpointing for resume"
+        ]
+      }
+    },
+    "core_capabilities": {
+      "work_distribution": {
+        "description": "Intelligent work item management and distribution",
+        "features": [
+          "JSON and command-based input sources",
+          "JSONPath expressions for item extraction",
+          "Filtering with boolean expressions",
+          "Sorting by field values",
+          "Offset and limit for pagination",
+          "Deduplication by field"
+        ]
+      },
+      "parallel_execution": {
+        "description": "Concurrent agent management with resource limits",
+        "features": [
+          "Configurable max_parallel workers",
+          "Environment variable references for parallelism",
+          "Agent isolation via git worktrees",
+          "Independent failure handling per agent",
+          "Resource cleanup and orphaned worktree tracking"
+        ]
+      },
+      "state_management": {
+        "description": "Comprehensive checkpoint and resume capabilities",
+        "features": [
+          "Setup phase checkpointing",
+          "Map phase progress tracking",
+          "Reduce phase step-by-step checkpoints",
+          "Session and job ID mapping",
+          "Resume from any checkpoint",
+          "In-progress item re-execution on resume"
+        ]
+      },
+      "failure_handling": {
+        "description": "Dead Letter Queue and retry mechanisms",
+        "features": [
+          "Automatic DLQ routing for failed items",
+          "Failure history with error details",
+          "Retry with configurable parallelism",
+          "Dry-run mode for retry operations",
+          "Cross-worktree failure tracking"
+        ]
+      }
+    }
+  },
+  "command_types": {
+    "type": "major_feature",
+    "description": "Diverse command execution types for different automation needs",
+    "commands": {
+      "claude": {
+        "description": "Execute Claude AI commands via Claude Code CLI",
+        "capabilities": [
+          "Slash command execution",
+          "Variable interpolation in arguments",
+          "JSON streaming output control",
+          "Commit tracking"
+        ]
+      },
+      "shell": {
+        "description": "Execute arbitrary shell commands",
+        "capabilities": [
+          "Full shell environment access",
+          "Output capture with multiple formats",
+          "Stream selection (stdout, stderr)",
+          "Conditional execution (on_failure, on_success)",
+          "Timeout configuration"
+        ]
+      },
+      "goal_seek": {
+        "description": "Iterative refinement to achieve quality thresholds",
+        "capabilities": [
+          "Score-based validation",
+          "Maximum attempt limits",
+          "Success threshold configuration",
+          "Timeout support",
+          "Convergence detection"
+        ]
+      },
+      "foreach": {
+        "description": "Simple parallel iteration over lists or command outputs",
+        "capabilities": [
+          "Static list iteration",
+          "Command output as input",
+          "Parallel execution configuration",
+          "Item limit and error handling"
+        ]
+      },
+      "validate": {
+        "description": "Implementation completeness validation",
+        "capabilities": [
+          "Automated validation execution",
+          "Success criteria checking"
+        ]
+      },
+      "write_file": {
+        "description": "Write content to files with format support",
+        "capabilities": [
+          "Text, JSON, and YAML formats",
+          "Variable interpolation in content",
+          "Directory creation",
+          "File permissions control"
+        ]
+      }
+    }
+  },
+  "variable_system": {
+    "type": "major_feature",
+    "description": "Unified variable interpolation and capture across all workflow types",
+    "variable_categories": {
+      "standard_variables": {
+        "description": "Context variables available in all execution modes",
+        "variables": [
+          "item - Current work item",
+          "item_index - Zero-based index",
+          "item_total - Total item count",
+          "workflow.name - Workflow identifier",
+          "workflow.id - Unique workflow ID",
+          "workflow.iteration - Iteration number"
+        ]
+      },
+      "mapreduce_variables": {
+        "description": "Variables specific to MapReduce workflows",
+        "variables": [
+          "map.results - Aggregated map phase results",
+          "map.key - Key for map output",
+          "worker.id - Parallel worker identifier",
+          "merge.worktree - Worktree being merged",
+          "merge.source_branch - Source branch for merge",
+          "merge.target_branch - Target branch for merge"
+        ]
+      },
+      "capture_variables": {
+        "description": "Output capture from command execution",
+        "formats": [
+          "string - Raw text output",
+          "json - Parsed JSON structures",
+          "lines - Array of output lines",
+          "number - Numeric values",
+          "boolean - Boolean flags"
+        ],
+        "metadata": [
+          "exit_code - Command exit status",
+          "success - Boolean success flag",
+          "duration - Execution time",
+          "stderr - Error output"
+        ]
+      }
+    },
+    "interpolation": {
+      "description": "Variable resolution and interpolation engine",
+      "features": [
+        "Nested field access (${var.field.subfield})",
+        "Default values (${var|default:value})",
+        "Environment variable resolution",
+        "Both ${VAR} and $VAR syntax support",
+        "Alias resolution for backwards compatibility"
+      ]
+    }
+  },
+  "environment_management": {
+    "type": "major_feature",
+    "description": "Comprehensive environment variable management with secrets and profiles",
+    "capabilities": {
+      "global_env": {
+        "description": "Workflow-wide environment variables",
+        "features": [
+          "Plain key-value pairs",
+          "Variable interpolation support",
+          "Inheritance to all commands"
+        ]
+      },
+      "secrets": {
+        "description": "Secure credential management",
+        "features": [
+          "Automatic masking in logs",
+          "Secret value wrapping",
+          "Profile-specific secrets"
+        ]
+      },
+      "profiles": {
+        "description": "Context-specific configurations",
+        "features": [
+          "Multiple named profiles",
+          "Profile-specific variable values",
+          "Runtime profile selection via --profile flag",
+          "Default value fallback"
+        ]
+      },
+      "env_files": {
+        "description": "Load variables from .env files",
+        "features": [
+          "Multiple file support",
+          "Standard .env format",
+          "Variable override precedence"
+        ]
+      }
+    }
+  },
+  "error_handling": {
+    "type": "major_feature",
+    "description": "Multi-level error handling with circuit breakers and retry strategies",
+    "levels": {
+      "workflow_level": {
+        "description": "Global error policies for entire workflow",
+        "policies": [
+          "continue_on_failure - Continue after errors",
+          "max_failures - Stop after N failures",
+          "failure_threshold - Failure rate limit (0.0-1.0)",
+          "error_collection - Aggregation strategy"
+        ]
+      },
+      "command_level": {
+        "description": "Per-command error handling",
+        "handlers": [
+          "on_failure - Commands to run on failure",
+          "on_success - Commands to run on success",
+          "commit_required - Expect git commits",
+          "continue_on_error - Ignore failures"
+        ]
+      },
+      "item_failure_actions": {
+        "description": "Actions for failed work items",
+        "actions": [
+          "dlq - Send to Dead Letter Queue",
+          "retry - Retry with backoff",
+          "skip - Continue to next item",
+          "stop - Halt entire workflow",
+          "custom - User-defined handler"
+        ]
+      }
+    },
+    "advanced_features": {
+      "circuit_breaker": {
+        "description": "Prevent cascading failures",
+        "configuration": [
+          "failure_threshold - Failures to trigger open state",
+          "success_threshold - Successes to close circuit",
+          "timeout - Duration before retry",
+          "half_open_requests - Test requests in recovery"
+        ]
+      },
+      "retry_configuration": {
+        "description": "Sophisticated retry mechanisms",
+        "strategies": [
+          "fixed - Constant delay",
+          "linear - Incremental increase",
+          "exponential - Exponential backoff",
+          "fibonacci - Fibonacci sequence delays"
+        ],
+        "options": [
+          "max_attempts - Retry limit",
+          "backoff - Delay strategy",
+          "jitter - Randomization for thundering herd prevention"
+        ]
+      },
+      "dead_letter_queue": {
+        "description": "Failed item management and retry",
+        "features": [
+          "Automatic failed item routing",
+          "Failure history tracking",
+          "Retry with custom parallelism",
+          "Dry-run inspection",
+          "JSON log location tracking",
+          "Cross-repository organization"
+        ]
+      }
+    }
+  },
+  "workflow_composition": {
+    "type": "major_feature",
+    "description": "Build complex workflows from reusable components and templates",
+    "capabilities": {
+      "imports": {
+        "description": "Import external workflow definitions",
+        "features": [
+          "File path imports",
+          "Alias support",
+          "Selective workflow imports"
+        ]
+      },
+      "inheritance": {
+        "description": "Extend base workflows",
+        "features": [
+          "extends field for base workflow",
+          "Override specific values",
+          "Merge base and derived configurations"
+        ]
+      },
+      "templates": {
+        "description": "Reusable workflow templates",
+        "features": [
+          "Template registry storage",
+          "Parameter passing",
+          "Override mechanisms",
+          "Local, registry, and remote sources"
+        ]
+      },
+      "parameters": {
+        "description": "Workflow parameterization",
+        "features": [
+          "Required and optional parameters",
+          "Type hints (string, number, boolean, array, object)",
+          "Default values",
+          "Validation expressions"
+        ]
+      },
+      "sub_workflows": {
+        "description": "Nested workflow execution",
+        "features": [
+          "Named sub-workflow definitions",
+          "Independent execution contexts",
+          "Result passing between workflows"
+        ]
+      }
+    }
+  },
+  "git_integration": {
+    "type": "major_feature",
+    "description": "Deep git integration with worktree isolation and smart merging",
+    "capabilities": {
+      "worktree_management": {
+        "description": "Isolated execution environments",
+        "features": [
+          "Automatic worktree creation per session",
+          "Branch tracking from original context",
+          "Cleanup with orphaned worktree recovery",
+          "Cross-worktree event aggregation"
+        ]
+      },
+      "commit_tracking": {
+        "description": "Comprehensive change tracking",
+        "features": [
+          "Automatic commits per command",
+          "Commit message generation",
+          "Change audit trail",
+          "Commit count metrics"
+        ]
+      },
+      "merge_workflows": {
+        "description": "Customizable merge process",
+        "features": [
+          "Custom merge command sequences",
+          "Variable interpolation in merge commands",
+          "Pre-merge validation",
+          "Timeout configuration",
+          "Original branch targeting"
+        ]
+      },
+      "branch_tracking": {
+        "description": "Intelligent branch management",
+        "features": [
+          "Original branch capture",
+          "Feature branch support",
+          "Detached HEAD fallback",
+          "Deleted branch handling"
+        ]
+      }
+    }
+  },
+  "session_management": {
+    "type": "major_feature",
+    "description": "Unified session tracking and lifecycle management",
+    "session_types": {
+      "workflow_sessions": {
+        "description": "Standard workflow execution tracking",
+        "data": [
+          "Execution timing",
+          "Step progress",
+          "Variable state",
+          "Completed steps list"
+        ]
+      },
+      "mapreduce_sessions": {
+        "description": "MapReduce job state management",
+        "data": [
+          "Job ID and session ID mapping",
+          "Work item states (pending, in-progress, completed, failed)",
+          "Agent results with commits",
+          "Phase checkpoints (setup, map, reduce)",
+          "DLQ items"
+        ]
+      }
+    },
+    "lifecycle": {
+      "states": [
+        "Running - Active execution",
+        "Paused - Interrupted, ready to resume",
+        "Completed - Successfully finished",
+        "Failed - Terminated with errors",
+        "Cancelled - User-initiated stop"
+      ],
+      "transitions": [
+        "Creation with metadata",
+        "Progress updates",
+        "Checkpoint creation",
+        "Resume from checkpoint",
+        "Completion with timing"
+      ]
+    },
+    "resume": {
+      "description": "Comprehensive resume capabilities",
+      "features": [
+        "Session ID or job ID resume",
+        "Checkpoint-based state reconstruction",
+        "In-progress item re-execution",
+        "Variable and context preservation",
+        "Concurrent resume protection with locks"
+      ]
+    }
+  },
+  "observability": {
+    "type": "major_feature",
+    "description": "Comprehensive execution monitoring and debugging",
+    "event_tracking": {
+      "description": "JSONL event streams for all operations",
+      "events": [
+        "AgentStarted - Agent execution begins",
+        "AgentCompleted - Agent finishes with commits",
+        "AgentFailed - Agent encounters errors",
+        "ClaudeMessage - Claude AI interactions",
+        "WorkItemProcessed - Item completion",
+        "CheckpointSaved - State persistence"
+      ],
+      "features": [
+        "Global storage in ~/.prodigy/events",
+        "Repository-based organization",
+        "Job-specific event logs",
+        "Timestamp and correlation IDs"
+      ]
+    },
+    "claude_observability": {
+      "description": "Detailed Claude execution logs",
+      "capabilities": [
+        "JSON log file location tracking",
+        "Complete message history",
+        "Tool invocation details",
+        "Token usage statistics",
+        "Error context and stack traces"
+      ],
+      "access": [
+        "Verbose mode display (-v flag)",
+        "Environment variable override",
+        "DLQ item linkage",
+        "MapReduce event integration"
+      ]
+    },
+    "verbosity_control": {
+      "description": "Granular output control",
+      "levels": [
+        "Default - Clean output with progress",
+        "-v - Claude streaming and command details",
+        "-vv - Debug logs with execution traces",
+        "-vvv - Trace-level internal logging"
+      ]
+    }
+  },
+  "storage_architecture": {
+    "type": "major_feature",
+    "description": "Global storage with cross-repository organization",
+    "structure": {
+      "events": "~/.prodigy/events/{repo_name}/{job_id}/",
+      "dlq": "~/.prodigy/dlq/{repo_name}/{job_id}/",
+      "state": "~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/",
+      "sessions": "~/.prodigy/sessions/{session_id}.json",
+      "worktrees": "~/.prodigy/worktrees/{repo_name}/",
+      "mappings": "~/.prodigy/state/{repo_name}/mappings/"
+    },
+    "benefits": [
+      "Cross-worktree data sharing",
+      "Persistent state across sessions",
+      "Centralized monitoring",
+      "Efficient deduplication"
+    ]
+  },
+  "conditional_execution": {
+    "type": "major_feature",
+    "description": "Dynamic workflow control based on runtime conditions",
+    "capabilities": {
+      "when_clauses": {
+        "description": "Skip commands based on conditions",
+        "syntax": [
+          "Boolean expressions with variables",
+          "Comparison operators (==, !=, <, >, etc.)",
+          "Logical operators (&&, ||, !)"
+        ]
+      },
+      "on_failure": {
+        "description": "Execute commands when previous command fails",
+        "options": [
+          "claude - AI-assisted recovery",
+          "shell - Automated fixes",
+          "max_attempts - Retry limits",
+          "fail_workflow - Escalation control"
+        ]
+      },
+      "on_success": {
+        "description": "Execute commands after successful completion",
+        "use_cases": [
+          "Post-processing",
+          "Notification",
+          "Cleanup"
+        ]
+      }
+    }
+  },
+  "meta_content": {
+    "type": "meta",
+    "description": "Best practices, patterns, and troubleshooting guidance",
+    "best_practices": {
+      "workflow_design": [
+        "Keep workflows simple and focused",
+        "Use environment variables for parameterization",
+        "Leverage checkpoints for long-running operations",
+        "Test with dry-run mode before production"
+      ],
+      "error_handling": [
+        "Set appropriate failure thresholds",
+        "Use DLQ for recoverable failures",
+        "Configure circuit breakers for external dependencies",
+        "Monitor failure rates and adjust policies"
+      ],
+      "performance": [
+        "Tune max_parallel based on resource constraints",
+        "Use filtering to reduce work item count",
+        "Enable checkpoints for resume capability",
+        "Clean up worktrees regularly"
+      ],
+      "security": [
+        "Mark sensitive variables as secrets",
+        "Use profile-specific credentials",
+        "Avoid hardcoding tokens in workflows",
+        "Review commit messages for leaked secrets"
+      ]
+    },
+    "common_patterns": [
+      {
+        "name": "Pre-merge Validation",
+        "description": "Run tests and linting before merging worktree changes",
+        "example": "workflows/merge-with-validation.yml"
+      },
+      {
+        "name": "Incremental Processing",
+        "description": "Process large datasets in chunks with checkpoints",
+        "example": "workflows/incremental-mapreduce.yml"
+      },
+      {
+        "name": "Conditional Deployment",
+        "description": "Deploy only if tests pass and environment matches",
+        "example": "workflows/conditional-deploy.yml"
+      },
+      {
+        "name": "Error Recovery",
+        "description": "Use AI to automatically fix test failures",
+        "example": "workflows/auto-fix-tests.yml"
+      }
+    ],
+    "troubleshooting": {
+      "common_issues": [
+        {
+          "issue": "MapReduce agents fail silently",
+          "solution": "Check DLQ with 'prodigy dlq show <job_id>' and inspect JSON logs"
+        },
+        {
+          "issue": "Resume fails with 'session not found'",
+          "solution": "Use 'prodigy sessions list' to find correct session ID or use job ID with 'prodigy resume-job'"
+        },
+        {
+          "issue": "Variables not interpolating",
+          "solution": "Check variable syntax (${var} not {var}), verify variable exists in scope, review InterpolationEngine errors"
+        },
+        {
+          "issue": "Worktree cleanup fails",
+          "solution": "Use 'prodigy worktree clean-orphaned <job_id>' to retry cleanup, check for locked files or running processes"
+        },
+        {
+          "issue": "High failure rate in map phase",
+          "solution": "Adjust max_parallel to reduce resource contention, increase agent timeout, check for environmental issues"
+        },
+        {
+          "issue": "Merge conflicts on worktree integration",
+          "solution": "Use custom merge workflow with conflict resolution commands, ensure frequent rebases in long-running sessions"
+        }
+      ],
+      "debugging_techniques": [
+        "Use -v flag to see Claude streaming output",
+        "Check event logs for operation timeline",
+        "Inspect JSON logs for Claude command failures",
+        "Review checkpoint files for state corruption",
+        "Use DLQ to analyze failed work items"
+      ]
+    }
+  },
+  "version_info": {
+    "analyzed_version": "main branch",
+    "analysis_date": "2025-11-11",
+    "specification_coverage": [
+      "Spec 101 - Error Handling",
+      "Spec 110 - Branch Tracking",
+      "Spec 120 - Environment Variables",
+      "Spec 121 - Claude Observability",
+      "Spec 126 - Claude Logs",
+      "Spec 127 - Worktree Isolation",
+      "Spec 131-133 - Workflow Composition",
+      "Spec 134 - MapReduce Checkpoint and Resume",
+      "Spec 136 - Cleanup Failure Handling",
+      "Spec 140 - Concurrent Resume Protection"
+    ]
+  }
+}

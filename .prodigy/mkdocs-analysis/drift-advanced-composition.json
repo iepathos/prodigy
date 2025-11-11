@@ -1,0 +1,139 @@
+{
+  "item_type": "section-page",
+  "section_id": "advanced",
+  "section_title": "Advanced Features",
+  "page_id": "composition",
+  "page_title": "Workflow Composition",
+  "page_file": "docs/advanced/composition.md",
+  "feature_mappings": [
+    "workflow_composition.imports",
+    "workflow_composition.inheritance",
+    "workflow_composition.templates",
+    "workflow_composition.parameters",
+    "workflow_composition.sub_workflows"
+  ],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page documents planned features that are implemented in code but not fully integrated into CLI and execution pipeline. Several documented syntaxes (use:, run:, use_template:) are not recognized by the WorkflowStep parser. Contains broken internal link.",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "See Also",
+      "description": "Found 1 broken internal link",
+      "broken_links": [
+        {
+          "link_text": "Examples",
+          "target_path": "../reference/examples.md",
+          "resolved_path": "docs/reference/examples.md",
+          "current_file": "docs/advanced/composition.md",
+          "error": "File does not exist"
+        }
+      ],
+      "fix_suggestion": "Remove the broken link to ../reference/examples.md or create appropriate examples documentation."
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Imports",
+      "description": "Example uses 'use:' syntax that is not implemented in WorkflowStep parser",
+      "current_content": "steps:\n  - use: setup.prepare\n  - shell: \"cargo build --release\"\n  - use: deploy.production",
+      "feature_reference": "workflow_composition.imports",
+      "fix_suggestion": "Remove or clarify that 'use:' syntax for referencing imported workflows is not yet implemented. WorkflowStep structure does not include a 'use' field.",
+      "source_reference": "src/cook/workflow/executor/data_structures.rs:36:WorkflowStep"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Sub-Workflows",
+      "description": "Example uses 'run:' syntax that is not implemented in WorkflowStep parser",
+      "current_content": "steps:\n  - run: prepare\n  - run: test\n  - shell: \"deploy.sh\"",
+      "feature_reference": "workflow_composition.sub_workflows",
+      "fix_suggestion": "Remove or clarify that 'run:' syntax for executing sub-workflows is not yet implemented. WorkflowStep structure does not include a 'run' field for sub-workflow invocation.",
+      "source_reference": "src/cook/workflow/executor/data_structures.rs:36:WorkflowStep"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Templates",
+      "description": "Example uses 'use_template:' syntax at step level, but implementation only supports workflow-level template composition",
+      "current_content": "steps:\n  - use_template: \"templates/test-workflow.yml\"\n    parameters:\n      test_suite: \"integration\"\n      parallel: 8",
+      "should_be": "Template composition is applied at workflow level during parsing, not as a step-level command",
+      "feature_reference": "workflow_composition.templates",
+      "fix_suggestion": "Clarify that templates are composed during workflow loading via ComposableWorkflow.template field, not as individual steps. Remove step-level use_template examples or mark as future feature.",
+      "source_reference": "src/cook/workflow/composer_integration.rs:53:parse_composable_workflow"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Template Registry",
+      "description": "Template registry CLI commands exist but not documented with correct syntax",
+      "feature_reference": "workflow_composition.templates",
+      "fix_suggestion": "Add actual CLI command syntax for template management: 'prodigy template add', 'prodigy template list', 'prodigy template show', etc. Update examples to match implemented CLI interface.",
+      "source_reference": "src/cli/template.rs:TemplateManager"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Template Sources",
+      "description": "Documents remote URL source but implementation shows this is not yet supported",
+      "current_content": "Templates can be loaded from:\n- **Local files** - File system paths\n- **Registry** - Template registry storage\n- **Remote URLs** - Git repositories or HTTP endpoints",
+      "should_be": "Only Local files and Registry are currently supported. Remote URLs return an error.",
+      "feature_reference": "workflow_composition.templates",
+      "fix_suggestion": "Mark remote URL template sources as 'Planned' or remove from documentation until implemented.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:178:TemplateSource::Url"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Composition Integration",
+      "description": "Missing explanation of how composition is triggered during workflow loading",
+      "feature_reference": "workflow_composition",
+      "fix_suggestion": "Add section explaining that workflows with template:, imports:, extends:, or workflows: fields are automatically detected as composable and processed by WorkflowComposer during loading. Reference is_composable_workflow() detection logic.",
+      "source_reference": "src/cook/workflow/composer_integration.rs:44:is_composable_workflow"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Parameters",
+      "description": "Parameter validation expressions are mentioned but implementation shows this is TODO",
+      "current_content": "validation: \"${environment} in ['dev', 'staging', 'prod']\"",
+      "feature_reference": "workflow_composition.parameters",
+      "fix_suggestion": "Mark parameter validation expressions as planned feature or remove from examples. Implementation contains TODO comment.",
+      "source_reference": "src/cook/workflow/composition/mod.rs:269:validate_parameter_value"
+    }
+  ],
+  "positive_aspects": [
+    "Clear overview of composition capabilities",
+    "Good structure with separate sections for each composition feature",
+    "Examples are well-formatted and easy to read",
+    "Parameter types are clearly documented",
+    "Template metadata structure is accurate",
+    "Inheritance merge behavior is correctly explained"
+  ],
+  "improvement_suggestions": [
+    "Add 'Implementation Status' badges to distinguish between implemented and planned features",
+    "Include working end-to-end example showing how to create, register, and use a template",
+    "Add troubleshooting section for common composition errors",
+    "Document the automatic composition detection behavior",
+    "Show how to use CLI to inspect and validate composable workflows",
+    "Clarify that composition happens at workflow load time, not during execution",
+    "Add cross-reference to template CLI commands documentation"
+  ],
+  "cross_references": [
+    "workflow-structure",
+    "variables"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T10:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Imports",
+      "Inheritance",
+      "Templates",
+      "Parameters",
+      "Sub-workflows"
+    ],
+    "validation_focus": "Check workflow composition features including imports, extends, templates, and sub-workflows are documented"
+  }
+}

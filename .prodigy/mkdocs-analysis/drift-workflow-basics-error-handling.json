@@ -1,0 +1,59 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "error-handling",
+  "page_title": "Error Handling",
+  "page_file": "docs/workflow-basics/error-handling.md",
+  "feature_mappings": [
+    "error_handling.workflow_level",
+    "error_handling.command_level",
+    "error_handling.advanced_features.circuit_breaker",
+    "error_handling.advanced_features.retry_configuration"
+  ],
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent documentation with comprehensive coverage of all mapped features. All examples are accurate and well-explained.",
+  "issues": [],
+  "positive_aspects": [
+    "Complete coverage of all four mapped features (workflow-level, command-level, circuit breaker, retry configuration)",
+    "Clear YAML examples for each error handling pattern",
+    "Well-structured progression from simple to advanced error handling",
+    "Accurate documentation of all policy options and configuration parameters",
+    "Good cross-references to related pages (DLQ, conditional execution, observability)",
+    "Includes practical DLQ management commands (show, retry, dry-run)",
+    "Circuit breaker states clearly explained (Closed, Open, Half-Open)",
+    "All four backoff strategies documented (fixed, linear, exponential, fibonacci)",
+    "Retry configuration parameters match feature inventory exactly",
+    "Error context and debugging section provides actionable guidance"
+  ],
+  "improvement_suggestions": [
+    "Could add example showing combined usage of multiple error handling levels (workflow + command + circuit breaker)",
+    "Consider adding a troubleshooting subsection specifically for common circuit breaker issues",
+    "Could include performance impact notes for different retry strategies"
+  ],
+  "cross_references": {
+    "validated": [
+      "../mapreduce/dlq.md",
+      "conditional-execution.md",
+      "../advanced/observability.md"
+    ],
+    "all_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T09:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Workflow-level policies",
+      "Command-level handlers",
+      "Circuit breakers",
+      "Retry strategies"
+    ],
+    "validation_focus": "Check error handling policies, retry configuration, and circuit breakers are documented",
+    "link_validation": {
+      "total_internal_links": 3,
+      "broken_links": 0,
+      "all_links_valid": true
+    }
+  }
+}
