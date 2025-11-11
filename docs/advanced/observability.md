@@ -414,4 +414,4 @@ done
 - [Event Tracking (MapReduce)](../mapreduce/event-tracking.md) - MapReduce event details
 - [Dead Letter Queue](../mapreduce/dead-letter-queue-dlq.md) - Failure tracking and retry
 - [Session Management](sessions.md) - Session state and checkpoints
-- [Claude Observability (Spec 121)](../../CLAUDE.md#claude-command-observability-spec-121) - Technical details
+- [Claude Observability](#claude-observability) - JSON log tracking and analysis

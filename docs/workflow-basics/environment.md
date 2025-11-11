@@ -451,6 +451,6 @@ prodigy run workflow.yml --profile production
 
 ## See Also
 
-- [Workflow Structure](structure.md) - Overall workflow configuration
-- [Variable System](../reference/variable-system.md) - Advanced variable interpolation
-- [Command Types](commands.md) - Using variables in different command types
+- [Workflow Structure](workflow-structure.md) - Overall workflow configuration
+- [Variables and Interpolation](../variables/index.md) - Advanced variable interpolation
+- [Command Types](../commands.md) - Using variables in different command types

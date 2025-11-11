@@ -437,5 +437,5 @@ When a `when` clause doesn't evaluate as expected:
 ## Related Topics
 
 - [Variables](variables.md) - Learn about variable interpolation and capture
-- [Error Handling](../reference/error-handling.md) - Broader error handling strategies
+- [Error Handling](error-handling.md) - Broader error handling strategies
 - [Workflow Structure](workflow-structure.md) - Understanding workflow execution flow

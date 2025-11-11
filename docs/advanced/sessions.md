@@ -328,4 +328,4 @@ Lock held by: PID 12345 on machine.local (acquired 2025-01-11 10:30:00 UTC)
 - [Checkpoint and Resume (MapReduce)](../mapreduce/checkpoint-and-resume.md) - MapReduce checkpointing details
 - [Worktree Management](git-integration.md) - Git worktree coordination with sessions
 - [Storage Architecture](storage.md) - Session storage structure
-- [Concurrent Resume Protection (Spec 140)](../../CLAUDE.md#concurrent-resume-protection-spec-140) - Technical details
+- [Concurrent Resume Protection](#concurrent-resume-protection) - Lock-based resume safety

@@ -397,7 +397,7 @@ prodigy run .prodigy/workflow.yml
 
 ## Related Documentation
 
-- [Project Configuration](project-config.md) - Project-specific settings and overrides
-- [Workflow Configuration](workflow-config.md) - Workflow definition and structure
+- [Project Configuration](project-configuration-structure.md) - Project-specific settings and overrides
+- [Workflow Configuration](workflow-configuration.md) - Workflow definition and structure
 - [Environment Variables](environment-variables.md) - Complete environment variable reference
-- [Getting Started](../getting-started.md) - Initial setup and configuration
+- [Installation](../installation.md) - Initial setup and configuration

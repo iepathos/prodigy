@@ -312,7 +312,7 @@ merge:
 
 ## See Also
 
-- [Worktree Isolation (Spec 127)](../../CLAUDE.md#worktree-isolation-spec-127-spec-134) - Technical details
-- [Branch Tracking (Spec 110)](../../CLAUDE.md#branch-tracking-spec-110) - Original branch detection
+- [Worktree Management](#worktree-management) - Isolation and lifecycle management
+- [Branch Tracking](#branch-tracking) - Original branch detection
 - [Session Management](sessions.md) - Session lifecycle and worktree coordination
 - [MapReduce Workflows](../mapreduce/index.md) - Parallel execution with worktrees
