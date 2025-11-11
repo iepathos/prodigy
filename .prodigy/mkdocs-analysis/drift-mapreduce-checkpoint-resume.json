@@ -4,127 +4,71 @@
   "section_title": "MapReduce Workflows",
   "page_id": "checkpoint-resume",
   "page_title": "Checkpoint and Resume",
-  "page_file": "docs/mapreduce/checkpoint-resume.md",
-  "feature_mappings": ["mapreduce.checkpoint", "mapreduce.resume"],
-  "drift_detected": true,
-  "severity": "critical",
-  "quality_assessment": "Documentation page does not exist. This is a gap - the checkpoint-resume.md page is completely missing from docs/mapreduce/. While related content exists in docs/mapreduce-resume-guide.md, the MkDocs structure requires this content to be in docs/mapreduce/checkpoint-resume.md as part of the MapReduce section.",
-  "issues": [
-    {
-      "type": "missing_content",
-      "severity": "critical",
-      "section": "Entire Page",
-      "description": "Documentation page docs/mapreduce/checkpoint-resume.md does not exist",
-      "feature_reference": "mapreduce.checkpoint, mapreduce.resume",
-      "fix_suggestion": "Create docs/mapreduce/checkpoint-resume.md with comprehensive documentation for MapReduce checkpoint and resume features. Content should be extracted from docs/mapreduce-resume-guide.md and reorganized to fit MkDocs Material structure with proper admonitions, tabs, and cross-references to other MapReduce pages.",
-      "source_reference": "Related content exists in docs/mapreduce-resume-guide.md but needs to be migrated to correct location"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Checkpoint Behavior",
-      "description": "Must document setup, map, and reduce phase checkpointing",
-      "feature_reference": "mapreduce_workflows.core_capabilities.state_management",
-      "fix_suggestion": "Document checkpoint creation timing: setup phase checkpoint after completion, map phase checkpoints after configurable item count, reduce phase step-by-step checkpoints. Include checkpoint file structure and storage locations.",
-      "source_reference": "features.json lines 68-77, docs/mapreduce-resume-guide.md lines 126-145"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Resume Behavior",
-      "description": "Must document session-job ID mapping for resume operations",
-      "feature_reference": "mapreduce_workflows.core_capabilities.state_management",
-      "fix_suggestion": "Explain bidirectional session-job mapping, how to resume with either ID type, and where mapping files are stored (~/.prodigy/state/{repo_name}/mappings/). Include examples of both 'prodigy resume <session-id>' and 'prodigy resume-job <job-id>'.",
-      "source_reference": "features.json line 74, CLAUDE.md lines 200-219"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Resume Behavior",
-      "description": "Must document in-progress item re-execution on resume",
-      "feature_reference": "mapreduce_workflows.core_capabilities.state_management",
-      "fix_suggestion": "Explain that items marked as 'in-progress' during interruption are moved back to 'pending' state on resume and will be re-executed. This prevents partial results from interrupted agents.",
-      "source_reference": "features.json line 76, CLAUDE.md lines 235-240"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Resume Behavior",
-      "description": "Must document concurrent resume protection with locks",
-      "feature_reference": "session_management.resume",
-      "fix_suggestion": "Document RAII-based lock mechanism that prevents multiple resume processes from running on same job. Include lock metadata (PID, hostname, timestamp), stale lock detection, and troubleshooting stuck locks.",
-      "source_reference": "features.json line 452, CLAUDE.md lines 287-354"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Resume Options",
-      "description": "Must document advanced resume options (force, max-parallel, skip-validation, etc.)",
-      "feature_reference": "mapreduce_workflows.core_capabilities.state_management",
-      "fix_suggestion": "Document resume command options: --force, --max-parallel override, --max-additional-retries, --skip-validation, --from-checkpoint. Include use cases and warnings for each option.",
-      "source_reference": "docs/mapreduce-resume-guide.md lines 60-124"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Checkpoint Structure",
-      "description": "Must document checkpoint file structure and storage locations",
-      "feature_reference": "mapreduce_workflows.core_capabilities.state_management",
-      "fix_suggestion": "Document checkpoint storage at ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/, file naming patterns (setup-checkpoint.json, map-checkpoint-{timestamp}.json, reduce-checkpoint-v1-{timestamp}.json), and checkpoint contents (work items, agent results, variables, etc.).",
-      "source_reference": "CLAUDE.md lines 255-267, features.json lines 505-512"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "State Preservation",
-      "description": "Must document variable and context preservation across resume",
-      "feature_reference": "mapreduce_workflows.core_capabilities.state_management",
-      "fix_suggestion": "Explain how workflow variables, captured outputs, environment variables, and map results are preserved in checkpoints and restored on resume. Include example showing variable continuity.",
-      "source_reference": "CLAUDE.md lines 241-250"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Resume Strategies",
-      "description": "Should document different resume strategies based on phase",
-      "feature_reference": "mapreduce_workflows.core_capabilities.state_management",
-      "fix_suggestion": "Explain phase-specific resume behavior: setup phase restarts from beginning (idempotent operations recommended), map phase continues from last checkpoint, reduce phase continues from last completed step. Include validation step before resuming.",
-      "source_reference": "CLAUDE.md lines 268-278"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Examples",
-      "description": "Should include practical resume examples",
-      "feature_reference": "mapreduce_workflows.core_capabilities.state_management",
-      "fix_suggestion": "Provide examples: simple resume after interruption, resume with configuration changes, recovery from specific checkpoint, handling concurrent resume attempts, troubleshooting stuck locks.",
-      "source_reference": "docs/mapreduce-resume-guide.md lines 234-311"
-    }
+  "page_file": "docs/mapreduce/checkpoint-and-resume.md",
+  "feature_mappings": [
+    "mapreduce.checkpoint",
+    "mapreduce.resume"
   ],
+  "drift_detected": false,
+  "severity": "none",
+  "quality_assessment": "Excellent - Documentation is comprehensive, accurate, and well-structured with no significant drift detected",
+  "issues": [],
   "positive_aspects": [
-    "Related content exists in docs/mapreduce-resume-guide.md that can be leveraged",
-    "The mapreduce/ directory structure is already established with work-distribution.md"
+    "Comprehensive coverage of all checkpoint types (setup, map, reduce) with accurate implementation details",
+    "Excellent documentation of checkpoint file structures with source code references (src/cook/execution/mapreduce/checkpoint/types.rs)",
+    "Clear explanation of session-job ID mapping with correct storage location and field documentation",
+    "Accurate concurrent resume protection documentation including RAII behavior and stale lock detection",
+    "Detailed checkpoint interval configuration with correct default values (100 items, 300 seconds)",
+    "Well-documented retention policy with accurate defaults (10 checkpoints, 7 days)",
+    "Comprehensive troubleshooting sections for both resume and stale lock issues",
+    "Correct storage structure documentation matching global storage architecture",
+    "Clear resume command examples for both session and job IDs",
+    "Accurate state preservation documentation covering variables, work items, and agent state",
+    "Good cross-references to related pages (DLQ, Event Tracking, Global Storage)",
+    "All internal links are valid and correctly point to existing documentation files"
   ],
   "improvement_suggestions": [
-    "Create docs/mapreduce/checkpoint-resume.md by extracting and reorganizing content from docs/mapreduce-resume-guide.md",
-    "Add cross-references to other MapReduce pages (work-distribution.md, dlq.md, event-tracking.md)",
-    "Use MkDocs Material admonitions for warnings (concurrent resume, stale locks, force flag)",
-    "Include tabbed examples for different resume scenarios",
-    "Add diagram showing checkpoint timeline across setup/map/reduce phases",
-    "Consider deprecating docs/mapreduce-resume-guide.md after migration to avoid content duplication"
+    "Consider adding a visual diagram showing checkpoint creation flow across phases",
+    "Could include a concrete example showing checkpoint file contents from a real workflow run",
+    "Might benefit from a comparison table showing differences between MapReduce and standard workflow checkpoints"
   ],
   "cross_references": [
-    "work-distribution",
-    "dlq",
+    "dead-letter-queue-dlq",
     "event-tracking",
-    "sessions",
-    "storage"
+    "global-storage-architecture"
   ],
+  "link_validation": {
+    "total_internal_links": 3,
+    "broken_links": 0,
+    "valid_links": [
+      "./dead-letter-queue-dlq.md",
+      "./event-tracking.md",
+      "./global-storage-architecture.md"
+    ]
+  },
   "metadata": {
-    "analyzed_at": "2025-11-11T09:45:57Z",
+    "analyzed_at": "2025-11-11T21:24:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
-    "topics_covered": ["Checkpoints", "Resume", "State management"],
+    "topics_covered": [
+      "Checkpoints",
+      "Resume",
+      "State management",
+      "Session-job mapping",
+      "Concurrent resume protection",
+      "Checkpoint intervals",
+      "Retention policy",
+      "Storage structure"
+    ],
     "validation_focus": "Check checkpoint structure and resume behavior documented",
-    "note": "This is a GAP - documentation page does not exist. Related content exists in docs/mapreduce-resume-guide.md but needs to be migrated to docs/mapreduce/checkpoint-resume.md for proper MkDocs structure."
+    "source_references_verified": [
+      "src/storage/session_job_mapping.rs:14-26",
+      "src/cook/execution/mapreduce/checkpoint/types.rs:48-64",
+      "src/cook/execution/mapreduce/checkpoint/types.rs:242-264",
+      "src/cook/workflow/checkpoint.rs:20",
+      "src/cook/workflow/checkpoint.rs:26-57",
+      "src/cook/execution/resume_lock.rs:96-120",
+      "tests/concurrent_resume_test.rs:77-105",
+      "src/cli/args.rs:363-413"
+    ]
   }
 }
