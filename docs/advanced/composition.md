@@ -75,6 +75,7 @@ env:
 Create reusable workflow templates:
 
 ```yaml
+# Source: workflows/example-template.yml
 # template: rust-ci-template
 name: rust-ci
 description: "Standard Rust CI workflow"
@@ -96,6 +97,11 @@ parameters:
   when: "${coverage} == true"
 ```
 
+!!! note "Template Detection"
+    Workflow files using composition features (template, imports, extends, workflows, or parameters keywords) are automatically detected by Prodigy during workflow parsing via the `is_composable_workflow()` function and composed before execution.
+
+    Source: `src/cook/workflow/composer_integration.rs:44-50`
+
 ### Using Templates
 
 ```yaml
@@ -109,10 +115,16 @@ parameters:
 
 ### Template Storage
 
-Templates can be stored in:
-- **Local**: `.prodigy/templates/`
-- **Registry**: `~/.prodigy/template-registry/`
-- **Remote**: Git repositories or URLs
+Templates are searched in priority order:
+
+1. **Global** (`~/.prodigy/templates/`): Shared across all repositories
+2. **Project-local** (`.prodigy/templates/`): Repository-specific templates
+3. **Legacy** (`templates/`): Older project-local templates
+
+!!! tip "Automatic Directory Creation"
+    Template directories are automatically created by the template registry if they don't exist, so you can start using templates immediately.
+
+    Source: `src/cook/workflow/composer_integration.rs:93-136`
 
 ## Parameters
 
@@ -212,20 +224,27 @@ sub_workflows:
 - Result capture and access
 - Conditional execution
 
+!!! warning "Implementation Status"
+    Sub-workflow execution is currently in development. The data structures and configuration parsing are complete, but the execution integration is still being finalized.
+
+    Source: `src/cook/workflow/composition/sub_workflow.rs`
+
 ## Template Registry
 
 Manage reusable templates centrally:
 
 ```bash
-# Add template to registry
-prodigy template add rust-ci ./templates/rust-ci.yml
+# Source: src/cli/args.rs:831-851, src/cli/router.rs:210-233
+
+# Register template
+prodigy template register ./templates/rust-ci.yml --name rust-ci
 
 # List available templates
 prodigy template list
-
-# Use template from registry
-prodigy run --template rust-ci --param target=x86_64
 ```
+
+!!! note "Template Usage"
+    Templates are used by referencing them in workflow YAML files with the `template:` field, not via CLI flags. CLI-based parameter passing to templates is planned for a future release.
 
 ### Registry Structure
 
@@ -351,4 +370,4 @@ sub_workflows:
 
 - [Workflow Structure](../workflow-basics/workflow-structure.md) - Basic workflow syntax
 - [Variables](../workflow-basics/variables.md) - Variable system for parameters
-- [Templates Guide](../guides/workflow-templates.md) - Creating and using templates
+- [Template System](../composition/template-system.md) - Creating and using templates
