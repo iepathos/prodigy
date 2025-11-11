@@ -78,6 +78,18 @@ All workflow operations are logged to JSONL event files:
 }
 ```
 
+**ClaudeMessage** - Claude interaction messages:
+```json
+// Source: src/cook/execution/events/event_types.rs:164-169
+{
+  "type": "ClaudeMessage",
+  "agent_id": "agent-1",
+  "content": "Analyzing file structure...",
+  "message_type": "assistant",
+  "json_log_location": "/path/to/logs/session-xyz.json"
+}
+```
+
 ### Event Organization
 
 Events are organized by repository and job:
@@ -276,6 +288,38 @@ Monitor performance:
 ```
 
 ## Event Query Examples
+
+### Correlation IDs
+
+Events include optional correlation IDs for tracing related operations across multiple agents:
+
+```json
+// Source: src/storage/types.rs:75
+{
+  "type": "AgentStarted",
+  "job_id": "mapreduce-123",
+  "agent_id": "agent-1",
+  "correlation_id": "trace-abc-123",
+  "timestamp": "2025-01-11T12:00:00Z"
+}
+```
+
+**Filter events by correlation ID**:
+```bash
+# Source: src/cook/execution/events/filter.rs:63
+# Find all events related to a specific workflow trace
+cat ~/.prodigy/events/prodigy/mapreduce-123/events-*.jsonl | \
+  jq -c 'select(.correlation_id == "trace-abc-123")'
+```
+
+**Track an agent workflow end-to-end**:
+```bash
+# Get correlation ID from initial event
+CORRELATION_ID=$(cat events.jsonl | jq -r 'select(.type == "AgentStarted") | .correlation_id' | head -1)
+
+# Find all related events
+cat events.jsonl | jq -c "select(.correlation_id == \"$CORRELATION_ID\")"
+```
 
 ### Find Failed Agents
 
