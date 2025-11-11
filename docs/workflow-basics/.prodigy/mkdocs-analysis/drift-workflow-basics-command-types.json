@@ -1,0 +1,78 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "command-types",
+  "page_title": "Command Types",
+  "page_file": "docs/workflow-basics/command-types.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent documentation with accurate syntax, comprehensive examples, and proper source code references. All command types are thoroughly documented with correct field descriptions.",
+  "issues": [],
+  "positive_aspects": [
+    "All six command types (shell, claude, goal_seek, foreach, write_file, validate) are documented",
+    "Each command type includes accurate source code references",
+    "Syntax examples match the actual struct definitions in code",
+    "Comprehensive field documentation with correct types and options",
+    "Real-world examples from actual workflow files",
+    "Clear explanation of command exclusivity with valid/invalid examples",
+    "Deprecated test command is properly documented with migration guidance",
+    "All internal markdown links are valid and point to existing files",
+    "Common fields section provides unified documentation for shared options",
+    "Use cases listed for each command type help readers understand applications"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a troubleshooting section for common command-related errors",
+    "Could include a comparison matrix showing which fields are available for each command type",
+    "Add examples showing command chaining with on_success/on_failure for complex workflows",
+    "Consider adding performance notes about foreach parallel execution vs MapReduce",
+    "Could mention environment variable interpolation in command strings"
+  ],
+  "cross_references": [
+    "available-fields.md",
+    "goal-seeking-operations.md",
+    "parallel-iteration-with-foreach.md",
+    "implementation-validation.md",
+    "variables/index.md",
+    "error-handling.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T21:23:45Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Shell commands",
+      "Claude commands",
+      "Goal-seeking",
+      "Foreach",
+      "Write file",
+      "Validate"
+    ],
+    "validation_focus": "Check all command types are documented",
+    "verification_details": {
+      "source_code_verified": [
+        "src/config/command.rs:321-401 - WorkflowStepCommand struct matches documentation",
+        "src/config/command.rs:279-317 - WriteFileConfig matches documentation",
+        "src/config/command.rs:191-211 - ForeachConfig matches documentation",
+        "src/cook/goal_seek/mod.rs:15-41 - GoalSeekConfig matches documentation",
+        "src/cook/workflow/validation.rs:12-50 - ValidationConfig matches documentation"
+      ],
+      "internal_links_verified": [
+        "available-fields.md - exists",
+        "../advanced/goal-seeking-operations.md - exists",
+        "../advanced/parallel-iteration-with-foreach.md - exists",
+        "../advanced/implementation-validation.md - exists",
+        "../variables/index.md - exists",
+        "../error-handling.md - exists"
+      ],
+      "command_types_documented": [
+        "shell - Complete with all fields",
+        "claude - Complete with all fields",
+        "goal_seek - Complete with all fields",
+        "foreach - Complete with all fields",
+        "write_file - Complete with all fields",
+        "validate - Complete with all fields",
+        "test (deprecated) - Migration guidance provided"
+      ]
+    }
+  }
+}
