@@ -1,7 +1,7 @@
 {
   "project_name": "Prodigy",
   "project_type": "cli_tool",
-  "docs_dir": "mkdocs",
+  "docs_dir": "docs",
   "mkdocs_config": "mkdocs.yml",
   "analysis_dir": ".prodigy/mkdocs-analysis",
   "theme": "material",
@@ -189,7 +189,7 @@
       ]
     }
   ],
-  "chapter_file": "workflows/data/prodigy-mkdocs-chapters.json",
+  "chapter_file": "workflows/data/mkdocs-chapters.json",
   "custom_analysis": {
     "include_examples": true,
     "include_best_practices": true,
