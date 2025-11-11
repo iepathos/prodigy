@@ -1,0 +1,130 @@
+{
+  "item_type": "chapter",
+  "chapter_id": "troubleshooting",
+  "chapter_title": "Troubleshooting",
+  "chapter_file": "book/src/troubleshooting/index.md",
+  "is_multi_subsection": true,
+  "subsections": [
+    "index.md",
+    "common-error-messages.md",
+    "faq.md",
+    "best-practices-for-debugging.md"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good comprehensive coverage of common issues, but missing some advanced troubleshooting for newer features (circuit breakers, retry configuration, workflow composition)",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Common Error Messages / Error Handling",
+      "description": "Missing troubleshooting guidance for circuit breaker failures",
+      "feature_reference": "error_handling.workflow_level.circuit_breaker",
+      "fix_suggestion": "Add error message and troubleshooting for 'Circuit breaker opened after N failures' with explanation of open/half-open/closed states, how to check circuit breaker status, and how to reset or configure thresholds",
+      "source_reference": "features.json:248-253 (circuit_breaker configuration)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Common Issues / FAQ",
+      "description": "No troubleshooting for retry configuration issues (backoff strategies, retry budget)",
+      "feature_reference": "retry_configuration.backoff_strategies",
+      "fix_suggestion": "Add section explaining retry exhaustion, how to configure backoff strategies (fixed, linear, exponential, fibonacci), and how to debug when retries are not working as expected",
+      "source_reference": "features.json:279-301 (retry_configuration)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Common Error Messages",
+      "description": "Template errors (template not found, circular dependency) are documented but workflow composition errors are incomplete",
+      "current_content": "Brief coverage of template not found and circular dependency errors",
+      "should_be": "More comprehensive coverage of composition errors including parameter validation, extends/imports failures, sub-workflow errors",
+      "fix_suggestion": "Expand workflow composition troubleshooting to cover parameter validation failures, template registry issues, sub-workflow execution failures, and composition validation errors",
+      "source_reference": "features.json:303-338 (workflow_composition)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Common Issues",
+      "description": "No troubleshooting for output capture format issues",
+      "feature_reference": "variables.capture_formats",
+      "fix_suggestion": "Add troubleshooting for capture_output format errors (json parse failures, number conversion errors, boolean interpretation), and guidance on nested access to captured outputs with dot notation",
+      "source_reference": "features.json:181, advanced_features.output_capture (lines 217-223)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Common Issues",
+      "description": "No troubleshooting for working directory (cwd) path resolution issues",
+      "feature_reference": "advanced_features.working_directory",
+      "fix_suggestion": "Add troubleshooting for cwd path not found, relative vs absolute path issues, platform-specific path handling (Windows vs Unix), and variable interpolation in paths",
+      "source_reference": "features.json:237-241 (working_directory)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Common Error Messages",
+      "description": "Missing error message for 'Validation failed: threshold not met'",
+      "feature_reference": "command_types.goal_seek, command_types.validate",
+      "fix_suggestion": "Add error message documentation for validation failures in goal_seek and validate commands, explaining threshold configuration, result_file format, and on_incomplete handlers",
+      "source_reference": "features.json:97-122 (goal_seek and validate)"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent organization with multi-subsection structure (index, common errors, FAQ, best practices)",
+    "Comprehensive coverage of MapReduce-specific troubleshooting (checkpoints, DLQ, agents, worktrees)",
+    "Clear symptom → cause → solution format for each issue",
+    "Good practical examples with actual commands users can run",
+    "Proper cross-references to related chapters (MapReduce, Environment, Git Context)",
+    "Includes source code references where relevant (src/cli/commands/events.rs, etc.)",
+    "All internal links are valid and correctly reference existing files",
+    "Covers concurrent resume protection (Spec 140)",
+    "Covers cleanup failure handling (Spec 136)",
+    "Good coverage of foreach troubleshooting (index.md:155-186)",
+    "Excellent Claude JSON log troubleshooting guidance",
+    "Comprehensive event log location and usage documentation"
+  ],
+  "improvement_suggestions": [
+    "Add circuit breaker troubleshooting section with state explanations",
+    "Include retry configuration troubleshooting (backoff, budget, jitter)",
+    "Expand workflow composition error coverage beyond basic template errors",
+    "Add output capture format troubleshooting for different capture formats",
+    "Include working directory (cwd) path resolution troubleshooting",
+    "Add validation failure troubleshooting for goal_seek and validate commands",
+    "Consider adding troubleshooting for error_collection strategies (aggregate, immediate, batched)",
+    "Add troubleshooting for failure_threshold and max_failures configuration"
+  ],
+  "link_validation": {
+    "broken_links": [],
+    "valid_links": [
+      "../mapreduce/checkpoint-and-resume.md",
+      "../mapreduce/dead-letter-queue-dlq.md",
+      "../environment/index.md",
+      "../git-context-advanced.md",
+      "faq.md",
+      "common-error-messages.md",
+      "best-practices-for-debugging.md"
+    ],
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-01-11T01:45:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "Common issues",
+      "Debug tips",
+      "FAQ",
+      "Error messages",
+      "Best practices",
+      "MapReduce failures",
+      "Checkpoint resume",
+      "DLQ management",
+      "Worktree cleanup",
+      "Environment variables",
+      "Git context",
+      "Claude logs",
+      "Event logs"
+    ],
+    "validation_focus": "Check troubleshooting covers common user issues"
+  }
+}
