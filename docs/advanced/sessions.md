@@ -40,6 +40,7 @@ Standard workflow execution tracking:
 MapReduce job state management:
 
 ```json
+// Source: src/unified_session/state.rs:117-125
 {
   "id": "session-mapreduce-xyz",
   "session_type": "MapReduce",
@@ -49,9 +50,10 @@ MapReduce job state management:
     "job_id": "mapreduce-xyz",
     "phase": "map",
     "total_items": 100,
-    "completed_items": 45,
+    "processed_items": 45,
     "failed_items": 2,
-    "in_progress_items": 5
+    "agent_count": 0,
+    "reduce_results": null
   }
 }
 ```
@@ -139,6 +141,18 @@ Bidirectional mapping enables resume with either ID:
 ~/.prodigy/state/{repo_name}/mappings/
 ├── session-to-job.json
 └── job-to-session.json
+```
+
+Each mapping contains:
+
+```json
+// Source: src/storage/session_job_mapping.rs:14-26
+{
+  "session_id": "session-mapreduce-xyz",
+  "job_id": "mapreduce-xyz",
+  "workflow_name": "my-workflow",
+  "created_at": "2025-01-11T12:00:00Z"
+}
 ```
 
 ### Checkpoint-Based Resume
