@@ -1,0 +1,120 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "variables",
+  "page_title": "Variables and Interpolation",
+  "page_file": "docs/workflow-basics/variables.md",
+  "feature_mappings": [
+    "variable_system.standard_variables",
+    "variable_system.mapreduce_variables",
+    "variable_system.capture_variables",
+    "variable_system.interpolation"
+  ],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page has critical syntax error in default value syntax and broken cross-reference links. Content is otherwise accurate but needs updates.",
+  "issues": [
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Default Values",
+      "description": "Documentation shows incorrect syntax for default values using pipe notation instead of colon-dash",
+      "current_content": "${item.description|default:No description}",
+      "should_be": "${item.description:-No description}",
+      "fix_suggestion": "Update example on line 36 to use correct bash-style default syntax: ${variable:-default}",
+      "source_reference": "src/cook/execution/interpolation.rs:277 (uses ':-' syntax)"
+    },
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "See Also",
+      "description": "Found 2 broken internal link(s)",
+      "broken_links": [
+        {
+          "link_text": "Command Types",
+          "target": "command-types.md",
+          "resolved_path": "docs/workflow-basics/command-types.md",
+          "reason": "File does not exist",
+          "suggested_fixes": [
+            "workflow-structure.md - discusses command execution",
+            "Remove the link or update to point to workflow-structure.md"
+          ]
+        },
+        {
+          "link_text": "MapReduce Overview",
+          "target": "../mapreduce/overview.md",
+          "resolved_path": "docs/mapreduce/overview.md",
+          "reason": "File does not exist",
+          "suggested_fixes": [
+            "work-distribution.md - only file in docs/mapreduce/",
+            "Update link to ../mapreduce/work-distribution.md or remove if not relevant"
+          ]
+        }
+      ],
+      "fix_suggestion": "Update or remove broken cross-reference links in the 'See Also' section"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Variable Interpolation",
+      "description": "Missing explanation of alias resolution feature mentioned in features.json",
+      "feature_reference": "variable_system.interpolation.alias_resolution",
+      "fix_suggestion": "Add brief mention that interpolation supports alias resolution for backwards compatibility",
+      "source_reference": "src/cook/execution/interpolation.rs (InterpolationContext)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Nested Field Access",
+      "description": "No mention of array indexing syntax like items[0] or bracket notation",
+      "current_content": "Examples show only dot notation for nested access",
+      "should_be": "Show both dot notation and array indexing with brackets",
+      "fix_suggestion": "Add example: ${items[0].name} or ${data.results[0]} to demonstrate array access",
+      "source_reference": "src/cook/execution/interpolation.rs:489-508 (array indexing implementation)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Variable Interpolation",
+      "description": "Missing explanation of unbraced $VAR syntax support",
+      "feature_reference": "variable_system.interpolation.unbraced_syntax",
+      "fix_suggestion": "Add note that both ${VAR} and $VAR syntax are supported (line 15 mentions it but doesn't explain when to use each)",
+      "source_reference": "src/cook/execution/interpolation.rs:34-36 (regex supports both patterns)"
+    }
+  ],
+  "positive_aspects": [
+    "Clear organization with overview section",
+    "Good categorization of variable types (standard, MapReduce, capture)",
+    "Helpful examples for nested field access",
+    "Comprehensive coverage of capture metadata fields",
+    "Appropriate cross-references to related topics"
+  ],
+  "improvement_suggestions": [
+    "Add a troubleshooting subsection for common interpolation issues",
+    "Include example showing array access with bracket notation: ${items[0].field}",
+    "Clarify when to use ${VAR} vs $VAR syntax (braced for complex paths, unbraced for simple env vars)",
+    "Add note about strict vs non-strict mode behavior",
+    "Consider adding an example of nested context (parent/child variable resolution)"
+  ],
+  "cross_references": [
+    "environment",
+    "workflow-structure",
+    "work-distribution"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T09:46:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Variable interpolation",
+      "Standard variables",
+      "MapReduce variables",
+      "Capture variables",
+      "Output formats"
+    ],
+    "validation_focus": "Check variable syntax, interpolation engine, and capture formats are documented",
+    "total_internal_links": 3,
+    "broken_links": 2,
+    "valid_links": 1
+  }
+}
