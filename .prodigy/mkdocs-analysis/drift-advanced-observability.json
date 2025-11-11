@@ -1,0 +1,121 @@
+{
+  "item_type": "section-page",
+  "section_id": "advanced",
+  "section_title": "Advanced Features",
+  "page_id": "observability",
+  "page_title": "Observability and Logging",
+  "page_file": "docs/advanced/observability.md",
+  "feature_mappings": [
+    "observability.event_tracking",
+    "observability.claude_observability",
+    "observability.verbosity_control"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page covers core observability features well but is missing critical details about Claude log location tracking, event storage paths, and integration with MapReduce workflows. Several medium-severity gaps in documentation completeness.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Claude Observability",
+      "description": "Missing documentation for JSON log location tracking in verbose mode and DLQ items",
+      "feature_reference": "observability.claude_observability.capabilities.json_log_file_location_tracking",
+      "fix_suggestion": "Add section explaining that verbose mode (-v flag) displays the JSON log location after each Claude command execution, and that DLQ items include json_log_location field for debugging failed agents",
+      "source_reference": "Spec 121 - Claude JSON log location tracking"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Claude Observability",
+      "description": "Missing explanation of MapReduce event integration with Claude logs",
+      "feature_reference": "observability.claude_observability.access.mapreduce_event_integration",
+      "fix_suggestion": "Add section explaining that AgentCompleted and AgentFailed events include json_log_location field linking to the Claude log for that agent execution",
+      "source_reference": "Spec 121 - MapReduce event integration"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Event Tracking",
+      "description": "Event storage path documentation is incomplete - mentions global storage but doesn't explain cross-worktree aggregation",
+      "current_content": "~/.prodigy/events/{repo_name}/{job_id}/",
+      "fix_suggestion": "Explain that events are stored globally to enable cross-worktree aggregation for parallel jobs, and that multiple worktrees working on the same job share event logs",
+      "source_reference": "src/events/event_logger.rs - Global storage architecture"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Verbosity Control",
+      "description": "Missing mention of PRODIGY_CLAUDE_STREAMING environment variable",
+      "feature_reference": "observability.verbosity_control",
+      "fix_suggestion": "Add note that PRODIGY_CLAUDE_STREAMING=false can be used to disable JSON streaming in CI/CD environments with storage constraints",
+      "source_reference": "CLAUDE.md - Claude JSON streaming control"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Claude Observability",
+      "description": "Log file path format uses {uuid}.jsonl but doesn't explain this is the session ID",
+      "current_content": "~/.claude/projects/{worktree-path}/{uuid}.jsonl",
+      "fix_suggestion": "Clarify that {uuid} is the session ID and can be correlated with Prodigy session tracking",
+      "source_reference": "Spec 121 - Session correlation"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Debugging Failed MapReduce Agents",
+      "description": "Example shows old JSON format (.json) instead of JSONL format (.jsonl)",
+      "current_content": "cat /path/from/above/session-xyz.json | jq",
+      "should_be": "cat /path/from/above/session-xyz.jsonl | jq",
+      "fix_suggestion": "Update example to use .jsonl extension to match actual Claude log format",
+      "source_reference": "Spec 126 - Claude streaming JSONL logs"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Log Analysis Techniques",
+      "description": "Examples use shell commands that may not work on all platforms (assumes bash/zsh)",
+      "fix_suggestion": "Add note that examples assume bash/zsh shell, or provide alternative examples for other shells",
+      "source_reference": "User experience consideration"
+    }
+  ],
+  "positive_aspects": [
+    "Clear structure with overview, detailed sections, and examples",
+    "Good coverage of verbosity levels with explanations of each mode",
+    "Practical examples for log analysis using jq",
+    "All internal cross-references are valid and point to existing pages",
+    "Debugging workflow section provides clear step-by-step guidance",
+    "Event types are well-documented with clear descriptions",
+    "Includes both live monitoring (tail -f) and post-execution analysis techniques"
+  ],
+  "improvement_suggestions": [
+    "Add a troubleshooting section for common observability issues (e.g., missing logs, permission errors)",
+    "Include examples of correlating event logs with Claude logs using correlation IDs",
+    "Add section on log retention and cleanup strategies",
+    "Provide guidance on when to use each verbosity level for different scenarios",
+    "Add examples of using event data for monitoring dashboards or alerts",
+    "Include section on privacy considerations when sharing logs (secrets masking)",
+    "Add cross-reference to checkpoint documentation for CheckpointSaved events"
+  ],
+  "cross_references": [
+    "sessions.md",
+    "../mapreduce/dlq.md",
+    "../workflow-basics/error-handling.md"
+  ],
+  "link_validation": {
+    "total_links": 3,
+    "broken_links": 0,
+    "valid_links": 3,
+    "external_links": 0
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Event tracking",
+      "Claude observability",
+      "Verbosity control",
+      "Log analysis"
+    ],
+    "validation_focus": "Check event logging, Claude log tracking, and verbosity settings are documented"
+  }
+}

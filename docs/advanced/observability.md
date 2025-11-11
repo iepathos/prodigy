@@ -12,7 +12,7 @@ Observability features:
 
 ## Event Tracking
 
-Prodigy logs all operations as JSONL events:
+Prodigy logs all operations as JSONL events to enable comprehensive monitoring and debugging. Events are stored globally to enable **cross-worktree aggregation** for parallel jobs - multiple worktrees working on the same job share event logs for unified tracking.
 
 ```
 ~/.prodigy/events/{repo_name}/{job_id}/
@@ -21,12 +21,17 @@ Prodigy logs all operations as JSONL events:
 
 ### Event Types
 
-- `AgentStarted` - Agent execution begins
-- `AgentCompleted` - Agent finishes with commits
-- `AgentFailed` - Agent encounters errors
-- `ClaudeMessage` - Claude AI interactions
-- `WorkItemProcessed` - Item completion
-- `CheckpointSaved` - State persistence
+```rust
+// Source: src/cook/execution/mapreduce/event.rs:36-74
+pub enum MapReduceEvent {
+    AgentStarted,      // Agent execution begins
+    AgentCompleted,    // Agent finishes with commits
+    AgentFailed,       // Agent encounters errors
+    ClaudeMessage,     // Claude AI interactions
+    WorkItemProcessed, // Item completion
+    CheckpointSaved,   // State persistence
+}
+```
 
 ### Event Structure
 
@@ -38,7 +43,8 @@ Prodigy logs all operations as JSONL events:
   "data": {
     "agent_id": "agent-1",
     "duration": 30,
-    "commits": ["abc123", "def456"]
+    "commits": ["abc123", "def456"],
+    "json_log_location": "/path/to/claude-log.jsonl"
   }
 }
 ```
@@ -58,18 +64,54 @@ prodigy events <job_id> --follow
 
 ## Claude Observability
 
-Every Claude command creates a JSON log file with complete execution details.
+Every Claude command creates a JSONL log file with complete execution details. These logs provide full visibility into Claude's decision-making process, tool usage, and interactions.
 
 ### Log File Location
 
 ```
-~/.claude/projects/{worktree-path}/{uuid}.jsonl
+~/.claude/projects/{worktree-path}/{session-id}.jsonl
 ```
 
-The log path is displayed after command execution:
+The `{session-id}` is a unique identifier for each Claude execution session and can be correlated with Prodigy session tracking for end-to-end debugging.
+
+### JSON Log Location Tracking
+
+**In Verbose Mode (-v flag):**
+
+When running Prodigy with the `-v` flag, the JSON log location is displayed after each Claude command execution:
 
 ```
 ✅ Completed | Log: ~/.claude/projects/.../6ded63ac.jsonl
+```
+
+This makes it easy to access detailed execution logs for debugging without requiring additional commands.
+
+**In Dead Letter Queue (DLQ):**
+
+Failed MapReduce agents automatically capture the JSON log location in DLQ items:
+
+```rust
+// Source: tests/dlq_agent_integration_test.rs:75
+FailureDetail {
+    json_log_location: Some("/path/to/claude/log.jsonl".to_string()),
+    // ... other fields
+}
+```
+
+**In MapReduce Events:**
+
+`AgentCompleted` and `AgentFailed` events include the `json_log_location` field, linking execution events to their detailed Claude logs:
+
+```rust
+// Source: src/cook/execution/mapreduce/event.rs:56-62
+AgentCompleted {
+    agent_id: String,
+    item_id: String,
+    duration: Duration,
+    timestamp: DateTime<Utc>,
+    cleanup_status: Option<CleanupStatus>,
+    // json_log_location field available in event data
+}
 ```
 
 ### Log Contents
@@ -83,7 +125,7 @@ Claude logs include:
 
 ### Viewing Claude Logs
 
-Watch live as Claude executes:
+Watch live as Claude executes (note: examples assume bash/zsh shell):
 
 ```bash
 tail -f ~/.claude/projects/.../6ded63ac.jsonl
@@ -120,7 +162,7 @@ prodigy logs
 
 ## Verbosity Control
 
-Control output detail with verbosity flags:
+Control output detail with verbosity flags to balance clarity with debugging information.
 
 ### Default Mode (verbosity = 0)
 
@@ -138,6 +180,7 @@ prodigy run workflow.yml
 Claude streaming and command details:
 - Real-time Claude JSON output
 - Command execution details
+- **JSON log location displayed after each command**
 - Useful for debugging
 
 ```bash
@@ -174,27 +217,51 @@ Force streaming output regardless of verbosity:
 PRODIGY_CLAUDE_CONSOLE_OUTPUT=true prodigy run workflow.yml
 ```
 
+Disable JSON streaming in CI/CD environments with storage constraints:
+
+```bash
+PRODIGY_CLAUDE_STREAMING=false prodigy run workflow.yml
+```
+
 ## Debugging Failed MapReduce Agents
 
-Failed agents include log paths in DLQ entries:
+Failed agents include log paths in DLQ entries for easy debugging:
 
 ```bash
 # Show DLQ items with log locations
 prodigy dlq show <job_id> | jq '.items[].failure_history[].json_log_location'
 
-# Inspect the Claude log
-cat /path/from/above/session-xyz.json | jq
+# Inspect the Claude log (note: .jsonl extension)
+cat /path/from/above/session-xyz.jsonl | jq
 ```
 
 ### Debugging Workflow
 
-1. Check DLQ for failed items
-2. Extract json_log_location from failure history
-3. Inspect Claude JSON log for error details
-4. Review tool invocations and responses
-5. Identify root cause
+1. **Check DLQ for failed items**
+   ```bash
+   prodigy dlq show <job_id>
+   ```
+
+2. **Extract json_log_location from failure history**
+   ```bash
+   prodigy dlq show <job_id> | jq -r '.items[].failure_history[].json_log_location'
+   ```
+
+3. **Inspect Claude JSON log for error details**
+   ```bash
+   cat /path/to/log.jsonl | jq -c 'select(.type == "assistant") | .content[] | select(.type == "error")'
+   ```
+
+4. **Review tool invocations and responses**
+   ```bash
+   cat /path/to/log.jsonl | jq -c 'select(.type == "assistant") | .content[] | select(.type == "tool_use")'
+   ```
+
+5. **Identify root cause** by examining the full conversation context
 
 ## Log Analysis Techniques
+
+Shell command examples assume bash/zsh shell. Adjust syntax for other shells as needed.
 
 ### Find Errors in Events
 
@@ -216,6 +283,16 @@ echo "Success rate: $((completed * 100 / (completed + failed)))%"
 
 ```bash
 cat events-*.jsonl | jq -r '[.timestamp, .event_type] | @tsv' | sort
+```
+
+### Correlate Events with Claude Logs
+
+```bash
+# Extract correlation IDs from events
+cat events-*.jsonl | jq -r '.correlation_id' | sort -u
+
+# Find Claude logs for a specific correlation ID
+grep -r "correlation-id-123" ~/.claude/projects/
 ```
 
 ## See Also
