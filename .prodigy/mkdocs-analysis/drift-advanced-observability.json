@@ -11,104 +11,60 @@
     "observability.verbosity_control"
   ],
   "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "Page covers core observability features well but is missing critical details about Claude log location tracking, event storage paths, and integration with MapReduce workflows. Several medium-severity gaps in documentation completeness.",
+  "severity": "low",
+  "quality_assessment": "Good - Comprehensive coverage with excellent examples. Only minor gaps exist (ClaudeMessage event type, correlation ID examples).",
   "issues": [
     {
       "type": "missing_content",
       "severity": "medium",
-      "section": "Claude Observability",
-      "description": "Missing documentation for JSON log location tracking in verbose mode and DLQ items",
-      "feature_reference": "observability.claude_observability.capabilities.json_log_file_location_tracking",
-      "fix_suggestion": "Add section explaining that verbose mode (-v flag) displays the JSON log location after each Claude command execution, and that DLQ items include json_log_location field for debugging failed agents",
-      "source_reference": "Spec 121 - Claude JSON log location tracking"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Claude Observability",
-      "description": "Missing explanation of MapReduce event integration with Claude logs",
-      "feature_reference": "observability.claude_observability.access.mapreduce_event_integration",
-      "fix_suggestion": "Add section explaining that AgentCompleted and AgentFailed events include json_log_location field linking to the Claude log for that agent execution",
-      "source_reference": "Spec 121 - MapReduce event integration"
+      "section": "Event Types",
+      "description": "ClaudeMessage event type is not documented",
+      "feature_reference": "observability.event_tracking.events.ClaudeMessage",
+      "fix_suggestion": "Add ClaudeMessage event type to Event Types section with JSON example showing agent_id, content, message_type, and json_log_location fields",
+      "source_reference": "src/cook/execution/events/event_types.rs:164-169"
     },
     {
       "type": "incomplete_explanation",
-      "severity": "medium",
+      "severity": "low",
       "section": "Event Tracking",
-      "description": "Event storage path documentation is incomplete - mentions global storage but doesn't explain cross-worktree aggregation",
-      "current_content": "~/.prodigy/events/{repo_name}/{job_id}/",
-      "fix_suggestion": "Explain that events are stored globally to enable cross-worktree aggregation for parallel jobs, and that multiple worktrees working on the same job share event logs",
-      "source_reference": "src/events/event_logger.rs - Global storage architecture"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Verbosity Control",
-      "description": "Missing mention of PRODIGY_CLAUDE_STREAMING environment variable",
-      "feature_reference": "observability.verbosity_control",
-      "fix_suggestion": "Add note that PRODIGY_CLAUDE_STREAMING=false can be used to disable JSON streaming in CI/CD environments with storage constraints",
-      "source_reference": "CLAUDE.md - Claude JSON streaming control"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Claude Observability",
-      "description": "Log file path format uses {uuid}.jsonl but doesn't explain this is the session ID",
-      "current_content": "~/.claude/projects/{worktree-path}/{uuid}.jsonl",
-      "fix_suggestion": "Clarify that {uuid} is the session ID and can be correlated with Prodigy session tracking",
-      "source_reference": "Spec 121 - Session correlation"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Debugging Failed MapReduce Agents",
-      "description": "Example shows old JSON format (.json) instead of JSONL format (.jsonl)",
-      "current_content": "cat /path/from/above/session-xyz.json | jq",
-      "should_be": "cat /path/from/above/session-xyz.jsonl | jq",
-      "fix_suggestion": "Update example to use .jsonl extension to match actual Claude log format",
-      "source_reference": "Spec 126 - Claude streaming JSONL logs"
-    },
-    {
-      "type": "unclear_content",
-      "severity": "low",
-      "section": "Log Analysis Techniques",
-      "description": "Examples use shell commands that may not work on all platforms (assumes bash/zsh)",
-      "fix_suggestion": "Add note that examples assume bash/zsh shell, or provide alternative examples for other shells",
-      "source_reference": "User experience consideration"
+      "description": "Correlation IDs mentioned in features but not demonstrated in examples",
+      "feature_reference": "observability.event_tracking.features.correlation_ids",
+      "fix_suggestion": "Add example showing how to use correlation_id field in events for tracing related operations across multiple agents",
+      "source_reference": "src/storage/types.rs:75"
     }
   ],
   "positive_aspects": [
-    "Clear structure with overview, detailed sections, and examples",
-    "Good coverage of verbosity levels with explanations of each mode",
-    "Practical examples for log analysis using jq",
-    "All internal cross-references are valid and point to existing pages",
-    "Debugging workflow section provides clear step-by-step guidance",
-    "Event types are well-documented with clear descriptions",
-    "Includes both live monitoring (tail -f) and post-execution analysis techniques"
+    "Comprehensive coverage of all three mapped observability features",
+    "Excellent practical examples throughout the page",
+    "Clear progression from basics to advanced usage",
+    "Good debugging workflow examples for MapReduce failures",
+    "Well-organized with clear section hierarchy",
+    "Cross-references to related pages are valid and appropriate",
+    "Includes performance metrics section with token usage and timing",
+    "Log management section with cleanup examples",
+    "Event query examples show real-world usage patterns",
+    "Verbosity control documentation is complete and accurate"
   ],
   "improvement_suggestions": [
-    "Add a troubleshooting section for common observability issues (e.g., missing logs, permission errors)",
-    "Include examples of correlating event logs with Claude logs using correlation IDs",
-    "Add section on log retention and cleanup strategies",
-    "Provide guidance on when to use each verbosity level for different scenarios",
-    "Add examples of using event data for monitoring dashboards or alerts",
-    "Include section on privacy considerations when sharing logs (secrets masking)",
-    "Add cross-reference to checkpoint documentation for CheckpointSaved events"
+    "Add ClaudeMessage event type documentation with example JSON structure",
+    "Include correlation ID usage examples in event query section",
+    "Add troubleshooting subsection for common observability issues",
+    "Consider adding comparison table of all event types with their purposes",
+    "Add example of filtering events by correlation ID to trace a specific workflow"
   ],
   "cross_references": [
+    "mapreduce/event-tracking.md",
+    "mapreduce/dead-letter-queue-dlq.md",
     "sessions.md",
-    "../mapreduce/dlq.md",
-    "../workflow-basics/error-handling.md"
+    "../../CLAUDE.md"
   ],
   "link_validation": {
-    "total_links": 3,
+    "total_internal_links": 4,
     "broken_links": 0,
-    "valid_links": 3,
-    "external_links": 0
+    "all_links_valid": true
   },
   "metadata": {
-    "analyzed_at": "2025-11-11T12:00:00Z",
+    "analyzed_at": "2025-11-11T21:23:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
     "topics_covered": [
       "Event tracking",
