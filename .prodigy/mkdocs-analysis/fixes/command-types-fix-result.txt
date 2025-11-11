@@ -1,0 +1,42 @@
+# Command Types Documentation Fix Result
+
+## Issue
+Drift analysis reported file missing at: docs/workflow-basics/command-types.md
+Actual file location (per mkdocs.yml docs_dir): book/src/workflow-basics/command-types.md
+
+## Investigation
+The MkDocs configuration specifies:
+  docs_dir: book/src
+
+Therefore, the correct path for this section page is:
+  book/src/workflow-basics/command-types.md (actual location)
+  
+NOT:
+  docs/workflow-basics/command-types.md (analysis report path)
+
+## Current State
+File EXISTS at correct location: book/src/workflow-basics/command-types.md
+File size: 433 lines
+Content quality: Comprehensive
+
+Coverage analysis:
+✓ Claude commands section with examples
+✓ Shell commands with output formats documented
+✓ Goal-seeking with validation examples
+✓ Foreach with parallel execution documented
+✓ Write file with format support
+✓ Validate command syntax
+✓ Common parameters section
+✓ Deprecated test command migration guide
+✓ 10 real-world workflow examples
+✓ Source code references
+
+## Conclusion
+No drift fixes required. Documentation is comprehensive and up-to-date.
+
+## Root Cause
+The analysis phase (prodigy-debtmap-analyze) generated flattened-items.json 
+with incorrect file paths that don't account for mkdocs.yml docs_dir configuration.
+
+Recommendation: Update analysis phase to respect mkdocs.yml docs_dir setting 
+when generating file paths.
