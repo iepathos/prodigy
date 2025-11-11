@@ -29,6 +29,21 @@ Benefits:
 - Clean rollback on failures
 - Full execution history preserved
 
+### Creating Worktrees
+
+```rust
+// Source: src/worktree/builder.rs:134-152
+let manager = WorktreeBuilder::new()
+    .with_base_path(base_path)
+    .build()?;
+
+// Create worktree with auto-generated ID
+let session = manager.create_session().await?;
+
+// Create worktree with specific ID
+let session = manager.create_session_with_id("session-abc123").await?;
+```
+
 ### Worktree Location
 
 Worktrees are stored in:
@@ -52,11 +67,17 @@ prodigy worktree clean session-abc123
 prodigy worktree clean -f session-abc123
 ```
 
+**Cleanup Behavior** (Source: tests/worktree_cleanup_integration.rs:32-51):
+- After successful merge, uncommitted changes in worktree are safe to discard
+- Auto-cleanup uses force=true when session is marked as merged
+- Prevents "Auto-cleanup failed" warnings after merge completion
+
 ## Commit Tracking
 
 Prodigy automatically creates git commits for changes:
 
 ```yaml
+# Source: workflows/implement.yml
 - claude: "/implement-feature '${item.name}'"
   # Automatically commits changes made by Claude
 
@@ -87,6 +108,12 @@ View all changes made during workflow:
 ```bash
 cd ~/.prodigy/worktrees/prodigy/session-abc123/
 git log
+
+# View changes with stats
+git log --stat
+
+# View specific commit
+git show <commit-hash>
 ```
 
 ## Merge Workflows
@@ -94,6 +121,7 @@ git log
 Customize the merge process with validation and conflict resolution:
 
 ```yaml
+# Source: workflows/mkdocs-drift.yml:86-93
 merge:
   commands:
     - shell: "git fetch origin"
@@ -103,6 +131,9 @@ merge:
     - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
   timeout: 600
 ```
+
+!!! note "Merge Target Branch"
+    Always pass both `${merge.source_branch}` and `${merge.target_branch}` to the `/prodigy-merge-worktree` command. This ensures the merge targets the branch you were on when you started the workflow, not a hardcoded main/master branch.
 
 ### Merge Variables
 
@@ -117,12 +148,26 @@ Available in merge commands:
 Run tests before merging:
 
 ```yaml
+# Source: workflows/implement.yml:33-38
 merge:
   commands:
     - shell: "cargo test --all"
     - shell: "cargo clippy -- -D warnings"
     - shell: "cargo fmt --check"
     - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
+```
+
+### Merge with Environment Variables
+
+Use environment variables in merge workflows:
+
+```yaml
+# Source: workflows/mapreduce-env-example.yml:83-89
+merge:
+  commands:
+    - shell: "echo Merging changes for $PROJECT_NAME"
+    - shell: "echo Debug mode was: $DEBUG_MODE"
+    - claude: "/validate-merge --branch ${merge.source_branch} --project $PROJECT_NAME"
 ```
 
 ## Branch Tracking
@@ -139,9 +184,18 @@ prodigy run workflow.yml
 
 ### Original Branch Detection
 
-- Feature branches: Tracks exact branch name
-- Detached HEAD: Falls back to default branch (main/master)
-- Deleted branches: Falls back to main/master
+```rust
+// Source: src/worktree/manager_queries.rs:144
+pub async fn get_merge_target(&self, session_name: &str) -> Result<String> {
+    // Reads original_branch from WorktreeState
+    // Falls back to default branch if original was deleted
+}
+```
+
+Detection behavior:
+- **Feature branches**: Tracks exact branch name (e.g., `feature/new-feature`)
+- **Detached HEAD**: Falls back to default branch (main/master)
+- **Deleted branches**: Falls back to main/master at merge time
 
 ### Merge Target Logic
 
@@ -153,9 +207,12 @@ Example prompt:
 Merge session-abc123 to feature/my-feature? [y/N]
 ```
 
+!!! tip "Branch Workflow"
+    When you start a workflow from a feature branch, all changes merge back to that feature branch, not main. This enables safe experimentation without affecting the main branch.
+
 ## Worktree Isolation for MapReduce
 
-MapReduce workflows use nested worktrees:
+MapReduce workflows use nested worktrees for complete isolation:
 
 ```
 original_branch
@@ -163,16 +220,27 @@ original_branch
 parent worktree (session-xxx)
     ├→ Setup phase executes here
     ├→ Agent worktrees branch from parent
-    │  ├→ agent-1 → merges back to parent
-    │  ├→ agent-2 → merges back to parent
-    │  └→ agent-N → merges back to parent
-    ├→ Reduce phase executes here
+    │  ├→ agent-1 → processes item → merges back to parent
+    │  ├→ agent-2 → processes item → merges back to parent
+    │  └→ agent-N → processes item → merges back to parent
+    ├→ Reduce phase executes here (aggregates results)
     └→ User prompt: Merge to {original_branch}?
 ```
 
+!!! note "Complete Isolation"
+    All MapReduce phases (setup, map, reduce) execute in the isolated parent worktree. The main repository remains untouched until final user-approved merge.
+
+### Benefits
+
+- **Safety**: Main repository never modified during workflow execution
+- **Parallelism**: Multiple map agents work concurrently without conflicts
+- **Reproducibility**: Each workflow run starts from a clean state
+- **Debugging**: Worktree preserves full execution history for analysis
+- **Recovery**: Failed workflows don't pollute the main repository
+
 ## Orphaned Worktree Recovery
 
-If cleanup fails, worktrees are tracked as orphaned:
+If cleanup fails (e.g., permission denied, disk full), worktrees are tracked as orphaned in `~/.prodigy/orphaned_worktrees/{repo_name}/{job_id}.json`:
 
 ```bash
 # List orphaned worktrees for a job
@@ -184,6 +252,16 @@ prodigy worktree clean-orphaned <job_id> --dry-run
 # Force cleanup
 prodigy worktree clean-orphaned <job_id> --force
 ```
+
+### Common Cleanup Failure Causes
+
+- **Permission Denied**: Directory locked by process or insufficient permissions
+- **Disk Full**: Not enough space to perform cleanup operations
+- **Directory Busy**: Files open in editor or process using directory
+- **Git Locks**: Repository locked by concurrent git operation
+
+!!! tip "Agent Success Preserved"
+    Agent execution status is independent of cleanup status. If an agent completes successfully but cleanup fails, the agent is still marked as successful and its work is preserved.
 
 ## See Also
 
