@@ -13,6 +13,7 @@ Prodigy combines the power of Claude AI with workflow orchestration to:
 - **Maintain quality** - Built-in validation, error handling, and retry mechanisms
 - **Track changes** - Full git integration with automatic commits and merge workflows
 - **Generate living documentation** - Keep docs synchronized with code automatically
+- **Compose complex workflows** - Import, extend, and template reusable workflow components
 
 !!! tip "Production-Ready Features"
     Prodigy includes enterprise features like checkpoints for resuming interrupted workflows, a Dead Letter Queue for automatic failure recovery, and git worktree isolation to keep your main repository clean during execution.
@@ -22,9 +23,8 @@ Prodigy combines the power of Claude AI with workflow orchestration to:
 Create a simple workflow in `workflow.yml`:
 
 ```yaml
-# Source: workflows/complex-build-pipeline.yml
-name: build-and-test
-
+# Simplified syntax - commands as top-level array
+# For full workflow structure, see workflows/complex-build-pipeline.yml
 - shell: "cargo build"
 - shell: "cargo test"
   on_failure:
@@ -50,15 +50,27 @@ This book itself is maintained using Prodigy's automated documentation system! L
 
 - **Workflows**: YAML files defining sequences of commands
 - **Commands**: Shell commands, Claude AI invocations, or control flow
-- **Variables**: Dynamic values captured (json, lines, number) and interpolated with defaults, aliases, and nested field access
+- **Variables**: Dynamic values captured (json, lines, number) and interpolated using `${VAR}` or `$VAR` syntax with defaults, aliases, and nested field access
 - **Environment**: Configuration with secrets management and profile-based values
 - **MapReduce**: Parallel processing across multiple git worktrees
 - **Checkpoints**: Save and resume workflow state for long-running operations
 - **Validation**: Automated testing and implementation completeness checking
+- **Observability**: Event tracking, Claude execution logs, and comprehensive debugging tools
 
 ## Next Steps
 
+**Getting Started:**
+
 - [Workflow Basics](workflow-basics/index.md) - Learn workflow fundamentals
-- [MapReduce Workflows](mapreduce/index.md) - Parallel processing at scale
 - [Command Types](commands.md) - Explore available command types
 - [Examples](examples.md) - See real-world workflows
+
+**Advanced Features:**
+
+- [MapReduce Workflows](mapreduce/index.md) - Parallel processing at scale
+- [Environment Variables](environment/index.md) - Configuration and secrets management
+- [Error Handling](error-handling.md) - Graceful failure handling strategies
+
+**Operations:**
+
+- [Troubleshooting](troubleshooting/index.md) - Common issues and solutions
