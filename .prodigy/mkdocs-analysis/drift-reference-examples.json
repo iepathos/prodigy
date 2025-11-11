@@ -1,0 +1,104 @@
+{
+  "item_type": "section-page",
+  "section_id": "reference",
+  "section_title": "Reference",
+  "page_id": "examples",
+  "page_title": "Examples",
+  "page_file": "book/src/examples.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Examples documentation is comprehensive, accurate, and well-structured. The page content itself is correct and reflects current syntax. Minor issue: Several example files in the examples/ directory use outdated syntax, but this does not affect the documentation quality since the docs show the correct syntax.",
+  "issues": [
+    {
+      "type": "outdated_example_files",
+      "severity": "low",
+      "section": "External Example Files",
+      "description": "Example files in examples/ directory use deprecated agent_template syntax",
+      "current_content": "agent_template:\n  commands:\n    - shell: ...",
+      "should_be": "agent_template:\n  - shell: ...",
+      "fix_suggestion": "Update example files (mapreduce-json-input.yml, mapreduce-command-input.yml, capture-output-custom-vars.yml, capture-parallel-analysis.yml) to remove the nested 'commands:' array under agent_template. The documentation already shows the correct syntax in Example 4 and elsewhere.",
+      "source_reference": "tests/write_file_integration_test.rs:22-25, tests/mapreduce_command_input_test.rs:28-31 show correct syntax without 'commands:' nesting",
+      "affected_files": [
+        "examples/mapreduce-json-input.yml:29-35",
+        "examples/mapreduce-command-input.yml:17-21",
+        "examples/capture-output-custom-vars.yml:25-38",
+        "examples/capture-parallel-analysis.yml:34-80"
+      ]
+    },
+    {
+      "type": "inconsistent_env_syntax",
+      "severity": "low",
+      "section": "Example 7: Environment Variables",
+      "description": "Two valid approaches for secrets exist - documentation shows modern approach, one example file uses legacy approach",
+      "current_content": "workflows/mapreduce-env-example.yml uses top-level 'secrets:' field with provider/key structure",
+      "alternative_syntax": "env:\n  API_KEY:\n    secret: true\n    value: \"${SECRET_KEY}\"",
+      "fix_suggestion": "Both syntaxes are valid (supported by src/cook/environment/config.rs:84-96). Documentation correctly shows the modern approach. Consider updating mapreduce-env-example.yml to use the modern syntax for consistency, or add a note that both approaches are supported.",
+      "source_reference": "src/cook/environment/config.rs:12-36 (EnvironmentConfig), features.json:environment_management.secrets"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of 14 different use cases from simple to advanced",
+    "Progressive complexity - examples build from simple to complex logically",
+    "Excellent source code references throughout with specific line numbers",
+    "All internal links are valid (error-handling.md, mapreduce/backoff-strategies.md)",
+    "Clear explanations of when to use each feature",
+    "Strong coverage of MapReduce, environment variables, retry strategies, and error handling",
+    "Quick reference table provides excellent navigation",
+    "Examples include practical debugging and troubleshooting guidance",
+    "Source references are accurate and verifiable",
+    "Syntax in documentation matches current implementation perfectly",
+    "Last verified timestamp (2025-01-11) with commit hash for traceability"
+  ],
+  "improvement_suggestions": [
+    "Add note in Example 7 that two secret syntaxes are supported (modern env-based vs legacy top-level)",
+    "Consider adding an example showing foreach with error handling and DLQ integration",
+    "Example 13 (Workflow Composition) could benefit from clearer status (currently marked as preview/pending CLI)",
+    "Add cross-reference from Example 8 to Example 11 for circuit breaker usage in MapReduce",
+    "Consider adding example combining circuit breakers with retry configuration",
+    "Add example showing write_file command usage (mentioned in quick reference but not demonstrated)",
+    "Consider adding timestamps or version info for when syntax changed (for users with old workflows)"
+  ],
+  "validation_notes": [
+    "All 14 examples validated against features.json inventory",
+    "Syntax matches test files in tests/ directory",
+    "Internal links verified to exist",
+    "Source code references spot-checked and accurate",
+    "Example files in examples/ directory reviewed for consistency",
+    "No broken links found",
+    "No missing features or undocumented capabilities"
+  ],
+  "cross_references": [
+    "error-handling.md",
+    "mapreduce/backoff-strategies.md",
+    "mapreduce/checkpoint-and-resume.md",
+    "mapreduce/dead-letter-queue-dlq.md",
+    "environment/secrets-management.md",
+    "variables/custom-variable-capture.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T09:45:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Practical workflows",
+      "Use cases",
+      "Best practices",
+      "Build and test pipelines",
+      "Goal seeking",
+      "MapReduce parallel processing",
+      "Environment configuration",
+      "Error handling",
+      "Circuit breakers",
+      "Retry strategies",
+      "Custom merge workflows",
+      "Conditional execution",
+      "Variable capture",
+      "Git context tracking"
+    ],
+    "validation_focus": "Check examples are valid and work with current syntax",
+    "examples_count": 14,
+    "internal_links_checked": 2,
+    "internal_links_valid": 2,
+    "source_references_checked": 12,
+    "source_references_valid": 12
+  }
+}
