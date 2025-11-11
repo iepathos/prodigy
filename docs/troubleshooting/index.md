@@ -184,6 +184,134 @@ foreach:
 
 **Source**: src/cook/execution/foreach.rs:44-515
 
+### Workflow composition errors
+
+**Symptoms:** "Template not found", "Circular dependency detected", "Required parameter not provided"
+
+**Causes:**
+- Missing or unregistered templates
+- Circular extends/imports chains
+- Required parameters not provided
+- Path resolution issues
+
+**Solutions:**
+- Verify template exists and is registered: `prodigy template list`
+- Register template if needed: `prodigy template register <path>`
+- Check for circular dependencies in extends/imports chains
+- Provide required parameters via `--param NAME=value` or `--param-file`
+- Review template parameter definitions for requirements
+- Check template paths are correct (relative to registry or filesystem)
+
+See [Common Error Messages](common-error-messages.md#template-not-found) for specific composition error details.
+
+### Goal seek not converging
+
+**Symptoms:** "Max attempts reached", "Timeout", "Converged" with low score, validate command fails
+
+**Causes:**
+- Validate command not returning valid score (0-100)
+- Threshold too high for achievable goal
+- Max attempts too low
+- Claude/shell command not making effective progress
+- Score calculation logic incorrect
+
+**Solutions:**
+- Test validate command independently: `bash -c "your-validate-command"`
+- Ensure validate returns numeric score 0-100 on stdout
+- Lower threshold if goal is unrealistic: `threshold: 80` instead of `threshold: 95`
+- Increase max_attempts for complex refinements: `max_attempts: 10`
+- Review attempt history to see if scores are improving
+- Check timeout_seconds isn't too restrictive
+- Verify goal description is clear and actionable for Claude
+- Add verbose logging to validate command for debugging
+
+Example goal_seek configuration:
+```yaml
+# Source: workflows/implement-goal.yml
+goal_seek:
+  goal: "Improve test coverage to 80%"
+  claude: "/improve-coverage"
+  validate: "cargo tarpaulin --output-format json | jq '.coverage'"
+  threshold: 80
+  max_attempts: 5
+  timeout_seconds: 600
+```
+
+**Source**: src/cook/goal_seek/mod.rs:13-76, src/cook/goal_seek/engine.rs
+
+### Validate command failures
+
+**Symptoms:** "Schema validation failed", "Threshold not met", "Gap-filling failed", validate command error
+
+**Causes:**
+- Validation output doesn't match expected_schema
+- Completeness percentage below threshold
+- Invalid JSON output from validation command
+- Timeout during validation
+- Gap-filling commands fail
+
+**Solutions:**
+- Test validation command independently and check JSON output
+- Verify expected_schema matches actual validation output structure
+- Check completeness threshold is realistic: `threshold: 80.0`
+- Increase validation timeout if needed: `timeout: 300`
+- Ensure validation command writes proper JSON to stdout or result_file
+- Review gap-filling commands in on_incomplete section
+- Use verbose mode to see validation output: `prodigy run workflow.yml -v`
+
+Example validate configuration:
+```yaml
+# Source: src/cook/workflow/validation.rs:10-49
+validate:
+  shell: "cargo test --no-fail-fast -- --format json"
+  expected_schema:
+    type: "object"
+    required: ["passed", "total"]
+  threshold: 90.0
+  on_incomplete:
+    commands:
+      - claude: "/fix-failing-tests"
+```
+
+**Source**: src/cook/workflow/validation.rs:10-49
+
+### Write file failures
+
+**Symptoms:** "Permission denied", "Directory not found", "Invalid format", file not created or corrupted
+
+**Causes:**
+- Parent directory doesn't exist and create_dirs not enabled
+- Insufficient permissions to write to path
+- Invalid JSON/YAML content when using format validation
+- Variable interpolation error in path or content
+- Invalid file mode permissions
+
+**Solutions:**
+- Enable create_dirs to auto-create parent directories: `create_dirs: true`
+- Check directory permissions: `ls -ld $(dirname path/to/file)`
+- Verify format validation for JSON/YAML: test content with `jq` or `yq`
+- Test variable interpolation independently: `echo "${var}"`
+- Ensure file mode is valid octal: `mode: "0644"` not `mode: "644"`
+- Use absolute paths or verify working directory context
+- Check disk space: `df -h`
+
+Example write_file configuration:
+```yaml
+# Source: src/config/command.rs:278-298
+- write_file:
+    path: "output/results-${item.id}.json"
+    content: |
+      {
+        "item_id": "${item.id}",
+        "status": "completed"
+      }
+    format: json
+    create_dirs: true
+    mode: "0644"
+```
+
+**Source**: src/config/command.rs:278-313, tests/write_file_integration_test.rs
+
 ### Claude command fails with "command not found"
 
 **Symptoms:** Shell error about claude command not existing
