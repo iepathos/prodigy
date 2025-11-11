@@ -642,7 +642,7 @@ HalfOpen → Open (if any half_open_request fails)
 - `timeout: 30s` - Typical recovery time for transient issues
 - `half_open_requests: 3` - Minimal testing before full recovery
 
-**See Also**: [Error Handling Guide](error-handling.md) for comprehensive error handling patterns
+**See Also**: [Error Handling Guide](workflow-basics/error-handling.md) for comprehensive error handling patterns
 
 ---
 

@@ -22,7 +22,7 @@ Ready to level up? Explore these advanced features:
 
 - **[Environment Configuration](../environment/index.md)** - Comprehensive guide to environment variables, secrets management, profiles, and per-command overrides
 
-- **[Error Handling](../error-handling.md)** - Workflow-level and command-level error handling strategies for building resilient automation
+- **[Error Handling](error-handling.md)** - Workflow-level and command-level error handling strategies for building resilient automation
 
 - **[MapReduce Workflows](../mapreduce/index.md)** - Massive parallel processing with setup/map/reduce phases for large-scale tasks like codebase transformations
 

@@ -32,7 +32,7 @@ This section provides links to related configuration and feature documentation.
 - [MapReduce](../mapreduce/index.md) - Parallel workflow execution
 - [Variables](../variables/index.md) - Variable interpolation and usage
 - [Command Types](../commands.md) - Available command types (claude, shell, goal_seek, etc.)
-- [Error Handling](../error-handling.md) - Error handling strategies and retry policies
+- [Error Handling](../workflow-basics/error-handling.md) - Error handling strategies and retry policies
 
 ### Reference Material
 

@@ -493,7 +493,7 @@ jq '.item_count' ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapre
 
 - [Checkpoint and Resume](./checkpoint-and-resume.md): DLQ state preserved in checkpoints
 - [Event Tracking](./event-tracking.md): DLQ operations emit trackable events
-- [Error Handling](../error-handling.md): Broader error handling strategies
+- [Error Handling](../workflow-basics/error-handling.md): Broader error handling strategies
 - [Worktree Architecture](../mapreduce-worktree-architecture.md): Agent isolation and artifact preservation
 - [Best Practices for Debugging](../troubleshooting/best-practices-for-debugging.md): Using JSON logs and DLQ for debugging failed items
 - [Retry Metrics and Observability](../retry-configuration/retry-metrics-and-observability.md): Monitoring retry behavior and failures

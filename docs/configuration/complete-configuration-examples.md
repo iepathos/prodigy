@@ -703,7 +703,7 @@ For more detailed information on specific features:
 
 - **Workflow Structure**: See [../workflow-basics/full-workflow-structure.md](../workflow-basics/full-workflow-structure.md)
 - **Environment Variables**: See [environment-variables.md](environment-variables.md)
-- **Error Handling**: See [../error-handling.md](../error-handling.md)
+- **Error Handling**: See [../workflow-basics/error-handling.md](../workflow-basics/error-handling.md)
 - **MapReduce Basics**: See [../mapreduce/index.md](../mapreduce/index.md)
 - **Validation**: See [../advanced/implementation-validation.md](../advanced/implementation-validation.md)
 - **Goal Seeking**: See [../advanced/goal-seeking-operations.md](../advanced/goal-seeking-operations.md)

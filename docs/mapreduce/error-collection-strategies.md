@@ -96,5 +96,5 @@ map:
 
 **Note**: If `error_collection` is not specified, the default behavior is `aggregate`.
 
-See also: [Error Handling](../error-handling.md), [Dead Letter Queue](dead-letter-queue-dlq.md)
+See also: [Error Handling](../workflow-basics/error-handling.md), [Dead Letter Queue](dead-letter-queue-dlq.md)
 

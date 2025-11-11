@@ -51,6 +51,8 @@ For more control over error handling behavior:
 - `max_attempts` - Maximum retry attempts for the original command (default: `1`)
 - `max_retries` - Alternative name for `max_attempts` (both are supported for backward compatibility)
 
+**Source**: FailureHandlerConfig struct in src/cook/workflow/on_failure.rs:26
+
 **Notes:**
 - When `max_attempts > 1`, Prodigy automatically retries the original command after running the failure handler (the deprecated `retry_original` flag is no longer needed)
 - Retry behavior is now controlled by the `max_attempts`/`max_retries` value, not a separate flag
@@ -156,6 +158,7 @@ For MapReduce workflows, you can configure workflow-level error policies that co
 ### Basic Configuration
 
 ```yaml
+# Source: workflows/mkdocs-drift.yml:79-83
 name: process-items
 mode: mapreduce
 
@@ -195,6 +198,7 @@ error_policy:
 Prevent cascading failures by opening a circuit after consecutive failures:
 
 ```yaml
+# Source: src/cook/workflow/error_policy.rs:48
 error_policy:
   circuit_breaker:
     failure_threshold: 5      # Open circuit after 5 consecutive failures
@@ -253,6 +257,7 @@ Circuit breaker state transitions are logged as `CircuitOpen` and `CircuitClosed
 Configure automatic retry behavior for failed items:
 
 ```yaml
+# Source: src/cook/workflow/error_policy.rs:108
 error_policy:
   on_item_failure: retry
   retry_config:
@@ -315,6 +320,8 @@ Prodigy automatically tracks error metrics for MapReduce jobs using the `ErrorMe
 - `failure_rate` - Percentage of failures (0.0 to 1.0)
 - `error_types` - Map of error types to their frequency counts
 - `failure_patterns` - Detected recurring error patterns with suggested remediation
+
+**Source**: ErrorMetrics struct in src/cook/workflow/error_policy.rs:196
 
 **Accessing Metrics:**
 

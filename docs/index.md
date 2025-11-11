@@ -69,7 +69,7 @@ This book itself is maintained using Prodigy's automated documentation system! L
 
 - [MapReduce Workflows](mapreduce/index.md) - Parallel processing at scale
 - [Environment Variables](environment/index.md) - Configuration and secrets management
-- [Error Handling](error-handling.md) - Graceful failure handling strategies
+- [Error Handling](workflow-basics/error-handling.md) - Graceful failure handling strategies
 
 **Operations:**
 

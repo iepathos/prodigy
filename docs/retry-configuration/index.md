@@ -164,7 +164,7 @@ The following subsections provide detailed information about specific aspects of
 
 These chapters cover topics that interact with or complement retry configuration:
 
-- [Error Handling](../error-handling.md) - Overall error handling strategy and how Prodigy propagates errors through workflows. Retry configuration is one component of a comprehensive error handling approach.
+- [Error Handling](../workflow-basics/error-handling.md) - Overall error handling strategy and how Prodigy propagates errors through workflows. Retry configuration is one component of a comprehensive error handling approach.
 - [Workflow Configuration](../configuration/workflow-configuration.md) - Workflow-level settings including global retry defaults that apply to all commands unless overridden at the command level.
 - [MapReduce](../mapreduce/index.md) - Retry behavior in MapReduce workflows, where individual map agents can retry independently. MapReduce adds complexity to retry semantics due to parallel execution.
 - [Dead Letter Queue (DLQ)](../mapreduce/dead-letter-queue-dlq.md) - Handling failed work items in MapReduce workflows. When map agents exhaust all retries, items move to the DLQ for manual inspection and retry.
