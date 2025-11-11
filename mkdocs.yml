@@ -16,11 +16,9 @@ copyright: Copyright &copy; 2024 Glen Baker
 docs_dir: book/src
 site_dir: site
 
-# Exclude mdbook-specific files and legacy redirect pages
+# Exclude mdbook-specific files
 exclude_docs: |
   SUMMARY.md
-  environment.md
-  workflow-basics.md
 
 # Theme Configuration
 theme:
