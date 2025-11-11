@@ -1,0 +1,117 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "conditional-execution",
+  "page_title": "Conditional Execution",
+  "page_file": "docs/workflow-basics/conditional-execution.md",
+  "feature_mappings": [
+    "conditional_execution.when_clauses",
+    "conditional_execution.on_failure",
+    "conditional_execution.on_success"
+  ],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Page does not exist - needs to be created with comprehensive conditional execution documentation",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Page Missing",
+      "description": "Documentation page does not exist yet - this is an auto-generated page that needs to be created",
+      "feature_reference": "conditional_execution",
+      "fix_suggestion": "Create comprehensive documentation page covering when clauses, on_failure handlers, and on_success handlers",
+      "source_reference": "src/config/command.rs:WorkflowStepCommand, src/cook/workflow/conditional_tests.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "When Clauses",
+      "description": "Need to document when clause syntax and usage for conditional step execution",
+      "feature_reference": "conditional_execution.when_clauses",
+      "fix_suggestion": "Document when clause syntax with examples: boolean expressions, comparison operators (==, !=, <, >, <=, >=), logical operators (&&, ||, !), variable interpolation (${var}), and access to step results (${step.success}, ${step.exit_code})",
+      "source_reference": "src/config/command.rs:388 (when field), src/cook/workflow/conditional_tests.rs:9-64 (examples)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "On Failure Handlers",
+      "description": "Need to document on_failure handler configurations and usage patterns",
+      "feature_reference": "conditional_execution.on_failure",
+      "fix_suggestion": "Document on_failure syntax variants: 1) Simple boolean (ignore errors), 2) Single command string, 3) Multiple commands array, 4) Advanced config with shell/claude + fail_workflow + retry_original flags, 5) Detailed handler config with strategy, timeout, capture, and handler_failure_fatal",
+      "source_reference": "src/cook/workflow/on_failure.rs:68-114 (OnFailureConfig enum variants)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "On Success Handlers",
+      "description": "Need to document on_success handler for post-processing after successful command execution",
+      "feature_reference": "conditional_execution.on_success",
+      "fix_suggestion": "Document on_success syntax and use cases: takes a WorkflowStepCommand to execute after successful completion, useful for notifications, cleanup, or post-processing tasks",
+      "source_reference": "src/config/command.rs:375-376 (on_success field)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Expression Evaluation",
+      "description": "Need to explain how expressions are evaluated and what variables are available",
+      "feature_reference": "conditional_execution.when_clauses",
+      "fix_suggestion": "Explain expression evaluation context: workflow variables (${var}), step results (${step.success}, ${step.exit_code}, ${step.output}), environment variables, and captured outputs. Document how undefined variables evaluate to false.",
+      "source_reference": "src/cook/workflow/executor/validation.rs:843-858, src/cook/workflow/conditional_tests.rs:67-137"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Handler Strategies",
+      "description": "Need to document the different handler execution strategies available",
+      "feature_reference": "conditional_execution.on_failure",
+      "fix_suggestion": "Document handler strategies: Recovery (try to fix the problem), Fallback (use alternative approach), Cleanup (clean up resources), Custom (custom handler logic)",
+      "source_reference": "src/cook/workflow/on_failure.rs:10-22 (HandlerStrategy enum)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Examples",
+      "description": "Need comprehensive examples showing real-world conditional execution patterns",
+      "feature_reference": "conditional_execution",
+      "fix_suggestion": "Include examples: 1) Skip deployment when not on main branch, 2) Run tests only if code changed, 3) Auto-fix test failures with Claude, 4) Conditional notifications based on build status, 5) Environment-specific deployment logic, 6) Complex expressions with multiple conditions",
+      "source_reference": "src/cook/workflow/conditional_tests.rs (test examples)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Deprecation Notice",
+      "description": "Need to mention that test: syntax is deprecated in favor of shell: with on_failure:",
+      "feature_reference": "conditional_execution.on_failure",
+      "fix_suggestion": "Add note about deprecated test: command syntax and how to migrate to shell: with on_failure: for better clarity and consistency",
+      "source_reference": "src/config/command.rs:446-463 (deprecation warning in deserialization)"
+    }
+  ],
+  "positive_aspects": [],
+  "improvement_suggestions": [
+    "Include YAML examples for each conditional execution pattern",
+    "Show how to combine when clauses with on_failure handlers",
+    "Explain the execution order: when check → command → on_success/on_failure",
+    "Document error handling best practices with conditional execution",
+    "Show how to debug conditional expressions that don't evaluate as expected",
+    "Include a comparison table showing when to use when vs on_failure vs on_success",
+    "Add cross-references to Variable System page for variable interpolation details",
+    "Link to Error Handling page for broader error handling strategies"
+  ],
+  "cross_references": [
+    "variables",
+    "error-handling",
+    "workflow-structure"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T21:23:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "When clauses",
+      "On failure handlers",
+      "On success handlers",
+      "Conditional logic"
+    ],
+    "validation_focus": "Check conditional execution syntax and use cases are documented"
+  }
+}
