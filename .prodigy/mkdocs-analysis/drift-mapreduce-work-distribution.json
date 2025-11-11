@@ -1,0 +1,73 @@
+{
+  "item_type": "section-page",
+  "section_id": "mapreduce",
+  "section_title": "MapReduce Workflows",
+  "page_id": "work-distribution",
+  "page_title": "Work Distribution",
+  "page_file": "docs/mapreduce/work-distribution.md",
+  "feature_mappings": ["mapreduce_workflows.core_capabilities.work_distribution"],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page has incorrect field name for deduplication (deduplicate_by vs distinct), otherwise accurate and well-structured",
+  "issues": [
+    {
+      "type": "incorrect_syntax",
+      "severity": "high",
+      "section": "Deduplication",
+      "description": "Documentation uses 'deduplicate_by' but the actual field name in code is 'distinct'",
+      "current_content": "deduplicate_by: \"item.id\"",
+      "should_be": "distinct: \"item.id\"",
+      "fix_suggestion": "Replace all occurrences of 'deduplicate_by' with 'distinct' throughout the page",
+      "source_reference": "src/config/mapreduce.rs:261, src/cook/execution/data_pipeline/mod.rs:34"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Processing Order",
+      "description": "Documentation doesn't explicitly state the order of operations in the data pipeline",
+      "fix_suggestion": "Add a section explaining the processing order: 1) JSONPath extraction, 2) Filtering, 3) Sorting, 4) Deduplication, 5) Offset, 6) Limit",
+      "source_reference": "src/cook/execution/data_pipeline/mod.rs:127-201"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Deduplication",
+      "description": "Missing clarification about how null values are handled in deduplication",
+      "fix_suggestion": "Add note that items with null values for the distinct field are treated as 'null' key and deduplicated together",
+      "source_reference": "src/cook/execution/data_pipeline/mod.rs:220-224"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Filtering Work Items",
+      "description": "Filter evaluation behavior not fully explained - what happens if field doesn't exist?",
+      "fix_suggestion": "Clarify that accessing non-existent fields in filter expressions returns false (item is filtered out)",
+      "source_reference": "src/cook/execution/data_pipeline/filter.rs"
+    }
+  ],
+  "positive_aspects": [
+    "Clear structure with progressive examples",
+    "Good overview of all work distribution features",
+    "Excellent combining features example showing real-world usage",
+    "Work item variable interpolation is well documented",
+    "All internal links are valid and correctly formatted",
+    "Cross-references to related pages are appropriate"
+  ],
+  "improvement_suggestions": [
+    "Add a 'Processing Pipeline Order' section explaining the sequence of operations",
+    "Include a troubleshooting subsection for common issues (empty results, unexpected filtering)",
+    "Add performance considerations for large datasets",
+    "Consider adding an example showing JSONPath filtering vs filter expression - when to use which"
+  ],
+  "cross_references": [
+    "overview",
+    "checkpoint-resume",
+    "dlq"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T09:45:57Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["JSONPath extraction", "Filtering and sorting", "Pagination", "Deduplication"],
+    "validation_focus": "Check work item management, JSONPath usage, filtering, and sorting are documented"
+  }
+}
