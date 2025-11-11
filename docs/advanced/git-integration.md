@@ -58,11 +58,32 @@ Prodigy automatically creates commits for trackable changes:
 ### Automatic Commits
 
 ```yaml
+# Source: workflows/implement.yml
 - claude: "/implement-feature"
   commit_required: true  # Expect git commit from Claude
 
 - shell: "cargo fmt"
   commit_required: true  # Create commit for formatting changes
+```
+
+When `commit_required: true` is set, Prodigy validates that a commit was created:
+
+- **Before execution**: Captures HEAD commit SHA
+- **After execution**: Compares HEAD to detect new commits
+- **Validation failure**: Workflow fails with error "No changes were committed by [command]"
+- **Skip validation**: Set `PRODIGY_NO_COMMIT_VALIDATION=true` to bypass (test mode only)
+
+```rust
+// Source: src/cook/workflow/executor.rs:819-824
+// Get HEAD before command execution if we need to verify commits
+let head_before = if !execution_flags.skip_validation
+    && step.commit_required
+    && !execution_flags.test_mode
+{
+    Some(self.get_current_head(&env.working_dir).await?)
+} else {
+    None
+};
 ```
 
 ### Commit Messages
@@ -110,6 +131,7 @@ Merge back to the tracked original branch:
 Customize the merge process with validation and testing:
 
 ```yaml
+# Source: workflows/implement.yml
 merge:
   commands:
     - shell: "git fetch origin"
@@ -127,6 +149,24 @@ Available in merge workflows:
 - `${merge.source_branch}` - Source branch (worktree branch)
 - `${merge.target_branch}` - Target branch (original branch)
 - `${merge.session_id}` - Session ID for correlation
+
+### Debugging Merge Operations
+
+Control Claude output visibility during merge operations:
+
+```bash
+# Default: Clean output, no Claude streaming
+prodigy run workflow.yml
+
+# Verbose: Show Claude JSON streaming output
+prodigy run workflow.yml -v
+
+# Force streaming output via environment variable
+PRODIGY_CLAUDE_CONSOLE_OUTPUT=true prodigy run workflow.yml
+```
+
+!!! tip "Debug Merge Failures"
+    Use `-v` flag to see real-time Claude interactions during merge operations. This shows tool invocations, decision-making, and helps diagnose merge conflicts or validation failures.
 
 ### Example: Pre-Merge Validation
 
