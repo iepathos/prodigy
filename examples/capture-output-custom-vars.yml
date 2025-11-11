@@ -23,38 +23,36 @@ map:
   json_path: "$.items[*]"
   
   agent_template:
-    commands:
-      # Capture Claude output to custom variable
-      - claude: "/analyze-item --id ${item.id}"
-        capture: "analysis_result"
-        
-      # Capture shell output to another custom variable
-      - shell: "grep -c TODO src/*.rs || echo 0"
-        capture: "todo_count"
-        
-      # Use both captured variables
-      - shell: |
-          echo "Analysis: ${analysis_result}"
-          echo "TODOs found: ${todo_count}"
+    # Capture Claude output to custom variable
+    - claude: "/analyze-item --id ${item.id}"
+      capture: "analysis_result"
+
+    # Capture shell output to another custom variable
+    - shell: "grep -c TODO src/*.rs || echo 0"
+      capture: "todo_count"
+
+    # Use both captured variables
+    - shell: |
+        echo "Analysis: ${analysis_result}"
+        echo "TODOs found: ${todo_count}"
 
 reduce:
-  commands:
-    # Run debtmap analysis and capture to custom variable
-    - shell: "debtmap analyze . --output debtmap.json --format json"
-      capture: "debtmap_output"
-    
-    # Get summary from Claude with specific variable name
-    - claude: "/summarize-results --items ${map.total}"
-      capture: "summary"
-    
-    # Create commit using the captured variables
-    - shell: |
-        git add -A && git commit -m "Process ${map.successful} items
-        
-        Summary: ${summary}
-        
-        Debtmap analysis:
-        ${debtmap_output}"
+  # Run debtmap analysis and capture to custom variable
+  - shell: "debtmap analyze . --output debtmap.json --format json"
+    capture: "debtmap_output"
+
+  # Get summary from Claude with specific variable name
+  - claude: "/summarize-results --items ${map.total}"
+    capture: "summary"
+
+  # Create commit using the captured variables
+  - shell: |
+      git add -A && git commit -m "Process ${map.successful} items
+
+      Summary: ${summary}
+
+      Debtmap analysis:
+      ${debtmap_output}"
 
 # Output capture modes:
 # 1. capture_output: false (or omitted) - Don't capture output

@@ -19,11 +19,10 @@ env:
   TIMEOUT_SECONDS: "300"
   DEBUG_MODE: "false"
 
-# Optional: Secret variables (masked in logs)
-secrets:
+  # Secret variables (masked in logs)
   API_TOKEN:
-    provider: env
-    key: "GITHUB_TOKEN"
+    secret: true
+    value: "${GITHUB_TOKEN}"
 
 # Optional: Profile-specific configurations
 profiles:
