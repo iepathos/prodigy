@@ -1,231 +1,456 @@
 # Environment Variables
 
-Prodigy provides comprehensive environment variable management with secrets masking and profile-based configuration for different deployment contexts.
+Prodigy provides comprehensive environment variable management for workflows, enabling parameterization, secrets management, and environment-specific configurations.
 
 ## Overview
 
-Environment variables in Prodigy enable:
-- Global configuration shared across all workflow steps
-- Secure secrets management with automatic masking
-- Profile-based values for dev/staging/prod environments
-- Loading variables from .env files
-- Variable interpolation in all command fields
+Environment variables in Prodigy allow you to:
 
-## Global Environment Variables
+- Define workflow-wide variables accessible in all commands
+- Securely manage sensitive credentials with automatic masking
+- Configure environment-specific settings using profiles
+- Load variables from `.env` files
+- Use dynamic and conditional variables
+- Reference variables across all workflow phases
 
-Define variables at the workflow level:
+## Defining Environment Variables
 
-```yaml
-name: my-workflow
+Environment variables are defined in the `env` block at the workflow root:
 
+```yaml title="Basic environment variables"
+# Source: workflows/environment-example.yml
 env:
-  PROJECT_NAME: "prodigy"
+  # Static variables
+  NODE_ENV: production
+  API_URL: https://api.example.com
+  PROJECT_NAME: "my-project"
   VERSION: "1.0.0"
-  BUILD_DIR: "target/release"
 
-- shell: "cargo build --manifest-path ${PROJECT_NAME}/Cargo.toml"
-- shell: "cp ${BUILD_DIR}/prodigy /usr/local/bin/"
+commands:
+  - shell: "echo Building $PROJECT_NAME version $VERSION"
+  - shell: "curl $API_URL/health"
 ```
 
-## Secrets Management
+### Variable Types
 
-Mark sensitive values as secrets to enable automatic masking:
+#### Static Variables
+
+Simple key-value pairs for constant values:
 
 ```yaml
+# Source: workflows/mapreduce-env-example.yml:8-11
 env:
-  # Plain variable
-  API_URL: "https://api.example.com"
-
-  # Secret variable (masked in logs)
-  API_KEY:
-    secret: true
-    value: "sk-abc123xyz789"
-
-  DATABASE_PASSWORD:
-    secret: true
-    value: "${DB_PASS}"  # Can reference environment
+  PROJECT_NAME: "example-project"
+  PROJECT_CONFIG: "config.yml"
+  FEATURES_PATH: "features"
 ```
 
-### Secret Masking
+#### Dynamic Variables
 
-Secrets are automatically masked in:
-- Command output logs
-- Error messages
-- Event logs
-- Checkpoint files
-- Console output
-
-Example output:
-```
-$ curl -H 'Authorization: Bearer ***' https://api.example.com
-```
-
-## Profile Support
-
-Define different values for different environments:
+Computed from command output at workflow start:
 
 ```yaml
+# Source: workflows/environment-example.yml:10-12
 env:
-  API_URL:
-    default: "http://localhost:3000"
-    staging: "https://staging.api.example.com"
-    prod: "https://api.example.com"
-
-  MAX_WORKERS:
-    default: 5
-    staging: 10
-    prod: 20
-
-  DATABASE_URL:
-    default: "postgres://localhost/dev"
-    staging: "postgres://staging-server/db"
-    prod: "postgres://prod-server/db"
+  WORKERS:
+    command: "nproc 2>/dev/null || echo 4"
+    cache: true
 ```
 
-Activate a profile:
-```bash
-prodigy run workflow.yml --profile prod
-```
+Dynamic variables are evaluated once and cached for workflow duration when `cache: true`.
 
-## Environment Files
+#### Conditional Variables
 
-Load variables from .env files:
+Values that depend on expressions:
 
 ```yaml
-env_files:
-  - ".env"
-  - ".env.local"
-  - ".env.${PROFILE}"
-```
-
-**File format (.env)**:
-```bash
-PROJECT_NAME=prodigy
-VERSION=1.0.0
-API_KEY=sk-abc123
-DATABASE_URL=postgres://localhost/db
-```
-
-### Precedence
-
-Variable resolution follows this order (highest to lowest):
-1. Command-line arguments
-2. Workflow `env` block
-3. Environment files (in order listed)
-4. System environment variables
-
-## Usage in Workflows
-
-### All Workflow Phases
-
-Environment variables work in all phases:
-
-**Setup Phase:**
-```yaml
-setup:
-  - shell: "npm install --prefix $PROJECT_DIR"
-  - shell: "cargo build --manifest-path ${PROJECT_DIR}/Cargo.toml"
-```
-
-**Map Phase:**
-```yaml
-map:
-  agent_template:
-    - claude: "/analyze ${item.file} --config $CONFIG_PATH"
-    - shell: "test -f $PROJECT_DIR/${item.file}"
-```
-
-**Reduce Phase:**
-```yaml
-reduce:
-  - claude: "/summarize ${map.results} --project $PROJECT_NAME"
-  - shell: "cp results.json $OUTPUT_DIR/"
-```
-
-**Merge Phase:**
-```yaml
-merge:
-  commands:
-    - shell: "echo Merging $PROJECT_NAME changes"
-    - claude: "/validate-merge --env $ENVIRONMENT"
+# Source: workflows/environment-example.yml:14-18
+env:
+  DEPLOY_ENV:
+    condition: "${branch} == 'main'"
+    when_true: "production"
+    when_false: "staging"
 ```
 
 ## Variable Interpolation
 
-Two syntaxes are supported:
+Prodigy supports two interpolation syntaxes for flexibility:
 
 ```yaml
-# Simple variable reference
-- shell: "echo $PROJECT_NAME"
+# Source: workflows/mapreduce-env-example.yml:43-46
+commands:
+  # Simple syntax
+  - shell: "echo Starting $PROJECT_NAME workflow"
 
-# Bracketed reference (recommended for clarity)
-- shell: "echo ${PROJECT_NAME}"
+  # Bracketed syntax (more explicit)
+  - shell: "echo Created output directory: ${OUTPUT_DIR}"
 
-# With nested field access
-- shell: "curl ${API_CONFIG.url}/endpoint"
+  # In Claude commands
+  - claude: "/analyze --project $PROJECT_NAME --config ${PROJECT_CONFIG}"
 ```
 
-## Combining with Capture Variables
+**When to use bracketed syntax:**
 
-Environment variables work alongside capture variables:
+- When variable name is followed by alphanumeric characters: `${VAR}_suffix`
+- For clarity in complex expressions: `${map.results}`
+- Inside quoted strings: `"Path: ${OUTPUT_DIR}/file"`
+
+## Secrets Management
+
+Secrets are automatically masked in all output, logs, and error messages to prevent credential leaks.
+
+### Defining Secrets
 
 ```yaml
+# Source: workflows/mapreduce-env-example.yml:22-25
 env:
-  OUTPUT_DIR: "results"
-
-- shell: "cargo test"
-  capture_output: test_results
-  capture_format: json
-
-- shell: "cp test-report.json ${OUTPUT_DIR}/"
-- claude: "/analyze-tests ${test_results} --threshold ${MIN_COVERAGE}"
+  API_TOKEN:
+    secret: true
+    value: "${GITHUB_TOKEN}"
 ```
+
+Secrets can reference environment variables from the parent process using `${ENV_VAR}` syntax.
+
+### Alternative Secrets Syntax
+
+```yaml
+# Source: workflows/environment-example.yml:21-23
+secrets:
+  API_KEY: "${env:SECRET_API_KEY}"
+```
+
+The `secrets` block is an alternative to inline `secret: true` definitions.
+
+### Automatic Masking
+
+Secrets are masked in:
+
+- Command output (stdout/stderr)
+- Error messages and stack traces
+- Event logs and checkpoints
+- Workflow summaries
+- MapReduce agent logs
+
+**Example output with masking:**
+
+```bash
+$ curl -H 'Authorization: Bearer ***' https://api.example.com
+```
+
+!!! warning "Secret Security"
+    Always mark sensitive values as secrets. Without the `secret: true` flag, values will appear in logs and may be exposed.
+
+## Profiles
+
+Profiles enable environment-specific configurations for development, staging, and production environments.
+
+### Defining Profiles
+
+```yaml
+# Source: workflows/mapreduce-env-example.yml:28-39
+env:
+  DEBUG_MODE: "false"
+  TIMEOUT_SECONDS: "300"
+  OUTPUT_DIR: "output"
+
+profiles:
+  development:
+    description: "Development environment with debug enabled"
+    DEBUG_MODE: "true"
+    TIMEOUT_SECONDS: "60"
+    OUTPUT_DIR: "dev-output"
+
+  production:
+    description: "Production environment"
+    DEBUG_MODE: "false"
+    TIMEOUT_SECONDS: "300"
+    OUTPUT_DIR: "prod-output"
+```
+
+### Activating Profiles
+
+```bash
+# Use default values (no profile)
+prodigy run workflow.yml
+
+# Activate development profile
+prodigy run workflow.yml --profile development
+
+# Activate production profile
+prodigy run workflow.yml --profile production
+```
+
+Profile variables override default `env` values. Variables not defined in the profile inherit default values.
+
+## Environment Files
+
+Load variables from `.env` format files for external configuration.
+
+### Defining Environment Files
+
+```yaml
+# Source: workflows/environment-example.yml:26-27
+env_files:
+  - .env.production
+  - .env.local
+```
+
+### .env File Format
+
+```bash title=".env.production"
+# Database configuration
+DATABASE_URL=postgres://localhost/mydb
+DATABASE_POOL_SIZE=10
+
+# API settings
+API_KEY=sk-abc123xyz
+API_TIMEOUT=30
+
+# Feature flags
+ENABLE_CACHING=true
+```
+
+### Variable Precedence
+
+When variables are defined in multiple locations, Prodigy uses this precedence (highest to lowest):
+
+1. Profile variables (`--profile` flag)
+2. Workflow `env` block
+3. Environment files (later files override earlier)
+4. Parent process environment
+
+## Usage in Workflow Phases
+
+Environment variables are available in all workflow phases:
+
+### Standard Workflows
+
+```yaml
+# Source: workflows/environment-example.yml:42-52
+commands:
+  - name: "Show environment"
+    shell: "echo NODE_ENV=$NODE_ENV API_URL=$API_URL"
+
+  - name: "Build frontend"
+    shell: "echo 'Building with NODE_ENV='$NODE_ENV"
+    env:
+      BUILD_TARGET: production
+      OPTIMIZE: "true"
+    working_dir: ./frontend
+```
+
+### MapReduce Setup Phase
+
+```yaml
+# Source: workflows/mapreduce-env-example.yml:42-49
+setup:
+  - shell: "echo Starting $PROJECT_NAME workflow"
+  - shell: "mkdir -p $OUTPUT_DIR"
+  - shell: "echo Created output directory: ${OUTPUT_DIR}"
+  - shell: "echo Debug mode: $DEBUG_MODE"
+```
+
+### MapReduce Map Phase
+
+Environment variables are available in agent templates:
+
+```yaml
+# Source: workflows/mapreduce-env-example.yml:56-68
+map:
+  agent_template:
+    # In Claude commands
+    - claude: "/process-item '${item.name}' --project $PROJECT_NAME"
+
+    # In shell commands
+    - shell: "echo Processing ${item.name} for $PROJECT_NAME"
+    - shell: "echo Output: $OUTPUT_DIR"
+
+    # In failure handlers
+    - shell: "timeout ${TIMEOUT_SECONDS}s ./process.sh"
+      on_failure:
+        - claude: "/fix-issue --max-retries $MAX_RETRIES"
+```
+
+### MapReduce Reduce Phase
+
+```yaml
+# Source: workflows/mapreduce-env-example.yml:72-79
+reduce:
+  - shell: "echo Aggregating results for $PROJECT_NAME"
+  - claude: "/summarize ${map.results} --format $REPORT_FORMAT"
+  - shell: "cp summary.$REPORT_FORMAT $OUTPUT_DIR/${PROJECT_NAME}-summary.$REPORT_FORMAT"
+  - shell: "echo Processed ${map.successful}/${map.total} items"
+```
+
+### Merge Phase
+
+```yaml
+# Source: workflows/mapreduce-env-example.yml:82-93
+merge:
+  commands:
+    - shell: "echo Merging changes for $PROJECT_NAME"
+    - claude: "/validate-merge --branch ${merge.source_branch} --project $PROJECT_NAME"
+    - shell: "echo Merge completed for ${PROJECT_NAME}"
+```
+
+## Per-Step Environment
+
+Override or add variables for specific commands:
+
+```yaml
+# Source: workflows/environment-example.yml:54-60
+commands:
+  - name: "Run tests"
+    shell: "pytest tests/"
+    env:
+      PYTHONPATH: "./src:./tests"
+      TEST_ENV: "true"
+    working_dir: ./backend
+    temporary: true  # Environment restored after this step
+```
+
+**Options:**
+
+- `temporary: true` - Restore environment after step completes
+- `clear_env: true` - Clear all inherited variables, use only step-specific ones
 
 ## Best Practices
 
-1. **Use secrets for sensitive data**: Mark API keys, tokens, and passwords as secrets
-2. **Parameterize project paths**: Use env vars instead of hardcoding paths
-3. **Document required variables**: Include comments explaining what each variable does
-4. **Use profiles for environments**: Separate dev, staging, and prod configurations
-5. **Prefer ${VAR} syntax**: More explicit and works in all contexts
-6. **Load from .env files**: Keep secrets out of version control
+!!! tip "Use Secrets for Sensitive Data"
+    Always mark API keys, tokens, passwords, and credentials as secrets to enable automatic masking.
 
-## Examples
+!!! tip "Parameterize Project-Specific Values"
+    Use environment variables instead of hardcoding paths, URLs, and configuration values. This improves portability and maintainability.
+
+!!! tip "Document Required Variables"
+    Add comments in workflow files documenting expected variables and their purposes.
+
+!!! tip "Use Profiles for Environments"
+    Separate development, staging, and production configurations using profiles rather than maintaining separate workflow files.
+
+!!! tip "Prefer Bracketed Syntax"
+    Use `${VAR}` instead of `$VAR` for explicitness and to avoid ambiguity in complex expressions.
+
+## Common Patterns
+
+### Project Configuration
+
+```yaml
+env:
+  PROJECT_NAME: "my-app"
+  VERSION: "1.2.3"
+  BUILD_DIR: "dist"
+  RELEASE_CHANNEL: "stable"
+```
 
 ### API Integration
 
 ```yaml
 env:
-  API_URL:
-    default: "http://localhost:8000"
-    prod: "https://api.production.com"
-  API_KEY:
-    secret: true
-    value: "${API_KEY_SECRET}"
+  API_URL: "https://api.example.com"
+  API_TIMEOUT: "30"
 
-- shell: "curl -H 'Authorization: Bearer ${API_KEY}' ${API_URL}/endpoint"
+secrets:
+  API_KEY: "${env:EXTERNAL_API_KEY}"
+
+commands:
+  - shell: "curl -H 'Authorization: Bearer $API_KEY' $API_URL/data"
 ```
 
-### Multi-Environment Deployment
+### Multi-Environment Configuration
 
 ```yaml
 env:
-  DEPLOY_TARGET:
-    dev: "dev-cluster"
-    staging: "staging-cluster"
-    prod: "prod-cluster"
+  APP_ENV: "development"
+  LOG_LEVEL: "debug"
 
-  REPLICAS:
-    dev: 1
-    staging: 3
-    prod: 10
+profiles:
+  staging:
+    APP_ENV: "staging"
+    LOG_LEVEL: "info"
 
-- shell: "kubectl apply -f deployment.yml --replicas ${REPLICAS}"
-- shell: "kubectl rollout status deployment/${PROJECT_NAME} -n ${DEPLOY_TARGET}"
+  production:
+    APP_ENV: "production"
+    LOG_LEVEL: "warn"
 ```
+
+### Feature Flags
+
+```yaml
+env:
+  ENABLE_CACHING: "true"
+  ENABLE_ANALYTICS: "false"
+  MAX_WORKERS: "4"
+
+commands:
+  - shell: |
+      if [ "$ENABLE_CACHING" = "true" ]; then
+        echo "Caching enabled"
+      fi
+```
+
+## Troubleshooting
+
+### Variable Not Found
+
+**Symptom:** `$VAR` appears literally in output or command fails with "command not found"
+
+**Cause:** Variable not defined or incorrect interpolation syntax
+
+**Solution:**
+
+1. Verify variable is defined in `env` block or environment file
+2. Check spelling and case (variable names are case-sensitive)
+3. Ensure proper interpolation syntax (`$VAR` or `${VAR}`)
+4. Use `--profile` flag if variable is profile-specific
+
+### Secret Not Masked
+
+**Symptom:** Sensitive value appears in logs or output
+
+**Cause:** Variable not marked as secret
+
+**Solution:**
+
+```yaml
+# Before (not masked)
+env:
+  API_KEY: "sk-abc123"
+
+# After (masked)
+env:
+  API_KEY:
+    secret: true
+    value: "sk-abc123"
+```
+
+### Profile Variables Not Applied
+
+**Symptom:** Default values used instead of profile values
+
+**Cause:** Profile not activated with `--profile` flag
+
+**Solution:**
+
+```bash
+# Activate profile
+prodigy run workflow.yml --profile production
+```
+
+### Environment File Not Loaded
+
+**Symptom:** Variables from `.env` file not available
+
+**Cause:** File path incorrect or file doesn't exist
+
+**Solution:**
+
+1. Verify file path is relative to workflow file location
+2. Check file exists: `ls .env.production`
+3. Verify file syntax (KEY=VALUE format, no spaces around `=`)
 
 ## See Also
 
-- [Variables and Interpolation](variables.md) - Variable system overview
-- [Workflow Structure](workflow-structure.md) - Complete workflow configuration
-- [MapReduce Workflows](../mapreduce/index.md) - Environment variables in parallel workflows
+- [Workflow Structure](structure.md) - Overall workflow configuration
+- [Variable System](../reference/variable-system.md) - Advanced variable interpolation
+- [Command Types](commands.md) - Using variables in different command types
