@@ -1,0 +1,104 @@
+{
+  "item_type": "section-page",
+  "section_id": "advanced",
+  "section_title": "Advanced Features",
+  "page_id": "sessions",
+  "page_title": "Session Management",
+  "page_file": "docs/advanced/sessions.md",
+  "feature_mappings": [
+    "session_management.session_types",
+    "session_management.lifecycle",
+    "session_management.resume"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page has accurate content but contains broken cross-references and some minor discrepancies in MapReduce session data structure",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "See Also",
+      "description": "Found 1 broken internal link",
+      "broken_links": [
+        {
+          "link_text": "Checkpoint and Resume (MapReduce)",
+          "target_path": "../mapreduce/checkpoint-and-resume.md",
+          "current_file": "docs/advanced/sessions.md",
+          "expected_path": "docs/mapreduce/checkpoint-and-resume.md",
+          "actual_status": "File does not exist at expected location",
+          "suggested_fix": "Change path from '../mapreduce/checkpoint-and-resume.md' to '../docs/mapreduce/checkpoint-and-resume.md' or '../../mapreduce/checkpoint-and-resume.md' depending on MkDocs base directory configuration"
+        }
+      ],
+      "fix_suggestion": "Update the relative path to match the actual documentation structure. The file exists at './docs/mapreduce/checkpoint-and-resume.md' from the repository root.",
+      "source_reference": "docs/advanced/sessions.md:314"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "Session Types - MapReduce Sessions",
+      "description": "MapReduce session example shows 'completed_items' and 'in_progress_items' fields that don't exist in the actual MapReduceSession struct",
+      "current_content": "\"completed_items\": 45,\n\"failed_items\": 2,\n\"in_progress_items\": 5",
+      "should_be": "\"processed_items\": 45,\n\"failed_items\": 2,\n\"agent_count\": 0",
+      "fix_suggestion": "Update the example to match the actual MapReduceSession struct fields: processed_items (total processed including failed), failed_items, and agent_count (number of active agents)",
+      "source_reference": "src/unified_session/state.rs:115-125"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Session Types - MapReduce Sessions",
+      "description": "Example doesn't show the 'reduce_results' field which is part of MapReduceSession",
+      "fix_suggestion": "Add 'reduce_results' field to the MapReduce session example (can be null or show example value)",
+      "source_reference": "src/unified_session/state.rs:124"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Session-Job Mapping",
+      "description": "Documentation doesn't mention that mappings include workflow_name and created_at timestamp",
+      "fix_suggestion": "Update the Session-Job Mapping section to mention all fields in the SessionJobMapping struct: session_id, job_id, workflow_name, and created_at",
+      "source_reference": "src/storage/session_job_mapping.rs:12-26"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of session types (Workflow vs MapReduce)",
+    "Well-structured lifecycle states and state transitions diagram",
+    "Comprehensive coverage of resume capabilities",
+    "Excellent explanation of concurrent resume protection with RAII locks",
+    "Good examples of resume workflows",
+    "Complete command reference for session management",
+    "Lock metadata and stale lock detection are accurately documented"
+  ],
+  "improvement_suggestions": [
+    "Fix the broken link to checkpoint-and-resume.md to match the actual MkDocs structure",
+    "Update MapReduce session example to match actual struct fields",
+    "Add 'reduce_results' field to MapReduce session example for completeness",
+    "Mention all fields in SessionJobMapping (workflow_name, created_at) for completeness",
+    "Consider adding a note about the relationship between SessionStatus states and their workflow lifecycle meaning"
+  ],
+  "cross_references": {
+    "valid": [
+      "git-integration.md",
+      "storage.md",
+      "../../CLAUDE.md#concurrent-resume-protection-spec-140"
+    ],
+    "broken": [
+      "../mapreduce/checkpoint-and-resume.md"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T21:23:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Session types",
+      "Session lifecycle",
+      "Resume capabilities",
+      "State persistence"
+    ],
+    "validation_focus": "Check session tracking, lifecycle states, and resume features are documented",
+    "link_validation": {
+      "total_internal_links": 4,
+      "broken_links": 1,
+      "valid_links": 3
+    }
+  }
+}
