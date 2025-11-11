@@ -17,15 +17,21 @@ Session management provides:
 Standard workflow execution tracking:
 
 ```json
+// Source: src/unified_session/state.rs:66-113
 {
   "id": "session-abc123",
   "session_type": "Workflow",
   "status": "Running",
   "workflow_data": {
+    "workflow_id": "workflow-1234567890",
     "workflow_name": "my-workflow",
     "current_step": 2,
     "total_steps": 5,
-    "completed_steps": [0, 1]
+    "completed_steps": [0, 1],
+    "variables": {},
+    "iterations_completed": 0,
+    "files_changed": 0,
+    "worktree_name": "session-abc123"
   }
 }
 ```
@@ -35,35 +41,53 @@ Standard workflow execution tracking:
 MapReduce job state management:
 
 ```json
+// Source: src/unified_session/state.rs:117-125
 {
   "id": "session-xyz789",
   "session_type": "MapReduce",
   "status": "Running",
   "mapreduce_data": {
     "job_id": "mapreduce-1234567890",
-    "current_phase": "map",
-    "work_items_completed": 45,
-    "work_items_total": 100
+    "total_items": 100,
+    "processed_items": 45,
+    "failed_items": 2,
+    "agent_count": 5,
+    "phase": "Map",
+    "reduce_results": null
   }
 }
 ```
+
+Available phases (src/unified_session/state.rs:129-134):
+- `Setup` - Preparing work items and environment
+- `Map` - Processing items in parallel
+- `Reduce` - Aggregating results
+- `Complete` - All phases finished
 
 ## Session Lifecycle
 
 Sessions transition through states:
 
-1. **Running** - Active execution
-2. **Paused** - Interrupted, ready to resume
-3. **Completed** - Successfully finished
-4. **Failed** - Terminated with errors
-5. **Cancelled** - User-initiated stop
+```rust
+// Source: src/unified_session/state.rs:92-99
+pub enum SessionStatus {
+    Initializing,  // Session created, not yet started
+    Running,       // Active execution
+    Paused,        // Interrupted, ready to resume
+    Completed,     // Successfully finished
+    Failed,        // Terminated with errors
+    Cancelled,     // User-initiated stop
+}
+```
 
 ### State Transitions
 
 ```
-Creation → Running → Paused → Resumed → Completed
-                   ↓
-                 Failed
+Creation → Initializing → Running → Paused → Resumed → Completed
+                                  ↓
+                                Failed
+                                  ↓
+                              Cancelled
 ```
 
 ## Session Storage
@@ -77,22 +101,38 @@ Sessions are stored in:
 Structure:
 
 ```json
+// Source: src/unified_session/state.rs:66-81
 {
   "id": "session-abc123",
   "session_type": "Workflow",
   "status": "Running",
   "started_at": "2025-11-11T12:00:00Z",
   "updated_at": "2025-11-11T12:05:00Z",
+  "completed_at": null,
   "metadata": {
     "execution_start_time": "2025-11-11T12:00:00Z",
     "workflow_type": "standard",
     "total_steps": 5,
     "current_step": 2
   },
+  "checkpoints": [],
   "timings": {
     "step1": {"secs": 10, "nanos": 0},
     "step2": {"secs": 15, "nanos": 0}
-  }
+  },
+  "error": null,
+  "workflow_data": {
+    "workflow_id": "workflow-1234567890",
+    "workflow_name": "my-workflow",
+    "current_step": 2,
+    "total_steps": 5,
+    "completed_steps": [0, 1],
+    "variables": {},
+    "iterations_completed": 0,
+    "files_changed": 0,
+    "worktree_name": "session-abc123"
+  },
+  "mapreduce_data": null
 }
 ```
 
@@ -168,19 +208,33 @@ Sessions track:
 
 ## Concurrent Resume Protection
 
-Lock mechanism prevents multiple resume processes:
+Lock mechanism prevents multiple resume processes from operating on the same session/job simultaneously:
 
 ```bash
 # If another process is resuming:
 Error: Resume already in progress for job <job_id>
-Lock held by: PID 12345 on hostname
+Lock held by: PID 12345 on hostname (acquired 2025-11-11 10:30:00 UTC)
 ```
 
-Locks are automatically cleaned up when:
-- Resume completes
-- Process crashes (stale lock detection)
+**Lock Storage** (src/cook/execution/resume_lock.rs:52):
+```
+~/.prodigy/resume_locks/
+├── session-abc123.lock
+├── mapreduce-xyz789.lock
+└── ...
+```
 
-Manual cleanup if needed:
+Each lock file contains JSON metadata:
+- Process ID (PID) of the holding process
+- Hostname where the process is running
+- Timestamp when lock was acquired
+- Job/session ID being locked
+
+Locks are automatically cleaned up when:
+- Resume completes (RAII pattern)
+- Process crashes (stale lock detection with platform-specific process checks)
+
+Manual cleanup if needed (rarely required):
 
 ```bash
 rm ~/.prodigy/resume_locks/<job_id>.lock
