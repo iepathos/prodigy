@@ -12,29 +12,50 @@ The variable system supports:
 
 ## Variable Interpolation
 
-Variables are referenced using `${variable.name}` or `$VARIABLE` syntax:
+Variables are referenced using two syntax forms:
+
+- `${variable.name}` - Braced syntax (recommended for complex paths, nested fields, and default values)
+- `$VARIABLE` - Unbraced syntax (convenient for simple environment variables)
 
 ```yaml
+# Source: Common workflow patterns
 - shell: "echo Processing ${item.name}"
 - shell: "cargo test --package $PROJECT_NAME"
 ```
 
+!!! tip "Choosing the Right Syntax"
+    Use `${...}` syntax when accessing nested fields, arrays, or providing default values. Use `$VAR` for simple environment variable references.
+
 ### Nested Field Access
 
-Access nested fields using dot notation:
+Access nested fields using dot notation and array indexing with brackets:
 
 ```yaml
+# Source: src/cook/execution/interpolation.rs:480-508
+# Dot notation for object properties
 - shell: "echo ${item.metadata.priority}"
 - claude: "/analyze ${workflow.config.target}"
+
+# Array indexing with brackets
+- shell: "echo First item: ${items[0].name}"
+- shell: "echo Result: ${data.results[0]}"
 ```
+
+The interpolation engine supports:
+- **Dot notation**: `${object.property}` for accessing object fields
+- **Array indexing**: `${array[0]}` or `${object.items[0].field}` for array elements
 
 ### Default Values
 
-Provide fallback values when variables may not exist:
+Provide fallback values when variables may not exist using bash-style `:-` syntax:
 
 ```yaml
-- shell: "echo ${item.description|default:No description}"
+# Source: src/cook/execution/interpolation.rs:277
+- shell: "echo ${item.description:-No description}"
+- shell: "timeout ${timeout:-600}"
 ```
+
+The syntax `${variable:-default}` returns the default value if the variable is undefined or null.
 
 ## Standard Variables
 
@@ -86,8 +107,17 @@ Along with the output value, these metadata fields are available:
 - `${variable.duration}` - Execution time
 - `${variable.stderr}` - Error output stream
 
+## Advanced Features
+
+### Alias Resolution
+
+The interpolation engine supports alias resolution for backwards compatibility. This allows older variable names to resolve to their current equivalents, ensuring workflow compatibility across versions.
+
+!!! note
+    Alias resolution is handled automatically by the interpolation engine and requires no special syntax.
+
 ## See Also
 
 - [Environment Variables](environment.md) - Environment variable configuration
-- [Command Types](command-types.md) - Commands that support variable interpolation
-- [MapReduce Overview](../mapreduce/overview.md) - MapReduce-specific variables
+- [Workflow Structure](workflow-structure.md) - Commands that support variable interpolation
+- [Work Distribution](../mapreduce/work-distribution.md) - MapReduce-specific variables
