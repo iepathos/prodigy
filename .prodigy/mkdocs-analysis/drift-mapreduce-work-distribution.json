@@ -5,69 +5,136 @@
   "page_id": "work-distribution",
   "page_title": "Work Distribution",
   "page_file": "docs/mapreduce/work-distribution.md",
-  "feature_mappings": ["mapreduce_workflows.core_capabilities.work_distribution"],
+  "feature_mappings": [
+    "mapreduce_workflows.core_capabilities.work_distribution"
+  ],
   "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Page has incorrect field name for deduplication (deduplicate_by vs distinct), otherwise accurate and well-structured",
+  "severity": "critical",
+  "quality_assessment": "Documentation page does not exist - complete work distribution documentation is missing",
   "issues": [
     {
-      "type": "incorrect_syntax",
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Entire Page",
+      "description": "Documentation file does not exist - all work distribution features are completely undocumented",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution",
+      "fix_suggestion": "Create comprehensive documentation page covering all work distribution features: JSON/command input sources, JSONPath extraction, filtering, sorting, pagination, and deduplication",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.work_distribution"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Input Sources",
+      "description": "No documentation for JSON and command-based input sources",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution.features[0]",
+      "fix_suggestion": "Document how to specify input sources using 'input' field with JSON files and command outputs",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.work_distribution.features - JSON and command-based input sources"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "JSONPath Extraction",
+      "description": "No documentation for JSONPath expressions for item extraction",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution.features[1]",
+      "fix_suggestion": "Document 'json_path' field with examples showing how to extract work items from nested JSON structures using JSONPath syntax (e.g., '$.items[*]', '$.data.results[*]')",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.work_distribution.features - JSONPath expressions for item extraction"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Filtering",
+      "description": "No documentation for filtering with boolean expressions",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution.features[2]",
+      "fix_suggestion": "Document 'filter' field with examples of boolean expressions to selectively process work items (e.g., 'item.score >= 5', 'item.status == \"pending\"')",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.work_distribution.features - Filtering with boolean expressions"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Sorting",
+      "description": "No documentation for sorting by field values",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution.features[3]",
+      "fix_suggestion": "Document 'sort_by' field with examples showing ascending and descending sorts (e.g., 'item.priority DESC', 'item.created_at ASC')",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.work_distribution.features - Sorting by field values"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Pagination",
+      "description": "No documentation for offset and limit pagination",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution.features[4]",
+      "fix_suggestion": "Document 'offset' and 'limit' (or 'max_items') fields for processing subsets of work items, useful for testing and incremental processing",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.work_distribution.features - Offset and limit for pagination"
+    },
+    {
+      "type": "missing_content",
       "severity": "high",
       "section": "Deduplication",
-      "description": "Documentation uses 'deduplicate_by' but the actual field name in code is 'distinct'",
-      "current_content": "deduplicate_by: \"item.id\"",
-      "should_be": "distinct: \"item.id\"",
-      "fix_suggestion": "Replace all occurrences of 'deduplicate_by' with 'distinct' throughout the page",
-      "source_reference": "src/config/mapreduce.rs:261, src/cook/execution/data_pipeline/mod.rs:34"
+      "description": "No documentation for deduplication by field",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution.features[5]",
+      "fix_suggestion": "Document deduplication mechanism using 'distinct' field to ensure unique work items (e.g., distinct: \"item.id\" or distinct: \"item.path\"). Note: The correct field name is 'distinct', not 'deduplicate_by'",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.work_distribution.features - Deduplication by field"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Complete Examples",
+      "description": "No complete workflow examples showing work distribution in action",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution",
+      "fix_suggestion": "Add comprehensive examples: (1) simple JSONPath extraction, (2) filtering and sorting combined, (3) pagination for large datasets, (4) deduplication scenario",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.work_distribution"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Integration with Map Phase",
+      "description": "No documentation on how work distribution integrates with map phase configuration",
+      "feature_reference": "mapreduce_workflows.phases.map",
+      "fix_suggestion": "Explain how input, json_path, filter, sort_by, and max_items work together in the map phase configuration block",
+      "source_reference": "features.json:mapreduce_workflows.phases.map"
     },
     {
       "type": "missing_content",
       "severity": "medium",
       "section": "Processing Order",
-      "description": "Documentation doesn't explicitly state the order of operations in the data pipeline",
-      "fix_suggestion": "Add a section explaining the processing order: 1) JSONPath extraction, 2) Filtering, 3) Sorting, 4) Deduplication, 5) Offset, 6) Limit",
-      "source_reference": "src/cook/execution/data_pipeline/mod.rs:127-201"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Deduplication",
-      "description": "Missing clarification about how null values are handled in deduplication",
-      "fix_suggestion": "Add note that items with null values for the distinct field are treated as 'null' key and deduplicated together",
-      "source_reference": "src/cook/execution/data_pipeline/mod.rs:220-224"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Filtering Work Items",
-      "description": "Filter evaluation behavior not fully explained - what happens if field doesn't exist?",
-      "fix_suggestion": "Clarify that accessing non-existent fields in filter expressions returns false (item is filtered out)",
-      "source_reference": "src/cook/execution/data_pipeline/filter.rs"
+      "description": "No documentation explaining the order of operations in the data pipeline",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution",
+      "fix_suggestion": "Document the processing order: 1) JSONPath extraction, 2) Filtering, 3) Sorting, 4) Deduplication (distinct), 5) Offset, 6) Limit",
+      "source_reference": "src/cook/execution/data_pipeline/mod.rs"
     }
   ],
-  "positive_aspects": [
-    "Clear structure with progressive examples",
-    "Good overview of all work distribution features",
-    "Excellent combining features example showing real-world usage",
-    "Work item variable interpolation is well documented",
-    "All internal links are valid and correctly formatted",
-    "Cross-references to related pages are appropriate"
-  ],
+  "positive_aspects": [],
   "improvement_suggestions": [
+    "Create the documentation page with clear structure: Introduction, Input Sources, JSONPath Extraction, Filtering, Sorting, Pagination, Deduplication, Complete Examples",
+    "Include practical examples for each feature showing real-world use cases",
     "Add a 'Processing Pipeline Order' section explaining the sequence of operations",
-    "Include a troubleshooting subsection for common issues (empty results, unexpected filtering)",
-    "Add performance considerations for large datasets",
-    "Consider adding an example showing JSONPath filtering vs filter expression - when to use which"
+    "Add troubleshooting section for common JSONPath and filtering errors",
+    "Cross-reference related pages: overview, setup phase, parallel execution",
+    "Use MkDocs Material admonitions for tips, warnings, and best practices",
+    "Include a comparison table showing different input source options",
+    "Add diagrams showing how work items flow through extraction, filtering, and distribution",
+    "Document performance considerations for large work item sets",
+    "Clarify null value handling in deduplication",
+    "Explain filter evaluation behavior for non-existent fields"
   ],
   "cross_references": [
+    "index",
     "overview",
-    "checkpoint-resume",
-    "dlq"
+    "setup-phase-advanced",
+    "checkpoint-and-resume",
+    "dead-letter-queue-dlq"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-11T09:45:57Z",
+    "analyzed_at": "2025-11-11T21:23:18Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
-    "topics_covered": ["JSONPath extraction", "Filtering and sorting", "Pagination", "Deduplication"],
-    "validation_focus": "Check work item management, JSONPath usage, filtering, and sorting are documented"
+    "topics_covered": [
+      "JSONPath extraction",
+      "Filtering and sorting",
+      "Pagination",
+      "Deduplication"
+    ],
+    "validation_focus": "Check work item management, JSONPath usage, filtering, and sorting are documented",
+    "file_exists": false,
+    "analysis_note": "File does not exist - this is a complete documentation gap for work distribution features"
   }
 }
