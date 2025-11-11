@@ -1,0 +1,113 @@
+{
+  "item_type": "section-page",
+  "section_id": "mapreduce",
+  "section_title": "MapReduce Workflows",
+  "page_id": "mapreduce-overview",
+  "page_title": "Overview",
+  "page_file": "docs/mapreduce/overview.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Page does not exist - this is a critical gap in documentation structure",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Entire Page",
+      "description": "The mapreduce/overview.md file does not exist in the documentation. This is the primary entry point for understanding MapReduce workflows and should provide a high-level overview of the feature.",
+      "feature_reference": "mapreduce_workflows",
+      "fix_suggestion": "Create docs/mapreduce/overview.md with comprehensive overview of MapReduce workflows covering: 1) What MapReduce mode is and when to use it, 2) High-level explanation of the three phases (setup, map, reduce), 3) Key concepts like work distribution and parallel execution, 4) Simple introductory example, 5) Links to detailed pages for each topic",
+      "source_reference": "features.json:mapreduce_workflows"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Introduction",
+      "description": "No introductory content explaining what MapReduce workflows are and when to use them",
+      "feature_reference": "mapreduce_workflows.description",
+      "fix_suggestion": "Add introduction section explaining: 'MapReduce workflows enable parallel processing of large datasets by distributing work items across isolated agents. Use MapReduce when you need to process many items concurrently (e.g., bulk code changes, data migrations, or analysis tasks).'",
+      "source_reference": "features.json:mapreduce_workflows.description"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Three Phases Overview",
+      "description": "No explanation of the three MapReduce phases and their purposes",
+      "feature_reference": "mapreduce_workflows.phases",
+      "fix_suggestion": "Add section documenting the three phases: 1) Setup - Optional initialization phase for preparing work items (features.json lines 16-24), 2) Map - Parallel processing across isolated agents (lines 25-35), 3) Reduce - Aggregation of results (lines 36-44). Include simple diagram showing flow from setup → map (parallel) → reduce.",
+      "source_reference": "features.json:mapreduce_workflows.phases"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Basic Example",
+      "description": "No introductory example showing simple MapReduce workflow structure",
+      "feature_reference": "mapreduce_workflows",
+      "fix_suggestion": "Add basic YAML example showing minimal MapReduce workflow structure with all three phases, demonstrating: input file with work items, simple agent_template processing each item, reduce phase aggregating results. Keep example simple and well-commented.",
+      "source_reference": "CLAUDE.md MapReduce Workflow Syntax section"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Work Item Concept",
+      "description": "No explanation of what work items are and how they're processed",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution",
+      "fix_suggestion": "Add section explaining: 'Work items are individual units of work distributed to parallel agents. They're extracted from JSON files using JSONPath expressions and can be filtered, sorted, and deduplicated before processing.' Reference the work-distribution.md page for details.",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.work_distribution"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Parallel Execution Concept",
+      "description": "No explanation of how parallel execution works with isolated agents",
+      "feature_reference": "mapreduce_workflows.core_capabilities.parallel_execution",
+      "fix_suggestion": "Add section explaining: 'Each work item is processed by an isolated agent running in its own git worktree. The max_parallel setting controls how many agents run concurrently. Agents execute independently and failures are isolated.' Include simple diagram showing multiple agents processing items in parallel.",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.parallel_execution"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "When to Use MapReduce",
+      "description": "No guidance on appropriate use cases for MapReduce workflows vs standard workflows",
+      "feature_reference": "mapreduce_workflows",
+      "fix_suggestion": "Add section with decision guidance: Use MapReduce when: 1) Processing 10+ independent items, 2) Each item takes significant time, 3) Operations can be parallelized safely, 4) You need fault isolation per item. Use standard workflows for: Sequential operations, single-item processing, workflows requiring shared state.",
+      "source_reference": "features.json:meta_content.best_practices"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Navigation to Detailed Topics",
+      "description": "No navigation links to related MapReduce documentation pages",
+      "feature_reference": "mapreduce",
+      "fix_suggestion": "Add 'Next Steps' or 'Learn More' section with links to: work-distribution.md (work item management), checkpoint-resume.md (state management), dlq.md (error handling), event-tracking.md (monitoring). This helps readers find detailed information.",
+      "source_reference": "MkDocs section structure"
+    }
+  ],
+  "positive_aspects": [],
+  "improvement_suggestions": [
+    "Include a visual diagram showing the MapReduce execution flow from setup through parallel map to reduce",
+    "Add a comparison table showing MapReduce vs standard workflows with pros/cons",
+    "Include realistic use case examples (e.g., 'Update copyright headers in 500 files', 'Run linting on entire codebase in parallel')",
+    "Reference the whitepaper (PRODIGY_WHITEPAPER.md) for deeper architectural details",
+    "Consider adding a troubleshooting section for common MapReduce issues"
+  ],
+  "cross_references": [
+    "work-distribution",
+    "checkpoint-resume",
+    "dlq",
+    "event-tracking",
+    "environment-variables"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T09:45:57Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["MapReduce mode", "Setup phase", "Map phase", "Reduce phase"],
+    "validation_focus": "Check MapReduce overview and concepts",
+    "file_exists": false,
+    "related_files_found": [
+      "docs/mapreduce/work-distribution.md",
+      "docs/mapreduce-worktree-architecture.md",
+      "docs/mapreduce-resume-guide.md"
+    ]
+  }
+}
