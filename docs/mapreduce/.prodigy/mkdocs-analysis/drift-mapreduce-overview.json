@@ -1,0 +1,111 @@
+{
+  "item_type": "section-page",
+  "section_id": "mapreduce",
+  "section_title": "MapReduce Workflows",
+  "page_id": "mapreduce-overview",
+  "page_title": "Overview",
+  "page_file": "docs/mapreduce/overview.md",
+  "actual_file": "docs/mapreduce/index.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good comprehensive overview with clear examples, but missing file path is critical metadata issue. Page provides excellent quick start and complete structure examples. Some conceptual explanations could be enhanced.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "File Metadata",
+      "description": "File path mismatch: Item JSON references 'docs/mapreduce/overview.md' but actual file is 'docs/mapreduce/index.md'",
+      "fix_suggestion": "Update flattened-items.json to reference correct file path: docs/mapreduce/index.md",
+      "source_reference": "flattened-items.json item for mapreduce-overview"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "MapReduce Concepts",
+      "description": "Missing explanation of worktree isolation for agents",
+      "feature_reference": "mapreduce_workflows.core_capabilities.parallel_execution.features[2]",
+      "fix_suggestion": "Add section explaining how each agent runs in isolated git worktree for parallel safety",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.parallel_execution"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "MapReduce Concepts",
+      "description": "Missing high-level explanation of checkpoint and resume capabilities",
+      "feature_reference": "mapreduce_workflows.core_capabilities.state_management",
+      "fix_suggestion": "Add brief overview mentioning workflows can be resumed from checkpoints (with link to checkpoint-and-resume.md for details)",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.state_management"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Error Handling",
+      "description": "Error policy shown but DLQ concept not explained in context",
+      "feature_reference": "mapreduce_workflows.core_capabilities.failure_handling",
+      "fix_suggestion": "Add 1-2 sentence explanation of what DLQ (Dead Letter Queue) is when showing on_item_failure: dlq",
+      "source_reference": "features.json:mapreduce_workflows.core_capabilities.failure_handling"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Variables",
+      "description": "Missing mention of available MapReduce-specific variables",
+      "feature_reference": "variable_system.variable_categories.mapreduce_variables",
+      "fix_suggestion": "Add section showing available variables like ${map.results}, ${map.successful}, ${map.total}, ${item}, etc.",
+      "source_reference": "features.json:variable_system.variable_categories.mapreduce_variables"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent quick start example that's truly minimal and runnable",
+    "Clear progression from simple to comprehensive structure",
+    "Shows both modern and deprecated syntax with clear labels",
+    "Good use of comments to explain each configuration option",
+    "Practical examples with realistic use cases (debtmap)",
+    "Comprehensive cross-references to related topics",
+    "All internal links are valid and correctly formatted",
+    "Error policy section is detailed and complete",
+    "Good coverage of filtering, sorting, and work distribution options"
+  ],
+  "improvement_suggestions": [
+    "Add brief conceptual overview section before jumping into examples (e.g., 'What is MapReduce?', 'When to use it?')",
+    "Include a simple architecture diagram showing Setup → Map → Reduce flow",
+    "Add troubleshooting callout for common beginner mistakes",
+    "Consider adding a 'Key Concepts' section explaining worktrees, checkpoints, DLQ at a high level",
+    "Add example showing how to use environment variables in max_parallel (since it's mentioned but not demonstrated)",
+    "Include note about resume capabilities in the overview"
+  ],
+  "cross_references": [
+    "environment-variables-in-configuration",
+    "backoff-strategies",
+    "error-collection-strategies",
+    "setup-phase-advanced",
+    "global-storage-architecture",
+    "event-tracking",
+    "checkpoint-and-resume",
+    "dead-letter-queue-dlq",
+    "workflow-format-comparison"
+  ],
+  "link_validation": {
+    "total_links": 9,
+    "broken_links": 0,
+    "valid_links": 9,
+    "status": "all_valid"
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T21:23:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "MapReduce mode",
+      "Setup phase",
+      "Map phase",
+      "Reduce phase",
+      "Error handling",
+      "Work distribution",
+      "Agent templates",
+      "Merge workflows"
+    ],
+    "validation_focus": "Check MapReduce overview and concepts",
+    "note": "This is an overview page without specific feature_mapping, so all MapReduce-related features were considered"
+  }
+}
