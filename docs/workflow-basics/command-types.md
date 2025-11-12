@@ -8,6 +8,7 @@ Prodigy supports several types of commands in workflows. **Each command step mus
 |-------------|------------------|--------------|
 | [`shell:`](#shell-commands) | Execute shell commands | Output capture, conditional execution, timeouts |
 | [`claude:`](#claude-commands) | Run Claude AI commands | Variable interpolation, commit tracking, output declarations |
+| [`analyze:`](#analyze-commands) | Codebase analysis with caching | Cache control, force refresh, format options |
 | [`goal_seek:`](#goal-seek-commands) | Iterative refinement | Score-based validation, automatic retry, convergence detection |
 | [`foreach:`](#foreach-commands) | Parallel iteration | Process lists in parallel, item limits, error handling |
 | [`write_file:`](#write-file-commands) | Create files | Format validation (JSON/YAML), directory creation, permissions |
@@ -126,6 +127,84 @@ Execute Claude CLI commands via Claude Code.
     - Implementing specifications from markdown
     - Debugging test failures with AI assistance
     - Automated code review and linting
+
+### Analyze Commands
+
+Perform codebase analysis with intelligent caching to avoid redundant computation. Analysis results include both metrics and context data that can be used by subsequent Claude commands.
+
+**Source**: src/config/command.rs:332
+
+**Syntax**:
+```yaml
+# Source: workflows/analysis-workflow.yml:19-23
+- analyze:
+    max_cache_age: 300        # Optional: cache validity in seconds
+    force_refresh: false      # Optional: bypass cache (default: false)
+    save: true                # Optional: save analysis results (default: true)
+    format: "summary"         # Optional: output format (summary, detailed)
+```
+
+**Fields**:
+- `max_cache_age` (optional): Maximum age of cached analysis in seconds before refresh
+- `force_refresh` (optional): Force fresh analysis even if cache is valid (default: false)
+- `save` (optional): Save analysis results to context directory (default: true)
+- `format` (optional): Output format for analysis results (summary, detailed)
+
+**Caching Behavior**:
+- If cache exists and is younger than `max_cache_age`, use cached results
+- If `force_refresh: true`, always perform fresh analysis regardless of cache
+- Analysis runs automatically at workflow start unless `--skip-analysis` flag is used
+- Cached results are stored per-repository for reuse across workflows
+
+**Example with cached analysis** (from workflows/analysis-workflow.yml:19-26):
+```yaml
+# Source: workflows/analysis-workflow.yml:19-26
+- analyze:
+    max_cache_age: 300        # Use cache if less than 5 minutes old
+    force_refresh: false      # Don't force if cache is fresh
+    save: true
+    format: "summary"
+
+- claude: "/prodigy-code-review"
+```
+
+**Example with forced refresh** (from workflows/analysis-workflow.yml:29-34):
+```yaml
+# Source: workflows/analysis-workflow.yml:29-34
+- analyze:
+    force_refresh: true       # Always get fresh analysis for accuracy
+    save: true
+    format: "summary"
+
+- claude: "/prodigy-cleanup-tech-debt"
+```
+
+**Example with short cache** (from workflows/tech-debt.yml:3-5):
+```yaml
+# Source: workflows/tech-debt.yml:3-5
+- analyze:
+    max_cache_age: 300
+    save: true
+
+- claude: "/prodigy-cleanup-tech-debt"
+  id: cleanup
+```
+
+!!! example "Common Use Cases"
+    - Refreshing analysis after significant code changes
+    - Providing fresh metrics for tech debt cleanup
+    - Updating context before documentation generation
+    - Caching analysis for multiple commands to save time
+    - Force refresh for critical operations requiring accuracy
+
+!!! info "When to Use Analyze"
+    Use `analyze:` when you need fresh codebase metrics or context for Claude commands. The first analyze in a workflow can use cache, but subsequent analyses after modifications should use `force_refresh: true` for accuracy.
+
+!!! tip "Cache Strategy"
+    - **Development workflows**: Use `max_cache_age: 300` (5 minutes) for fast iteration
+    - **After code changes**: Use `force_refresh: true` for accurate metrics
+    - **Multiple commands**: Share one analysis with appropriate `max_cache_age`
+    - **CI/CD pipelines**: Use `force_refresh: true` for consistency
 
 ### Goal Seek Commands
 
@@ -414,6 +493,8 @@ Each workflow step must specify **exactly one** command type. You cannot combine
 ```yaml
 - shell: "cargo test"        # ✓ Only shell command
 - claude: "/lint"            # ✓ Only Claude command
+- analyze:                   # ✓ Only analyze command
+    max_cache_age: 300
 - goal_seek:                 # ✓ Only goal_seek command
     goal: "Fix tests"
     validate: "..."
@@ -423,6 +504,9 @@ Each workflow step must specify **exactly one** command type. You cannot combine
 ```yaml
 - shell: "cargo test"        # ✗ Cannot combine shell and claude
   claude: "/lint"
+
+- analyze: {...}             # ✗ Cannot combine analyze and claude
+  claude: "/review"
 
 - goal_seek: {...}           # ✗ Cannot combine goal_seek and foreach
   foreach: {...}
