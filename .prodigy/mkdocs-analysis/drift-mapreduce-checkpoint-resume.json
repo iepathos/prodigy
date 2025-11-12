@@ -5,70 +5,49 @@
   "page_id": "checkpoint-resume",
   "page_title": "Checkpoint and Resume",
   "page_file": "docs/mapreduce/checkpoint-and-resume.md",
-  "feature_mappings": [
-    "mapreduce.checkpoint",
-    "mapreduce.resume"
-  ],
+  "feature_mappings": ["mapreduce.checkpoint", "mapreduce.resume"],
   "drift_detected": false,
   "severity": "none",
-  "quality_assessment": "Excellent - Documentation is comprehensive, accurate, and well-structured with no significant drift detected",
+  "quality_assessment": "Excellent documentation with comprehensive coverage of checkpoint and resume features. All mapped features are thoroughly documented with clear examples, source code references, and troubleshooting guidance.",
   "issues": [],
   "positive_aspects": [
-    "Comprehensive coverage of all checkpoint types (setup, map, reduce) with accurate implementation details",
-    "Excellent documentation of checkpoint file structures with source code references (src/cook/execution/mapreduce/checkpoint/types.rs)",
-    "Clear explanation of session-job ID mapping with correct storage location and field documentation",
-    "Accurate concurrent resume protection documentation including RAII behavior and stale lock detection",
-    "Detailed checkpoint interval configuration with correct default values (100 items, 300 seconds)",
-    "Well-documented retention policy with accurate defaults (10 checkpoints, 7 days)",
-    "Comprehensive troubleshooting sections for both resume and stale lock issues",
-    "Correct storage structure documentation matching global storage architecture",
-    "Clear resume command examples for both session and job IDs",
-    "Accurate state preservation documentation covering variables, work items, and agent state",
-    "Good cross-references to related pages (DLQ, Event Tracking, Global Storage)",
-    "All internal links are valid and correctly point to existing documentation files"
+    "Comprehensive coverage of all checkpoint types (setup, map, reduce)",
+    "Clear explanation of checkpoint interval configuration with code examples",
+    "Detailed SessionJobMapping documentation with storage locations and field descriptions",
+    "Complete checkpoint file structure examples with JSON schemas",
+    "Thorough concurrent resume protection coverage including RAII pattern explanation",
+    "Excellent troubleshooting section with both automatic and manual stale lock cleanup",
+    "Valid cross-references to related documentation (DLQ, Event Tracking, Global Storage)",
+    "Source code references provide traceability to implementation",
+    "Best practices section includes design and troubleshooting guidance",
+    "Example resume workflow demonstrates practical usage"
   ],
   "improvement_suggestions": [
-    "Consider adding a visual diagram showing checkpoint creation flow across phases",
-    "Could include a concrete example showing checkpoint file contents from a real workflow run",
-    "Might benefit from a comparison table showing differences between MapReduce and standard workflow checkpoints"
+    "Consider adding a visual diagram showing checkpoint creation timing in relation to work item processing",
+    "Could include example of how to configure checkpoint intervals for different use cases (fast vs. infrequent checkpoints)",
+    "Might benefit from a comparison table showing differences between standard workflow and MapReduce checkpoints"
   ],
   "cross_references": [
     "dead-letter-queue-dlq",
     "event-tracking",
     "global-storage-architecture"
   ],
-  "link_validation": {
-    "total_internal_links": 3,
-    "broken_links": 0,
-    "valid_links": [
-      "./dead-letter-queue-dlq.md",
-      "./event-tracking.md",
-      "./global-storage-architecture.md"
-    ]
-  },
   "metadata": {
-    "analyzed_at": "2025-11-11T21:24:00Z",
+    "analyzed_at": "2025-11-11T19:17:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
     "topics_covered": [
-      "Checkpoints",
-      "Resume",
-      "State management",
-      "Session-job mapping",
+      "Checkpoint behavior",
+      "Checkpoint interval configuration",
+      "Resume commands",
+      "Session-job ID mapping",
+      "State preservation",
+      "Resume strategies",
+      "Storage structure",
+      "Checkpoint file structure",
       "Concurrent resume protection",
-      "Checkpoint intervals",
-      "Retention policy",
-      "Storage structure"
+      "Stale lock troubleshooting"
     ],
     "validation_focus": "Check checkpoint structure and resume behavior documented",
-    "source_references_verified": [
-      "src/storage/session_job_mapping.rs:14-26",
-      "src/cook/execution/mapreduce/checkpoint/types.rs:48-64",
-      "src/cook/execution/mapreduce/checkpoint/types.rs:242-264",
-      "src/cook/workflow/checkpoint.rs:20",
-      "src/cook/workflow/checkpoint.rs:26-57",
-      "src/cook/execution/resume_lock.rs:96-120",
-      "tests/concurrent_resume_test.rs:77-105",
-      "src/cli/args.rs:363-413"
-    ]
+    "validation_result": "All checkpoint structures and resume behaviors are comprehensively documented"
   }
 }
