@@ -56,6 +56,11 @@ map:
           fail_workflow: false  # Continue even if we can't reach 100%
           commit_required: true  # Require commit to verify improvements were made
 
+    # Step 3: Enhance page with visual features (diagrams, admonitions, annotations)
+    # This runs per-page so Claude has full context about what the page discusses
+    - claude: "/prodigy-enhance-mkdocs-page --project $PROJECT_NAME --json '${item}' --auto-fix true"
+      commit_required: true
+
   max_parallel: ${MAX_PARALLEL}
 
 # Reduce phase: Validate and handle any issues
@@ -71,9 +76,10 @@ reduce:
   - claude: "/prodigy-validate-mkdocs-structure --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/structure-validation.json --auto-fix true"
     commit_required: true
 
-  # Feature enhancement - improve visual quality with diagrams, admonitions, etc.
-  - claude: "/prodigy-enhance-mkdocs-features --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/feature-enhancements.json --auto-fix true"
-    commit_required: true
+  # Feature consistency check - verify all pages have good feature usage
+  # Note: Page-level enhancements happen in map phase where agents have context
+  # This just checks consistency and reports any pages that slipped through
+  - claude: "/prodigy-validate-feature-consistency --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/feature-consistency.json"
 
   # Clean up temporary analysis files (keep validation reports for review)
   - shell: "rm -rf ${ANALYSIS_DIR}/features.json ${ANALYSIS_DIR}/flattened-items.json ${ANALYSIS_DIR}/drift-*.json"
